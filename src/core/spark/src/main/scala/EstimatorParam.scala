@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.param
 
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 import org.apache.spark.ml.util.Identifiable
 
 /**
@@ -23,9 +23,38 @@ class EstimatorParam(parent: String, name: String, doc: String, isValid: Estimat
 
   /** Creates a param pair with the given value (for Java). */
   override def w(value: Estimator[_ <: Model[_]]): ParamPair[Estimator[_ <: Model[_]]] =
-  super.w(value)
+    super.w(value)
 
   override def jsonEncode(value: Estimator[_ <: Model[_]]): String = {
+    throw new NotImplementedError("The transform cannot be encoded.")
+  }
+
+  override def jsonDecode(json: String): Estimator[_ <: Model[_]] = {
+    throw new NotImplementedError("The transform cannot be decoded.")
+  }
+
+}
+
+/**
+  * Param for PipelineStage.  Needed as spark has explicit params for many different types but not PipelineStage.
+  */
+class PipelineStageParam(parent: String, name: String, doc: String, isValid: PipelineStage => Boolean)
+  extends Param[PipelineStage](parent, name, doc, isValid) {
+
+  def this(parent: String, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
+
+  def this(parent: Identifiable, name: String, doc: String, isValid: PipelineStage => Boolean) =
+    this(parent.uid, name, doc, isValid)
+
+  def this(parent: Identifiable, name: String, doc: String) =
+    this(parent.uid, name, doc)
+
+  /** Creates a param pair with the given value (for Java). */
+  override def w(value: PipelineStage): ParamPair[PipelineStage] =
+    super.w(value)
+
+  override def jsonEncode(value: PipelineStage): String = {
     throw new NotImplementedError("The transform cannot be encoded.")
   }
 
