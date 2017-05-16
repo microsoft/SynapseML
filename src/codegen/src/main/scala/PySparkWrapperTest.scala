@@ -150,7 +150,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |""".stripMargin
 
   // These params are need custom handling. For now, just skip them so we have tests that pass.
-  private lazy val skippedParams =  Set[String]("models", "model", "cntkModel")
+  private lazy val skippedParams =  Set[String]("models", "model", "cntkModel", "stage")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
@@ -170,6 +170,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         case "WriteBlob" => "blobPath=\"file:///tmp/" + java.util.UUID.randomUUID + ".tsv\""
         case "MultiColumnAdapter" =>
           "baseTransformer=Tokenizer(), inputCols = \"col5,col6\", outputCols = \"output1,output2\"\n "
+        case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
         case "DataConversion"      => "col=\"col1\", convertTo=\"double\""
         case "FastVectorAssembler" => "inputCols=\"col1\""
         case "MultiNGram"          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
@@ -261,7 +262,8 @@ class SparkTransformerWrapperTest(entryPoint: Transformer,
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer" | "_ImageFeaturizer"
-           | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "StopWordsRemoverTransform"
+           | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "Timer"
+           | "StopWordsRemoverTransform"
            => ""
         case _ =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
