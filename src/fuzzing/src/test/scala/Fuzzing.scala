@@ -49,23 +49,23 @@ class Fuzzing extends TestBase {
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.TrainRegressor",
-      "com.microsoft.ml.spark.FindBestModel"
+      "com.microsoft.ml.spark.FindBestModel",
+      "com.microsoft.ml.spark.CleanMissingData",
+      "com.microsoft.ml.spark.Timer",
+      "com.microsoft.ml.spark.ValueIndexer",
+      "com.microsoft.ml.spark.EnsembleByKey"
     )
     val applicableEstimators = estimators.filter(t => !exemptions(t.getClass.getName))
 
     applicableEstimators.foreach(est => {
       val estimatorName = est.getClass.getName
-      println()
-      println(s"Running estimator: ${est.toString} with name: ${estimatorName}")
       val (dataset, pipelineStage) =
         if (estimatorFuzzers.contains(estimatorName)) {
-          println("Generating dataset from estimator fuzzer")
           val estimatorFuzzer = estimatorFuzzers(estimatorName)
           val fitDataset = estimatorFuzzer.createFitDataset
           val estUpdated = estimatorFuzzer.setParams(fitDataset, est.copy(ParamMap()))
           (fitDataset, estUpdated.asInstanceOf[PipelineStage])
         } else {
-          println("Generating random dataset")
           (createDataSet, est.copy(ParamMap()).asInstanceOf[PipelineStage])
         }
       tryRun(() => {
@@ -79,33 +79,41 @@ class Fuzzing extends TestBase {
             createDataSet
           }
         pipelineModel.transform(dfTransform)
+        println(s"Successful round trip with $estimatorName")
         ()
       })
     })
   }
 
   test("Verify all transformers can be turned into pipelines, saved and loaded") {
-    transformers.foreach(tr => {
+    val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.EnsembleByKey",
+      "com.microsoft.ml.spark.MultiColumnAdapter",
+      "com.microsoft.ml.spark.CNTKModel",
+      "com.microsoft.ml.spark.IndexToValue",
+      "com.microsoft.ml.spark.ComputeModelStatistics"
+    )
+
+    val applicableTransformers = transformers.filter(t => !exemptions(t.getClass.getName))
+
+    applicableTransformers.foreach(tr => {
       val transformerName = tr.getClass.getName
-      println()
-      println(s"Running transformer: ${tr.toString} with name: ${transformerName}")
       val (dataset, pipelineStage) =
         if (transformerFuzzers.contains(transformerName)) {
-          println("Generating dataset from transformer fuzzer")
           val transformerFuzzer = transformerFuzzers(transformerName)
           val fitDataset = transformerFuzzer.createDataset
           val trUpdated = transformerFuzzer.setParams(fitDataset, tr.copy(ParamMap()))
           (fitDataset, trUpdated.asInstanceOf[PipelineStage])
         } else {
-          println("Generating random dataset")
           (createDataSet, tr.copy(ParamMap()).asInstanceOf[PipelineStage])
         }
       tryRun(() => {
         val pipeline = new Pipeline().setStages(Array(pipelineStage))
         val pipelineModel = pipeline.fit(dataset)
         trySave(pipelineModel)
+        println(s"Sucessful round trip with $transformerName")
         ()
-      })
+      }, () => println(s"round trip failed with $transformerName"))
     })
   }
 
@@ -245,14 +253,15 @@ class Fuzzing extends TestBase {
         randomSeed.nextLong())
   }
 
-  private def tryRun(func: () => Unit): Unit = {
+  private def tryRun(func: () => Unit, onFailure: () => Unit = ()=>(), disableFailure: Boolean = false): Unit = {
     try {
       func()
     } catch {
+      onFailure()
       case ne: java.util.NoSuchElementException =>
-        throwOrLog(ne, s"Could not transform: $ne", disableFailure=true)
+        throwOrLog(ne, s"Could not transform: $ne", disableFailure)
       case th: Throwable =>
-        throwOrLog(th, s"Encountered unknown error: $th", disableFailure=true)
+        throwOrLog(th, s"Encountered unknown error: $th", disableFailure)
     }
   }
 

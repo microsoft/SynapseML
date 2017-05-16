@@ -18,6 +18,15 @@ object Repartition extends DefaultParamsReadable[Repartition]
 class Repartition(val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("Repartition"))
 
+  val disable = new BooleanParam(this, "disable",
+    "whether to disable repartitioning (so that one can turn it off for evaluation)")
+
+  def getDisable: Boolean = $(disable)
+
+  def setDisable(value: Boolean): this.type = set(disable, value)
+
+  setDefault(disable->false)
+
   /** Number of partitions. Default is 10
     * @group param
     */
@@ -35,14 +44,14 @@ class Repartition(val uid: String) extends Transformer with MMLParams {
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-
-    if (getN < dataset.rdd.getNumPartitions) {
+    if (getDisable)
+      dataset.toDF
+    else if (getN < dataset.rdd.getNumPartitions)
       dataset.coalesce(getN).toDF()
-    } else {
+    else
       dataset.sqlContext.createDataFrame(
         dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
         dataset.schema)
-    }
   }
 
   def transformSchema(schema: StructType): StructType = {
