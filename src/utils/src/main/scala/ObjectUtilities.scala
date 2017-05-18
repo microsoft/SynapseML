@@ -5,14 +5,17 @@ package com.microsoft.ml.spark
 
 import java.io.{InputStream, ObjectInputStream, ObjectOutputStream, ObjectStreamClass}
 
+import com.microsoft.ml.spark.FileUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
-import FileUtilities._
+import org.apache.spark.ml.{Pipeline, PipelineStage}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.sql.{DataFrame, Dataset, SaveMode, SparkSession}
 
 class ObjectInputStreamContextClassLoader(input: InputStream) extends ObjectInputStream(input) {
   protected override def resolveClass(desc: ObjectStreamClass): Class[_] = {
     try {
-      Class.forName(desc.getName, false, Thread.currentThread().getContextClassLoader())
+      Class.forName(desc.getName, false, Thread.currentThread().getContextClassLoader)
     } catch {
       case _: ClassNotFoundException => super.resolveClass(desc)
     }
@@ -22,50 +25,83 @@ class ObjectInputStreamContextClassLoader(input: InputStream) extends ObjectInpu
 /**
   * Contains logic for reading and writing objects.
   */
-object ObjectUtilities {
+object WriterUtilities {
 
-  /**
-    * Loads the object from the given path.
-    * @param corePath The main path for model to load the object from.
-    * @param objectSubPath The path to the object.
-    * @param sc The current spark context.
-    * @tparam ObjectType The type of the object to load.
-    * @return The loaded object.
-    */
-  def loadObject[ObjectType](corePath: Path, objectSubPath: String, sc: SparkContext): ObjectType = {
-    val hadoopConf = sc.hadoopConfiguration
-    val inputPath = new Path(corePath, objectSubPath)
-    using(Seq(inputPath.getFileSystem(hadoopConf))) { fs =>
-      val inputStream = fs(0).open(inputPath)
-      using(Seq(new ObjectInputStreamContextClassLoader(inputStream))) {
-        objectStream =>
-          objectStream(0).readObject().asInstanceOf[ObjectType]
-      }.get
-    }.get
+  def getPath(baseDir: Path, i: Int): Path = {
+    new Path(baseDir, s"data_$i")
   }
 
   /**
     * Writes the object to the given path.
+    *
     * @param objToWrite The object to write.
-    * @param corePath The main path for model to write the object to.
-    * @param objectSubPath The path to the object.
-    * @param sc The current spark context.
-    * @tparam ObjectType The type of the object to load.
+    * @param outputPath Where to write the object
+    * @param sc         The current spark context.
+    * @tparam T The type of the object to load.
     */
-  def writeObject[ObjectType](objToWrite: ObjectType,
-                              corePath: Path,
-                              objectSubPath: String,
-                              sc: SparkContext,
-                              overwrite: Boolean): Unit = {
+  def writeObject[T](objToWrite: T,
+                     outputPath: Path,
+                     sc: SparkContext,
+                     overwrite: Boolean): Unit = {
     val hadoopConf = sc.hadoopConfiguration
-    val outputPath = new Path(corePath, objectSubPath)
-    using(Seq(outputPath.getFileSystem(hadoopConf))) { fs =>
-      val outputStream = fs(0).create(outputPath, overwrite)
-      using(Seq(new ObjectOutputStream(outputStream))) {
+    using(outputPath.getFileSystem(hadoopConf)) { fs =>
+      val outputStream = fs.create(outputPath, overwrite)
+      using(new ObjectOutputStream(outputStream)) {
         objectStream =>
-          objectStream(0).writeObject(objToWrite)
+          objectStream.writeObject(objToWrite)
       }.get
     }.get
   }
 
+  /**
+    * Loads the object from the given path.
+    *
+    * @param inputPath The main path for model to load the object from.
+    * @param sc        The current spark context.
+    * @tparam T The type of the object to load.
+    * @return The loaded object.
+    */
+  def loadObject[T](inputPath: Path, sc: SparkContext): T = {
+    val hadoopConf = sc.hadoopConfiguration
+    using(inputPath.getFileSystem(hadoopConf)) { fs =>
+      val inputStream = fs.open(inputPath)
+      using(new ObjectInputStreamContextClassLoader(inputStream)) {
+        objectStream => objectStream.readObject().asInstanceOf[T]
+      }.get
+    }.get
+  }
+
+  def writeDF(df: DataFrame, outputPath: Path, overwrite: Boolean): Unit = {
+    val saveMode =
+      if (overwrite) SaveMode.Overwrite
+      else SaveMode.ErrorIfExists
+
+    df.write.mode(saveMode).parquet(outputPath.toString)
+  }
+
+  def loadDF(inputPath: Path, spark: SparkSession): Dataset[_] = {
+    spark.read.format("parquet").load(inputPath.toString)
+  }
+
+  def writeStage(stage: PipelineStage, outputPath: Path, overwrite: Boolean): Unit = {
+    val pipe = new Pipeline().setStages(Array(stage))
+    writeMLWritable(pipe, outputPath, overwrite)
+  }
+
+  def writeMLWritable(stage: MLWritable, outputPath: Path, overwrite: Boolean): Unit = {
+    val writer = if (overwrite) {
+      stage.write.overwrite()
+    } else {
+      stage.write
+    }
+    writer.save(outputPath.toString)
+  }
+
+  def loadMLReadable[T](factory: MLReadable[_], inputPath: Path): T = {
+    factory.load(inputPath.toString).asInstanceOf[T]
+  }
+
+  def loadStage[T](inputPath: Path): T = {
+    Pipeline.load(inputPath.toString).getStages(0).asInstanceOf[T]
+  }
 }

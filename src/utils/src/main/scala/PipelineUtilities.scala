@@ -9,6 +9,9 @@ import org.apache.spark.SparkContext
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
 
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.{typeOf, TypeTag}
+
 /**
   * Exposes utilities used for saving and loading pipelines.
   */
@@ -16,16 +19,15 @@ object PipelineUtilities {
   /**
     * Saves metadata that is required by spark pipeline model in order to read a model.
     * @param uid The id of the PipelineModel saved.
-    * @param cls The class name.
     * @param metadataPath The metadata path.
     * @param sc The spark context.
     */
   def saveMetadata(uid: String,
-                   cls: String,
+                   ttag: ClassTag[_],
                    metadataPath: String,
                    sc: SparkContext,
                    overwrite: Boolean): Unit = {
-    val metadata = ("class" -> cls) ~
+    val metadata = ("class" -> ttag.runtimeClass.getName) ~
       ("timestamp" -> System.currentTimeMillis()) ~
       ("sparkVersion" -> sc.version) ~
       ("uid" -> uid) ~

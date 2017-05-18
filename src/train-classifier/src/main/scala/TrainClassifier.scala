@@ -16,6 +16,8 @@ import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
+import scala.reflect.{ClassTag, classTag}
+
 /**
   * Trains a classification model.
   */
@@ -195,13 +197,10 @@ class TrainedClassifierModel(val uid: String,
                              val model: PipelineModel,
                              val levels: Option[Array[_]],
                              val featuresColumn: String)
-    extends Model[TrainedClassifierModel] with MLWritable {
+    extends Model[TrainedClassifierModel] with DefaultWritable[TrainedClassifierModel]{
 
-  override def write: MLWriter = new TrainedClassifierModel.TrainClassifierModelWriter(uid,
-    labelColumn,
-    model,
-    levels,
-    featuresColumn)
+  val ttag: ClassTag[TrainedClassifierModel] = classTag[TrainedClassifierModel]
+  val objectsToSave: List[AnyRef] = List(uid, labelColumn, model, levels, featuresColumn)
 
   override def copy(extra: ParamMap): TrainedClassifierModel =
     new TrainedClassifierModel(uid,
@@ -291,77 +290,11 @@ class TrainedClassifierModel(val uid: String,
   }
 
   def getParamMap: ParamMap = model.stages.last.extractParamMap()
+
 }
 
-object TrainedClassifierModel extends MLReadable[TrainedClassifierModel] {
-
-  private val featurizeModelPart = "featurizeModel"
-  private val modelPart = "model"
-  private val levelsPart = "levels"
-  private val dataPart = "data"
-
-  override def read: MLReader[TrainedClassifierModel] = new TrainedClassifierModelReader
-
-  override def load(path: String): TrainedClassifierModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[TrainedClassifierModel]] */
-  private[TrainedClassifierModel]
-  class TrainClassifierModelWriter(val uid: String,
-                                   val labelColumn: String,
-                                   val model: PipelineModel,
-                                   val levels: Option[Array[_]],
-                                   val featuresColumn: String)
-    extends MLWriter {
-    private case class Data(uid: String, labelColumn: String, featuresColumn: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        TrainedClassifierModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      // save the model
-      val modelWriter =
-        if (overwrite) model.write.overwrite()
-        else model.write
-      modelWriter.save(new Path(qualPath, modelPart).toString)
-
-      // save the levels
-      ObjectUtilities.writeObject(levels, qualPath, levelsPart, sc, overwrite)
-
-      // save model data
-      val data = Data(uid, labelColumn, featuresColumn)
-      val dataPath = new Path(qualPath, dataPart).toString
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class TrainedClassifierModelReader
-    extends MLReader[TrainedClassifierModel] {
-
-    override def load(path: String): TrainedClassifierModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid, label column and model name
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String, labelColumn: String, featuresColumn: String) =
-        data.select("uid", "labelColumn", "featuresColumn").head()
-
-      // retrieve the underlying model
-      val model = PipelineModel.load(new Path(qualPath, modelPart).toString)
-
-      // get the levels
-      val levels = ObjectUtilities.loadObject[Option[Array[_]]](qualPath, levelsPart, sc)
-
-      new TrainedClassifierModel(uid, labelColumn, model, levels, featuresColumn)
-    }
-  }
-
+object TrainedClassifierModel extends DefaultReadable[TrainedClassifierModel] {
+  val typesToRead: List[Class[_]] = List(
+    classOf[String], classOf[String], classOf[PipelineModel], classOf[Option[Array[_]]], classOf[String])
+  val ttag: ClassTag[TrainedClassifierModel] = classTag[TrainedClassifierModel]
 }

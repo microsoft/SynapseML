@@ -22,7 +22,7 @@ object JarLoadingUtils {
   private val projectRoots = "project/project-roots.txt"
 
   private val outputDirs = {
-    val topDir = List(".", "..").find(root => new File(root, projectRoots).exists)
+    val topDir = List(".", "..", "src").find(root => new File(root, projectRoots).exists)
     if (topDir.isEmpty) {
       sys.error(s"Could not find roots file at $projectRoots")
     }

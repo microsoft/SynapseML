@@ -5,15 +5,15 @@ package com.microsoft.ml.spark
 
 import java.util.NoSuchElementException
 
-import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.{Pipeline, _}
+import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode}
 import org.apache.spark.sql.types._
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.attribute.AttributeGroup
+import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.reflect.{ClassTag, classTag}
 
 trait TextFeaturizerParams extends MMLParams{
 
@@ -138,7 +138,7 @@ trait TextFeaturizerParams extends MMLParams{
 
 }
 
-object  TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
+object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
 
 class TextFeaturizer(override val uid: String)
   extends Estimator[TextFeaturizerModel]
@@ -350,9 +350,7 @@ class TextFeaturizer(override val uid: String)
 class TextFeaturizerModel(val uid: String,
                           fitPipeline: PipelineModel,
                           colsToDrop: List[String])
-  extends Model[TextFeaturizerModel] with MLWritable {
-
-  override def write: MLWriter = new TextFeaturizerModel.TextFeaturizerModelWriter(uid, fitPipeline, colsToDrop)
+  extends Model[TextFeaturizerModel] with DefaultWritable[TextFeaturizerModel] {
 
   override def copy(extra: ParamMap): TextFeaturizerModel = defaultCopy(extra)
 
@@ -364,79 +362,20 @@ class TextFeaturizerModel(val uid: String,
   override def transformSchema(schema: StructType): StructType =
     colsToDrop.foldRight(fitPipeline.transformSchema(schema))((col, schema) =>
       StructType(schema.drop(schema.fieldIndex(col))))
+
+  override val ttag: ClassTag[TextFeaturizerModel] = classTag[TextFeaturizerModel]
+  override val objectsToSave: List[AnyRef] = List(uid, fitPipeline, colsToDrop)
 }
 
-object TextFeaturizerModel extends MLReadable[TextFeaturizerModel] {
+object TextFeaturizerModel extends DefaultReadable[TextFeaturizerModel]{
 
-  private val fitPipelinePart = "fitPipeline"
-  private val colsToDropPart = "colsToDrop"
-  private val dataPart = "data"
-
-  override def read: MLReader[TextFeaturizerModel] = new TextFeaturizerModelReader
-
-  override def load(path: String): TextFeaturizerModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[TextFeaturizerModel]] */
-  private[TextFeaturizerModel]
-  class TextFeaturizerModelWriter(val uid: String,
-                                  val fitPipeline: PipelineModel,
-                                  val colsToDrop: List[String])
-    extends MLWriter {
-
-    private case class Data(uid: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        TextFeaturizerModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      val dataPath = new Path(qualPath, dataPart).toString
-
-      // Save data
-      val data = Data(uid)
-
-      // save the columns to drop
-      ObjectUtilities.writeObject(colsToDrop, qualPath, colsToDropPart, sc, overwrite)
-
-      // save the pipeline
-      val fitPipelinePath = new Path(qualPath, fitPipelinePart).toString
-      val fitPipelineWriter =
-        if (overwrite) fitPipeline.write.overwrite()
-        else fitPipeline.write
-      fitPipelineWriter.save(fitPipelinePath)
-
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class TextFeaturizerModelReader
-    extends MLReader[TextFeaturizerModel] {
-    override def load(path: String): TextFeaturizerModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid and one hot encoding param
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String) = data.select("uid").head()
-
-      // load the fit pipeline
-      val fitPipelinePath = new Path(qualPath, fitPipelinePart).toString
-      val fitPipeline = PipelineModel.load(fitPipelinePath)
-
-      // load the columns to drop
-      val colsToDrop = ObjectUtilities.loadObject[List[String]](qualPath, colsToDropPart, sc)
-
-      new TextFeaturizerModel(uid, fitPipeline, colsToDrop)
-    }
-  }
+  override val ttag: ClassTag[TextFeaturizerModel] = classTag[TextFeaturizerModel]
+  override val typesToRead: List[Class[_]] =
+    List(classOf[String], classOf[PipelineModel], classOf[List[String]])
 
 }
+
+
+
+
 

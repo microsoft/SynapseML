@@ -30,6 +30,16 @@ object FileUtilities {
     }
   }
 
+  def using[T <: AutoCloseable, U](disposable: T)(task: T => U): Try[U] = {
+    try {
+      Success(task(disposable))
+    } catch {
+      case e: Exception => Failure(e)
+    } finally {
+      disposable.close()
+    }
+  }
+
   def delTree(file: File): Boolean =
     if (!file.exists) true
     else { if (file.isDirectory) file.listFiles.forall(delTree)

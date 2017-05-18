@@ -55,4 +55,12 @@ class TransformerArrayParam(parent: String, name: String, doc: String, isValid: 
   /** Creates a param pair with the given value (for Java). */
   def w(value: java.util.List[Transformer]): ParamPair[Array[Transformer]] = w(value.asScala.toArray)
 
+  override def jsonEncode(value: Array[Transformer]): String = {
+    throw new NotImplementedError("The transform cannot be encoded.")
+  }
+
+  override def jsonDecode(json: String): Array[Transformer] = {
+    throw new NotImplementedError("The transform cannot be decoded.")
+  }
+
 }

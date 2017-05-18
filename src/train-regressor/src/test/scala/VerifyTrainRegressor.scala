@@ -5,15 +5,16 @@ package com.microsoft.ml.spark
 
 import java.io.File
 
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.{Estimator, PipelineStage}
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
 /**
   * Tests to validate the functionality of Train Regressor module.
   */
-class VerifyTrainRegressor extends EstimatorFuzzingTest {
+class VerifyTrainRegressor extends EstimatorFuzzingTest with RoundTripTestBase {
 
   val regressionTrainFilesDirectory = "/Regression/Train/"
 
@@ -34,6 +35,16 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
       (2, 3, 0.78, 0.99, 2),
       (3, 4, 0.12, 0.34, 3)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
+  }
+
+  val dfRoundTrip: DataFrame = createMockDataset
+  val reader: MLReadable[_] = TrainRegressor
+  val modelReader: MLReadable[_] = TrainedRegressorModel
+  val stageRoundTrip: PipelineStage with MLWritable =
+    TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
+
+  test("should roundtrip serialize") {
+    testRoundTrip(ignoreEstimators = true)
   }
 
   test("Smoke test for training on a regressor") {
@@ -146,7 +157,7 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
   */
 object TrainRegressorTestUtilities {
 
-  def createLinearRegressor(labelColumn: String): Estimator[TrainedRegressorModel] = {
+  def createLinearRegressor(labelColumn: String): TrainRegressor = {
     val linearRegressor = new LinearRegression()
       .setRegParam(0.3)
       .setElasticNetParam(0.8)
@@ -156,7 +167,7 @@ object TrainRegressorTestUtilities {
       .set(trainRegressor.labelCol, labelColumn)
   }
 
-  def createRandomForestRegressor(labelColumn: String): Estimator[TrainedRegressorModel] = {
+  def createRandomForestRegressor(labelColumn: String): TrainRegressor = {
     val linearRegressor = new RandomForestRegressor()
       .setFeatureSubsetStrategy("auto")
       .setMaxBins(32)
@@ -171,7 +182,7 @@ object TrainRegressorTestUtilities {
   }
 
   def trainScoreDataset(labelColumn: String, dataset: DataFrame, trainRegressor: Estimator[TrainedRegressorModel])
-      : DataFrame = {
+  : DataFrame = {
     val data = dataset.randomSplit(Seq(0.6, 0.4).toArray, 42)
     val trainData = data(0)
     val testData = data(1)

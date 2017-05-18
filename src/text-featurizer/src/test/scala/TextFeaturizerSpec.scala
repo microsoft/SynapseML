@@ -3,18 +3,19 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml._
+import org.apache.spark.ml.feature.{NGram, Tokenizer}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-class TextFeaturizerSpec extends EstimatorFuzzingTest {
+class TextFeaturizerSpec extends EstimatorFuzzingTest with RoundTripTestBase {
   val dfRaw = session
     .createDataFrame(Seq((0, "Hi I"),
-                         (1, "I wish for snow today"),
-                         (2, "we Cant go to the park, because of the snow!"),
-                         (3, "")))
+      (1, "I wish for snow today"),
+      (2, "we Cant go to the park, because of the snow!"),
+      (3, "")))
     .toDF("label", "sentence")
   val dfTok = new Tokenizer()
     .setInputCol("sentence")
@@ -22,6 +23,18 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest {
     .transform(dfRaw)
   val dfNgram =
     new NGram().setInputCol("tokens").setOutputCol("ngrams").transform(dfTok)
+
+  val dfRoundTrip: DataFrame = dfRaw
+  val reader: MLReadable[_] = TextFeaturizer
+  val modelReader: MLReadable[_] = TextFeaturizerModel
+  val stageRoundTrip: PipelineStage with MLWritable = new TextFeaturizer()
+    .setInputCol("sentence")
+    .setOutputCol("features")
+    .setNumFeatures(20)
+
+  test("should roundtrip serialize") {
+    testRoundTrip()
+  }
 
   test("operate on sentences,tokens,or ngrams") {
     val tfRaw = new TextFeaturizer()
@@ -68,11 +81,11 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest {
       .setInputCol("tokens")
       .setOutputCol("features")
       .setNumFeatures(20)
-    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens"),           dfTok)
-    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("ngrams"),           dfNgram)
-    assertSparkException[IllegalArgumentException](tfTok.setInputCol("sentence"),         dfRaw)
+    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens"), dfTok)
+    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("ngrams"), dfNgram)
+    assertSparkException[IllegalArgumentException](tfTok.setInputCol("sentence"), dfRaw)
     assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens_incorrect"), dfTok)
-    assertSparkException[IllegalArgumentException](tfRaw.setOutputCol("tokens"),          dfTok)
+    assertSparkException[IllegalArgumentException](tfRaw.setOutputCol("tokens"), dfTok)
   }
 
   val inputCol = "text"
@@ -83,4 +96,5 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest {
   override def getEstimator(): Estimator[_] = new TextFeaturizer()
 
   override def schemaForDataset: StructType = new StructType(Array(StructField(inputCol, StringType, false)))
+
 }

@@ -23,6 +23,7 @@ import org.apache.spark.sql.types.{StringType, _}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.{BitSet, HashSet}
+import scala.reflect._
 
 private object AssembleFeaturesUtilities
 {
@@ -423,7 +424,7 @@ object AssembleFeaturesModel extends MLReadable[AssembleFeaturesModel] {
       val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
       // Required in order to allow this to be part of an ML pipeline
       PipelineUtilities.saveMetadata(uid,
-        AssembleFeaturesModel.getClass.getName.replace("$", ""),
+        classTag[AssembleFeaturesModel],
         new Path(path, "metadata").toString,
         sc,
         overwrite)
@@ -448,10 +449,10 @@ object AssembleFeaturesModel extends MLReadable[AssembleFeaturesModel] {
       writer.save(vectorAssemblerPath)
 
       // save the column names to featurize
-      ObjectUtilities.writeObject(columnNamesToFeaturize, qualPath, columnNamesToFeaturizePart, sc, overwrite)
+      WriterUtilities.writeObject(columnNamesToFeaturize, new Path(qualPath, columnNamesToFeaturizePart), sc, overwrite)
 
       // save the nonzero columns
-      ObjectUtilities.writeObject(nonZeroColumns, qualPath, nonZeroColumnsPart, sc, overwrite)
+      WriterUtilities.writeObject(nonZeroColumns, new Path(qualPath, nonZeroColumnsPart), sc, overwrite)
 
       val saveMode =
         if (overwrite) SaveMode.Overwrite
@@ -482,10 +483,10 @@ object AssembleFeaturesModel extends MLReadable[AssembleFeaturesModel] {
 
       // load the column names to featurize
       val columnNamesToFeaturize =
-        ObjectUtilities.loadObject[ColumnNamesToFeaturize](qualPath, columnNamesToFeaturizePart, sc)
+        WriterUtilities.loadObject[ColumnNamesToFeaturize](new Path(qualPath, columnNamesToFeaturizePart), sc)
 
       // load the nonzero columns
-      val nonZeroColumns = ObjectUtilities.loadObject[Option[Array[Int]]](qualPath, nonZeroColumnsPart, sc)
+      val nonZeroColumns = WriterUtilities.loadObject[Option[Array[Int]]](new Path(qualPath, nonZeroColumnsPart), sc)
 
       new AssembleFeaturesModel(uid,
         columnNamesToFeaturize,
