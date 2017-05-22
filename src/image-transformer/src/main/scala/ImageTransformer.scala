@@ -85,6 +85,30 @@ object ColorFormat {
 }
 
 /**
+  * Flips the image
+  * @param params
+  */
+class Flip(params: Map[String, Any]) extends ImageTransformerStage(params) {
+  val flipCode = params(Flip.flipCode).asInstanceOf[Int]
+  override val stageName = Flip.stageName
+
+  override def apply(image: Mat): Mat = {
+    val dst = new Mat()
+    Core.flip(image, dst, flipCode)
+    dst
+  }
+}
+
+object Flip {
+  val stageName = "flip"
+  val flipCode = "flipCode"
+
+  val flipUpDown = 0
+  val flipLeftRight = 1
+  val flipBoth = -1
+}
+
+/**
   * Blurs the image
   * @param params
   */
@@ -207,6 +231,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     }
     Some(mat2row(img, path))
   }
+
 }
 
 @InternalWrapper
@@ -263,6 +288,19 @@ class ImageTransformer(val uid: String) extends Transformer
       Threshold.thresholdType -> thresholdType))
   }
 
+  /**
+    * Flips the image
+    * @param flipCode is a flag to specify how to flip the image:
+    * - 0 means flipping around the x-axis (i.e. up-down)
+    * - positive value (for example, 1) means flipping around y-axis (left-right)
+    * - negative value (for example, -1) means flipping around both axes (diagonally)
+    * See OpenCV documentation for details.
+    * @return
+    */
+  def flip(flipCode: Int): this.type = {
+    addStage(Map(stageName -> Flip.stageName, Flip.flipCode -> flipCode))
+  }
+
   def gaussianKernel(appertureSize: Int, sigma: Double): this.type = {
     addStage(Map(stageName -> GaussianKernel.stageName,
       GaussianKernel.appertureSize -> appertureSize,
@@ -293,6 +331,7 @@ class ImageTransformer(val uid: String) extends Transformer
         case Blur.stageName => transforms += new Blur(stage)
         case Threshold.stageName => transforms += new Threshold(stage)
         case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
+        case Flip.stageName => transforms += new Flip(stage)
         case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
       }
     }
