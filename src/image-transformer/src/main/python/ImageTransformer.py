@@ -142,3 +142,15 @@ class ImageTransformer(_ImageTransformer):
         """
         self._java_obj.gaussianKernel(appertureSize, sigma)
         return self
+
+    """
+    Flips the image
+    :param int flipCode: a flag to specify how to flip the image
+     - 0 means flipping around the x-axis (up-down)
+     - positive value (for example, 1) means flipping around y-axis (left-right, default)
+     - negative value (for example, -1) means flipping around both axes (diagonally)
+    See OpenCV documentation for details.
+    """
+    def flip(self, flipCode = 1):
+        self._java_obj.flip(flipCode)
+        return self

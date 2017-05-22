@@ -263,7 +263,7 @@ class SparkTransformerWrapperTest(entryPoint: Transformer,
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer" | "_ImageFeaturizer"
            | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "Timer"
-           | "StopWordsRemoverTransform"
+           | "StopWordsRemoverTransform"  | "ImageSetAugmenter"
            => ""
         case _ =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
