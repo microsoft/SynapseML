@@ -12,7 +12,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder}
 import org.apache.spark.sql.{DataFrame, Row}
 
-class MetaEstimatorSpec extends ModulesTestBase {
+class MetaEstimatorSpec extends TestBase {
 
   // Prepare training data from a list of (id, text, label) tuples.
   val trainDF: DataFrame = session.createDataFrame(Seq(

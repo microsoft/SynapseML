@@ -6,7 +6,7 @@ package com.microsoft.azureml
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.DenseVector
 
-class EnsembleByKeySuite extends ModulesTestBase {
+class EnsembleByKeySuite extends TestBase {
 
   test("Should work on Dataframes doubles or vectors") {
     val scoreDF = session.createDataFrame(Seq(
