@@ -28,9 +28,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
 
   protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
     (
-    s"""|
-        |
-        |import unittest
+    s"""|import unittest
         |import pandas as pd
         |import numpy as np
         |import pyspark.ml, pyspark.ml.feature
@@ -38,8 +36,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |from pyspark.sql import SQLContext
         |from pyspark.ml.classification import LogisticRegression
         |from pyspark.ml.regression import LinearRegression
-        |""" + importClass(entryPointName) +
-    s"""
+        |${importClass(entryPointName)}
         |from pyspark.ml.feature import Tokenizer
         |from mmlspark import TrainClassifier
         |from mmlspark import ValueIndexer
@@ -242,7 +239,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
   }
 
   def pysparkWrapperTestBuilder(): String = {
-    copyrightLines.mkString("\n") + getPysparkWrapperTestBase
+    copyrightLines + getPysparkWrapperTestBase
   }
 
   def writeWrapperToFile(dir: File): Unit = {

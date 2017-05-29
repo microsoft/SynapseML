@@ -28,6 +28,13 @@ object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInst
 
 /**
   * Evaluates the given scored dataset with per instance metrics.
+  *
+  * The Regression metrics are:
+  * - L1_loss
+  * - L2_loss
+  *
+  * The Classification metrics are:
+  * - log_loss
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer with MMLParams {
 

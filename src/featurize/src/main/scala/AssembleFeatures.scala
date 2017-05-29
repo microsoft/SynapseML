@@ -86,7 +86,8 @@ class ColumnNamesToFeaturize extends Serializable {
 object AssembleFeatures extends DefaultParamsReadable[AssembleFeatures]
 
 /**
-  * Assembles the features in a dataset, converting them to a form appropriate for training.
+  * Creates a vector column of features from a collection of feature columns
+  * @param uid
   */
 class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeaturesModel]
   with HasFeaturesCol with MMLParams {
@@ -95,37 +96,48 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
 
   setDefault(featuresCol -> "features")
 
+  /** Columns to featurize
+    * @group param
+    */
   val columnsToFeaturize: StringArrayParam =
     new StringArrayParam(this, "columnsToFeaturize", "columns to featurize", array => true)
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getColumnsToFeaturize: Array[String] = $(columnsToFeaturize)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setColumnsToFeaturize(value: Array[String]): this.type = set(columnsToFeaturize, value)
 
+  /**
+    * Categorical columns are one-hot encoded when true; default is true
+    * @group param
+    */
   val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
     "oneHotEncodeCategoricals",
     "one hot encode categoricals",
     true)
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getOneHotEncodeCategoricals: Boolean = $(oneHotEncodeCategoricals)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setOneHotEncodeCategoricals(value: Boolean): this.type = set(oneHotEncodeCategoricals, value)
 
+  /**
+    * Number of features to has string columns tos
+    * @group param
+    */
   val numberOfFeatures: IntParam =
     IntParam(this, "numberOfFeatures", "number of features to hash string columns to")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getNumberOfFeatures: Int = $(numberOfFeatures)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
   /**
-    * Assembles the features in the dataset.
+    * Creates a vector column of features from a collection of feature columns
     *
     * @param dataset The input dataset to fit.
     * @return The model that will return the original dataset with assembled features as a vector.
@@ -286,7 +298,7 @@ class AssembleFeaturesModel(val uid: String,
                      val oneHotEncodeCategoricals: Boolean)
   extends Model[AssembleFeaturesModel] with Params with MLWritable {
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getFeaturesColumn: String = vectorAssembler.getOutputCol
 
   override def write: MLWriter = new AssembleFeaturesModel.AssembleFeaturesModelWriter(uid,

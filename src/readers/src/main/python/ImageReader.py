@@ -18,13 +18,15 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
     This function is attached to SparkSession class.
     Example: spark.readImages(path, recursive, ...)
 
-    :param SparkSession sparkSession: Existing sparkSession
-    :param str path: Path to the image directory
-    :param bool recursive: Recursive search flag
-    :param double sampleRatio: Fraction of the images loaded into dataframe
-    :param bool inspectZip: Look for images inside zip files
-    :return: DataFrame with a single column of "images", see imageSchema for details
-    :rtype: DataFrame
+    Args:
+        sparkSession (SparkSession): Existing sparkSession
+        path (str): Path to the image directory
+        recursive (bool): Recursive search flag
+        sampleRatio (double): Fraction of the images loaded
+
+    Returns:
+    :    DataFrame: DataFrame with a single column of "images", see imageSchema for details
+
     """
     ctx = SparkContext.getOrCreate()
     reader = ctx._jvm.com.microsoft.ml.spark.ImageReader
@@ -39,10 +41,13 @@ def isImage(df, column):
     """
     Returns True if the column contains images
 
-    :param DataFrame df: The DataFrame to be processed
-    :param bool column: The name of the column being inspected
-    :return: True if the colum is an image column
-    :rtype: bool
+    Args:
+        df (DataFrame): The DataFrame to be processed
+        column  (str): The name of the column being inspected
+
+    Returns:
+        bool: True if the colum is an image column
+
     """
 
     jvm = SparkContext.getOrCreate()._jvm

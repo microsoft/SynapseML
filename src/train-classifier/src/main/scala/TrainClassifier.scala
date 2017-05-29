@@ -42,25 +42,41 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
+  /** Classifier to run. The currently supported classifiers are:
+    * LogisticRegression
+    * DecisionTreeClassification
+    * RandomforestClassification
+    * GradientBoostedTreesClassification
+    * NaiveBayesClassifier
+    * MultilayerPerceptronClassifier
+    * @group param
+    */
   val model = new EstimatorParam(this, "model", "Classifier to run")
 
+  /** @group getParam */
   def getModel: Estimator[_ <: Model[_]] = $(model)
-  /** @group setParam **/
+  /** @group setParam */
   def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
 
   val featuresColumn = this.uid + "_features"
 
+  /** Number of features to hash to
+    * @group param
+    */
   val numFeatures = IntParam(this, "numFeatures", "number of features to hash to", 0)
+  /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
+  /** @group setParam */
   def setNumFeatures(value: Int): this.type = set(numFeatures, value)
 
-  /**
-    * Specifies whether to reindex the given label column.
+  /** Specifies whether to reindex the given label column.
     * See class documentation for how this parameter interacts with specified labels.
     * @group param
     */
   val reindexLabel = BooleanParam(this, "reindexLabel", "reindex the label column", true)
+  /** @group getParam */
   def getReindexLabel: Boolean = $(reindexLabel)
+  /** @group setParam */
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
   /**
@@ -69,7 +85,9 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     * @group param
     */
   val labels = new StringArrayParam(this, "labels", "sorted label values on the labels column")
+  /** @group getParam */
   def getLabels: Array[String] = $(labels)
+  /** @group setParam */
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /**

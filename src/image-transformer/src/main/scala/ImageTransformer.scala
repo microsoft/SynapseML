@@ -20,11 +20,24 @@ import org.opencv.core.{Rect, Size}
 import org.opencv.imgproc.Imgproc
 import org.apache.spark.ml.util.Identifiable
 
+/**
+  * Image processing stage.
+  * @param params Map of parameters
+  */
 abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializable {
   def apply(image: Mat): Mat
   val stageName: String
 }
 
+/**
+  * Resizes the image. The parameters of the ParameterMap are:
+  * "height" - the height of the image
+  * "width"
+  * "stageName"
+  * Please refer to [[http://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#resize OpenCV]]
+  * for more information
+  * @param params ParameterMap of the parameters
+  */
 class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val height = params(ResizeImage.height).asInstanceOf[Int].toDouble
   val width = params(ResizeImage.width).asInstanceOf[Int].toDouble
@@ -38,12 +51,27 @@ class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params
   }
 }
 
+/**
+  * Resize object contains the information for resizing;
+  * "height"
+  * "width"
+  * "stageName" = "resize"
+  */
 object ResizeImage {
   val stageName = "resize"
   val height = "height"
   val width = "width"
 }
 
+/**
+  * Crops the image for processing. The parameters are:
+  * "x" - First dimension; start of crop
+  * "y" - second dimension - start of crop
+  * "height" -height of cropped image
+  * "width" - width of cropped image
+  * "stageName" - "crop"
+  * @param params ParameterMap of the dimensions for cropping
+  */
 class CropImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val x = params(CropImage.x).asInstanceOf[Int]
   val y = params(CropImage.y).asInstanceOf[Int]
@@ -66,7 +94,10 @@ object CropImage {
 }
 
 /**
-  * Applies a color format to the image, eg COLOR_BGR2GRAY.
+  * Converts an image from one color space to another, eg COLOR_BGR2GRAY. Refer to
+  * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#cvtcolor OpenCV]]
+  * for more information.
+  * @param params Map of parameters and values
   */
 class ColorFormat(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val format = params(ColorFormat.format).asInstanceOf[Int]
@@ -85,7 +116,9 @@ object ColorFormat {
 }
 
 /**
-  * Blurs the image
+  * Blurs the image using a box filter.
+  * The params are a map of the dimensions of the blurring box. Please refer to
+  * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
   * @param params
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
@@ -107,7 +140,9 @@ object Blur {
 }
 
 /**
-  * Applies a threshold to the image
+  * Applies a threshold to each element of the image. Please refer to
+  * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#threshold threshold]] for
+  * more information
   * @param params
   */
 class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) {
@@ -132,7 +167,10 @@ object Threshold {
 }
 
 /**
-  * Applies gaussian kernel to the image
+  * Applies gaussian kernel to blur the image. Please refer to
+  * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#gaussianblur OpenCV]] for detailed information
+  * about the parameters and their allowable values.
+  * @param params Map of parameter values containg the aperture and sigma for the kernel.
   */
 class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val appertureSize = params(GaussianKernel.appertureSize).asInstanceOf[Int]
@@ -209,6 +247,10 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   }
 }
 
+/**
+  * Image processing stage. Please refer to OpenCV for additional information
+  * @param uid
+  */
 @InternalWrapper
 class ImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with MMLParams {

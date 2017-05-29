@@ -26,14 +26,30 @@ object FindBestModel extends DefaultParamsReadable[FindBestModel] {
 class FindBestModel(override val uid: String) extends Estimator[BestModel] with MMLParams {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
+  /**
+    * List of models to be evaluated. The list is an Array of models
+    * @group param
+    */
   val models: TransformerArrayParam = new TransformerArrayParam(this, "models", "List of models to be evaluated")
 
+  /** @group getParam */
   def getModels: Array[Transformer] = $(models)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
 
-  /** @group setParam **/
+  /**
+    * Metric used to evaluate models and determine best model. Specify the metric as one of the following:
+    * - "mse"
+    * - "rmse"
+    * - "r2"
+    * - "mae"
+    * - "accuracy"
+    * - "recall"
+    * - 'AUC"
+    * The default is: "accuracy"
+    *
+    * @group param */
   val evaluationMetric: Param[String] = StringParam(this, "evaluationMetric", "Metric to evaluate models with",
     (s: String) => Seq(ComputeModelStatistics.MseSparkMetric,
     ComputeModelStatistics.RmseSparkMetric,
@@ -47,9 +63,10 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
   // Set default evaluation metric to accuracy
   setDefault(evaluationMetric -> ComputeModelStatistics.AccuracySparkMetric)
 
+  /** @group getParam */
   def getEvaluationMetric: String = $(evaluationMetric)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
 
   var selectedModel: Transformer = null
@@ -61,7 +78,6 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
   var selectedBestModelMetrics: Dataset[_] = null
 
   /**
-    *
     * @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
     */

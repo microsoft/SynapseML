@@ -14,7 +14,10 @@ from pyspark.ml.common import inherit_doc
 class CNTKLearner(_CNTKLearner):
     """
     Create CNTK model from existing java model
-    :param py4j.java_gateway.JavaObject java_model: see Scala CNTKModel documentation
+
+    Args:
+        java_model (py4j.java_gateway.JavaObject): see Scala CNTKModel documentation
+
     """
     def _create_model(self, java_model):
         model = CNTKmod()

@@ -13,41 +13,58 @@ import java.sql.Timestamp
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import schema._
 
+/**
+  * DataConversion object
+  */
 object DataConversion extends DefaultParamsReadable[DataConversion]
 
-/*
-This class takes a DataFrame, a comma separated list of column names, and a conversion action and returns
-a new DataFrame with the contents of the selected columns coverted to the requested type.
- */
+/** Converts the specified list of columns to the specified type.
+  * Returns a new DataFrame with the converted columns
+  * @param uid
+  */
 class DataConversion(override val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("DataConversion"))
 
+  /** comma separated list of columns whose type will be converted
+    * @group param
+    */
   val col: Param[String] = StringParam(this, "col",
     "comma separated list of columns whose type will be converted", "")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getCol: String = $(col)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setCol(value: String): this.type = set(col, value)
 
+  /** The result type
+    * @group param
+    */
   val convertTo: Param[String] = StringParam(this, "convertTo", "the result type", "")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getConvertTo: String = $(convertTo)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setConvertTo(value: String): this.type = set(convertTo, value)
 
+  /** Format for DateTime when making DateTime:String conversions.
+    * The default is yyyy-MM-dd HH:mm:ss
+    * @group param
+    */
   val dateTimeFormat: Param[String] = StringParam(this, "dateTimeFormat",
     "format for DateTime when making DateTime:String conversions", "yyyy-MM-dd HH:mm:ss")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getDateTimeFormat: String = $(dateTimeFormat)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setDateTimeFormat(value: String): this.type = set(dateTimeFormat, value)
 
+  /** Apply the <code>DataConversion</code> transform to the dataset
+    * @param dataset The dataset to be transformed
+    * @return The transformed dataset
+    */
   override def transform(dataset: Dataset[_]): DataFrame = {
     require($(col) != null, "No column name specified")
     require(dataset != null, "No dataset supplied")
@@ -85,9 +102,10 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
   }
 
   /**
-    * @param dataset - The input dataset, to be transformed
-    * @param paramMap - ParamMap which contains parameter value to override the default value
-    * @return - the DataFrame that results from data conversion
+    * Transforms the dataset
+    * @param dataset The input dataset, to be transformed
+    * @param paramMap ParamMap which contains parameter value to override the default value
+    * @return the DataFrame that results from data conversion
     */
   override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
     setCol(paramMap.getOrElse(new Param("col", "col","name of column whose type will be converted"), ""))
@@ -96,16 +114,26 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     transform(dataset)
   }
 
+  /**
+    * Transform the schema
+    * @param schema
+    * @return modified schema
+    */
   def transformSchema(schema: StructType): StructType = {
     System.err.println("transformSchema not implemented yet")
     schema
   }
 
+  /**
+    * Copy the class, with extra params
+    * @param extra
+    * @return
+    */
   def copy(extra: ParamMap): DataConversion = defaultCopy(extra)
 
-  /*
-  Convert to a numeric type or a string. If the input type was a TimestampType, tnen do a different conversion?
-   */
+  /**
+    * Convert to a numeric type or a string. If the input type was a TimestampType, tnen do a different conversion?
+    */
   private def numericTransform(df: DataFrame, outType: DataType, columnName: String): DataFrame = {
     val inType = df.schema(columnName).dataType
     if (inType == StringType && outType == BooleanType) throw new Exception("String to Boolean not supported")
@@ -116,9 +144,9 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     res
   }
 
-  /*
-  Convert a TimestampType to a StringType or a LongType, else error
-   */
+  /**
+    * Convert a TimestampType to a StringType or a LongType, else error
+    */
   private def fromDateConversion(df: DataFrame, outType: DataType, columnName: String): DataFrame = {
     require(outType == StringType || outType == LongType, "Date only converts to string or long")
     val res = outType match {

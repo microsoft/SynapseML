@@ -2,9 +2,33 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 def generateTypeConverter(name, cache, typeConverter):
+    """
+    Type converter
+
+    Args:
+        name (str):
+        cache:
+        typeConverter:
+
+    Returns:
+        lambda: Function to convert the type
+
+    """
     return lambda value: typeConverter(name, value, cache)
 
 def complexTypeConverter(name, value, cache):
+    """
+    Type conversion for complex types
+
+    Args:
+        name:
+        value:
+        cache:
+
+    Returns:
+        _java_obj:
+
+    """
     cache[name]=value
     if isinstance(value, list):
         java_value=[]
