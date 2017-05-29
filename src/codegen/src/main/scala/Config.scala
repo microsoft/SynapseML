@@ -15,6 +15,8 @@ object Config {
   val toZipDir   = new File(srcDir, "src/main/resources/mmlspark")
   val zipFile    = new File(outputDir, "mmlspark.zip")
   val pyTestDir  = new File(topDir, "TestResults/generated_pytests")
+  val docDir     = new File(topDir, "BuildArtifacts/docs")
+  val inDocDir   = new File(docDir, "source")
   val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
   val pyRelPath  = "src/main/python"
   val mmlVer     = sys.env.getOrElse("MML_VERSION",
@@ -23,7 +25,8 @@ object Config {
   val internalPrefix  = "_"
 
   val copyrightLines =
-    Seq("# Copyright (C) Microsoft Corporation. All rights reserved.",
-        "# Licensed under the MIT License. See LICENSE in the project root for information.")
+    s"""|# Copyright (C) Microsoft Corporation. All rights reserved.
+        |# Licensed under the MIT License. See LICENSE in the project root for information.
+        |""".stripMargin
 
 }

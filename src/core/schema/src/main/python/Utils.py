@@ -15,10 +15,24 @@ def from_java(java_stage, stage_name):
     Given a Java object, create and return a Python wrapper of it.
     Used for ML persistence.
     Meta-algorithms such as Pipeline should override this method as a classmethod.
+
+    Args:
+        java_stage (str):
+        stage_name (str):
+
+    Returns:
+
     """
     def __get_class(clazz):
         """
-        Loads Python class from its name.
+        Loads a python object from its class
+
+        Args:
+            clazz (str): The name of the class
+
+        Returns:
+            object: The python object
+
         """
         parts = clazz.split(".")
         module = ".".join(parts[:-1])

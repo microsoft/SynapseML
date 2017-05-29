@@ -13,10 +13,10 @@ import org.apache.spark.sql.types._
 object SelectColumns extends DefaultParamsReadable[SelectColumns]
 
 /**
-  * This class takes a dataframe and a list of columns to select and returns
+  * <code>SelectColumns</code> takes a dataframe and a list of columns to select as input and returns
   * a dataframe comprised of only those columns listed in the input list.
   *
-  * The columns to be selected is a comma separated list of column names, contained in a single string.
+  * The columns to be selected is a list of column names
   */
 
 class SelectColumns(val uid: String) extends Transformer with MMLParams {
@@ -24,10 +24,10 @@ class SelectColumns(val uid: String) extends Transformer with MMLParams {
 
   val cols: StringArrayParam = new StringArrayParam(this, "cols", "comma separated list of selected column names")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getCols: Array[String] = $(cols)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setCols(value: Array[String]): this.type = set(cols, value)
 
   def setCol(value: String): this.type = set(cols, Array(value))

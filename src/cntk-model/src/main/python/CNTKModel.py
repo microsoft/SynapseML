@@ -12,8 +12,10 @@ from pyspark.ml.common import inherit_doc
 @inherit_doc
 class CNTKModel(_CNTKModel):
     """
-    :param SparkSession SparkSession: The SparkSession that will be used to find the model
-    :param str location: The location of the model, either on local or HDFS
+
+    Args:
+        SparkSession (SparkSession): The SparkSession that will be used to find the model
+        ocation (str): The location of the model, either on local or HDFS
     """
     def setModel(self, sparkSession, location):
         jSpark = sparkSession._jsparkSession

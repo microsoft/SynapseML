@@ -42,7 +42,15 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
   }
 }
 
+/**
+  * Converts the representation of an m X n pixel image to an m * n vector of Doubles
+  *
+  * The input column name is assumed to be "image", the output column name is "<uid>_output"
+  *
+  * @param uid
+  */
 class UnrollImage(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams{
+
   def this() = this(Identifiable.randomUID("UnrollImage"))
 
   import com.microsoft.ml.spark.UnrollImage._

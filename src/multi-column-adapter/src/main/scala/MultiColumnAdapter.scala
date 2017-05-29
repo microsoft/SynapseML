@@ -12,49 +12,64 @@ import org.apache.spark.sql.types._
 object MultiColumnAdapter extends DefaultParamsReadable[MultiColumnAdapter]
 
 /**
-  * This transformer takes a unary transformer and a list of input output column pairs
+  * The <code>MultiColumnAdapter</code> takes a unary transformer and a list of input output column pairs
   * and applies the transformer to each column
   */
 class MultiColumnAdapter(override val uid: String) extends Transformer with MMLParams {
 
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))
 
+  /**
+    * Comma separated list of input column names, encoded as a string. These are the columns to be transformed.
+    * @group param
+    */
   val inputCols: Param[String] =
     StringParam(
       this,
       "inputCols",
       "comma separated list of column names encoded as a string")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getInputCols: String = $(inputCols)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setInputCols(value: String): this.type = set(inputCols, value)
 
+  /**
+    * Comma separated list of column names for the transformed columns, encoded as a string.
+    * @group param
+    */
   val outputCols: Param[String] =
     StringParam(
       this,
       "outputCols",
       "comma separated list of column names encoded as a string")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getOutputCols: String = $(outputCols)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setOutputCols(value: String): this.type = set(outputCols, value)
 
+  /**
+    * @return List of input/output column name pairs
+    */
   def getInputOutputPairs: List[(String, String)] =
     getInputCols.split(",").zip(getOutputCols.split(",")).toList
 
+  /**
+    * Base transformer to apply to every column in the input column list.
+    * @group param
+    */
   val baseTransformer: TransformerParam =
     new TransformerParam(this,
                          "baseTransformer",
                          "base transformer to apply to every column")
 
-  /** @group getParam **/
+  /** @group getParam */
   final def getBaseTransformer: Transformer = $(baseTransformer)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setBaseTransformer(value: Transformer): this.type = {
     try {
       //Test to see whether the class has the appropriate getters and setters
@@ -88,6 +103,11 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
                      inputOutputPair._2)
   }
 
+  /**
+    * Apply the transform to all the columns in the input column list
+    * @param dataset
+    * @return DataFrame with transformed columns bearing the output column names
+    */
   override def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val firstOutput = setInOutCols(getBaseTransformer,

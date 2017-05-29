@@ -9,6 +9,9 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 
+/**
+  * Constants for <code>PartitionSample</code>
+  */
 object PSConstants {
     final val ModeRS = "RandomSample"
     final val ModeHead = "Head"
@@ -22,49 +25,104 @@ object PSConstants {
 
 trait PartitionSampleParams extends MMLParams {
 
-  /* Mode: {RandomSample|AssignToPartition|Head}
-        - RS:   {Absolute|Percentage, Seed}
-            - Absolute: {Count}
-            - Percentage: {Percent}
-        - ATP:  {Seed, numParts, newColName}
-        - Head: {Count}
-  */
   // TODO: Convert to Enum
+  /**
+    * Sampling mode. The options are:
+    * - AssignToPartition
+    *   - seed
+    *   - numParts
+    *   - newColName
+    * - RandomSample
+    *   - mode: Absolute or Percentage
+    *     - count (when Absolute)
+    *     - percent (when Percentage)
+    *   - seed
+    * - Head
+    *   - count
+    *
+    * The default setting is RandomSample
+    * @group param
+    */
   final val mode = StringParam(this, "mode", "AssignToPartition, RandomSample, or Head")
   setDefault(mode, PSConstants.ModeRS)
+  /** @group getParam */
   final def getMode: String = $(mode)
+  /** @group setParam */
   def setMode(value: String): this.type = set(mode, value)
 
   // TODO: Convert to Enum
-  // Relevant on Mode = RS
+  /**
+    * RandomSample mode
+    * - Absolute
+    * - Percentage
+    *
+    * Default is Percentage
+    * @group param
+    */
   final val rsMode = StringParam(this, "rsMode", "Absolute or Percentage", PSConstants.rsPercent)
+  /** @group getParam */
   final def getRandomSampleMode: String = $(rsMode)
+  /** @group setParam */
   def setRandomSampleMode(value: String): this.type = set(rsMode, value)
 
-  // Relevant on Mode = RS|ATP
   // TODO: We need to create Option[Int] idiom for params
+  /**
+    * Seed for random operations (RandomSplit or AssignToPartition
+    * Default is -1
+    * @group param
+    */
   final val seed = LongParam(this, "seed", "seed for random ops", -1L)
+  /** @group getParam */
   final def getSeed: Long = $(seed)
+  /** @group setParam */
   def setSeed(value: Long): this.type = set(seed, value)
 
-  // Relevant on RSMode = Percentage
+  /**
+    * Percentage of rows to return when Random Sampling
+    * Default is .01
+    * @group param
+    */
   final val percent = DoubleParam(this, "percent", "percent of rows to return", 0.01)
+  /** @group getParam */
   final def getPercent: Double = $(percent)
+  /** @group setParam */
   def setPercent(value: Double): this.type = set(percent, value)
 
-  // Relevant on Mode = Head | RSMode = Absolute
+  /**
+    * Number of rows to return. Must be specified when the mode is HEAD, or when the mode is RandomSample
+    * and the sampling mode is Absolute.
+    *
+    * Default is 1000
+    * @group param
+    */
   final val count = LongParam(this, "count", "number of rows to return", 1000L)
+  /** @group getParam */
   final def getCount: Long = $(count)
+  /** @group setParam */
   def setCount(value: Long): this.type = set(count, value)
 
-  // Relevant on Mode = ATP
+  /**
+    * Name of the partition column. Specify a name when the mode is AssignToPartition
+    *
+    * Default is \"Partition\"
+    * @group param
+    */
   final val newColName = StringParam(this, "newColName", "name of the partition column", PSConstants.newColDefault)
+  /** @group getParam */
   final def getNewColName: String = $(newColName)
+  /** @group setParam */
   def setNewColName(value: String): this.type = set(newColName, value)
 
-  // Relevant on Mode = ATP
+  /**
+    * Number of partitions when the mode is AssignToPartition
+    *
+    * Default is 10
+    * @group param
+    */
   final val numParts = IntParam(this, "numParts", "number of partitions", 10)
+  /** @group getParam */
   final def getNumParts: Int = $(numParts)
+  /** @group setParam */
   def setNumParts(value: Int): this.type = set(numParts, value)
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
@@ -78,6 +136,10 @@ trait PartitionSampleParams extends MMLParams {
 object PartitionSample extends DefaultParamsReadable[PartitionSample]
 
 // UID should be overridden by driver for controlled identification at the DAG level
+/**
+  *
+  * @param uid
+  */
 sealed class PartitionSample(override val uid: String)
   extends Transformer
   with PartitionSampleParams {

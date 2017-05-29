@@ -20,6 +20,7 @@ import org.apache.log4j.Logger
 
 /**
   * Contains constants used by Compute Model Statistics.
+  *
   */
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics] {
   // Regression metrics
@@ -87,11 +88,35 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
+  /**
+    * Metric to evaluate the models with. Default is "all"
+    *
+    * The metrics that can be chosen are:
+    *
+    *   For Binary Classifiers:
+    *     - AreaUnderROC
+    *     - AUC
+    *     - accuracy
+    *     - precision
+    *     - recall
+    *
+    *   For Regression Classifiers:
+    *     - mse
+    *     - rmse
+    *     - r2
+    *     - mae
+    *
+    *   Or, for either type of classifier:
+    *     - all - This will report all the relevant metrics
+    *
+    * @group param
+    */
   val evaluationMetric: Param[String] = StringParam(this, "evaluationMetric", "Metric to evaluate models with", "all")
 
+  /** @group getParam */
   def getEvaluationMetric: String = $(evaluationMetric)
 
-  /** @group setParam **/
+  /** @group setParam */
   def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
 
   lazy val logger = Logger.getLogger(this.getClass.getName)
@@ -101,6 +126,11 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
    */
   var rocCurve: DataFrame = null
 
+  /**
+    * Calculates the metrics for the given dataset and model.
+    * @param dataset
+    * @return DataFrame whose columns contain the calculated metrics
+    */
   override def transform(dataset: Dataset[_]): DataFrame = {
     val (modelName, labelColumnName, scoreValueKind) = getSchemaInfo(dataset.schema)
 

@@ -8,6 +8,7 @@ import java.net.URI
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructType}
@@ -17,11 +18,7 @@ object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
 
 /**
   *
-  * Class for featurizing images with pretrained CNTK models. The <code>ImageFeaturizer</code> allows one to
-  * leverage deep representations learned on large supervised datasets to improve image processing
-  * workflows.
-  *
-  * The ImageFeaturizer relies on a CNTK model to do the featurization, one can set this model using
+  * The <code>ImageFeaturizer</code> relies on a CNTK model to do the featurization, one can set this model using
   * the <code>modelLocation</code> parameter. To map the nodes of the CNTK model onto the standard "layers" structure
   * of a feed forward neural net, one needs to supply a list of node names that range from the output node,
   * back towards the input node of the CNTK Function.
@@ -43,29 +40,53 @@ object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams {
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
-  val inputNode: IntParam = IntParam(this, "inputNode", "which node of the CNTKFunctions inputs" +
+  /**
+    * Select which node of the CNTKFunction's inputs to us as the input (default: 0)
+    * @group param
+    */
+  val inputNode: IntParam = IntParam(this, "inputNode", "which node of the CNTKFunction's inputs" +
     "to use as the input (default 0)")
 
+  /** @group setParam */
   def setInputNode(value: Int): this.type = set(inputNode, value)
 
+  /** @group getParam */
   def getInputNode: Int = $(inputNode)
 
+  /**
+    * The number of layer to cut off the endof the network; 0 leaves the network intact, 1 rmoves
+    * the output layer, etc.
+    * @group param
+    */
   val cutOutputLayers: IntParam = IntParam(this, "cutOutputLayers", "the number of layers to cut " +
     "off the end of the network, 0 leaves the network intact," +
     " 1 removes the output layer, etc", ParamValidators.gtEq(0))
 
+  /** @group setParam */
   def setCutOutputLayers(value: Int): this.type = set(cutOutputLayers, value)
 
+  /** @group getParam */
   def getCutOutputLayers: Int = $(cutOutputLayers)
 
+  /**
+    * Array with valid CNTK nodes to choose from; the first entries of this array should be closer
+    * to the output node.
+    * @group param
+    */
   val layerNames: StringArrayParam = new StringArrayParam(this, "layerNames",
     "Array with valid CNTK nodes to choose from, this first entries of this array should be closer to the " +
       "output node")
 
+  /** @group setParam */
   def setLayerNames(value: Array[String]): this.type = set(layerNames, value)
 
+  /** @group getParam */
   def getLayerNames: Array[String] = $(layerNames)
 
+  /**
+    * The location of th emodel as a URI/URL
+    * @group param
+    */
   val modelLocation: Param[String] = StringParam(this, "modelLocation", "the location of the model as a URI/URL",
     {s: String =>
       try{
@@ -76,10 +97,13 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
       }
     })
 
+  /** @group setParam */
   def setModelLocation(value: String): this.type = set(modelLocation, value)
 
+  /** @group setParam */
   def setModelLocation(value: URI): this.type = set(modelLocation, value.toString)
 
+  /** @group getParam */
   def getModelLocation: String = $(modelLocation)
 
   def setModel(modelSchema: ModelSchema): this.type = {
@@ -121,8 +145,13 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
+  /**
+    * Add the features column to the schema
+    * @param schema
+    * @return schema with features column
+    */
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getOutputCol, new ArrayType(FloatType, false))
+    schema.add(getOutputCol, VectorType)
   }
 
 }

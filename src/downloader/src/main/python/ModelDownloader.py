@@ -13,20 +13,23 @@ DEFAULT_URL = "https://mmlspark.azureedge.net/datasets/CNTKModels/"
 
 
 class ModelSchema:
-    def __init__(self, name, dataset, modelType, uri, hash, size, inputNode, numLayers, layerNames):
-        """
-        An object that represents a model.
+    """
+    An object that represents a model.
 
-        :param name: Name of the model
-        :param dataset: Dataset it was trained on
-        :param modelType: Domain that the model operates on
-        :param uri: The location of the model's bytes
-        :param hash: The sha256 hash of the models bytes
-        :param size: the size of the model in bytes
-        :param inputNode: the node which represents the input
-        :param numLayers: the number of layers of the model
-        :param layerNames: the names of nodes that represent layers in the network
-        """
+    Args:
+        name (str): Name of the model
+        dataset (DataFrame): Dataset it was trained on
+        modelType (str): Domain that the model operates on
+        uri (str): The location of the model's bytes
+        hash (str): The sha256 hash of the models bytes
+        size (int): the size of the model in bytes
+        inputNode (int): the node which represents the input
+        numLayers (int): the number of layers of the model
+        layerNames (array): the names of nodes that represent layers in the network
+
+    """
+
+    def __init__(self, name, dataset, modelType, uri, hash, size, inputNode, numLayers, layerNames):
         self.name = name
         self.dataset = dataset
         self.modelType = modelType
@@ -60,15 +63,18 @@ class ModelSchema:
 
 
 class ModelDownloader:
-    def __init__(self, sparkSession, localPath, serverURL=DEFAULT_URL):
-        """
-        A class for downloading CNTK pretrained models in python. To download all models use the downloadModels
-        function. To browse models from the microsoft server please use remoteModels.
+    """
+    A class for downloading CNTK pretrained models in python. To download all models use the downloadModels
+    function. To browse models from the microsoft server please use remoteModels.
 
-        :param sparkSession: A spark session for interfacing between python and java
-        :param localPath: The folder to save models to
-        :param serverURL: The location of the model Server, beware this default can change!
-        """
+    Args:
+        sparkSession (SparkSession): A spark session for interfacing between python and java
+        localPath (str): The folder to save models to
+        serverURL (str): The location of the model Server, beware this default can change!
+
+    """
+
+    def __init__(self, sparkSession, localPath, serverURL=DEFAULT_URL):
         self.localPath = localPath
         self.serverURL = serverURL
 
@@ -81,19 +87,57 @@ class ModelDownloader:
         return (ModelSchema.fromJava(s) for s in iter)
 
     def localModels(self):
+        """
+
+        Downloads models stored locally on the filesystem
+
+        """
         return self._wrap(self._model_downloader.localModels())
 
     def remoteModels(self):
+        """
+
+        Downloads models stored remotely.
+
+        """
         return self._wrap(self._model_downloader.remoteModels())
 
     def downloadModel(self, model):
+        """
+
+        Download a model
+            model (object):
+
+        Returns:
+            object: model schema
+
+        """
         model = model.toJava(self._sparkSession)
         return ModelSchema.fromJava(self._model_downloader.downloadModel(model))
 
     def downloadByName(self, name):
+        """
+
+        Downloads a named model
+
+        Args:
+            name (str): The name of the model
+
+         """
         return ModelSchema.fromJava(self._model_downloader.downloadByName(name))
 
     def downloadModels(self, models=None):
+        """
+
+        Download models
+
+        Args:
+            models:
+
+        Returns:
+            list: list of models downloaded
+            
+        """
         if models is None:
             models = self.remoteModels()
         models = (m.toJava(self._sparkSession) for m in models)

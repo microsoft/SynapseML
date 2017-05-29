@@ -22,16 +22,25 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
+  /** Regressor to run
+    * @group param
+    */
   val model = new EstimatorParam(this, "model", "Regressor to run")
 
+  /** @group getParam */
   def getModel: Estimator[_ <: Model[_]] = $(model)
-  /** @group setParam **/
+  /** @group setParam */
   def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
 
   val featuresColumn = this.uid + "_features"
 
+  /** Number of feature to hash to
+    * @group param
+    */
   val numFeatures = IntParam(this, "numFeatures", "number of features to hash to", 0)
+  /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
+  /** @group setParam */
   def setNumFeatures(value: Int): this.type = set(numFeatures, value)
 
   /**
@@ -131,6 +140,10 @@ object TrainRegressor extends DefaultParamsReadable[TrainRegressor] {
 
 /**
   * Model produced by [[TrainRegressor]].
+  * @param uid The uid of ???
+  * @param labelColumn The label column
+  * @param model The trained model
+  * @param featuresColumn The features column
   */
 class TrainedRegressorModel(val uid: String,
                             val labelColumn: String,
@@ -138,6 +151,10 @@ class TrainedRegressorModel(val uid: String,
                             val featuresColumn: String)
     extends Model[TrainedRegressorModel] with MLWritable {
 
+  /**
+    * Write the model
+    * @return
+    */
   override def write: MLWriter = new TrainedRegressorModel.TrainedRegressorModelWriter(uid,
     labelColumn,
     model,

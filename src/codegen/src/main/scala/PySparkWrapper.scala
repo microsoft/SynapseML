@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.codegen
 
+import com.microsoft.ml.spark.FileUtilities._
+
 import scala.collection.mutable.ListBuffer
 import scala.tools.nsc.util.DocStrings
 
@@ -13,6 +15,7 @@ import org.apache.spark.ml.param.Param
 
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
+import WrapperClassDoc._
 
 /**
   * :: DeveloperApi ::
@@ -34,113 +37,121 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     ""
   }
 
-  protected val classTemplate = Seq(
-    copyrightLines.mkString("\n"),
-    "",
-    "import sys",
-    "if sys.version >= '3':",
-    "    basestring = str",
-    "",
-    "from pyspark.ml.param.shared import *",
-    "from pyspark import keyword_only",
-    "from pyspark.ml.util import JavaMLReadable, JavaMLWritable",
-    "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel",
-    "from pyspark.ml.common import inherit_doc",
-    "%1$s",
-    "","",
-    "@inherit_doc",
-    "class %2$s(%3$s):",
-    "    \"\"\"",
-    "    %9$s",
-    "%11$s",
-    "    \"\"\"",
-    "",
-    "    @keyword_only",
-    "    def __init__(self, %4$s):",
-    "        super(%2$s, self).__init__()",
-    "        self._java_obj = self._new_java_obj(\"%5$s\")",
-    "%6$s",
-    // since 2.1.1, kwargs is an instance attribute...
-    "        if hasattr(self, \"_input_kwargs\"):",
-    "            kwargs = self._input_kwargs",
-    "        else:",
-    //     ... so this can be removed when we drop support for 2.1.0
-    "            kwargs = self.__init__._input_kwargs",
-    "        self.setParams(**kwargs)",
-    "",
-    "    @keyword_only",
-    "    def setParams(self, %4$s):",
-    "        \"\"\"",
-    "        Set the (keyword only) parameters","",
-    "%10$s",
-    "        \"\"\"",
-    "        if hasattr(self, \"_input_kwargs\"):",
-    "            kwargs = self._input_kwargs",
-    "        else:",
-    //     ... same here: remove when we drop support for 2.1.0
-    "            kwargs = self.setParams._input_kwargs",
-    "        return self._set(**kwargs)\n" +
-    "%7$s",
-    "%8$s",
-    "")
+  // Note: in the get/set with kwars, there is an if/else that is due to the fact that since 2.1.1, kwargs is an
+  //       instance attribute. Once support for 2.1.0 is dropped, the else part of the if/else can be removed,
+  protected def classTemplate(importsString: String, inheritanceString: String,
+                              classParamsString: String,
+                              paramDefinitionsAndDefaultsString: String, paramGettersAndSettersString: String,
+                              classDocString: String, paramDocString: String,
+                              classParamDocString: String): String = {
+    s"""|$copyrightLines
+        |
+        |import sys
+        |if sys.version >= '3':
+        |    basestring = str
+        |
+        |from pyspark.ml.param.shared import *
+        |from pyspark import keyword_only
+        |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+        |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
+        |from pyspark.ml.common import inherit_doc
+        |$importsString
+        |
+        |@inherit_doc
+        |class $entryPointName($inheritanceString):
+        |    \"\"\"
+        |    $classDocString
+        |$classParamDocString
+        |    \"\"\"
+        |
+        |    @keyword_only
+        |    def __init__(self, $classParamsString):
+        |        super($entryPointName, self).__init__()
+        |        self._java_obj = self._new_java_obj(\"$entryPointQualifiedName\")
+        |$paramDefinitionsAndDefaultsString
+        |        if hasattr(self, \"_input_kwargs\"):
+        |            kwargs = self._input_kwargs
+        |        else:
+        |            kwargs = self.__init__._input_kwargs
+        |        self.setParams(**kwargs)
+        |
+        |    @keyword_only
+        |    def setParams(self, $classParamsString):
+        |        \"\"\"
+        |        Set the (keyword only) parameters
+        |
+        |$paramDocString
+        |        \"\"\"
+        |        if hasattr(self, \"_input_kwargs\"):
+        |            kwargs = self._input_kwargs
+        |        else:
+        |            kwargs = self.__init__._input_kwargs
+        |        return self._set(**kwargs)
+        |
+        |$paramGettersAndSettersString
+        |""".stripMargin
+  }
 
-  protected val defineParamsTemplate =
-    "        self.%1$s = Param(self, \"%1$s\", \"%2$s\")"
   // Complex parameters need type converters
-  protected val defineComplexParamsTemplate =
-    "        self.%1$s = Param(self, \"%1$s\", \"%2$s\", %3$s)"
-  protected val setParamDefaultTemplate =
-    "        self._setDefault(%1$s=%2$s)"
-  protected val setParamDefaultWithGuidTemplate =
-    "        self._setDefault(%1$s=self.uid + \"%2$s\")"
-  protected val setTemplate =
-    Seq("",
-      "    def set%1$s(self, value):",
-      "        \"\"\"\n\n%4$s:param %3$s %5$s\n%4$s\"\"\"",
-      "        self._set(%2$s=value)",
-      "        return self")
-  protected val getTemplate =
-    Seq("",
-      "    def get%1$s(self):",
-      "        \"\"\"",
-      "        :return: %2$s",
-      "        :rtype: %3$s",
-      "        \"\"\"",
-      "        return self.getOrDefault(self.%2$s)",
-      "")
-  protected val getComplexTemplate =
-    Seq("",
-      "    def get%1$s(self):",
-      "        \"\"\"",
-      "        :return: %2$s",
-      "        :rtype: %3$s",
-      "        \"\"\"",
-      "        return self._cache[\"%2$s\"]")
-  protected val saveLoadTemplate =
-    Seq("",
-      "    @classmethod",
-      "    def read(cls):",
-      "        \"\"\" Returns an MLReader instance for this class. \"\"\"",
-      "        return JavaMMLReader(cls)",
-      "",
-      "    @staticmethod",
-      "    def getJavaPackage():",
-      "        \"\"\" Returns package name String. \"\"\"",
-      "        return \"%1$s\"",
-      "",
-      "    @staticmethod",
-      "    def _from_java(java_stage):",
-      "        stage_name=%2$s.__module__",
-      "        return from_java(java_stage, stage_name)","")
+  protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
+    s"""        self.$pname = Param(self, \"$pname\", \"$explanation\", $other)"""
+  protected def setTemplate(capName: String, pname: String, explanation: String): String = {
+    s"""|    def set$capName(self, value):
+        |        \"\"\"
+        |
+        |        :param $docType $explanation
+        |        \"\"\"
+        |        self._set($pname=value)
+        |        return self
+        |
+        |""".stripMargin
+  }
 
-  // TODO: Get a brief description of the class from the scala and put it here. There is not a simple
-  //       and intuitive way to do this via reflections, similar to the way that we are able to
-  //       retrieve the parameter explanations, for example.
-  protected val classDocTemplate =
-      "This wraps the scala class %1$s\n"
+  protected def getTemplate(capName: String, pname: String, docType: String): String = {
+    s"""|    def get$capName(self):
+        |        \"\"\"
+        |        :return: $pname
+        |        :rtype: $docType
+        |        \"\"\"
+        |        return self.getOrDefault(self.$pname)
+        |
+        |""".stripMargin
+  }
 
-  protected val paramDocTemplate =
-      "%3$s:param %4$s %2$s"
+  protected def getComplexTemplate(capName: String, pname: String, docType: String): String = {
+    s"""|    def get$capName(self):
+        |        \"\"\"
+        |        :return: $pname
+        |        :rtype: $docType
+        |        \"\"\"
+        |        return self._cache[\"$pname\"]
+        |
+        |""".stripMargin
+  }
+
+  protected def saveLoadTemplate(entryPointQualifiedName: String, entryPointName: String): String = {
+    s"""|    @classmethod
+        |    def read(cls):
+        |        \"\"\" Returns an MLReader instance for this class. \"\"\"
+        |        return JavaMMLReader(cls)
+        |
+        |    @staticmethod
+        |    def getJavaPackage():
+        |        \"\"\" Returns package name String. \"\"\"
+        |        return \"${entryPointQualifiedName}\"
+        |
+        |    @staticmethod
+        |    def _from_java(java_stage):
+        |        stage_name=${entryPointName}.__module__
+        |        return from_java(java_stage, stage_name)
+        |""".stripMargin
+  }
+
+  protected val header = WrapperClassDoc.GenerateWrapperClassDoc(entryPointName)
+  protected def classDocTemplate(entryPointName: String) = s"""$header"""
+
+  protected def paramDocTemplate(explanation: String, docType: String, indent: String) =
+    s"""$indent:param $docType $explanation"""
 
   val psType: String
   private lazy val objectBaseClass: String = "Java" + psType
@@ -179,8 +190,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       case "DoubleParam" => "double"
       case "StringParam" => "str"
       case "Param" => "str"
-      case "StringArrayParam" => "list of str"
-      case "MapArrayParam" => "dict of str to list of str"
+      case "StringArrayParam" => "list"
+      case "MapArrayParam" => "dict"
       case _ => "object"
     }
 
@@ -211,10 +222,6 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     (pyParamDefault, autogenSuffix)
   }
 
-  private def defineParam(param: Param[_]): String = {
-    defineParamsTemplate
-  }
-
   protected def getPysparkWrapperBase: String = {
     // Construct relevant strings
     val imports = ListBuffer[String](additionalImports("utils"))
@@ -239,39 +246,37 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
       paramGettersAndSetters +=
-        setTemplate.mkString("\n").format(StringUtils.capitalize(pname), pname, docType, ScopeDepth * 2,
+        setTemplate(StringUtils.capitalize(pname), pname, docType, ScopeDepth * 2,
           getParamExplanation(param))
       if(isComplexType(param.getClass.getSimpleName)){
         paramDefinitionsAndDefaults +=
-          defineComplexParamsTemplate.format(
-            pname, getParamExplanation(param),
+          defineComplexParamsTemplate(pname, getParamExplanation(param),
             s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
         paramGettersAndSetters +=
-          getComplexTemplate.mkString("\n").format(StringUtils.capitalize(pname), pname, param.getClass.getSimpleName)
+          getComplexTemplate(StringUtils.capitalize(pname), pname, docType)
         paramDocList +=
-          paramDocTemplate.format(pname, getParamExplanation(param), ScopeDepth * 2, param.getClass.getSimpleName)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
         classParamDocList +=
-          paramDocTemplate.format(pname, getParamExplanation(param), ScopeDepth, param.getClass.getSimpleName)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth)
       }
       else{
         paramDefinitionsAndDefaults +=
-          defineParamsTemplate.format(pname, getParamExplanation(param))
+          s"""        self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
         paramGettersAndSetters +=
-          getTemplate.mkString("\n").format(StringUtils.capitalize(pname), pname, docType)
+          getTemplate(StringUtils.capitalize(pname), pname, docType)
         paramDocList +=
-          paramDocTemplate.format(pname, getParamExplanation(param), ScopeDepth * 2, docType)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
         classParamDocList +=
-          paramDocTemplate.format(pname, getParamExplanation(param), ScopeDepth, param.getClass.getSimpleName)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth)
       }
 
       val (pyParamDefault, autogenSuffix) = getParamDefault(param)
       paramsAndDefaults += pname + "=" + pyParamDefault
 
-      if (pyParamDefault != "None") {
-        paramDefinitionsAndDefaults += setParamDefaultTemplate.format(pname, pyParamDefault)
-      } else if (autogenSuffix != null) {
-        paramDefinitionsAndDefaults += setParamDefaultWithGuidTemplate.format(pname, autogenSuffix)
-      }
+      if (pyParamDefault != "None")
+        paramDefinitionsAndDefaults += s"""        self._setDefault($pname=$pyParamDefault)"""
+      else if (autogenSuffix != null)
+        paramDefinitionsAndDefaults += s"""        self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
     }
 
     // Build strings
@@ -280,15 +285,15 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     val classParamsString = paramsAndDefaults.mkString(", ")
     val paramDefinitionsAndDefaultsString = paramDefinitionsAndDefaults.mkString("\n")
     val paramGettersAndSettersString = paramGettersAndSetters.mkString("\n")
-    val saveLoadString = saveLoadTemplate.mkString("\n").format(entryPointQualifiedName, entryPointName)
-    val classDocString = classDocTemplate.format(entryPointName)
+    val classDocString = classDocTemplate(entryPointName)
     val paramDocString = paramDocList.mkString("\n")
     val classParamDocString = classParamDocList.mkString("\n")
 
-    String.format(classTemplate.mkString("\n"), importsString, entryPointName, inheritanceString,
-                    classParamsString, entryPointQualifiedName,
-                    paramDefinitionsAndDefaultsString, paramGettersAndSettersString, saveLoadString,
-                    classDocString, paramDocString, classParamDocString) + "\n"
+    classTemplate(importsString, inheritanceString,
+                    classParamsString,
+                    paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
+                    classDocString, paramDocString, classParamDocString) + "\n" +
+           saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
   def pysparkWrapperBuilder(): String = {
@@ -319,25 +324,29 @@ class SparkEstimatorWrapper(entryPoint: Estimator[_],
                          entryPointName,
                          entryPointQualifiedName) {
 
-  private val createModelStringTemplate = Seq(
-    "    def _create_model(self, java_model):",
-    "        return %1$s(java_model)",
-    "").mkString("\n")
+  private val createModelStringTemplate =
+    s"""|    def _create_model(self, java_model):
+        |        return $companionModelName(java_model)
+        |
+        |""".stripMargin
 
-  private val modelClassString = Seq(
-    "class %1$s(JavaModel, JavaMLWritable, JavaMLReadable):",
-    "    \"\"\"",
-    "    Model fitted by :class:`%2$s`.",
-    "    This class is left empty on purpose.",
-    "    All necessary methods are exposed through inheritance.",
-    "    \"\"\"",
-    "").mkString("\n")
+  private def modelClassString(className: String, superClass: String): String = {
+    s"""|class ${className}(JavaModel, JavaMLWritable, JavaMLReadable):
+        |    \"\"\"
+        |
+        |    Model fitted by :class:`${superClass}`.
+        |
+        |    This class is left empty on purpose.
+        |    All necessary methods are exposed through inheritance.
+        |    \"\"\"
+        |""".stripMargin
+  }
 
   override def pysparkWrapperBuilder(): String = {
     Seq(super.pysparkWrapperBuilder,
-          createModelStringTemplate.format(companionModelName),
-          modelClassString.format(companionModelName, entryPointName),
-          saveLoadTemplate.mkString("\n").format(companionModelQualifiedName, companionModelName),
+          createModelStringTemplate,
+          modelClassString(companionModelName, entryPointName),
+          saveLoadTemplate(companionModelQualifiedName, companionModelName),
           "").mkString("\n")
   }
 
