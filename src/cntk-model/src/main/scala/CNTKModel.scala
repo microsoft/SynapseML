@@ -176,6 +176,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   /** @group getParam */
   def getOutputNodeIndex: Int                   = $(outputNodeIndex)
+  setDefault(outputNodeIndex -> 0)
 
   /** Name of the output node
     * @group param
@@ -220,15 +221,12 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     val model = CNTKModel.loadModelFromBytes(getModel, device)
 
-    val setByName  = get(outputNodeName)
-    val setByIndex = get(outputNodeIndex)
-    if ((setByName.isDefined && setByIndex.isDefined) ||
-          (!setByName.isDefined && !setByIndex.isDefined))
-      throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
+    if ((isSet(outputNodeName) && isSet(outputNodeIndex)))
+      throw new Exception("Can't set both outputNodeName and outputNodeIndex")
 
-    val outputNode: Option[String] =
-      if (setByName.isDefined) setByName
-      else                     setByIndex.map(i => model.getOutputs.get(i).getName)
+    val outputNode =
+      if (isSet(outputNodeName)) get(outputNodeName)
+      else Option(model.getOutputs.get(getOrDefault(outputNodeIndex)).getName)
 
     val coersionOptionUDF = dataset.schema.fields(inputIndex).dataType match {
       case ArrayType(tp, _) =>
