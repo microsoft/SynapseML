@@ -24,7 +24,7 @@ class EnsembleByKeySuite extends TestBase {
 
     val t2 = new EnsembleByKey().setKeys("label1", "label2").setCols("score1", "score2", "v1")
     val df2 = t2.transform(scoreDF2)
-    val res2 = df2.select("avg(score1)", "vectoravg(v1)").collect().map(r => (r.getDouble(0), r.getAs[DenseVector](1)))
+    val res2 = df2.select("avg(score1)", "avg(v1)").collect().map(r => (r.getDouble(0), r.getAs[DenseVector](1)))
     val true2 = Set(
       (2.0, new DenseVector(Array(2.0, -2.5))),
       (1.0, new DenseVector(Array(1.0, 0.1))))

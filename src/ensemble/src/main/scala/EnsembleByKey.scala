@@ -64,7 +64,7 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
           strategyToFloatFunction(getStrategy)(colname)
         case v if v == VectorType && getStrategy == "mean" =>
           val dim = dataset.select(colname).take(1)(0).getAs[DenseVector](0).size
-          new VectorAvg(dim)(dataset(colname)).asInstanceOf[Column]
+          new VectorAvg(dim)(dataset(colname)).asInstanceOf[Column].alias(s"avg($colname)")
         case t =>
           throw new IllegalArgumentException(s"Cannot operate on type:$t with strategy:$getStrategy")
       }
@@ -88,7 +88,7 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
           case _: DoubleType => Some(StructField(s"avg(${f.name})", f.dataType))
           case _: FloatType => Some(StructField(s"avg(${f.name})", f.dataType))
           case fdt if fdt == VectorType =>
-            Some(StructField(s"vectoravg(${f.name})", f.dataType))
+            Some(StructField(s"avg(${f.name})", f.dataType))
           case t => throw new IllegalArgumentException(s"Cannot operate on type:$t with strategy:$getStrategy")
         }
       } else {
