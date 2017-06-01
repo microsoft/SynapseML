@@ -37,7 +37,7 @@ def toImage(array, path = "", ocvType = 16):
 
 from pyspark.ml.common import inherit_doc
 @inherit_doc
-class ImageTransform(_ImageTransformer):
+class ImageTransformer(_ImageTransformer):
     """
     Resizes the image to the given width and height
     :param int height: The height to resize to (>=0)
