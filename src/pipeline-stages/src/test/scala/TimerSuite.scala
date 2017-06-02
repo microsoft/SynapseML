@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
 
 class TimerSuite extends TestBase {
@@ -29,6 +30,25 @@ class TimerSuite extends TestBase {
     val idf = new IDF().setInputCol("hash").setOutputCol("idf")
 
     val df4 = new Timer().setStage(idf).fit(df3).transform(df3)
+
+  }
+
+  test("should work within pipelines"){
+    val tok = new Tokenizer()
+      .setInputCol("sentence")
+      .setOutputCol("tokens")
+
+    val ttok = new Timer().setStage(tok)
+
+    val hash = new HashingTF().setInputCol("tokens").setOutputCol("hash")
+
+    val idf = new IDF().setInputCol("hash").setOutputCol("idf")
+
+    val tidf = new Timer().setStage(idf)
+
+    val pipe = new Pipeline().setStages(Array(ttok, hash, tidf))
+
+    pipe.fit(df).transform(df)
 
   }
 
