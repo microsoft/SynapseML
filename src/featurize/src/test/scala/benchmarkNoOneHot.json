@@ -1,0 +1,6 @@
+{"Label":0,"col1":2,"col2":0.5,"col3":0.6,"col4":2,"col5":1,"testColumn":{"type":1,"values":[1.0,2.0,2.0,0.6,0.5]}}
+{"Label":1,"col1":3,"col2":0.4,"col3":0.5,"col4":1,"col5":2,"testColumn":{"type":1,"values":[2.0,1.0,3.0,0.5,0.4]}}
+{"Label":0,"col1":4,"col2":0.78,"col3":0.99,"col4":2,"col5":0,"testColumn":{"type":1,"values":[0.0,2.0,4.0,0.99,0.78]}}
+{"Label":1,"col1":5,"col2":0.12,"col3":0.34,"col4":1,"col5":2,"testColumn":{"type":1,"values":[2.0,1.0,5.0,0.34,0.12]}}
+{"Label":0,"col1":3,"col2":0.78,"col3":0.99,"col4":2,"col5":0,"testColumn":{"type":1,"values":[0.0,2.0,3.0,0.99,0.78]}}
+{"Label":1,"col1":4,"col2":0.12,"col3":0.34,"col4":0,"col5":2,"testColumn":{"type":1,"values":[2.0,0.0,4.0,0.34,0.12]}}

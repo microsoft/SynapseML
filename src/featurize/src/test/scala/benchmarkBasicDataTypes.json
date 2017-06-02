@@ -1,0 +1,12 @@
+{"Label":0,"col1":2,"col2":0.5,"col3":true,"col4":0,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[0.0,2.0,1.0,12.0,0.5,0.0]}}
+{"Label":1,"col1":3,"col2":0.4,"col3":false,"col4":1,"col5":100,"col6":30.0,"testColumn":{"type":1,"values":[1.0,3.0,0.0,30.0,0.4,100.0]}}
+{"Label":0,"col1":4,"col2":0.78,"col3":true,"col4":2,"col5":50,"col6":12.0,"testColumn":{"type":1,"values":[2.0,4.0,1.0,12.0,0.78,50.0]}}
+{"Label":1,"col1":5,"col2":0.12,"col3":false,"col4":3,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[3.0,5.0,0.0,12.0,0.12,0.0]}}
+{"Label":0,"col1":1,"col2":0.5,"col3":true,"col4":0,"col5":0,"col6":30.0,"testColumn":{"type":1,"values":[0.0,1.0,1.0,30.0,0.5,0.0]}}
+{"Label":1,"col1":3,"col2":0.4,"col3":false,"col4":1,"col5":10,"col6":12.0,"testColumn":{"type":1,"values":[1.0,3.0,0.0,12.0,0.4,10.0]}}
+{"Label":0,"col1":3,"col2":0.78,"col3":false,"col4":2,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[2.0,3.0,0.0,12.0,0.78,0.0]}}
+{"Label":1,"col1":4,"col2":0.12,"col3":false,"col4":3,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[3.0,4.0,0.0,12.0,0.12,0.0]}}
+{"Label":0,"col1":0,"col2":0.5,"col3":true,"col4":0,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[0.0,0.0,1.0,12.0,0.5,0.0]}}
+{"Label":1,"col1":2,"col2":0.4,"col3":false,"col4":1,"col5":127,"col6":30.0,"testColumn":{"type":1,"values":[1.0,2.0,0.0,30.0,0.4,127.0]}}
+{"Label":0,"col1":3,"col2":0.78,"col3":true,"col4":2,"col5":-128,"col6":12.0,"testColumn":{"type":1,"values":[2.0,3.0,1.0,12.0,0.78,-128.0]}}
+{"Label":1,"col1":4,"col2":0.12,"col3":false,"col4":3,"col5":0,"col6":12.0,"testColumn":{"type":1,"values":[3.0,4.0,0.0,12.0,0.12,0.0]}}

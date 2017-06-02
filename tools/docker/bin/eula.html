@@ -1,0 +1,54 @@
+<html>
+<head><title>MMLSpark EULA</title>
+  <style>
+    code { background: #ddd; padding: 0 0.5ex; }
+    pre  { display: inline-block; text-align: left; padding: 1ex; background: #edf; }
+  </style>
+  <script>
+    function done(msg, url) {
+      document.getElementById("main").innerHTML = "<br><br><i>" + msg + "</i>";
+      var req = new XMLHttpRequest();
+      req.open("GET", url);
+      req.send();
+    }
+    var retryTimer = null;
+    function retryJupyter() {
+      if (retryTimer != null) clearTimeout(retryTimer);
+      retryTimer = setTimeout(waitForIt, 1000);
+    }
+    function waitForIt() {
+      var req = new XMLHttpRequest();
+      req.onerror = function(e) { retryJupyter(); }
+      req.onreadystatechange = function() {
+        if (req.readyState != 4) return;
+        if (req.status == 0) { retryJupyter(); return; }
+        window.location.reload(true);
+      };
+      try { req.open("GET", "/qsq"); req.send(); } catch (e) { retryJupyter(); }
+    }
+    function accept() {
+      localStorage.setItem("MMLSPARK_EULA", "agreed");
+      done("Starting Jupyter...", "/exit-accept");
+      retryJupyter();
+    }
+    function reject() {
+      done("Goodbye...", "/exit-reject");
+    }
+    window.onload = function() {
+      if (localStorage.getItem("MMLSPARK_EULA") == "agreed") accept();
+    }
+    </script></head>
+<body>
+  <div id="main" style="text-align: center;">
+    Please read the following EULA for the MMLSpark Docker Image.
+    <br><br>
+    <button onclick="accept()">AGREE</button>
+    &nbsp; &nbsp;
+    <button onclick="reject()">REJECT</button>
+    <br><br>
+    <span style="font-size: smaller;">
+      (Agreement will be remembered, but you can skip this check completely by
+      setting <code>ACCEPT_EULA</code> to <code>Yes</code> when starting the
+      container, e.g., <code>docker run ... -e ACCEPT_EULA=Y ...</code>)</span>
+    <br><hr><pre>{TEXT}</pre>
+</div></body></html>

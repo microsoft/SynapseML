@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme" "$@"
+@ "shared.sh"
+
+PRDIR="$BASEDIR/.build-pr"
+_md "$PRDIR"
+
+# make it possible to use the main version of these files later too
+_ cp -a "$TOOLSDIR/build-pr" "$PRDIR/build-pr"
+
+if [[ "$BUILDPR" = "" ]]; then exit 0; fi
+
+echo "##[section] PR Build for #$BUILDPR"
+
+api "pulls/$BUILDPR" - '.head.sha // error("no such PR")' > /dev/null
+sha1="$(api "pulls/$BUILDPR" - '.head.sha')"
+repo="$(api "pulls/$BUILDPR" - '.head.repo.full_name')"
+ref="$(api "pulls/$BUILDPR" - '.head.ref')"
+repourl="https://github.com/$repo"
+
+printf 'PR BUILD for #%s\n  repo: %s\n  ref: %s\n  sha1: %s\n' \
+       "$BUILDPR" "$repo" "$ref" "$sha1"
+
+git checkout "master" > /dev/null 2>&1
+oldbr="$(git for-each-ref --format="%(refname:short)" "refs/heads/pr-*")"
+if [[ "x$oldbr" != "x" ]]; then git branch -D $oldbr; fi
+
+text="$(jsonq "[A build has started.]($VURL)")"
+api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' > "$PRDIR/comment-id"
+
+_get_T
+git fetch "https://$T@github.com/$repo" "$ref:refs/heads/pr-$BUILDPR"
+git checkout "pr-$BUILDPR"
+git reset --hard "$sha1"
+
+# useful info in build
+{ echo "# This is a build for [github PR #$BUILDPR]($GURL)"
+  echo ""
+  echo "Associated Changes (actual ones)"
+  echo ""; echo "---"; echo ""
+  git log --format="* [%h]($repourl/commit/%H) [%aN](mailto:%aE) %s" \
+      "origin/master..$sha1"
+  } > "$PRDIR/PR-Build.md"
+echo "##vso[task.uploadsummary]$PRDIR/PR-Build.md"
+
+# variable overrides
+prvar() { printf '%s=%q\n' "$1" "$2" >> "$TOOLSDIR/local-config.sh"; }
+prvar BUILD_SOURCEVERSION        "$sha1"
+prvar BUILD_REPOSITORY_NAME      "$repo"
+prvar BUILD_REPOSITORY_ID        "$repourl"
+prvar BUILD_REPOSITORY_URI       "$repourl"
+prvar BUILD_SOURCEBRANCH         "refs/heads/$ref"
+prvar BUILD_SOURCEBRANCHNAME     "$(basename "$ref")"
+prvar BUILD_SOURCEVERSIONAUTHOR  "$(git log -1 --format="%aN <%aE>")"
+prvar BUILD_SOURCEVERSIONMESSAGE "$(git log -1 --format="%s")"

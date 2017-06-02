@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+shopt -s extglob
+
+. "$HOME/.mmlspark_profile"
+cd "$HOME/notebooks"
+echo "spark.sql.warehouse.dir $HOME/spark-warehouse" \
+     > "$HOME/lib/spark/conf/spark-defaults.conf"
+
+if [[ "${ACCEPT_EULA,,}" != @(y|yes) ]]; then
+  { echo "ERROR: You must accept the End User License Agreement to use this container."
+    echo "Run this container with \"eula\" to read the EULA."
+    echo "Set the environment variable ACCEPT_EULA to \"Yes\" (or \"Y\") to accept the"
+    echo "agreement, e.g., \"docker run -it -e ACCEPT_EULA=Y ...\"."
+  } 1>&2
+  exit 1
+  echo "Waiting for EULA agreement"; eula.py || exit 1
+fi
+
+PYSPARK_DRIVER_PYTHON="jupyter" \
+PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --port=${MMLSPARK_JUPYTER_PORT:=8888} --ip=*" \
+  pyspark --master "local[*]" --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE"

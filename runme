@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+########################################################################
+# This script serves as both an environment installation script and as a
+# build script, for use either on a build machine or a on a developer
+# machine.
+#
+# Arguments to the script are all parsed as variable settings in the
+# form of "VAR=VAL", which means that you can use either "X=Y ./runme"
+# or "./runme X=Y".
+#
+# The script works in a "mode" determined by $BUILDMODE.  The current
+# modes are:
+#
+# * "build":   performs all steps listed below,
+# * "server":  similar, but intended for use on a build agent,
+# * "setup":   perform only the setup/update steps, skipping the build,
+# * "runtime": similar to "setup", but installs only runtime libraries.
+#
+# The default (when $BUILDMODE is not set) is similar to doing the
+# environment setup part -- but if that does nothing then it continues
+# with the build.  You can therefore run it once to work directly in the
+# IDE, running it again only on updates, or use it to do full builds
+# (but you can use sbt/etc for that too).
+#
+# Here are the steps that are performed:
+#
+# 1. Setup a working environment with a bunch of needed packages
+#    installed.  (All are installed in $HOME/lib with symlinks in
+#    $HOME/bin, no system changes.)
+#
+# 2. Possibly update existing packages if the configuration (in
+#    "tools/config.sh") was updated.
+#
+# 3. Ensure that the environment is properly set up for these tools.
+#    For example, set $PATH to include $HOME/bin, verify a configured
+#    git identity.
+#
+# 4. Runs a build, including tests, packaging the result, etc.
+#
+# Look for `defvar` in "config.sh" to see other variables that customize
+# the build (e.g., $TESTS).
+########################################################################
+
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/tools/runme/runme.sh"
+
+# run an actual build only when this is invoked directly
+if ((${#BASH_SOURCE[@]} == 1)); then _runme; fi

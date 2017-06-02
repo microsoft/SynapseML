@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme" "$@"
+
+PRDIR="$BASEDIR/.build-pr"
+F="$PRDIR/build-pr/$(basename ${BASH_SOURCE[0]})"
+
+if [[ "${BASH_SOURCE[0]}" != "$F" ]]; then
+  if [[ -x "$F" ]]; then exec "$F"; fi; exit
+fi
+
+@ "shared.sh"
+
+ICONS_URL="https://$MAIN_CONTAINER.blob.core.windows.net/icons"
+icon="$ICONS_URL/Robot"
+case "${AGENT_JOBSTATUS,,}" in
+  ( succeeded ) icon+="2.png"; box="![PASS]($icon) Pass"       ;;
+  ( canceled  ) icon+="1.png"; box="![CANCEL]($icon) Canceled" ;;
+  ( failed    ) icon+="0.png"; box="![FAIL]($icon) Fail"       ;;
+  ( *         ) icon+="1.png"; box="![$AGENT_JOBSTATUS]($icon) Unknown" ;;
+esac
+
+if [[ "$BUILDPR" = "" ]]; then
+  _ az storage blob copy start --account-name "$MAIN_CONTAINER" \
+       --destination-container "icons" --destination-blob "BuildStatus.png" \
+       --source-uri "$icon"
+  exit
+fi
+
+if [[ ! -r "$PRDIR/comment-id" ]]; then exit; fi
+
+cid="$(< "$PRDIR/comment-id")"
+
+api "issues/comments/$cid" -X DELETE
+
+text="$(jsonq "[$box! The build has ${AGENT_JOBSTATUS,,}.]($VURL)")"
+api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' > "$PRDIR/comment-id"

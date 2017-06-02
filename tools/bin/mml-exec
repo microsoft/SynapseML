@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+HERE="$(cd "$(dirname "$(realpath "$0")")"; pwd)"
+
+exe="$1"; shift; args=( "$@" ); set --
+if [[ "$exe" = "" ]]; then
+  echo "Usage: $(basename "$0") <spark-exe> [arguments]"
+  echo "  runs <spark-exe> with --package and --repositories flags that are set"
+  echo "  up to use the most recent MMLSpark build."
+  echo "  If <spark-exe> is \"jupyter-notebook\" then run the notebook server,"
+  echo "  and additional arguments are passed to the \"jupyter notebook\" command."
+  exit 1
+fi
+
+if [[ -x "$HERE/../../runme" ]]; then . "$HERE/../../runme"
+else echo "Could not find \"runme\"" 1>&2; exit 1; fi
+
+# If we let spark guess a driver, it can find "python2.7" in the path (eg, the
+# system's installation) and use that; so do this to force it to use "python" in
+# our path, which is a symlink to the conda python.
+if [[ "x$PYSPARK_PYTHON" = "x" ]]; then export PYSPARK_PYTHON="python"; fi
+
+if [[ "$exe" == "jupyter-notebook" ]]; then
+  if [[ "${#args[@]}" = 0 ]]; then args=""
+  else args="$(printf "%q " "${args[@]}")"; fi
+  export PYSPARK_DRIVER_PYTHON="jupyter"
+  export PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --ip=* $args"
+  exe="pyspark"; args=()
+fi
+
+MML_M2REPOS="file:$BUILD_ARTIFACTS/packages/m2,$MAVEN_URL"
+MML_PACKAGE="com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:$MML_VERSION"
+
+exec "$exe" --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE" \
+            --master "local[*]" "${args[@]}"

@@ -1,0 +1,7 @@
+{"Label":0,"col1":{"type":0,"size":3,"indices":[0,2],"values":[1.0,2.0]},"col2":0.5,"col3":0.6,"col4":0,"col5":{"type":1,"values":[1.0,0.1,-1.5]},"testColumn":{"type":1,"values":[0.0,1.0,0.0,2.0,0.6,0.5,1.0,0.1,-1.5]}}
+{"Label":1,"col1":{"type":1,"values":[1.5,0.2,-1.2]},"col2":0.4,"col3":0.5,"col4":1,"col5":{"type":1,"values":[1.5,0.2,-1.2]},"testColumn":{"type":1,"values":[1.0,1.5,0.2,-1.2,0.5,0.4,1.5,0.2,-1.2]}}
+{"Label":1,"col1":{"type":0,"size":3,"indices":[0,2],"values":[1.0,2.0]},"col2":0.12,"col3":0.34,"col4":3,"col5":{"type":0,"size":3,"indices":[0,2],"values":[1.0,2.0]},"testColumn":{"type":1,"values":[3.0,1.0,0.0,2.0,0.34,0.12,1.0,0.0,2.0]}}
+{"Label":0,"col1":{"type":1,"values":[1.1,0.5,-1.024]},"col2":0.5,"col3":0.6,"col4":0,"col5":{"type":1,"values":[1.0,0.4,-1.23]},"testColumn":{"type":1,"values":[0.0,1.1,0.5,-1.024,0.6,0.5,1.0,0.4,-1.23]}}
+{"Label":1,"col1":{"type":1,"values":[1.1,0.5,-1.056]},"col2":0.4,"col3":0.5,"col4":1,"col5":{"type":1,"values":[1.1,0.5,-1.024]},"testColumn":{"type":1,"values":[1.0,1.1,0.5,-1.056,0.5,0.4,1.1,0.5,-1.024]}}
+{"Label":0,"col1":{"type":1,"values":["NaN",0.2,-1.23]},"col2":0.78,"col3":0.99,"col4":2,"col5":{"type":1,"values":[1.0,0.1,-1.22]},"testColumn":{"type":1,"values":[2.0,"NaN",0.2,-1.23,0.99,0.78,1.0,0.1,-1.22]}}
+{"Label":1,"col1":{"type":1,"values":[1.0,0.4,-1.23]},"col2":0.12,"col3":0.34,"col4":3,"col5":{"type":1,"values":["NaN",0.2,-1.23]},"testColumn":{"type":1,"values":[3.0,1.0,0.4,-1.23,0.34,0.12,"NaN",0.2,-1.23]}}
