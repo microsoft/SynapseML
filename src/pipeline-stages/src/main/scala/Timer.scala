@@ -28,7 +28,6 @@ trait TimerParams extends MMLParams {
 
 }
 
-@InternalWrapper
 class Timer(val uid: String) extends Estimator[TimerModel] with TimerParams {
 
   def this() = this(Identifiable.randomUID("Timer"))
