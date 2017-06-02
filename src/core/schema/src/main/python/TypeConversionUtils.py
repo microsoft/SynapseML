@@ -13,5 +13,9 @@ def complexTypeConverter(name, value, cache):
                 v._transfer_params_to_java()
             java_value.append(v._java_obj)
         return java_value
-    value._transfer_params_to_java()
-    return value._java_obj
+    if hasattr(value, "_transfer_params_to_java"):
+        value._transfer_params_to_java()
+    if hasattr(value, "_java_obj"):
+        return value._java_obj
+    else:
+        return value._to_java()
