@@ -149,7 +149,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   private lazy val complexTypes =  Set[String](
     "TransformerParam",
     "TransformerArrayParam",
-    "EstimatorParam")
+    "EstimatorParam",
+    "PipelineStageParam")
   protected def isComplexType(paramType: String): Boolean = complexTypes.contains(paramType)
 
   protected def getParamExplanation(param: Param[_]): String = {
