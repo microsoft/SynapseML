@@ -3,31 +3,33 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
 
-class CacherSuite extends TestBase {
+class TimerSuite extends TestBase {
 
   import session.implicits._
 
-  val df = Seq(
-    (0, "guitars", "drums"),
-    (1, "piano", "trumpet"),
-    (2, "bass", "cymbals"),
-    (3, "guitars", "drums"),
-    (4, "piano", "trumpet"),
-    (5, "bass", "cymbals"),
-    (6, "guitars", "drums"),
-    (7, "piano", "trumpet"),
-    (8, "bass", "cymbals"),
-    (9, "guitars", "drums"),
-    (10, "piano", "trumpet"),
-    (11, "bass", "cymbals")
-  ).toDF("numbers", "words", "more")
+  val df = session
+    .createDataFrame(Seq((0, "Hi I"),
+      (1, "I wish for snow today"),
+      (2, "we Cant go to the park, because of the snow!"),
+      (3, "")))
+    .toDF("label", "sentence")
 
-  test("Be the identity operation") {
-    val df2 = new Cacher().transform(df)
-    assert(df2.collect() === df.collect())
+  test("Work with transformers and estimators") {
+
+    val tok = new Tokenizer()
+      .setInputCol("sentence")
+      .setOutputCol("tokens")
+
+    val df2 = new Timer().setStage(tok).fit(df).transform(df)
+
+    val df3 = new HashingTF().setInputCol("tokens").setOutputCol("hash").transform(df2)
+
+    val idf = new IDF().setInputCol("hash").setOutputCol("idf")
+
+    val df4 = new Timer().setStage(idf).fit(df3).transform(df3)
+
   }
 
 }
