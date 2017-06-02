@@ -22,8 +22,46 @@ trait TimerParams extends MMLParams {
 
   def setLogToScala(v: Boolean): this.type = set(logToScala, v)
 
-  protected def logTime(str: String): Unit = {
-    println(str)
+  val cacheBefore = BooleanParam(this, "cacheBefore", "whether to cache the dataframe before entering the timer", true)
+
+  def getCacheBefore: Boolean = $(cacheBefore)
+
+  def setCacheBefore(v: Boolean): this.type = set(cacheBefore, v)
+
+  val countBefore = BooleanParam(this, "countBefore", "whether to count the dataframe before entering the timer", true)
+
+  def getCountBefore: Boolean = $(countBefore)
+
+  def setCountBefore(v: Boolean): this.type = set(countBefore, v)
+
+  val cacheAfter = BooleanParam(this, "cacheAfter", "whether to cache the dataframe before exiting the timer", true)
+
+  def getCacheAfter: Boolean = $(cacheAfter)
+
+  def setCacheAfter(v: Boolean): this.type = set(cacheAfter, v)
+
+  val countAfter = BooleanParam(this, "countAfter", "whether to count the dataframe before exiting the timer", true)
+
+  def getCountAfter: Boolean = $(countAfter)
+
+  def setCountAfter(v: Boolean): this.type = set(countAfter, v)
+
+  protected def formatTime(t: Long, isTransform: Boolean, count: Option[Long]): String = {
+    val time = {
+      t / 1000000000.0
+    }
+    val action = if (isTransform) "transform" else "predict"
+    val amount = count match {
+      case Some(i) => s"$i rows"
+      case _ => ""
+    }
+    s"$this took ${time}s to $action $amount"
+  }
+
+  protected def log(str: String): Unit = {
+    if (str != "") {
+      println(str)
+    }
   }
 
 }
@@ -39,19 +77,23 @@ class Timer(val uid: String) extends Estimator[TimerModel] with TimerParams {
   override def transformSchema(schema: StructType): StructType = getStage.transformSchema(schema)
 
   def fitWithTime(dataset: Dataset[_]): (TimerModel, String) = {
+
+    val cachedDatasetBefore = if (getCacheBefore) dataset.cache() else dataset
+    val countBeforeVal = if (getCountBefore) Some(dataset.count()) else None
+
     getStage match {
       case t: Transformer => (new TimerModel(uid, t).setParent(this), "")
       case e: Estimator[_] =>
         val t0 = System.nanoTime()
         val fitE = e.fit(dataset)
         val t1 = System.nanoTime()
-        (new TimerModel(uid, fitE).setParent(this), s"$e took ${(t1 - t0) / 1000000000.0}s to fit")
+        (new TimerModel(uid, fitE).setParent(this), formatTime(t1 - t0, false, countBeforeVal))
     }
   }
 
   def fit(dataset: Dataset[_]): TimerModel = {
     val (model, message) = fitWithTime(dataset)
-    if (message != "") logTime(message)
+    log(message)
     model
   }
 
@@ -63,17 +105,26 @@ class TimerModel(val uid: String, t: Transformer) extends Model[TimerModel] with
   }
 
   def transformWithTime(dataset: Dataset[_]): (DataFrame, String) = {
+    val cachedDatasetBefore = if (getCacheBefore) dataset.cache() else dataset
+    val countBeforeVal = if (getCountBefore) Some(dataset.count()) else None
+
     val t0 = System.nanoTime()
-    val res = t.transform(dataset)
+
+    val res = t.transform(cachedDatasetBefore)
+
+    val cachedDatasetAfter = if (getCacheBefore) res.cache() else res
+    val countAfterVal = if (getCountBefore) Some(cachedDatasetAfter.count()) else None
+
     val t1 = System.nanoTime()
-    (res, s"$t took ${(t1 - t0) / 1000000000.0}s to transform")
+
+    (cachedDatasetAfter, formatTime(t1 - t0, true, countAfterVal))
   }
 
   def transformSchema(schema: StructType): StructType = t.transformSchema(schema)
 
   def transform(dataset: Dataset[_]): DataFrame = {
     val (model, message) = transformWithTime(dataset)
-    logTime(message)
+    log(message)
     model
   }
 }
