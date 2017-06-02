@@ -32,7 +32,7 @@ class Timer(val uid: String) extends Estimator[TimerModel] with MMLParams {
         val t0 = System.nanoTime()
         val fitE = e.fit(dataset)
         val t1 = System.nanoTime()
-        println(s"$e took ${(t1 - t0)/1000000000.0}s to fit")
+        println(s"$e took ${(t1 - t0) / 1000000000.0}s to fit")
         new TimerModel(uid, fitE).setParent(this)
     }
   }
@@ -47,7 +47,7 @@ class TimerModel(val uid: String, t: Transformer) extends Model[TimerModel] {
     val t0 = System.nanoTime()
     val res = t.transform(dataset)
     val t1 = System.nanoTime()
-    println(s"$t took ${(t1 - t0)/1000000000.0}s to transform")
+    println(s"$t took ${(t1 - t0) / 1000000000.0}s to transform")
     res
   }
 
