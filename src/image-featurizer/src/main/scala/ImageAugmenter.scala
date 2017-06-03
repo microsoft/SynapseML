@@ -5,10 +5,12 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.microsoft.ml.spark.schema.ImageSchema
+
+object ImageAugmenter extends DefaultParamsReadable[ImageAugmenter]
 
 class ImageAugmenter(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with DefaultParamsWritable {
