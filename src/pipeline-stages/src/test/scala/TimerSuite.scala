@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.{Pipeline, PipelineStage}
 import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.sql.DataFrame
 
-class TimerSuite extends TestBase {
+class TimerSuite extends RoundTripTestBase {
 
   import session.implicits._
 
@@ -33,7 +35,7 @@ class TimerSuite extends TestBase {
 
   }
 
-  test("should work within pipelines"){
+  test("should work within pipelines") {
     val tok = new Tokenizer()
       .setInputCol("sentence")
       .setOutputCol("tokens")
@@ -50,6 +52,20 @@ class TimerSuite extends TestBase {
 
     pipe.fit(df).transform(df)
 
+  }
+  val dfRoundTrip: DataFrame = df
+  val reader: MLReadable[_] = Timer
+  val modelReader: MLReadable[_] = TimerModel
+  val stageRoundTrip: PipelineStage with MLWritable = {
+    val tok = new Tokenizer()
+      .setInputCol("sentence")
+      .setOutputCol("tokens")
+
+    new Timer().setStage(tok)
+  }
+
+  test("should roundtrip serialize") {
+    testRoundTrip(ignoreEstimators = true)
   }
 
 }

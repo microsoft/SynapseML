@@ -5,13 +5,15 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
+import scala.reflect.{ClassTag, classTag}
+
 object Timer extends DefaultParamsReadable[Timer]
 
-trait TimerParams extends MMLParams {
+trait TimerParams extends Wrappable {
   val stage = new PipelineStageParam(this, "stage", "the stage to time")
 
   def getStage: PipelineStage = $(stage)
@@ -66,7 +68,8 @@ trait TimerParams extends MMLParams {
 
 }
 
-class Timer(val uid: String) extends Estimator[TimerModel] with TimerParams {
+class Timer(val uid: String) extends Estimator[TimerModel]
+  with TimerParams with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("Timer"))
 
@@ -99,7 +102,17 @@ class Timer(val uid: String) extends Estimator[TimerModel] with TimerParams {
 
 }
 
-class TimerModel(val uid: String, t: Transformer) extends Model[TimerModel] with TimerParams {
+object TimerModel extends DefaultReadable[TimerModel] {
+  override val typesToRead = List(classOf[String], classOf[Transformer])
+  override val ttag: ClassTag[TimerModel] = classTag[TimerModel]
+}
+
+class TimerModel(val uid: String, t: Transformer)
+  extends Model[TimerModel] with TimerParams with DefaultWritable[TimerModel]{
+
+  override val objectsToSave = List(uid, t)
+  override val ttag: ClassTag[TimerModel] = classTag[TimerModel]
+
   override def copy(extra: ParamMap): TimerModel = {
     new TimerModel(uid, t.copy(extra)).setParent(parent)
   }
