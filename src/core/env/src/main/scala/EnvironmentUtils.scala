@@ -4,12 +4,8 @@
 package com.microsoft.ml.spark
 
 import java.nio.file.Paths
-import scala.sys.process._
 
-import org.apache.spark._
-import org.apache.spark.sql.SparkSession
-
-import ProcessUtils._
+import org.slf4j.{Logger, LoggerFactory}
 
 object EnvironmentUtils {
 
@@ -17,8 +13,8 @@ object EnvironmentUtils {
   def IsWindows: Boolean = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0
 
   // Make this overrideable so people have control over the granularity
-  private lazy val nvInfo: Option[String] = {
-    println(s"Computing GPU count on ${if(IsWindows) "Windows" else "Linux"}")
+  private def getEnvInfo(log: Logger): Option[String] = {
+    log.info(s"Computing GPU count on ${if(IsWindows) "Windows" else "Linux"}")
     val nvsmicmd = if (IsWindows) {
       // Unlikely nvidia is on the path
       val nvsmi = Paths.get(
@@ -32,21 +28,25 @@ object EnvironmentUtils {
     }
     // Probably a more Scala-idiomatic way to do this
     try {
-      Some(ProcessUtils.getProcessOutput(s"$nvsmicmd -L"))
+      Some(ProcessUtils.getProcessOutput(log, s"$nvsmicmd -L"))
     } catch {
       // Use the logging API to do this properly
       case e: Exception => {
-        println(s"Couldn't query Nvidia SMI for GPU info: $e")
+        log.warn(s"Couldn't query Nvidia SMI for GPU info: $e")
         None
       }
     }
   }
 
-  lazy val GPUCount: Option[Int] = if (nvInfo.isEmpty) None else {
-    // Commons Lang has isNotBlank
-    val gpucnt = nvInfo.get.split("\n").filter(!_.trim.isEmpty).length
-    println(s"$gpucnt GPUs detected")
-    Some(gpucnt)
+  lazy val GPUCount: Option[Int] = {
+    val log = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
+    val envInfo = getEnvInfo(log)
+    if (envInfo.isEmpty) None else {
+      // Commons Lang has isNotBlank
+      val gpucnt = envInfo.get.split("\n").filter(!_.trim.isEmpty).length
+      log.info(s"$gpucnt GPUs detected")
+      Some(gpucnt)
+    }
   }
 
 }
