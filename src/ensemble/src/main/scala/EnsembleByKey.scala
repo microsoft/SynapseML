@@ -50,6 +50,14 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
   setDefault(strategy -> "mean")
 
+  val collapseGroup = BooleanParam(this, "collapseGroup", "whether to collapse all items in group to one entry")
+
+  def getCollapseGroup: Boolean = $(collapseGroup)
+
+  def setCollapseGroup(value: Boolean): this.type = set(collapseGroup, value)
+
+  setDefault(collapseGroup -> true)
+
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     val strategyToFloatFunction = Map(
@@ -70,9 +78,15 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
       }
     }
 
-    dataset.toDF()
+    val aggregated = dataset.toDF()
       .groupBy(getKeys.head, getKeys.tail: _*)
       .agg(newCols.head, newCols.tail: _*)
+
+    if (getCollapseGroup) {
+      aggregated
+    } else {
+      dataset.toDF().join(aggregated, getKeys)
+    }
 
   }
 
@@ -81,9 +95,7 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
     val colSet = getCols.toSet
 
     val newFields = schema.fields.flatMap { f =>
-      if (keySet(f.name)) {
-        Some(f)
-      } else if (colSet(f.name)) {
+      if (colSet(f.name)) {
         f.dataType match {
           case _: DoubleType => Some(StructField(s"avg(${f.name})", f.dataType))
           case _: FloatType => Some(StructField(s"avg(${f.name})", f.dataType))
@@ -96,7 +108,14 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
       }
     }
 
-    new StructType(newFields)
+    val keyFields = schema.fields.filter(f => colSet(f.name))
+    val fields = if (getCollapseGroup) {
+      schema.fields.++(newFields)
+    } else {
+      keyFields.++(newFields)
+    }
+
+    new StructType(fields)
   }
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
