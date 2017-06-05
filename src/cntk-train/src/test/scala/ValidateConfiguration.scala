@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import org.slf4j.LoggerFactory
+
 class ValidateConfiguration extends TestBase {
 
   test("Basic BrainScript config E2E") {
@@ -18,11 +20,10 @@ class ValidateConfiguration extends TestBase {
         Map("features" -> InputShape(10000, "sparse"),
             "labels" -> InputShape(1, "dense")))
 
-    val cb = new CNTKCommandBuilder(false)
+    val log = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
+    val cb = new CNTKCommandBuilder(log, false)
       .appendOverrideConfig(config.toOverrideConfig)
-
-    // TODO: add assertions to really validate instead
-    println(cb.buildCommand)
+    println(cb.configs)
   }
 
 }
