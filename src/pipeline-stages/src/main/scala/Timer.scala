@@ -57,7 +57,7 @@ trait TimerParams extends Wrappable {
       case Some(i) => s"$i rows"
       case _ => ""
     }
-    s"$this took ${time}s to $action $amount"
+    s"${this.getStage} took ${time}s to $action $amount"
   }
 
   protected def log(str: String): Unit = {
