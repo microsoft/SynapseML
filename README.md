@@ -1,4 +1,6 @@
-# Microsoft Machine Learning for Apache Spark
+![MMLSpark](https://mmlspark.azureedge.net/icons/mmlspark-96.png)
+Microsoft Machine Learning for Apache Spark
+===========================================
 
 <img title="Build Status" src="https://mmlspark.azureedge.net/icons/BuildStatus.png" align="right" />
 
@@ -21,7 +23,6 @@ Python 3.5+.  See the API documentation
 * Pre-process image data using transforms from OpenCV ([example:302])
 * Featurize images using pre-trained deep neural nets using CNTK ([example:301])
 * Train DNN-based image classification models on N-Series GPU VMs on Azure
-  ([example:301])
 * Featurize free-form text data using convenient APIs on top of primitives in
   SparkML via a single transformer ([example:201])
 * Train classification and regression models easily via implicit featurization
@@ -71,16 +72,15 @@ and [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
 do so, run the following command:
 
-    docker run -it -p 8888:8888 microsoft/mmlspark
+    docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
 
 Navigate to <http://localhost:8888> in your web browser to run the sample
 notebooks.  See the
 [documentation](http://mmlspark.azureedge.net/docs/pyspark/install.html)
 for more on Docker use.
 
-> Note: If you wish to run a new instance of the Docker image, make sure you
-> stop & remove the container with the name `my-mml` (using `docker rm my-mml`)
-> before you try to run a new instance, or run it with a `--rm` flag.
+> To read the EULA for using the docker image, run
+>     docker run -it -p 8888:8888 microsoft/mmlspark eula
 
 #### GPU VM Setup
 
