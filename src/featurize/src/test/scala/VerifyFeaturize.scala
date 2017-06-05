@@ -216,11 +216,9 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
       (1, 4, 0.12, 0.34, bird, dog)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5")
 
-    val catDataset = SparkSchema.makeCategorical(
-      SparkSchema.makeCategorical(dataset, "col4", "col4", false),
-      "col5",
-      "col5",
-      false)
+    val model1 = new ValueIndexer().setInputCol("col4").setOutputCol("col4").fit(dataset)
+    val model2 = new ValueIndexer().setInputCol("col5").setOutputCol("col5").fit(dataset)
+    val catDataset = model1.transform(model2.transform(dataset))
 
     val result: DataFrame = featurizeAndVerifyResult(catDataset,
       benchmarkOneHotTempFile.toString,
@@ -257,7 +255,7 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
     assert(resultStringIndexer.first().getAs[DenseVector](featuresColumn).size == 7)
   }
 
-  // This test currently fails on makeCategorical, where we should handle missing values (unlike spark,
+  // This test currently fails on ValueIndexer, where we should handle missing values (unlike spark,
   // which fails with a null reference exception)
   ignore("Featurizing with categorical columns that have missings - using one hot encoding") {
     val cat = "Cat"
@@ -272,7 +270,8 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
       (1, dog)))
       .toDF(mockLabelColumn, "col1")
 
-    val catDataset = SparkSchema.makeCategorical(dataset, "col1", "col1", false)
+    val model1 = new ValueIndexer().setInputCol("col1").setOutputCol("col1").fit(dataset)
+    val catDataset = model1.transform(dataset)
 
     val result: DataFrame = featurizeAndVerifyResult(catDataset,
       benchmarkOneHotMissingsTempFile.toString,

@@ -70,8 +70,12 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
           case "float" => numericTransform(df, FloatType, convCol)
           case "double" => numericTransform(df, DoubleType, convCol)
           case "string" => numericTransform(df, StringType, convCol)
-          case "toCategorical" => SparkSchema.makeCategorical(df, convCol, convCol, true)
-          case "clearCategorical" => SparkSchema.makeNonCategorical(df, convCol, convCol)
+          case "toCategorical" => {
+            val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
+            model.transform(df)
+          }
+          case "clearCategorical" =>
+            new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
           case "date" => toDateConversion(df, convCol)
         }
       }

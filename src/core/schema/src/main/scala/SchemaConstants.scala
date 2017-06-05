@@ -31,6 +31,7 @@ object SchemaConstants {
   val ValuesLong                = "vals_long"
   val ValuesDouble              = "vals_double"
   val ValuesBool                = "vals_bool"
+  val HasNullLevels             = "null_exists"
 
   // Score value kinds, or types of ML:
   val ClassificationKind        = "Classification"
