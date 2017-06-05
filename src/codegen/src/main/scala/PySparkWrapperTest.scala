@@ -42,6 +42,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
     s"""
         |from pyspark.ml.feature import Tokenizer
         |from mmlspark import TrainClassifier
+        |from mmlspark import ValueIndexer
         |
         |sc = SparkContext()
         |
@@ -129,6 +130,21 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |        self.assertNotEqual(evaluatedData, None)
         |""".stripMargin
 
+  protected def valueIndexerModelTemplate(entryPointName: String) =
+    s"""|${tryFitSetupTemplate(entryPointName)}
+        |        valueData = $entryPointName(inputCol="col5", outputCol="catOutput",
+        |                                    dataType="string", levels=["dog", "cat", "bird"]).transform(data)
+        |        self.assertNotEqual(valueData, None)
+        |""".stripMargin
+
+  protected def indexToValueTemplate(entryPointName: String) =
+    s"""|${tryFitSetupTemplate(entryPointName)}
+        |        indexModel = ValueIndexer(inputCol="col5", outputCol="catOutput").fit(data)
+        |        indexedData = indexModel.transform(data)
+        |        valueData = $entryPointName(inputCol="catOutput", outputCol="origDomain").transform(indexedData)
+        |        self.assertNotEqual(valueData, None)
+        |""".stripMargin
+
   protected def evaluateTemplate(entryPointName: String) =
     s"""|${evaluateSetupTemplate(entryPointName)}
         |        model = TrainClassifier(model=LogisticRegression(), labelCol="labelColumn",
@@ -151,6 +167,8 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
     else ""
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
   protected def evaluateString(entryPointName: String): String          = evaluateTemplate(entryPointName)
+  protected def indexToValueString(entryPointName: String): String      = indexToValueTemplate(entryPointName)
+  protected def valueIndexerModelString(entryPointName: String): String = valueIndexerModelTemplate(entryPointName)
   protected def tryTransformString(entryPointName: String): String = {
     val param: String =
       entryPointName match {
@@ -163,6 +181,9 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         case "SelectColumns"       => "cols=[\"col1\"]"
         case "ImageFeaturizer"     => "modelSaveDir=\"file:///tmp\""
         case "Repartition"         => "n=2"
+        case "IndexToValue"        => "inputCol=\"catOutput\""
+        case "ValueIndexerModel"   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
+          "dataType=\"string\", levels=[\"dog\", \"cat\", \"bird\"]"
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
            | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
         case _ => ""
@@ -243,6 +264,8 @@ class SparkTransformerWrapperTest(entryPoint: Transformer,
       entryPointName match {
         case "ComputeModelStatistics" => computeStatisticsString(entryPointName)
         case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
+        case "IndexToValue" => indexToValueString(entryPointName)
+        case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer"
            | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "StopWordsRemoverTransform"
            => ""

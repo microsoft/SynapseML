@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import com.microsoft.ml.spark.schema._
+import com.microsoft.ml.spark.CastUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.classification._
@@ -17,7 +18,24 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
 /**
-  * Trains a classification model.
+  * Trains a classification model.  Featurizes the given data into a vector of doubles.
+  *
+  * Note the behavior of the reindex and labels parameters, the parameters interact as:
+  *   reindex -> false
+  *   labels -> false (Empty)
+  * Assume all double values, don't use metadata, assume natural ordering
+  *
+  *   reindex -> true
+  *   labels -> false (Empty)
+  * Index, use natural ordering of string indexer
+  *   reindex -> false
+  *   labels -> true (Specified)
+  *
+  * Assume user knows indexing, apply label values. Currently only string type supported.
+  *   reindex -> true
+  *   labels -> true (Specified)
+  *
+  * Validate labels matches column type, try to recast to label type, reindex label column
   */
 class TrainClassifier(override val uid: String) extends Estimator[TrainedClassifierModel]
   with HasLabelCol with MMLParams {
@@ -36,9 +54,23 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   def getNumFeatures: Int = $(numFeatures)
   def setNumFeatures(value: Int): this.type = set(numFeatures, value)
 
-  val indexLabel = BooleanParam(this, "indexLabel", "index the label column", true)
-  def getIndexLabel: Boolean = $(indexLabel)
-  def setIndexLabel(value: Boolean): this.type = set(indexLabel, value)
+  /**
+    * Specifies whether to reindex the given label column.
+    * See class documentation for how this parameter interacts with specified labels.
+    * @group param
+    */
+  val reindexLabel = BooleanParam(this, "reindexLabel", "reindex the label column", true)
+  def getReindexLabel: Boolean = $(reindexLabel)
+  def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
+
+  /**
+    * Specifies the labels metadata on the column.
+    * See class documentation for how this parameter interacts with reindex labels parameter.
+    * @group param
+    */
+  val labels = new StringArrayParam(this, "labels", "sorted label values on the labels column")
+  def getLabels: Array[String] = $(labels)
+  def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /**
     * Fits the classification model.
@@ -47,57 +79,33 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
-    val labelColumn = getLabelCol
-    val indexLabelFeaturize = getIndexLabel
-    var levels: Option[Array[_]] = None
-    var oneHotEncodeCategoricals = true
-    var modifyInputLayer = false
-
-    // Convert label column to categorical on train, remove rows with missing labels
-    val convertedLabelDataset = if (indexLabelFeaturize) {
-      val dataframe = dataset.toDF().na.drop(Seq(labelColumn))
-      if (!SparkSchema.isCategorical(dataframe, labelColumn)) {
-        val categoricalLabelDataset = SparkSchema.makeCategorical(dataframe, labelColumn, labelColumn, true)
-        levels = CategoricalUtilities.getLevels(categoricalLabelDataset.schema, labelColumn)
-        categoricalLabelDataset.withColumn(labelColumn,
-          categoricalLabelDataset(labelColumn).cast(DoubleType).as(labelColumn,
-            categoricalLabelDataset.schema(labelColumn).metadata))
+    val labelValues =
+      if (isDefined(labels)) {
+        Some(getLabels)
       } else {
-        levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumn)
-        dataframe
+        None
       }
-    } else {
-      dataset.na.drop(Seq(labelColumn))
-    }
+    // Convert label column to categorical on train, remove rows with missing labels
+    val (convertedLabelDataset, levels) = convertLabel(dataset, getLabelCol, labelValues)
 
-    // Create trainer based on the pipeline stage and set the parameters
-    val numFeatures: Int = getModel match {
-      case _: DecisionTreeClassifier | _: GBTClassifier | _: RandomForestClassifier =>
-        oneHotEncodeCategoricals = false
-        FeaturizeUtilities.numFeaturesTreeOrNNBased
-      case _: MultilayerPerceptronClassifier =>
-        modifyInputLayer = true
-        FeaturizeUtilities.numFeaturesTreeOrNNBased
-      case _ =>
-        FeaturizeUtilities.numFeaturesDefault
-    }
+    val (oneHotEncodeCategoricals, modifyInputLayer, numFeatures) = getFeaturizeParams
 
     var classifier: Estimator[_ <: PipelineStage] = getModel match {
       case logisticRegressionClassifier: LogisticRegression => {
-        if (indexLabelFeaturize && levels.isDefined && levels.get.length > 2) {
+        if (levels.isDefined && levels.get.length > 2) {
           new OneVsRest()
             .setClassifier(
               logisticRegressionClassifier
-                .setLabelCol(labelColumn)
+                .setLabelCol(getLabelCol)
                 .setFeaturesCol(featuresColumn))
-            .setLabelCol(labelColumn)
+            .setLabelCol(getLabelCol)
             .setFeaturesCol(featuresColumn)
         } else {
           logisticRegressionClassifier
         }
       }
       case gradientBoostedTreesClassifier: GBTClassifier => {
-        if (indexLabelFeaturize && levels.isDefined && levels.get.length > 2) {
+        if (levels.isDefined && levels.get.length > 2) {
           throw new Exception("Multiclass Gradient Boosted Tree Classifier not supported yet")
         } else {
           gradientBoostedTreesClassifier
@@ -112,7 +120,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     classifier = classifier match {
       case predictor: Predictor[_, _, _] => {
         predictor
-          .setLabelCol(labelColumn)
+          .setLabelCol(getLabelCol)
           .setFeaturesCol(featuresColumn).asInstanceOf[Estimator[_ <: PipelineStage]]
       }
       case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
@@ -128,7 +136,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
         numFeatures
       }
 
-    val featureColumns = convertedLabelDataset.columns.filter(col => col != labelColumn).toSeq
+    val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
 
     val featurizer = new Featurize()
       .setFeatureColumns(Map(featuresColumn -> featureColumns))
@@ -144,7 +152,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
       val multilayerPerceptronClassifier = classifier.asInstanceOf[MultilayerPerceptronClassifier]
       val row = processedData.take(1)(0)
       val featuresVector = row.get(row.fieldIndex(featuresColumn))
-      val vectorSize = featuresVector.asInstanceOf[org.apache.spark.ml.linalg.Vector].size
+      val vectorSize = featuresVector.asInstanceOf[linalg.Vector].size
       multilayerPerceptronClassifier.getLayers(0) = vectorSize
       multilayerPerceptronClassifier.setLayers(multilayerPerceptronClassifier.getLayers)
     }
@@ -156,7 +164,72 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
 
     // Note: The fit shouldn't do anything here
     val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
-    new TrainedClassifierModel(uid, labelColumn, pipelineModel, levels, featuresColumn)
+    new TrainedClassifierModel(uid, getLabelCol, pipelineModel, levels, featuresColumn)
+  }
+
+  def getFeaturizeParams: (Boolean, Boolean, Int) = {
+    var oneHotEncodeCategoricals = true
+    var modifyInputLayer = false
+    // Create trainer based on the pipeline stage and set the parameters
+    val numFeatures: Int = getModel match {
+      case _: DecisionTreeClassifier | _: GBTClassifier | _: RandomForestClassifier =>
+        oneHotEncodeCategoricals = false
+        FeaturizeUtilities.numFeaturesTreeOrNNBased
+      case _: MultilayerPerceptronClassifier =>
+        modifyInputLayer = true
+        FeaturizeUtilities.numFeaturesTreeOrNNBased
+      case _ =>
+        FeaturizeUtilities.numFeaturesDefault
+    }
+    (oneHotEncodeCategoricals, modifyInputLayer, numFeatures)
+  }
+
+  def convertLabel(dataset: Dataset[_],
+                   labelColumn: String,
+                   labelValues: Option[Array[_]]): (DataFrame, Option[Array[_]]) = {
+    var levels: Option[Array[_]] = None
+    if (getReindexLabel) {
+
+      val dataframe = dataset.toDF().na.drop(Seq(labelColumn))
+
+      if (labelValues.isDefined) {
+        if (SparkSchema.isCategorical(dataframe, labelColumn)) {
+          throw new Exception("Column is already categorical, cannot set label values")
+        }
+        // Reindex is true, and labels are given, set levels, make column categorical given the levels
+        val labelDataType = dataset.schema(labelColumn).dataType
+        // Cast the labels to the given data type, validate labels match column type
+        labelValues.get.map(value => value.toDataType(labelDataType))
+        levels = labelValues
+        // Reindex the column to be categorical with given metadata
+        val reindexedDF = new ValueIndexerModel()
+          .setLevels(levels.get)
+          .setDataType(labelDataType)
+          .setInputCol(labelColumn)
+          .setOutputCol(labelColumn)
+          .transform(dataframe)
+        (reindexedDF, levels)
+      } else {
+        if (!SparkSchema.isCategorical(dataframe, labelColumn)) {
+          val model = new ValueIndexer().setInputCol(labelColumn).setOutputCol(labelColumn).fit(dataframe)
+          val categoricalLabelDataset = model.transform(dataframe)
+          levels = CategoricalUtilities.getLevels(categoricalLabelDataset.schema, labelColumn)
+          (categoricalLabelDataset.withColumn(labelColumn,
+            categoricalLabelDataset(labelColumn).cast(DoubleType).as(labelColumn,
+              categoricalLabelDataset.schema(labelColumn).metadata)), levels)
+        } else {
+          levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumn)
+          (dataframe, levels)
+        }
+      }
+    } else {
+      if (labelValues.isDefined) {
+        // Reindex is false, set label metadata (only strings supported, since we cannot infer types) on
+        // column directly
+        levels = labelValues
+      }
+      (dataset.na.drop(Seq(labelColumn)), levels)
+    }
   }
 
   override def copy(extra: ParamMap): Estimator[TrainedClassifierModel] = defaultCopy(extra)

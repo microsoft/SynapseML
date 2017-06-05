@@ -6,10 +6,11 @@ package com.microsoft.ml.spark.schema
 /**
   * Contains objects and functions to manipulate Categoricals
   */
+import javassist.bytecode.DuplicateMemberException
+
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.attribute._
-import org.apache.spark.sql.functions.udf
 import SchemaConstants._
 
 import scala.reflect.ClassTag
@@ -22,11 +23,15 @@ object CategoricalUtilities {
     */
   def setLevels(dataset: DataFrame, column: String, levels: Array[_]): DataFrame = {
     if (levels == null) dataset
-    else dataset.withColumn(column,
-      dataset.col(column).as(column,
-        updateLevelsMetadata(dataset.schema(column).metadata,
-          levels,
-          getCategoricalTypeForValue(levels.head))))
+    else {
+      val nonNullLevels = levels.filter(_ != null)
+      val hasNullLevels = nonNullLevels.length != levels.length
+      dataset.withColumn(column,
+        dataset.col(column).as(column,
+          updateLevelsMetadata(dataset.schema(column).metadata,
+            nonNullLevels,
+            getCategoricalTypeForValue(nonNullLevels.head), hasNullLevels)))
+    }
   }
 
   /**
@@ -36,14 +41,18 @@ object CategoricalUtilities {
     * @param dataType The datatype of the levels.
     * @return The new metadata.
     */
-  def updateLevelsMetadata(existingMetadata: Metadata, levels: Array[_], dataType: DataType): Metadata = {
+  def updateLevelsMetadata(existingMetadata: Metadata,
+                           levels: Array[_],
+                           dataType: DataType,
+                           hasNullLevels: Boolean): Metadata = {
     val bldr =
-    if (existingMetadata.contains(MMLTag)) {
-      new MetadataBuilder().withMetadata(existingMetadata.getMetadata(MMLTag))
-    } else {
-      new MetadataBuilder()
-    }
+      if (existingMetadata.contains(MMLTag)) {
+        new MetadataBuilder().withMetadata(existingMetadata.getMetadata(MMLTag))
+      } else {
+        new MetadataBuilder()
+      }
     bldr.putBoolean(Ordinal, false)
+    bldr.putBoolean(HasNullLevels, hasNullLevels)
     dataType match {
       case DataTypes.StringType  => bldr.putStringArray(ValuesString, levels.asInstanceOf[Array[String]])
       case DataTypes.DoubleType  => bldr.putDoubleArray(ValuesDouble, levels.asInstanceOf[Array[Double]])
@@ -68,7 +77,7 @@ object CategoricalUtilities {
     val metadata = schema(column).metadata
 
     if (metadata.contains(MMLTag)) {
-      val dataType: Option[DataType] = getDataType(metadata)
+      val dataType: Option[DataType] = CategoricalColumnInfo.getDataType(metadata, false)
       if (dataType.isEmpty) None
       else {
         dataType.get match {
@@ -95,7 +104,7 @@ object CategoricalUtilities {
     val metadata = dataset.schema(column).metadata
 
     if (metadata.contains(MMLTag)) {
-      val dataType: Option[DataType] = getDataType(metadata)
+      val dataType: Option[DataType] = CategoricalColumnInfo.getDataType(metadata, false)
 
       if (dataType.isEmpty) None
       else {
@@ -133,12 +142,17 @@ object CategoricalUtilities {
         sys.error("Invalid metadata to retrieve map from")
       }
 
+    val hasNullLevel =
+      if (data.contains(HasNullLevels)) data.getBoolean(HasNullLevels)
+      else false
+    val isOrdinal = false
+
     val categoricalMap = implicitly[ClassTag[T]] match  {
-      case ClassTag.Int => new CategoricalMap[Int](data.getLongArray(ValuesInt).map(_.toInt))
-      case ClassTag.Double => new CategoricalMap[Double](data.getDoubleArray(ValuesDouble))
-      case ClassTag.Boolean => new CategoricalMap[Boolean](data.getBooleanArray(ValuesBool))
-      case ClassTag.Long => new CategoricalMap[Long](data.getLongArray(ValuesLong))
-      case _ => new CategoricalMap[String](data.getStringArray(ValuesString))
+      case ClassTag.Int => new CategoricalMap[Int](data.getLongArray(ValuesInt).map(_.toInt), isOrdinal, hasNullLevel)
+      case ClassTag.Double => new CategoricalMap[Double](data.getDoubleArray(ValuesDouble), isOrdinal, hasNullLevel)
+      case ClassTag.Boolean => new CategoricalMap[Boolean](data.getBooleanArray(ValuesBool), isOrdinal, hasNullLevel)
+      case ClassTag.Long => new CategoricalMap[Long](data.getLongArray(ValuesLong), isOrdinal, hasNullLevel)
+      case _ => new CategoricalMap[String](data.getStringArray(ValuesString), isOrdinal, hasNullLevel)
     }
     categoricalMap.asInstanceOf[CategoricalMap[T]]
   }
@@ -157,21 +171,8 @@ object CategoricalUtilities {
       case _: Int     => DataTypes.IntegerType
       case _: Long    => DataTypes.LongType
       case _: Boolean => DataTypes.BooleanType
-      case _          => throw new UnsupportedOperationException("Unsupported categorical data type")
+      case _          => throw new UnsupportedOperationException("Unsupported categorical data type " + value)
     }
-  }
-
-  private def getDataType(metadata: Metadata): Option[DataType] = {
-    val columnMetadata = metadata.getMetadata(MMLTag)
-    val dataType =
-      if (columnMetadata.contains(ValuesString)) Some(DataTypes.StringType)
-      else if (columnMetadata.contains(ValuesLong)) Some(DataTypes.LongType)
-      else if (columnMetadata.contains(ValuesInt)) Some(DataTypes.IntegerType)
-      else if (columnMetadata.contains(ValuesLong)) Some(DataTypes.LongType)
-      else if (columnMetadata.contains(ValuesDouble)) Some(DataTypes.DoubleType)
-      else if (columnMetadata.contains(ValuesBool)) Some(DataTypes.BooleanType)
-      else None
-    dataType
   }
 
 }
@@ -183,9 +184,9 @@ object CategoricalUtilities {
   * @param isOrdinal  A flag that indicates if the data are ordinal
   * @tparam T  Input levels could be String, Double, Int, Long, Boolean
   */
-class CategoricalMap[T](val levels: Array[T], val isOrdinal: Boolean = false) extends Serializable {
-  //TODO: handle NULL values
-
+class CategoricalMap[T](val levels: Array[T],
+                        val isOrdinal: Boolean = false,
+                        val hasNullLevel: Boolean = false) extends Serializable {
   require(levels.distinct.size == levels.size, "Categorical levels are not unique.")
   require(!levels.isEmpty, "Levels should not be empty")
 
@@ -193,7 +194,7 @@ class CategoricalMap[T](val levels: Array[T], val isOrdinal: Boolean = false) ex
   val numLevels = levels.length //TODO: add the maximum possible number of levels?
 
   /** Spark DataType correspondint to type T */
-  val dataType = CategoricalUtilities.getCategoricalTypeForValue(levels.head)
+  val dataType = CategoricalUtilities.getCategoricalTypeForValue(levels.find(_ != null).head)
 
   /** Maps levels to the corresponding integer index */
   private lazy val levelToIndex: Map[T, Int] = levels.zipWithIndex.toMap
@@ -221,14 +222,14 @@ class CategoricalMap[T](val levels: Array[T], val isOrdinal: Boolean = false) ex
 
     // Currently, MLlib converts all non-string categorical values to string;
     // see org.apache.spark.ml.feature.StringIndexer
-    val strLevels = levels.map(_.toString).asInstanceOf[Array[String]]
+    val strLevels = levels.filter(_ != null).map(_.toString).asInstanceOf[Array[String]]
 
     NominalAttribute.defaultAttr.withValues(strLevels).toMetadata(existingMetadata)
   }
 
   /** Stores levels in Spark Metadata in MML format */
   private def toMetadataMML(existingMetadata: Metadata): Metadata = {
-    CategoricalUtilities.updateLevelsMetadata(existingMetadata, levels, dataType)
+    CategoricalUtilities.updateLevelsMetadata(existingMetadata, levels, dataType, hasNullLevel)
   }
 
   /** Add categorical levels to existing Spark Metadata
@@ -261,6 +262,45 @@ class CategoricalMap[T](val levels: Array[T], val isOrdinal: Boolean = false) ex
 }
 
 /**
+  * Utilities for getting categorical column info.
+  */
+object CategoricalColumnInfo {
+  /**
+    * Gets the datatype from the column metadata.
+    * @param columnMetadata The column metadata
+    * @return The datatype
+    */
+  def getDataType(metadata: Metadata, throwOnInvalid: Boolean = true): Option[DataType] = {
+    val mmlMetadata =
+      if (metadata.contains(MMLTag)) {
+        metadata.getMetadata(MMLTag)
+      } else {
+        throw new NoSuchFieldException(s"Could not find valid $MMLTag metadata")
+      }
+    val keys = MetadataUtilities.getMetadataKeys(mmlMetadata)
+    val validatedDataType = keys.foldRight(None: Option[DataType])((metadataKey, result) => metadataKey match {
+      case ValuesString => getValidated(result, DataTypes.StringType)
+      case ValuesLong => getValidated(result, DataTypes.LongType)
+      case ValuesInt => getValidated(result, DataTypes.IntegerType)
+      case ValuesDouble => getValidated(result, DataTypes.DoubleType)
+      case ValuesBool => getValidated(result, DataTypes.BooleanType)
+      case _ => if (result.isDefined) result else None
+    })
+    if (validatedDataType.isEmpty && throwOnInvalid) {
+      throw new NoSuchElementException("Unrecognized datatype or no datatype found in MML metadata")
+    }
+    validatedDataType
+  }
+
+  private def getValidated(result: Option[DataType], dataType: DataType): Option[DataType] = {
+    if (result.isDefined) {
+      throw new DuplicateMemberException("DataType metadata specified twice")
+    }
+    Option(dataType)
+  }
+}
+
+/**
   * Extract categorical info from the DataFrame column
   * @param df dataframe
   * @param column column name
@@ -271,9 +311,9 @@ class CategoricalColumnInfo(df: DataFrame, column: String) {
   private val metadata = columnSchema.metadata
 
   /** Get the basic info: whether the column is categorical or not, actual type of the column, etc */
-  val (isCategorical, isMML, isOrdinal, dataType) = {
+  val (isCategorical, isMML, isOrdinal, dataType, hasNullLevels) = {
 
-    val notCategorical = (false, false, false, NullType)
+    val notCategorical = (false, false, false, NullType, false)
 
     if (columnSchema.dataType != DataTypes.IntegerType
       && columnSchema.dataType != DataTypes.DoubleType) notCategorical
@@ -283,17 +323,13 @@ class CategoricalColumnInfo(df: DataFrame, column: String) {
       if (!columnMetadata.contains(Ordinal)) notCategorical
       else {
         val isOrdinal = columnMetadata.getBoolean(Ordinal)
+        val hasNullLevels =
+          if (columnMetadata.contains(HasNullLevels)) columnMetadata.getBoolean(HasNullLevels)
+          else false
 
-        val dataType =
-          if      (columnMetadata.contains(ValuesString)) DataTypes.StringType
-          else if (columnMetadata.contains(ValuesLong))   DataTypes.LongType
-          else if (columnMetadata.contains(ValuesInt))    DataTypes.IntegerType
-          else if (columnMetadata.contains(ValuesLong))   DataTypes.LongType
-          else if (columnMetadata.contains(ValuesDouble)) DataTypes.DoubleType
-          else if (columnMetadata.contains(ValuesBool))   DataTypes.BooleanType
-          else throw new Exception("Unrecognized datatype in MML metadata")
+        val dataType: DataType = CategoricalColumnInfo.getDataType(metadata).get
 
-        (true, true, isOrdinal, dataType)
+        (true, true, isOrdinal, dataType, hasNullLevels)
       }
     }
     else if (metadata.contains(MLlibTag)) {
@@ -305,10 +341,13 @@ class CategoricalColumnInfo(df: DataFrame, column: String) {
       if (!isCategorical) notCategorical
       else {
         val isOrdinal = if (columnMetadata.contains(Ordinal)) columnMetadata.getBoolean(Ordinal) else false
+        val hasNullLevels =
+          if (columnMetadata.contains(HasNullLevels)) columnMetadata.getBoolean(HasNullLevels)
+          else false
         val dataType =
           if (columnMetadata.contains(ValuesString)) DataTypes.StringType
           else throw new UnsupportedOperationException("nominal attribute does not contain string levels")
-        (true, false, isOrdinal, dataType)
+        (true, false, isOrdinal, dataType, hasNullLevels)
       }
     } else
       notCategorical
