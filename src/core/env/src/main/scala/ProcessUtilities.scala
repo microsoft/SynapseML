@@ -4,22 +4,23 @@
 package com.microsoft.ml.spark
 
 import scala.sys.process._
+import org.slf4j.Logger
 
 object ProcessUtils {
 
   // These are only here until we create a more robust
   // stream-redirected utility
-  def getProcessOutput(cmd: String): String = {
-    println(s"Capturing external process $cmd...")
+  def getProcessOutput(log: Logger, cmd: ProcessBuilder): String = {
+    log.info(s"Capturing external process:\n $cmd")
     val ret = cmd.!!
-    println(s"$ret...done!")
+    log.info(s"$ret...done!")
     ret
   }
 
-  def runProcess(cmd: String): Int = {
-    println(s"Executing external process $cmd...")
+  def runProcess(log: Logger, cmd: ProcessBuilder): Int = {
+    log.info(s"Executing external process:\n $cmd")
     val ret = cmd .!
-    println(s"$ret...done!")
+    log.info(s"$ret...done!")
     ret
   }
 
