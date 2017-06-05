@@ -4,10 +4,11 @@
 package com.microsoft.ml.spark.hadoop
 
 import org.apache.hadoop.conf.Configuration
+import org.slf4j.Logger
 import scala.language.existentials
 import scala.sys.process._
 
-class HadoopUtils(hadoopConf: Configuration) {
+class HadoopUtils(log: Logger, hadoopConf: Configuration) {
   // Is there a better way? We need to deduce full Hadoop conf
   // including current active namenode etc as well as YARN properties
   // going forward anyway for cluster participation in GPU-YARN-queue mode
@@ -33,7 +34,7 @@ class HadoopUtils(hadoopConf: Configuration) {
 
   private def getNameNodes: Seq[String] = {
     val nameservices = getNameServices
-    println(s"Nameservices for cluster at '$nameservices'")
+    log.info(s"Nameservices for cluster at '$nameservices'")
     hadoopConf.get(combine(NAMENODE_KEY_ROOT, nameservices)).split(",")
   }
 
@@ -45,22 +46,22 @@ class HadoopUtils(hadoopConf: Configuration) {
 
   def getActiveNameNode: String = {
     val nameservices = getNameServices
-    println(s"Nameservices for cluster at '$nameservices'")
+    log.info(s"Nameservices for cluster at '$nameservices'")
     val namenodes = getNameNodes
-    println(s"Querying namenodes:\n${namenodes.foreach(println)}")
+    log.info(s"Querying namenodes:\n${namenodes.foreach(log.info)}")
     val active = namenodes.par
       .filter(isActiveNode)
       .head
-    println(s"Found $active as active namenode")
+    log.info(s"Found $active as active namenode")
     hadoopConf.get(combine(RPC_KEY_ROOT, nameservices, active))
   }
 
   // This is only to make sure all uses go away ASAP into Process utils
   // I realize this means it will be around forever
   private def shellout(cmd: String): String = {
-    println(s"Executing external process $cmd...")
+    log.info(s"Executing external process $cmd...")
     val ret = cmd.!!
-    println(s"$ret...done!")
+    log.info(s"$ret...done!")
     ret
   }
 
