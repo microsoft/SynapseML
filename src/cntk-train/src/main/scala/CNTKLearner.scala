@@ -6,7 +6,9 @@ package com.microsoft.ml.spark
 import java.net.URI
 
 import com.microsoft.ml.spark.FileUtilities._
+import org.apache.hadoop.fs.Path
 import org.apache.spark.ml._
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -17,32 +19,58 @@ trait CNTKParams extends MMLParams {
 
   // This is only needed until Train* accepts CNTKLearner instead of CL acting like Train*
   val labelsColumnName = StringParam(this, "labelsColumnName", "Label column", "labels")
+  def getLabelsColumnName: String = $(labelsColumnName)
+
   val featuresColumnName = StringParam(this, "featuresColumnName", "Feature column", "features")
+  def getFeaturesColumnName: String = $(featuresColumnName)
 
   // This will go away after the CNTK HDFS Deserializer
   val localHdfsMount = StringParam(this, "localHdfsMount", "Local mount point for hdfs:///")
+  def getLocalHdfsMount: String = $(localHdfsMount)
+
   val dataTransfer = StringParam(this, "dataTransfer", "Transfer strategy", "local")
   def setTransferStrategy(s: String): this.type = set(dataTransfer, s)
+  def getDataTransfer: String = $(dataTransfer)
 
   // TODO: Convert to enum contract shared with CNTK's HDFS Deserializer
   val dataFormat = StringParam(this, "dataFormat", "Transfer format", "text")
+  def getDataFormat: String = $(dataFormat)
+
   val weightPrecision = StringParam(this, "weightPrecision", "Weights", "double")
+  def getWeightPrecision: String = $(weightPrecision)
+
   val featureCount = IntParam(this, "featureCount", "Number of features for reduction", 1)
   def setFeatureCount(c: Int): this.type = set(featureCount, c)
+  def getFeatureCount: Int = $(featureCount)
 
   val brainScript = StringParam(this, "brainScript", "String of BS config")
   def setBrainScriptText(t: String): this.type = set(brainScript, t)
   def setBrainScriptFile(f: String): this.type = set(brainScript, FileUtilities.readFile(new File(f)))
+  def getBrainScript: String = $(brainScript)
 
   val parallelTrain = BooleanParam(this, "parallelTrain", "Train using an MPI ring", true)
   def setParallelTrain(b: Boolean): this.type = set(parallelTrain, b)
+  def getParallelTrain: Boolean = $(parallelTrain)
 
   val workingDir = StringParam(this, "workingDir", "Working directory for CNTK", "tmp")
   def setWorkingDirectory(d: String): this.type = set(workingDir, d)
+  def getWorkingDirectory: String = $(workingDir)
+
+  val gpuMachines = new StringArrayParam(this, "gpuMachines", "GPU machines to train on")
+  setDefault(gpuMachines -> Array(s"127.0.0.1,${EnvironmentUtils.GPUCount.getOrElse(1)}"))
+  def setGPUMachines(value: Array[String]): this.type = set(gpuMachines, value)
+  def getGPUMachines: Array[String] = $(gpuMachines)
 
 }
 
-object CNTKLearner extends DefaultParamsReadable[CNTKLearner]
+object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
+  val localDataTransfer = "local"
+  val hdfsDataTransfer = "hdfs-mount"
+  val textDataFormat = "text"
+  val parquetDataFormat = "parquet"
+  val denseForm = "dense"
+  val sparseForm = "sparse"
+}
 
 @InternalWrapper
 class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CNTKParams {
@@ -51,118 +79,125 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
 
   override def fit(dataset: Dataset[_]): CNTKModel = {
     val spark = dataset.sparkSession
-    val labels = $(labelsColumnName)
-    val features = $(featuresColumnName)
+    val labels = getLabelsColumnName
+    val features = getFeaturesColumnName
 
     // Convert label column to categorical on train, remove rows with missing labels
     val convertedLabelDataset = dataset.na.drop(Seq(labels))
 
-    // This utility function is a stub for the reduction step of Featurize, and
-    // will probably be covered in TrainClass/Regressor
+    // The reduction step of Featurize
     val reducedData = DataTransferUtils.reduceAndAssemble(
       convertedLabelDataset,
       labels,
       features,
-      $(weightPrecision),
-      $(featureCount))
+      getWeightPrecision,
+      getFeatureCount)
 
-    // TODO: Very bad hack - we should store vector sizes in schema for quick retrieval
-    // Apparently this needs some design, not natively supported. This schema transfer
-    // in general needs to be more robust...
+    // TODO: we should store vector sizes in schema for quick retrieval in the future
     val feature1 = reducedData.select(features).head.getAs[Vector](0)
     val featureDim = feature1.size
     val featureForm = feature1 match {
-      case dv: DenseVector => "dense"
-      case sv: SparseVector => "sparse"
+      case dv: DenseVector => CNTKLearner.denseForm
+      case sv: SparseVector => CNTKLearner.sparseForm
     }
 
     val label1 = reducedData.select(labels).head.getAs[Vector](0)
     val labelDim = label1.size
     val labelForm = label1 match {
-      case dv: DenseVector => "dense"
-      case sv: SparseVector => "sparse"
+      case dv: DenseVector => CNTKLearner.denseForm
+      case sv: SparseVector => CNTKLearner.sparseForm
     }
 
-    val partitions = reducedData.rdd.getNumPartitions
-
-    val cntkrootURI = new URI($(workingDir))
+    val cntkrootURI = new URI(getWorkingDirectory)
     val cntkrootPath = new File(cntkrootURI).getAbsolutePath
-    println(s"$uid working in $cntkrootPath")
-    val relativeInPath = s"$cntkrootURI/$uid-inputdata"
+    val relativeInPath = new Path(cntkrootPath, s"$uid-inputdata").toString
+    logInfo(s"$uid working in $cntkrootPath with relative path $relativeInPath")
 
-    val writer = $(dataTransfer) match {
-      case "local" => new LocalWriter(relativeInPath)
-      case "hdfs-mount" => {
-        val mntpt = if (isDefined(localHdfsMount)) {
-          val x = $(localHdfsMount)
-          println(s"Using override hdfsm point: $x")
-          x
-        } else {
-          val x = sys.env.getOrElse("HDFS_MOUNTPOINT", "tmp/mnt")
-          println(s"Using deduced hdfsm point: $x")
-          x
-        }
-        println(s"hdfs-mount mounted at $mntpt")
-        new HdfsMountWriter(mntpt, 1, relativeInPath, spark.sparkContext)
-      }
-      case _ => ???
-    }
+    val (writer, hdfsPath) = getWriter(dataset, relativeInPath)
 
-    // Actual data movement step
-
-    // As discussed above, this pipelining needs to be elsewhere, so for now
-    // creating utility functions for reuse and not combining the steps
-    val conformedData = $(dataFormat) match {
-      case "text" => DataTransferUtils.convertDatasetToCNTKTextFormat(reducedData, labels, features)
-      case "parquet" => reducedData
+    // Generating the CNTK text file
+    val conformedData = getDataFormat match {
+      case CNTKLearner.textDataFormat =>
+        DataTransferUtils.convertDatasetToCNTKTextFormat(reducedData, labels, features, labelForm, featureForm)
+      case CNTKLearner.parquetDataFormat => reducedData
     }
 
     conformedData.persist()
 
-    val remappedInPath = $(dataFormat) match {
-      case "text" => writer.checkpointToText(conformedData)
-      case "parquet" => writer.checkpointToParquet(conformedData)
+    val remappedInPath = getDataFormat match {
+      case CNTKLearner.textDataFormat => writer.checkpointToText(conformedData)
+      case CNTKLearner.parquetDataFormat => writer.checkpointToParquet(conformedData)
     }
-
-    val relativeOutRoot = s"$cntkrootPath/$uid-outdir"
+    val outputDir = s"$uid-outdir"
+    val relativeOutRoot = s"$cntkrootPath/$outputDir"
 
     val config = new BrainScriptBuilder()
       .setOutputRoot(relativeOutRoot)
-      // TODO: We need a more structured form of converting schema to CNTK config
-      // this will come in after the parquet + CNTK-as-library work comes in
+      // TODO: Refactor to more structured form of converting schema to CNTK config
       .setInputFile(
         remappedInPath,
-        $(dataFormat),
+        getDataFormat,
         Map(features -> InputShape(featureDim, featureForm),
             labels -> InputShape(labelDim, labelForm)))
 
     // Train the learner
-    val cb = if ($(parallelTrain)) new MPICommandBuilder() else new CNTKCommandBuilder()
+    val cb =
+      if (getParallelTrain) new MPICommandBuilder(log, getGPUMachines, hdfsPath, remappedInPath)
+      else new CNTKCommandBuilder(log)
     cb
       .setWorkingDir(cntkrootPath)
-      .insertBaseConfig($(brainScript))
+      .insertBaseConfig(getBrainScript)
       .appendOverrideConfig(config.toOverrideConfig)
+      .setOutputDir(outputDir)
+      .setSparkSession(spark)
 
-    val modelRet = ProcessUtils.runProcess(cb.buildCommand)
-    println(s"CNTK exited with code $modelRet")
-    if (modelRet != 0) {
-      // TODO: Use exception heirarchy
-      throw new Exception("CNTK Training failed. Please view output log for details")
-    }
-
+    val output = cb.runCommand
+    logInfo("CNTK training finished")
     conformedData.unpersist()
-
-    // This does not work :(
-    // CNTKModel.load(config.getModelPath)
-    // This also needs a windows dll - currently only runs on linux
+    // Note: This currently runs only on linux
     new CNTKModel(uid + "-model")
       .setModelLocation(spark, config.getModelPath)
       .setInputCol(features)
       .setOutputCol(labels)
   }
 
+  def getWriter(dataset: Dataset[_], relativeInPath: String): (SingleFileResolver, Option[(String, String, String)]) = {
+    getDataTransfer match {
+      case CNTKLearner.localDataTransfer => (new LocalWriter(log, relativeInPath), None)
+      case CNTKLearner.hdfsDataTransfer => {
+        val mntpt = if (isDefined(localHdfsMount)) {
+          val x = getLocalHdfsMount
+          logInfo(s"Using override hdfsm point: $x")
+          x
+        } else {
+          val x = sys.env.getOrElse("HDFS_MOUNTPOINT", "tmp/mnt")
+          logInfo(s"Using deduced hdfsm point: $x")
+          x
+        }
+        logInfo(s"hdfs-mount mounted at $mntpt, writing ${dataset.rdd.getNumPartitions} distributed files")
+        val hdfsWriter =
+          new HdfsMountWriter(log,
+            mntpt,
+            dataset.rdd.getNumPartitions,
+            relativeInPath,
+            dataset.sparkSession.sparkContext)
+        val hdfsPath = Some((hdfsWriter.getHdfsToMount, hdfsWriter.getHdfsInputDataDir, hdfsWriter.getMountPoint))
+        (hdfsWriter, hdfsPath)
+      }
+      case _ =>
+        throw new Exception(s"Only ${CNTKLearner.localDataTransfer} " +
+          s"and ${CNTKLearner.hdfsDataTransfer} supported options for data transfer")
+    }
+  }
+
   override def copy(extra: ParamMap): Estimator[CNTKModel] = defaultCopy(extra)
 
-  override def transformSchema(schema: StructType): StructType = ???
+  /**
+    * Taken from CNTKModel - adds the output column to the input
+    * @param schema The input schema
+    * @return The transformed schema with output column added
+    */
+  override def transformSchema(schema: StructType): StructType =
+    schema.add(getLabelsColumnName, VectorType)
 
 }
