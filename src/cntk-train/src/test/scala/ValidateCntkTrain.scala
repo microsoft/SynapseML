@@ -5,9 +5,12 @@ package com.microsoft.ml.spark
 
 import java.net.URI
 
+import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexerModel}
 import com.microsoft.ml.spark.Readers.implicits._
 import FileUtilities._
+import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait TestFileCleanup extends BeforeAndAfterEach {
@@ -27,8 +30,6 @@ trait TestFileCleanup extends BeforeAndAfterEach {
 class ValidateCntkTrain extends TestBase with TestFileCleanup {
 
   override var cleanupPath: File = new File(new URI(dir))
-
-  import session.implicits._
 
   val dummyTrainScript = s"""
 command = trainNetwork:testNetwork
@@ -218,8 +219,35 @@ TrainNetwork = {
     println(model)
   }
 
-  // TODO: Redo this test with the proper image sizes now that full CIFAR is our dataset collection
-  // Also make this an E2E test and reduce validation scope down to smaller chunks.
+  test("Verify can train on a mix of sparse and dense vectors") {
+    val rawPath = new File(s"${sys.env("DATASETS_HOME")}/Binary/Train", "breast-cancer.train.csv").toString
+    val path = normalizePath(rawPath)
+    val dataset: DataFrame = session.createDataFrame(Seq(
+      (0, Vectors.dense(5, 1, 1, 1, 2, 1, 3, 1, 1)),
+      (0, Vectors.dense(5, 4, 4, 5, 7, 10, 3, 2, 1)),
+      (0, Vectors.dense(3, 1, 1, 1, 2, 2, 3, 1, 1)),
+      (0, Vectors.dense(6, 8, 8, 1, 3, 4, 3, 7, 1)),
+      (0, Vectors.sparse(9, Array(0, 1, 4, 6, 7, 8), Array(4, 1, 1, 3, 1, 1))),
+      (1, Vectors.dense(8, 10, 10, 8, 7, 10, 9, 7, 1)),
+      (0, Vectors.sparse(9, Array(1, 2, 3, 4, 5, 6), Array(4, 2, 1, 2, 1, 1))),
+      (0, Vectors.dense(1, 1, 1, 1, 1, 1, 3, 1, 1)),
+      (0, Vectors.dense(2, 1, 1, 1, 2, 1, 2, 1, 1)),
+      (1, Vectors.sparse(9, Array(0, 1, 2, 3, 4, 5, 6, 7, 8), Array(7, 4, 6, 4, 6, 1, 4, 3, 1))),
+      (0, Vectors.dense(6, 1, 1, 1, 2, 1, 3, 1, 1)))).toDF("labels", "feats")
+
+    val learner = new CNTKLearner()
+      .setBrainScriptText(dummyTrainScript)
+      .setParallelTrain(false)
+      .setWorkingDirectory(dir)
+
+    val data = dataset.randomSplit(Seq(0.6, 0.4).toArray, 42)
+    val trainData = data(0)
+    val testData = data(1)
+
+    val model = learner.fit(trainData)
+    println(model)
+  }
+
   test("train and eval CIFAR") {
     val trigger = session.sparkContext
     val filesRoot = s"${sys.env("DATASETS_HOME")}/"
@@ -242,13 +270,8 @@ TrainNetwork = {
     val unrolled = unroller.transform(labeledData).select(inputCol, tmpLabel)
 
     // Prepare Spark-like DF with known labels
-
     val ohe = new OneHotEncoder().setInputCol(tmpLabel).setOutputCol(labelCol).setDropLast(false)
     val dataset = ohe.transform(unrolled).select(inputCol, labelCol)
-
-    //dataset.printSchema()
-    //dataset.show()
-
     val learner = new CNTKLearner()
       .setBrainScriptText(cifarScript)
       // Build machine doesn't have GPUs
@@ -262,6 +285,5 @@ TrainNetwork = {
 
     val result = model.transform(dataset)
     result.take(1)
-    //result.show()
   }
 }

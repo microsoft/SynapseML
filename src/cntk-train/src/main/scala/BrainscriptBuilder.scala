@@ -3,40 +3,19 @@
 
 package com.microsoft.ml.spark
 
-import java.io.{FileOutputStream, ObjectOutputStream}
-import java.util.UUID
-
 import scala.collection.mutable.ListBuffer
-import scala.sys.process._
 
-import com.microsoft.ml.spark.schema._
-import FileUtilities._
-
-import org.apache.hadoop.fs.Path
-
-import org.apache.spark.ml.classification._
-import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{Identifiable, MLWritable, MLWriter}
-import org.apache.spark.ml._
-
-import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-
-// Don't get too excited AK. This is starting to look like a set of contracts..
 case class InputShape(dim: Int, form: String)
+
 case class InputData(format: String, path: String, shapes: Map[String, InputShape])
+
 case class BrainScriptConfig(name: String, text: Seq[String])
 
-// It would be nice to extend from Params for this, but this
-// seems more useful than just Spark, so not doing it for now
+/**
+  * Utility methods for manipulating the BrainScript and overrides configs output to disk.
+  */
 class BrainScriptBuilder {
 
-  // We need to know a few things:
-  // 1. Where is the input data?
-  // 2. How do we configure the training itself?
-  // 3. Where should we put the outputs?
   var modelName = "ModelOut"
 
   var inData: Option[InputData] = None
@@ -58,7 +37,7 @@ class BrainScriptBuilder {
     this
   }
 
-  def getModelPath(): String = {
+  def getModelPath: String = {
     s"""$outDir/Models/$modelName"""
   }
 
@@ -72,7 +51,7 @@ class BrainScriptBuilder {
     this
   }
 
-  private def getInputString(): String = {
+  private def getInputString: String = {
     val ips = inData.get.shapes
                 .map { case(name, shape) => name + " = [ dim = " +
                        shape.dim.toString + " ; format = \"" + shape.form + "\" ]" }
@@ -91,8 +70,8 @@ class BrainScriptBuilder {
     this
   }
 
-  def toReaderConfig(): String = {
-    val ipstring = getInputString()
+  def toReaderConfig: String = {
+    val ipstring = getInputString
     val loc = inData.get.path
     val form = inData.get.format match {
       case "text" => "CNTKTextFormatReader"
@@ -100,7 +79,7 @@ class BrainScriptBuilder {
     s"""reader = [ readerType = $form ; file = "$loc" ; $ipstring ]"""
   }
 
-  def toOverrideConfig(): Seq[String] = {
+  def toOverrideConfig: Seq[String] = {
     val rootOverrides = Seq(
       s"""command = ${ commands.mkString(":") }""",
       s"precision=$weightPrecision",
@@ -109,7 +88,7 @@ class BrainScriptBuilder {
       s"""rootDir="$rootDir" """,
       s"""outputDir="$outDir" """,
       s"""modelPath="${getModelPath}" """)
-    val commandReaders = commands.map(c => s"$c = [ ${toReaderConfig()} ]")
+    val commandReaders = commands.map(c => s"$c = [ ${toReaderConfig} ]")
 
     rootOverrides ++ commandReaders
   }
