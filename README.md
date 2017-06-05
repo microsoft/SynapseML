@@ -82,6 +82,12 @@ for more on Docker use.
 > stop & remove the container with the name `my-mml` (using `docker rm my-mml`)
 > before you try to run a new instance, or run it with a `--rm` flag.
 
+#### GPU VM Setup
+
+MMLSpark can be used to train deep learning models on a set of GPU nodes from a
+Spark application.  For instructions on setting up an Azure GPU VM, see [this
+guide](docs/azure-setup.md).
+
 ### Spark package
 
 MMLSpark can be conveniently installed on existing Spark clusters via the
