@@ -1,0 +1,36 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "value": "mysparkwithvnet1"
+        },
+        "clusterLoginUserName": {
+            "value": "admin"
+        },
+        "clusterLoginPassword": {
+            "value": "MyPassword2017!"
+        },
+        "sshUserName": {
+            "value": "sshuser"
+        },
+        "sshPassword": {
+            "value": "MyPassword2017!"
+        },
+        "headNodeSize": {
+            "value": "Standard_D3_v2"
+        },
+        "workerNodeCount": {
+            "value": "1"
+        },
+        "workerNodeSize": {
+            "value": "Standard_D3_v2"
+        },
+        "gpuVirtualMachineName": {
+            "value": "mygpuvm"
+        },
+        "gpuVirtualMachineSize": {
+            "value": "Standard_NC12"
+        }
+    }
+}

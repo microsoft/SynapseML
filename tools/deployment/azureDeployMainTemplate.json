@@ -1,0 +1,197 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the HDInsight Spark cluster to create."
+            }
+        },
+        "clusterLoginUserName": {
+            "type": "string",
+            "defaultValue": "admin",
+            "metadata": {
+                "description": "These credentials can be used to submit jobs to the cluster and to log into cluster dashboards."
+            }
+        },
+        "clusterLoginPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "sshUserName": {
+            "type": "string",
+            "defaultValue": "sshuser",
+            "metadata": {
+                "description": "These credentials can be used to remotely access the cluster."
+            }
+        },
+        "sshPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "headNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D3_v2",
+            "allowedValues": [
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2"
+            ],
+            "metadata": {
+                "description": "The virtual machine size of the head nodes in the HDInsight Spark cluster."
+            }
+        },
+        "workerNodeCount": {
+            "type": "string",
+            "defaultValue": "2",
+            "metadata": {
+                "description": "The number of the worker nodes in the HDInsight Spark cluster."
+            }
+        },
+        "workerNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D3_v2",
+            "allowedValues": [
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2"
+            ],
+            "metadata": {
+                "description": "The virtual machine size of the worker nodes in the HDInsight Spark cluster."
+            }
+        },
+        "gpuVirtualMachineName": {
+            "type": "string",
+            "defaultValue": "mygpuvm",
+            "metadata": {
+                "description": "The name of the GPU virtual machine to create."
+            }
+        },
+        "gpuVirtualMachineSize": {
+            "type": "string",
+            "defaultValue": "Standard_NC12",
+            "allowedValues": [
+                "Standard_NC6",
+                "Standard_NC12",
+                "Standard_NC24",
+                "Standard_NC24r"
+            ],
+            "metadata": {
+                "description": "The size of the GPU virtual machine to create."
+            }
+        }
+    },
+    "variables": {
+        "vnetName": "[concat(parameters('clusterName'),'-vnet')]",
+        "subnetName": "subnet1",
+        "templateBaseUrl": "https://github.com/Azure/mmlspark/blob/master/tools/deployment/",
+        "sparkClusterTemplateUrl": "[concat(variables('templateBaseUrl'), 'sparkClusterInVnetTemplate.json')]",
+        "vmTemplateUrl": "[concat(variables('templateBaseUrl'), 'gpuVmExistingVNetTemplate.json')]",
+        "sparkClusterDeploymentName": "sparkClusterTemplate",
+        "vmDeploymentName": "gpuVmTemplate"
+    },
+    "resources": [
+        {
+            "apiVersion": "2015-01-01",
+            "name": "[variables('sparkClusterDeploymentName')]",
+            "type": "Microsoft.Resources/deployments",
+            "properties": {
+                "mode": "incremental",
+                "templateLink": {
+                    "uri": "[variables('sparkClusterTemplateUrl')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "clusterName": {
+                        "value": "[parameters('clusterName')]"
+                    },
+                    "clusterLoginUserName": {
+                        "value": "[parameters('clusterLoginUserName')]"
+                    },
+                    "clusterLoginPassword": {
+                        "value": "[parameters('clusterLoginPassword')]"
+                    },
+                    "sshUserName": {
+                        "value": "[parameters('sshUserName')]"
+                    },
+                    "sshPassword": {
+                        "value": "[parameters('sshPassword')]"
+                    },
+                    "headNodeSize": {
+                        "value": "[parameters('headNodeSize')]"
+                    },
+                    "workerNodeCount": {
+                        "value": "[parameters('workerNodeCount')]"
+                    },
+                    "workerNodeSize": {
+                        "value": "[parameters('workerNodeSize')]"
+                    },
+                    "virtualNetworkName": {
+                        "value": "[variables('vnetName')]"
+                    },
+                    "virtualNetworkSubnetName": {
+                        "value": "[variables('subnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-01-01",
+            "name": "[variables('vmDeploymentName')]",
+            "type": "Microsoft.Resources/deployments",
+            "dependsOn": [
+                "[concat('Microsoft.Resources/deployments/', variables('sparkClusterDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "incremental",
+                "templateLink": {
+                    "uri": "[variables('vmTemplateUrl')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "virtualMachineName": {
+                        "value": "[parameters('gpuVirtualMachineName')]"
+                    },
+                    "virtualMachineSize": {
+                        "value": "[parameters('gpuVirtualMachineSize')]"
+                    },
+                    "adminUsername": {
+                        "value": "[parameters('sshUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('sshPassword')]"
+                    },
+                    "existingVirtualNetworkName": {
+                        "value": "[variables('vnetName')]"
+                    },
+                    "existingSubnetName": {
+                        "value": "[variables('subnetName')]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "vnet": {
+            "type": "object",
+            "value": "[reference(variables('sparkClusterDeploymentName')).outputs.vnet]"
+        },
+        "cluster": {
+            "type": "object",
+            "value": "[reference(variables('sparkClusterDeploymentName')).outputs.cluster]"
+        },
+        "gpuvm": {
+            "type": "object",
+            "value": "[reference(variables('vmDeploymentName')).outputs.gpuvm]"
+        }
+    }
+}
