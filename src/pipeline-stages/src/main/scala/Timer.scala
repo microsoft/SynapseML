@@ -48,7 +48,7 @@ trait TimerParams extends Wrappable {
 
   def setCountAfter(v: Boolean): this.type = set(countAfter, v)
 
-  protected def formatTime(t: Long, isTransform: Boolean, count: Option[Long]): String = {
+  protected def formatTime(t: Long, isTransform: Boolean, count: Option[Long], stage: PipelineStage): String = {
     val time = {
       t / 1000000000.0
     }
@@ -57,7 +57,7 @@ trait TimerParams extends Wrappable {
       case Some(i) => s"$i rows"
       case _ => ""
     }
-    s"${this.getStage} took ${time}s to $action $amount"
+    s"${stage} took ${time}s to $action $amount"
   }
 
   protected def log(str: String): Unit = {
@@ -90,7 +90,7 @@ class Timer(val uid: String) extends Estimator[TimerModel]
         val t0 = System.nanoTime()
         val fitE = e.fit(dataset)
         val t1 = System.nanoTime()
-        (new TimerModel(uid, fitE).setParent(this), formatTime(t1 - t0, false, countBeforeVal))
+        (new TimerModel(uid, fitE).setParent(this), formatTime(t1 - t0, false, countBeforeVal, e))
     }
   }
 
@@ -130,7 +130,7 @@ class TimerModel(val uid: String, t: Transformer)
 
     val t1 = System.nanoTime()
 
-    (cachedDatasetAfter, formatTime(t1 - t0, true, countAfterVal))
+    (cachedDatasetAfter, formatTime(t1 - t0, true, countAfterVal, t))
   }
 
   def transformSchema(schema: StructType): StructType = t.transformSchema(schema)
