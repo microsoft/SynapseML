@@ -88,6 +88,12 @@ MMLSpark can be used to train deep learning models on a set of GPU nodes from a
 Spark application.  For instructions on setting up an Azure GPU VM, see [this
 guide](docs/azure-setup.md).
 
+#### GPU VM Setup
+
+MMLSpark can be used to train deep learning models on a set of GPU nodes from a
+Spark application.  For instructions on setting up an Azure GPU VM, see [this
+guide](docs/azure-setup.md).
+
 ### Spark package
 
 MMLSpark can be conveniently installed on existing Spark clusters via the
