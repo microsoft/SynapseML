@@ -65,6 +65,15 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** @group setParam */
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
+  /** Specifies whether to allow featurization of images */
+  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "allow featurization of images", false)
+
+  /** @group getParam */
+  final def getAllowImages: Boolean = $(allowImages)
+
+  /** @group setParam */
+  def setAllowImages(value: Boolean): this.type = set(allowImages, value)
+
   /** Featurizes the dataset.
     *
     * @param dataset The input dataset to train.
@@ -82,6 +91,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
         .setFeaturesCol(newColToFeatures._1)
         .setNumberOfFeatures(getNumberOfFeatures)
         .setOneHotEncodeCategoricals(getOneHotEncodeCategoricals)
+        .setAllowImages(getAllowImages)
     }).toArray
 
     new Pipeline().setStages(assembleFeaturesEstimators)

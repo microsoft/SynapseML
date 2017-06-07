@@ -4,14 +4,17 @@
 package com.microsoft.ml.spark
 
 import java.nio.file.Files
+import java.sql.{Date, Timestamp}
+import java.util.GregorianCalendar
 
 import com.microsoft.ml.spark.FileUtilities.File
-import com.microsoft.ml.spark.schema.SparkSchema
+import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 
 class VerifyAssembleFeatures extends EstimatorFuzzingTest {
   override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = {
@@ -83,9 +86,13 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
   val historicStringIndexOneHotFile  = new File(thisDirectory, benchmarkStringIndexOneHotFile)
   val benchmarkStringIndexOneHotTempFile = getTempFile(benchmarkStringIndexOneHotFile)
 
+  val benchmarkDateFile = "benchmarkDate.json"
+  val historicDateFile  = new File(thisDirectory, benchmarkDateFile)
+  val benchmarkDateTempFile = getTempFile(benchmarkDateFile)
+
   private def getTempFile(fileName: String): File = {
     new File(targetDirectory,
-      s"${fileName}_${System.currentTimeMillis}_.json")
+             s"${fileName}_${System.currentTimeMillis}_.json")
   }
 
   // int label with features of:
@@ -106,9 +113,10 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
     .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5", "col6")
 
   test("Featurizing on some basic data types") {
-    val result: DataFrame = featurizeAndVerifyResult(mockDataset,
-      benchmarkBasicDataTypesTempFile.toString,
-      historicDataTypesFile)
+    val result: DataFrame =
+      featurizeAndVerifyResult(mockDataset,
+                               benchmarkBasicDataTypesTempFile.toString,
+                               historicDataTypesFile)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).values.length == 6)
   }
@@ -145,6 +153,44 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
       historicStringFile)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[SparseVector](featuresColumn).size == 11)
+  }
+
+  test("Featurizing with date and timestamp columns") {
+    val dataset: DataFrame = session.createDataFrame(Seq(
+      (0, 2, 0.50, 0.60, new Date(new GregorianCalendar(2017, 6, 7).getTimeInMillis), new Timestamp(1000)),
+      (1, 3, 0.40, 0.50, new Date(new GregorianCalendar(2017, 6, 8).getTimeInMillis), new Timestamp(2000)),
+      (0, 4, 0.78, 0.99, new Date(new GregorianCalendar(2017, 6, 6).getTimeInMillis), new Timestamp(3000)),
+      (1, 5, 0.12, 0.34, new Date(new GregorianCalendar(2016, 6, 5).getTimeInMillis), new Timestamp(4000)),
+      (0, 3, 0.78, 0.99, new Date(new GregorianCalendar(2010, 6, 9).getTimeInMillis), new Timestamp(5000))))
+      .toDF(mockLabelColumn, "col1", "col2", "col3", "date", "timestamp")
+
+    val result: DataFrame = featurizeAndVerifyResult(dataset,
+      benchmarkDateTempFile.toString,
+      historicDateFile)
+    // Verify that features column has the correct number of slots
+    assert(result.first().getAs[DenseVector](featuresColumn).size == 16)
+  }
+
+  test("Featurizing with image columns") {
+    val imageDFSchema = StructType(Array(StructField("image", ImageSchema.columnSchema, true)))
+    val path1: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00000.png"
+    val path2: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00001.png"
+    val height = 32
+    val width = 32
+    val imgType = 16
+    val colorBands = 3
+    // Size is height * width * colorBands
+    val imageSize = height * width * colorBands
+    // Expected is image size with width and height
+    val expectedSize = imageSize + 2
+    val rowRDD: RDD[Row] = sc.parallelize(Seq[Row](
+      Row(Row(path1, height, width, imgType, Array.fill[Byte](imageSize)(1))),
+      Row(Row(path2, height, width, imgType, Array.fill[Byte](imageSize)(1)))
+    ))
+    val dataset = session.createDataFrame(rowRDD, imageDFSchema)
+    val result: DataFrame = featurize(dataset, includeFeaturesColumns = false)
+    // Verify that features column has the correct number of slots
+    assert(result.first().getAs[DenseVector](featuresColumn).size == expectedSize)
   }
 
   test("Verify featurizing text data produces proper tokenized output") {
@@ -288,17 +334,29 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
     assert(resultNoOneHot.first().getAs[DenseVector](featuresColumn).size == 4)
   }
 
-  def featurizeAndVerifyResult(dataset: DataFrame,
-                               tempFile: String,
-                               historicFile: File,
-                               oneHotEncode: Boolean = false): DataFrame = {
+  private def featurize(dataset: DataFrame,
+                        oneHotEncode: Boolean = false,
+                        includeFeaturesColumns: Boolean = true): DataFrame = {
     val featureColumns = dataset.columns.filter(_ != mockLabelColumn)
     val feat = new Featurize()
       .setNumberOfFeatures(10)
       .setFeatureColumns(Map(featuresColumn -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncode)
+      .setAllowImages(true)
     val featModel = feat.fit(dataset)
-    val result = featModel.transform(dataset)
+    var result = featModel.transform(dataset)
+    if (!includeFeaturesColumns) {
+      result = result.select(featuresColumn)
+    }
+    result
+  }
+
+  private def featurizeAndVerifyResult(dataset: DataFrame,
+                               tempFile: String,
+                               historicFile: File,
+                               oneHotEncode: Boolean = false,
+                               includeFeaturesColumns: Boolean = true): DataFrame = {
+    val result = featurize(dataset, oneHotEncode, includeFeaturesColumns)
     // Write out file so it is easy to compare the results
     result.repartition(1).write.json(tempFile)
     if (!Files.exists(historicFile.toPath)) {

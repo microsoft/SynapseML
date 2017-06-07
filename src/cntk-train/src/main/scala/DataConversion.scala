@@ -77,6 +77,7 @@ object DataTransferUtils {
       .setFeatureColumns(Map(outputVecName -> data.columns.filter(_ != label)))
       .setNumberOfFeatures(features)
       .setOneHotEncodeCategoricals(true)
+      .setAllowImages(true)
       .fit(data)
     val reduced = tempFeaturizer.transform(data)
     reduced.select(col2vec(reduced(label)).as(label), reduced(outputVecName))
