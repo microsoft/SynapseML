@@ -261,6 +261,28 @@ class CategoricalMap[T](val levels: Array[T], val isOrdinal: Boolean = false) ex
 }
 
 /**
+  * Utilities for getting categorical column info.
+  */
+object CategoricalColumnInfo {
+  /**
+    * Gets the datatype from the column metadata.
+    * @param columnMetadata The column metadata
+    * @return The datatype
+    */
+  def getDataType(columnMetadata: Metadata): DataType = {
+    val dataType =
+      if (columnMetadata.contains(ValuesString)) DataTypes.StringType
+      else if (columnMetadata.contains(ValuesLong)) DataTypes.LongType
+      else if (columnMetadata.contains(ValuesInt)) DataTypes.IntegerType
+      else if (columnMetadata.contains(ValuesLong)) DataTypes.LongType
+      else if (columnMetadata.contains(ValuesDouble)) DataTypes.DoubleType
+      else if (columnMetadata.contains(ValuesBool)) DataTypes.BooleanType
+      else throw new Exception("Unrecognized datatype in MML metadata")
+    dataType
+  }
+}
+
+/**
   * Extract categorical info from the DataFrame column
   * @param df dataframe
   * @param column column name
@@ -284,14 +306,7 @@ class CategoricalColumnInfo(df: DataFrame, column: String) {
       else {
         val isOrdinal = columnMetadata.getBoolean(Ordinal)
 
-        val dataType =
-          if      (columnMetadata.contains(ValuesString)) DataTypes.StringType
-          else if (columnMetadata.contains(ValuesLong))   DataTypes.LongType
-          else if (columnMetadata.contains(ValuesInt))    DataTypes.IntegerType
-          else if (columnMetadata.contains(ValuesLong))   DataTypes.LongType
-          else if (columnMetadata.contains(ValuesDouble)) DataTypes.DoubleType
-          else if (columnMetadata.contains(ValuesBool))   DataTypes.BooleanType
-          else throw new Exception("Unrecognized datatype in MML metadata")
+        val dataType: DataType = CategoricalColumnInfo.getDataType(columnMetadata)
 
         (true, true, isOrdinal, dataType)
       }

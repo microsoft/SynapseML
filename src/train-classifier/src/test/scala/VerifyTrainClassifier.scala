@@ -111,11 +111,9 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
       (1, 4, 0.12, 0.34, cat, dog)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5")
 
-    val catDataset = SparkSchema.makeCategorical(
-      SparkSchema.makeCategorical(dataset, "col4", "col4", false),
-      "col5",
-      "col5",
-      false)
+    val model1 = new ValueIndexer().setInputCol("col4").setOutputCol("col4").fit(dataset)
+    val model2 = new ValueIndexer().setInputCol("col5").setOutputCol("col5").fit(dataset)
+    val catDataset = model1.transform(model2.transform(dataset))
 
     val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
     TrainClassifierTestUtilities.trainScoreDataset(mockLabelColumn, catDataset, logisticRegressor)
