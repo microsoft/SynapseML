@@ -4,8 +4,10 @@
 package com.microsoft.ml.spark
 
 import java.io._
+import java.sql.{Date, Time, Timestamp}
+import java.time.temporal.ChronoField
 
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions}
+import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions, ImageSchema}
 import com.microsoft.ml.spark.schema.DatasetExtensions._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
@@ -14,7 +16,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.SparseVector
+import org.apache.spark.ml.linalg.{SparseVector, Vectors}
 import org.apache.spark.mllib.linalg.VectorUDT
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -69,6 +71,7 @@ private object AssembleFeaturesUtilities
   * colNamesToVectorize - List of column names to vectorize using FastVectorAssembler.
   * categoricalColumns - List of categorical columns to pass through or turn into indicator array.
   * conversionColumnNamesMap - Map from old column names to new.
+  * addedColumnNamesMap - Map from old columns to newly generated columns for featurization.
   */
 @SerialVersionUID(0L)
 class ColumnNamesToFeaturize extends Serializable {
@@ -131,6 +134,15 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
 
   /** @group setParam */
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
+
+  /** Specifies whether to allow featurization of images */
+  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "allow featurization of images", false)
+
+  /** @group getParam */
+  final def getAllowImages: Boolean = $(allowImages)
+
+  /** @group setParam */
+  def setAllowImages(value: Boolean): this.type = set(allowImages, value)
 
   /** Creates a vector column of features from a collection of feature columns
     *
@@ -195,11 +207,26 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
             columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
             columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
           }
+          case _ @ (dataType: DataType) if dataType == DateType || dataType == TimestampType => {
+            // For datetime, featurize as several different column types based on extracted information
+            if (dataset.schema(col).nullable) {
+              columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
+            }
+            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
+            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+          }
+          case _ if ImageSchema.isImage(datasetAsDf, col) => {
+            if (!getAllowImages) {
+              throw new UnsupportedOperationException("Featurization of images columns disabled")
+            }
+            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.columnSchema
+            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+          }
+          case default => throw new Exception(s"Unsupported type for assembly: $default")
         }
       }
     }
-    val colNamesToVectorizeWithoutHashOneHot: List[String] = getColumnsToVectorize(columnNamesToFeaturize,
-      columnNamesToFeaturize.conversionColumnNamesMap.keys.toSeq)
+    val colNamesToVectorizeWithoutHashOneHot: List[String] = getColumnsToVectorize(columnNamesToFeaturize)
 
     // Tokenize the string columns
     val (transform: Option[HashingTF], colNamesToVectorize: List[String], nonZeroColumns: Option[Array[Int]]) =
@@ -240,8 +267,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
       nonZeroColumns, vectorAssembler, $(oneHotEncodeCategoricals))
   }
 
-  private def getColumnsToVectorize(columnNamesToFeaturize: ColumnNamesToFeaturize,
-                                    columnsToFeaturize: Seq[String]): List[String] = {
+  private def getColumnsToVectorize(columnNamesToFeaturize: ColumnNamesToFeaturize): List[String] = {
     val categoricalColumnNames =
       if ($(oneHotEncodeCategoricals)) {
         columnNamesToFeaturize.categoricalColumns.values
@@ -249,8 +275,10 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
         columnNamesToFeaturize.categoricalColumns.keys
       }
 
+    val convertedCols = columnNamesToFeaturize.conversionColumnNamesMap.keys.toSeq
+
     val newColumnNames =
-      columnsToFeaturize.map(oldColName => columnNamesToFeaturize.conversionColumnNamesMap(oldColName))
+      convertedCols.map(oldColName => columnNamesToFeaturize.conversionColumnNamesMap(oldColName))
 
     val colNamesToVectorizeWithoutHash = (categoricalColumnNames.toList
       ::: newColumnNames.toList)
@@ -322,7 +350,8 @@ class AssembleFeaturesModel(val uid: String,
           if (!columnNamesToFeaturize.conversionColumnNamesMap.contains(col)) {
             Seq(dataset(col))
           } else {
-            val colType = columnNamesToFeaturize.colNamesToTypes(columnNamesToFeaturize.conversionColumnNamesMap(col))
+            val tmpRenamedCols = columnNamesToFeaturize.conversionColumnNamesMap(col)
+            val colType = columnNamesToFeaturize.colNamesToTypes(tmpRenamedCols)
             if (colType != dataType) {
               throw new Exception(s"Invalid column type specified during score, should be $colType for column: " + col)
             }
@@ -331,18 +360,55 @@ class AssembleFeaturesModel(val uid: String,
             dataType match {
               case _ @ (dataType: DataType) if (AssembleFeaturesUtilities.isNumeric(dataType)) => {
                 Seq(dataset(col),
-                  dataset(col).cast(DoubleType).as(columnNamesToFeaturize.conversionColumnNamesMap(col),
-                    dataset.schema(col).metadata))
+                  dataset(col).cast(DoubleType).as(tmpRenamedCols, dataset.schema(col).metadata))
               }
               case _: DoubleType => {
                 Seq(dataset(col),
-                  dataset(col).as(columnNamesToFeaturize.conversionColumnNamesMap(col),
-                    dataset.schema(col).metadata))
+                  dataset(col).as(tmpRenamedCols, dataset.schema(col).metadata))
               }
               case _ @ (dataType: DataType) if dataType.typeName == "vector" || dataType.isInstanceOf[VectorUDT] => {
                 Seq(dataset(col),
-                  dataset(col).as(columnNamesToFeaturize.conversionColumnNamesMap(col),
-                    dataset.schema(col).metadata))
+                  dataset(col).as(tmpRenamedCols, dataset.schema(col).metadata))
+              }
+              case _ @ (dataType: DataType) if dataType == TimestampType => {
+                val extractTimeFeatures =
+                  udf((col: Timestamp) => {
+                        val localDate = col.toLocalDateTime
+                        Vectors.dense(Array[Double](
+                                        col.getTime.toDouble,
+                                        localDate.getYear.toDouble,
+                                        localDate.getDayOfWeek.getValue.toDouble,
+                                        localDate.getMonth.getValue.toDouble,
+                                        localDate.getDayOfMonth.toDouble,
+                                        localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
+                                        localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
+                                        localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
+                      })
+                  Seq(dataset(col),
+                      extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
+              }
+              case _ @ (dataType: DataType) if dataType == DateType => {
+                val extractTimeFeatures = udf((col: Date) => {
+                  // Local date has time information masked out, so we don't generate those columns
+                  val localDate = col.toLocalDate
+                  Vectors.dense(Array[Double](col.getTime.toDouble,
+                    localDate.getYear.toDouble,
+                    localDate.getDayOfWeek.getValue.toDouble,
+                    localDate.getMonth.getValue.toDouble,
+                    localDate.getDayOfMonth.toDouble))
+                })
+                Seq(dataset(col),
+                  extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
+              }
+              case imageType if imageType == ImageSchema.columnSchema => {
+                val extractImageFeatures = udf((row: Row) => {
+                  val image  = ImageSchema.getBytes(row).map(_.toDouble)
+                  val height = ImageSchema.getHeight(row).toDouble
+                  val width  = ImageSchema.getWidth(row).toDouble
+                  Vectors.dense((height :: (width :: image.toList)).toArray)
+                })
+                Seq(dataset(col),
+                    extractImageFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
               }
               case default => Seq(dataset(col))
             }
