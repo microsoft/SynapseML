@@ -121,6 +121,18 @@ trait HasOutputCol extends Wrappable {
   def getOutputCol: String = $(outputCol)
 }
 
+trait HasInputCols extends Wrappable {
+  val inputCols = new StringArrayParam(this, "inputCols", "The names of the input columns")
+  def setInputCols(value: Array[String]): this.type = set(inputCols, value)
+  def getInputCols: Array[String] = $(inputCols)
+}
+
+trait HasOutputCols extends Wrappable {
+  val outputCols = new StringArrayParam(this, "outputCols", "The names of the output columns")
+  def setOutputCols(value: Array[String]): this.type = set(outputCols, value)
+  def getOutputCols: Array[String] = $(outputCols)
+}
+
 trait HasLabelCol extends Wrappable {
   val labelCol = StringParam(this, "labelCol", "The name of the label column")
   def setLabelCol(value: String): this.type = set(labelCol, value)
