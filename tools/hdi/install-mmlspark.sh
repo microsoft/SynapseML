@@ -66,14 +66,9 @@ curl $curlflags -o "$tmp/update_livy.py" "$DOWNLOAD_URL/update_livy.py"
 rm -rf "$SDK_DIR"; mkdir -p "$SDK_DIR"
 cd "$SDK_DIR"; unzip "$tmp/BuildArifacts.zip"; rm "$tmp/BuildArifacts.zip"
 
-# Change Livy configuration
-# Note: cntk has the same .so files in both version
-# Note: we don't need the sdk directory except for the so files (will soon go away)
-LD_STRING="/usr/bin/anaconda/lib/python2.7/site-packages/cntk/libs"
-LD_STRING+=":$SDK_DIR/sdk"
-echo "Updating Livy configurations..."
-python "$tmp/update_livy.py" \
-       "/home/spark/.sparkmagic/config.json" "$MAVEN_PACKAGE" "$LD_STRING"
+# Change the Livy configuration
+echo "Updating the Livy configuration..."
+python "$tmp/update_livy.py" "/home/spark/.sparkmagic/config.json" "$MAVEN_PACKAGE"
 rm -rf "$tmp"
 
 /bin/su livy -c \
