@@ -16,10 +16,10 @@ fi
 ICONS_URL="https://$MAIN_CONTAINER.blob.core.windows.net/icons"
 icon="$ICONS_URL/Robot"
 case "${AGENT_JOBSTATUS,,}" in
-  ( succeeded ) icon+="2.png"; box="![PASS]($icon) Pass"       ;;
-  ( canceled  ) icon+="1.png"; box="![CANCEL]($icon) Canceled" ;;
-  ( failed    ) icon+="0.png"; box="![FAIL]($icon) Fail"       ;;
-  ( *         ) icon+="1.png"; box="![$AGENT_JOBSTATUS]($icon) Unknown" ;;
+  ( succeeded ) icon+="2.png"; box="![PASS]($icon) Pass";       state="success" ;;
+  ( canceled  ) icon+="1.png"; box="![CANCEL]($icon) Canceled"; state="error"   ;;
+  ( failed    ) icon+="0.png"; box="![FAIL]($icon) Fail";       state="failure" ;;
+  ( *         ) icon+="1.png"; box="![$AGENT_JOBSTATUS]($icon) Unknown"; state="error" ;;
 esac
 
 if [[ "$BUILDPR" = "" ]]; then
@@ -29,11 +29,7 @@ if [[ "$BUILDPR" = "" ]]; then
   exit
 fi
 
-if [[ ! -r "$PRDIR/comment-id" ]]; then exit; fi
-
-cid="$(< "$PRDIR/comment-id")"
-
-api "issues/comments/$cid" -X DELETE
-
-text="$(jsonq "[$box! The build has ${AGENT_JOBSTATUS,,}.]($VURL)")"
-api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' > "$PRDIR/comment-id"
+text="The build has ${AGENT_JOBSTATUS,,}."
+post_status "$state" "$text"
+delete_comment
+post_comment "$box! — $text"

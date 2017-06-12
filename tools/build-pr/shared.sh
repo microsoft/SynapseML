@@ -44,4 +44,33 @@ jsonq() { # text...; quotes the text as a json string
 
 VURL="${SYSTEM_TASKDEFINITIONSURI%/}/$SYSTEM_TEAMPROJECT"
 VURL+="/_build/index?buildId=$BUILD_BUILDID&_a=summary"
-GURL="$(api "pulls/$BUILDPR" - '.html_url')"
+GURL="" SHA1="" REPO="" REF=""
+
+get_pr_info() {
+  if [[ "$SHA1" != "" ]]; then return; fi
+  SHA1="$(api "pulls/$BUILDPR" - '.head.sha')"
+  REPO="$(api "pulls/$BUILDPR" - '.head.repo.full_name')"
+  REF="$(api "pulls/$BUILDPR" - '.head.ref')"
+  GURL="$(api "pulls/$BUILDPR" - '.html_url')"
+}
+
+# post a status, only if we're running all tests
+post_status() {
+  if [[ "$TESTS" != "all" ]]; then return; fi
+  get_pr_info
+  local status='"context":"build-pr","state":"'"$1"'","target_url":"'"$VURL"'"'
+  api "statuses/$SHA1" -d '{'"$status"',"description":"'"$2"'"}' > /dev/null
+}
+
+# post a comment with the given text and link to the build; remember its id
+post_comment() {
+  local text="$(jsonq "[$1]($VURL)")"
+  api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' \
+      > "$PRDIR/comment-id"
+}
+
+# delete the last posted comment
+delete_comment() {
+  if [[ ! -r "$PRDIR/comment-id" ]]; then return; fi
+  api "issues/comments/$(< "$PRDIR/comment-id")" -X DELETE
+}

@@ -15,26 +15,25 @@ if [[ "$BUILDPR" = "" ]]; then exit 0; fi
 
 echo "##[section] PR Build for #$BUILDPR"
 
+get_pr_info
 api "pulls/$BUILDPR" - '.head.sha // error("no such PR")' > /dev/null
-sha1="$(api "pulls/$BUILDPR" - '.head.sha')"
-repo="$(api "pulls/$BUILDPR" - '.head.repo.full_name')"
-ref="$(api "pulls/$BUILDPR" - '.head.ref')"
-repourl="https://github.com/$repo"
+repourl="https://github.com/$REPO"
 
 printf 'PR BUILD for #%s\n  repo: %s\n  ref: %s\n  sha1: %s\n' \
-       "$BUILDPR" "$repo" "$ref" "$sha1"
+       "$BUILDPR" "$REPO" "$REF" "$SHA1"
 
 git checkout "master" > /dev/null 2>&1
 oldbr="$(git for-each-ref --format="%(refname:short)" "refs/heads/pr-*")"
 if [[ "x$oldbr" != "x" ]]; then git branch -D $oldbr; fi
 
-text="$(jsonq "[A build has started.]($VURL)")"
-api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' > "$PRDIR/comment-id"
+text="A build has started."
+post_status "pending" "$text"
+post_comment "$text"
 
 _get_T
-git fetch "https://$T@github.com/$repo" "$ref:refs/heads/pr-$BUILDPR"
+git fetch "https://$T@github.com/$REPO" "$REF:refs/heads/pr-$BUILDPR"
 git checkout "pr-$BUILDPR"
-git reset --hard "$sha1"
+git reset --hard "$SHA1"
 
 # useful info in build
 { echo "# This is a build for [github PR #$BUILDPR]($GURL)"
@@ -42,17 +41,17 @@ git reset --hard "$sha1"
   echo "Associated Changes (actual ones)"
   echo ""; echo "---"; echo ""
   git log --format="* [%h]($repourl/commit/%H) [%aN](mailto:%aE) %s" \
-      "origin/master..$sha1"
+      "origin/master..$SHA1"
   } > "$PRDIR/PR-Build.md"
 echo "##vso[task.uploadsummary]$PRDIR/PR-Build.md"
 
 # variable overrides
 prvar() { printf '%s=%q\n' "$1" "$2" >> "$TOOLSDIR/local-config.sh"; }
-prvar BUILD_SOURCEVERSION        "$sha1"
-prvar BUILD_REPOSITORY_NAME      "$repo"
+prvar BUILD_SOURCEVERSION        "$SHA1"
+prvar BUILD_REPOSITORY_NAME      "$REPO"
 prvar BUILD_REPOSITORY_ID        "$repourl"
 prvar BUILD_REPOSITORY_URI       "$repourl"
-prvar BUILD_SOURCEBRANCH         "refs/heads/$ref"
-prvar BUILD_SOURCEBRANCHNAME     "$(basename "$ref")"
+prvar BUILD_SOURCEBRANCH         "refs/heads/$REF"
+prvar BUILD_SOURCEBRANCHNAME     "$(basename "$REF")"
 prvar BUILD_SOURCEVERSIONAUTHOR  "$(git log -1 --format="%aN <%aE>")"
 prvar BUILD_SOURCEVERSIONMESSAGE "$(git log -1 --format="%s")"
