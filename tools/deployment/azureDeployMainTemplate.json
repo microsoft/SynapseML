@@ -93,7 +93,7 @@
     "variables": {
         "vnetName": "[concat(parameters('clusterName'),'-vnet')]",
         "subnetName": "subnet1",
-        "templateBaseUrl": "https://github.com/Azure/mmlspark/blob/master/tools/deployment/",
+        "templateBaseUrl": "https://raw.githubusercontent.com/Azure/mmlspark/master/tools/deployment/",
         "sparkClusterTemplateUrl": "[concat(variables('templateBaseUrl'), 'sparkClusterInVnetTemplate.json')]",
         "vmTemplateUrl": "[concat(variables('templateBaseUrl'), 'gpuVmExistingVNetTemplate.json')]",
         "sparkClusterDeploymentName": "sparkClusterTemplate",
