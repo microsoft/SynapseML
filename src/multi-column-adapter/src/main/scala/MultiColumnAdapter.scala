@@ -11,16 +11,14 @@ import org.apache.spark.sql.types._
 
 object MultiColumnAdapter extends DefaultParamsReadable[MultiColumnAdapter]
 
-/**
-  * The <code>MultiColumnAdapter</code> takes a unary transformer and a list of input output column pairs
+/** The <code>MultiColumnAdapter</code> takes a unary transformer and a list of input output column pairs
   * and applies the transformer to each column
   */
 class MultiColumnAdapter(override val uid: String) extends Transformer with MMLParams {
 
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))
 
-  /**
-    * Comma separated list of input column names, encoded as a string. These are the columns to be transformed.
+  /** Comma separated list of input column names, encoded as a string. These are the columns to be transformed.
     * @group param
     */
   val inputCols: Param[String] =
@@ -35,8 +33,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
   /** @group setParam */
   def setInputCols(value: String): this.type = set(inputCols, value)
 
-  /**
-    * Comma separated list of column names for the transformed columns, encoded as a string.
+  /** Comma separated list of column names for the transformed columns, encoded as a string.
     * @group param
     */
   val outputCols: Param[String] =
@@ -51,14 +48,11 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
   /** @group setParam */
   def setOutputCols(value: String): this.type = set(outputCols, value)
 
-  /**
-    * @return List of input/output column name pairs
-    */
+  /** @return List of input/output column name pairs. */
   def getInputOutputPairs: List[(String, String)] =
     getInputCols.split(",").zip(getOutputCols.split(",")).toList
 
-  /**
-    * Base transformer to apply to every column in the input column list.
+  /** Base transformer to apply to every column in the input column list.
     * @group param
     */
   val baseTransformer: TransformerParam =
@@ -103,8 +97,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
                      inputOutputPair._2)
   }
 
-  /**
-    * Apply the transform to all the columns in the input column list
+  /** Apply the transform to all the columns in the input column list
     * @param dataset
     * @return DataFrame with transformed columns bearing the output column names
     */

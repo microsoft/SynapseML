@@ -139,48 +139,52 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultP
 
   def this() = this(Identifiable.randomUID("CNTKModel"))
 
-  /**
-    * Array of bytes containing the seialized <code>CNTKModel</code>
+  /** Array of bytes containing the seialized <code>CNTKModel</code>
     * @group param
     */
   val model: Param[String] =
     new Param(this, "model", "Array of bytes containing the serialized CNTKModel")
+
   /** @group setParam */
   def setModel(spark: SparkSession, path: String): CNTKModel = {
     val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
     set(model, printBase64Binary(modelBytes))
   }
+
   /** @group getParam */
   def getModel: Array[Byte] = parseBase64Binary($(model))
 
-  /**
-    * Index of the input node
+  /** Index of the input node
     * @group param
     */
   val inputNode: IntParam                 = new IntParam(this, "inputNode", "index of the input node")
+
   /** @group setParam */
   def setInputNode(value: Int): this.type = set(inputNode, value)
+
   /** @group getParam */
   def getInputNode: Int                   = $(inputNode)
   setDefault(inputNode -> 0)
 
-  /**
-    * Index of the output node
+  /** Index of the output node
     * @group param
     */
   val outputNodeIndex: IntParam = new IntParam(this, "outputNodeIndex", "index of the output node")
+
   /** @group setParam */
   def setOutputNodeIndex(value: Int): this.type = set(outputNodeIndex, value)
+
   /** @group getParam */
   def getOutputNodeIndex: Int                   = $(outputNodeIndex)
 
-  /**
-    * Name of the output node
+  /** Name of the output node
     * @group param
     */
   val outputNodeName: Param[String] = new Param(this, "outputNodeName", "name of the output node")
+
   /** @group setParam */
   def setOutputNodeName(value: String): this.type = set(outputNodeName, value)
+
   /** @group getParam */
   def getOutputNodeName: String                   = $(outputNodeName)
 
@@ -189,8 +193,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultP
     */
   val miniBatchSize: IntParam =
     new IntParam(this, "miniBatchSize", "size of minibatches", ParamValidators.gt(0))
+
   /** @group setParam */
   def setMiniBatchSize(value: Int): this.type = set(miniBatchSize, value)
+
   /** @group getParam */
   def getMiniBatchSize: Int                   = $(miniBatchSize)
   setDefault(miniBatchSize -> 10)
@@ -199,8 +205,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultP
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  /**
-    * Train the model
+  /** Train the model
     * @param dataset
     * @return trained dataset
     */

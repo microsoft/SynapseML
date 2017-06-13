@@ -12,9 +12,7 @@ import scala.reflect.ClassTag
 
 object ImageSchema {
 
-  /**
-    * schema for the image column: Row(String, Int, Int, Int, Array[Byte])
-    */
+  /** Schema for the image column: Row(String, Int, Int, Int, Array[Byte]) */
   val columnSchema = StructType(
     StructField("path",   StringType,  true) ::
     StructField("height", IntegerType, true) ::
@@ -28,8 +26,7 @@ object ImageSchema {
   def getType(row: Row): Int = row.getInt(3)
   def getBytes(row: Row): Array[Byte] = row.getAs[Array[Byte]](4)
 
-  /**
-    * Check if the dataframe column contains images (i.e. has imageSchema)
+  /** Check if the dataframe column contains images (i.e. has imageSchema)
     *
     * @param df
     * @param column

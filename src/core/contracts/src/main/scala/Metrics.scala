@@ -30,8 +30,7 @@ case class IntegralMetric(name: UniqueName, value: Long) extends TypenameMetric
 
 case class TypenameMetricGroup(name: UniqueName, values: Map[UniqueName, Seq[TypenameMetric]])
 
-/**
-  * Defines contract for Metric table, which is a metric name to list of values.
+/** Defines contract for Metric table, which is a metric name to list of values.
   * @param data
   */
 case class MetricData(data: Map[String, Seq[Double]], metricType: String, modelName: String)

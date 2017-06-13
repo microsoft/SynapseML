@@ -20,14 +20,11 @@ object FindBestModel extends DefaultParamsReadable[FindBestModel] {
   val paramsCol = "parameters"
 }
 
-/**
-  * Evaluates and chooses the best model from a list of models.
-  */
+/** Evaluates and chooses the best model from a list of models. */
 class FindBestModel(override val uid: String) extends Estimator[BestModel] with MMLParams {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
-  /**
-    * List of models to be evaluated. The list is an Array of models
+  /** List of models to be evaluated. The list is an Array of models
     * @group param
     */
   val models: TransformerArrayParam = new TransformerArrayParam(this, "models", "List of models to be evaluated")
@@ -38,8 +35,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
 
-  /**
-    * Metric used to evaluate models and determine best model. Specify the metric as one of the following:
+  /** Metric used to evaluate models and determine best model. Specify the metric as one of the following:
     * - "mse"
     * - "rmse"
     * - "r2"
@@ -77,8 +73,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
   var selectedBestModelMetrics: Dataset[_] = null
 
-  /**
-    * @param dataset - The input dataset, to be fitted
+  /** @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
@@ -184,9 +179,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
 }
 
-/**
-  * Model produced by [[FindBestModel]].
-  */
+/** Model produced by [[FindBestModel]]. */
 class BestModel(val uid: String,
                 val model: Transformer,
                 val scoredDataset: Dataset[_],
@@ -207,32 +200,27 @@ class BestModel(val uid: String,
 
   override def transform(dataset: Dataset[_]): DataFrame = model.transform(dataset)
 
-  /**
-    * The best model found during evaluation.
+  /** The best model found during evaluation.
     * @return The best model.
     */
   def getBestModel: Transformer = model
 
-  /**
-    * Gets the scored dataset.
+  /** Gets the scored dataset.
     * @return The scored dataset for the best model.
     */
   def getScoredDataset: Dataset[_] = scoredDataset
 
-  /**
-    * Gets the ROC curve with TPR, FPR.
+  /** Gets the ROC curve with TPR, FPR.
     * @return The evaluation results.
     */
   def getEvaluationResults: Dataset[_] = rocCurve
 
-  /**
-    * Gets all of the best model metrics results from the evaluator.
+  /** Gets all of the best model metrics results from the evaluator.
     * @return All of the best model metrics results.
     */
   def getBestModelMetrics: Dataset[_] = bestModelMetrics
 
-  /**
-    * Gets a table of metrics from all models compared from the evaluation comparison.
+  /** Gets a table of metrics from all models compared from the evaluation comparison.
     * @return The model metrics results from all models.
     */
   def getAllModelMetrics: Dataset[_] = allModelMetrics

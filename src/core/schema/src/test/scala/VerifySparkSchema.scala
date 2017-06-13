@@ -5,9 +5,7 @@ package com.microsoft.ml.spark.schema
 
 import com.microsoft.ml.spark.TestBase
 
-/**
-  * Verifies the spark schema functions.
-  */
+/** Verifies the spark schema functions. */
 class VerifySparkSchema extends TestBase {
 
   val labelColumn = "label"

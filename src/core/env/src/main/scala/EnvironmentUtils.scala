@@ -18,7 +18,7 @@ object EnvironmentUtils {
 
   // Make this overrideable so people have control over the granularity
   private lazy val nvInfo: Option[String] = {
-    println(s"Computing GPU count on ${if(IsWindows) "Windows" else "Linux"}")
+    println(s"Computing GPU count on ${if (IsWindows) "Windows" else "Linux"}")
     val nvsmicmd = if (IsWindows) {
       // Unlikely nvidia is on the path
       val nvsmi = Paths.get(

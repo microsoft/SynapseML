@@ -6,25 +6,20 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.ColumnOptions.ColumnOptions
 import com.microsoft.ml.spark.DataOptions.DataOptions
 
-/**
-  * Specifies the column types supported in spark dataframes and modules.
-  */
+/** Specifies the column types supported in spark dataframes and modules. */
 object ColumnOptions extends Enumeration {
   type ColumnOptions = Value
   // TODO: add Categorical, DenseVector, SparseVector
   val Scalar = Value
 }
 
-/**
-  * Specifies the data types supported in spark dataframes and modules.
-  */
+/** Specifies the data types supported in spark dataframes and modules. */
 object DataOptions extends Enumeration {
   type DataOptions = Value
   val String, Int, Double, Boolean, Date, Timestamp, Byte, Short = Value
 }
 
-/**
-  * Options used to specify how a dataset will be generated.
+/** Options used to specify how a dataset will be generated.
   * This contains information on what the data and column types
   * (specified as flags) for generating a dataset will be limited to.
   * It also contain options for all possible missing values generation

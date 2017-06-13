@@ -12,9 +12,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-/**
-  * Contains constants used by Compute Per Instance Statistics.
-  */
+/** Contains constants used by Compute Per Instance Statistics. */
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
   // Regression metrics
   val L1LossMetric  = "L1_loss"
@@ -26,8 +24,7 @@ object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInst
   val epsilon = 1e-15
 }
 
-/**
-  * Evaluates the given scored dataset with per instance metrics.
+/** Evaluates the given scored dataset with per instance metrics.
   *
   * The Regression metrics are:
   * - L1_loss

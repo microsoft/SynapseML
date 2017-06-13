@@ -13,9 +13,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
-/**
-  * Tests to validate the functionality of Evaluate Model module.
-  */
+/** Tests to validate the functionality of Evaluate Model module. */
 class VerifyComputeModelStatistics extends TestBase {
 
   test("Smoke test for evaluating a dataset") {

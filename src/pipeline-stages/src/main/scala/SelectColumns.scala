@@ -12,8 +12,7 @@ import org.apache.spark.sql.types._
 
 object SelectColumns extends DefaultParamsReadable[SelectColumns]
 
-/**
-  * <code>SelectColumns</code> takes a dataframe and a list of columns to select as input and returns
+/** <code>SelectColumns</code> takes a dataframe and a list of columns to select as input and returns
   * a dataframe comprised of only those columns listed in the input list.
   *
   * The columns to be selected is a list of column names
@@ -32,8 +31,7 @@ class SelectColumns(val uid: String) extends Transformer with MMLParams {
 
   def setCol(value: String): this.type = set(cols, Array(value))
 
-  /**
-    * @param dataset - The input dataset, to be transformed
+  /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {

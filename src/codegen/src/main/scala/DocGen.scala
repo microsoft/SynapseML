@@ -9,8 +9,7 @@ import org.apache.commons.lang3.StringUtils
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
-/**
-  * Generate .rst file for each Python file inorder to autogenerate API documentation.
+/** Generate .rst file for each Python file inorder to autogenerate API documentation.
   * This generation should be run before the __init__.py file is generated, and before the Python is zipped
   * into the zip file.
   */

@@ -7,14 +7,11 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.DataFrame
 import scala.collection.mutable
 
-/**
-  * Contains methods for manipulating spark dataframes and datasets.
-  */
+/** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
 
   implicit class MMLDataFrame(val df: DataFrame) extends AnyVal {
-    /**
-      * Finds an unused column name given initial column name in the given schema.
+    /** Finds an unused column name given initial column name in the given schema.
       * The unused column name will be given prefix with a number appended to it, eg "testColumn_5".
       * There will be an underscore between the column name and the number appended.
       *
@@ -25,8 +22,7 @@ object DatasetExtensions {
       findUnusedColumnName(prefix)(columnNamesSet)
     }
 
-    /**
-      * Gets the column values as the given type.
+    /** Gets the column values as the given type.
       * @param colname The column name to retrieve from.
       * @tparam T The type to retrieve.
       * @return The sequence of values in the column.
@@ -35,21 +31,18 @@ object DatasetExtensions {
       df.select(colname).collect.map(_.getAs[T](0))
     }
 
-    /**
-      * Gets the spark sparse vector column.
+    /** Gets the spark sparse vector column.
       * @return The spark sparse vector column.
       */
     def getSVCol: String => Seq[SparseVector] = getColAs[SparseVector] _
 
-    /**
-      * Gets the spark dense vector column.
+    /** Gets the spark dense vector column.
       * @return The spark dense vector column.
       */
     def getDVCol: String => Seq[DenseVector] = getColAs[DenseVector] _
   }
 
-  /**
-    * Finds an unused column name given initial column name and a list of existing column names.
+  /** Finds an unused column name given initial column name and a list of existing column names.
     * The unused column name will be given prefix with a number appended to it, eg "testColumn_5".
     * There will be an underline between the column name and the number appended.
     *

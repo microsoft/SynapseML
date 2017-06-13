@@ -10,8 +10,7 @@ import org.apache.spark.sql.Row
 
 import scala.util.Random
 
-/**
-  * Combines an array of row generators into a single row generator.
+/** Combines an array of row generators into a single row generator.
   * @param generators
   */
 class RandomRowGeneratorCombiner(generators: Array[RandomMMLGenerator[Row]]) extends RandomMMLGenerator[Row] {
@@ -22,8 +21,7 @@ class RandomRowGeneratorCombiner(generators: Array[RandomMMLGenerator[Row]]) ext
 
 }
 
-/**
-  * Randomly generates a row given the set space of data, column options.
+/** Randomly generates a row given the set space of data, column options.
   * @param col The column generation options specifying the column type to generate.
   * @param data The data generation options specifying the data to generate.
   */
@@ -53,8 +51,7 @@ class RandomRowGenerator(col: ColumnOptions, data: DataOptions) extends RandomMM
 
 }
 
-/**
-  * Base abstract class for random generation of data.
+/** Base abstract class for random generation of data.
   * @tparam T The data to generate.
   */
 abstract class RandomMMLGenerator[T] extends RandomDataGenerator[T] {

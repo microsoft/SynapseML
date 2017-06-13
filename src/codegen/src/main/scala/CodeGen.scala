@@ -53,8 +53,8 @@ object CodeGen {
     println("Creating temp folders")
     toZipDir.mkdirs
     pyTestDir.mkdirs
-    inDocDir.mkdirs
     docDir.mkdirs
+    inDocDir.mkdirs
     println("Copy jar files to output directory")
     copyAllFilesFromRoots(srcDir, roots, jarRelPath,
                           (Pattern.quote("-" + mmlVer + ".jar") + "$").r,

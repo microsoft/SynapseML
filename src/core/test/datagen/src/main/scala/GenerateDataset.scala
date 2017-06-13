@@ -11,13 +11,10 @@ import org.apache.spark.sql.types._
 
 import scala.util.Random
 
-/**
-  * Defines methods to generate a random spark DataFrame dataset based on given options.
-  */
+/** Defines methods to generate a random spark DataFrame dataset based on given options. */
 object GenerateDataset {
 
-  /**
-    * Generates a random Spark DataFrame given a set of dataset generation constraints.
+  /** Generates a random Spark DataFrame given a set of dataset generation constraints.
     * @param sparkSession The spark session.
     * @param datasetGenerationConstraints The dataset generation constraints to use.
     * @param seed The random seed.
@@ -29,8 +26,7 @@ object GenerateDataset {
     generateDatasetFromOptions(sparkSession, Map[Int, DatasetOptions](), datasetGenerationConstraints, seed)
   }
 
-  /**
-    * Generates a random Spark DataFrame given a map of index to DataGenerationOptions.
+  /** Generates a random Spark DataFrame given a map of index to DataGenerationOptions.
     * @param sparkSession The spark session.
     * @param indexToOptions The map of indexes to DataGenerationOptions.
     * @param datasetGenerationConstraints The constraints for generating the dataset.

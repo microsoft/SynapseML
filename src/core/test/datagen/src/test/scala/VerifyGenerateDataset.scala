@@ -3,9 +3,7 @@
 
 package com.microsoft.ml.spark
 
-/**
-  * Verifies generating a dataset using the api.
-  */
+/** Verifies generating a dataset using the api. */
 class VerifyGenerateDataset extends TestBase {
 
   test("Smoke test to verify that generating a dataset works") {

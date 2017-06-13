@@ -27,7 +27,7 @@ object PySparkWrapperGenerator {
   }
 
   private[spark] def pyWrapperName(myClass: Class[_]):String = {
-    val prefix = if(needsInternalWrapper(myClass)) internalPrefix else ""
+    val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
     prefix + myClass.getSimpleName
   }
 
@@ -40,10 +40,10 @@ object PySparkWrapperGenerator {
           case t: Transformer =>
             val className = pyWrapperName(myClass)
             (new SparkTransformerWrapper(t, className, qualifiedClassName),
-              new SparkTransformerWrapperTest(t, className, qualifiedClassName))
+             new SparkTransformerWrapperTest(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             var sc = myClass
-            while(!Seq("Estimator", "Predictor").contains(sc.getSuperclass.getSimpleName)) {
+            while (!Seq("Estimator", "Predictor").contains(sc.getSuperclass.getSimpleName)) {
               sc = sc.getSuperclass
             }
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
@@ -53,23 +53,13 @@ object PySparkWrapperGenerator {
               (modelClass.split("\\.").last, modelClass)
             }
             val (modelClass, modelQualifiedClass) = sc.getSuperclass.getSimpleName match {
-              case "Estimator" =>
-                getModelFromGenericType(typeArgs.head)
-              case "Predictor" =>
-                getModelFromGenericType(typeArgs(2))
+              case "Estimator" => getModelFromGenericType(typeArgs.head)
+              case "Predictor" => getModelFromGenericType(typeArgs(2))
             }
 
             val className = pyWrapperName(myClass)
-            (new SparkEstimatorWrapper(e,
-                className,
-                qualifiedClassName,
-                modelClass,
-                modelQualifiedClass),
-              new SparkEstimatorWrapperTest(e,
-                className,
-                qualifiedClassName,
-                modelClass,
-                modelQualifiedClass))
+            (new SparkEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
+             new SparkEstimatorWrapperTest(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
           case _ => return
         }
       wrapper.writeWrapperToFile(toZipDir)

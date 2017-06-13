@@ -19,8 +19,7 @@ object FileReaderSuiteUtils {
   def createZip(directory: String): Unit ={
       val dir = new File(directory)
       val zipfile = new File(directory + ".zip")
-      if(!zipfile.exists())
-        zipFolder(dir, zipfile)
+      if (!zipfile.exists()) zipFolder(dir, zipfile)
   }
 
   def creatZips(): Unit ={

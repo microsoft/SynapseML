@@ -9,13 +9,10 @@ import org.apache.spark.sql.functions._
 import SchemaConstants._
 import scala.reflect.ClassTag
 
-/**
-  * Schema modification and information retrieval methods.
-  */
+/** Schema modification and information retrieval methods. */
 object SparkSchema {
 
-  /**
-    * Sets the label column name.
+  /** Sets the label column name.
     *
     * @param dataset    The dataset to set the label column name on.
     * @param modelName  The model name.
@@ -26,8 +23,7 @@ object SparkSchema {
   def setLabelColumnName: (DataFrame, String, String, String) => DataFrame =
     setColumnName(TrueLabelsColumn)
 
-  /**
-    * Sets the scored labels column name.
+  /** Sets the scored labels column name.
     *
     * @param dataset    The dataset to set the scored labels column name on.
     * @param modelName  The model name.
@@ -38,8 +34,7 @@ object SparkSchema {
   def setScoredLabelsColumnName: (DataFrame, String, String, String) => DataFrame =
     setColumnName(ScoredLabelsColumn)
 
-  /**
-    * Sets the scored probabilities column name.
+  /** Sets the scored probabilities column name.
     *
     * @param dataset    The dataset to set the scored probabilities column name on.
     * @param modelName  The model name.
@@ -50,8 +45,7 @@ object SparkSchema {
   def setScoredProbabilitiesColumnName: (DataFrame, String, String, String) => DataFrame =
     setColumnName(ScoredProbabilitiesColumn)
 
-  /**
-    * Sets the scores column name.
+  /** Sets the scores column name.
     *
     * @param dataset    The dataset to set the scores column name on.
     * @param modelName  The model name.
@@ -62,8 +56,7 @@ object SparkSchema {
   def setScoresColumnName: (DataFrame, String, String, String) => DataFrame =
     setColumnName(ScoresColumn)
 
-  /**
-    * Gets the label column name.
+  /** Gets the label column name.
     *
     * @param dataset   The dataset to get the label column from.
     * @param modelName The model to retrieve the label column from.
@@ -72,8 +65,7 @@ object SparkSchema {
   def getLabelColumnName(dataset: DataFrame, modelName: String): String =
     getScoreColumnKindColumn(TrueLabelsColumn)(dataset.schema, modelName)
 
-  /**
-    * Gets the scored labels column name.
+  /** Gets the scored labels column name.
     *
     * @param dataset   The dataset to get the scored labels column from.
     * @param modelName The model to retrieve the scored labels column from.
@@ -82,8 +74,7 @@ object SparkSchema {
   def getScoredLabelsColumnName(dataset: DataFrame, modelName: String): String =
     getScoreColumnKindColumn(ScoredLabelsColumn)(dataset.schema, modelName)
 
-  /**
-    * Gets the scores column name.
+  /** Gets the scores column name.
     *
     * @param dataset   The dataset to get the scores column from.
     * @param modelName The model to retrieve the scores column from.
@@ -92,8 +83,7 @@ object SparkSchema {
   def getScoresColumnName(dataset: DataFrame, modelName: String): String =
     getScoreColumnKindColumn(ScoresColumn)(dataset.schema, modelName)
 
-  /**
-    * Gets the scored probabilities column name.
+  /** Gets the scored probabilities column name.
     *
     * @param dataset   The dataset to get the scored probabilities column from.
     * @param modelName The model to retrieve the scored probabilities column from.
@@ -102,8 +92,7 @@ object SparkSchema {
   def getScoredProbabilitiesColumnName(dataset: DataFrame, modelName: String): String =
     getScoreColumnKindColumn(ScoredProbabilitiesColumn)(dataset.schema, modelName)
 
-  /**
-    * Gets the label column name.
+  /** Gets the label column name.
     *
     * @param dataset   The dataset to get the label column from.
     * @param modelName The model to retrieve the label column from.
@@ -112,8 +101,7 @@ object SparkSchema {
   def getLabelColumnName: (StructType, String) => String =
     getScoreColumnKindColumn(TrueLabelsColumn)
 
-  /**
-    * Gets the scored labels column name.
+  /** Gets the scored labels column name.
     *
     * @param dataset   The dataset to get the scored labels column from.
     * @param modelName The model to retrieve the scored labels column from.
@@ -122,8 +110,7 @@ object SparkSchema {
   def getScoredLabelsColumnName: (StructType, String) => String =
     getScoreColumnKindColumn(ScoredLabelsColumn)
 
-  /**
-    * Gets the scores column name.
+  /** Gets the scores column name.
     *
     * @param dataset   The dataset to get the scores column from.
     * @param modelName The model to retrieve the scores column from.
@@ -132,8 +119,7 @@ object SparkSchema {
   def getScoresColumnName: (StructType, String) => String =
     getScoreColumnKindColumn(ScoresColumn)
 
-  /**
-    * Gets the scored probabilities column name.
+  /** Gets the scored probabilities column name.
     *
     * @param dataset   The dataset to get the scored probabilities column from.
     * @param modelName The model to retrieve the scored probabilities column from.
@@ -142,8 +128,7 @@ object SparkSchema {
   def getScoredProbabilitiesColumnName: (StructType, String) => String =
     getScoreColumnKindColumn(ScoredProbabilitiesColumn)
 
-  /**
-    * Gets the score value kind or null if it does not exist from a dataset.
+  /** Gets the score value kind or null if it does not exist from a dataset.
     *
     * @param scoreColumnKindColumn The score column kind to retrieve.
     * @param dataset   The dataset to get the score column kind column name from.
@@ -155,8 +140,7 @@ object SparkSchema {
     getScoreValueKind(dataset.schema, modelName, columnName)
   }
 
-  /**
-    * Gets the score value kind or null if it does not exist from the schema.
+  /** Gets the score value kind or null if it does not exist from the schema.
     *
     * @param scoreColumnKindColumn The score column kind to retrieve.
     * @param schema   The schema to get the score column kind column name from.
@@ -170,8 +154,7 @@ object SparkSchema {
     getMetadataFromModule(metadata, modelName, ScoreValueKind)
   }
 
-  /**
-    * Sets the score column kind.
+  /** Sets the score column kind.
     *
     * @param scoreColumnKindColumn The score column kind column.
     * @param dataset               The dataset to set the score column kind on.
@@ -189,8 +172,7 @@ object SparkSchema {
           scoreColumnKindColumn, scoreValueKindModel, modelName)))
   }
 
-  /**
-    * Gets the score column kind column name or null if it does not exist.
+  /** Gets the score column kind column name or null if it does not exist.
     *
     * @param scoreColumnKindColumn The score column kind to retrieve.
     * @param schema   The schema to get the score column kind column name from.
@@ -244,22 +226,22 @@ object SparkSchema {
     modelMetadata.getString(tag)
   }
 
-  /** find if the given column is a string */
+  /** Find if the given column is a string */
   def isString(df: DataFrame, column: String): Boolean = {
     df.schema(column).dataType == DataTypes.StringType
   }
 
-  /** find if the given column is numeric */
+  /** Find if the given column is numeric */
   def isNumeric(df: DataFrame, column: String): Boolean = {
     df.schema(column).dataType.isInstanceOf[NumericType]
   }
 
-  /** find if the given column is boolean */
+  /** Find if the given column is boolean */
   def isBoolean(df: DataFrame, column: String): Boolean = {
     df.schema(column).dataType.isInstanceOf[BooleanType]
   }
 
-  /** find if the given column is Categorical; use CategoricalColumnInfo for more details */
+  /** Find if the given column is Categorical; use CategoricalColumnInfo for more details */
   def isCategorical(df: DataFrame, column: String): Boolean = {
     val info = new CategoricalColumnInfo(df, column)
     info.isCategorical

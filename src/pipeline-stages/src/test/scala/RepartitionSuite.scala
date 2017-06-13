@@ -38,8 +38,7 @@ class RepartitionSuite extends TestBase {
 
   }
 
-  test("Should allow a user to set the partitions" +
-    " specifically in pipeline transform"){
+  test("Should allow a user to set the partitions specifically in pipeline transform") {
     val r = new Repartition().setN(1)
     val pipe = new Pipeline().setStages(Array(r))
     val fitPipe = pipe.fit(input)

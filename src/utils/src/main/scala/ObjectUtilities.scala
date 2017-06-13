@@ -19,13 +19,10 @@ class ObjectInputStreamContextClassLoader(input: InputStream) extends ObjectInpu
   }
 }
 
-/**
-  * Contains logic for reading and writing objects.
-  */
+/** Contains logic for reading and writing objects. */
 object ObjectUtilities {
 
-  /**
-    * Loads the object from the given path.
+  /** Loads the object from the given path.
     * @param corePath The main path for model to load the object from.
     * @param objectSubPath The path to the object.
     * @param sc The current spark context.
@@ -44,8 +41,7 @@ object ObjectUtilities {
     }.get
   }
 
-  /**
-    * Writes the object to the given path.
+  /** Writes the object to the given path.
     * @param objToWrite The object to write.
     * @param corePath The main path for model to write the object to.
     * @param objectSubPath The path to the object.

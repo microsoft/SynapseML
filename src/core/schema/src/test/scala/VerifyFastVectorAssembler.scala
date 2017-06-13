@@ -10,8 +10,7 @@ import org.apache.spark.ml.feature.{FastVectorAssembler, StringIndexer}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
-/**
-  * Verifies the fast vector assembler, which only keeps categorical metadata and removes all other metadata.
+/** Verifies the fast vector assembler, which only keeps categorical metadata and removes all other metadata.
   * TODO: Move this to core/spark and remove MML dependencies for the verification
   */
 class VerifyFastVectorAssembler extends TransformerFuzzingTest {

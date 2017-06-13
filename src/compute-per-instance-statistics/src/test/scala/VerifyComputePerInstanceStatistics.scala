@@ -11,9 +11,7 @@ import org.apache.spark.sql._
 
 import scala.tools.nsc.transform.patmat.Lit
 
-/**
-  * Tests to validate the functionality of Compute Per Instance Statistics module.
-  */
+/** Tests to validate the functionality of Compute Per Instance Statistics module. */
 class VerifyComputePerInstanceStatistics extends TestBase {
 
   test("Smoke test for evaluating a dataset") {

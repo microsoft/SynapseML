@@ -10,9 +10,7 @@ import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
-/**
-  * Tests to validate the functionality of Train Regressor module.
-  */
+/** Tests to validate the functionality of Train Regressor module. */
 class VerifyTrainRegressor extends EstimatorFuzzingTest {
 
   val regressionTrainFilesDirectory = "/Regression/Train/"
@@ -141,9 +139,7 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
   override def getEstimator(): Estimator[_] = new TrainRegressor()
 }
 
-/**
-  * Test helper methods for Train Regressor module.
-  */
+/** Test helper methods for Train Regressor module. */
 object TrainRegressorTestUtilities {
 
   def createLinearRegressor(labelColumn: String): Estimator[TrainedRegressorModel] = {

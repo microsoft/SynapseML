@@ -16,58 +16,63 @@ import scala.collection.mutable.ListBuffer
 
 trait SummarizeDataParams extends MMLParams {
 
-  /**
-    * Compute count statistics. Default is true.
+  /** Compute count statistics. Default is true.
     * @group param
     */
   final val counts: BooleanParam = BooleanParam(this, "counts", "compute count statistics", true)
+
   /** @group getParam */
   final def getCounts: Boolean = $(counts)
+
   /** @group setParam */
   def setCounts(value: Boolean): this.type = set(counts, value)
 
-  /**
-    * Compute basic statistics. Default is true.
+  /** Compute basic statistics. Default is true.
     * @group param
     */
   final val basic: BooleanParam = new BooleanParam(this, "basic", "compute basic statistics")
   setDefault(basic, true)
+
   /** @group getParam */
   final def getBasic: Boolean = $(basic)
+
   /** @group setParam */
   def setBasic(value: Boolean): this.type = set(basic, value)
 
-  /**
-    * Compute sample statistics. Default is true.
+  /** Compute sample statistics. Default is true.
     * @group param
     */
   final val sample: BooleanParam = new BooleanParam(this, "sample", "compute sample statistics")
   setDefault(sample, true)
+
   /** @group getParam */
   final def getSample: Boolean = $(sample)
+
   /** @group setParam */
   def setSample(value: Boolean): this.type = set(sample, value)
 
-  /**
-    * Compute percentiles. Default is true
+  /** Compute percentiles. Default is true
     * @group param
     */
   final val percentiles: BooleanParam = new BooleanParam(this, "percentiles", "compute percentiles")
   setDefault(percentiles, true)
+
   /** @group getParam */
   final def getPercentiles: Boolean = $(percentiles)
+
   /** @group setParam */
   def setPercentiles(value: Boolean): this.type = set(percentiles, value)
 
-  /**
-    * Threshold for quantiles - 0 is exact
+  /** Threshold for quantiles - 0 is exact
     * @group param
     */
   final val errorThreshold: DoubleParam =
     new DoubleParam(this, "errorThreshold", "threshold for quantiles - 0 is exact")
   setDefault(errorThreshold, 0.0)
+
   /** @group getParam */
   final def getErrorThreshold: Double = $(errorThreshold)
+
   /** @group setParam */
   def setErrorThreshold(value: Double): this.type = set(errorThreshold, value)
 
@@ -82,14 +87,13 @@ trait SummarizeDataParams extends MMLParams {
 }
 
 // UID should be overridden by driver for controlled identification at the DAG level
-/**
-  * Compute summary statistics for the dataset. The following statistics are computed:
+/** Compute summary statistics for the dataset. The following statistics are computed:
   * - counts
   * - basic
   * - sample
   * - percentiles
   * - errorThreshold - error threshold for quantiles
-  * @param uid
+  * @param uid The id of the module
   */
 class SummarizeData(override val uid: String)
   extends Transformer

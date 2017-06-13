@@ -12,8 +12,7 @@ import org.apache.spark.storage._
 
 trait CheckpointDataParams extends MMLParams {
 
-  /**
-    * Persist to disk as well as memory. Storage level is MEMORY_AND_DISK if true, else MEMORY_ONLY.
+  /** Persist to disk as well as memory. Storage level is MEMORY_AND_DISK if true, else MEMORY_ONLY.
     * Default is false (MEMORY_ONLY)
     * @group param
     */
@@ -25,8 +24,7 @@ trait CheckpointDataParams extends MMLParams {
   /** @group setParam */
   def setDiskIncluded(value: Boolean): this.type = set(diskIncluded, value)
 
-  /**
-    * Reverse the cache operatation; unpersist a cached dataset. Default is false
+  /** Reverse the cache operatation; unpersist a cached dataset. Default is false
     * @group param
     */
   val removeCheckpoint: BooleanParam = BooleanParam(this, "removeCheckpoint", "Unpersist a cached dataset", false)
@@ -43,16 +41,14 @@ trait CheckpointDataParams extends MMLParams {
 
 }
 
-/**
-  * Cache the dataset at this point to memory or memory and disk
-  * @param uid
+/** Cache the dataset at this point to memory or memory and disk
+  * @param uid The id of the module
   */
 class CheckpointData(override val uid: String) extends Transformer with CheckpointDataParams {
 
   def this() = this(Identifiable.randomUID("CheckpointData"))
 
-  /**
-    * Apply the transform to the dataset to persist or unpersist the data
+  /** Apply the transform to the dataset to persist or unpersist the data
     * @param dataset
     * @return dataset
     */
@@ -64,8 +60,7 @@ class CheckpointData(override val uid: String) extends Transformer with Checkpoi
     }
   }
 
-  /**
-    * Transform the schema
+  /** Transform the schema
     * @param schema
     * @return new schema
     */
@@ -77,13 +72,10 @@ class CheckpointData(override val uid: String) extends Transformer with Checkpoi
 
 }
 
-/**
-  * Cache the dataset to memory or memory and disk
-  */
+/** Cache the dataset to memory or memory and disk. */
 object CheckpointData extends DefaultParamsReadable[CheckpointData]{
 
-  /**
-    * Clear (Unpersist) the cached dataset
+  /** Clear (Unpersist) the cached dataset
     * @param ds The dataset to be unpersisted
     * @param blocking True if this operation should be a blocking operation
     * @return
@@ -93,8 +85,7 @@ object CheckpointData extends DefaultParamsReadable[CheckpointData]{
     ds.toDF
   }
 
-  /**
-    * Cache the dataset
+  /** Cache the dataset
     * @param ds dataset to be cahced
     * @param disk save to disk as well as memory when true
     * @param serialized serialize data
@@ -108,8 +99,7 @@ object CheckpointData extends DefaultParamsReadable[CheckpointData]{
     ds.toDF
   }
 
-  /**
-    * Cache to Hive
+  /** Cache to Hive
     * @param ds dataset to be cached
     * @param dbName Hive db name
     * @param tableName Hive table name

@@ -21,8 +21,7 @@ private[spark] object NamingConventions {
 
 }
 
-/**
-  * Abstract representation of a schema for an item that can be held in a repository
+/** Abstract representation of a schema for an item that can be held in a repository
   *
   * @param uri  location of the underlying file (local, HDFS, or HTTP)
   * @param hash sha256 hash of the underlying file
@@ -41,8 +40,7 @@ abstract class Schema(val uri: URI, val hash: String, val size: Long) {
 
 }
 
-/**
-  * Class representing the schema of a CNTK model
+/** Class representing the schema of a CNTK model
   * @param name      name of the model architecture
   * @param dataset   dataset the model was trained on
   * @param modelType type of problem the model is suited for eg: (image, text, sound, sentiment etc)

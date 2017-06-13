@@ -10,8 +10,7 @@ import org.apache.spark.sql.types.DataType
   * Utilities for casting values.
   */
 object CastUtilities {
-  /**
-    * Implicit method that casts a value to the given datatype.
+  /** Implicit method that casts a value to the given datatype.
     * @param any The value to cast, can be any type.
     */
   implicit class CastValue(val any: Any) extends AnyVal {

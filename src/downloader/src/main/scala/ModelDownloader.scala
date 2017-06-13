@@ -16,8 +16,7 @@ import spray.json._
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
-/**
-  * Abstract representation of a repository for future expansion
+/** Abstract representation of a repository for future expansion
   *
   * @tparam S an instantiation of the
   */
@@ -31,8 +30,7 @@ private[spark] abstract class Repository[S <: Schema] {
 
 }
 
-/**
-  * Exception returned if a repo cannot find the file
+/** Exception returned if a repo cannot find the file
   *
   * @param uri : location of the file
   */
@@ -105,8 +103,8 @@ private[spark] class HDFSRepo[S <: Schema](val uri: URI, val hconf: HadoopConf)
 
 }
 
-/**
-  * Class to represent repository of models that will eventually be hosted outside the repo
+/** Class to represent repository of models that will eventually be hosted outside
+  * the repo.
   */
 private[spark] class DefaultModelRepo(val baseURL: URL) extends Repository[ModelSchema] {
   var connectTimeout = 15000
@@ -187,8 +185,7 @@ private[spark] object ModelDownloader {
   private[spark] val defaultURL = new URL("https://mmlspark.azureedge.net/datasets/CNTKModels/")
 }
 
-/**
-  * Class for downloading models from a server to Local or HDFS
+/** Class for downloading models from a server to Local or HDFS
   *
   * @param spark Spark session so that the downloader can save to HDFS
   * @param localPath path to a directory that will store the models (local or HDFS)
@@ -208,22 +205,19 @@ class ModelDownloader(val spark: SparkSession,
 
   private val remoteModelRepo = new DefaultModelRepo(serverURL)
 
-  /**
-    * Function for querying the local repository for its registered models
+  /** Function for querying the local repository for its registered models
     *
     * @return the model schemas found in the downloader's local path
     */
   def localModels: util.Iterator[ModelSchema] = localModelRepo.listSchemas().iterator.asJava
 
-  /**
-    * Function for querying the remote server for its registered models
+  /** Function for querying the remote server for its registered models
     *
     * @return the model schemas found in remote reposiory accessed through the serverURL
     */
   def remoteModels: util.Iterator[ModelSchema] = remoteModelRepo.listSchemas().iterator.asJava
 
-  /**
-    * Method to download a single model
+  /** Method to download a single model
     * @param model the remote model schema
     * @return the new local model schema with a URI that points to the model's location (on HDFS or local)
     */
@@ -241,16 +235,14 @@ class ModelDownloader(val spark: SparkSession,
     downloadModel(models.head)
   }
 
-  /**
-    * @param models An iterable of remote model schemas
+  /** @param models An iterable of remote model schemas
     * @return An list of local model schema whose URI's points to the model's location (on HDFS or local)
     */
   def downloadModels(models: Iterable[ModelSchema] = remoteModels.toIterable): List[ModelSchema] =
   // Call toList so that all models are downloaded when downloadModels are called
     models.map(downloadModel).toList
 
-  /**
-    * @param models A java iterator of remote model schemas for in the java api (for python wrapper)
+  /** @param models A java iterator of remote model schemas for in the java api (for python wrapper)
     * @return A java List of local model schema whose URI's points to the model's location (on HDFS or local)
     */
   def downloadModels(models: util.ArrayList[ModelSchema]): util.List[ModelSchema] =

@@ -11,8 +11,7 @@ import org.apache.spark.ml.param.Param
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
-/**
-  * :: DeveloperApi ::
+/** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
 abstract class PySparkWrapperTest(entryPoint: PipelineStage,
@@ -22,12 +21,11 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
   private def importClass(entryPointName:String):String = {
-    if(entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
+    if (entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
     else s"from mmlspark import $entryPointName"
   }
 
   protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
-    (
     s"""|import unittest
         |import pandas as pd
         |import numpy as np
@@ -52,7 +50,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |
         |$paramGettersAndSetters
         |
-        |""").stripMargin
+        |""".stripMargin
 
   protected val unittestString =
     s"""|
