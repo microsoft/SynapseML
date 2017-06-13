@@ -3,22 +3,19 @@
 
 package com.microsoft.ml.spark.schema
 
-/**
-  * Contains objects and functions to manipulate Categoricals
-  */
-import javassist.bytecode.DuplicateMemberException
+/** Contains objects and functions to manipulate Categoricals */
 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.attribute._
 import SchemaConstants._
 
+import javassist.bytecode.DuplicateMemberException
 import scala.reflect.ClassTag
 
 object CategoricalUtilities {
 
-  /**
-    * Sets the given levels on the column.
+  /** Sets the given levels on the column.
     * @return The modified dataset.
     */
   def setLevels(dataset: DataFrame, column: String, levels: Array[_]): DataFrame = {
@@ -34,8 +31,7 @@ object CategoricalUtilities {
     }
   }
 
-  /**
-    * Update the levels on the existing metadata.
+  /** Update the levels on the existing metadata.
     * @param existingMetadata The existing metadata to add to.
     * @param levels The levels to add to the metadata.
     * @param dataType The datatype of the levels.
@@ -67,8 +63,7 @@ object CategoricalUtilities {
     new MetadataBuilder().withMetadata(existingMetadata).putMetadata(MMLTag, metadata).build()
   }
 
-  /**
-    * Gets the levels from the dataset.
+  /** Gets the levels from the dataset.
     * @param schema The schema to get the levels from.
     * @param column The column to retrieve metadata levels from.
     * @return The levels.
@@ -94,8 +89,7 @@ object CategoricalUtilities {
     }
   }
 
-  /**
-    * Gets the number of levels from the dataset.
+  /** Gets the number of levels from the dataset.
     * @param dataset The dataset to get the levels count from.
     * @param column The column to retrieve metadata levels count from.
     * @return The number of levels.
@@ -124,8 +118,7 @@ object CategoricalUtilities {
     }
   }
 
-  /**
-    * Get the map of array of T from the metadata.
+  /** Get the map of array of T from the metadata.
     *
     * @param ct Implicit class tag.
     * @param metadata The metadata to retrieve from.
@@ -157,8 +150,7 @@ object CategoricalUtilities {
     categoricalMap.asInstanceOf[CategoricalMap[T]]
   }
 
-  /**
-    * Get a type for the given value.
+  /** Get a type for the given value.
     * @param value The value to get the type from.
     * @tparam T The generic type of the value.
     * @return The DataType based on the value.
@@ -177,8 +169,7 @@ object CategoricalUtilities {
 
 }
 
-/**
-  * A wrapper around level maps: Map[T -> Int] and Map[Int -> T] that converts
+/** A wrapper around level maps: Map[T -> Int] and Map[Int -> T] that converts
   *   the data to/from Spark Metadata in both MLib and AzreML formats.
   * @param levels  The level values are assumed to be already sorted as needed
   * @param isOrdinal  A flag that indicates if the data are ordinal
@@ -190,7 +181,7 @@ class CategoricalMap[T](val levels: Array[T],
   require(levels.distinct.size == levels.size, "Categorical levels are not unique.")
   require(!levels.isEmpty, "Levels should not be empty")
 
-  /** total number of level */
+  /** Total number of levels */
   val numLevels = levels.length //TODO: add the maximum possible number of levels?
 
   /** Spark DataType correspondint to type T */
@@ -261,12 +252,10 @@ class CategoricalMap[T](val levels: Array[T],
 
 }
 
-/**
-  * Utilities for getting categorical column info.
+/** Utilities for getting categorical column info.
   */
 object CategoricalColumnInfo {
-  /**
-    * Gets the datatype from the column metadata.
+  /** Gets the datatype from the column metadata.
     * @param columnMetadata The column metadata
     * @return The datatype
     */
@@ -300,8 +289,7 @@ object CategoricalColumnInfo {
   }
 }
 
-/**
-  * Extract categorical info from the DataFrame column
+/** Extract categorical info from the DataFrame column
   * @param df dataframe
   * @param column column name
   */
@@ -331,8 +319,7 @@ class CategoricalColumnInfo(df: DataFrame, column: String) {
 
         (true, true, isOrdinal, dataType, hasNullLevels)
       }
-    }
-    else if (metadata.contains(MLlibTag)) {
+    } else if (metadata.contains(MLlibTag)) {
       val columnMetadata = metadata.getMetadata(MLlibTag)
       // nominal metadata has ["type" -> "nominal"] pair
       val isCategorical = columnMetadata.contains(MLlibTypeTag) &&

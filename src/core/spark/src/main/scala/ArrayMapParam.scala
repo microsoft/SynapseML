@@ -40,9 +40,7 @@ object ArrayMapJsonProtocol extends DefaultJsonProtocol {
 
 import ArrayMapJsonProtocol._
 
-/**
-  * Param for Array of stage parameter maps.
-  */
+/** Param for Array of stage parameter maps. */
 class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean)
   extends Param[Array[Map[String, Any]]](parent, name, doc, isValid) {
 

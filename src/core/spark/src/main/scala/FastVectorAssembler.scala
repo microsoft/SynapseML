@@ -15,8 +15,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-/**
-  * A fast vector assembler.  The columns given must be ordered such that categorical columns come first
+/** A fast vector assembler.  The columns given must be ordered such that categorical columns come first
   * (otherwise spark learners will give categorical attributes to the wrong index).
   * Does not keep spurious numeric data which can significantly slow down computations when there are
   * millions of columns.

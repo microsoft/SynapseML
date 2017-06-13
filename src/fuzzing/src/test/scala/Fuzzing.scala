@@ -12,9 +12,7 @@ import org.apache.spark.sql.DataFrame
 import scala.language.existentials
 import scala.util.Random
 
-/**
-  * Tests to validate fuzzing of modules
-  */
+/** Tests to validate fuzzing of modules. */
 class Fuzzing extends TestBase {
 
   // Needed because the session in MTB is lazy

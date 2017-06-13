@@ -27,8 +27,7 @@ object IndexToValue extends DefaultParamsReadable[IndexToValue]
 class IndexToValue(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams {
   def this() = this(Identifiable.randomUID("IndexToValue"))
 
-  /**
-    * @param dataset - The input dataset, to be transformed
+  /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {

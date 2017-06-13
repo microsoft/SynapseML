@@ -6,8 +6,8 @@ package org.apache.spark.ml.param
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.util.Identifiable
 
-/**
-  * Param for Estimator.  Needed as spark has explicit params for many different types but not Estimator.
+/** Param for Estimator.  Needed as spark has explicit params for many different
+  * types but not Estimator.
   */
 class EstimatorParam(parent: String, name: String, doc: String, isValid: Estimator[_ <: Model[_]] => Boolean)
   extends Param[Estimator[_ <: Model[_]]](parent, name, doc, isValid) {

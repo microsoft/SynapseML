@@ -8,9 +8,7 @@ import java.sql.Date
 import org.apache.commons.lang.RandomStringUtils
 import scala.util.Random
 
-/**
-  * Generates the specified random data type.
-  */
+/** Generates the specified random data type. */
 class GenerateDataType(random: Random) extends Serializable {
 
   def nextTimestamp: Timestamp = new Timestamp(random.nextLong())

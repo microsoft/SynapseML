@@ -20,8 +20,7 @@ import org.opencv.core.{Rect, Size}
 import org.opencv.imgproc.Imgproc
 import org.apache.spark.ml.util.Identifiable
 
-/**
-  * Image processing stage.
+/** Image processing stage.
   * @param params Map of parameters
   */
 abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializable {
@@ -29,8 +28,7 @@ abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializa
   val stageName: String
 }
 
-/**
-  * Resizes the image. The parameters of the ParameterMap are:
+/** Resizes the image. The parameters of the ParameterMap are:
   * "height" - the height of the image
   * "width"
   * "stageName"
@@ -51,8 +49,7 @@ class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params
   }
 }
 
-/**
-  * Resize object contains the information for resizing;
+/** Resize object contains the information for resizing;
   * "height"
   * "width"
   * "stageName" = "resize"
@@ -63,8 +60,7 @@ object ResizeImage {
   val width = "width"
 }
 
-/**
-  * Crops the image for processing. The parameters are:
+/** Crops the image for processing. The parameters are:
   * "x" - First dimension; start of crop
   * "y" - second dimension - start of crop
   * "height" -height of cropped image
@@ -93,8 +89,7 @@ object CropImage {
   val width = "width"
 }
 
-/**
-  * Converts an image from one color space to another, eg COLOR_BGR2GRAY. Refer to
+/** Converts an image from one color space to another, eg COLOR_BGR2GRAY. Refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#cvtcolor OpenCV]]
   * for more information.
   * @param params Map of parameters and values
@@ -115,8 +110,7 @@ object ColorFormat {
   val format = "format"
 }
 
-/**
-  * Blurs the image using a box filter.
+/** Blurs the image using a box filter.
   * The params are a map of the dimensions of the blurring box. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
   * @param params
@@ -139,8 +133,7 @@ object Blur {
   val width = "width"
 }
 
-/**
-  * Applies a threshold to each element of the image. Please refer to
+/** Applies a threshold to each element of the image. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#threshold threshold]] for
   * more information
   * @param params
@@ -166,8 +159,7 @@ object Threshold {
   val thresholdType = "type"
 }
 
-/**
-  * Applies gaussian kernel to blur the image. Please refer to
+/** Applies gaussian kernel to blur the image. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#gaussianblur OpenCV]] for detailed information
   * about the parameters and their allowable values.
   * @param params Map of parameter values containg the aperture and sigma for the kernel.
@@ -191,16 +183,12 @@ object GaussianKernel {
   val sigma = "sigma"
 }
 
-/**
-  * Pipelined image processing
-  */
+/** Pipelined image processing. */
 object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
 
   override def load(path: String): ImageTransformer = super.load(path)
 
-  /**
-    * Convert Spark image representation to OpenCV format
-    */
+  /** Convert Spark image representation to OpenCV format. */
   private def row2mat(row: Row): (String, Mat) = {
     val path    = ImageSchema.getPath(row)
     val height  = ImageSchema.getHeight(row)
@@ -213,17 +201,14 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     (path, img)
   }
 
-  /**
-    *  Convert from OpenCV format to Dataframe Row; unroll if needed
-    */
+  /**  Convert from OpenCV format to Dataframe Row; unroll if needed. */
   private def mat2row(img: Mat, path: String = ""): Row = {
     var ocvBytes = new Array[Byte](img.total.toInt*img.elemSize.toInt)
     img.get(0,0,ocvBytes)         //extract OpenCV bytes
     Row(path, img.height, img.width, img.`type`, ocvBytes)
   }
 
-  /**
-    * Apply all OpenCV transformation stages to a single image; unroll the result if needed
+  /** Apply all OpenCV transformation stages to a single image; unroll the result if needed
     * For null inputs or binary files that could not be parsed, return None.
     * Break on OpenCV errors.
     */
@@ -247,9 +232,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   }
 }
 
-/**
-  * Image processing stage. Please refer to OpenCV for additional information
-  * @param uid
+/** Image processing stage. Please refer to OpenCV for additional information
+  * @param uid The id of the module
   */
 @InternalWrapper
 class ImageTransformer(val uid: String) extends Transformer
@@ -327,7 +311,7 @@ class ImageTransformer(val uid: String) extends Transformer
     assert(ImageSchema.isImage(df, $(inputCol)) || isBinary, "input column should have Image or BinaryFile type")
 
     var transforms = ListBuffer[ImageTransformerStage]()
-    for(stage <- $(stages)) {
+    for (stage <- $(stages)) {
       stage(stageName) match  {
         case ResizeImage.stageName => transforms += new ResizeImage(stage)
         case CropImage.stageName => transforms += new CropImage(stage)

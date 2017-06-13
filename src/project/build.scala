@@ -109,7 +109,7 @@ object Extras {
     libraryDependencies in ThisBuild ++= commonLibs,
     dependencyOverrides in ThisBuild ++= overrideLibs,
     scalacOptions in ThisBuild ++= scalacOpts,
-    scalacOptions in (Compile,doc) += "-groups",
+    scalacOptions in (Compile, doc) += "-groups",
     // Don't run tests in parallel, and fork subprocesses for them
     parallelExecution in (ThisBuild, Test) := false,
     fork in (ThisBuild, Test) := true,

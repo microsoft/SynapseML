@@ -218,9 +218,9 @@ class ImageTransformerSuite extends LinuxOnly {
       val result = row(1).asInstanceOf[DenseVector].toArray
 
       val length =result.length
-      if(length != 3072) throw new Exception(s"array length should be 3072, not $length ")
+      if (length != 3072) throw new Exception(s"array length should be 3072, not $length ")
 
-      if(!compareArrays(expected, result)) {
+      if (!compareArrays(expected, result)) {
         println(path)
         println("result:   " + result.slice(0,10).deep.toString)
         println("expected: " + expected.deep.toString)
@@ -284,8 +284,8 @@ class ImageTransformerSuite extends LinuxOnly {
 
   private def compareArrays(x: Array[Double], y:Array[Double]): Boolean = {
     val length = Math.min(x.length, y.length)
-    for(i <- 0 to length-1){
-      if(Math.abs(x(i) - y(i)) > 1e-5) return false
+    for (i <- 0 to length-1) {
+      if (Math.abs(x(i) - y(i)) > 1e-5) return false
     }
     true
   }

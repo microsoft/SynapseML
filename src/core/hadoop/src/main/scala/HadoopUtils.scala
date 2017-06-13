@@ -74,9 +74,7 @@ class HadoopUtils(hadoopConf: Configuration) {
 
 }
 
-/**
-  * Filter that allows loading a fraction of HDFS files.
-  */
+/** Filter that allows loading a fraction of HDFS files. */
 class SamplePathFilter extends Configured with PathFilter {
   val random = {
     val rd = new Random()
@@ -116,8 +114,7 @@ object SamplePathFilter {
 
   def isZipFile(path: Path): Boolean = isZipFile(path.toString)
 
-  /**
-    * Set/unset  hdfs PathFilter
+  /** Set/unset  hdfs PathFilter
     *
     * @param value       Filter class that is passed to HDFS
     * @param sampleRatio Fraction of the files that the filter picks
@@ -154,8 +151,8 @@ object SamplePathFilter {
 }
 
 object RecursiveFlag {
-  /**
-    * Sets a value of spark recursive flag
+
+  /** Sets a value of spark recursive flag
     *
     * @param value value to set
     * @param spark existing spark session
@@ -173,4 +170,5 @@ object RecursiveFlag {
 
     old
   }
+
 }

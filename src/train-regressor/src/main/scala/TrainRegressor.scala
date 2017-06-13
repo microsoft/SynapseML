@@ -14,9 +14,7 @@ import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-/**
-  * Trains a regression model.
-  */
+/** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
   with HasLabelCol with MMLParams {
 
@@ -43,8 +41,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
   /** @group setParam */
   def setNumFeatures(value: Int): this.type = set(numFeatures, value)
 
-  /**
-    * Fits the regression model.
+  /** Fits the regression model.
     *
     * @param dataset The input dataset to train.
     * @return The trained regression model.
@@ -138,9 +135,8 @@ object TrainRegressor extends DefaultParamsReadable[TrainRegressor] {
   }
 }
 
-/**
-  * Model produced by [[TrainRegressor]].
-  * @param uid The uid of ???
+/** Model produced by [[TrainRegressor]].
+  * @param uid The id of the module
   * @param labelColumn The label column
   * @param model The trained model
   * @param featuresColumn The features column
@@ -151,20 +147,16 @@ class TrainedRegressorModel(val uid: String,
                             val featuresColumn: String)
     extends Model[TrainedRegressorModel] with MLWritable {
 
-  /**
-    * Write the model
-    * @return
+  /** Write the model
+    * @return a writer for the model
     */
-  override def write: MLWriter = new TrainedRegressorModel.TrainedRegressorModelWriter(uid,
-    labelColumn,
-    model,
-    featuresColumn)
+  override def write: MLWriter =
+    new TrainedRegressorModel.TrainedRegressorModelWriter(
+      uid, labelColumn, model, featuresColumn)
 
   override def copy(extra: ParamMap): TrainedRegressorModel =
-    new TrainedRegressorModel(uid,
-      labelColumn,
-      model.copy(extra),
-      featuresColumn)
+    new TrainedRegressorModel(
+      uid, labelColumn, model.copy(extra), featuresColumn)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // re-featurize and score the data
@@ -177,14 +169,13 @@ class TrainedRegressorModel(val uid: String,
     val moduleName = SchemaConstants.ScoreModelPrefix + UUID.randomUUID().toString
     val labelColumnExists = cleanedScoredData.columns.contains(labelColumn)
     val schematizedScoredDataWithLabel =
-      if (labelColumnExists) {
-        SparkSchema.setLabelColumnName(cleanedScoredData, moduleName, labelColumn, SchemaConstants.RegressionKind)
-      } else {
-        cleanedScoredData
-      }
+      if (!labelColumnExists) cleanedScoredData
+      else SparkSchema.setLabelColumnName(
+        cleanedScoredData, moduleName, labelColumn, SchemaConstants.RegressionKind)
 
     SparkSchema.setScoresColumnName(
-      schematizedScoredDataWithLabel.withColumnRenamed(SchemaConstants.SparkPredictionColumn,
+      schematizedScoredDataWithLabel.withColumnRenamed(
+        SchemaConstants.SparkPredictionColumn,
         SchemaConstants.ScoresColumn),
       moduleName,
       SchemaConstants.ScoresColumn,
@@ -192,7 +183,8 @@ class TrainedRegressorModel(val uid: String,
   }
 
   @DeveloperApi
-  override def transformSchema(schema: StructType): StructType = TrainRegressor.validateTransformSchema(schema)
+  override def transformSchema(schema: StructType): StructType =
+    TrainRegressor.validateTransformSchema(schema)
 
   def getParamMap: ParamMap = model.stages.last.extractParamMap()
 }
@@ -213,14 +205,15 @@ object TrainedRegressorModel extends MLReadable[TrainedRegressorModel] {
                                     val labelColumn: String,
                                     val model: PipelineModel,
                                     val featuresColumn: String)
-    extends MLWriter {
+      extends MLWriter {
     private case class Data(uid: String, labelColumn: String, featuresColumn: String)
 
     override protected def saveImpl(path: String): Unit = {
       val overwrite = this.shouldOverwrite
       val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
       // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
+      PipelineUtilities.saveMetadata(
+        uid,
         TrainedRegressorModel.getClass.getName.replace("$", ""),
         new Path(path, "metadata").toString,
         sc,
@@ -238,7 +231,8 @@ object TrainedRegressorModel extends MLReadable[TrainedRegressorModel] {
       val saveMode =
         if (overwrite) SaveMode.Overwrite
         else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
+      sparkSession.createDataFrame(Seq(data))
+        .repartition(1).write.mode(saveMode).parquet(dataPath)
     }
   }
 

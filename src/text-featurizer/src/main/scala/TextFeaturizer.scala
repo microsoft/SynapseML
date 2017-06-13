@@ -17,8 +17,7 @@ import org.apache.spark.ml.attribute.AttributeGroup
 
 trait TextFeaturizerParams extends MMLParams{
 
-  /**
-    * Tokenize the input when set to true
+  /** Tokenize the input when set to true
     * @group param
     */
   val useTokenizer = BooleanParam(this, "useTokenizer", "Whether to tokenize the input")
@@ -26,8 +25,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getUseTokenizer: Boolean = $(useTokenizer)
 
-  /**
-    * Indicates whether the regex splits on gaps (true) or matches tokens (false)
+  /** Indicates whether the regex splits on gaps (true) or matches tokens (false)
     * @group param
     */
   val tokenizerGaps = BooleanParam(
@@ -39,8 +37,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getTokenizerGaps: Boolean = $(tokenizerGaps)
 
-  /**
-    * Minumum token length; must be 0 or greater.
+  /** Minumum token length; must be 0 or greater.
     * @group param
     */
   val minTokenLength = IntParam(this, "minTokenLength", "Minimum token length, >= 0.")
@@ -48,8 +45,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getMinTokenLength: Int = $(minTokenLength)
 
-  /**
-    * Regex pattern used to match delimiters if gaps (true) or tokens (false)
+  /** Regex pattern used to match delimiters if gaps (true) or tokens (false)
     * @group param
     */
   val tokenizerPattern = StringParam(
@@ -60,8 +56,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getTokenizerPattern: String = $(tokenizerPattern)
 
-  /**
-    * Indicates whether to convert all characters to lowercase before tokenizing.
+  /** Indicates whether to convert all characters to lowercase before tokenizing.
     * @group param
     */
   val toLowercase = BooleanParam(
@@ -72,8 +67,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getToLowercase: Boolean = $(toLowercase)
 
-  /**
-    * Indicates whether to remove stop words from tokenized data.
+  /** Indicates whether to remove stop words from tokenized data.
     * @group param
     */
   val useStopWordsRemover = BooleanParam(this,
@@ -83,8 +77,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getUseStopWordsRemover: Boolean = $(useStopWordsRemover)
 
-  /**
-    * Indicates whether a case sensitive comparison is performed on stop words.
+  /** Indicates whether a case sensitive comparison is performed on stop words.
     * @group param
     */
   val caseSensitiveStopWords = BooleanParam(
@@ -95,8 +88,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getCaseSensitiveStopWords: Boolean = $(caseSensitiveStopWords)
 
-  /**
-    * Specify the language to use for stop word removal. The Use the custom setting when using the
+  /** Specify the language to use for stop word removal. The Use the custom setting when using the
     * stopWords input
     * @group param
     */
@@ -108,8 +100,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getDefaultStopWordLanguage: String = $(defaultStopWordLanguage)
 
-  /**
-    * The words to be filtered out. This is a comma separated list of words, encoded as a single string.
+  /** The words to be filtered out. This is a comma separated list of words, encoded as a single string.
     * For example, "a, the, and"
     */
   val stopWords = StringParam(this, "stopWords", "The words to be filtered out.")
@@ -117,8 +108,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getStopWords: String = $(stopWords)
 
-  /**
-    * Enumerate N grams when set
+  /** Enumerate N grams when set
     * @group param
     */
   val useNGram = BooleanParam(this, "useNGram", "Whether to enumerate N grams")
@@ -126,8 +116,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getUseNGram: Boolean = $(useNGram)
 
-  /**
-    * The size of the Ngrams
+  /** The size of the Ngrams
     * @group param
     */
   val nGramLength = IntParam(this, "nGramLength", "The size of the Ngrams")
@@ -135,8 +124,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getNGramLength: Int = $(nGramLength)
 
-  /**
-    * All nonnegative word counts are set to 1 when set to true
+  /** All nonnegative word counts are set to 1 when set to true
     * @group param
     */
   val binary = BooleanParam(
@@ -147,8 +135,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getBinary: Boolean = $(binary)
 
-  /**
-    * Set the number of features to hash each document to
+  /** Set the number of features to hash each document to
     * @group param
     */
   val numFeatures = IntParam(
@@ -159,8 +146,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getNumFeatures: Int = $(numFeatures)
 
-  /**
-    * Scale the Term Frequencies by IDF when set to true
+  /** Scale the Term Frequencies by IDF when set to true
     * @group param
     */
   val useIDF = BooleanParam(
@@ -171,8 +157,7 @@ trait TextFeaturizerParams extends MMLParams{
   /** @group getParam */
   final def getUseIDF: Boolean = $(useIDF)
 
-  /**
-    * Minimum number of documents in which a term should appear.
+  /** Minimum number of documents in which a term should appear.
     * @group param
     */
   val minDocFreq = IntParam(
@@ -185,13 +170,12 @@ trait TextFeaturizerParams extends MMLParams{
 
 }
 
-object  TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
+object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
 
-/**
-  * Featurize text.
+/** Featurize text.
   *
   * The default output column name is "<uid>__output"
-  * @param uid
+  * @param uid The id of the module
   */
 class TextFeaturizer(override val uid: String)
   extends Estimator[TextFeaturizerModel]

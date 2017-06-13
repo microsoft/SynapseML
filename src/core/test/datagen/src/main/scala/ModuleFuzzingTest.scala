@@ -7,8 +7,8 @@ import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.DataFrame
 
-/**
-  * Used to provide overrides on datasets to be constructed for testing fit/transform and default values
+/** Used to provide overrides on datasets to be constructed for testing
+  * fit/transform and default values.
   */
 abstract class EstimatorFuzzingTest extends TestBase {
   def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = estimator
@@ -30,8 +30,8 @@ abstract class EstimatorFuzzingTest extends TestBase {
   def getClassName: String = getEstimator().getClass.getName
 }
 
-/**
-  * Used to provide overrides on datasets to be constructed for testing transform and default values
+/** Used to provide overrides on datasets to be constructed for testing
+  * transform and default values
   */
 abstract class TransformerFuzzingTest extends TestBase {
   def setParams(fitDataset: DataFrame, transformer: Transformer): Transformer = transformer

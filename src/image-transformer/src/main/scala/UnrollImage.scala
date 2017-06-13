@@ -28,12 +28,12 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     var count = 0
     for (c <- 0 until 3) {
       for (h <- 0 until height) {
-        val offset = h*width*3
+        val offset = h * width * 3
         for (w <- 0 until width) {
           val b = bytes(offset + w*3 + c).toDouble
 
           //TODO: is there a better way to convert to unsigned byte?
-          rearranged(count) =  if(b>0) b else b + 256.0
+          rearranged(count) =  if (b>0) b else b + 256.0
           count += 1
         }
       }
@@ -42,12 +42,11 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
   }
 }
 
-/**
-  * Converts the representation of an m X n pixel image to an m * n vector of Doubles
+/** Converts the representation of an m X n pixel image to an m * n vector of Doubles
   *
   * The input column name is assumed to be "image", the output column name is "<uid>_output"
   *
-  * @param uid
+  * @param uid The id of the module
   */
 class UnrollImage(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams{
 

@@ -17,8 +17,7 @@ import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
-/**
-  * Trains a classification model.  Featurizes the given data into a vector of doubles.
+/** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *
   * Note the behavior of the reindex and labels parameters, the parameters interact as:
   *   reindex -> false
@@ -79,8 +78,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   /** @group setParam */
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
-  /**
-    * Specifies the labels metadata on the column.
+  /** Specifies the labels metadata on the column.
     * See class documentation for how this parameter interacts with reindex labels parameter.
     * @group param
     */
@@ -90,8 +88,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   /** @group setParam */
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
-  /**
-    * Fits the classification model.
+  /** Fits the classification model.
     *
     * @param dataset The input dataset to train.
     * @return The trained classification model.
@@ -278,9 +275,7 @@ object TrainClassifier extends DefaultParamsReadable[TrainClassifier] {
   }
 }
 
-/**
-  * Model produced by [[TrainClassifier]].
-  */
+/** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String,
                              val labelColumn: String,
                              val model: PipelineModel,

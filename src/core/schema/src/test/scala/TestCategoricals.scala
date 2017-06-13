@@ -13,7 +13,7 @@ import scala.reflect.{ClassTag, classTag}
 
 class TestCategoricalMap extends TestBase {
 
-  /** basic asserts that should be true for all Categorical Maps
+  /** Basic asserts that should be true for all Categorical Maps
     *
     * @param levels       sorted categorical levels
     * @param wrong_level  a value that is not a level
@@ -39,24 +39,19 @@ class TestCategoricalMap extends TestBase {
     val mml_meta = map.toMetadata(mmlStyle) //TODO: check metadata for correctness
   }
 
-  /** test CategoricalMap for different undelying types */
+  /** Test CategoricalMap for different undelying types */
   test("Test: Create basic CategoricalMap") {
-
     for (mmlStyle <- List(true, false)) {
-
       val isOrdinal = mmlStyle
-
-      val strArray = Array("as", "", "efe")
-      testMapBasic(strArray, "wrong_level", StringType, isOrdinal, mmlStyle)
-
-      val intArray = Array[Int](34, 54747, -346, 756, 0)
-      testMapBasic(intArray, -45, IntegerType, isOrdinal, mmlStyle)
-
-      val longArray = Array[Long](34, 54747, -346, 756, 0)
-      testMapBasic(longArray, (-45: Long), LongType, isOrdinal, mmlStyle)
-
-      val doubleArray = Array[Double](34.45, 54.747, -3.46, 7.56, 0)
-      testMapBasic(doubleArray, (-45: Double), DoubleType, isOrdinal, mmlStyle)
+      testMapBasic(Array("as", "", "efe"),
+                   "wrong_level", StringType, isOrdinal, mmlStyle)
+      testMapBasic(Array[Int](34, 54747, -346, 756, 0),
+                   -45, IntegerType, isOrdinal, mmlStyle)
+      testMapBasic(Array[Long](34, 54747, -346, 756, 0),
+                   (-45: Long), LongType, isOrdinal, mmlStyle)
+      testMapBasic(Array[Double](34.45, 54.747, -3.46, 7.56, 0),
+                   (-45: Double), DoubleType, isOrdinal, mmlStyle)
     }
   }
+
 }

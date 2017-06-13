@@ -58,8 +58,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
   def this() = this(Identifiable.randomUID("ValueIndexer"))
 
-  /**
-    * Fits the dictionary of values from the input column.
+  /** Fits the dictionary of values from the input column.
     *
     * @param dataset The input dataset to train.
     * @return The model for transforming columns to categorical.

@@ -12,9 +12,7 @@ import scala.reflect.ClassTag
 import scala.reflect._
 import collection.JavaConverters._
 
-/**
-  * Contains logic for loading classes
-  */
+/** Contains logic for loading classes. */
 object JarLoadingUtils {
 
   private val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")

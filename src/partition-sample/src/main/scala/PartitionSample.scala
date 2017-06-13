@@ -9,9 +9,7 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 
-/**
-  * Constants for <code>PartitionSample</code>
-  */
+/** Constants for <code>PartitionSample</code>. */
 object PSConstants {
     final val ModeRS = "RandomSample"
     final val ModeHead = "Head"
@@ -26,8 +24,7 @@ object PSConstants {
 trait PartitionSampleParams extends MMLParams {
 
   // TODO: Convert to Enum
-  /**
-    * Sampling mode. The options are:
+  /** Sampling mode. The options are:
     * - AssignToPartition
     *   - seed
     *   - numParts
@@ -51,8 +48,7 @@ trait PartitionSampleParams extends MMLParams {
   def setMode(value: String): this.type = set(mode, value)
 
   // TODO: Convert to Enum
-  /**
-    * RandomSample mode
+  /** RandomSample mode
     * - Absolute
     * - Percentage
     *
@@ -66,8 +62,7 @@ trait PartitionSampleParams extends MMLParams {
   def setRandomSampleMode(value: String): this.type = set(rsMode, value)
 
   // TODO: We need to create Option[Int] idiom for params
-  /**
-    * Seed for random operations (RandomSplit or AssignToPartition
+  /** Seed for random operations (RandomSplit or AssignToPartition
     * Default is -1
     * @group param
     */
@@ -77,8 +72,7 @@ trait PartitionSampleParams extends MMLParams {
   /** @group setParam */
   def setSeed(value: Long): this.type = set(seed, value)
 
-  /**
-    * Percentage of rows to return when Random Sampling
+  /** Percentage of rows to return when Random Sampling
     * Default is .01
     * @group param
     */
@@ -88,8 +82,7 @@ trait PartitionSampleParams extends MMLParams {
   /** @group setParam */
   def setPercent(value: Double): this.type = set(percent, value)
 
-  /**
-    * Number of rows to return. Must be specified when the mode is HEAD, or when the mode is RandomSample
+  /** Number of rows to return. Must be specified when the mode is HEAD, or when the mode is RandomSample
     * and the sampling mode is Absolute.
     *
     * Default is 1000
@@ -101,8 +94,7 @@ trait PartitionSampleParams extends MMLParams {
   /** @group setParam */
   def setCount(value: Long): this.type = set(count, value)
 
-  /**
-    * Name of the partition column. Specify a name when the mode is AssignToPartition
+  /** Name of the partition column. Specify a name when the mode is AssignToPartition
     *
     * Default is \"Partition\"
     * @group param
@@ -113,8 +105,7 @@ trait PartitionSampleParams extends MMLParams {
   /** @group setParam */
   def setNewColName(value: String): this.type = set(newColName, value)
 
-  /**
-    * Number of partitions when the mode is AssignToPartition
+  /** Number of partitions when the mode is AssignToPartition
     *
     * Default is 10
     * @group param
@@ -137,12 +128,9 @@ object PartitionSample extends DefaultParamsReadable[PartitionSample]
 
 // UID should be overridden by driver for controlled identification at the DAG level
 /**
-  *
-  * @param uid
+  * @param uid The id of the module
   */
-sealed class PartitionSample(override val uid: String)
-  extends Transformer
-  with PartitionSampleParams {
+sealed class PartitionSample(override val uid: String) extends Transformer with PartitionSampleParams {
 
   def this() = this(Identifiable.randomUID("PartitionSample"))
 

@@ -25,9 +25,7 @@ object ClassifierTestUtils {
 
 }
 
-/**
-  * Tests to validate the functionality of Train Classifier module.
-  */
+/** Tests to validate the functionality of Train Classifier module. */
 class VerifyTrainClassifier extends EstimatorFuzzingTest {
 
   val thisDirectory = new File("src/test/scala")
@@ -198,7 +196,7 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
   verifyLearnerOnBinaryCsvFile("bank.train.csv",                   "y", 2, false)
   verifyLearnerOnBinaryCsvFile("TelescopeData.csv",                " Class", 2, false)
 
-  test("Compare benchmark results file to generated file", TestBase.Extended){
+  test("Compare benchmark results file to generated file", TestBase.Extended) {
     try writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
     catch {
       case e: java.io.IOException => throw new Exception("Not able to process benchmarks file")
@@ -297,10 +295,12 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
           decimals)
 
       val (accuracyDecisionTree, f1DecisionTree) =
-        evalMulticlass(trainScoreResultDecisionTree, labelColumnName, SchemaConstants.ScoredLabelsColumn, decimals)
+        evalMulticlass(trainScoreResultDecisionTree, labelColumnName,
+                       SchemaConstants.ScoredLabelsColumn, decimals)
 
       val (accuracyRandomForest, f1RandomForest) =
-        evalMulticlass(trainScoreResultRandomForest, labelColumnName, SchemaConstants.ScoredLabelsColumn, decimals)
+        evalMulticlass(trainScoreResultRandomForest, labelColumnName,
+                       SchemaConstants.ScoredLabelsColumn, decimals)
 
       addAccuracyResult(fileName, LogisticRegressionClassifierName,
                         accuracyLogisticRegression, f1LogisticRegression)
@@ -313,7 +313,8 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
 
       if (includeNaiveBayes) {
         val (accuracyNaiveBayes, f1NaiveBayes) =
-          evalMulticlass(trainScoreResultNaiveBayes.get, labelColumnName, SchemaConstants.ScoredLabelsColumn, decimals)
+          evalMulticlass(
+            trainScoreResultNaiveBayes.get, labelColumnName, SchemaConstants.ScoredLabelsColumn, decimals)
 
         addAccuracyResult(fileName, NaiveBayesClassifierName,
           accuracyNaiveBayes, f1NaiveBayes)
@@ -359,32 +360,29 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
       TrainClassifierTestUtilities.trainScoreDataset(labelColumnName, dataset, decisionTreeClassifier)
 
     val trainScoreResultGradientBoostedTrees =
-      if (includeNonProb) {
-        Some(TrainClassifierTestUtilities.trainScoreDataset(labelColumnName, dataset, gradientBoostedTreesClassifier))
-      }
-      else None
+      if (!includeNonProb) None
+      else Some(TrainClassifierTestUtilities.trainScoreDataset(
+                  labelColumnName, dataset, gradientBoostedTreesClassifier))
 
     val trainScoreResultMultilayerPerceptron =
-      if (includeNonProb) {
-        Some(TrainClassifierTestUtilities.trainScoreDataset(labelColumnName, dataset, multilayerPerceptronClassifier))
-      }
-      else None
+      if (!includeNonProb) None
+      else Some(TrainClassifierTestUtilities.trainScoreDataset(
+                  labelColumnName, dataset, multilayerPerceptronClassifier))
 
     val trainScoreResultNaiveBayes =
-      if (includeNaiveBayes) {
-        Some(TrainClassifierTestUtilities.trainScoreDataset(labelColumnName, dataset, naiveBayesClassifier))
-      }
-      else None
+      if (!includeNaiveBayes) None
+      else Some(TrainClassifierTestUtilities.trainScoreDataset(
+                  labelColumnName, dataset, naiveBayesClassifier))
 
     val trainScoreResultRandomForest =
       TrainClassifierTestUtilities.trainScoreDataset(labelColumnName, dataset, randomForestClassifier)
+
     (trainScoreResultLogisticRegression, trainScoreResultDecisionTree,
      trainScoreResultGradientBoostedTrees, trainScoreResultRandomForest,
       trainScoreResultMultilayerPerceptron, trainScoreResultNaiveBayes)
   }
 
-  /**
-    * Get the auc and area over PR for the scored dataset.
+  /** Get the auc and area over PR for the scored dataset.
     *
     * @param scoredDataset The scored dataset to evaluate.
     * @param labelColumn The label column.
@@ -412,8 +410,7 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
     result
   }
 
-  /**
-    * Get the accuracy and f1-score from multiclass data.
+  /** Get the accuracy and f1-score from multiclass data.
     *
     * @param scoredDataset The scored dataset to evaluate.
     * @param labelColumn The label column.
@@ -441,8 +438,7 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
     result
   }
 
-  /**
-    * Rounds the given metric to 2 decimals.
+  /** Rounds the given metric to 2 decimals.
     * @param metric The metric to round.
     * @return The rounded metric.
     */
@@ -461,9 +457,7 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
   override def getEstimator(): Estimator[_] = new TrainClassifier()
 }
 
-/**
-  * Test helper methods for Train Classifier module.
-  */
+/** Test helper methods for Train Classifier module. */
 object TrainClassifierTestUtilities {
 
   def createLogisticRegressor(labelColumn: String): Estimator[TrainedClassifierModel] = {

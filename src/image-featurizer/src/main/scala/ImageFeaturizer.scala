@@ -17,7 +17,6 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
 
 /**
-  *
   * The <code>ImageFeaturizer</code> relies on a CNTK model to do the featurization, one can set this model using
   * the <code>modelLocation</code> parameter. To map the nodes of the CNTK model onto the standard "layers" structure
   * of a feed forward neural net, one needs to supply a list of node names that range from the output node,
@@ -40,8 +39,7 @@ object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams {
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
-  /**
-    * Select which node of the CNTKFunction's inputs to us as the input (default: 0)
+  /** Select which node of the CNTKFunction's inputs to us as the input (default: 0)
     * @group param
     */
   val inputNode: IntParam = IntParam(this, "inputNode", "which node of the CNTKFunction's inputs" +
@@ -53,8 +51,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getInputNode: Int = $(inputNode)
 
-  /**
-    * The number of layer to cut off the endof the network; 0 leaves the network intact, 1 rmoves
+  /** The number of layer to cut off the endof the network; 0 leaves the network intact, 1 rmoves
     * the output layer, etc.
     * @group param
     */
@@ -68,8 +65,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getCutOutputLayers: Int = $(cutOutputLayers)
 
-  /**
-    * Array with valid CNTK nodes to choose from; the first entries of this array should be closer
+  /** Array with valid CNTK nodes to choose from; the first entries of this array should be closer
     * to the output node.
     * @group param
     */
@@ -83,8 +79,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getLayerNames: Array[String] = $(layerNames)
 
-  /**
-    * The location of th emodel as a URI/URL
+  /** The location of th emodel as a URI/URL
     * @group param
     */
   val modelLocation: Param[String] = StringParam(this, "modelLocation", "the location of the model as a URI/URL",
@@ -145,8 +140,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  /**
-    * Add the features column to the schema
+  /** Add the features column to the schema
     * @param schema
     * @return schema with features column
     */

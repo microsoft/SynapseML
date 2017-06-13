@@ -7,8 +7,7 @@ import org.apache.commons.lang3.StringUtils
 
 import Config._
 
-/**
-  * Provide class level python help documentation for generated classes.
+/** Provide class level python help documentation for generated classes.
   * Lookup the doc string based on the name of the scala class
   * The text for this help is drawn from the scaladocs explanations in the scala classes.
   *
@@ -247,10 +246,10 @@ object WrapperClassDoc {
            |""".stripMargin
       case "Utils" =>""
       case "__init__" =>
-        s"""\"\"\"
+        s""""\""
            |MicrosoftML is a library of Python classes to interface with the Microsoft scala APIs to
            |utilize Apache Spark to create distibuted machine learning models.
-           |\"\"\"
+           |"\""
            |
            |""".stripMargin
       case _ => "TODO " + className + "\n"
@@ -261,13 +260,15 @@ object WrapperClassDoc {
   def packageHelp(importString: String): String = {
     s"""|$copyrightLines
         |
-        |"\"\"\""
-        |MicrosoftML is a library of Python classes to interface with the Microsoft scala APIs to
-        |utilize Apache Spark to create distibuted machine learning models.
+        |"\""
+        |MicrosoftML is a library of Python classes to interface with the
+        |Microsoft scala APIs to utilize Apache Spark to create distibuted
+        |machine learning models.
         |
-        |MicrosoftML simplifies training and scoring classifiers and regressors, as well as
-        |facilitating the creation of models using the CNTK library, images, and text.
-        |\"\"\"
+        |MicrosoftML simplifies training and scoring classifiers and
+        |regressors, as well as facilitating the creation of models using the
+        |CNTK library, images, and text.
+        |"\""
         |
         |$importString
         |""".stripMargin

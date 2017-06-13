@@ -60,8 +60,7 @@ private object AssembleFeaturesUtilities
     dataType == FloatType
 }
 
-/**
-  * Class containing the list of column names to perform special featurization steps for.
+/** Class containing the list of column names to perform special featurization steps for.
   * colNamesToHash - List of column names to hash.
   * colNamesToDuplicateForMissings - List of column names containing doubles to duplicate
   *                                   so we can remove missing values from them.
@@ -85,9 +84,8 @@ class ColumnNamesToFeaturize extends Serializable {
 
 object AssembleFeatures extends DefaultParamsReadable[AssembleFeatures]
 
-/**
-  * Creates a vector column of features from a collection of feature columns
-  * @param uid
+/** Creates a vector column of features from a collection of feature columns
+  * @param uid The id of the module
   */
 class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeaturesModel]
   with HasFeaturesCol with MMLParams {
@@ -108,8 +106,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   /** @group setParam */
   def setColumnsToFeaturize(value: Array[String]): this.type = set(columnsToFeaturize, value)
 
-  /**
-    * Categorical columns are one-hot encoded when true; default is true
+  /** Categorical columns are one-hot encoded when true; default is true
     * @group param
     */
   val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
@@ -123,8 +120,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   /** @group setParam */
   def setOneHotEncodeCategoricals(value: Boolean): this.type = set(oneHotEncodeCategoricals, value)
 
-  /**
-    * Number of features to has string columns tos
+  /** Number of features to has string columns tos
     * @group param
     */
   val numberOfFeatures: IntParam =
@@ -136,8 +132,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   /** @group setParam */
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
-  /**
-    * Creates a vector column of features from a collection of feature columns
+  /** Creates a vector column of features from a collection of feature columns
     *
     * @param dataset The input dataset to fit.
     * @return The model that will return the original dataset with assembled features as a vector.
@@ -287,9 +282,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
 
 }
 
-/**
-  * Model produced by [[AssembleFeatures]].
-  */
+/** Model produced by [[AssembleFeatures]]. */
 class AssembleFeaturesModel(val uid: String,
                      val columnNamesToFeaturize: ColumnNamesToFeaturize,
                      val hashingTransform: Option[HashingTF],

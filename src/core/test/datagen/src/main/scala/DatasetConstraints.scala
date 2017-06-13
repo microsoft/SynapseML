@@ -8,9 +8,7 @@ import org.apache.commons.math3.random.{MersenneTwister, RandomGenerator}
 
 import scala.util.Random
 
-/**
-  * Specifies the trait for constraints on generating a dataset.
-  */
+/** Specifies the trait for constraints on generating a dataset. */
 trait HasDatasetGenerationConstraints {
   var numRows: Int
   var numCols: Int
@@ -18,9 +16,7 @@ trait HasDatasetGenerationConstraints {
   var randomizeColumnNames: Boolean
 }
 
-/**
-  * Basic constraints for generating a dataset.
-  */
+/** Basic constraints for generating a dataset. */
 class BasicDatasetGenerationConstraints(numberOfRows: Int, numberOfColumns: Int, numberOfSlotsPerColumn: Array[Int])
   extends HasDatasetGenerationConstraints {
   override var numRows: Int = numberOfRows
@@ -29,8 +25,7 @@ class BasicDatasetGenerationConstraints(numberOfRows: Int, numberOfColumns: Int,
   override var randomizeColumnNames: Boolean = true
 }
 
-/**
-  * Contraints on generating a dataset where all parameters are randomly generated.
+/** Contraints on generating a dataset where all parameters are randomly generated.
   * @param minRows The min number of rows.
   * @param maxRows The max number of rows.
   * @param minCols The min number of columns.
@@ -51,8 +46,7 @@ class RandomDatasetGenerationConstraints(minRows: Int,
   override var numSlotsPerCol: Array[Int] = _
   override var randomizeColumnNames: Boolean = _
 
-  /**
-    * Generates values for rows, columns and slots based on the given constraints using a random number generator.
+  /** Generates values for rows, columns and slots based on the given constraints using a random number generator.
     * @param random The random number generator.
     */
   def generateConstraints(random: Random): Unit = {

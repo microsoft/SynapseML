@@ -6,8 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import scala.language.implicitConversions
 
-/**
-  * Implicit conversion allows sparkSession.readImages(...) syntax
+/** Implicit conversion allows sparkSession.readImages(...) syntax
   * Example:
   *     import com.microsoft.ml.spark.Readers.implicits._
   *     sparkSession.readImages(path, recursive = false)
@@ -18,9 +17,7 @@ object Readers {
 
     class Session(sparkSession: SparkSession) {
 
-      /**
-        *
-        * @param path         Path to the files directory
+      /** @param path         Path to the files directory
         * @param recursive    Recursive path search flag
         * @param sampleRatio  Fraction of the files loaded
         * @param inspectZip   Whether zip files are treated as directories
@@ -30,8 +27,7 @@ object Readers {
                           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame =
         BinaryFileReader.read(path, recursive, sparkSession, sampleRatio, inspectZip)
 
-      /**
-        * Read the directory of images from the local or remote source
+      /** Read the directory of images from the local or remote source
         *
         * @param path         Path to the image directory
         * @param recursive    Recursive path search flag

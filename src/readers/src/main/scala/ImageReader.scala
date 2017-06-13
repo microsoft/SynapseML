@@ -14,8 +14,7 @@ object ImageReader {
   //single column of images named "image"
   private val imageDFSchema = StructType(StructField("image", ImageSchema.columnSchema, true) :: Nil)
 
-  /**
-    * Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
+  /** Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
     * See ImageSchema for details.
     *
     * @param filename arbitrary string
@@ -39,8 +38,7 @@ object ImageReader {
     }
   }
 
-  /**
-    * Read the directory of images from the local or remote source
+  /** Read the directory of images from the local or remote source
     *
     * @param path      Path to the image directory
     * @param recursive Recursive search flag

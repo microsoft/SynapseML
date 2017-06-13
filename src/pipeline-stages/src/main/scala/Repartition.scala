@@ -12,15 +12,13 @@ import org.apache.spark.sql.types._
 
 object Repartition extends DefaultParamsReadable[Repartition]
 
-/**
-  * Partitions the dataset into n partitions
-  * @param uid
+/** Partitions the dataset into n partitions
+  * @param uid The id of the module
   */
 class Repartition(val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("Repartition"))
 
-  /**
-    * Number of partitions. Default is 10
+  /** Number of partitions. Default is 10
     * @group param
     */
   val n: IntParam = IntParam(this, "n", "Number of partitions",
@@ -32,16 +30,15 @@ class Repartition(val uid: String) extends Transformer with MMLParams {
   /** @group setParam */
   def setN(value: Int): this.type = set(n,value)
 
-  /**
-    * Partition the dataset
+  /** Partition the dataset
     * @param dataset The data to be partitioned
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
 
-    if (getN < dataset.rdd.getNumPartitions){
+    if (getN < dataset.rdd.getNumPartitions) {
       dataset.coalesce(getN).toDF()
-    }else{
+    } else {
       dataset.sqlContext.createDataFrame(
         dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
         dataset.schema)

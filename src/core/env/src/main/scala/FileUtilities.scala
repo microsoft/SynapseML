@@ -83,8 +83,7 @@ object FileUtilities {
     zip.close()
   }
 
-  /**
-    * iterate through the entries of a streamed .zip file, selecting only sampleRatio of them
+  /** Iterate through the entries of a streamed .zip file, selecting only sampleRatio of them
     *
     * @param portableStream  Stream of zip file
     * @param zipfile         File name is only used to construct the names of the entries
@@ -104,8 +103,8 @@ object FileUtilities {
 
     private def getNext: Option[(String, Array[Byte])] = {
       var entry = zipstream.getNextEntry
-      while(entry != null){
-        if(!entry.isDirectory && random.nextDouble < sampleRatio) {
+      while (entry != null) {
+        if (!entry.isDirectory && random.nextDouble < sampleRatio) {
 
           val filename = zipfile + java.io.File.separator + entry.getName()
 

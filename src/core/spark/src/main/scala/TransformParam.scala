@@ -7,8 +7,8 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.Identifiable
 import scala.collection.JavaConverters._
 
-/**
-  * Param for Transformer.  Needed as spark has explicit params for many different types but not Transformer.
+/** Param for Transformer.  Needed as spark has explicit params for many different
+  * types but not Transformer.
   */
 class TransformerParam(parent: String, name: String, doc: String, isValid: Transformer => Boolean)
   extends Param[Transformer](parent, name, doc, isValid) {
@@ -36,9 +36,7 @@ class TransformerParam(parent: String, name: String, doc: String, isValid: Trans
 
 }
 
-/**
-  * Param for Array of Models.
-  */
+/** Param for Array of Models. */
 class TransformerArrayParam(parent: String, name: String, doc: String, isValid: Array[Transformer] => Boolean)
   extends Param[Array[Transformer]](parent, name, doc, isValid) {
 

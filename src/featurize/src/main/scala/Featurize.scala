@@ -20,15 +20,12 @@ private object FeaturizeUtilities
 
 object Featurize extends DefaultParamsReadable[Featurize]
 
-/**
-  * Featurizes a dataset. Converts the specified columns to feature columns.
-  */
+/** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel] with MMLParams {
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
-  /**
-    * Feature columns - the columns to be featurized
+  /** Feature columns - the columns to be featurized
     * @group param
     */
   val featureColumns: MapArrayParam = new MapArrayParam(uid, "featureColumns", "feature columns")
@@ -39,8 +36,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** @group setParam */
   def setFeatureColumns(value: Map[String, Seq[String]]): this.type = set(featureColumns, value)
 
-  /**
-    * One hot encode categorical columns when true; default is true
+  /** One hot encode categorical columns when true; default is true
     * @group param
     */
   val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
@@ -54,8 +50,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** @group setParam */
   def setOneHotEncodeCategoricals(value: Boolean): this.type = set(oneHotEncodeCategoricals, value)
 
-  /**
-    * Number of features to hash string columns to
+  /** Number of features to hash string columns to
     * @group param
     */
   val numberOfFeatures: IntParam =
@@ -70,8 +65,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** @group setParam */
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
-  /**
-    * Featurizes the dataset.
+  /** Featurizes the dataset.
     *
     * @param dataset The input dataset to train.
     * @return The featurized model.

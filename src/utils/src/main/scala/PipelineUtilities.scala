@@ -9,12 +9,9 @@ import org.apache.spark.SparkContext
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
 
-/**
-  * Exposes utilities used for saving and loading pipelines.
-  */
+/** Exposes utilities used for saving and loading pipelines. */
 object PipelineUtilities {
-  /**
-    * Saves metadata that is required by spark pipeline model in order to read a model.
+  /** Saves metadata that is required by spark pipeline model in order to read a model.
     * @param uid The id of the PipelineModel saved.
     * @param cls The class name.
     * @param metadataPath The metadata path.

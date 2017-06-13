@@ -18,8 +18,7 @@ object BinaryFileReader {
   //single column of images named "image"
   private val binaryDFSchema = StructType(StructField("value", BinaryFileSchema.columnSchema, true) :: Nil)
 
-  /**
-    * Read the directory of images from the local or remote source
+  /** Read the directory of images from the local or remote source
     *
     * @param path      Path to the image directory
     * @param recursive Recursive search flag
@@ -43,16 +42,14 @@ object BinaryFileReader {
       val streams = spark.sparkContext.binaryFiles(path, spark.sparkContext.defaultParallelism)
 
       // Create files RDD and load bytes
-      data = if(!inspectZip) {
+      data = if (!inspectZip) {
         streams.mapValues((stream: PortableDataStream) => stream.toArray)
-      }
-      else{
+      } else {
         // if inspectZip is enabled, examine/sample the contents of zip files
         streams.flatMap({ case (filename: String, stream: PortableDataStream) =>
           if (SamplePathFilter.isZipFile(filename)) {
             new ZipIterator(stream, filename, sampleRatio)
-          }
-          else {
+          } else {
             Some((filename, stream.toArray))
           }
         })

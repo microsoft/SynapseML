@@ -18,10 +18,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.log4j.Logger
 
-/**
-  * Contains constants used by Compute Model Statistics.
-  *
-  */
+/** Contains constants used by Compute Model Statistics. */
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics] {
   // Regression metrics
   val MseSparkMetric  = "mse"
@@ -30,12 +27,12 @@ object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatisti
   val MaeSparkMetric  = "mae"
 
   // Binary Classification metrics
-  val AreaUnderROCMetric = "areaUnderROC"
-  val AucSparkMetric = "AUC"
-  val AccuracySparkMetric = "accuracy"
+  val AreaUnderROCMetric   = "areaUnderROC"
+  val AucSparkMetric       = "AUC"
+  val AccuracySparkMetric  = "accuracy"
   val PrecisionSparkMetric = "precision"
-  val RecallSparkMetric = "recall"
-  val AllSparkMetrics = "all"
+  val RecallSparkMetric    = "recall"
+  val AllSparkMetrics      = "all"
 
   // Regression column names
   val MseColumnName  = "mean_squared_error"
@@ -52,18 +49,18 @@ object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatisti
   val AccuracyColumnName  = "accuracy"
 
   // Multiclass Classification column names
-  val AverageAccuracy = "average_accuracy"
-  val MacroAveragedRecall = "macro_averaged_recall"
+  val AverageAccuracy        = "average_accuracy"
+  val MacroAveragedRecall    = "macro_averaged_recall"
   val MacroAveragedPrecision = "macro_averaged_precision"
 
   // Metric to column name
   val metricToColumnName = Map(AccuracySparkMetric -> AccuracyColumnName,
     PrecisionSparkMetric -> PrecisionColumnName,
-    RecallSparkMetric -> RecallColumnName,
-    MseSparkMetric -> MseColumnName,
-    RmseSparkMetric -> RmseColumnName,
-    R2SparkMetric -> R2ColumnName,
-    MaeSparkMetric -> MaeColumnName)
+    RecallSparkMetric    -> RecallColumnName,
+    MseSparkMetric       -> MseColumnName,
+    RmseSparkMetric      -> RmseColumnName,
+    R2SparkMetric        -> R2ColumnName,
+    MaeSparkMetric       -> MaeColumnName)
 
   val classificationColumns = List(AccuracyColumnName, PrecisionColumnName, RecallColumnName)
 
@@ -81,15 +78,12 @@ object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatisti
   val BinningThreshold = 1000
 }
 
-/**
-  * Evaluates the given scored dataset.
-  */
+/** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer with MMLParams {
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
-  /**
-    * Metric to evaluate the models with. Default is "all"
+  /** Metric to evaluate the models with. Default is "all"
     *
     * The metrics that can be chosen are:
     *
@@ -121,13 +115,10 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
   lazy val logger = Logger.getLogger(this.getClass.getName)
 
-  /**
-   * The ROC curve evaluated for a binary classifier.
-   */
+  /** The ROC curve evaluated for a binary classifier. */
   var rocCurve: DataFrame = null
 
-  /**
-    * Calculates the metrics for the given dataset and model.
+  /** Calculates the metrics for the given dataset and model.
     * @param dataset
     * @return DataFrame whose columns contain the calculated metrics
     */
@@ -151,23 +142,17 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
       lazy val levelsToIndexMap: Map[Any, Double] = getLevelsToIndexMap(levels.get)
 
-      lazy val predictionAndLabels = if (levelsExist) {
-        getPredictionAndLabels(dataset, labelColumnName, scoredLabelsColumnName, levelsToIndexMap)
-      } else {
-        selectAndCastToRDD(dataset, scoredLabelsColumnName, labelColumnName)
-      }
+      lazy val predictionAndLabels =
+        if (levelsExist)
+          getPredictionAndLabels(dataset, labelColumnName, scoredLabelsColumnName, levelsToIndexMap)
+        else
+          selectAndCastToRDD(dataset, scoredLabelsColumnName, labelColumnName)
 
       lazy val scoresAndLabels = {
         val scoresColumnName = SparkSchema.getScoresColumnName(dataset.schema, modelName)
-        if (scoresColumnName != null) {
-          if (levelsExist) {
-            getScoresAndLabels(dataset, labelColumnName, scoresColumnName, levelsToIndexMap)
-          } else {
-            getScalarScoresAndLabels(dataset, labelColumnName, scoresColumnName)
-          }
-        } else {
-          predictionAndLabels
-        }
+        if (scoresColumnName == null) predictionAndLabels
+        else if (levelsExist) getScoresAndLabels(dataset, labelColumnName, scoresColumnName, levelsToIndexMap)
+        else getScalarScoresAndLabels(dataset, labelColumnName, scoresColumnName)
       }
 
       lazy val (labels: Array[Double], confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
@@ -176,13 +161,9 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       getEvaluationMetric match {
         case ComputeModelStatistics.AllSparkMetrics => {
           resultDF = addConfusionMatrixToResult(labels, confusionMatrix, resultDF)
-          resultDF = addAllClassificationMetrics(modelName,
-            dataset,
-            labelColumnName,
-            predictionAndLabels,
-            confusionMatrix,
-            scoresAndLabels,
-            resultDF)
+          resultDF = addAllClassificationMetrics(
+              modelName, dataset, labelColumnName, predictionAndLabels,
+              confusionMatrix, scoresAndLabels, resultDF)
         }
         case simpleMetric if simpleMetric == ComputeModelStatistics.AccuracySparkMetric ||
           simpleMetric == ComputeModelStatistics.PrecisionSparkMetric ||
@@ -190,11 +171,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
           resultDF = addSimpleMetric(simpleMetric, predictionAndLabels, resultDF)
         }
         case ComputeModelStatistics.AucSparkMetric => {
-          val numLevels = if (levelsExist) {
-            levels.get.length
-          } else {
-            confusionMatrix.numRows
-          }
+          val numLevels = if (levelsExist) levels.get.length
+          else confusionMatrix.numRows
           if (numLevels <= 2) {
             // Add the AUC
             val auc: Double = getAUC(modelName, dataset, labelColumnName, scoresAndLabels)

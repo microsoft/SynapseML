@@ -34,9 +34,7 @@ object MapArrayJsonProtocol extends DefaultJsonProtocol {
 
 import MapArrayJsonProtocol._
 
-/**
-  * Param for Map of String to Seq of String.
-  */
+/** Param for Map of String to Seq of String. */
 class MapArrayParam(parent: String, name: String, doc: String, isValid: Map[String, Seq[String]] => Boolean)
   extends Param[Map[String, Seq[String]]](parent, name, doc, isValid) {
 

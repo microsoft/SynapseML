@@ -3,9 +3,7 @@
 
 package com.microsoft.ml.spark.schema
 
-/**
-  * Contains constants used by modules for schema.
-  */
+/** Contains constants used by modules for schema. */
 object SchemaConstants {
 
   val ScoreColumnKind           = "ScoreColumnKind"

@@ -21,7 +21,7 @@ class ArrayParam(parent: Params, name: String, doc: String, isValid: Array[_] =>
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with a [[java.util.List]] of values (for Java and Python). */
+  /** Creates a param pair with a list of values (for Java and Python). */
   def w(value: java.util.List[_]): ParamPair[Array[_]] = w(value.asScala.toArray)
 
   override def jsonEncode(value: Array[_]): String = {
