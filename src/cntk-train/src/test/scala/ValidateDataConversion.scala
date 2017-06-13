@@ -4,16 +4,10 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.Transformer
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.param._
 import org.apache.spark.ml.linalg._
-
-import FileUtilities._
+import org.slf4j.LoggerFactory
 
 class ValidateDataConversion extends TestBase {
-
-  import session.implicits._
 
   test("vector to text") {
     val testVectors = List(
@@ -24,12 +18,12 @@ class ValidateDataConversion extends TestBase {
     )
 
     val expected = Seq(
-      "1.0 0.0 ",
+      "0:1.0 1:0.0 ",
       "0:8.0 ",
       "0:1.0 10:2.0 18:1.0 33:1.0 62:1.0 67:1.0 80:1.0 ",
       "5833:1.0 9467:1.0 16680:1.0 29018:1.0 68900:1.0 85762:1.0 97510:2.0 ")
 
-    val outputs = testVectors.map(DataTransferUtils.convertVectorToText)
+    val outputs = testVectors.map(vector => DataTransferUtils.convertVectorToText(vector, CNTKLearner.sparseForm))
     assert(outputs === expected)
   }
 
@@ -56,9 +50,14 @@ class ValidateDataConversion extends TestBase {
     val data = createMockDataset
 
     val rData = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", "double", 10)
-    val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData, mockLabelColumn, "feats")
+    val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData,
+      mockLabelColumn,
+      "feats",
+      CNTKLearner.denseForm,
+      CNTKLearner.denseForm)
 
-    val transfer = new LocalWriter(s"$dir/smoke")
+    val log = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
+    val transfer = new LocalWriter(log, s"$dir/smoke")
     val path = transfer.checkpointToText(cdata)
 
     val out = session.read.text(path)
@@ -70,9 +69,14 @@ class ValidateDataConversion extends TestBase {
     val data = createMockDataset
     val rData1 = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", "double", 10)
     val rData = DataTransferUtils.reduceAndAssemble(rData1, "feats", "labels", "double", 10)
-    val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData, "labels", "feats")
+    val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData,
+      "labels",
+      "feats",
+      CNTKLearner.denseForm,
+      CNTKLearner.denseForm)
 
-    val transfer = new LocalWriter(s"$dir/vectorlabel")
+    val log = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
+    val transfer = new LocalWriter(log, s"$dir/vectorlabel")
     val path = transfer.checkpointToText(cdata)
 
     val out = session.read.text(path)

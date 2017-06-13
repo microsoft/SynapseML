@@ -1,0 +1,250 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "type": "string",
+            "defaultValue": "mysparkcluster",
+            "metadata": {
+                "description": "The name of the HDInsight Spark cluster to create."
+            }
+        },
+        "clusterLoginUserName": {
+            "type": "string",
+            "defaultValue": "admin",
+            "metadata": {
+                "description": "These credentials can be used to submit jobs to the cluster and to log into cluster dashboards."
+            }
+        },
+        "clusterLoginPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "sshUserName": {
+            "type": "string",
+            "defaultValue": "sshuser",
+            "metadata": {
+                "description": "These credentials can be used to remotely access the cluster."
+            }
+        },
+        "sshPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "headNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D3_v2",
+            "allowedValues": [
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2"
+            ],
+            "metadata": {
+                "description": "The virtual machine size of the head nodes."
+            }
+        },
+        "workerNodeCount": {
+            "type": "string",
+            "defaultValue": "2",
+            "metadata": {
+                "description": "The number of the worker nodes."
+            }
+        },
+        "workerNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D3_v2",
+            "allowedValues": [
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2"
+            ],
+            "metadata": {
+                "description": "The virtual machine size of the worker nodes."
+            }
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "myvnet",
+            "metadata": {
+                "description": "The name of the virtual network to create."
+            }
+        },
+        "virtualNetworkSubnetName": {
+            "type": "string",
+            "defaultValue": "subnet1",
+            "metadata": {
+                "description": "The name of the default subnet in the virtual network to create."
+            }
+        }
+    },
+    "variables": {
+        "defaultStorageAccount": {
+            "name": "[concat('wasbsto00',uniqueString(resourceGroup().id))]",
+            "type": "Standard_LRS"
+        },
+        "vNet": {
+            "name": "[parameters('virtualNetworkName')]",
+            "addressSpacePrefix": "10.0.0.0/16",
+            "subnetName": "[parameters('virtualNetworkSubnetName')]",
+            "subnetPrefix": "10.0.0.0/24",
+            "id": "[resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet'))]",
+            "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet')), concat('/subnets/', parameters('virtualNetworkSubnetName')))]"
+        },
+        "scriptActionUri": "https://mmlspark.azureedge.net/buildartifacts/0.5/install-mmlspark.sh"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('vNet').name]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('vNet').addressSpacePrefix]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('vNet').subnetName]",
+                        "properties": {
+                            "addressPrefix": "[variables('vNet').subnetPrefix]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('defaultStorageAccount').name]",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-01-01",
+            "sku": {
+                "name": "[variables('defaultStorageAccount').type]"
+            },
+            "kind": "Storage",
+            "properties": {}
+        },
+        {
+            "type": "Microsoft.HDInsight/clusters",
+            "name": "[parameters('clusterName')]",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-03-01-preview",
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/',variables('defaultStorageAccount').name)]",
+                "[concat('Microsoft.Network/virtualNetworks/',variables('vNet').name)]"
+            ],
+            "tags": {},
+            "properties": {
+                "clusterVersion": "3.6",
+                "osType": "Linux",
+                "tier": "Standard",
+                "clusterDefinition": {
+                    "kind": "spark",
+                    "componentVersion": {
+                        "Spark": "2.1"
+                    },
+                    "configurations": {
+                        "gateway": {
+                            "restAuthCredential.isEnabled": true,
+                            "restAuthCredential.username": "[parameters('clusterLoginUserName')]",
+                            "restAuthCredential.password": "[parameters('clusterLoginPassword')]"
+                        }
+                    }
+                },
+                "storageProfile": {
+                    "storageaccounts": [
+                        {
+                            "name": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', variables('defaultStorageAccount').name), '2016-01-01').primaryEndpoints.blob,'https://',''),'/','')]",
+                            "isDefault": true,
+                            "container": "[toLower(parameters('clusterName'))]",
+                            "key": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('defaultStorageAccount').name), '2016-01-01').keys[0].value]"
+                        }
+                    ]
+                },
+                "computeProfile": {
+                    "roles": [
+                        {
+                            "name": "headnode",
+                            "targetInstanceCount": "2",
+                            "hardwareProfile": {
+                                "vmSize": "[parameters('headNodeSize')]"
+                            },
+                            "osProfile": {
+                                "linuxOperatingSystemProfile": {
+                                    "username": "[parameters('sshUserName')]",
+                                    "password": "[parameters('sshPassword')]"
+                                }
+                            },
+                            "virtualNetworkProfile": {
+                                "id": "[variables('vNet').id]",
+                                "subnet": "[variables('vNet').subnet]"
+                            },
+                            "scriptActions": [
+                                {
+                                    "name": "customscript",
+                                    "uri": "[variables('scriptActionUri')]",
+                                    "parameters": "",
+                                    "isHeadNode": true,
+                                    "isWorkerNode": true,
+                                    "isPersisted": true,
+                                    "isZookeeperNode": false,
+                                    "isEdgeNode": false,
+                                    "applicationName": null
+                                }
+                            ]
+                        },
+                        {
+                            "name": "workernode",
+                            "targetInstanceCount": "[parameters('workerNodeCount')]",
+                            "hardwareProfile": {
+                                "vmSize": "[parameters('workerNodeSize')]"
+                            },
+                            "osProfile": {
+                                "linuxOperatingSystemProfile": {
+                                    "username": "[parameters('sshUserName')]",
+                                    "password": "[parameters('sshPassword')]"
+                                }
+                            },
+                            "virtualNetworkProfile": {
+                                "id": "[variables('vNet').id]",
+                                "subnet": "[variables('vNet').subnet]"
+                            },
+                            "scriptActions": [
+                                {
+                                    "name": "customscript",
+                                    "uri": "[variables('scriptActionUri')]",
+                                    "parameters": "",
+                                    "isHeadNode": true,
+                                    "isWorkerNode": true,
+                                    "isPersisted": true,
+                                    "isZookeeperNode": false,
+                                    "isEdgeNode": false,
+                                    "applicationName": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "vnet": {
+            "type": "object",
+            "value": "[reference(resourceId('Microsoft.Network/virtualNetworks',variables('vNet').name))]"
+        },
+        "cluster": {
+            "type": "object",
+            "value": "[reference(resourceId('Microsoft.HDInsight/clusters',parameters('clusterName')))]"
+        }
+    }
+}
