@@ -127,7 +127,7 @@
                         "autoUpgradeMinorVersion": true,
                         "settings": {
                             "fileUris": [
-                                "https://github.com/Azure/mmlspark/blob/master/tools/deployment/gpuvmsetup.sh"
+                                "https://raw.githubusercontent.com/Azure/mmlspark/master/tools/deployment/gpuvmsetup.sh"
                             ],
                             "commandToExecute": "sh gpuvmsetup.sh"
                         }
