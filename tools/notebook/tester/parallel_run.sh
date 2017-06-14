@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
 
 # Use this script to run the tests in N parallel processes, where
 # notebooks are split among them.  It would have been better to combine
