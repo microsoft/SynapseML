@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
 
 DEPLOYMENT_KEY = "mml-deploy"
 NOTEBOOK_POSTPROC = {}
