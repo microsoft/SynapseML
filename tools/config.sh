@@ -79,9 +79,9 @@ INSTALLATIONS=(
   vers:   "spark-shell --version|* version <{ver}>"
   where:  "devel runtime build"
 
-  Conda ver: "4.2.12"
+  Conda ver: "4.3.21"
   url:    "https://repo.continuum.io/miniconda/Miniconda3-<{ver}>-Linux-x86_64.sh"
-  sha256: "c59b3dd3cad550ac7596e0d599b91e75d88826db132e4146030ef471bb434e9a"
+  sha256: "e9089c735b4ae53cb1035b1a97cec9febe6decf76868383292af589218304a90"
   instcmd: 'PYTHONPATH="" bash "$1" -b -f -p "$PWD"'
   exes:   "python python3 ipython ipython3 jupyter conda pip"
   vers:   "PYTHONDONTWRITEBYTECODE=true conda --version|conda <{ver}>"
