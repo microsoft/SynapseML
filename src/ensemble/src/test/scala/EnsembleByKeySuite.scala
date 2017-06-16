@@ -50,4 +50,20 @@ class EnsembleByKeySuite extends TestBase {
     df1.show()
   }
 
+  test("should overwrite a column if instructed") {
+    val scoreDF = session.createDataFrame(Seq(
+      (0, "foo", 1.0, .1),
+      (1, "bar", 4.0, -2.0),
+      (1, "bar", 0.0, -3.0)))
+      .toDF("label1", "label2", "score1", "score2")
+
+    val va = new VectorAssembler().setInputCols(Array("score1", "score2")).setOutputCol("v1")
+    val scoreDF2 = va.transform(scoreDF)
+
+    val t = new EnsembleByKey().setKey("label1").setCol("score1").setColName("score1").setCollapseGroup(false)
+    val df1 = t.transform(scoreDF2)
+
+    assert(scoreDF2.columns.toSet === df1.columns.toSet)
+
+  }
 }

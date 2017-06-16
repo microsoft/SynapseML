@@ -75,15 +75,15 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
     }
 
     val strategyToFloatFunction = Map(
-      "mean" -> { x: String => mean(x) }
+      "mean" -> { (x: String, y: String) => mean(x).alias(y) }
     )
 
     val newCols = getCols.zip(getColNames).map { case (inColName, outColName) =>
       dataset.schema(inColName).dataType match {
         case _: DoubleType =>
-          strategyToFloatFunction(getStrategy)(inColName)
+          strategyToFloatFunction(getStrategy)(inColName, outColName)
         case _: FloatType =>
-          strategyToFloatFunction(getStrategy)(inColName)
+          strategyToFloatFunction(getStrategy)(inColName, outColName)
         case v if v == VectorType && getStrategy == "mean" =>
           val dim = dataset.select(inColName).take(1)(0).getAs[DenseVector](0).size
           new VectorAvg(dim)(dataset(inColName)).asInstanceOf[Column].alias(outColName)
@@ -99,7 +99,8 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
     if (getCollapseGroup) {
       aggregated
     } else {
-      dataset.toDF().join(aggregated, getKeys)
+      val needToDrop = getColNames.toSet & dataset.columns.toSet
+      dataset.drop(needToDrop.toList: _*).toDF().join(aggregated, getKeys)
     }
 
   }
