@@ -40,6 +40,16 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
   def setCol(value: String): this.type = set(cols, Array(value))
 
+  val colNames = new StringArrayParam(this, "colNames", "Names of the result of each col")
+
+  def getColNames: Array[String] = $(colNames)
+
+  def setColNames(arr: Array[String]): this.type = set(colNames, arr)
+
+  def setColNames(arr: String*): this.type = set(colNames, arr.toArray)
+
+  def setColName(value: String): this.type = set(colNames, Array(value))
+
   val allowedStrategies = Set("mean")
   val strategy = StringParam(this, "strategy", "How to ensemble the scores ex:" +
     " mean", { x: String => allowedStrategies(x) })
@@ -60,19 +70,23 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
+    if (get(colNames).isEmpty) {
+      setDefault(colNames -> getCols.map(name => s"avg($name)"))
+    }
+
     val strategyToFloatFunction = Map(
       "mean" -> { x: String => mean(x) }
     )
 
-    val newCols = getCols.map { colname =>
-      dataset.schema(colname).dataType match {
+    val newCols = getCols.zip(getColNames).map { case (inColName, outColName) =>
+      dataset.schema(inColName).dataType match {
         case _: DoubleType =>
-          strategyToFloatFunction(getStrategy)(colname)
+          strategyToFloatFunction(getStrategy)(inColName)
         case _: FloatType =>
-          strategyToFloatFunction(getStrategy)(colname)
+          strategyToFloatFunction(getStrategy)(inColName)
         case v if v == VectorType && getStrategy == "mean" =>
-          val dim = dataset.select(colname).take(1)(0).getAs[DenseVector](0).size
-          new VectorAvg(dim)(dataset(colname)).asInstanceOf[Column].alias(s"avg($colname)")
+          val dim = dataset.select(inColName).take(1)(0).getAs[DenseVector](0).size
+          new VectorAvg(dim)(dataset(inColName)).asInstanceOf[Column].alias(outColName)
         case t =>
           throw new IllegalArgumentException(s"Cannot operate on type:$t with strategy:$getStrategy")
       }
@@ -93,14 +107,15 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
   def transformSchema(schema: StructType): StructType = {
     val keySet = getKeys.toSet
     val colSet = getCols.toSet
+    val colToNewName = getCols.zip(getColNames).toMap
 
     val newFields = schema.fields.flatMap { f =>
       if (colSet(f.name)) {
+        val newField = StructField(colToNewName(f.name), f.dataType)
         f.dataType match {
-          case _: DoubleType => Some(StructField(s"avg(${f.name})", f.dataType))
-          case _: FloatType => Some(StructField(s"avg(${f.name})", f.dataType))
-          case fdt if fdt == VectorType =>
-            Some(StructField(s"avg(${f.name})", f.dataType))
+          case _: DoubleType => Some(newField)
+          case _: FloatType => Some(newField)
+          case fdt if fdt == VectorType => Some(newField)
           case t => throw new IllegalArgumentException(s"Cannot operate on type:$t with strategy:$getStrategy")
         }
       } else {

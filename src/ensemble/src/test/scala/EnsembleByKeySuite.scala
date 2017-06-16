@@ -30,7 +30,6 @@ class EnsembleByKeySuite extends TestBase {
       (2.0, new DenseVector(Array(2.0, -2.5))),
       (1.0, new DenseVector(Array(1.0, 0.1))))
     assert(res2.toSet === true2)
-
   }
 
   test("should support collapsing or not") {
@@ -49,7 +48,6 @@ class EnsembleByKeySuite extends TestBase {
     assert(df1.collect().map(r => (r.getInt(0), r.getDouble(5))).toSet === Set((1, 2.0), (0, 1.0)))
     assert(df1.count() == scoreDF.count())
     df1.show()
-
   }
 
 }
