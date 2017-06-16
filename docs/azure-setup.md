@@ -1,6 +1,6 @@
 # Azure Environment GPU Setup
 
-## Requirements on the connection between HDI Spark cluster and GPU VM
+## Requirements on a connection between an HDI Spark cluster and a GPU VM
 
 CNTK training using MMLSpark in Azure requires an HDInsight spark cluster and a
 GPU virtual machine (VM) connected via a virtual network (VNet) and that the GPU
