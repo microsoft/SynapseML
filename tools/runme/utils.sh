@@ -377,7 +377,7 @@ _set_build_info() {
   else
     local owd="$PWD"; cd "$BASEDIR"
     # sanity checks for version tags
-    local t rx="(0|[1-9][0-9]*)"; rx="^v$rx[.]$rx([.]$rx)?$"
+    local t rx="(0|[1-9][0-9]*)"; rx="^v$rx[.]$rx([.][1-9][0-9]*)?$"
     for t in $(git tag -l); do
       if [[ ! "$t" =~ $rx ]]; then failwith "found a bad tag name \"$t\""; fi
     done
@@ -386,9 +386,29 @@ _set_build_info() {
       # version after commits are made
       version="$(< "$BUILD_ARTIFACTS/version")"
     else
-      version="$(git describe --dirty=".dirty" --match "v*")"
-      # convert it to something that works for pip wheels
-      version="${version#v}"; version="${version/-g/+g}"; version="${version/-/.dev}"
+      # generate a version string (that works for pip wheels too) as follows:
+      local head="$(git rev-parse HEAD)"
+      # (note: prefer origin/master since VSTS doesn't update master)
+      local branch="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
+                      || git merge-base HEAD refs/heads/master)"
+      local tag="$(git describe --abbrev=0)"
+      local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
+      # 1. main version, taken from the most recent version tag
+      #    (that's all if we're building this tagged version)
+      version="${tag#v}"
+      if [[ "$tag" != "$head" ]]; then
+        # 2. ".dev" + number of commits on master since the tag
+        #    (that's all if we're building a version on the main master line)
+        version+=".dev$(git rev-list --count "$tag..$branch")"
+        if [[ "$branch" != "$head" ]]; then
+          # 3. "+" + number of commits on top of master ".g" + abbreviated sha1
+          version+="+$(git rev-list --count "$branch..$head")"
+          version+=".g$(git rev-parse --short "$head")"
+        fi
+      fi
+      # 4. always add: ".local" for local builds, ".dirty" for a dirty tree
+      if [[ "$BUILDMODE" != "server" ]]; then version+=".local"; fi
+      if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
     fi
     if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
       if [[ ! -r "$BUILD_ARTIFACTS/version" ]]; then
