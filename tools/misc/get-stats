@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme"
+
+DAPI="https://hub.docker.com/v2/repositories/microsoft/mmlspark"
+GAPI="https://api.github.com/repos/Azure/mmlspark"
+
+jget() { local url="$1"; shift; curl -s "$url" | jq -r "$@"; }
+jget_paged() {
+  local url="$1?per_page=100"; shift
+  while ((1)); do
+    local txt="$(curl -is "$url")"
+    local headers="${txt%%$'\r\n\r\n*'}"
+    echo "${txt#*$'\r\n\r\n'}"
+    if [[ "$headers" != *$'\r\nLink: '* ]]; then break; fi
+    url="${headers#*$'\r\nLink: '}"; link="${link%%$'\r\n'*}"
+    if [[ "$url" != *'>; rel="next"'* ]]; then break; fi
+    url="${url%%'>; rel="next"'*}"; url="${url##*<}"
+  done | jq -sr "add | $@"
+}
+
+tmp="/tmp/get-stats-$$"
+
+{
+
+# If there's some initial contents, spit it out here
+# cat "$HOME/tmp/log"
+
+date --utc +'=========================%n%F %R'
+
+echo "github:"
+jget "$GAPI" \
+     '"  stars: \(.stargazers_count)\n  watchers: \(.subscribers_count)\n" +
+      "  forks: \(.forks_count)\n  issues_pulls: \(.open_issues_count)"'
+jget "$GAPI/contributors" \
+     'map(.login) | "  contributors: \(length) => \(join(", "))"'
+jget_paged "$GAPI/pulls" \
+     'map("#\(.number)") | "  pulls: \(length) => \(join(", "))"'
+jget_paged "$GAPI/issues" \
+     'map(select(.pull_request | not) | "#\(.number)") |
+      "  issues: \(length) => \(join(", "))"'
+
+echo "docker:"
+jget "$DAPI/" '"  pulls: \(.pull_count)\n  stars: \(.star_count)"'
+jget "$DAPI/tags/" '.results | map(.name) | "  tags: \(length) => \(join(", "))"'
+
+} > "$tmp"
+
+az storage blob upload --type append --file "$tmp" \
+   --account-name "mmlspark" --container-name "stats" --name "log" \
+   > /dev/null \
+  || echo "az failure" 1>&2
+
+rm -f "$tmp"

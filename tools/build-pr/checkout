@@ -2,7 +2,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-. "$(dirname "${BASH_SOURCE[0]}")/../../runme" "$@"
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 @ "shared.sh"
 
 PRDIR="$BASEDIR/.build-pr"
@@ -36,14 +36,13 @@ git checkout "pr-$BUILDPR"
 git reset --hard "$SHA1"
 
 # useful info in build
-{ echo "# This is a build for [github PR #$BUILDPR]($GURL)"
+{ echo "## This is a build for [github PR #$BUILDPR]($GURL)"
   echo ""
-  echo "Associated Changes (actual ones)"
+  echo "### Associated Changes"
   echo ""; echo "---"; echo ""
   git log --format="* [%h]($repourl/commit/%H) [%aN](mailto:%aE) %s" \
       "origin/master..$SHA1"
   } > "$PRDIR/PR-Build.md"
-echo "##vso[task.uploadsummary]$PRDIR/PR-Build.md"
 
 # variable overrides
 prvar() { printf '%s=%q\n' "$1" "$2" >> "$TOOLSDIR/local-config.sh"; }
@@ -55,3 +54,4 @@ prvar BUILD_SOURCEBRANCH         "refs/heads/$REF"
 prvar BUILD_SOURCEBRANCHNAME     "$(basename "$REF")"
 prvar BUILD_SOURCEVERSIONAUTHOR  "$(git log -1 --format="%aN <%aE>")"
 prvar BUILD_SOURCEVERSIONMESSAGE "$(git log -1 --format="%s")"
+prvar BUILD_INFO_EXTRA_MARKDOWN  "$PRDIR/PR-Build.md"

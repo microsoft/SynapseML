@@ -18,11 +18,17 @@ _generate_description() {
   mapfile -c 1 -C _show_template_line \
     < "$RUNMEDIR/build-readme.tmpl" > "$BUILD_ARTIFACTS/Build.md"
   if [[ "$PUBLISH" = "all" ]]; then
-    printf '\nThis is a publish build.\n' >> "$BUILD_ARTIFACTS/Build.md"
+    printf '\nThis is a **publishing** build.\n' >> "$BUILD_ARTIFACTS/Build.md"
     echo "##vso[build.addbuildtag]Publish"
   fi
   # upload the generated description lazily on exit, so we can add info lines below
   echo_exit "##vso[task.uploadsummary]$BUILD_ARTIFACTS/Build.md"
+}
+_add_to_description() { # -f file | fmt arg...
+  { echo ""
+    if [[ "x$1" = "x-f" ]]; then if [[ -r "$2" ]]; then cat "$2"; fi
+    else printf "$@"; fi
+  } >> "$BUILD_ARTIFACTS/Build.md"
 }
 
 _postprocess_sbt_log() {
@@ -222,9 +228,9 @@ _upload_artifacts_to_storage() {
   _ az storage blob upload-batch --account-name "$MAIN_CONTAINER" \
        --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"
-  printf '\nCopy the link to [%s](%s) to setup this build on a cluster.' \
-         "this HDInsight Script Action" "$STORAGE_URL/$MML_VERSION/install-mmlspark.sh" \
-         >> "$BUILD_ARTIFACTS/Build.md"
+  _add_to_description \
+    'Copy the link to [%s](%s) to setup this build on a cluster.' \
+    "this HDInsight Script Action" "$STORAGE_URL/$MML_VERSION/install-mmlspark.sh"
 }
 
 _full_build() {
@@ -244,6 +250,9 @@ _full_build() {
   should test e2e        && _e2e_tests
   should publish demo    && _publish_to_demo_cluster
   should publish docker  && _publish_to_dockerhub
+  if [[ -n "$BUILD_INFO_EXTRA_MARKDOWN" ]]; then
+    _add_to_description -f "$BUILD_INFO_EXTRA_MARKDOWN"
+  fi
   _upload_artifacts_to_VSTS
   return 0
 }
