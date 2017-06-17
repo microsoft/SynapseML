@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme"
+
+set -e
+
+export AZURE_STORAGE_ACCOUNT="$MAIN_CONTAINER"
+
+now="$(date +"%s")"
+_minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
+show-time() {
+  time="$(date -d "$1" +"%s")"
+  local diff=$((now - $time))
+  _ago() {
+    local d=$((diff / $1)) u="$2"; if [[ "$d" != "1" ]]; then u+="s"; fi
+    echo "$d $u ago"; }
+  if   ((diff < _minute));  then _ago $((1         )) "second"
+  elif ((diff < _hour));    then _ago $((_minute   )) "minute"
+  elif ((diff < _day));     then _ago $((_hour     )) "hour"
+  elif ((diff < 7*_day));   then _ago $((_day      )) "day"
+  elif ((diff < 30*_day));  then _ago $((7 * _day  )) "week"
+  elif ((diff < 365*_day)); then _ago $((30 * _day )) "month"
+  else                           _ago $((365 * _day)) "year"
+  fi
+}
+
+azls() {
+  local p="$1"; shift
+  if [[ -z "$p" ]]; then failwith "azls: missing argument"; fi
+  if [[ "$p" != "/"* ]]; then failwith "azls: absolute argument required"; fi
+  p="${p#/}"
+  if [[ "$p" = "" ]]; then
+    az storage container list | jq -r 'map(.name) | join("\n")'
+  else
+    local c="${p%%/*}"; p="${p#$c}"; p="${p#/}"
+    local xs=(--delimiter "/"); if [[ -n "$p" ]]; then xs+=(--prefix "$p"); fi
+    az storage blob list -c "$c" "${xs[@]}" | \
+      jq -r 'map(.name | sub("^'"$p"'"; "")) | join("\n")'
+  fi
+}
+
+get_versions_for() {
+  declare -n X="$1" Xs="${1}s"
+  local oIFS="$IFS"; IFS=$'\r\n'
+  Xs=($(IFS=""; azls "/${X[container]}/${X[path]}${X[path]:+/}" | \
+          while read -r l; do
+            l="${l#${X[prefix]}}"; l="${l%${X[suffix]}}"; echo "$l"
+          done | sort -V))
+  IFS="$oIFS"
+  X[vers]=" ${Xs[*]} "
+}
+
+show_not_all() (
+  fst=1
+  for v in "${all[@]}"; do
+    where=""
+    for t in "${types[@]}"; do
+      declare -n X="$t"
+      if [[ "${X[vers]}" = *" $v "* ]]; then where+="$t"; fi
+    done
+    if [[ "$where" != "$types_" ]]; then
+      if ((fst)); then printf "\nNot all found:\n"; fst=0; fi
+      echo "  $v $where"
+    fi
+  done
+)
+
+show_times() (
+  printf "\nTimes:\n"
+  for v in "${all[@]}"; do
+    if [[ "${S[vers]}" != *" $v "* ]]; then continue; fi
+    time="$(az storage blob show -c "${S[container]}" -n "$v/BuildArtifacts.zip")"
+    time="$(jq -r '.properties.lastModified' <<<"$time")"
+    time="$(show-time "$time")"
+    echo "  $v  $time"
+  done
+)
+
+show_info() (
+  tmpzip="/tmp/$(basename "$0")-$$.zip"
+  az storage blob download -c "${S[container]}" -n "$ver/BuildArtifacts.zip" \
+     -f "$tmpzip" > /dev/null
+  unzip -p "$tmpzip" Build.md
+  rm -f "$tmpzip"
+)
+
+delete_request() (
+  files=()
+  for t in "${types[@]}"; do
+    declare -n X="$t"
+    oIFS="$IFS"; IFS=$'\r\n'
+    blobs=($(az storage blob list -c "${X[container]}" \
+                --prefix "${X[path]}${X[path]:+/}${X[prefix]}$ver" | \
+               jq -r 'map(.name) | join("\n")'))
+    IFS="$oIFS"
+    for blob in "${blobs[@]}"; do
+      echo -n "  | /${X[container]}/$blob..."
+      if az storage blob delete -c "${X[container]}" -n "$blob" > /dev/null
+      then echo " deleted"; else echo " failed"; fi
+    done
+  done
+)
+
+delete_requests() {
+  local ver yn
+  while read -r -p $'\n'"Delete: " ver; do
+    if [[ -z "$ver" ]]; then break; fi
+    echo "  |"
+    show_info "$ver" | awk '{ print "  | " $0 }'
+    echo "  |"
+    read -p $'  Proceed? ' yn
+    if [[ "${yn,,}" = "y"* ]]; then delete_request "$ver"; fi
+  done
+}
+
+types=(S M P)
+declare -A S=([container]="$STORAGE_CONTAINER"
+              [path]=""
+              [suffix]="/")
+declare -A M=([container]="$MAVEN_CONTAINER"
+              [path]="com/microsoft/ml/spark/mmlspark_$SCALA_VERSION"
+              [suffix]="/")
+declare -A P=([container]="$PIP_CONTAINER"
+              [path]=""
+              [prefix]="mmlspark-"
+              [suffix]="-py2.py3-none-any.whl")
+
+types_="${types[*]}"; types_="${types_// /}"
+map get_versions_for "${types[@]}"
+all=($(printf '%s\n' "${Ss[@]}" "${Ms[@]}" "${Ps[@]}" | sort -V -u))
+
+echo "Versions found: ${#all[@]}"
+
+show_not_all
+show_times
+delete_requests
+
+printf "\nDone.\n"
