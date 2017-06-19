@@ -13,7 +13,7 @@ fi
 
 @ "shared.sh"
 
-ICONS_URL="https://$MAIN_CONTAINER.blob.core.windows.net/icons"
+ICONS_URL="https://$MAIN_STORAGE.blob.core.windows.net/icons"
 icon="$ICONS_URL/Robot"
 case "${AGENT_JOBSTATUS,,}" in
   ( succeeded ) icon+="2.png"; box="![PASS]($icon) Pass";       state="success" ;;
@@ -23,7 +23,7 @@ case "${AGENT_JOBSTATUS,,}" in
 esac
 
 if [[ "$BUILDPR" = "" ]]; then
-  _ az storage blob copy start --account-name "$MAIN_CONTAINER" \
+  _ az storage blob copy start --account-name "$MAIN_STORAGE" \
        --destination-container "icons" --destination-blob "BuildStatus.png" \
        --source-uri "$icon"
   exit

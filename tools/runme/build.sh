@@ -34,8 +34,8 @@ _add_to_description() { # -f file | fmt arg...
 _postprocess_sbt_log() {
   # Adapts the SBT output to work nicely with the VSTS build, most of the work
   # is for the SPARK output logs
-  local line rx tag text oIFS="$IFS"
-  IFS="" # preserve whitespaces
+  local line rx tag text
+  local IFS="" # preserve whitespaces
   # Prefix finding regexp
   rx=$'^(\e[[0-9]+m)?\[?(\e[[0-9]+m)??'
   rx+=$'(warning|WARNING|warn|WARN|info|INFO|error|ERROR)'
@@ -61,7 +61,6 @@ _postprocess_sbt_log() {
       echo "$line"
     fi
   done
-  IFS="$oIFS"
 }
 
 _prepare_build_artifacts() {
@@ -112,7 +111,7 @@ _sbt_build() {
 
 _upload_to_storage() { # name, pkgdir, container
   show section "Publishing $1 Package"
-  _ az storage blob upload-batch --account-name "$MAIN_CONTAINER" \
+  _ az storage blob upload-batch --account-name "$MAIN_STORAGE" \
        --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
 }
 
@@ -225,7 +224,7 @@ _upload_artifacts_to_storage() {
     txt="${txt//<=<=fill-in-url=>=>/$STORAGE_URL/$MML_VERSION}"
     echo "$txt" > "$tmp/$(basename "$f")"
   done
-  _ az storage blob upload-batch --account-name "$MAIN_CONTAINER" \
+  _ az storage blob upload-batch --account-name "$MAIN_STORAGE" \
        --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"
   _add_to_description \

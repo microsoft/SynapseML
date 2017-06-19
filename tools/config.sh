@@ -48,9 +48,9 @@ defvar -xp HOME; mkdir -p "$HOME"
 # initialize the environment.
 
 # First, the common container definition
-defvar MAIN_CONTAINER "mmlspark"
+defvar MAIN_STORAGE "mmlspark"
 # to use the storage directly replace: "azureedge" -> "blob.core.windows"
-_main_url() { echo "https://$MAIN_CONTAINER.azureedge.net/$1"; }
+_main_url() { echo "https://$MAIN_STORAGE.azureedge.net/$1"; }
 # The base URL for our installables
 defvar INSTALLER_URL "$(_main_url "installers")"
 # Directory for caching installers; if it is empty then no caching is used
