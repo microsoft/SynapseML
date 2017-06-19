@@ -4,117 +4,6 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
-set -e
-
-export AZURE_STORAGE_ACCOUNT="$MAIN_CONTAINER"
-
-now="$(date +"%s")"
-_minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
-show-time() {
-  time="$(date -d "$1" +"%s")"
-  local diff=$((now - $time))
-  _ago() {
-    local d=$((diff / $1)) u="$2"; if [[ "$d" != "1" ]]; then u+="s"; fi
-    echo "$d $u ago"; }
-  if   ((diff < _minute));  then _ago $((1         )) "second"
-  elif ((diff < _hour));    then _ago $((_minute   )) "minute"
-  elif ((diff < _day));     then _ago $((_hour     )) "hour"
-  elif ((diff < 7*_day));   then _ago $((_day      )) "day"
-  elif ((diff < 30*_day));  then _ago $((7 * _day  )) "week"
-  elif ((diff < 365*_day)); then _ago $((30 * _day )) "month"
-  else                           _ago $((365 * _day)) "year"
-  fi
-}
-
-azls() {
-  local p="$1"; shift
-  if [[ -z "$p" ]]; then failwith "azls: missing argument"; fi
-  if [[ "$p" != "/"* ]]; then failwith "azls: absolute argument required"; fi
-  p="${p#/}"
-  if [[ "$p" = "" ]]; then
-    az storage container list | jq -r 'map(.name) | join("\n")'
-  else
-    local c="${p%%/*}"; p="${p#$c}"; p="${p#/}"
-    local xs=(--delimiter "/"); if [[ -n "$p" ]]; then xs+=(--prefix "$p"); fi
-    az storage blob list -c "$c" "${xs[@]}" | \
-      jq -r 'map(.name | sub("^'"$p"'"; "")) | join("\n")'
-  fi
-}
-
-get_versions_for() {
-  declare -n X="$1" Xs="${1}s"
-  local oIFS="$IFS"; IFS=$'\r\n'
-  Xs=($(IFS=""; azls "/${X[container]}/${X[path]}${X[path]:+/}" | \
-          while read -r l; do
-            l="${l#${X[prefix]}}"; l="${l%${X[suffix]}}"; echo "$l"
-          done | sort -V))
-  IFS="$oIFS"
-  X[vers]=" ${Xs[*]} "
-}
-
-show_not_all() (
-  fst=1
-  for v in "${all[@]}"; do
-    where=""
-    for t in "${types[@]}"; do
-      declare -n X="$t"
-      if [[ "${X[vers]}" = *" $v "* ]]; then where+="$t"; fi
-    done
-    if [[ "$where" != "$types_" ]]; then
-      if ((fst)); then printf "\nNot all found:\n"; fst=0; fi
-      echo "  $v $where"
-    fi
-  done
-)
-
-show_times() (
-  printf "\nTimes:\n"
-  for v in "${all[@]}"; do
-    if [[ "${S[vers]}" != *" $v "* ]]; then continue; fi
-    time="$(az storage blob show -c "${S[container]}" -n "$v/BuildArtifacts.zip")"
-    time="$(jq -r '.properties.lastModified' <<<"$time")"
-    time="$(show-time "$time")"
-    echo "  $v  $time"
-  done
-)
-
-show_info() (
-  tmpzip="/tmp/$(basename "$0")-$$.zip"
-  az storage blob download -c "${S[container]}" -n "$ver/BuildArtifacts.zip" \
-     -f "$tmpzip" > /dev/null
-  unzip -p "$tmpzip" Build.md
-  rm -f "$tmpzip"
-)
-
-delete_request() (
-  files=()
-  for t in "${types[@]}"; do
-    declare -n X="$t"
-    oIFS="$IFS"; IFS=$'\r\n'
-    blobs=($(az storage blob list -c "${X[container]}" \
-                --prefix "${X[path]}${X[path]:+/}${X[prefix]}$ver" | \
-               jq -r 'map(.name) | join("\n")'))
-    IFS="$oIFS"
-    for blob in "${blobs[@]}"; do
-      echo -n "  | /${X[container]}/$blob..."
-      if az storage blob delete -c "${X[container]}" -n "$blob" > /dev/null
-      then echo " deleted"; else echo " failed"; fi
-    done
-  done
-)
-
-delete_requests() {
-  local ver yn
-  while read -r -p $'\n'"Delete: " ver; do
-    if [[ -z "$ver" ]]; then break; fi
-    echo "  |"
-    show_info "$ver" | awk '{ print "  | " $0 }'
-    echo "  |"
-    read -p $'  Proceed? ' yn
-    if [[ "${yn,,}" = "y"* ]]; then delete_request "$ver"; fi
-  done
-}
-
 types=(S M P)
 declare -A S=([container]="$STORAGE_CONTAINER"
               [path]=""
@@ -127,6 +16,182 @@ declare -A P=([container]="$PIP_CONTAINER"
               [prefix]="mmlspark-"
               [suffix]="-py2.py3-none-any.whl")
 
+set -e
+
+export AZURE_STORAGE_ACCOUNT="$MAIN_STORAGE"
+
+now=0; _minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
+show-time() (
+  time="$1"
+  if [[ ! "$time" =~ ^[0-9]+$ ]]; then time="$(date -d "$time" +"%s")"; fi
+  diff=$((now - $time))
+  _ago() {
+    d=$((diff / $1)) u="$2"; if [[ "$d" != "1" ]]; then u+="s"; fi
+    echo "$d $u ago"; }
+  if   ((diff < _minute));  then _ago $((1         )) "second"
+  elif ((diff < _hour));    then _ago $((_minute   )) "minute"
+  elif ((diff < _day));     then _ago $((_hour     )) "hour"
+  elif ((diff < 7*_day));   then _ago $((_day      )) "day"
+  elif ((diff < 30*_day));  then _ago $((7 * _day  )) "week"
+  elif ((diff < 365*_day)); then _ago $((30 * _day )) "month"
+  else                           _ago $((365 * _day)) "year"
+  fi
+)
+
+azls() {
+  local p="$1"; shift
+  if [[ -z "$p" ]]; then failwith "azls: missing argument"; fi
+  if [[ "$p" != "/"* ]]; then failwith "azls: absolute argument required"; fi
+  p="${p#/}"
+  if [[ "$p" = "" ]]; then
+    az storage container list | jq -r 'map(.name) | .[]'
+  else
+    local c="${p%%/*}"; p="${p#$c}"; p="${p#/}"
+    local xs=(--delimiter "/"); if [[ -n "$p" ]]; then xs+=(--prefix "$p"); fi
+    az storage blob list -c "$c" "${xs[@]}" | \
+      jq -r 'map(.name | sub("^'"$p"'"; "")) | .[]'
+  fi
+}
+
+get_versions_for() {
+  declare -n X="$1" Xs="${1}s"
+  local IFS=$'\n\r'
+  Xs=($(IFS=""; azls "/${X[container]}/${X[path]}${X[path]:+/}" | \
+          while read -r l; do
+            l="${l#${X[prefix]}}"; l="${l%${X[suffix]}}"; echo "$l"
+          done | sort -V))
+  IFS=" "
+  X[vers_]=" ${Xs[*]} "
+}
+
+show_not_all() (
+  fst=1
+  for v in "${all[@]}"; do
+    where=""
+    for t in "${types[@]}"; do
+      declare -n X="$t"
+      if [[ "${X[vers_]}" = *" $v "* ]]; then where+="$t"; fi
+    done
+    if [[ "$where" != "$types_" ]]; then
+      if ((fst)); then printf "\nNot all found:\n"; fst=0; fi
+      echo "  $v $where"
+    fi
+  done
+)
+
+tmp="/tmp/$(basename "$0")-$$"
+cachedir="$HOME/.$(basename "$0")"; mkdir -p "$cachedir"
+
+(cd "$cachedir"
+ find . -type f -empty -execdir rm -f "{}" +
+ rm -f "$(ls -t | tail -1)")
+
+get_ver_info() (
+  v="$1" info="{}"
+  if [[ -r "$cachedir/$v" ]]; then return; fi
+  for t in "${types[@]}"; do
+    declare -n X="$t"
+    info="$(az storage blob list -c "${X[container]}" \
+                 --prefix "${X[path]}${X[path]:+/}${X[prefix]}$v${X[suffix]}" \
+            | jq --argjson i "$info" '$i + {"'"$t"'": .}')"
+  done
+  #
+  label="$(jq -r '.S | map(select(.name | endswith("/.label")) | .name) | .[]' \
+                 <<<"$info")"
+  if [[ "$label" = *$'\n'* ]]; then failwith "found multiple .label blobs"; fi
+  if [[ -n "$label" ]]; then
+    az storage blob download -c "${S[container]}" -n "$label" -f "$tmp" > /dev/null
+    label="[$(< "$tmp")]"
+    rm -f "$tmp"
+  fi
+  info="$(jq --arg l "$label" '. + {label: $l}' <<<"$info")"
+  #
+  az storage blob download -c "${S[container]}" -n "$v/BuildArtifacts.zip" \
+     -f "$tmp.zip" > /dev/null
+  binfo="$(unzip -p "$tmp.zip" "Build.md")"
+  rm -f "$tmp.zip"
+  info="$(jq --arg b "$binfo" '. + {buildinfo: $b}' <<<"$info")"
+  #
+  echo "$info" > "$cachedir/$v"
+)
+
+show_all_oneline() {
+  local v times t1 t2 label; now="$(date +"%s")"
+  printf "\n"
+  for v in "${all[@]}"; do
+    if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
+    printf '  %-22s' "$v"
+    get_ver_info "$v"
+    times="$(jq -r 'to_entries | map(select((.value | type) == "array") | .value) | add
+                    | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
+                    | sort | "\(.[0]):\(.[-1])"
+                   ' < "$cachedir/$v")"
+    t1="$(show-time "${times%:*}")" t2="$(show-time "${times#*:}")"
+    if [[ "$t1" = "$t2" ]]; then times="$t1"; else times="$t1 -- $t2"; fi
+    printf ' %-13s' "$times"
+    printf ' %s\n' "$(jq -r '.label' < "$cachedir/$v")"
+  done
+}
+
+ver="" # most functions use $ver dynamically
+
+do_label() (
+  read -p "  New label line: " l
+  echo "$l" > "$tmp"
+  if az storage blob upload -c "${S[container]}" -n "$ver/.label" \
+        -f "$tmp" >& /dev/null
+  then echo "  Labeled"; else echo "  Failed"; fi
+  rm -f "$tmp" "$cachedir/$ver"
+)
+
+list_blobs() (
+  jq -r 'to_entries | map(select((.value | type) == "array") | .key as $k
+                          | .value | map(. + {$k}))
+         | add | map("\(.k)/\(.name)") | .[]' < "$cachedir/$ver"
+)
+
+do_actual_delete() (
+  printf '  | Deleting...\n'
+  IFS=""; list_blobs | while read path; do
+    declare -n X="${path%%/*}"; blob="${path#*/}"
+    printf '  |   %s...' "${X[container]}/$blob"
+    if az storage blob delete -c "${X[container]}" -n "$blob" > /dev/null
+    then echo " deleted"; else echo " failed"; fi
+  done
+  (> "$cachedir/$ver") # mark as deleted
+)
+
+do_delete() (
+  for t in "${types[@]}"; do
+    declare -n X="$t"
+    blob="${X[path]}${X[path]:+/}${X[prefix]}$ver${X[suffix]}"
+    printf '  | Copying %s...\n' "${X[container]}/$blob"
+    set -o pipefail
+    if az storage blob copy start-batch --destination-container="deleted" \
+          --source-container "${X[container]}" --pattern "$blob*" \
+        | jq -r 'map(sub("^http.*?//.*?/deleted/"; "  |   ")) | .[]'
+    then : printf '  | Done\n'; else printf '  | Fail'; return; fi
+  done
+  sleep 15 # just in case?
+  # no patterns in the delete cli
+  do_actual_delete
+)
+
+do_requests() {
+  local ver c show_all=1
+  while { if ((show_all)); then show_all_oneline; fi; show_all=0
+          read -r -p $'\n'"Version: " ver; } do
+    if [[ -z "$ver" ]]; then break; fi
+    if [[ ! -r "$cachedir/$ver" ]]; then continue; fi
+    echo "  |"
+    jq -r '.buildinfo' < "$cachedir/$ver" | awk '{ print "  | " $0 }'
+    echo "  |"
+    show_all=1
+    read -p $'  Delete/Label? ' c
+    case "${c,,}" in ("d"*) do_delete;; ("l"*) do_label;; (*) show_all=0;; esac
+  done
+}
+
 types_="${types[*]}"; types_="${types_// /}"
 map get_versions_for "${types[@]}"
 all=($(printf '%s\n' "${Ss[@]}" "${Ms[@]}" "${Ps[@]}" | sort -V -u))
@@ -134,7 +199,6 @@ all=($(printf '%s\n' "${Ss[@]}" "${Ms[@]}" "${Ps[@]}" | sort -V -u))
 echo "Versions found: ${#all[@]}"
 
 show_not_all
-show_times
-delete_requests
+do_requests
 
 printf "\nDone.\n"
