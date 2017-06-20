@@ -6,7 +6,7 @@
 * `src/`:     scala and python sources
   - `core/`:  shared functionality
   - `project/`: sbt build-related materials
-* `tools/`:   build-related tools
+* `tools/`:   build-related and other meta tools
 
 
 ## Build
