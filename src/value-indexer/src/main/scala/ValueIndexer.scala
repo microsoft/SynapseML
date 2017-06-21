@@ -106,15 +106,27 @@ class ValueIndexerModel(val uid: String)
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
+  /** Levels in categorical array
+    * @group param
+    */
   val levels = new ArrayParam(this, "levels", "levels in categorical array")
+  /** @group getParam */
   def getLevels: Array[_] = $(levels)
+  /** @group setParam */
   def setLevels(value: Array[_]): this.type = set(levels, value)
   setDefault(levels -> Array())
 
+  /** The datatype of the levels as a jason string
+    * @group param
+    */
   val dataType = StringParam(this, "dataType", "the datatype of the levels as json string", "string")
+  /** @group getParam */
   def getDataTypeStr: String = if ($(dataType) == "string") DataTypes.StringType.json else $(dataType)
+  /** @group setParam */
   def setDataTypeStr(value: String): this.type = set(dataType, value)
+  /** @group getParam */
   def getDataType: DataType = if ($(dataType) == "string") DataTypes.StringType else DataType.fromJson($(dataType))
+  /** @group setParam */
   def setDataType(value: DataType): this.type = set(dataType, value.json)
 
   setDefault(inputCol -> "input", outputCol -> (uid + "_output"))
@@ -129,8 +141,8 @@ class ValueIndexerModel(val uid: String)
       .setInputCol(getInputCol)
       .setOutputCol(getOutputCol)
 
+  /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // Transform the input column to categorical
     getDataType match {
       case _: IntegerType => addCategoricalColumn[Int](dataset)
       case _: LongType => addCategoricalColumn[Long](dataset)

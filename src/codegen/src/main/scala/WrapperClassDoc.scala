@@ -22,14 +22,14 @@ object WrapperClassDoc {
     className match {
       case "AssembleFeatures" =>
         s"""Assembles feature columns into a vector column of features
-           |
            |""".stripMargin
-      case "CNTKLearner" =>
+      case "CNTKLearner.txt" =>
         s"""``CNTKLearner`` trains a model on a dataset on a GPU edge node. The result is a ``CNTKModel``.
-           |
            |""".stripMargin
       case "CNTKModel" =>
-        s"""The ``CNTKModel`` evaluates a pre-trained CNTK model in parallel. The ``CNTKModel``
+        s"""Evaluate a CNTK Model.
+           |
+           |    The ``CNTKModel`` evaluates a pre-trained CNTK model in parallel. The ``CNTKModel``
            |    takes a path to a model and automatically loads and distributes the model to workers
            |    for parallel evaluation using CNTK's java bindings.
            |
@@ -40,62 +40,57 @@ object WrapperClassDoc {
            |    The ``CNTKModel`` takes an input column which should be a column of spark vectors and returns
            |    a column of spark vectors representing the activations of the selected node. By default, the CNTK model
            |    defaults to using the model's first input and first output node.
-           |
            |""".stripMargin
       case "CheckpointData" =>
-        s"""``CheckpointData`` persista data to disk as well as memory.
+        s"""``CheckpointData`` persists data to disk as well as memory.
            |
            |    Storage level is MEMORY_AND_DISK if true, else MEMORY_ONLY.
            |    Default is false (MEMORY_ONLY)
            |
            |    Use the removeCheckpoint parameter to reverse the cache operation.
-           |
            |""".stripMargin
       case "ComputeModelStatistics" =>
         s"""``ComputeModelStatistics`` returns the specified statistics on all the models specified
            |
            |    The possible metrics are:\n
-           |    Binary Classifiers:\n
-           |    - \"AreaUnderROC\"\n
-           |    - \"AUC\"\n
-           |    - \"accuracy\"\n
-           |    - \"recall\"\n
-           |    - \"all\"\n
-           |    Regression Classifiers:\n
-           |    - \"mse\"\n
-           |    - \"rmse\"\n
-           |    - \"r2\"\n
-           |    - \"all\"\n
-           |
+           |    Binary Classifiers:
+           |    - \"AreaUnderROC\"
+           |    - \"AUC\"
+           |    - \"accuracy\"
+           |    - \"recall\"
+           |    - \"all\"
+           |    Regression Classifiers:
+           |    - \"mse\"
+           |    - \"rmse\"
+           |    - \"r2\"
+           |    - \"all\"
            |""".stripMargin
 
       case "ComputePerInstanceStatistics" =>
         s"""Evaluates the given scored dataset with per instance metrics.
            |
            |    The Regression metrics are:\n
-           |    - \"L1_loss\"\n
-           |    - \"L2_loss\"\n
+           |    - \"L1_loss\"
+           |    - \"L2_loss\"
            |
            |    The Classification metrics are:
-           |    - \"log_loss\"\n
-           |
+           |    - \"log_loss\"
            |""".stripMargin
       case "DataConversion" =>
         s"""Converts the specified list of coluns to the specified type. The types are specified by
            |    the following strings:\n
-           |    - \"boolean\"\n
-           |    - \"byte\"\n
-           |    - \"short\"\n
-           |    - \"omteger\"\n
-           |    - \"long\"\n
-           |    - \"float\"\n
-           |    - \"double\"\n
-           |    - \"string\"\n
-           |    - \"toCategorical\" - make the column be a categorical column\n
-           |    - \"clearCategorical\" - clear the categorical column\n
-           |    - \"date\" - the default date format is: \"yyyy-MM-dd HH:mm:ss\"\n
-           |
-         """.stripMargin
+           |    - \"boolean\"
+           |    - \"byte\"
+           |    - \"short\"
+           |    - \"integer\"
+           |    - \"long\"
+           |    - \"float\"
+           |    - \"double\"
+           |    - \"string\"
+           |    - \"toCategorical\" - make the column be a categorical column
+           |    - \"clearCategorical\" - clear the categorical column
+           |    - \"date\" - the default date format is: \"yyyy-MM-dd HH:mm:ss\"
+           |""".stripMargin
       case "FastVectorAssembler" =>
         s"""A fast vector assembler. The columns given must be ordered such that categorical columns come first.
            |    Otherwise, Spark learners will give categorical attributes to the wrong index. The assembler
@@ -103,15 +98,12 @@ object WrapperClassDoc {
            |    are millions of columns.
            |
            |    To use this ``FastVectorAssemble`` you must import the org.apache.spark.ml.feature package.
-           |
            |""".stripMargin
       case "Featurize" =>
         s"""Featurizes a dataset. Converts the specified columns to feature columns.
-           |
            |""".stripMargin
       case "FindBestModel" =>
         s"""Evaluates and chooses the best model from a list of models
-           |
            |""".stripMargin
       case "ImageFeaturizer" =>
         s"""The ``ImageFeaturizer`` relies on a ``CNTKModel`` to do the featurization of the image(s). One can
@@ -127,7 +119,6 @@ object WrapperClassDoc {
            |    many layers to truncate from the output of the network. For example, layer=0 means that no layers
            |    are removed, layer=2 means that the image featurizer returns the activations of the layer that is
            |    two layers from the output layer, and so on.
-           |
            |""".stripMargin
       case "ImageReader" => ""
       case "ImageTransform" => ""
@@ -138,36 +129,32 @@ object WrapperClassDoc {
            |    tranformations.
            |
            |    Examples can be found in the sample notebook,
-           |
            |""".stripMargin
       case "MultiColumnAdapter" =>
         s"""Takes a unary transformer and a list of input output column pairs
            |    and applies the transformer to each column
-           |
            |""".stripMargin
       case "PartitionSample" =>
         s"""Sampling mode. The options are:\n
-           |    - AssignToPartition\n
-           |    - RandomSample\n
-           |    - Head\n
+           |        - AssignToPartition
+           |        - RandomSample
+           |        - Head\n
            |    The default is RandomSample.
            |
-           |    Relevant paramters for the different modes are:\n
+           |    Relevant parameters for the different modes are:\n
            |    - When the mode is AssignToPartition:\n
-           |        - seed - the seed for random partition assignment\n
+           |        - seed - the seed for random partition assignment
            |        - numParts - the number of partitions. Default is 10
            |        - newColName - the name of the partition column. Default is \"Partition\"\n
            |    - When the mode is RandomSample:\n
-           |        - mode - Absolute or Percentage\n
-           |        - count - the number of rows to assign to each partition when Absolute\n
+           |        - mode - Absolute or Percentage
+           |        - count - the number of rows to assign to each partition when Absolute
            |        - percent - the percentage per partition when Percentage\n
            |    - When the mode is Head:\n
-           |        - count - the number of rows\n
-           |
+           |        - count - the number of rows
            |""".stripMargin
       case "Repartition" =>
         s"""Partitions the dataset into n partitions. Default value for n is 10.
-           |
            |""".stripMargin
       case "SelectColumns" =>
         s"""``SelectColumns`` takes a list of column names and returns a DataFrame consisting of only those columns.
@@ -188,37 +175,36 @@ object WrapperClassDoc {
             |    >>> data2 = SelectColumns(cols = [\"col1\", \"col2\"]).transform(data)
             |    >>> data2.columns
             |    ['col1', 'col2']
-            |
-            |
             |""".stripMargin
       case "SummarizeData" =>
-        s"""Compute summary statistics for the dataset. Statistics to be computed:\n
-           |    - counts\n
-           |    - basic\n
-           |    - sample\n
-           |    - percentiles\n
+        s"""Compute summary statistics for the dataset.
+           |
+           |    Statistics to be computed:
+           |
+           |        - counts
+           |        - basic
+           |        - sample
+           |        - percentiles
            |
            |    errorThreshold (default 0.0) is the error threshold for quantiles.
-           |
            |""".stripMargin
       case "TextFeaturizer" =>
         s"""Featurize text.
            |
            |    The default output column name is \"<uid>__output\"
-           |
            |""".stripMargin
       case "TrainClassifier" =>
         s"""Trains a classifier model
             |
             |    The currently supported models and the names to be provided in the \"model\"
-            |    parameter are:\n
-            |    - Logistic Regression - \"LogisticRegression\"\n
-            |    - Decision Tree - \"DecisionTreeClassification\"\n
-            |    - Random Forest - \"RandomForestClassification\"\n
-            |    - Gradient Boosted Trees - \"GradientBoostedTreesClassification\"\n
-            |    - Naive Bayes - \"NaiveBayesClassifier\"\n
-            |    - Multilayer Perceptron - \"MultilayerPerceptronClassifier\"\n
+            |    parameter are:
             |
+            |    - Logistic Regression - \"LogisticRegression\"
+            |    - Decision Tree - \"DecisionTreeClassification\"
+            |    - Random Forest - \"RandomForestClassification\"
+            |    - Gradient Boosted Trees - \"GradientBoostedTreesClassification\"
+            |    - Naive Bayes - \"NaiveBayesClassifier\"
+            |    - Multilayer Perceptron - \"MultilayerPerceptronClassifier\"
             |""".stripMargin
       case "TrainRegressor" =>
         s"""Use ``TrainRegressor`` to train a regression model on a dataset.
@@ -242,9 +228,17 @@ object WrapperClassDoc {
         s"""Converts the representation of an m X n pixel image to an m * n vector of double.
            |
            |    The input column name is assumed to be \"image\", the output column name is \"<uid>_output\"
-           |
            |""".stripMargin
       case "Utils" =>""
+      case "ValueIndexer" =>
+        s"""Fits a dictionary of values from the input column.
+           |
+           |    The ``ValueIndexer`` generates a model, then transforms a column
+           |    to a categorical column of the given array of values. It is similar
+           |    to ``StringIndexer`` except that it can be used on any value types.
+           |""".stripMargin
+      case "ValueIndexerModel" =>
+        s"""Model produced by ValueIndexer"""
       case "__init__" =>
         s""""\""
            |MicrosoftML is a library of Python classes to interface with the Microsoft scala APIs to

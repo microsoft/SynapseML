@@ -110,37 +110,67 @@ trait Wrappable extends Params {
 }
 
 trait HasInputCol extends Wrappable {
+  /** The name of the input column
+    * @group param
+    */
   val inputCol = StringParam(this, "inputCol", "The name of the input column")
+  /** @group setParam */
   def setInputCol(value: String): this.type = set(inputCol, value)
+  /** @group getParam */
   def getInputCol: String = $(inputCol)
 }
 
 trait HasOutputCol extends Wrappable {
+  /** The name of the output column
+    * @group param
+    */
   val outputCol = StringParam(this, "outputCol", "The name of the output column")
+  /** @group setParam */
   def setOutputCol(value: String): this.type = set(outputCol, value)
+  /** @group getParam */
   def getOutputCol: String = $(outputCol)
 }
 
 trait HasInputCols extends Wrappable {
+  /** The names of the inputColumns
+    * @group param
+    */
   val inputCols = new StringArrayParam(this, "inputCols", "The names of the input columns")
+  /** @group setParam */
   def setInputCols(value: Array[String]): this.type = set(inputCols, value)
+  /** @group getParam */
   def getInputCols: Array[String] = $(inputCols)
 }
 
 trait HasOutputCols extends Wrappable {
+  /** The names of the output columns
+    * @group param
+    */
   val outputCols = new StringArrayParam(this, "outputCols", "The names of the output columns")
+  /** @group setParam */
   def setOutputCols(value: Array[String]): this.type = set(outputCols, value)
+  /** @group getParam */
   def getOutputCols: Array[String] = $(outputCols)
 }
 
 trait HasLabelCol extends Wrappable {
+  /** The name of the label column
+    * @group param
+    */
   val labelCol = StringParam(this, "labelCol", "The name of the label column")
+  /** @group setParam */
   def setLabelCol(value: String): this.type = set(labelCol, value)
+  /** @group getParam */
   def getLabelCol: String = $(labelCol)
 }
 
 trait HasFeaturesCol extends Wrappable {
+  /** The name of the features column
+    * @group param
+    */
   val featuresCol = StringParam(this, "featuresCol", "The name of the features column")
+  /** @group setParam */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
+  /** @group getParam */
   def getFeaturesCol: String = $(featuresCol)
 }

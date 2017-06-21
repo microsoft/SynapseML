@@ -24,7 +24,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
                               entryPointQualifiedName: String) {
 
-  private val ScopeDepth = "    "
+  private val scopeDepth = " " * 4
   private val additionalImports = Map(
     ("complexTypes",
       s"from ${toZipDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
@@ -60,9 +60,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |class $entryPointName($inheritanceString):
         |    "\""
         |    $classDocString
-        |    Args:
         |$classParamDocString
-        |
         |    "\""
         |
         |    @keyword_only
@@ -83,7 +81,6 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |
         |        Args:
         |$paramDocString
-        |
         |        "\""
         |        if hasattr(self, \"_input_kwargs\"):
         |            kwargs = self._input_kwargs
@@ -118,8 +115,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |
         |        Returns:
-        |            $docType: ${res(1)}
-        |
+        |            $docType: ${res(1)}|
         |        "\""
         |        return self.getOrDefault(self.$pname)
         |
@@ -133,7 +129,6 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |
         |        Returns:
         |            $docType: ${res(1)}
-        |
         |        "\""
         |        return self._cache[\"$pname\"]
         |
@@ -253,14 +248,14 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       // Add special imports
       imports += additionalImports("complexTypes")
       // Add cache
-      paramDefinitionsAndDefaults += ScopeDepth * 2 + "self._cache = {}"
+      paramDefinitionsAndDefaults += scopeDepth * 2 + "self._cache = {}"
     }
     for (param <- allParams) {
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
       paramGettersAndSetters +=
         setTemplate(StringUtils.capitalize(pname), pname,
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3))
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
       if (isComplexType(param.getClass.getSimpleName)) {
         paramDefinitionsAndDefaults +=
           defineComplexParamsTemplate(pname, getParamExplanation(param),
@@ -268,27 +263,27 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
         classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
       } else {
         paramDefinitionsAndDefaults +=
-          s"""        self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
+          s"""${scopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
         paramGettersAndSetters +=
           getTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
         classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
       }
 
       val (pyParamDefault, autogenSuffix) = getParamDefault(param)
       paramsAndDefaults += pname + "=" + pyParamDefault
 
       if (pyParamDefault != "None")
-        paramDefinitionsAndDefaults += s"""        self._setDefault($pname=$pyParamDefault)"""
+        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
-        paramDefinitionsAndDefaults += s"""        self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
+        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
 
     }
 
@@ -300,7 +295,11 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     val paramGettersAndSettersString = paramGettersAndSetters.mkString("\n")
     val classDocString = classDocTemplate(entryPointName)
     val paramDocString = paramDocList.mkString("\n")
-    val classParamDocString = classParamDocList.mkString("\n")
+    //val classParamDocString = classParamDocList.mkString("\n")
+    val classParamDocString = {
+      if (classParamDocList.isEmpty) ""
+      else scopeDepth + "Args:\n" + classParamDocList.mkString("\n")
+    }
 
     classTemplate(importsString, inheritanceString,
                     classParamsString,
@@ -346,7 +345,6 @@ class SparkEstimatorWrapper(entryPoint: Estimator[_],
   private def modelClassString(className: String, superClass: String): String = {
     s"""|class ${className}(JavaModel, JavaMLWritable, JavaMLReadable):
         |    "\""
-        |
         |    Model fitted by :class:`${superClass}`.
         |
         |    This class is left empty on purpose.

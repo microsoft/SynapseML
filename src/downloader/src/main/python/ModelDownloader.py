@@ -26,7 +26,6 @@ class ModelSchema:
         inputNode (int): the node which represents the input
         numLayers (int): the number of layers of the model
         layerNames (array): the names of nodes that represent layers in the network
-
     """
 
     def __init__(self, name, dataset, modelType, uri, hash, size, inputNode, numLayers, layerNames):
@@ -71,7 +70,6 @@ class ModelDownloader:
         sparkSession (SparkSession): A spark session for interfacing between python and java
         localPath (str): The folder to save models to
         serverURL (str): The location of the model Server, beware this default can change!
-
     """
 
     def __init__(self, sparkSession, localPath, serverURL=DEFAULT_URL):
@@ -88,55 +86,47 @@ class ModelDownloader:
 
     def localModels(self):
         """
-
         Downloads models stored locally on the filesystem
-
         """
         return self._wrap(self._model_downloader.localModels())
 
     def remoteModels(self):
         """
-
         Downloads models stored remotely.
-
         """
         return self._wrap(self._model_downloader.remoteModels())
 
     def downloadModel(self, model):
         """
-
         Download a model
-            model (object):
+
+        Args:
+            model (object): The model to be downloaded
 
         Returns:
             object: model schema
-
         """
         model = model.toJava(self._sparkSession)
         return ModelSchema.fromJava(self._model_downloader.downloadModel(model))
 
     def downloadByName(self, name):
         """
-
         Downloads a named model
 
         Args:
             name (str): The name of the model
-
-         """
+        """
         return ModelSchema.fromJava(self._model_downloader.downloadByName(name))
 
     def downloadModels(self, models=None):
         """
-
         Download models
 
         Args:
-            models:
+            models: The models to be downloaded
 
         Returns:
             list: list of models downloaded
-            
         """
         if models is None:
             models = self.remoteModels()
