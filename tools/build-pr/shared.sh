@@ -50,22 +50,23 @@ get_pr_info() {
   if [[ "$SHA1" != "" ]]; then return; fi
   SHA1="$(api "pulls/$BUILDPR" - '.head.sha')"
   REPO="$(api "pulls/$BUILDPR" - '.head.repo.full_name')"
-  REF="$(api "pulls/$BUILDPR" - '.head.ref')"
+  REF="$( api "pulls/$BUILDPR" - '.head.ref')"
   GURL="$(api "pulls/$BUILDPR" - '.html_url')"
 }
 
 # post a status, only if we're running all tests
-post_status() {
+post_status() { # state text
   if [[ "$TESTS" != "all" ]]; then return; fi
   get_pr_info
   local status='"context":"build-pr","state":"'"$1"'","target_url":"'"$VURL"'"'
-  api "statuses/$SHA1" -d '{'"$status"',"description":"'"$2"'"}' > /dev/null
+  api "statuses/$SHA1" -d '{'"$status"',"description":'"$(jsonq "$2")"'}' > /dev/null
 }
 
 # post a comment with the given text and link to the build; remember its id
-post_comment() {
-  local text="$(jsonq "[$1]($VURL)")"
-  api "issues/$BUILDPR/comments" -d '{"body":'"$text"'}' - '.id' \
+post_comment() { # text [more-text...]
+  local text="[$1]($VURL)"; shift; local more_text="$*"
+  if [[ "$more_text" != "" ]]; then text+=$'\n\n'"$more_text"; fi
+  api "issues/$BUILDPR/comments" -d '{"body":'"$(jsonq "$text")"'}' - '.id' \
       > "$PRDIR/comment-id"
 }
 

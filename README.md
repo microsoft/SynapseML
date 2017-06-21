@@ -88,13 +88,13 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
     spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
-                --repositories=https://mmlspark.azureedge.net/maven
+                --repositories https://mmlspark.azureedge.net/maven
 
     pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
-            --repositories=https://mmlspark.azureedge.net/maven
+            --repositories https://mmlspark.azureedge.net/maven
 
     spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
-                 --repositories=https://mmlspark.azureedge.net/maven \
+                 --repositories https://mmlspark.azureedge.net/maven \
                  MyApp.jar
 
 <img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
