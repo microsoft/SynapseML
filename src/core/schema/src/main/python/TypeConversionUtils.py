@@ -12,7 +12,6 @@ def generateTypeConverter(name, cache, typeConverter):
 
     Returns:
         lambda: Function to convert the type
-
     """
     return lambda value: typeConverter(name, value, cache)
 
@@ -27,7 +26,6 @@ def complexTypeConverter(name, value, cache):
 
     Returns:
         _java_obj:
-
     """
     cache[name]=value
     if isinstance(value, list):

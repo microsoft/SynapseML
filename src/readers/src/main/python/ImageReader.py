@@ -25,8 +25,7 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
         sampleRatio (double): Fraction of the images loaded
 
     Returns:
-    :    DataFrame: DataFrame with a single column of "images", see imageSchema for details
-
+        DataFrame: DataFrame with a single column of "images", see imageSchema for details
     """
     ctx = SparkContext.getOrCreate()
     reader = ctx._jvm.com.microsoft.ml.spark.ImageReader
@@ -47,7 +46,6 @@ def isImage(df, column):
 
     Returns:
         bool: True if the colum is an image column
-
     """
 
     jvm = SparkContext.getOrCreate()._jvm

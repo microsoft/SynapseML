@@ -21,7 +21,7 @@ def from_java(java_stage, stage_name):
         stage_name (str):
 
     Returns:
-
+        object: The python wrapper
     """
     def __get_class(clazz):
         """
@@ -32,7 +32,6 @@ def from_java(java_stage, stage_name):
 
         Returns:
             object: The python object
-
         """
         parts = clazz.split(".")
         module = ".".join(parts[:-1])
