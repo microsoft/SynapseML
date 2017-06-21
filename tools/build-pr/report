@@ -29,10 +29,10 @@ if [[ "$BUILDPR" = "" ]]; then
   exit
 fi
 
-text="The build has ${AGENT_JOBSTATUS,,}."
+text="The build has ${AGENT_JOBSTATUS,,}."; more_text=""
 post_status "$state" "$text"
 delete_comment
 if [[ "$state" = "success" && -r "$BUILD_ARTIFACTS/Build.md" ]]; then
-  text+=$'\n\n'"$(< "$BUILD_ARTIFACTS/Build.md")"
+  more_text="$(< "$BUILD_ARTIFACTS/Build.md")"
 fi
-post_comment "$box! — $text"
+post_comment "$box! — $text" "$more_text"

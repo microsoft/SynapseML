@@ -25,6 +25,7 @@ _generate_description() {
   echo_exit "##vso[task.uploadsummary]$BUILD_ARTIFACTS/Build.md"
 }
 _add_to_description() { # -f file | fmt arg...
+  if [[ ! -e "$BUILD_ARTIFACTS/Build.md" ]]; then return; fi
   { echo ""
     if [[ "x$1" = "x-f" ]]; then if [[ -r "$2" ]]; then cat "$2"; fi
     else printf "$@"; fi
@@ -113,14 +114,24 @@ _upload_to_storage() { # name, pkgdir, container
   show section "Publishing $1 Package"
   _ az storage blob upload-batch --account-name "$MAIN_STORAGE" \
        --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
+  case "$1" in
+  ( "Maven" )
+    _add_to_description '* Maven package uploaded, use \`%s\` and \`%s\`.\n' \
+                        "--packages $MAVEN_PACKAGE" "--repositories $MAVEN_URL"
+    ;;
+  ( "PIP" )
+    _add_to_description '* PIP package [uploaded](%s/%s).\n' \
+                        "$PIP_URL" "$PIP_PACKAGE"
+    ;;
+  esac
 }
 
-_e2e_script_action() { # script-name file-name config-name
-  local cnf="$1" script_name="$2" file="$3"; shift 3
-  local cluster="${cnf}_CLUSTER_NAME" group="${cnf}_RESOURCE_GROUP"
+_e2e_script_action() { # config-name script-name file-name
+  declare -n cluster="$1_CLUSTER_NAME" group="$1_RESOURCE_GROUP"; shift
+  local script_name="$1" file="$2"; shift 2
   local url="$STORAGE_URL/$MML_VERSION/$file"
   collect_log=1 \
-    _ azure hdinsight script-action create "${!cluster}" -g "${!group}" \
+    _ azure hdinsight script-action create "$cluster" -g "$group" \
             -n "$script_name" -u "$url" -t "headnode;workernode"
   echo "$collected_log"
   if [[ ! "$collected_log" =~ "Operation state: "+"Succeeded" ]]; then
@@ -167,6 +178,7 @@ _e2e_tests() {
 _publish_to_demo_cluster() {
   show section "Installing Demo Cluster"
   _e2e_script_action "DEMO" "Install MML to Demo Cluster" "install-mmlspark.sh"
+  _add_to_description '* Demo cluster updated.\n'
 }
 
 _publish_to_dockerhub() {
@@ -187,13 +199,16 @@ _publish_to_dockerhub() {
   user="${auth%%:*}" pswd="${auth#*:}"
   ___ docker login -u "$user" -p "$pswd" > /dev/null
   unset user pass auth
+  local txt="" fst=1
   for otag in "${otags[@]}"; do
+    if ((!fst)); then txt+=","; fi; fst=0; txt+=" \`$otag\`"
     show - "Pushing \"$otag\""
     _ docker tag "$itag" "$otag"
     _ docker push "$otag"
     _ docker rmi "$otag"
   done
   __ docker logout > /dev/null
+  _add_to_description '* Docker hub image pushed: %s.\n' "$txt"
 }
 
 _upload_artifacts_to_VSTS() {
@@ -209,7 +224,6 @@ _upload_artifacts_to_VSTS() {
 
 _upload_artifacts_to_storage() {
   show section "Uploading Build Artifacts to Storage"
-  _ az account show > /dev/null # this fails if not logged-in
   local tmp="/tmp/mmlbuild-$$" # temporary place for uploads
   mkdir -p "$tmp"
   ( cd "$BUILD_ARTIFACTS"
@@ -228,7 +242,7 @@ _upload_artifacts_to_storage() {
        --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"
   _add_to_description \
-    'Copy the link to [%s](%s) to setup this build on a cluster.' \
+    '* Copy the link to [%s](%s) to setup this build on a cluster.\n' \
     "this HDInsight Script Action" "$STORAGE_URL/$MML_VERSION/install-mmlspark.sh"
 }
 
@@ -240,6 +254,9 @@ _full_build() {
   _sbt_build
   _ ln -sf "$(realpath --relative-to="$HOME/bin" "$TOOLSDIR/bin/mml-exec")" \
            "$HOME/bin"
+  if [[ "$PUBLISH" != "none" ]]; then
+    _ az account show > /dev/null # fail if not logged-in to azure
+  fi
   should publish maven   && _upload_to_storage "Maven" "m2" "$MAVEN_CONTAINER"
   should test python     && @ "../pytests/auto-tests"
   should test python     && @ "../pytests/notebook-tests"
@@ -253,5 +270,11 @@ _full_build() {
     _add_to_description -f "$BUILD_INFO_EXTRA_MARKDOWN"
   fi
   _upload_artifacts_to_VSTS
+  # upload updated Build.md after all of the additions were made
+  # (note: does not depend on "should publish storage")
+  if [[ -e "$BUILD_ARTIFACTS/Build.md" ]]; then
+     _ az storage blob upload --account-name "$MAIN_STORAGE" -c "$STORAGE_CONTAINER" \
+          -f "$BUILD_ARTIFACTS/Build.md" -n "$MML_VERSION/Build.md"
+  fi
   return 0
 }

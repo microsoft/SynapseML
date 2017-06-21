@@ -125,12 +125,12 @@ INSTALLATIONS=(
 # The value is normalized to hold comma-separated `+tag` or `-tag`, except for a
 # single `all`/`none` which don't get a sign prefix.  $PUBLISH similarly holds
 # the specification of things to publish.
-defvar -x TESTS   "default"
-defvar -x PUBLISH "default"
-if [[ "$TESTS" = "default" ]]; then
+defvar -x TESTS   ""
+defvar -x PUBLISH ""
+if [[ -z "$TESTS" ]]; then
   if [[ "$BUILDMODE" = "server" ]]; then TESTS="all"; else TESTS="+scala,-extended"; fi
 fi
-if [[ "$PUBLISH" = "default" ]]; then
+if [[ -z "$PUBLISH" ]]; then
   if [[ "$BUILDMODE" = "server" ]]; then PUBLISH="-demo,-docker"; else PUBLISH="none"; fi
 fi
 # Tag definitions for $TESTS
