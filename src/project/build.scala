@@ -6,9 +6,9 @@ import Keys._
 
 import sys.process.Process
 
-import sbtassembly._
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
+import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
 
 object Extras {
 
@@ -42,8 +42,11 @@ object Extras {
     "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
     )
 
-  def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts/packages/m2"))
+  def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts"))
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))
+  def mavenDir     = artifactsDir / "packages" / "m2"
+  def docsDir      = artifactsDir / "docs" / "scala"
+
   def scalacOpts = Seq(
     "-encoding", "UTF-8",
     // Explain warnings, optimize
@@ -81,7 +84,8 @@ object Extras {
                       "package",
                       if (testSpec == "none") null else "on-all-subs test",
                       "codegen/run",
-                      "publish")
+                      "publish",
+                      "unidoc")
       addCommands(st, steps.filter(_ != null).map("noisy-command " + _): _*) }
   ) ++ ScalaStyleExtras.commands
 
@@ -119,6 +123,7 @@ object Extras {
     test in assembly := {},
     // Documentation settings
     autoAPIMappings in ThisBuild := true,
+    target in (config("scalaunidoc"), unidoc) := docsDir,
     // Ctrl+C kills a running job, not sbt
     cancelable in ThisBuild := true,
     // No verbose logs during update
@@ -157,7 +162,7 @@ object Extras {
     addArtifact(artifact in (Compile, assembly), assembly) ++
     Seq(
       // This creates a maven structure, which we upload to azure storage later
-      publishTo := Some(Resolver.file("file", artifactsDir)),
+      publishTo := Some(Resolver.file("file", mavenDir)),
       // In case we need to add more stuff to the uber-jar, use this:
       // unmanagedResourceDirectories in Compile += artifactsDir / "more",
       publishArtifact in Test := false,

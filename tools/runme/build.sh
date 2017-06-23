@@ -75,7 +75,8 @@ _prepare_build_artifacts() {
 
 _sbt_run() { # sbt-args...
   local flags=""; if [[ "$BUILDMODE" = "server" ]]; then flags="-no-colors"; fi
-  (set -o pipefail; _ sbt $flags "$@" < /dev/null 2>&1 | _postprocess_sbt_log) \
+  (set -o pipefail; export BUILD_ARTIFACTS TEST_RESULTS
+   _ sbt $flags "$@" < /dev/null 2>&1 | _postprocess_sbt_log) \
     || exit $?
 }
 
@@ -96,6 +97,7 @@ _sbt_build() {
     if [[ "$TESTS" = "" ]]; then TESTS="all"; fi
   fi
   _sbt_run "full-build"
+  show section "Sorting assembly jar for the maven repo"
   # leave only the -assembley jars under the proper name (and the pom files)
   local f; for f in "$BUILD_ARTIFACTS/packages/m2/"**; do case "$f" in
     ( *-@(javadoc|sources).jar@(|.md5|.sha1) ) _rm "$f" ;;
