@@ -43,11 +43,11 @@ object DocGen {
     val pattern = "^[A-Z]\\w*[.]py$".r
     val moduleString = allFiles(toZipDir, (f => pattern.findFirstIn(f.getName) != None))
           .map(f => s"   ${getBaseName(f.getName)}\n").mkString("")
-    writeFile(new File(inDocDir, "modules.rst"), rstFileLines(moduleString))
+    writeFile(new File(pyDocDir, "modules.rst"), rstFileLines(moduleString))
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
     allFiles(toZipDir, (f => pattern.findFirstIn(f.getName) != None))
-        .foreach{x => writeFile(new File(inDocDir, getBaseName(x.getName) + ".rst"),
+        .foreach{x => writeFile(new File(pyDocDir, getBaseName(x.getName) + ".rst"),
           contentsString(getBaseName(x.getName)))
         }
   }

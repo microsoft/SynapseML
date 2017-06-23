@@ -46,6 +46,7 @@ object Extras {
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))
   def mavenDir     = artifactsDir / "packages" / "m2"
   def docsDir      = artifactsDir / "docs" / "scala"
+  val topDocHtml   = file(".") / "project" / "top-doc.html"
 
   def scalacOpts = Seq(
     "-encoding", "UTF-8",
@@ -114,6 +115,7 @@ object Extras {
     dependencyOverrides in ThisBuild ++= overrideLibs,
     scalacOptions in ThisBuild ++= scalacOpts,
     scalacOptions in (Compile, doc) += "-groups",
+    scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", topDocHtml.getPath()),
     // Don't run tests in parallel, and fork subprocesses for them
     parallelExecution in (ThisBuild, Test) := false,
     fork in (ThisBuild, Test) := true,

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme" "$@"
+main() (
+
+show section "Building Python Documentation"
+
+here="$(cd $(dirname "${BASH_SOURCE[0]}"); pwd)"
+pydocsrc="$BUILD_ARTIFACTS/pydocsrc"
+
+cd "$BUILD_ARTIFACTS/docs"
+_rm "pyspark"; _md "pyspark"
+
+show - "Copying source files"
+srcs=( "$here/src"/* )
+for f in "${srcs[@]}"; do t="$pydocsrc/$(basename "$f")"
+  if [[ -e "$t" ]]; then failwith "target file exists: $t"; else cp "$f" "$t"; fi
+done
+
+PATH+=":$CONDA_HOME/bin"
+PYTHONPATH="$BUILD_ARTIFACTS/sdk/mmlspark.zip:$PYTHONPATH"
+PYTHONPATH="$BASEDIR/src/src/main/resources/mmlspark:$PYTHONPATH"
+
+_ -a sphinx-build -D version="${MML_VERSION%%+*}" -D release="$MML_VERSION" \
+                  "$pydocsrc" "pyspark"
+ret=$?
+
+for f in "${srcs[@]}"; do rm -f "$pydocsrc/$(basename "$f")"; done
+
+if (($ret)); then failwith "documentation build failure"; fi
+
+)
+__ main "$@"

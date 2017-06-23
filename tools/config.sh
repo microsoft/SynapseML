@@ -140,7 +140,7 @@ deftag extended
   deftag e2e extended
 deftag linuxonly
 # Tag definitions for $PUBLISH
-map deftag storage maven pip demo docker
+map deftag storage maven pip docs demo docker
 
 defvar -p SRCDIR          "$BASEDIR/src"
 defvar -p BUILD_ARTIFACTS "$BASEDIR/BuildArtifacts"
@@ -192,7 +192,8 @@ Conda.setup() {
   _ ./bin/conda install --name "root" --no-update-deps --no-deps --yes \
       --quiet --file "mmlspark-packages.spec"
   if [[ "$BUILDMODE" != "runtime" ]]; then
-    ./bin/pip install "xmlrunner" "wheel"
+    # xmlrunner: tests; wheel: pip builds; sphinx*, recommonmark: pydoc builds
+    ./bin/pip install "xmlrunner" "wheel" "sphinx" "sphinx_rtd_theme" "recommonmark"
   else
     show section "Minimizing conda directory"
     collect_log=2 _ ./bin/conda uninstall -y tk
@@ -231,7 +232,9 @@ CNTK.init() {
 defvar STORAGE_CONTAINER "buildartifacts"
 defvar STORAGE_URL "$(_main_url "$STORAGE_CONTAINER")"
 
-# Container for maven/pip packages
+# Container for docs and maven/pip packages
+defvar DOCS_CONTAINER  "docs"
+defvar DOCS_URL        "$(_main_url "$DOCS_CONTAINER")"
 defvar MAVEN_CONTAINER  "maven"
 defvar -x MAVEN_URL     "$(_main_url "$MAVEN_CONTAINER")"
 defvar -d MAVEN_PACKAGE "com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:<{MML_VERSION}>"
