@@ -341,6 +341,13 @@ get_runtime_hash() {
   echo "${hash%% *}"
 }
 
+# ---< azblob verb arg... >-----------------------------------------------------
+# Same as "az storage blob <verb> --account-name $MAIN_STORAGE arg..."
+azblob() {
+  local verb="$1"; shift
+  az storage blob "$verb" --account-name "$MAIN_STORAGE" "$@"
+}
+
 # ------------------------------------------------------------------------------
 # Internal functions follow
 
@@ -369,11 +376,12 @@ _parse_TESTS()   { _parse_tags TESTS   _test_info;    }
 _parse_PUBLISH() { _parse_tags PUBLISH _publish_info; }
 
 # Defines $MML_VERSION and $MML_BUILD_INFO
+_used_preexisting_version=0
 _set_build_info() {
-  local info version
+  local info version is_latest
   # make it possible to avoid running git
-  if [[ ! -z "$MML_BUILD_INFO" && ! -z "$MML_VERSION" ]]; then
-    info="$MML_BUILD_INFO"; version="$MML_VERSION"
+  if [[ -n "$MML_BUILD_INFO" && -n "$MML_VERSION" && -n "$MML_LATEST" ]]; then
+    info="$MML_BUILD_INFO"; version="$MML_VERSION"; is_latest="$MML_LATEST"
   else
     local owd="$PWD"; cd "$BASEDIR"
     # sanity checks for version tags
@@ -381,9 +389,13 @@ _set_build_info() {
     for t in $(git tag -l); do
       if [[ ! "$t" =~ $rx ]]; then failwith "found a bad tag name \"$t\""; fi
     done
+    local tag="$(git describe --abbrev=0)" # needed also for is_latest
+    # MML_VERSION
     if [[ -r "$BUILD_ARTIFACTS/version" ]]; then
-      # if there is a built version, use it, so that we don't get a new
-      # version after commits are made
+      # if there is a built version, use it, so that we don't get a new version
+      # after commits are made (but it'll get reset in ./runme since it
+      # recreates the $BUILD_ARTIFACTS directory)
+      _used_preexisting_version=1
       version="$(< "$BUILD_ARTIFACTS/version")"
     else
       # generate a version string (that works for pip wheels too) as follows:
@@ -391,7 +403,6 @@ _set_build_info() {
       # (note: prefer origin/master since VSTS doesn't update master)
       local branch="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
                       || git merge-base HEAD refs/heads/master)"
-      local tag="$(git describe --abbrev=0)"
       local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
       # 1. main version, taken from the most recent version tag
       #    (that's all if we're building this tagged version)
@@ -411,6 +422,7 @@ _set_build_info() {
       if [[ "$BUILDMODE" != "server" ]]; then version+=".local"; fi
       if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
     fi
+    # MML_BUILD_INFO
     if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
       info="Local build: ${USERNAME:-$USER} ${BASEDIR:-$PWD}"
       local line
@@ -433,10 +445,23 @@ _set_build_info() {
       info+="; $BUILD_DEFINITIONNAME#$BUILD_BUILDNUMBER"
     fi
     info="$version: $info"
+    # MML_LATEST
+    # "yes" when building an exact version which is the latest on master
+    local latest="$(git describe --abbrev=0 master)"
+    if [[ "$version" = "${tag#v}" && "$tag" = "$latest" ]]
+    then is_latest="yes"; else is_latest="no"; fi
+    #
     cd "$owd"
   fi
   defvar -x MML_VERSION    "$version"
   defvar -x MML_BUILD_INFO "$info"
+  defvar    MML_LATEST     "$is_latest"
+}
+# To be called when re-creating $BUILD_ARTIFACTS
+_reset_build_info() {
+  if ((!_used_preexisting_version)); then return; fi
+  unset MML_BUILD_INFO MML_VERSION MML_LATEST; _used_preexisting_version=0
+  _set_build_info
 }
 
 # Parse $INSTALLATIONS info

@@ -22,8 +22,8 @@ _add_to_description() { # fmt arg...
 _publish_description() {
   # note: this does not depend on "should publish storage"
   if [[ ! -e "$BUILD_ARTIFACTS/Build.md" ]]; then return; fi
-  _ az storage blob upload --account-name "$MAIN_STORAGE" -c "$STORAGE_CONTAINER" \
-         -f "$BUILD_ARTIFACTS/Build.md" -n "$MML_VERSION/Build.md"
+  _ azblob upload -c "$STORAGE_CONTAINER" \
+                  -f "$BUILD_ARTIFACTS/Build.md" -n "$MML_VERSION/Build.md"
 }
 
 _postprocess_sbt_log() {
@@ -61,6 +61,7 @@ _postprocess_sbt_log() {
 _prepare_build_artifacts() {
   show section "Preparing Build"
   _rm "$BUILD_ARTIFACTS" "$TEST_RESULTS"
+  _reset_build_info
   _ mkdir -p "$BUILD_ARTIFACTS/sdk" "$TEST_RESULTS"
   _ cp -a "$BASEDIR/LICENSE" "$BUILD_ARTIFACTS"
   _ cp -a "$BASEDIR/LICENSE" "$BUILD_ARTIFACTS/sdk"
@@ -106,10 +107,9 @@ _sbt_build() {
   cd "$owd"
 }
 
-_upload_to_storage() { # name, pkgdir, container
+_upload_package_to_storage() { # name, pkgdir, container
   show section "Publishing $1 Package"
-  _ az storage blob upload-batch --account-name "$MAIN_STORAGE" \
-       --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
+  _ azblob upload-batch --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
   case "$1" in
   ( "Maven" )
     _add_to_description '* **Maven** package uploaded, use `%s` and `%s`.\n' \
@@ -177,11 +177,31 @@ _publish_to_demo_cluster() {
   _add_to_description '* Demo cluster updated.\n'
 }
 
+_publish_docs() {
+  @ "../pydocs/publish"
+  _add_to_description '* Documentation [uploaded](%s).\n' "$DOCS_URL/$MML_VERSION"
+  if [[ "$MML_LATEST" = "yes" ]]; then
+    # there is no api for copying to a different path, so re-do the whole thing,
+    # but first, delete any paths that are not included in the new contents
+    local d f
+    for d in "scala" "pyspark"; do
+      __ azblob list --container-name "$DOCS_CONTAINER" --prefix "$d/" -o tsv | cut -f 3
+    done | while read -r f; do
+      if [[ -e "$BUILD_ARTIFACTS/docs/$f" ]]; then continue; fi
+      echo -n "deleting $f..."
+      if collect_log=1 __ azblob delete --container-name "$DOCS_CONTAINER" -n "$f" > /dev/null
+      then echo " done"; else echo " failed"; failwith "deletion of $f failed"; fi
+    done
+    @ "../pydocs/publish" --top
+    _add_to_description '* Also copied as [toplevel documentation](%s).\n' "$DOCS_URL"
+  fi
+}
+
 _publish_to_dockerhub() {
   @ "../docker/build-docker"
   local itag="mmlspark:latest" otag otags
   otag="microsoft/mmlspark:$MML_VERSION"; otag="${otag//+/_}"; otags=("$otag")
-  if [[ "$MML_VERSION" = *([0-9.]) ]]; then otags+=( "microsoft/mmlspark:latest" ); fi
+  if [[ "$MML_LATEST" = "yes" ]]; then otags+=( "microsoft/mmlspark:latest" ); fi
   show section "Pushing to Dockerhub as ${otags[*]}"
   show - "Image info:"
   local info="$(docker images "$itag")"
@@ -234,8 +254,7 @@ _upload_artifacts_to_storage() {
     txt="${txt//<=<=fill-in-url=>=>/$STORAGE_URL/$MML_VERSION}"
     echo "$txt" > "$tmp/$(basename "$f")"
   done
-  _ az storage blob upload-batch --account-name "$MAIN_STORAGE" \
-       --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
+  _ azblob upload-batch --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"
   _add_to_description \
     '* **HDInsight**: Copy the link to %s to setup this build on a cluster.\n' \
@@ -251,16 +270,21 @@ _full_build() {
   _sbt_build
   _ ln -sf "$(realpath --relative-to="$HOME/bin" "$TOOLSDIR/bin/mml-exec")" \
            "$HOME/bin"
+  @ "../pydocs/build"
+  @ "../pip/generate-pip"
   if [[ "$PUBLISH" != "none" ]]; then
     _ az account show > /dev/null # fail if not logged-in to azure
   fi
-  should publish maven   && _upload_to_storage "Maven" "m2" "$MAVEN_CONTAINER"
+  # basic publish steps that happen before testing
+  should publish maven   && _upload_package_to_storage "Maven" "m2" "$MAVEN_CONTAINER"
+  should publish pip     && _upload_package_to_storage "PIP" "pip" "$PIP_CONTAINER"
+  should publish storage && _upload_artifacts_to_storage
+  # tests
   should test python     && @ "../pytests/auto-tests"
   should test python     && @ "../pytests/notebook-tests"
-  should publish pip     && @ "../pip/generate-pip.sh"
-  should publish pip     && _upload_to_storage "PIP" "pip" "$PIP_CONTAINER"
-  should publish storage && _upload_artifacts_to_storage
   should test e2e        && _e2e_tests
+  # publish steps that should happen only for successful tests
+  should publish docs    && _publish_docs
   should publish demo    && _publish_to_demo_cluster
   should publish docker  && _publish_to_dockerhub
   _upload_artifacts_to_VSTS

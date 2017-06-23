@@ -18,8 +18,9 @@ echo 'PS1='\''\u:\w\$ '\' >> "/etc/skel/.bashrc"
 useradd -c "Microsoft ML for Apache Spark" -U -d "$HOME" -m "$USER"
 cd "$HOME"
 
+# avoid running git
 /mkenv/src/runme BUILDMODE=runtime INSTALLER_CACHE_DIR=/mkenv/cache \
-                 MML_VERSION="???" MML_BUILD_INFO="???"
+                 MML_VERSION="???" MML_BUILD_INFO="???" MML_LATEST="???"
 
 chown -R "$USER:$USER" "$HOME"
 cd /home

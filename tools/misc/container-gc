@@ -4,7 +4,7 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
-types=(S M P)
+types=(S M P D)
 declare -A S=([container]="$STORAGE_CONTAINER"
               [path]=""
               [suffix]="/")
@@ -15,6 +15,10 @@ declare -A P=([container]="$PIP_CONTAINER"
               [path]=""
               [prefix]="mmlspark-"
               [suffix]="-py2.py3-none-any.whl")
+declare -A D=([container]="$DOCS_CONTAINER"
+              [path]=""
+              [suffix]=""
+              [listsuffix]="/")
 
 set -e
 shopt -s nullglob
@@ -71,9 +75,13 @@ get_versions_for() {
   local IFS=$'\n\r'
   Xs=($(IFS=""; azls "/${X[container]}/${X[path]}${X[path]:+/}" | \
           while read -r l; do
-            l="${l#${X[prefix]}}"; l="${l%${X[suffix]}}"; echo "$l"
+            # [listsuffix] can override [suffix] for this listing
+            l="${l#${X[prefix]}}"; l="${l%${X[listsuffix]:-${X[suffix]}}}"
+            # ignore things that don't look like a version (eg, in docs)
+            if [[ "$l" = *[0-9].[0-9]* ]]; then echo "$l"; fi
           done | sort -V))
   IFS=" "
+  all+=("${Xs[@]}")
   X[vers_]=" ${Xs[*]} "
 }
 
@@ -226,9 +234,9 @@ do_requests() {
   done
 }
 
-types_="${types[*]}"; types_="${types_// /}"
+types_="${types[*]}"; types_="${types_// /}"; all=()
 map get_versions_for "${types[@]}"
-all=($(printf '%s\n' "${Ss[@]}" "${Ms[@]}" "${Ps[@]}" | sort -V -u))
+all=($(printf '%s\n' "${all[@]}" | sort -V -u))
 
 echo "Versions found: ${#all[@]}"
 

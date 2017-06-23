@@ -47,15 +47,14 @@ object CodeGen {
                 |  outputDir: $outputDir
                 |  toZipDir:  $toZipDir
                 |  pyTestDir: $pyTestDir
-                |  docDir:    $docDir""".stripMargin)
+                |  pyDocDir:  $pyDocDir""".stripMargin)
     val roots = // note: excludes the toplevel project
       if (!rootsFile.exists) sys.error(s"Could not find roots file at $rootsFile")
       else readFile(rootsFile, _.getLines.toList).filter(_ != ".")
     println("Creating temp folders")
     toZipDir.mkdirs
     pyTestDir.mkdirs
-    docDir.mkdirs
-    inDocDir.mkdirs
+    pyDocDir.mkdirs
     println("Copy jar files to output directory")
     copyAllFilesFromRoots(srcDir, roots, jarRelPath,
                           (Pattern.quote("-" + mmlVer + ".jar") + "$").r,

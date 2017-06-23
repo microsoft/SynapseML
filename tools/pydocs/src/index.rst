@@ -1,10 +1,7 @@
-.. MicrosoftMLSpark documentation master file, created by
-   sphinx-quickstart on Fri Apr  7 16:40:35 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. MicrosoftMLSpark documentation master file
 
-Welcome to Microsoft Machine Learning for Apache Spark documentation!
-=====================================================================
+Microsoft Machine Learning for Apache Spark
+===========================================
 
 Contents:
 
