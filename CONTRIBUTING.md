@@ -32,7 +32,3 @@ or new features, follow these steps:
 A good way to get started contributing is to look for issues with a "help
 wanted" label.  These are issues that we do want to fix, but don't have
 resources to work on currently.
-
-*Apache®, Apache Spark, and Spark® are either registered trademarks or
-trademarks of the Apache Software Foundation in the United States and/or other
-countries.*

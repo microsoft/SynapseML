@@ -103,7 +103,3 @@ Next, view our other tutorials to learn how to
 * Use SparkML pipelines to build a more complex model
 * Use deep neural networks for image classification
 * Use text analytics for document classification
-
-*Apache®, Apache Spark, and Spark® are either registered trademarks or
-trademarks of the Apache Software Foundation in the United States and/or other
-countries.*
