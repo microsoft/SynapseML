@@ -106,10 +106,9 @@ get_ver_info() (
   fi
   info="$(jq --arg l "$label" '. + {label: $l}' <<<"$info")"
   #
-  az storage blob download -c "${S[container]}" -n "$v/BuildArtifacts.zip" \
-     -f "$tmp.zip" > /dev/null
-  binfo="$(unzip -p "$tmp.zip" "Build.md")"
-  rm -f "$tmp.zip"
+  az storage blob download -c "${S[container]}" -n "$v/Build.md" -f "$tmp.md" > /dev/null
+  binfo="$(< "$tmp.md")"; rm -f "$tmp.md"
+  if [[ -z "$binfo" ]]; then binfo="(No info: \"Build.md\" file not found)"; fi
   info="$(jq --arg b "$binfo" '. + {buildinfo: $b}' <<<"$info")"
   #
   echo "$info" > "$cachedir/$v"

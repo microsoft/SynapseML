@@ -116,7 +116,7 @@ _upload_to_storage() { # name, pkgdir, container
        --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
   case "$1" in
   ( "Maven" )
-    _add_to_description '* Maven package uploaded, use \`%s\` and \`%s\`.\n' \
+    _add_to_description '* Maven package uploaded, use `%s` and `%s`.\n' \
                         "--packages $MAVEN_PACKAGE" "--repositories $MAVEN_URL"
     ;;
   ( "PIP" )
