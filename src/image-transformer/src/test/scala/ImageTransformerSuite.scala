@@ -9,9 +9,6 @@ import javax.swing._
 
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.DataFrame
-import org.opencv.core.{Mat, MatOfByte}
-import org.opencv.imgcodecs.Imgcodecs
-import org.opencv.imgproc.Imgproc
 import org.apache.spark.sql.Row
 import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.spark.sql.SaveMode

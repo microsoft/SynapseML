@@ -6,8 +6,8 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.opencv.core.{Core, MatOfByte}
-import org.opencv.imgcodecs.Imgcodecs
+import org.bytedeco.javacpp.opencv_core.Mat
+import org.bytedeco.javacpp.opencv_imgcodecs.{imdecode, CV_LOAD_IMAGE_COLOR}
 
 object ImageReader {
 
@@ -22,8 +22,8 @@ object ImageReader {
     * @return returns None if decompression fails
     */
   private[spark] def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
-    val mat = new MatOfByte(bytes: _*)
-    val decoded = Imgcodecs.imdecode(mat, Imgcodecs.CV_LOAD_IMAGE_COLOR)
+    val mat = new Mat(bytes: _*)
+    val decoded = imdecode(mat, CV_LOAD_IMAGE_COLOR)
 
     if (decoded.empty()) {
       None
@@ -31,10 +31,10 @@ object ImageReader {
       val ocvBytes = new Array[Byte](decoded.total.toInt * decoded.elemSize.toInt)
 
       // extract OpenCV bytes
-      decoded.get(0, 0, ocvBytes)
+      decoded.data.get(ocvBytes)
 
       // type: CvType.CV_8U
-      Some(Row(filename, decoded.height, decoded.width, decoded.`type`, ocvBytes))
+      Some(Row(filename, decoded.rows, decoded.cols, decoded.`type`, ocvBytes))
     }
   }
 
@@ -48,7 +48,8 @@ object ImageReader {
            sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
 
     val binaryRDD = BinaryFileReader.readRDD(path, recursive, spark, sampleRatio, inspectZip)
-    val binaryRDDlib = ImageSchema.loadLibraryForAllPartitions(binaryRDD, Core.NATIVE_LIBRARY_NAME)
+    val binaryRDDlib = binaryRDD
+      // ??? ImageSchema.loadLibraryForAllPartitions(binaryRDD, "NATIVE_LIBRARY_NAME")
 
     val validImages = binaryRDDlib.flatMap {
       case (filename, bytes) => {
