@@ -25,7 +25,7 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(session, s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
     val result = model.transform(images)
@@ -36,7 +36,7 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setModel(resNet)
+      .setModel(session, resNet)
       .setCutOutputLayers(0)
     val result = model.transform(images)
     compareToTestModel(result)
@@ -44,7 +44,7 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
 
   test("Image featurizer should work with ResNet50", TestBase.Extended) {
     val model = new ImageFeaturizer()
-      .setModel(resNet)
+      .setModel(session, resNet)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
     val result = model.transform(images)
@@ -55,7 +55,7 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
   test("test layers of network", TestBase.Extended) {
     (0 to 9).foreach({ i =>
       val model = new ImageFeaturizer()
-        .setModel(resNet)
+        .setModel(session, resNet)
         .setInputCol(inputCol)
         .setOutputCol(outputCol)
         .setCutOutputLayers(i)

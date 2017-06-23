@@ -150,7 +150,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |""".stripMargin
 
   // These params are need custom handling. For now, just skip them so we have tests that pass.
-  private lazy val skippedParams =  Set[String]("models")
+  private lazy val skippedParams =  Set[String]("models", "model")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
@@ -261,7 +261,7 @@ class SparkTransformerWrapperTest(entryPoint: Transformer,
         case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
-        case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer"
+        case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer" | "_ImageFeaturizer"
            | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "StopWordsRemoverTransform"
            => ""
         case _ =>

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.net.URI
+import javax.xml.bind.DatatypeConverter.{parseBase64Binary, printBase64Binary}
 
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.schema.DatasetExtensions
@@ -12,7 +13,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
 
@@ -36,7 +37,9 @@ object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
   *
   * @param uid the uid of the image transformer
   */
-class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams {
+@InternalWrapper
+class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
+  with MMLParams with CNTKModelParam {
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
   /** Select which node of the CNTKFunction's inputs to us as the input (default: 0)
@@ -79,32 +82,10 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getLayerNames: Array[String] = $(layerNames)
 
-  /** The location of th emodel as a URI/URL
-    * @group param
-    */
-  val modelLocation: Param[String] = StringParam(this, "modelLocation", "the location of the model as a URI/URL",
-    {s: String =>
-      try{
-        new URI(s)
-        true
-      }catch{
-        case e: Exception => false
-      }
-    })
-
-  /** @group setParam */
-  def setModelLocation(value: String): this.type = set(modelLocation, value)
-
-  /** @group setParam */
-  def setModelLocation(value: URI): this.type = set(modelLocation, value.toString)
-
-  /** @group getParam */
-  def getModelLocation: String = $(modelLocation)
-
-  def setModel(modelSchema: ModelSchema): this.type = {
+  def setModel(spark: SparkSession, modelSchema: ModelSchema): this.type = {
     setLayerNames(modelSchema.layerNames)
       .setInputNode(modelSchema.inputNode)
-      .setModelLocation(modelSchema.uri.toString)
+      .setModelLocation(spark, modelSchema.uri.toString)
   }
 
   setDefault(cutOutputLayers -> 1, inputNode -> 0, outputCol -> (uid + "_output"))
@@ -115,7 +96,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = new CNTKModel()
-      .setModel(dataset.sparkSession, getModelLocation)
+      .setModel(getModel)
       .setInputNode(getInputNode)
       .setOutputNodeName(getLayerNames.apply(getCutOutputLayers))
       .setInputCol(resizedCol)

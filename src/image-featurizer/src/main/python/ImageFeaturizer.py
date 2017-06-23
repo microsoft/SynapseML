@@ -6,11 +6,11 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._CNTKModel import _CNTKModel
+from mmlspark._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc
-class CNTKModel(_CNTKModel):
+class ImageFeaturizer(_ImageFeaturizer):
     """
 
     Args:
