@@ -133,26 +133,31 @@ object CNTKModel extends DefaultParamsReadable[CNTKModel] {
   override def load(path: String): CNTKModel = super.load(path)
 }
 
-@InternalWrapper
-class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultParamsWritable
-  with HasInputCol with HasOutputCol {
-
-  def this() = this(Identifiable.randomUID("CNTKModel"))
-
-  /** Array of bytes containing the seialized <code>CNTKModel</code>
+trait CNTKModelParam extends Wrappable {
+  /** Array of bytes containing the serialized CNTK <code>Function</code>
     * @group param
     */
   val model: Param[String] =
     new Param(this, "model", "Array of bytes containing the serialized CNTKModel")
 
   /** @group setParam */
-  def setModel(spark: SparkSession, path: String): CNTKModel = {
-    val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
-    set(model, printBase64Binary(modelBytes))
-  }
+  def setModel(bytes: Array[Byte]): this.type = set(model, printBase64Binary(bytes))
 
   /** @group getParam */
   def getModel: Array[Byte] = parseBase64Binary($(model))
+
+  /** @group setParam */
+  def setModelLocation(spark: SparkSession, path: String): this.type = {
+    val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
+    setModel(modelBytes)
+  }
+}
+
+@InternalWrapper
+class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultParamsWritable
+  with HasInputCol with HasOutputCol with CNTKModelParam{
+
+  def this() = this(Identifiable.randomUID("CNTKModel"))
 
   /** Index of the input node
     * @group param
@@ -205,9 +210,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultP
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  /** Train the model
-    * @param dataset
-    * @return trained dataset
+  /** Evaluate the model
+    * @param dataset the dataset to featurize
+    * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
     val spark      = dataset.sparkSession

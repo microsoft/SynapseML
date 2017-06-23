@@ -156,7 +156,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
     // CNTKModel.load(config.getModelPath)
     // This also needs a windows dll - currently only runs on linux
     new CNTKModel(uid + "-model")
-      .setModel(spark, config.getModelPath)
+      .setModelLocation(spark, config.getModelPath)
       .setInputCol(features)
       .setOutputCol(labels)
   }

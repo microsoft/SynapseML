@@ -22,7 +22,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils {
 
   def testModel(minibatchSize: Int = 10): CNTKModel = {
     new CNTKModel()
-      .setModel(session, modelPath)
+      .setModelLocation(session, modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setMiniBatchSize(minibatchSize)
@@ -47,7 +47,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils {
 
   test("A CNTK model should support finding a node by name") {
     val model = new CNTKModel()
-      .setModel(session, modelPath)
+      .setModelLocation(session, modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setOutputNodeName("z")
@@ -63,7 +63,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils {
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setOutputNodeName("nonexistant-node")
-      .setModel(session, modelPath)
+      .setModelLocation(session, modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
     val se = intercept[SparkException] { model.transform(data).collect() }
