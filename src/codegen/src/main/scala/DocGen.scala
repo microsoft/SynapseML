@@ -44,8 +44,8 @@ object DocGen {
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
     allFiles(toZipDir, _.getName.endsWith(".py"))
-        .foreach{x => writeFile(new File(inDocDir, StringUtils.capitalize(x.getName.dropRight(3)) + ".rst"),
-          contentsString(StringUtils.capitalize(x.getName.dropRight(3))))
+        .foreach{x => writeFile(new File(inDocDir, x.getName.dropRight(3) + ".rst"),
+          contentsString(x.getName.dropRight(3)))
         }
   }
 
