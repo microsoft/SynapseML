@@ -211,6 +211,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
+    require(!(isSet(outputNodeName) && isSet(outputNodeIndex)), "Can't set both outputNodeName and outputNodeIndex")
+
     val spark      = dataset.sparkSession
     val sc         = spark.sparkContext
     val inputIndex = dataset.columns.indexOf(getInputCol)
@@ -221,12 +223,11 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     val model = CNTKModel.loadModelFromBytes(getModel, device)
 
-    if ((isSet(outputNodeName) && isSet(outputNodeIndex)))
-      throw new Exception("Can't set both outputNodeName and outputNodeIndex")
-
-    val outputNode =
-      if (isSet(outputNodeName)) get(outputNodeName)
-      else Option(model.getOutputs.get(getOrDefault(outputNodeIndex)).getName)
+    val outputNode = if (isSet(outputNodeName)) {
+      get(outputNodeName)
+    } else {
+      Option(model.getOutputs.get(getOrDefault(outputNodeIndex)).getName)
+    }
 
     val coersionOptionUDF = dataset.schema.fields(inputIndex).dataType match {
       case ArrayType(tp, _) =>
