@@ -30,6 +30,17 @@ if [[ "$exe" == "jupyter-notebook" ]]; then
   exe="pyspark"; args=()
 fi
 
+if [[ "$MML_VERSION" = *".local"* ]]; then
+  # If we're running a locally built version, delete the cached versions in
+  # "$HOME/.ivy2".  This is a hack since it depends on this particular location.
+  # The reason that it's in this script instead of in the build script is that
+  # ideally we'd configure spark to disable caching of just mmlspark, and these
+  # kind of spark settings are done in this file.
+  ( cd "$HOME/.ivy2"; shopt -s globstar nullglob
+    # Note: use *$MML_VERSION* to avoid hard wiring specific paths
+    for f in **/*"$MML_VERSION"*; do rm -rf "$f"; done )
+fi
+
 MML_M2REPOS="file:$BUILD_ARTIFACTS/packages/m2,$MAVEN_URL"
 MML_PACKAGE="com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:$MML_VERSION"
 
