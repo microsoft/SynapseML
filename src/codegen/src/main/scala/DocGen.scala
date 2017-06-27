@@ -5,6 +5,8 @@ package com.microsoft.ml.spark.codegen
 
 import java.io.File
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.io.FilenameUtils._
+import scala.util.matching.Regex
 
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
@@ -38,14 +40,16 @@ object DocGen {
 
   def genRstFiles(): Unit = {
     // Generate a modules.rst file that lists all the .py files to be included in API documentation
-    val moduleString = allFiles(toZipDir, _.getName.endsWith(".py"))
-      .map(f => s"   ${f.getName.dropRight(3)}\n").mkString("")
+    // Find the files to use: Must start with upper case letter, end in .py
+    val pattern = new Regex("^[A-Z]\\w*.py$")
+    val moduleString = allFiles(toZipDir, (f => pattern.findFirstIn(f.getName) != None))
+          .map(f => s"   ${getBaseName(f.getName)}\n").mkString("")
     writeFile(new File(inDocDir, "modules.rst"), rstFileLines(moduleString))
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
-    allFiles(toZipDir, _.getName.endsWith(".py"))
-        .foreach{x => writeFile(new File(inDocDir, x.getName.dropRight(3) + ".rst"),
-          contentsString(x.getName.dropRight(3)))
+    allFiles(toZipDir, (f => pattern.findFirstIn(f.getName) != None))
+        .foreach{x => writeFile(new File(inDocDir, getBaseName(x.getName) + ".rst"),
+          contentsString(getBaseName(x.getName)))
         }
   }
 
