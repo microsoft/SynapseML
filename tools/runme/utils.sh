@@ -396,24 +396,22 @@ _set_build_info() {
       # 1. main version, taken from the most recent version tag
       #    (that's all if we're building this tagged version)
       version="${tag#v}"
-      if [[ "$tag" != "$head" ]]; then
-        # 2. ".dev" + number of commits on master since the tag
-        #    (that's all if we're building a version on the main master line)
+      # 2. ".dev" + number of commits on master since the tag, unless
+      #    we're right on the tag
+      if [[ "$tagref" != "$head" ]]; then
         version+=".dev$(git rev-list --count "$tag..$branch")"
-        if [[ "$branch" != "$head" ]]; then
-          # 3. "+" + number of commits on top of master ".g" + abbreviated sha1
-          version+="+$(git rev-list --count "$branch..$head")"
-          version+=".g$(git rev-parse --short "$head")"
-        fi
       fi
-      # 4. always add: ".local" for local builds, ".dirty" for a dirty tree
+      # 3. if building a branch or building locally:
+      #    "+" + number of commits on top of master ".g" + abbreviated sha1
+      if [[ "$branch" != "$head" || "$BUILDMODE" != "server" ]]; then
+        version+="+$(git rev-list --count "$branch..$head")"
+        version+=".g$(git rev-parse --short "$head")"
+      fi
+      # 4. ".local" for local builds, ".dirty" for a dirty tree
       if [[ "$BUILDMODE" != "server" ]]; then version+=".local"; fi
       if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
     fi
     if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
-      if [[ ! -r "$BUILD_ARTIFACTS/version" ]]; then
-        version="${version/+/+local.}"
-      fi
       info="Local build: ${USERNAME:-$USER} ${BASEDIR:-$PWD}"
       local line
       info+="$(
