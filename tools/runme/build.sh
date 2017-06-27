@@ -7,29 +7,23 @@
 # Since developers usually work in the IDE, most of the build mechanics is done
 # by SBT.
 
-_show_template_line() {
-  eval show - "$(qstr -not-dollar "${2%$'\n'}")"
-}
-
 _generate_description() {
   if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then return; fi
   show section "Generating Build.md"
   show command "... > $(qstr "$BUILD_ARTIFACTS/Build.md")"
-  mapfile -c 1 -C _show_template_line \
-    < "$RUNMEDIR/build-readme.tmpl" > "$BUILD_ARTIFACTS/Build.md"
-  if [[ "$PUBLISH" = "all" ]]; then
-    printf '\nThis is a **publishing** build.\n' >> "$BUILD_ARTIFACTS/Build.md"
-    echo "##vso[build.addbuildtag]Publish"
-  fi
+  eval echo "\"$(< "$RUNMEDIR/info.tmpl")\"" > "$BUILD_ARTIFACTS/Build.md"
   # upload the generated description lazily on exit, so we can add info lines below
   echo_exit "##vso[task.uploadsummary]$BUILD_ARTIFACTS/Build.md"
 }
-_add_to_description() { # -f file | fmt arg...
+_add_to_description() { # fmt arg...
   if [[ ! -e "$BUILD_ARTIFACTS/Build.md" ]]; then return; fi
-  { echo ""
-    if [[ "x$1" = "x-f" ]]; then if [[ -r "$2" ]]; then cat "$2"; fi
-    else printf "$@"; fi
-  } >> "$BUILD_ARTIFACTS/Build.md"
+  { echo ""; printf "$@"; } >> "$BUILD_ARTIFACTS/Build.md"
+}
+_publish_description() {
+  # note: this does not depend on "should publish storage"
+  if [[ ! -e "$BUILD_ARTIFACTS/Build.md" ]]; then return; fi
+  _ az storage blob upload --account-name "$MAIN_STORAGE" -c "$STORAGE_CONTAINER" \
+         -f "$BUILD_ARTIFACTS/Build.md" -n "$MML_VERSION/Build.md"
 }
 
 _postprocess_sbt_log() {
@@ -116,11 +110,11 @@ _upload_to_storage() { # name, pkgdir, container
        --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
   case "$1" in
   ( "Maven" )
-    _add_to_description '* Maven package uploaded, use `%s` and `%s`.\n' \
+    _add_to_description '* **Maven** package uploaded, use `%s` and `%s`.\n' \
                         "--packages $MAVEN_PACKAGE" "--repositories $MAVEN_URL"
     ;;
   ( "PIP" )
-    _add_to_description '* PIP package [uploaded](%s/%s).\n' \
+    _add_to_description '* **PIP** package [uploaded](%s/%s).\n' \
                         "$PIP_URL" "$PIP_PACKAGE"
     ;;
   esac
@@ -242,8 +236,8 @@ _upload_artifacts_to_storage() {
        --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"
   _add_to_description \
-    '* Copy the link to [%s](%s) to setup this build on a cluster.\n' \
-    "this HDInsight Script Action" "$STORAGE_URL/$MML_VERSION/install-mmlspark.sh"
+    '* **HDInsight**: Copy the link to %s to setup this build on a cluster.\n' \
+    "[this Script Action]($STORAGE_URL/$MML_VERSION/install-mmlspark.sh)"
 }
 
 _full_build() {
@@ -251,6 +245,7 @@ _full_build() {
   _ cd "$BASEDIR"
   _prepare_build_artifacts
   _generate_description
+  _publish_description # publish first version, in case of failures
   _sbt_build
   _ ln -sf "$(realpath --relative-to="$HOME/bin" "$TOOLSDIR/bin/mml-exec")" \
            "$HOME/bin"
@@ -266,15 +261,10 @@ _full_build() {
   should test e2e        && _e2e_tests
   should publish demo    && _publish_to_demo_cluster
   should publish docker  && _publish_to_dockerhub
-  if [[ -n "$BUILD_INFO_EXTRA_MARKDOWN" ]]; then
-    _add_to_description -f "$BUILD_INFO_EXTRA_MARKDOWN"
-  fi
   _upload_artifacts_to_VSTS
   # upload updated Build.md after all of the additions were made
-  # (note: does not depend on "should publish storage")
-  if [[ -e "$BUILD_ARTIFACTS/Build.md" ]]; then
-     _ az storage blob upload --account-name "$MAIN_STORAGE" -c "$STORAGE_CONTAINER" \
-          -f "$BUILD_ARTIFACTS/Build.md" -n "$MML_VERSION/Build.md"
-  fi
+  _publish_description
+  # tag with "Publish" if we published everything and had no failures
+  if [[ "$PUBLISH" = "all" ]]; then echo "##vso[build.addbuildtag]Publish"; fi
   return 0
 }
