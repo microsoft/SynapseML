@@ -216,10 +216,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     val spark      = dataset.sparkSession
     val sc         = spark.sparkContext
     val inputIndex = dataset.columns.indexOf(getInputCol)
+    require(inputIndex != -1, s"Input column $getInputCol does not exist")
     val device     = DeviceDescriptor.useDefaultDevice
-
-    if (inputIndex == -1)
-      throw new IllegalArgumentException(s"Input column $getInputCol does not exist")
 
     val model = CNTKModel.loadModelFromBytes(getModel, device)
 
