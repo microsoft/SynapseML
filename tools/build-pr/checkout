@@ -36,12 +36,10 @@ git checkout "pr-$BUILDPR"
 git reset --hard "$SHA1"
 
 # useful info in build
-{ echo "## This is a build for [github PR #$BUILDPR]($GURL)"
-  echo ""
-  echo "### Associated Changes"
-  echo ""; echo "---"; echo ""
-  git log --format="* [%h]($repourl/commit/%H) [%aN](mailto:%aE) %s" \
+{ printf '### This is a build for %s, changes:\n\n' "[github PR #$BUILDPR]($GURL)"
+  git log --format="* [[%h]($repourl/commit/%H)] [%aN](mailto:%aE) %s" \
       "origin/master..$SHA1"
+  printf '\n---\n'
   } > "$PRDIR/PR-Build.md"
 
 # variable overrides
