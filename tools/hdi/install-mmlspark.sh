@@ -71,14 +71,17 @@ echo "Updating the Livy configuration..."
 python "$tmp/update_livy.py" "/home/spark/.sparkmagic/config.json" "$MAVEN_PACKAGE"
 rm -rf "$tmp"
 
-/bin/su livy -c \
-  "spark-shell --packages \"$MAVEN_PACKAGE\" --repositories \"$MAVEN_URL\" < /dev/null"
-
 for env in "${CONDA_ENVS[@]}"; do
-  _anaconda_bin activate "$condaenv"
+  _anaconda_bin activate "$env"
+  # first uninstall it, since otherwise an existing "1.2.dev3+4" version makes
+  # pip consider "1.2.dev3" as "already satisfied"
+  pip uninstall -y "mmlspark"
   pip install "$PIP_PACKAGE"
   _anaconda_bin deactivate
 done
+
+/bin/su livy -c \
+  "spark-shell --packages \"$MAVEN_PACKAGE\" --repositories \"$MAVEN_URL\" < /dev/null"
 
 # Check whether script is running on headnode
 if [[ "$(get_primary_headnode)" != "$(hostname -f)" ]]; then
