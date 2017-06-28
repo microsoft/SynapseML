@@ -4,10 +4,11 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
-class SelectColumnsSuite extends TransformerFuzzingTest {
+class SelectColumnsSuite extends TestBase with TransformerFuzzing[SelectColumns] {
 
   import session.implicits._
 
@@ -64,12 +65,9 @@ class SelectColumnsSuite extends TransformerFuzzingTest {
     }
   }
 
-  override def setParams(fitDataset: DataFrame, transformer: Transformer): Transformer =
-    transformer.asInstanceOf[SelectColumns].setCols(fitDataset.columns)
+  def testObjects(): Seq[TestObject[SelectColumns]] = List(new TestObject(
+    new SelectColumns().setCol("numbers"), makeBasicDF()))
 
-  override def createDataset: DataFrame = makeBasicDF()
+  override def reader: MLReadable[_] = SelectColumns
 
-  override def schemaForDataset: StructType = ???
-
-  override def getTransformer(): Transformer = new SelectColumns()
 }

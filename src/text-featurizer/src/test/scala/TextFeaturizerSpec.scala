@@ -4,13 +4,10 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import org.apache.spark.ml._
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.ml.util.MLReadable
 
-class TextFeaturizerSpec extends EstimatorFuzzingTest with RoundTripTestBase {
+class TextFeaturizerSpec extends TestBase with EstimatorFuzzing[TextFeaturizer]{
   val dfRaw = session
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
@@ -23,18 +20,6 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest with RoundTripTestBase {
     .transform(dfRaw)
   val dfNgram =
     new NGram().setInputCol("tokens").setOutputCol("ngrams").transform(dfTok)
-
-  val dfRoundTrip: DataFrame = dfRaw
-  val reader: MLReadable[_] = TextFeaturizer
-  val modelReader: MLReadable[_] = TextFeaturizerModel
-  val stageRoundTrip: PipelineStage with MLWritable = new TextFeaturizer()
-    .setInputCol("sentence")
-    .setOutputCol("features")
-    .setNumFeatures(20)
-
-  test("should roundtrip serialize") {
-    testRoundTrip()
-  }
 
   test("operate on sentences,tokens,or ngrams") {
     val tfRaw = new TextFeaturizer()
@@ -88,13 +73,9 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest with RoundTripTestBase {
     assertSparkException[IllegalArgumentException](tfRaw.setOutputCol("tokens"),          dfTok)
   }
 
-  val inputCol = "text"
+  override def testObjects(): Seq[TestObject[TextFeaturizer]] =
+    List(new TestObject(new TextFeaturizer().setInputCol("sentence"), dfRaw))
 
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] =
-    estimator.asInstanceOf[TextFeaturizer].setInputCol(inputCol)
-
-  override def getEstimator(): Estimator[_] = new TextFeaturizer()
-
-  override def schemaForDataset: StructType = new StructType(Array(StructField(inputCol, StringType, false)))
-
+  override def reader: MLReadable[_] = TextFeaturizer
+  override def modelReader: MLReadable[_] = TextFeaturizerModel
 }

@@ -6,12 +6,13 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Estimator
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import java.lang.{Double => JDouble, Integer => JInt, Boolean => JBoolean}
+import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt}
 
+import org.apache.spark.ml.util.MLReadable
 import org.scalactic.TolerantNumerics
 
 /** Tests to validate the functionality of Clean Missing Data estimator. */
-class VerifyCleanMissingData extends EstimatorFuzzingTest {
+class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissingData] {
 
   val tolerance = 0.01
   implicit val doubleEq = TolerantNumerics.tolerantDoubleEquality(tolerance)
@@ -204,14 +205,10 @@ class VerifyCleanMissingData extends EstimatorFuzzingTest {
     }
   }
 
-  override def createFitDataset: DataFrame = {
-    createMockDataset
-  }
+  val dataset: DataFrame = createMockDataset
+  override def testObjects(): Seq[TestObject[CleanMissingData]] = List(new TestObject(
+    new CleanMissingData().setInputCols(dataset.columns).setOutputCols(dataset.columns), dataset))
 
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = {
-    val dataset = createFitDataset
-    new CleanMissingData().setInputCols(dataset.columns).setOutputCols(dataset.columns)
-  }
+  override def reader: MLReadable[_] = CleanMissingData
+  override def modelReader: MLReadable[_] = CleanMissingDataModel
 }

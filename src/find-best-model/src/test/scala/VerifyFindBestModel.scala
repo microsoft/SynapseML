@@ -11,7 +11,7 @@ import org.apache.spark.ml.{Estimator, PipelineStage, Transformer}
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.apache.commons.io.FileUtils
 
-class VerifyFindBestModel extends EstimatorFuzzingTest with RoundTripTestBase {
+class VerifyFindBestModel extends TestBase with RoundTripTestBase{
 
   val mockLabelColumn = "Label"
 
@@ -89,19 +89,6 @@ class VerifyFindBestModel extends EstimatorFuzzingTest with RoundTripTestBase {
       .collect()
       .foreach(value => assert(value.getDouble(0) >= 0.5))
   }
-
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = {
-    val assembleFeatures = estimator.asInstanceOf[FindBestModel]
-    val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
-    val model = logisticRegressor.fit(createMockDataset)
-    assembleFeatures.setModels(Array(model, model))
-  }
-
-  override def createFitDataset: DataFrame = createMockDataset
-
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = new FindBestModel()
 
   val dfRoundTrip: DataFrame = createMockDataset
   val reader: MLReadable[_] = FindBestModel

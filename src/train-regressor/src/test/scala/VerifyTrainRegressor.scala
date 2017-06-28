@@ -12,8 +12,10 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.commons.io.FileUtils
 
+import scala.collection.immutable.Seq
+
 /** Tests to validate the functionality of Train Regressor module. */
-class VerifyTrainRegressor extends EstimatorFuzzingTest with RoundTripTestBase {
+class VerifyTrainRegressor extends RoundTripTestBase {
 
   val regressionTrainFilesDirectory = "/Regression/Train/"
 
@@ -140,14 +142,6 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest with RoundTripTestBase {
     TrainRegressorTestUtilities.trainScoreDataset(labelColumn, dataset, parameters)
   }
 
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] =
-    estimator.asInstanceOf[TrainRegressor].setModel(new LinearRegression()).setLabelCol(mockLabelColumn)
-
-  override def createFitDataset: DataFrame = createMockDataset
-
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = new TrainRegressor()
 }
 
 /** Test helper methods for Train Regressor module. */
