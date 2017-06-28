@@ -15,7 +15,7 @@ class CNTKModel(_CNTKModel):
 
     Args:
         SparkSession (SparkSession): The SparkSession that will be used to find the model
-        ocation (str): The location of the model, either on local or HDFS
+        location (str): The location of the model, either on local or HDFS
     """
     def setModelLocation(self, sparkSession, location):
         jSpark = sparkSession._jsparkSession
