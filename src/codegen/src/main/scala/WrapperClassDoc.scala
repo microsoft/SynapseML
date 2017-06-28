@@ -53,13 +53,14 @@ object WrapperClassDoc {
         s"""``ComputeModelStatistics`` returns the specified statistics on all the models specified
            |
            |    The possible metrics are:\n
-           |    Binary Classifiers:
+           |    Binary Classifiers:\n
            |    - \"AreaUnderROC\"
            |    - \"AUC\"
            |    - \"accuracy\"
            |    - \"recall\"
            |    - \"all\"
-           |    Regression Classifiers:
+           |
+           |    Regression Classifiers:\n
            |    - \"mse\"
            |    - \"rmse\"
            |    - \"r2\"
@@ -73,7 +74,7 @@ object WrapperClassDoc {
            |    - \"L1_loss\"
            |    - \"L2_loss\"
            |
-           |    The Classification metrics are:
+           |    The Classification metrics are:\n
            |    - \"log_loss\"
            |""".stripMargin
       case "DataConversion" =>
