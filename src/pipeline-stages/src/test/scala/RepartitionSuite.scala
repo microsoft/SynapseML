@@ -5,8 +5,9 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.param.{ParamMap, ParamPair}
+import org.apache.spark.ml.util.MLReadable
 
-class RepartitionSuite extends TestBase {
+class RepartitionSuite extends TestBase with TransformerFuzzing[Repartition] {
 
   import session.implicits._
 
@@ -46,4 +47,8 @@ class RepartitionSuite extends TestBase {
     assert(fitPipe.transform(input, ParamMap(r.n->5)).rdd.getNumPartitions ==5)
   }
 
+  def testObjects(): Seq[TestObject[Repartition]] = List(new TestObject(
+    new Repartition().setN(1), input))
+
+  def reader: MLReadable[_] = Repartition
 }

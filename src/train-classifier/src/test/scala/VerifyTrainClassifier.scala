@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
@@ -28,7 +29,7 @@ object ClassifierTestUtils {
 }
 
 /** Tests to validate the functionality of Train Classifier module. */
-class VerifyTrainClassifier extends EstimatorFuzzingTest {
+class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassifier] {
 
   val targetDirectory = new File("target")
   val thisDirectory = {
@@ -471,14 +472,12 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
       .setScale(decimals, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
 
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] =
-    estimator.asInstanceOf[TrainClassifier].setModel(new LogisticRegression()).setLabelCol(mockLabelColumn)
+  override def testObjects(): Seq[TestObject[TrainClassifier]] =
+    List(new TestObject(
+      new TrainClassifier().setModel(new LogisticRegression()).setLabelCol(mockLabelColumn), createMockDataset))
 
-  override def createFitDataset: DataFrame = createMockDataset
-
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = new TrainClassifier()
+  override def reader: MLReadable[_] = TrainClassifier
+  override def modelReader: MLReadable[_] = TrainedClassifierModel
 }
 
 /** Test helper methods for Train Classifier module. */

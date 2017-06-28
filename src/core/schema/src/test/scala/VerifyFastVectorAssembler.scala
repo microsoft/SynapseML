@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.schema
 
-import com.microsoft.ml.spark.TransformerFuzzingTest
+import com.microsoft.ml.spark.TestBase
 import org.apache.spark.SparkException
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.feature.{FastVectorAssembler, StringIndexer}
@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.StructType
 /** Verifies the fast vector assembler, which only keeps categorical metadata and removes all other metadata.
   * TODO: Move this to core/spark and remove MML dependencies for the verification
   */
-class VerifyFastVectorAssembler extends TransformerFuzzingTest {
+class VerifyFastVectorAssembler extends TestBase {
 
   val invalidExceptionError = "Could not catch correct exception"
 
@@ -106,12 +106,4 @@ class VerifyFastVectorAssembler extends TransformerFuzzingTest {
     (inputCols, catColumn, categoricalData)
   }
 
-  override def setParams(fitDataset: DataFrame, transformer: Transformer): Transformer =
-    transformer.asInstanceOf[FastVectorAssembler].setInputCols(inputCols).setOutputCol(outputCol)
-
-  override def createDataset: DataFrame = mockDataset
-
-  override def schemaForDataset: StructType = ???
-
-  override def getTransformer(): Transformer = new FastVectorAssembler()
 }

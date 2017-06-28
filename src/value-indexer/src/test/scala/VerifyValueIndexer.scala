@@ -4,12 +4,15 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalUtilities, SparkSchema}
+import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.Row
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
+import scala.collection.immutable.Seq
 
 /** Tests to validate the functionality of Train Classifier module. */
-class VerifyValueIndexer extends EstimatorFuzzingTest {
+class VerifyValueIndexer extends TestBase with EstimatorFuzzing[ValueIndexer] {
 
   import session.implicits._
 
@@ -112,37 +115,9 @@ class VerifyValueIndexer extends EstimatorFuzzingTest {
 
   val inputCol = "text"
 
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] =
-    estimator.asInstanceOf[ValueIndexer].setInputCol(inputCol)
+  override def testObjects(): Seq[TestObject[ValueIndexer]] = List(new TestObject[ValueIndexer](
+    new ValueIndexer().setInputCol(DF.columns.head).setOutputCol("foo"), DF))
 
-  override def schemaForDataset: StructType = new StructType(Array(StructField(inputCol, StringType, false)))
-
-  override def getEstimator(): Estimator[_] = new ValueIndexer()
-}
-
-class VerifyValueIndexerModel extends TransformerFuzzingTest {
-  val inputCol = "string"
-  val outputCol = "output"
-
-  import session.implicits._
-
-  /** sample dataframe */
-  private val DF = Seq[(String)](
-    "piano",
-    "piano",
-    "guitar")
-    .toDF("string")
-
-  override def createDataset: DataFrame = DF
-
-  override def setParams(fitDataset: DataFrame, transformer: Transformer): Transformer =
-    transformer.asInstanceOf[ValueIndexerModel]
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-      .setLevels(Array("piano", "guitar"))
-      .setDataType(DataTypes.StringType)
-
-  override def schemaForDataset: StructType = ???
-
-  override def getTransformer(): Transformer = new ValueIndexerModel()
+  override def reader: MLReadable[_] = ValueIndexer
+  override def modelReader: MLReadable[_] = ValueIndexerModel
 }

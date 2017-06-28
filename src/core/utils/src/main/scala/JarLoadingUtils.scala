@@ -8,6 +8,7 @@ import java.net.URLClassLoader
 import java.util.jar.JarFile
 
 import FileUtilities._
+import org.scalatest.exceptions.TestFailedException
 
 import scala.reflect.ClassTag
 import scala.reflect._
@@ -65,15 +66,11 @@ object JarLoadingUtils {
     }
   }
 
-  private lazy val loadedTestClasses: List[Class[_]] = {
+  lazy val loadedTestClasses: List[Class[_]] = {
     val classNames = testFileLocs.map(je => je.stripSuffix(".class").replace("/", "."))
-    classNames.map(name => {
-      try {
-        classLoader.loadClass(name)
-      } catch {
-        case e: Throwable => { println(s"Encountered error $e when loading class"); null }
-      }
-    }).filter(_ != null)
+    classNames.map { name =>
+      classLoader.loadClass(name): Class[_]
+    }
   }
 
   private def catchInstantiationErrors[T](clazz: Class[_], func: Function[Class[_], T], debug: Boolean): Option[T] = {
@@ -101,6 +98,9 @@ object JarLoadingUtils {
       case ule: UnsatisfiedLinkError =>
         log(s"Could not generate wrapper due to link error from: " +
           s"${clazz.getSimpleName}: $ule")
+        None
+      case e: TestFailedException =>
+        log(s"Could not generate wrapper due to TestFailedException")
         None
       case e: Exception =>
         log(s"Could not generate wrapper for class ${clazz.getSimpleName}: ${e.printStackTrace()}")

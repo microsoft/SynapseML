@@ -9,42 +9,24 @@ import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
 import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.{Estimator, PipelineModel}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.commons.io.FileUtils
 
-class VerifyAssembleFeatures extends EstimatorFuzzingTest {
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = {
-    val assembleFeatures = estimator.asInstanceOf[AssembleFeatures]
-    assembleFeatures.setColumnsToFeaturize(fitDataset.columns)
-  }
+class VerifyAssembleFeatures extends TestBase with EstimatorFuzzing[AssembleFeatures] {
+  def testObjects(): Seq[TestObject[AssembleFeatures]] = List(new TestObject(
+    new AssembleFeatures().setColumnsToFeaturize(Array("numbers")), makeBasicDF()))
 
-  override def createFitDataset: DataFrame = {
-    // TODO: Fix bug for date and timestamp type not supported
-    val options = DatasetOptions(ColumnOptions.ValueSet(ColumnOptions.Scalar),
-      DataOptions.ValueSet(DataOptions.String,
-        DataOptions.Int,
-        DataOptions.Double,
-        DataOptions.Boolean,
-        DataOptions.Byte,
-        DataOptions.Short))
-    val indexToType = Map[Int, DatasetOptions](1 -> options, 2 -> options, 3 -> options, 4 -> options, 5 -> options)
-    GenerateDataset.generateDatasetFromOptions(session,
-      indexToType,
-      new BasicDatasetGenerationConstraints(5, 5, Array()),
-      0)
-  }
-
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = new AssembleFeatures()
+  val reader: MLReadable[_] = AssembleFeatures
+  val modelReader: MLReadable[_] = AssembleFeaturesModel
 }
 
-class VerifyFeaturize extends EstimatorFuzzingTest {
+class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   val mockLabelColumn = "Label"
   val featuresColumn = "testColumn"
@@ -372,14 +354,9 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
     result
   }
 
-  override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = {
-    val featureColumns = fitDataset.columns.filter(_ != mockLabelColumn)
-    estimator.asInstanceOf[Featurize].setFeatureColumns(Map(featuresColumn -> featureColumns))
-  }
+  override def testObjects: List[TestObject[Featurize]] = List(new TestObject(
+    new Featurize().setFeatureColumns(Map(featuresColumn -> mockDataset.columns)), mockDataset))
 
-  override def createFitDataset: DataFrame = mockDataset
-
-  override def schemaForDataset: StructType = ???
-
-  override def getEstimator(): Estimator[_] = new Featurize()
+  override def reader: MLReadable[_] = Featurize
+  override def modelReader: MLReadable[_] = PipelineModel
 }
