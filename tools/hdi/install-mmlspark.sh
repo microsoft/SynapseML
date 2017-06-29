@@ -14,13 +14,14 @@ PIP_PACKAGE="<=<=fill-in-pip-package=>=>"
 SDK_DIR="<=<=fill-in-sdk-dir=>=>"
 HDFS_NOTEBOOKS_FOLDER="/HdiNotebooks/Microsoft ML Spark Examples"
 
-CONDA_ENVS=( "root" "py35" )
+CPATH="/usr/bin/anaconda/bin"
+CONDA_ENVS=( $("$CPATH/conda" info --envs | grep "^[^#]" | sed -e "s/ .*//") )
 
 CNTK_VER="2.0.beta12.0"
 CNTK_BASE_URL="https://cntk.ai/PythonWheel/CPU-Only"
-CNTK_WHEELS=( # each is "<conda-env>::<wheel-url>"
-  "root::$CNTK_BASE_URL/cntk-$CNTK_VER-cp27-cp27mu-linux_x86_64.whl"
-  "py35::$CNTK_BASE_URL/cntk-$CNTK_VER-cp35-cp35m-linux_x86_64.whl")
+declare -A CNTK_WHEELS=(
+  [root]="$CNTK_BASE_URL/cntk-$CNTK_VER-cp27-cp27mu-linux_x86_64.whl"
+  [py35]="$CNTK_BASE_URL/cntk-$CNTK_VER-cp35-cp35m-linux_x86_64.whl")
 
 get_headnodes() {
   hdfssite="$(< "/etc/hadoop/conf/hdfs-site.xml")"
@@ -43,17 +44,17 @@ get_primary_headnode() {
 # Install prerequisites
 apt-get install -y openmpi-bin libunwind8
 
-# Install CNTK in Python 2.7 & 3.5
-_anaconda_bin() { local bin="$1"; shift; . "/usr/bin/anaconda/bin/$bin" "$@"; }
-for cntk_wheel in "${CNTK_WHEELS[@]}"; do
-  condaenv="${cntk_wheel%%::*}" wheel="${cntk_wheel#*::}" pkg="$(pip freeze | grep "cntk")"
-  _anaconda_bin activate "$condaenv"
-  echo -n "[$condaenv] "
-  if [[ ! "$pkg" = "cntk"* ]]; then echo "Installing CNTK..."; pip install "$wheel"
-  elif [[ "$pkg" = *"$CNTK_VER" ]]; then echo "Latest CNTK version is already installed."
+# Install CNTK in all environments
+for env in "${CONDA_ENVS[@]}"; do
+  echo -n "[$env] "
+  wheel="${CNTK_WHEELS[$env]:?"Unknown conda env for CNTK: $env"}"
+  . "$CPATH/activate" "$env"
+  pkg="$(pip freeze | grep "^cntk")"
+  if [[ "$pkg" != "cntk"* ]]; then echo "Installing CNTK..."; pip install "$wheel"
+  elif [[ "$pkg" = *"$CNTK_VER" ]]; then echo "CNTK is already installed."
   else echo "Updating CNTK..."; pip install --upgrade --no-deps "$wheel"
   fi
-  _anaconda_bin deactivate
+  . "$CPATH/deactivate"
 done
 
 # Download build artifacts & scripts
@@ -72,12 +73,12 @@ python "$tmp/update_livy.py" "/home/spark/.sparkmagic/config.json" "$MAVEN_PACKA
 rm -rf "$tmp"
 
 for env in "${CONDA_ENVS[@]}"; do
-  _anaconda_bin activate "$env"
+  . "$CPATH/activate" "$env"
   # first uninstall it, since otherwise an existing "1.2.dev3+4" version makes
   # pip consider "1.2.dev3" as "already satisfied"
   pip uninstall -y "mmlspark"
   pip install "$PIP_PACKAGE"
-  _anaconda_bin deactivate
+  . "$CPATH/deactivate"
 done
 
 /bin/su livy -c \
