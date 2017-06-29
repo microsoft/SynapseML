@@ -17,6 +17,11 @@ declare -A P=([container]="$PIP_CONTAINER"
               [suffix]="-py2.py3-none-any.whl")
 
 set -e
+shopt -s nullglob
+
+GH_API="https://api.github.com/repos/Azure/mmlspark"
+github_prs="$(curl --silent --show-error "$GH_API/pulls" \
+              | jq -r 'map(.number | tostring) | " " + join(" ") + " "')"
 
 export AZURE_STORAGE_ACCOUNT="$MAIN_STORAGE"
 
@@ -36,6 +41,14 @@ show-time() (
   elif ((diff < 365*_day)); then _ago $((30 * _day )) "month"
   else                           _ago $((365 * _day)) "year"
   fi
+)
+show-time-range() (
+  t1="$(show-time "$1")" t2="$(show-time "$2")"
+  if [[ "$t1" = "$t2" ]]; then echo "$t1"; return; fi
+  u1="${t1#* }"; u1="${u1% ago}" u1="${u1%s}"
+  u2="${t2#* }"; u2="${u2% ago}" u2="${u2%s}"
+  if [[ "$u1" != "$u2" ]]; then echo "${t1% ago} -- $t2"; return; fi
+  echo "${t1%% *}--${t2%% *} ${u1}s ago"
 )
 
 azls() {
@@ -101,7 +114,7 @@ get_ver_info() (
   if [[ "$label" = *$'\n'* ]]; then failwith "found multiple .label blobs"; fi
   if [[ -n "$label" ]]; then
     az storage blob download -c "${S[container]}" -n "$label" -f "$tmp" > /dev/null
-    label="[$(< "$tmp")]"
+    label="$(< "$tmp")"
     rm -f "$tmp"
   fi
   info="$(jq --arg l "$label" '. + {label: $l}' <<<"$info")"
@@ -111,11 +124,16 @@ get_ver_info() (
   if [[ -z "$binfo" ]]; then binfo="(No info: \"Build.md\" file not found)"; fi
   info="$(jq --arg b "$binfo" '. + {buildinfo: $b}' <<<"$info")"
   #
+  rx="\n#+ [^\n]* build [^\n]*github PR #([0-9]+)"
+  rx=$'\n'"#+ [^"$'\n'"]* build [^"$'\n'"]*github PR #([0-9]+)"
+  if [[ "$binfo" =~ $rx ]]; then pr="${BASH_REMATCH[1]}"; else pr=""; fi
+  info="$(jq --arg pr "$pr" '. + {github_pr: $pr}' <<<"$info")"
+  #
   echo "$info" > "$cachedir/$v"
 )
 
 show_all_oneline() {
-  local v times t1 t2 label; now="$(date +"%s")"
+  local v times t1 t2 info pr; now="$(date +"%s")"
   printf "\n"
   for v in "${all[@]}"; do
     if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
@@ -125,21 +143,32 @@ show_all_oneline() {
                     | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
                     | sort | "\(.[0]):\(.[-1])"
                    ' < "$cachedir/$v")"
-    t1="$(show-time "${times%:*}")" t2="$(show-time "${times#*:}")"
-    if [[ "$t1" = "$t2" ]]; then times="$t1"; else times="$t1 -- $t2"; fi
-    printf ' %-13s' "$times"
-    printf ' %s\n' "$(jq -r '.label' < "$cachedir/$v")"
+    printf ' %-16s' "$(show-time-range "${times%:*}" "${times#*:}")"
+    info="$(jq -r '.label' < "$cachedir/$v")"
+    pr="$(jq -r '.github_pr' < "$cachedir/$v")"
+    if [[ -n "$pr" ]]; then
+      if [[ "$github_prs" = *" $pr "* ]]
+      then pr="PR #$pr"; else pr="Closed PR #$pr"; fi
+      info="$pr${info:+"; "}$info"
+    fi
+    if [[ -z "$info" ]]; then printf '\n'
+    else printf ' [%s]\n' "$info"; fi
   done
 }
 
 ver="" # most functions use $ver dynamically
 
 do_label() (
-  read -p "  New label line: " l
-  echo "$l" > "$tmp"
-  if az storage blob upload -c "${S[container]}" -n "$ver/.label" \
-        -f "$tmp" >& /dev/null
-  then echo "  Labeled"; else echo "  Failed"; fi
+  read -rp "  New label line: " l
+  if [[ -z "$l" ]]; then
+    if az storage blob delete -c "${S[container]}" -n "$ver/.label" > /dev/null
+    then echo "  Label Deleted"; else echo "  Failed"; fi
+  else
+    echo "$l" > "$tmp"
+    if az storage blob upload -c "${S[container]}" -n "$ver/.label" \
+          -f "$tmp" >& /dev/null
+    then echo "  Labeled"; else echo "  Failed"; fi
+  fi
   rm -f "$tmp" "$cachedir/$ver"
 )
 
@@ -177,11 +206,17 @@ do_delete() (
 )
 
 do_requests() {
-  local ver c show_all=1
+  local ver vers c show_all=1
   while { if ((show_all)); then show_all_oneline; fi; show_all=0
           read -r -p $'\n'"Version: " ver; } do
     if [[ -z "$ver" ]]; then break; fi
-    if [[ ! -r "$cachedir/$ver" ]]; then continue; fi
+    if [[ ! -r "$cachedir/$ver" ]]; then
+      vers=( "$cachedir/"*"$ver"* )
+      if [[ "${#vers[@]}" = "0" ]]; then echo "No such version"; continue; fi
+      if [[ "${#vers[@]}" != "1" ]]; then echo "Ambiguous version"; continue; fi
+      ver="$(basename "${vers[0]}")"
+      echo "=> Version $ver"
+    fi
     echo "  |"
     jq -r '.buildinfo' < "$cachedir/$ver" | awk '{ print "  | " $0 }'
     echo "  |"
