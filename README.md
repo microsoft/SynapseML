@@ -48,7 +48,7 @@ See our [notebooks](notebooks/samples/) for all examples.
 
 Below is an excerpt from a simple example of using a pre-trained CNN to classify
 images in the CIFAR-10 dataset.  View the whole source code as [an example
-notebook](notebooks/samples/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb).
+notebook][example:301].
 
    ```python
    ...
@@ -75,9 +75,7 @@ do so, run the following command:
     docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
 
 Navigate to <http://localhost:8888> in your web browser to run the sample
-notebooks.  See the
-[documentation](http://mmlspark.azureedge.net/docs/pyspark/install.html)
-for more on Docker use.
+notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 > To read the EULA for using the docker image, run
 >     docker run -it -p 8888:8888 microsoft/mmlspark eula
@@ -108,10 +106,10 @@ script actions, see [this
 guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
 
 The script action url is:
-<https://mmlspark.azureedge.net/buildartifacts/0.5/install-mmlspark.sh> .
+<https://mmlspark.azureedge.net/buildartifacts/0.5/install-mmlspark.sh>.
 
 If you're using the Azure Portal to run the script action, go to `Script
-actions` ⇒ `Submit new` in the `Overview` section of your cluster blade.  In the
+actions` → `Submit new` in the `Overview` section of your cluster blade.  In the
 `Bash script URI` field, input the script action URL provided above.  Mark the
 rest of the options as shown on the screenshot to the right.
 
