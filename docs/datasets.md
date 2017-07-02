@@ -35,7 +35,7 @@ has been sampled down to 10000 rows.
 Reference: *Biographies, Bollywood, Boom-boxes and Blenders: Domain Adaptation
 for Sentiment Classification*, \
     John Blitzer, Mark Dredze, and Fernando Pereira \
-    Association of Computational Linguistics (ACL), 2007.*
+    Association of Computational Linguistics (ACL), 2007.
 
 ## CIFAR-10 Images
 

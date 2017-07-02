@@ -1,4 +1,4 @@
-# MMLSpark
+# MMLSpark Development
 
 ## Repository Layout
 
