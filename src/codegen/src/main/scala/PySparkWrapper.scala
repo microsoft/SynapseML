@@ -24,7 +24,6 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
                               entryPointQualifiedName: String) {
 
-  private val scopeDepth = " " * 4
   private val additionalImports = Map(
     ("complexTypes",
       s"from ${toZipDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
@@ -59,7 +58,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |@inherit_doc
         |class $entryPointName($inheritanceString):
         |    "\""
-        |    $classDocString
+        |$classDocString
+        |
         |$classParamDocString
         |    "\""
         |
@@ -115,7 +115,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |
         |        Returns:
-        |            $docType: ${res(1)}|
+        |            $docType: ${res(1)}
         |        "\""
         |        return self.getOrDefault(self.$pname)
         |

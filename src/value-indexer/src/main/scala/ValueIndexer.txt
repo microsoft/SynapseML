@@ -1,0 +1,5 @@
+Fits a dictionary of values from the input column.
+
+The ``ValueIndexer`` generates a model, then transforms a column to a
+categorical column of the given array of values.  It is similar to
+``StringIndexer`` except that it can be used on any value types.

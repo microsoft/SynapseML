@@ -1,0 +1,8 @@
+A fast vector assembler.  The columns given must be ordered such that
+categorical columns come first.  Otherwise, Spark learners will give
+categorical attributes to the wrong index.  The assembler does not keep
+spurious numeric data which can significantly slow down computations
+when there are millions of columns.
+
+To use this ``FastVectorAssemble`` you must import the
+``org.apache.spark.ml.feature`` package.

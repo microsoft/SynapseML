@@ -1,0 +1,15 @@
+The ``CNTKModel`` evaluates a pre-trained CNTK model in parallel.  The
+``CNTKModel`` takes a path to a model and automatically loads and
+distributes the model to workers for parallel evaluation using CNTK's
+java bindings.
+
+The ``CNTKModel`` loads the pretrained model into the ``Function`` class
+of CNTK.  One can decide which node of the CNTK Function computation
+graph to evaluate by passing in the name of the output node with the
+output node parameter.  Currently the ``CNTKModel`` supports single
+input single output models.
+
+The ``CNTKModel`` takes an input column which should be a column of
+spark vectors and returns a column of spark vectors representing the
+activations of the selected node.  By default, the CNTK model defaults
+to using the model's first input and first output node.

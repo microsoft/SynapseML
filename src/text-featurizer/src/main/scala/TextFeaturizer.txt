@@ -1,0 +1,3 @@
+Featurize text.
+
+The default output column name is "<uid>__output"

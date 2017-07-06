@@ -1,0 +1,1 @@
+Assembles feature columns into a vector column of features.

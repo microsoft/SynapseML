@@ -1,0 +1,1 @@
+Featurizes a dataset.  Converts the specified columns to feature columns.

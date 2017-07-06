@@ -12,6 +12,7 @@ from pyspark import sql
 from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
+
 def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspectZip = True):
     """
     Reads the directory of images from the local or remote (WASB) source.
@@ -25,7 +26,8 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
         sampleRatio (double): Fraction of the images loaded
 
     Returns:
-        DataFrame: DataFrame with a single column of "images", see imageSchema for details
+        DataFrame: DataFrame with a single column of "images", see imageSchema
+        for details
     """
     ctx = SparkContext.getOrCreate()
     reader = ctx._jvm.com.microsoft.ml.spark.ImageReader

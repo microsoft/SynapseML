@@ -1,0 +1,2 @@
+Takes a unary transformer and a list of input/output column pairs and
+applies the transformer to each column

@@ -22,6 +22,9 @@ object Config {
                                      Process("../tools/runme/show-version").!!.trim)
   val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
   val internalPrefix  = "_"
+  val scopeDepth = " " * 4
+  val tmpDocDir  = new File(pyDocDir, "tmpDoc")
+  val txtRelPath = "src/main/scala"
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.

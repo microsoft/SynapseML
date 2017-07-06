@@ -1,0 +1,2 @@
+``CNTKLearner`` trains a model on a dataset on a GPU edge node.  The
+result is a ``CNTKModel``.

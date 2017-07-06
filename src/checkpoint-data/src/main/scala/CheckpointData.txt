@@ -1,0 +1,6 @@
+``CheckpointData`` persists data to disk as well as memory.
+
+Storage level is MEMORY_AND_DISK if true, else MEMORY_ONLY.
+The default is false (MEMORY_ONLY).
+
+Use the removeCheckpoint parameter to reverse the cache operation.
