@@ -70,7 +70,7 @@ class CropImage(params: Map[String, Any]) extends ImageTransformerStage(params) 
   val x = params(CropImage.x).asInstanceOf[Int]
   val y = params(CropImage.y).asInstanceOf[Int]
   val height = params(CropImage.height).asInstanceOf[Int]
-  val width  = params(CropImage.width ).asInstanceOf[Int]
+  val width  = params(CropImage.width).asInstanceOf[Int]
   override val stageName = CropImage.stageName
 
   override def apply(image: Mat): Mat = {
@@ -114,8 +114,8 @@ object ColorFormat {
   * @param params
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height = params(Blur.height).asInstanceOf[Int]
-  val width  = params(Blur.width ).asInstanceOf[Int]
+  val height = params(Blur.height).asInstanceOf[Double].toInt
+  val width  = params(Blur.width).asInstanceOf[Double].toInt
   override val stageName = Blur.stageName
 
   override def apply(image: Mat): Mat = {
@@ -187,7 +187,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   override def load(path: String): ImageTransformer = super.load(path)
 
   /** Convert Spark image representation to OpenCV format. */
-  private def row2mat(row: Row): (String, Mat) = {
+  private[spark] def row2mat(row: Row): (String, Mat) = {
     val path    = ImageSchema.getPath(row)
     val height  = ImageSchema.getHeight(row)
     val width   = ImageSchema.getWidth(row)
