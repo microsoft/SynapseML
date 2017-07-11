@@ -18,7 +18,6 @@ trait TestFileCleanup extends BeforeAndAfterEach {
     finally {
       if (cleanupPath.exists) {
         FileUtilities.delTree(cleanupPath)
-        ()
       }
     }
   }

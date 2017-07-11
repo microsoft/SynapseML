@@ -7,7 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.zip.ZipInputStream
 
-import org.apache.commons.io.IOUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.input.PortableDataStream
 
 import scala.io._
@@ -30,10 +30,10 @@ object FileUtilities {
     }
   }
 
-  def delTree(file: File): Boolean =
-    if (!file.exists) true
-    else { if (file.isDirectory) file.listFiles.forall(delTree)
-           file.delete }
+  private[microsoft] def delTree(file: File): Unit = {
+    require(file.exists, s"File $file does not exist")
+    FileUtils.deleteDirectory(file)
+  }
 
   def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
     def loop(dir: File): Array[File] = {
