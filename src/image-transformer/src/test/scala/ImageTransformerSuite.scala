@@ -13,9 +13,9 @@ import org.opencv.core.{Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.apache.spark.sql.Row
-import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.spark.sql.SaveMode
+import org.apache.commons.io.FileUtils
 
 class ImageTransformerSuite extends LinuxOnly {
 
@@ -64,8 +64,7 @@ class ImageTransformerSuite extends LinuxOnly {
       val images1 = session.sqlContext.read.parquet(filename)
       assert(images1.count() == images.count())
     } finally {
-      FileUtilities.delTree(new File(filename))
-      ()
+      FileUtils.forceDelete(new java.io.File(filename))
     }
   }
 

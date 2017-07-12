@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
 import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
-import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.feature.StringIndexer
@@ -15,6 +15,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.commons.io.FileUtils
 
 class VerifyAssembleFeatures extends EstimatorFuzzingTest {
   override def setParams(fitDataset: DataFrame, estimator: Estimator[_]): Estimator[_] = {
@@ -344,11 +345,8 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
       .setOneHotEncodeCategoricals(oneHotEncode)
       .setAllowImages(true)
     val featModel = feat.fit(dataset)
-    var result = featModel.transform(dataset)
-    if (!includeFeaturesColumns) {
-      result = result.select(featuresColumn)
-    }
-    result
+    val result = featModel.transform(dataset)
+    if (includeFeaturesColumns) result else result.select(featuresColumn)
   }
 
   private def featurizeAndVerifyResult(dataset: DataFrame,
@@ -366,7 +364,7 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
       val directoryFile = new File(directory)
       val jsonFile = directoryFile.listFiles().filter(file => file.toString.endsWith(".json"))(0)
       jsonFile.renameTo(historicFile)
-      FileUtilities.delTree(directoryFile)
+      FileUtils.forceDelete(directoryFile)
     }
     val expResult = session.read.json(historicFile.toString)
     // Verify the results are the same

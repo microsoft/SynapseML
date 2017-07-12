@@ -14,6 +14,7 @@ import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, Multiclas
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
+import org.apache.commons.io.FileUtils
 
 object ClassifierTestUtils {
 
@@ -147,8 +148,7 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
       assert(verifyResult(transformedDataset, benchmarkDataset))
     } finally {
       // delete the file to cleanup
-      FileUtilities.delTree(dir)
-      ()
+      FileUtils.forceDelete(dir)
     }
   }
 

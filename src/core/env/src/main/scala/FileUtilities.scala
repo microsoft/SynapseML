@@ -30,11 +30,6 @@ object FileUtilities {
     }
   }
 
-  def delTree(file: File): Boolean =
-    if (!file.exists) true
-    else { if (file.isDirectory) file.listFiles.forall(delTree)
-           file.delete }
-
   def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
