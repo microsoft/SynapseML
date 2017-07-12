@@ -9,6 +9,7 @@ import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
+import org.apache.commons.io.FileUtils
 
 /** Tests to validate the functionality of Train Regressor module. */
 class VerifyTrainRegressor extends EstimatorFuzzingTest {
@@ -94,8 +95,7 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
       assert(verifyResult(transformedDataset, benchmarkDataset))
     } finally {
       // delete the file to cleanup
-      FileUtilities.delTree(dir)
-      ()
+      FileUtils.forceDelete(dir)
     }
   }
 

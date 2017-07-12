@@ -3,14 +3,15 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.FileUtilities._
 import Config._
 import DocGen._
 import WrapperClassDoc._
 
 import scala.util.matching.Regex
 import java.util.regex.Pattern
+import com.microsoft.ml.spark.FileUtilities._
 import org.apache.commons.io.FilenameUtils._
+import org.apache.commons.io.FileUtils
 
 object CodeGen {
 
@@ -72,8 +73,8 @@ object CodeGen {
     writeFile(new File(toZipDir, "__init__.py"), packageHelp(importStrings))
     // package python zip file
     zipFolder(toZipDir, zipFile)
-    // leave the source files there so they will be included in the super-jar
-    // if (!delTree(toZipDir)) println(s"Error: could not delete $toZipDir")
+    // leave the source files, so they will be included in the super-jar
+    // FileUtils.forceDelete(toZipDir)
   }
 
   def main(args: Array[String]): Unit = {

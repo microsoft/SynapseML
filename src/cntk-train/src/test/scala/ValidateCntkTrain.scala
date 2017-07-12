@@ -3,12 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
 import java.net.URI
 
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexerModel}
 import com.microsoft.ml.spark.Readers.implicits._
-import FileUtilities._
 import org.scalatest.{BeforeAndAfterEach, Suite}
+import org.apache.commons.io.FileUtils
 
 trait TestFileCleanup extends BeforeAndAfterEach {
   this: Suite =>
@@ -16,10 +17,7 @@ trait TestFileCleanup extends BeforeAndAfterEach {
   override def afterEach(): Unit = {
     try super.afterEach() // To be stackable, must call super.afterEach
     finally {
-      if (cleanupPath.exists) {
-        FileUtilities.delTree(cleanupPath)
-        ()
-      }
+      if (cleanupPath.exists) FileUtils.forceDelete(cleanupPath)
     }
   }
 }

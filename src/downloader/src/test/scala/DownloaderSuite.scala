@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.nio.file.Files
 import com.microsoft.ml.spark.FileUtilities.File
 import scala.collection.JavaConversions._
+import org.apache.commons.io.FileUtils
 
 class DownloaderSuite extends TestBase {
 
@@ -42,7 +43,7 @@ class DownloaderSuite extends TestBase {
   }
 
   override def afterAll(): Unit = {
-    FileUtilities.delTree(saveDir)
+    FileUtils.forceDelete(saveDir)
     super.afterAll()
   }
 

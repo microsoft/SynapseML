@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import FileUtilities.File
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
+import org.apache.commons.io.FileUtils
 
 import scala.language.existentials
 import scala.util.Random
@@ -222,8 +222,7 @@ class Fuzzing extends TestBase {
             throwOrLog(e, w.getClass.getName + " encounters an error while saving/loading")
             None
         } finally {
-          FileUtilities.delTree(new File(path))
-          ()
+          FileUtils.forceDelete(new java.io.File(path))
         }
       case tr =>
         assertOrLog(false, tr.getClass.getName + " needs to extend MLWritable")

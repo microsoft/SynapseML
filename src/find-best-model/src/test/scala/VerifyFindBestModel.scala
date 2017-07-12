@@ -3,11 +3,10 @@
 
 package com.microsoft.ml.spark
 
-import java.io.File
-
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
+import org.apache.commons.io.FileUtils
 
 class VerifyFindBestModel extends EstimatorFuzzingTest {
 
@@ -53,11 +52,8 @@ class VerifyFindBestModel extends EstimatorFuzzingTest {
 
     val myModelName = "testEvalModel"
     bestModel.save(myModelName)
-    val dir = new File(myModelName)
-    // assert directory exists
-    assert(dir.exists())
-    // delete the file to cleanup
-    FileUtilities.delTree(dir)
+    // delete the file, errors if it doesn't exist
+    FileUtils.forceDelete(new java.io.File(myModelName))
   }
 
   test("Verify the best model metrics can be retrieved and are valid") {
