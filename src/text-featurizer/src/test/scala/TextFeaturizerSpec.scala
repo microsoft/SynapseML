@@ -83,4 +83,5 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest {
   override def getEstimator(): Estimator[_] = new TextFeaturizer()
 
   override def schemaForDataset: StructType = new StructType(Array(StructField(inputCol, StringType, false)))
+
 }

@@ -21,6 +21,7 @@
 
 # Generic editors
 .vscode
+.idea
 
 # Common things
 *~

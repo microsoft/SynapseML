@@ -42,6 +42,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   protected lazy val sc: SparkContext = session.sparkContext
   protected lazy val dir = SparkSessionFactory.workingDir
+
   protected def normalizePath(path: String) = SparkSessionFactory.customNormalize(path)
 
   // Timing info
@@ -117,7 +118,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     val df = Seq(
       (0, "guitars", "drums"),
       (1, "piano", "trumpet"),
-      (2, "bass", "cymbals")).toDF("numbers","words", "more")
+      (2, "bass", "cymbals")).toDF("numbers", "words", "more")
     df
   }
 

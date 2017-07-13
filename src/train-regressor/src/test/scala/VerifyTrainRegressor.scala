@@ -142,7 +142,7 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
 /** Test helper methods for Train Regressor module. */
 object TrainRegressorTestUtilities {
 
-  def createLinearRegressor(labelColumn: String): Estimator[TrainedRegressorModel] = {
+  def createLinearRegressor(labelColumn: String): TrainRegressor = {
     val linearRegressor = new LinearRegression()
       .setRegParam(0.3)
       .setElasticNetParam(0.8)
@@ -152,7 +152,7 @@ object TrainRegressorTestUtilities {
       .set(trainRegressor.labelCol, labelColumn)
   }
 
-  def createRandomForestRegressor(labelColumn: String): Estimator[TrainedRegressorModel] = {
+  def createRandomForestRegressor(labelColumn: String): TrainRegressor = {
     val linearRegressor = new RandomForestRegressor()
       .setFeatureSubsetStrategy("auto")
       .setMaxBins(32)

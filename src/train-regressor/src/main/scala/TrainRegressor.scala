@@ -64,7 +64,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
           .setLabelCol(labelColumn)
           .setFeaturesCol(featuresColumn).asInstanceOf[Estimator[_ <: PipelineStage]]
       }
-      case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
+      case default@defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
         // assume label col and features col already set
         default
       }

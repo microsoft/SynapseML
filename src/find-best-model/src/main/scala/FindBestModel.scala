@@ -135,7 +135,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
           case _ => throw new Exception("Model type not supported for evaluation")
         }
       }
-      parameters += getModelParams(model).toSeq.map { case pv => s"${pv.param.name}: ${pv.value}" }.mkString(", ")
+      parameters += getModelParams(model).toSeq.map(pv => s"${pv.param.name}: ${pv.value}").mkString(", ")
       if (bestMetric.isNaN || operator(currentMetric, bestMetric)) {
         bestMetric = currentMetric
         selectedModel = model
