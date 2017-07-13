@@ -85,13 +85,13 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
-    spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
+    spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.6 \
                 --repositories https://mmlspark.azureedge.net/maven
 
-    pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
+    pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.6 \
             --repositories https://mmlspark.azureedge.net/maven
 
-    spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.5 \
+    spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.6 \
                  --repositories https://mmlspark.azureedge.net/maven \
                  MyApp.jar
 
@@ -106,7 +106,7 @@ script actions, see [this
 guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
 
 The script action url is:
-<https://mmlspark.azureedge.net/buildartifacts/0.5/install-mmlspark.sh>.
+<https://mmlspark.azureedge.net/buildartifacts/0.6/install-mmlspark.sh>.
 
 If you're using the Azure Portal to run the script action, go to `Script
 actions` → `Submit new` in the `Overview` section of your cluster blade.  In the
@@ -122,7 +122,7 @@ To install MMLSpark on the
 [library from Maven coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark:0.5`.  Then, under
+For the coordinates use: `com.microsoft.ml.spark:mmlspark:0.6`.  Then, under
 Advanced Options, use `https://mmlspark.azureedge.net/maven` for the repository.
 Ensure this library is attached to all clusters you create.
 
@@ -137,7 +137,7 @@ your `build.sbt`:
 
    ```scala
    resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
-   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.5"
+   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.6"
    ```
 
 ### Building from source
