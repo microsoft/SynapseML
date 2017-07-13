@@ -3,19 +3,25 @@
 
 package com.microsoft.ml.spark
 
-import scala.reflect.ClassTag
+import java.nio.file.Files
+
 import org.apache.spark._
 import org.apache.spark.ml._
-import org.apache.spark.sql._
-import org.scalatest._
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions._
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.sql.{DataFrame, _}
+import org.apache.commons.io.FileUtils
 import org.scalactic.source.Position
+import org.scalatest._
+
+import scala.reflect.ClassTag
 
 // Common test tags
 object TestBase {
+
   object Extended extends Tag("com.microsoft.ml.spark.test.tags.extended")
+
   object LinuxOnly extends Tag("com.microsoft.ml.spark.test.tags.linuxonly")
+
 }
 
 trait LinuxOnly extends TestBase {
@@ -151,6 +157,59 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     } else {
       info(msg)
     }
+  }
+
+}
+
+trait RoundTripTestBase extends TestBase {
+
+  val dfRoundTrip: DataFrame
+
+  val reader: MLReadable[_]
+
+  val modelReader: MLReadable[_]
+
+  val stageRoundTrip: PipelineStage with MLWritable
+
+  val savePath: String = Files.createTempDirectory("SavedModels-").toString
+
+  private def testRoundTripHelper(path: String,
+                                  stage: PipelineStage with MLWritable,
+                                  reader: MLReadable[_], df: DataFrame): Unit = {
+    stage.write.overwrite().save(path)
+    val loadedStage = reader.load(path)
+    (stage, loadedStage) match {
+      case (e1: Estimator[_], e2: Estimator[_]) =>
+        assert(e1.fit(df).transform(df).collect() === e2.fit(df).transform(df).collect())
+      case (t1: Transformer, t2: Transformer) =>
+        assert(t1.transform(df).collect() === t2.transform(df).collect())
+      case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
+    }
+    ()
+  }
+
+  def testRoundTrip(ignoreEstimators: Boolean = false): Unit = {
+    val fitStage = stageRoundTrip match {
+      case stage: Estimator[_] =>
+        if (!ignoreEstimators) {
+          testRoundTripHelper(savePath + "/stage", stage, reader, dfRoundTrip)
+        }
+        stage.fit(dfRoundTrip).asInstanceOf[PipelineStage with MLWritable]
+      case stage: Transformer => stage
+      case s => throw new IllegalArgumentException(s"$s does not have correct type")
+    }
+    testRoundTripHelper(savePath + "/fitStage", fitStage, modelReader, dfRoundTrip)
+    val pipe = new Pipeline().setStages(Array(stageRoundTrip))
+    if (!ignoreEstimators) {
+      testRoundTripHelper(savePath + "/pipe", pipe, Pipeline, dfRoundTrip)
+    }
+    val fitPipe = pipe.fit(dfRoundTrip)
+    testRoundTripHelper(savePath + "/fitPipe", fitPipe, PipelineModel, dfRoundTrip)
+  }
+
+  override def afterAll(): Unit = {
+    FileUtils.forceDelete(new java.io.File(savePath))
+    super.afterAll()
   }
 
 }

@@ -10,7 +10,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.language.existentials
-import com.microsoft.ml.spark.FileUtilities.{ZipIterator}
+import com.microsoft.ml.spark.StreamUtilities.{ZipIterator}
 import com.microsoft.ml.spark.hadoop.{SamplePathFilter, RecursiveFlag}
 
 object BinaryFileReader {

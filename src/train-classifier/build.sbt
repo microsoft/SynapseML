@@ -1,3 +1,3 @@
 //> DependsOn: core
-//> DependsOn: utils
+//> DependsOn: serializer
 //> DependsOn: featurize

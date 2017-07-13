@@ -3,13 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml._
+import org.apache.spark.ml.feature.{NGram, Tokenizer}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-class TextFeaturizerSpec extends EstimatorFuzzingTest {
+class TextFeaturizerSpec extends EstimatorFuzzingTest with RoundTripTestBase {
   val dfRaw = session
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
@@ -22,6 +23,18 @@ class TextFeaturizerSpec extends EstimatorFuzzingTest {
     .transform(dfRaw)
   val dfNgram =
     new NGram().setInputCol("tokens").setOutputCol("ngrams").transform(dfTok)
+
+  val dfRoundTrip: DataFrame = dfRaw
+  val reader: MLReadable[_] = TextFeaturizer
+  val modelReader: MLReadable[_] = TextFeaturizerModel
+  val stageRoundTrip: PipelineStage with MLWritable = new TextFeaturizer()
+    .setInputCol("sentence")
+    .setOutputCol("features")
+    .setNumFeatures(20)
+
+  test("should roundtrip serialize") {
+    testRoundTrip()
+  }
 
   test("operate on sentences,tokens,or ngrams") {
     val tfRaw = new TextFeaturizer()

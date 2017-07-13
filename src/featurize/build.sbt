@@ -1,4 +1,4 @@
 //> DependsOn: core
-//> DependsOn: utils
+//> DependsOn: serializer
 //> DependsOn: multi-column-adapter
 //> DependsOn: value-indexer
