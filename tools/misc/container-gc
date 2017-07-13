@@ -17,8 +17,7 @@ declare -A P=([container]="$PIP_CONTAINER"
               [suffix]="-py2.py3-none-any.whl")
 declare -A D=([container]="$DOCS_CONTAINER"
               [path]=""
-              [suffix]=""
-              [listsuffix]="/")
+              [suffix]="")
 
 set -e
 shopt -s nullglob
@@ -70,13 +69,13 @@ azls() {
   fi
 }
 
-get_versions_for() {
+get-versions-for() {
   declare -n X="$1" Xs="${1}s"
   local IFS=$'\n\r'
   Xs=($(IFS=""; azls "/${X[container]}/${X[path]}${X[path]:+/}" | \
           while read -r l; do
-            # [listsuffix] can override [suffix] for this listing
-            l="${l#${X[prefix]}}"; l="${l%${X[listsuffix]:-${X[suffix]}}}"
+            # if [suffix] is empty, use "/" (works for docs)
+            l="${l#${X[prefix]}}"; l="${l%${X[suffix]:-/}}"
             # ignore things that don't look like a version (eg, in docs)
             if [[ "$l" = *[0-9].[0-9]* ]]; then echo "$l"; fi
           done | sort -V))
@@ -85,7 +84,7 @@ get_versions_for() {
   X[vers_]=" ${Xs[*]} "
 }
 
-show_not_all() (
+show-not-all() (
   fst=1
   for v in "${all[@]}"; do
     where=""
@@ -107,14 +106,19 @@ cachedir="$HOME/.$(basename "$0")"; mkdir -p "$cachedir"
  find . -type f -empty -execdir rm -f "{}" +
  rm -f "$(ls -t | tail -1)")
 
-get_ver_info() (
+get-ver-info() (
   v="$1" info="{}"
   if [[ -r "$cachedir/$v" ]]; then return; fi
   for t in "${types[@]}"; do
     declare -n X="$t"
-    info="$(az storage blob list -c "${X[container]}" \
-                 --prefix "${X[path]}${X[path]:+/}${X[prefix]}$v${X[suffix]}" \
-            | jq --argjson i "$info" '$i + {"'"$t"'": .}')"
+    pfx="${X[path]}${X[path]:+/}${X[prefix]}$v${X[suffix]}"
+    info="$(az storage blob list -c "${X[container]}" --prefix "$pfx" \
+            | jq --argjson i "$info" --arg pfx "$pfx" '$i + {"'"$t"'":
+                map(select((.name == $pfx)
+                           or ((.name | startswith($pfx))
+                               and (($pfx | endswith("/"))
+                                    or (.name | .[($pfx | length):]
+                                        | startswith("/"))))))}')"
   done
   #
   label="$(jq -r '.S | map(select(.name | endswith("/.label")) | .name) | .[]' \
@@ -140,13 +144,13 @@ get_ver_info() (
   echo "$info" > "$cachedir/$v"
 )
 
-show_all_oneline() {
+show-all-oneline() {
   local v times t1 t2 info pr; now="$(date +"%s")"
   printf "\n"
   for v in "${all[@]}"; do
     if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
     printf '  %-22s' "$v"
-    get_ver_info "$v"
+    get-ver-info "$v"
     times="$(jq -r 'to_entries | map(select((.value | type) == "array") | .value) | add
                     | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
                     | sort | "\(.[0]):\(.[-1])"
@@ -166,7 +170,7 @@ show_all_oneline() {
 
 ver="" # most functions use $ver dynamically
 
-do_label() (
+do-label() (
   read -rp "  New label line: " l
   if [[ -z "$l" ]]; then
     if az storage blob delete -c "${S[container]}" -n "$ver/.label" > /dev/null
@@ -180,15 +184,15 @@ do_label() (
   rm -f "$tmp" "$cachedir/$ver"
 )
 
-list_blobs() (
+list-blobs() (
   jq -r 'to_entries | map(select((.value | type) == "array") | .key as $k
                           | .value | map(. + {$k}))
          | add | map("\(.k)/\(.name)") | .[]' < "$cachedir/$ver"
 )
 
-do_actual_delete() (
+do-actual-delete() (
   printf '  | Deleting...\n'
-  IFS=""; list_blobs | while read path; do
+  IFS=""; list-blobs | while read path; do
     declare -n X="${path%%/*}"; blob="${path#*/}"
     printf '  |   %s...' "${X[container]}/$blob"
     if az storage blob delete -c "${X[container]}" -n "$blob" > /dev/null
@@ -197,25 +201,44 @@ do_actual_delete() (
   (> "$cachedir/$ver") # mark as deleted
 )
 
-do_delete() (
+do-delete() (
   for t in "${types[@]}"; do
-    declare -n X="$t"
-    blob="${X[path]}${X[path]:+/}${X[prefix]}$ver${X[suffix]}"
-    printf '  | Copying %s...\n' "${X[container]}/$blob"
-    set -o pipefail
-    if az storage blob copy start-batch --destination-container="deleted" \
-          --source-container "${X[container]}" --pattern "$blob*" \
-        | jq -r 'map(sub("^http.*?//.*?/deleted/"; "  |   ")) | .[]'
-    then : printf '  | Done\n'; else printf '  | Fail'; return; fi
+    declare -n X="$t"; sfx="${X[suffix]}"; cont="${X[container]}"
+    blob="${X[path]}${X[path]:+/}${X[prefix]}$ver$sfx"
+    _copy() (
+      set -o pipefail
+      printf '  | Copying %s...\n' "$cont/$1"
+      if az storage blob copy start-batch --destination-container="deleted" \
+            --source-container "$cont" --pattern "$1" \
+          | jq -r 'map(sub("^http.*?//.*?/deleted/"; "  |   ")) | .[]'
+      then : printf '  | Done\n'; else printf '  | Fail\n'; return; fi
+    )
+    if [[ "$sfx" = "/"* ]]; then _copy "$blob*"
+    else
+      # do the copy of the plain name only if we know it exists, since az will
+      # throw an error if a non-* glob doesn't exist
+      if [[ "$blob" != *"*"* ]] && list-blobs | grep -q "^$t/$blob\$"
+      then _copy "$blob"; fi
+      # just for fun, do the same test for "foo/"
+      if [[ "$blob" != *"*"* ]] && list-blobs | grep -q "^$t/$blob/"
+      then _copy "$blob/*"; fi
+    fi
   done
   sleep 15 # just in case?
   # no patterns in the delete cli
-  do_actual_delete
+  do-actual-delete
 )
 
-do_requests() {
+do-list() (
+  IFS=""; list-blobs | while read path; do
+    declare -n X="${path%%/*}"; blob="${path#*/}"
+    printf '  | %s\n' "${X[container]}/$blob"
+  done
+)
+
+do-requests() {
   local ver vers c show_all=1
-  while { if ((show_all)); then show_all_oneline; fi; show_all=0
+  while { if ((show_all)); then show-all-oneline; fi; show_all=0
           read -r -p $'\n'"Version: " ver; } do
     if [[ -z "$ver" ]]; then break; fi
     if [[ ! -r "$cachedir/$ver" ]]; then
@@ -229,18 +252,23 @@ do_requests() {
     jq -r '.buildinfo' < "$cachedir/$ver" | awk '{ print "  | " $0 }'
     echo "  |"
     show_all=1
-    read -p $'  Delete/Label? ' c
-    case "${c,,}" in ("d"*) do_delete;; ("l"*) do_label;; (*) show_all=0;; esac
+    read -p $'  Delete/Label/listBlobs? ' c
+    case "${c,,}" in
+      ("d"*) do-delete  ;;
+      ("l"*) do-label   ;;
+      ("b"*) do-list    ;;
+      (*)    show_all=0 ;;
+    esac
   done
 }
 
 types_="${types[*]}"; types_="${types_// /}"; all=()
-map get_versions_for "${types[@]}"
+map get-versions-for "${types[@]}"
 all=($(printf '%s\n' "${all[@]}" | sort -V -u))
 
 echo "Versions found: ${#all[@]}"
 
-show_not_all
-do_requests
+show-not-all
+do-requests
 
 printf "\nDone.\n"
