@@ -2,15 +2,13 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
-
-import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
-
+import reflect.runtime.universe.{TypeTag, typeTag}
 import scala.collection.mutable.ListBuffer
 
 object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
@@ -132,12 +130,10 @@ class CleanMissingDataModel(val uid: String,
                             val replacementValues: Map[String, Any],
                             val inputCols: Array[String],
                             val outputCols: Array[String])
-    extends Model[CleanMissingDataModel] with MLWritable {
+    extends Model[CleanMissingDataModel] with ConstructorWritable[CleanMissingDataModel] {
 
-  override def write: MLWriter = new CleanMissingDataModel.CleanMissingDataModelWriter(uid,
-    replacementValues,
-    inputCols,
-    outputCols)
+  val ttag: TypeTag[CleanMissingDataModel] = typeTag[CleanMissingDataModel]
+  def objectsToSave: List[Any] = List(uid, replacementValues, inputCols, outputCols)
 
   override def copy(extra: ParamMap): CleanMissingDataModel =
     new CleanMissingDataModel(uid, replacementValues, inputCols, outputCols)
@@ -160,71 +156,4 @@ class CleanMissingDataModel(val uid: String,
     CleanMissingData.validateAndTransformSchema(schema, inputCols, outputCols)
 }
 
-object CleanMissingDataModel extends MLReadable[CleanMissingDataModel] {
-
-  private val replacementValuesPart = "replacementValues"
-  private val inputColsPart = "inputCols"
-  private val outputColsPart = "outputCols"
-  private val dataPart = "data"
-
-  override def read: MLReader[CleanMissingDataModel] = new CleanMissingDataModelReader
-
-  override def load(path: String): CleanMissingDataModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[CleanMissingDataModel]] */
-  private[CleanMissingDataModel]
-  class CleanMissingDataModelWriter(val uid: String,
-                                    val replacementValues: Map[String, Any],
-                                    val inputCols: Array[String],
-                                    val outputCols: Array[String])
-    extends MLWriter {
-    private case class Data(uid: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        CleanMissingDataModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      // save the replacement values
-      ObjectUtilities.writeObject(replacementValues, qualPath, replacementValuesPart, sc, overwrite)
-
-      // save the input cols and output cols
-      ObjectUtilities.writeObject(inputCols, qualPath, inputColsPart, sc, overwrite)
-      ObjectUtilities.writeObject(outputCols, qualPath, outputColsPart, sc, overwrite)
-
-      // save model data
-      val data = Data(uid)
-      val dataPath = new Path(qualPath, dataPart).toString
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class CleanMissingDataModelReader
-    extends MLReader[CleanMissingDataModel] {
-
-    override def load(path: String): CleanMissingDataModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String) = data.select("uid").head()
-
-      // get the replacement values
-      val replacementValues = ObjectUtilities.loadObject[Map[String, Any]](qualPath, replacementValuesPart, sc)
-      // get the input and output cols
-      val inputCols = ObjectUtilities.loadObject[Array[String]](qualPath, inputColsPart, sc)
-      val outputCols = ObjectUtilities.loadObject[Array[String]](qualPath, outputColsPart, sc)
-
-      new CleanMissingDataModel(uid, replacementValues, inputCols, outputCols)
-    }
-  }
-
-}
+object CleanMissingDataModel extends ConstructorReadable[CleanMissingDataModel]

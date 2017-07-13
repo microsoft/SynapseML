@@ -14,7 +14,10 @@ import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-/** Trains a regression model. */
+import scala.reflect.runtime.universe.{TypeTag, typeTag}
+
+/** Trains a regression model.
+  */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
   with HasLabelCol with MMLParams {
 
@@ -145,14 +148,10 @@ class TrainedRegressorModel(val uid: String,
                             val labelColumn: String,
                             val model: PipelineModel,
                             val featuresColumn: String)
-    extends Model[TrainedRegressorModel] with MLWritable {
+    extends Model[TrainedRegressorModel] with ConstructorWritable[TrainedRegressorModel] {
 
-  /** Write the model
-    * @return a writer for the model
-    */
-  override def write: MLWriter =
-    new TrainedRegressorModel.TrainedRegressorModelWriter(
-      uid, labelColumn, model, featuresColumn)
+  val ttag: TypeTag[TrainedRegressorModel] = typeTag[TrainedRegressorModel]
+  val objectsToSave: List[Any] = List(uid, labelColumn, model, featuresColumn)
 
   override def copy(extra: ParamMap): TrainedRegressorModel =
     new TrainedRegressorModel(
@@ -187,71 +186,7 @@ class TrainedRegressorModel(val uid: String,
     TrainRegressor.validateTransformSchema(schema)
 
   def getParamMap: ParamMap = model.stages.last.extractParamMap()
-}
-
-object TrainedRegressorModel extends MLReadable[TrainedRegressorModel] {
-
-  private val featurizeModelPart = "featurizeModel"
-  private val modelPart = "model"
-  private val dataPart = "data"
-
-  override def read: MLReader[TrainedRegressorModel] = new TrainedRegressorModelReader
-
-  override def load(path: String): TrainedRegressorModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[TrainedRegressorModel]] */
-  private[TrainedRegressorModel]
-  class TrainedRegressorModelWriter(val uid: String,
-                                    val labelColumn: String,
-                                    val model: PipelineModel,
-                                    val featuresColumn: String)
-      extends MLWriter {
-    private case class Data(uid: String, labelColumn: String, featuresColumn: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(
-        uid,
-        TrainedRegressorModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-      // save the featurize model and regressor
-      val modelPath = new Path(qualPath, modelPart).toString
-      val modelWriter =
-        if (overwrite) model.write.overwrite()
-        else model.write
-      modelWriter.save(modelPath)
-
-      // save model data
-      val data = Data(uid, labelColumn, featuresColumn)
-      val dataPath = new Path(qualPath, dataPart).toString
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data))
-        .repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class TrainedRegressorModelReader
-    extends MLReader[TrainedRegressorModel] {
-
-    override def load(path: String): TrainedRegressorModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid, label column and model name
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String, labelColumn: String, featuresColumn: String) =
-        data.select("uid", "labelColumn", "featuresColumn").head()
-
-      // retrieve the underlying model
-      val model = PipelineModel.load(new Path(qualPath, modelPart).toString)
-
-      new TrainedRegressorModel(uid, labelColumn, model, featuresColumn)
-    }
-  }
 
 }
+
+object TrainedRegressorModel extends ConstructorReadable[TrainedRegressorModel]

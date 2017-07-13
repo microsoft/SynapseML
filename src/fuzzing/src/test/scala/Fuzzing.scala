@@ -45,7 +45,15 @@ class Fuzzing extends TestBase {
   // TODO verify that model UIDs match the class names, perhaps use a Trait
 
   test("Verify all estimators can be turned into pipelines, saved and loaded") {
-    estimators.foreach(est => {
+    val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.TrainRegressor",
+      "com.microsoft.ml.spark.FindBestModel"
+    )
+    val applicableEstimators = estimators.filter(t => !exemptions(t.getClass.getName))
+
+    applicableEstimators.foreach(est => {
       val estimatorName = est.getClass.getName
       println()
       println(s"Running estimator: ${est.toString} with name: ${estimatorName}")

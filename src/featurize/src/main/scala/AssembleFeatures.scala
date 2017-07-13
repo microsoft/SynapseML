@@ -25,6 +25,7 @@ import org.apache.spark.sql.types.{StringType, _}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.{BitSet, HashSet}
+import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 private object AssembleFeaturesUtilities
 {
@@ -312,24 +313,22 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
 
 /** Model produced by [[AssembleFeatures]]. */
 class AssembleFeaturesModel(val uid: String,
-                     val columnNamesToFeaturize: ColumnNamesToFeaturize,
-                     val hashingTransform: Option[HashingTF],
-                     val nonZeroColumns: Option[Array[Int]],
-                     val vectorAssembler: FastVectorAssembler,
-                     val oneHotEncodeCategoricals: Boolean)
-  extends Model[AssembleFeaturesModel] with Params with MLWritable {
+                            val columnNamesToFeaturize: ColumnNamesToFeaturize,
+                            val hashingTransform: Option[HashingTF],
+                            val nonZeroColumns: Option[Array[Int]],
+                            val vectorAssembler: FastVectorAssembler,
+                            val oneHotEncodeCategoricals: Boolean)
+  extends Model[AssembleFeaturesModel] with Params with ConstructorWritable[AssembleFeaturesModel] {
+
+  val ttag: TypeTag[AssembleFeaturesModel] = typeTag[AssembleFeaturesModel]
+
+  def objectsToSave: List[Any] = List(uid, columnNamesToFeaturize,
+    hashingTransform, nonZeroColumns, vectorAssembler, oneHotEncodeCategoricals)
 
   /** @group getParam */
   final def getFeaturesColumn: String = vectorAssembler.getOutputCol
 
-  override def write: MLWriter = new AssembleFeaturesModel.AssembleFeaturesModelWriter(uid,
-    columnNamesToFeaturize,
-    hashingTransform,
-    nonZeroColumns,
-    vectorAssembler,
-    oneHotEncodeCategoricals)
-
-  override def copy(extra: ParamMap): AssembleFeaturesModel =
+    override def copy(extra: ParamMap): AssembleFeaturesModel =
     new AssembleFeaturesModel(uid,
       columnNamesToFeaturize,
       hashingTransform,
@@ -466,105 +465,4 @@ class AssembleFeaturesModel(val uid: String,
 
 }
 
-object AssembleFeaturesModel extends MLReadable[AssembleFeaturesModel] {
-
-  private val hashingTransformPart = "hashingTransform"
-  private val vectorAssemblerPart = "vectorAssembler"
-  private val columnNamesToFeaturizePart = "columnNamesToFeaturize"
-  private val nonZeroColumnsPart = "nonZeroColumns"
-  private val dataPart = "data"
-
-  override def read: MLReader[AssembleFeaturesModel] = new AssembleFeaturesModelReader
-
-  override def load(path: String): AssembleFeaturesModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[AssembleFeaturesModel]] */
-  private[AssembleFeaturesModel]
-  class AssembleFeaturesModelWriter(val uid: String,
-                             val columnNamesToFeaturize: ColumnNamesToFeaturize,
-                             val hashingTransform: Option[HashingTF],
-                             val nonZeroColumns: Option[Array[Int]],
-                             val vectorAssembler: FastVectorAssembler,
-                             val oneHotEncodeCategoricals: Boolean)
-    extends MLWriter {
-    private case class Data(uid: String, oneHotEncodeCategoricals: Boolean)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        AssembleFeaturesModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      val dataPath = new Path(qualPath, dataPart).toString
-
-      // Save data
-      val data = Data(uid, oneHotEncodeCategoricals)
-      // save the hashing transform
-      if (!hashingTransform.isEmpty) {
-        val hashingTransformPath = new Path(qualPath, hashingTransformPart).toString
-        val writer =
-          if (overwrite) hashingTransform.get.write.overwrite()
-          else hashingTransform.get.write
-        writer.save(hashingTransformPath)
-      }
-      // save the vector assembler
-      val vectorAssemblerPath = new Path(qualPath, vectorAssemblerPart).toString
-      val writer =
-        if (overwrite) vectorAssembler.write.overwrite()
-        else vectorAssembler.write
-      writer.save(vectorAssemblerPath)
-
-      // save the column names to featurize
-      ObjectUtilities.writeObject(columnNamesToFeaturize, qualPath, columnNamesToFeaturizePart, sc, overwrite)
-
-      // save the nonzero columns
-      ObjectUtilities.writeObject(nonZeroColumns, qualPath, nonZeroColumnsPart, sc, overwrite)
-
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class AssembleFeaturesModelReader
-    extends MLReader[AssembleFeaturesModel] {
-    override def load(path: String): AssembleFeaturesModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid and one hot encoding param
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String, oneHotEncodeCategoricals: Boolean) =
-        data.select("uid", "oneHotEncodeCategoricals").head()
-
-      // load the hashing transform
-      val hashingPath = new Path(qualPath, hashingTransformPart).toString
-      val hashingTransform =
-        if (new File(hashingPath).exists()) Some(HashingTF.load(hashingPath))
-        else None
-
-      // load the vector assembler
-      val vectorAssemblerPath = new Path(qualPath, vectorAssemblerPart).toString
-      val vectorAssembler = FastVectorAssembler.load(vectorAssemblerPath)
-
-      // load the column names to featurize
-      val columnNamesToFeaturize =
-        ObjectUtilities.loadObject[ColumnNamesToFeaturize](qualPath, columnNamesToFeaturizePart, sc)
-
-      // load the nonzero columns
-      val nonZeroColumns = ObjectUtilities.loadObject[Option[Array[Int]]](qualPath, nonZeroColumnsPart, sc)
-
-      new AssembleFeaturesModel(uid,
-        columnNamesToFeaturize,
-        hashingTransform,
-        nonZeroColumns,
-        vectorAssembler,
-        oneHotEncodeCategoricals)
-    }
-  }
-
-}
+object AssembleFeaturesModel extends ConstructorReadable[AssembleFeaturesModel]

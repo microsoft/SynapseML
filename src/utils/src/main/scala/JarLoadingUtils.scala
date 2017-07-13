@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import java.io.{InputStream, ObjectInputStream, ObjectStreamClass}
 import java.net.URLClassLoader
 import java.util.jar.JarFile
 
@@ -20,15 +21,12 @@ object JarLoadingUtils {
   private val projectRoots = "project/project-roots.txt"
 
   private val outputDirs = {
-    val topDir = List(".", "..").find(root => new File(root, projectRoots).exists)
-    if (topDir.isEmpty) {
-      sys.error(s"Could not find roots file at $projectRoots")
-    }
-    val rootsFile = new File(topDir.get, projectRoots)
+    val thisFile = new File(getClass.getProtectionDomain.getCodeSource.getLocation.getPath)
+    val levelsToSrc = 4
+    val topDir = (1 to levelsToSrc).foldLeft(thisFile) {case (f, i) => f.getParentFile}
+    val rootsFile = new File(topDir, projectRoots)
     val roots = readFile(rootsFile, _.getLines.toList)
-    roots.map { root =>
-      new File(new File(topDir.get, root), jarRelPath)
-    }
+    roots.map { root => new File(new File(topDir, root), jarRelPath)}
   }
 
   private val testOutputDirs = {
@@ -134,4 +132,14 @@ object JarLoadingUtils {
     ,
     debug)
 
+}
+
+class ContextObjectInputStream(input: InputStream) extends ObjectInputStream(input) {
+  protected override def resolveClass(desc: ObjectStreamClass): Class[_] = {
+    try {
+      Class.forName(desc.getName, false, Thread.currentThread().getContextClassLoader)
+    } catch {
+      case _: ClassNotFoundException => super.resolveClass(desc)
+    }
+  }
 }

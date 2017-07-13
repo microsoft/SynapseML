@@ -5,14 +5,15 @@ package com.microsoft.ml.spark
 
 import java.io.File
 
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.{Estimator, PipelineStage}
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.commons.io.FileUtils
 
 /** Tests to validate the functionality of Train Regressor module. */
-class VerifyTrainRegressor extends EstimatorFuzzingTest {
+class VerifyTrainRegressor extends EstimatorFuzzingTest with RoundTripTestBase {
 
   val regressionTrainFilesDirectory = "/Regression/Train/"
 
@@ -33,6 +34,16 @@ class VerifyTrainRegressor extends EstimatorFuzzingTest {
       (2, 3, 0.78, 0.99, 2),
       (3, 4, 0.12, 0.34, 3)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
+  }
+
+  val dfRoundTrip: DataFrame = createMockDataset
+  val reader: MLReadable[_] = TrainRegressor
+  val modelReader: MLReadable[_] = TrainedRegressorModel
+  val stageRoundTrip: PipelineStage with MLWritable =
+    TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
+
+  test("should roundtrip serialize") {
+    testRoundTrip(ignoreEstimators = true)
   }
 
   test("Smoke test for training on a regressor") {

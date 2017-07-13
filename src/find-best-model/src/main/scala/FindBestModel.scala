@@ -4,15 +4,15 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.SchemaConstants
-import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode}
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{Param, ParamMap, TransformerArrayParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.mutable.ListBuffer
+import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object FindBestModel extends DefaultParamsReadable[FindBestModel] {
   val modelNameCol = "model_name"
@@ -186,14 +186,10 @@ class BestModel(val uid: String,
                 val rocCurve: DataFrame,
                 val bestModelMetrics: Dataset[_],
                 val allModelMetrics: Dataset[_])
-    extends Model[BestModel] with MLWritable {
+    extends Model[BestModel] with ConstructorWritable[BestModel] {
 
-  override def write: MLWriter = new BestModel.EvaluateModelWriter(uid,
-    new Pipeline().setStages(Array(model)).fit(scoredDataset),
-    scoredDataset,
-    rocCurve,
-    bestModelMetrics,
-    allModelMetrics)
+  val ttag: TypeTag[BestModel] = typeTag[BestModel]
+  def objectsToSave: List[Any] = List(uid, model, scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
 
   override def copy(extra: ParamMap): BestModel =
     new BestModel(uid, model.copy(extra), scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
@@ -230,106 +226,4 @@ class BestModel(val uid: String,
 
 }
 
-object BestModel extends MLReadable[BestModel] {
-
-  private val modelPart = "model"
-  private val scoredDatasetPart = "scoredDataset"
-  private val rocCurvePart = "rocCurve"
-  private val bestModelMetricsPart = "bestModelMetrics"
-  private val allModelMetricsPart = "allModelMetrics"
-  private val dataPart = "data"
-
-  override def read: MLReader[BestModel] = new BestModelReader
-
-  override def load(path: String): BestModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[BestModel]] */
-  private[BestModel]
-  class EvaluateModelWriter(val uid: String,
-                            val model: PipelineModel,
-                            val scoredDataset: Dataset[_],
-                            val rocCurve: DataFrame,
-                            val bestModelMetrics: Dataset[_],
-                            val allModelMetrics: Dataset[_])
-    extends MLWriter {
-    private case class Data(uid: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        BestModel.getClass.getName.replace("$", ""),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      // save the model
-      val modelPath = new Path(qualPath, modelPart).toString
-      val modelWriter =
-        if (overwrite) model.write.overwrite()
-        else model.write
-      modelWriter.save(modelPath)
-
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-
-      // save the scored dataset
-      val scoredDatasetPath = new Path(qualPath, scoredDatasetPart).toString
-      scoredDataset.write.mode(saveMode).parquet(scoredDatasetPath)
-
-      // save the roc curve
-      val rocCurvePath = new Path(qualPath, rocCurvePart).toString
-      rocCurve.write.mode(saveMode).parquet(rocCurvePath)
-
-      // save the best model metrics
-      val bestModelMetricsPath = new Path(qualPath, bestModelMetricsPart).toString
-      bestModelMetrics.write.mode(saveMode).parquet(bestModelMetricsPath)
-
-      // save all model metrics
-      val allModelMetricsPath = new Path(qualPath, allModelMetricsPart).toString
-      allModelMetrics.write.mode(saveMode).parquet(allModelMetricsPath)
-
-      // save model data
-      val data = Data(uid)
-      val dataPath = new Path(qualPath, dataPart).toString
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class BestModelReader
-    extends MLReader[BestModel] {
-
-    override def load(path: String): BestModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
-      // load the uid, label column and model name
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-      val Row(uid: String) = data.select("uid").head()
-
-      // retrieve the underlying model
-      val modelPath = new Path(qualPath, modelPart).toString
-      val model = PipelineModel.load(modelPath)
-
-      // retrieve the scored dataset
-      val scoredDatasetPath = new Path(qualPath, scoredDatasetPart).toString
-      val scoredDataset = sparkSession.read.parquet(scoredDatasetPath)
-
-      // retrieve the roc curve
-      val rocCurvePath = new Path(qualPath, rocCurvePart).toString
-      val rocCurve = sparkSession.read.parquet(rocCurvePath)
-
-      // retrieve the best model metrics
-      val bestModelMetricsPath = new Path(qualPath, bestModelMetricsPart).toString
-      val bestModelMetrics = sparkSession.read.parquet(bestModelMetricsPath)
-
-      // retrieve all model metrics
-      val allModelMetricsPath = new Path(qualPath, allModelMetricsPart).toString
-      val allModelMetrics = sparkSession.read.parquet(allModelMetricsPath)
-
-      new BestModel(uid, model.stages(0), scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
-    }
-  }
-
-}
+object BestModel extends ConstructorReadable[BestModel]

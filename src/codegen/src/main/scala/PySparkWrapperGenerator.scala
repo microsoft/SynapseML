@@ -11,7 +11,7 @@ import java.util.jar._
 import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import org.apache.spark.ml.{Estimator, Transformer}
 
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.StreamUtilities._
 import Config._
 
 import scala.language.existentials

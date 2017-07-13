@@ -14,7 +14,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import reflect.runtime.universe.TypeTag
-
 import scala.math.Ordering
 import scala.reflect.ClassTag
 
@@ -206,16 +205,16 @@ object ValueIndexerModel extends MLReadable[ValueIndexerModel] {
 
     override protected def saveImpl(path: String): Unit = {
       val overwrite = this.shouldOverwrite
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
+      val qualPath = Serializer.makeQualifiedPath(sc, path)
       // Required in order to allow this to be part of an ML pipeline
-      PipelineUtilities.saveMetadata(uid,
-        ValueIndexerModel.getClass.getName.replace("$", ""),
+      Serializer.saveMetadata(uid,
+        ClassTag(ValueIndexerModel.getClass),
         new Path(path, "metadata").toString,
         sc,
         overwrite)
 
       // save the levels
-      ObjectUtilities.writeObject(levels, qualPath, levelsPart, sc, overwrite)
+      Serializer.writeToHDFS(sc, levels, new Path(qualPath, levelsPart), overwrite)
 
       // save model data
       val data = Data(uid, dataType, inputCol, outputCol)
@@ -231,7 +230,7 @@ object ValueIndexerModel extends MLReadable[ValueIndexerModel] {
     extends MLReader[ValueIndexerModel] {
 
     override def load(path: String): ValueIndexerModel = {
-      val qualPath = PipelineUtilities.makeQualifiedPath(sc, path)
+      val qualPath = Serializer.makeQualifiedPath(sc, path)
       // load the uid, input and output columns
       val dataPath = new Path(qualPath, dataPart).toString
       val data = sparkSession.read.format("parquet").load(dataPath)
@@ -240,7 +239,7 @@ object ValueIndexerModel extends MLReadable[ValueIndexerModel] {
         data.select("uid", "dataType", "inputCol", "outputCol").head()
 
       // get the levels
-      val levels = ObjectUtilities.loadObject[Array[_]](qualPath, levelsPart, sc)
+      val levels = Serializer.readFromHDFS[Array[_]](sc, new Path(qualPath, levelsPart))
 
       new ValueIndexerModel(uid)
         .setLevels(levels)
