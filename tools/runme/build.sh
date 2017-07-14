@@ -211,7 +211,8 @@ _publish_to_dockerhub() {
   local auth user pswd
   __ docker logout > /dev/null
   auth="$(__ az keyvault secret show --vault-name mmlspark-keys --name dockerhub-auth)"
-  auth="${auth##*\"value\": \"}"; auth="${auth%%\"*}"; auth="$(base64 -d <<<"$auth")"
+  auth="${auth##*\"value\": \"}"; auth="${auth%%\"*}"; auth="${auth%\\n}"
+  auth="$(base64 -d <<<"$auth")"
   user="${auth%%:*}" pswd="${auth#*:}"
   ___ docker login -u "$user" -p "$pswd" > /dev/null
   unset user pass auth

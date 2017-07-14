@@ -30,7 +30,7 @@ if [[ "$exe" == "jupyter-notebook" ]]; then
   exe="pyspark"; args=()
 fi
 
-if [[ "$MML_VERSION" = *".local"* ]]; then
+if [[ "$MML_VERSION" = *".local"* && -d "$HOME/.ivy2" ]]; then
   # If we're running a locally built version, delete the cached versions in
   # "$HOME/.ivy2".  This is a hack since it depends on this particular location.
   # The reason that it's in this script instead of in the build script is that

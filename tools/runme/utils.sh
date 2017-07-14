@@ -389,7 +389,13 @@ _set_build_info() {
     for t in $(git tag -l); do
       if [[ ! "$t" =~ $rx ]]; then failwith "found a bad tag name \"$t\""; fi
     done
-    local tag="$(git describe --abbrev=0)" # needed also for is_latest
+    # collect git information that is used for both MML_VERSION and MML_LATEST
+    local tag="$(git describe --abbrev=0)"
+    local head="$(git rev-parse HEAD)"
+    # (note: prefer origin/master since VSTS doesn't update master)
+    local branch="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
+                    || git merge-base HEAD refs/heads/master)"
+    local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
     # MML_VERSION
     if [[ -r "$BUILD_ARTIFACTS/version" ]]; then
       # if there is a built version, use it, so that we don't get a new version
@@ -399,11 +405,6 @@ _set_build_info() {
       version="$(< "$BUILD_ARTIFACTS/version")"
     else
       # generate a version string (that works for pip wheels too) as follows:
-      local head="$(git rev-parse HEAD)"
-      # (note: prefer origin/master since VSTS doesn't update master)
-      local branch="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
-                      || git merge-base HEAD refs/heads/master)"
-      local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
       # 1. main version, taken from the most recent version tag
       #    (that's all if we're building this tagged version)
       version="${tag#v}"
@@ -446,8 +447,8 @@ _set_build_info() {
     fi
     info="$version: $info"
     # MML_LATEST
-    # "yes" when building an exact version which is the latest on master
-    local latest="$(git describe --abbrev=0 master)"
+    # "yes" when building an exact version which is the latest on origin/master
+    local latest="$(git describe --abbrev=0 "$branch")"
     if [[ "$version" = "${tag#v}" && "$tag" = "$latest" ]]
     then is_latest="yes"; else is_latest="no"; fi
     #
