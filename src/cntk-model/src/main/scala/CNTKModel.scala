@@ -4,22 +4,20 @@
 package com.microsoft.ml.spark
 
 import java.io.File
-import javax.xml.bind.DatatypeConverter._
 
-import com.microsoft.CNTK.{Function => CNTKFunction, DataType => CNTKDataType, _}
+import com.microsoft.CNTK.{DataType => CNTKDataType, Function => CNTKFunction, _}
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.commons.io.FileUtils._
 import org.apache.spark.broadcast._
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkFiles
 import org.apache.spark.ml.Model
-import org.apache.spark.ml.linalg.{DenseVector, Vectors}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{IntParam, Param, ParamMap, ParamValidators}
+import org.apache.spark.ml.linalg.{DenseVector, Vectors}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -117,7 +115,7 @@ private object CNTKModelUtils extends java.io.Serializable {
   }
 }
 
-object CNTKModel extends DefaultParamsReadable[CNTKModel] {
+object CNTKModel extends ComplexParamsReadable[CNTKModel] {
   def loadModelFromBytes(bytes: Array[Byte],
                          device: DeviceDescriptor =
                            DeviceDescriptor.useDefaultDevice): CNTKFunction = {
@@ -130,34 +128,31 @@ object CNTKModel extends DefaultParamsReadable[CNTKModel] {
     model
   }
 
-  override def load(path: String): CNTKModel = super.load(path)
 }
 
-trait CNTKModelParam extends Wrappable {
+@InternalWrapper
+class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
+  with HasInputCol with HasOutputCol with Wrappable{
+
+  def this() = this(Identifiable.randomUID("CNTKModel"))
+
   /** Array of bytes containing the serialized CNTK <code>Function</code>
     * @group param
     */
-  val model: Param[String] =
-    new Param(this, "model", "Array of bytes containing the serialized CNTKModel")
+  val model: ByteArrayParam =
+    new ByteArrayParam(this, "model", "Array of bytes containing the serialized CNTKModel")
 
   /** @group setParam */
-  def setModel(bytes: Array[Byte]): this.type = set(model, printBase64Binary(bytes))
+  def setModel(bytes: Array[Byte]): this.type = set(model, bytes)
 
   /** @group getParam */
-  def getModel: Array[Byte] = parseBase64Binary($(model))
+  def getModel: Array[Byte] = $(model)
 
   /** @group setParam */
   def setModelLocation(spark: SparkSession, path: String): this.type = {
     val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
     setModel(modelBytes)
   }
-}
-
-@InternalWrapper
-class CNTKModel(override val uid: String) extends Model[CNTKModel] with DefaultParamsWritable
-  with HasInputCol with HasOutputCol with CNTKModelParam{
-
-  def this() = this(Identifiable.randomUID("CNTKModel"))
 
   /** Index of the input node
     * @group param

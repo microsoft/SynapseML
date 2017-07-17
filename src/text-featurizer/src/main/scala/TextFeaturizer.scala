@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
-trait TextFeaturizerParams extends MMLParams{
+trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 
   /** Tokenize the input when set to true
     * @group param

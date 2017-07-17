@@ -28,7 +28,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** Feature columns - the columns to be featurized
     * @group param
     */
-  val featureColumns: MapArrayParam = new MapArrayParam(uid, "featureColumns", "feature columns")
+  val featureColumns: MapArrayParam = new MapArrayParam(this, "featureColumns", "feature columns")
 
   /** @group getParam */
   final def getFeatureColumns: Map[String, Seq[String]] = $(featureColumns)

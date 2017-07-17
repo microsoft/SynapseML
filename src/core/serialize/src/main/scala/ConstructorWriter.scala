@@ -9,6 +9,7 @@ import org.apache.spark.ml.util.{MLReadable, MLReader, MLWritable, MLWriter}
 import scala.language.existentials
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import org.apache.spark.ml.param.Serializer
 
 /** This trait allows you to easily add serialization to your Spark
   * Models, assuming that they are completely parameterized by their constructor.

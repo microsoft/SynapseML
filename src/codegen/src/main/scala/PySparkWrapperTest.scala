@@ -150,7 +150,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |""".stripMargin
 
   // These params are need custom handling. For now, just skip them so we have tests that pass.
-  private lazy val skippedParams =  Set[String]("models", "model")
+  private lazy val skippedParams =  Set[String]("models", "model", "cntkModel")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
@@ -174,7 +174,6 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         case "FastVectorAssembler" => "inputCols=\"col1\""
         case "MultiNGram"          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
         case "SelectColumns"       => "cols=[\"col1\"]"
-        case "ImageFeaturizer"     => "modelSaveDir=\"file:///tmp\""
         case "Repartition"         => "n=2"
         case "IndexToValue"        => "inputCol=\"catOutput\""
         case "ValueIndexerModel"   => "inputCol=\"col5\", outputCol=\"catOutput\", " +

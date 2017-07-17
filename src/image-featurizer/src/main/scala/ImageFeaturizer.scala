@@ -3,59 +3,79 @@
 
 package com.microsoft.ml.spark
 
-import java.net.URI
-import javax.xml.bind.DatatypeConverter.{parseBase64Binary, printBase64Binary}
-
-import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
-import org.apache.spark.sql.types.{ArrayType, FloatType, StructType}
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-object ImageFeaturizer extends DefaultParamsReadable[ImageFeaturizer]
+object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
-/**
-  * The <code>ImageFeaturizer</code> relies on a CNTK model to do the featurization, one can set this model using
-  * the <code>modelLocation</code> parameter. To map the nodes of the CNTK model onto the standard "layers" structure
-  * of a feed forward neural net, one needs to supply a list of node names that range from the output node,
-  * back towards the input node of the CNTK Function.
-  * This list does not need to be exhaustive, and is provided to you if you
-  * use a model downloaded from the <code>ModelDownloader</code>, one can find this layer list in the schema of the
+/** The <code>ImageFeaturizer</code> relies on a CNTK model to do the featurization, one can set
+  * this model using the <code>modelLocation</code> parameter. To map the nodes of the CNTK model
+  * onto the standard "layers" structure of a feed forward neural net, one needs to supply a list of
+  * node names that range from the output node, back towards the input node of the CNTK Function.
+  * This list does not need to be exhaustive, and is provided to you if you use a model downloaded
+  * from the <code>ModelDownloader</code>, one can find this layer list in the schema of the
   * downloaded model.
   *
-  * The <code>ImageFeaturizer</code> takes an input column of images
-  * (the type returned by the <code>ImageReader</code>), and
-  * automatically resizes them to fit the CMTKModel's inputs. It then feeds them through a pre-trained
-  * CNTK model. One can truncate the model using the <code> cutOutputLayers </code> parameter that
-  * determines how many layers to truncate from the output of the network.
-  * For example, layer=0 means tha no layers are removed,
-  * layer=2 means that the image featurizer returns the activations of the layer that is two layers
-  * from the output layer.
+  * The <code>ImageFeaturizer</code> takes an input column of images (the type returned by the
+  * <code>ImageReader</code>), and automatically resizes them to fit the CMTKModel's inputs.  It
+  * then feeds them through a pre-trained CNTK model.  One can truncate the model using the <code>
+  * cutOutputLayers </code> parameter that determines how many layers to truncate from the output of
+  * the network.  For example, layer=0 means that no layers are removed, layer=2 means that the
+  * image featurizer returns the activations of the layer that is two layers from the output layer.
   *
   * @param uid the uid of the image transformer
   */
 @InternalWrapper
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
-  with MMLParams with CNTKModelParam {
+  with Wrappable with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
-  /** Select which node of the CNTKFunction's inputs to us as the input (default: 0)
-    * @group param
-    */
-  val inputNode: IntParam = IntParam(this, "inputNode", "which node of the CNTKFunction's inputs" +
-    "to use as the input (default 0)")
+  // Parameters related to the inner model
+
+  val cntkModel: TransformerParam = new TransformerParam(this,
+    "cntkModel", "the internal cntk model used in the featurizer",
+    { t => t.isInstanceOf[CNTKModel] })
+
+  setDefault(cntkModel->new CNTKModel())
 
   /** @group setParam */
-  def setInputNode(value: Int): this.type = set(inputNode, value)
+  def setCntkModel(value: CNTKModel): this.type = set(cntkModel, value)
 
   /** @group getParam */
-  def getInputNode: Int = $(inputNode)
+  def getCntkModel: CNTKModel = $(cntkModel).asInstanceOf[CNTKModel]
+
+  /** @group setParam */
+  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNode(value))
+
+  /** @group getParam */
+  def getInputNode: Int = getCntkModel.getInputNode
+
+  def setModelLocation(spark: SparkSession, path: String): this.type = {
+    set(cntkModel, getCntkModel.setModelLocation(spark, path))
+  }
+
+  def setModel(spark: SparkSession, modelSchema: ModelSchema): this.type = {
+    setLayerNames(modelSchema.layerNames)
+      .setInputNode(modelSchema.inputNode)
+      .setModelLocation(spark, modelSchema.uri.toString)
+  }
+
+  /** @group setParam */
+  def setModel(bytes: Array[Byte]): this.type = set(cntkModel, getCntkModel.setModel(bytes))
+
+  /** @group getParam */
+  def getModel: Array[Byte] = getCntkModel.getModel
+
+  // Parameters for just the ImageFeaturizer
 
   /** The number of layer to cut off the endof the network; 0 leaves the network intact, 1 rmoves
     * the output layer, etc.
+    *
     * @group param
     */
   val cutOutputLayers: IntParam = IntParam(this, "cutOutputLayers", "the number of layers to cut " +
@@ -70,6 +90,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   /** Array with valid CNTK nodes to choose from; the first entries of this array should be closer
     * to the output node.
+    *
     * @group param
     */
   val layerNames: StringArrayParam = new StringArrayParam(this, "layerNames",
@@ -82,22 +103,14 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getLayerNames: Array[String] = $(layerNames)
 
-  def setModel(spark: SparkSession, modelSchema: ModelSchema): this.type = {
-    setLayerNames(modelSchema.layerNames)
-      .setInputNode(modelSchema.inputNode)
-      .setModelLocation(spark, modelSchema.uri.toString)
-  }
-
-  setDefault(cutOutputLayers -> 1, inputNode -> 0, outputCol -> (uid + "_output"))
+  setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val spark = dataset.sparkSession
 
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
-    val cntkModel = new CNTKModel()
-      .setModel(getModel)
-      .setInputNode(getInputNode)
+    val cntkModel = getCntkModel
       .setOutputNodeName(getLayerNames.apply(getCutOutputLayers))
       .setInputCol(resizedCol)
       .setOutputCol(getOutputCol)
@@ -122,6 +135,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   /** Add the features column to the schema
+    *
     * @param schema
     * @return schema with features column
     */
