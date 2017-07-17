@@ -9,10 +9,12 @@ import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.spark.ml.linalg.DenseVector
 import com.microsoft.ml.spark.Readers.implicits._
+import org.apache.spark.ml.PipelineStage
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
 import scala.collection.JavaConversions._
 
-class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
+class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
   val images: DataFrame = session.readImages(imagePath, true).withColumnRenamed("image", inputCol)
 
   val modelDir = new File(filesRoot, "CNTKModel")
@@ -32,22 +34,18 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
     compareToTestModel(result)
   }
 
+  def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
+    .setInputCol(inputCol)
+    .setOutputCol(outputCol)
+    .setModel(session, resNet)
+
   test("the Image feature should work with the modelSchema") {
-    val model = new ImageFeaturizer()
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-      .setModel(session, resNet)
-      .setCutOutputLayers(0)
-    val result = model.transform(images)
+    val result = resNetModel().setCutOutputLayers(0).transform(images)
     compareToTestModel(result)
   }
 
   test("Image featurizer should work with ResNet50", TestBase.Extended) {
-    val model = new ImageFeaturizer()
-      .setModel(session, resNet)
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-    val result = model.transform(images)
+    val result = resNetModel().transform(images)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
@@ -62,5 +60,12 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils {
       val result = model.transform(images)
     })
   }
+  val dfRoundTrip: DataFrame = images
+  val reader: MLReadable[_] = ImageFeaturizer
+  val modelReader: MLReadable[_] = ImageFeaturizer
+  val stageRoundTrip: PipelineStage with MLWritable = resNetModel()
 
+  test("an ImageFeaturizer should roundTrip") {
+    testRoundTrip()
+  }
 }

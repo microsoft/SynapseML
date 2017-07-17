@@ -10,12 +10,13 @@ import org.apache.commons.io.FileUtils.getTempDirectoryPath
 import org.apache.spark.SparkException
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.ml.{Pipeline, PipelineModel, PipelineStage}
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types._
 
-class CNTKModelSuite extends LinuxOnly with CNTKTestUtils {
+class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
 
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
   val saveFile = s"$getTempDirectoryPath/${new Date()}-spark-z.model"
@@ -154,4 +155,12 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils {
     super.afterAll()
   }
 
+  val dfRoundTrip: DataFrame = images
+  val reader: MLReadable[_] = CNTKModel
+  val modelReader: MLReadable[_] = CNTKModel
+  val stageRoundTrip: PipelineStage with MLWritable = testModel()
+
+  test(" should roundtrip"){
+    testRoundTrip()
+  }
 }

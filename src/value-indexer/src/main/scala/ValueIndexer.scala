@@ -16,8 +16,7 @@ import org.apache.spark.sql.types._
 import reflect.runtime.universe.TypeTag
 import scala.math.Ordering
 import scala.reflect.ClassTag
-
-import java.lang.{Long => JLong, Integer => JInt, Double => JDouble, Boolean => JBoolean}
+import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
 
 object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
   def validateAndTransformSchema(schema: StructType, outputCol: String): StructType = {

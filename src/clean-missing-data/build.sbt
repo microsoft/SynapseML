@@ -1,2 +1,1 @@
 //> DependsOn: core
-//> DependsOn: serializer

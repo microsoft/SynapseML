@@ -11,7 +11,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.param.EstimatorParam
 import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.sql._

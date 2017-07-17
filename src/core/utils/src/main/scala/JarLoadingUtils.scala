@@ -22,7 +22,7 @@ object JarLoadingUtils {
 
   private val outputDirs = {
     val thisFile = new File(getClass.getProtectionDomain.getCodeSource.getLocation.getPath)
-    val levelsToSrc = 4
+    val levelsToSrc = 5
     val topDir = (1 to levelsToSrc).foldLeft(thisFile) {case (f, i) => f.getParentFile}
     val rootsFile = new File(topDir, projectRoots)
     val roots = readFile(rootsFile, _.getLines.toList)

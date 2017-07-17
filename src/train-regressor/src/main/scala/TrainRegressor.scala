@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.util.UUID
+
 import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi

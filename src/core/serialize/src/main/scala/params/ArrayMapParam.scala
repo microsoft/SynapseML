@@ -3,13 +3,13 @@
 
 package org.apache.spark.ml.param
 
-import spray.json._
 import org.apache.spark.ml.util.Identifiable
+import spray.json.{DefaultJsonProtocol, _}
+
 import scala.collection.immutable.Map
 
 object ArrayMapJsonProtocol extends DefaultJsonProtocol {
 
-  import spray.json._
   implicit object MapJsonFormat extends JsonFormat[Map[String, Any]] {
     def write(m: Map[String, Any]): JsValue = {
       JsObject(m.mapValues {
@@ -38,31 +38,37 @@ object ArrayMapJsonProtocol extends DefaultJsonProtocol {
 
 }
 
-import ArrayMapJsonProtocol._
-
 /** Param for Array of stage parameter maps. */
 class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean)
   extends Param[Array[Map[String, Any]]](parent, name, doc, isValid) {
 
-  def this(parent: String, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+  import ArrayMapJsonProtocol._
 
-  def this(parent: Identifiable, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
-    this(parent.uid, name, doc, isValid)
+  def this(parent: Params, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
+      this(parent.uid, name, doc, isValid)
 
-  def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
+    def this(parent: Params, name: String, doc: String) =
+      this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with the given value (for Java). */
-  override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
+    def this(parent: String, name: String, doc: String) =
+      this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def jsonEncode(value: Array[Map[String, Any]]): String = {
-    val json = value.toSeq.asInstanceOf[Seq[Map[String, Int]]].toJson
-    json.prettyPrint
+    def this(parent: Identifiable, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
+      this(parent.uid, name, doc, isValid)
+
+    def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
+
+    /** Creates a param pair with the given value (for Java). */
+    override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
+
+    override def jsonEncode(value: Array[Map[String, Any]]): String = {
+      val json = value.toSeq.asInstanceOf[Seq[Map[String, Int]]].toJson
+      json.prettyPrint
+    }
+
+    override def jsonDecode(json: String): Array[Map[String, Any]] = {
+      val jsonValue = json.parseJson
+      jsonValue.convertTo[Seq[Map[String, Any]]].toArray
+    }
+
   }
-
-  override def jsonDecode(json: String): Array[Map[String, Any]] = {
-    val jsonValue = json.parseJson
-    jsonValue.convertTo[Seq[Map[String, Any]]].toArray
-  }
-
-}
