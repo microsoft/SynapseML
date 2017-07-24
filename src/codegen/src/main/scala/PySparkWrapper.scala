@@ -148,8 +148,9 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |
         |    @staticmethod
         |    def _from_java(java_stage):
-        |        stage_name=${entryPointName}.__module__
-        |        return from_java(java_stage, stage_name)
+        |        module_name=${entryPointName}.__module__
+        |        module_name=module_name.rsplit(".", 1)[0] + ".${entryPointName}"
+        |        return from_java(java_stage, module_name)
         |""".stripMargin
   }
 
