@@ -6,6 +6,7 @@ package com.microsoft.ml.spark;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A helper class for loading native libraries from Java
@@ -41,7 +42,6 @@ public class NativeLoader {
         tempDir.deleteOnExit();
     }
 
-
     /**
      * Loads all native libraries from the jar file, if the jar contains a plain text file
      * named 'NATIVE_MANIFEST'.
@@ -76,6 +76,36 @@ public class NativeLoader {
     }
 
     /**
+     * Loads a named native library from the jar file and all of its dependencies
+     *
+     * <p>This method will first try to load the library from java.library.path system property.
+     * Only if that fails, the named native library and its dependencies will be extracted to
+     * a temporary folder and loaded from there.</p>
+     * */
+    public void loadLibraryWithDepsByName(String libName, List<String> dependencies){
+        try{
+            // First try loading by name
+            // It's possible that the native library is already on a path java can discover
+            System.loadLibrary(libName);
+        }
+        catch (UnsatisfiedLinkError e){
+            try{
+                // Get the OS specific library name
+                libName = System.mapLibraryName(libName);
+                extractAllDependencies(dependencies);
+                // Try to load library from extracted native resources
+                System.load(tempDir.getAbsolutePath() + File.separator + libName);
+            }
+            catch (Exception ee){
+                throw new UnsatisfiedLinkError(String.format(
+                        "Could not load the native libraries because " +
+                                "we encountered the following problems: %s and %s",
+                        e.getMessage(), ee.getMessage()));
+            }
+        }
+    }
+
+    /**
      * Loads a named native library from the jar file
      *
      * <p>This method will first try to load the library from java.library.path system property.
@@ -102,6 +132,12 @@ public class NativeLoader {
                         "we encountered the following problems: %s and %s",
                         e.getMessage(), ee.getMessage()));
             }
+        }
+    }
+
+    private void extractAllDependencies(List<String> dependencies) throws IOException{
+        for (String resource: dependencies) {
+            extractResourceFromPath(resource, resourcesPath);
         }
     }
 
@@ -143,7 +179,7 @@ public class NativeLoader {
                 + sep + "%s"
                 + sep;
         if (OS.contains("linux")){
-            return String.format(resourcePrefix, "linux");
+            return String.format(resourcePrefix, "linux-x86_64");
         }
         else if (OS.contains("windows")){
             return String.format(resourcePrefix, "windows");
