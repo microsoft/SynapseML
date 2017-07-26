@@ -99,8 +99,8 @@ public class NativeLoader {
             catch (Exception ee){
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
-                                "we encountered the following problems: %s and %s",
-                        e.getMessage(), ee.getMessage()));
+                                "we encountered the following problems: %s and %s with stack trace %s",
+                        e.getMessage(), ee.getMessage(), ee.getStackTrace()));
             }
         }
     }
