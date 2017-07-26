@@ -9,6 +9,7 @@ import sys.process.Process
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
+import org.bytedeco.sbt.javacpp.{ Plugin => JavaCppPlugin }
 
 object Extras {
 
@@ -34,8 +35,7 @@ object Extras {
     "org.scalatest"    %% "scalatest"   % "3.0.0"  % "provided",
     // should include these things in the distributed jar
     "io.spray"         %% "spray-json"  % "1.3.2",
-    "com.microsoft.CNTK" % "cntk_jni"   % "2.0rc3",
-    "org.bytedeco.javacpp-presets" % "opencv-platform" % "3.2.0-1.3"
+    "com.microsoft.CNTK" % "cntk_jni"   % "2.0rc3"
   )
   def overrideLibs = Set(
     // spark wants 2.2.6, but we don't use its tests anyway
@@ -122,6 +122,7 @@ object Extras {
     // Assembly options
     aggregate in assembly := false,
     aggregate in publish  := false,
+    JavaCppPlugin.autoImport.javaCppPresetLibs ++= Seq("opencv" -> "3.2.0"),
     test in assembly := {},
     // Documentation settings
     autoAPIMappings in ThisBuild := true,
