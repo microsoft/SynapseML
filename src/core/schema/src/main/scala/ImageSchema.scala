@@ -37,7 +37,7 @@ object ImageSchema {
 
   private[spark] def loadLibraryForAllPartitions[T:ClassTag](rdd: RDD[T], lib: String):RDD[T] = {
     def perPartition(it: Iterator[T]):Iterator[T] = {
-      new NativeLoader("/org/opencv/lib").loadLibraryByName(lib); it }
+      new NativeLoader("/org/bytedeco/javacpp").loadLibraryByName(lib); it }
     rdd.mapPartitions(perPartition, preservesPartitioning = true)
   }
 }
