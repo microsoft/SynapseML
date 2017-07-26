@@ -7,6 +7,7 @@ import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.bytedeco.javacpp.opencv_core.Mat
+import org.bytedeco.javacpp.opencv_core
 import org.bytedeco.javacpp.opencv_imgcodecs.{CV_LOAD_IMAGE_COLOR, imdecode}
 
 import scala.reflect.ClassTag
@@ -50,7 +51,7 @@ object ImageReader {
            sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
 
     val binaryRDD = BinaryFileReader.readRDD(path, recursive, spark, sampleRatio, inspectZip)
-
+    val binaryRDDlib = ImageSchema.loadLibraryForAllPartitions(binaryRDD, Core.NATIVE_LIBRARY_NAME)
     val validImages = binaryRDD.flatMap {
       case (filename, bytes) => {
         decode(filename, bytes).map(x => Row(x))
