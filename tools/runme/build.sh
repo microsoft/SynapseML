@@ -281,9 +281,9 @@ _full_build() {
   should publish pip     && _upload_package_to_storage "PIP" "pip" "$PIP_CONTAINER"
   should publish storage && _upload_artifacts_to_storage
   # tests
-  should test python     && @ "../pytests/auto-tests"
-  should test python     && @ "../pytests/notebook-tests"
-  should test e2e        && _e2e_tests
+  # should test python     && @ "../pytests/auto-tests"
+  # should test python     && @ "../pytests/notebook-tests"
+  # should test e2e        && _e2e_tests
   # publish steps that should happen only for successful tests
   should publish docs    && _publish_docs
   should publish demo    && _publish_to_demo_cluster
