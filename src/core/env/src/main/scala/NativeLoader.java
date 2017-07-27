@@ -103,7 +103,7 @@ public class NativeLoader {
                 // Try to load library from extracted native resources
                 String path = tempDir.getAbsolutePath() + File.separator + libName;
                 URL url = new File(path).toURI().toURL();
-                Loader.load(opencv_core.class);
+                // Loader.load(opencv_core.class);
                 Loader.loadLibrary(new URL[] { url }, libName);
                 // System.load(path);
             } catch (Exception ee) {
