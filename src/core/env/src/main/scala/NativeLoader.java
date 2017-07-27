@@ -5,6 +5,7 @@ package com.microsoft.ml.spark;
 
 import io.netty.util.internal.NativeLibraryLoader;
 import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.opencv_core;
 
 import java.io.*;
 import java.net.URL;
@@ -102,8 +103,9 @@ public class NativeLoader {
                 // Try to load library from extracted native resources
                 String path = tempDir.getAbsolutePath() + File.separator + libName;
                 URL url = new File(path).toURI().toURL();
+                Loader.load(opencv_core.class);
                 Loader.loadLibrary(new URL[] { url }, libName);
-                System.load(path);
+                // System.load(path);
             } catch (Exception ee) {
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
