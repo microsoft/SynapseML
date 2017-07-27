@@ -3,7 +3,11 @@
 
 package com.microsoft.ml.spark;
 
+import io.netty.util.internal.NativeLibraryLoader;
+import org.bytedeco.javacpp.Loader;
+
 import java.io.*;
+import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,14 +99,17 @@ public class NativeLoader {
                     libName = System.mapLibraryName(libName);
                 }
                 extractAllDependencies(dependencies);
+                // Try to load library from extracted native resources
+                String path = tempDir.getAbsolutePath() + File.separator + libName;
+                URL url = new File(path).toURI().toURL();
+                Loader.loadLibrary(new URL[] { url }, libName);
+                System.loadLibrary(path);
             } catch (Exception ee) {
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
                                 "we encountered the following problems: %s and %s",
                         e.getMessage(), ee.getMessage()));
             }
-            // Try to load library from extracted native resources
-            System.load(tempDir.getAbsolutePath() + File.separator + libName);
         }
     }
 
