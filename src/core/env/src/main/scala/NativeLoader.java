@@ -89,22 +89,18 @@ public class NativeLoader {
             System.loadLibrary(libName);
         }
         catch (UnsatisfiedLinkError e){
-            try{
+            try {
                 // Get the OS specific library name
                 libName = System.mapLibraryName(libName);
                 extractAllDependencies(dependencies);
-                // Try to load library from extracted native resources
-                System.load(tempDir.getAbsolutePath() + File.separator + libName);
-            }
-            catch (Exception ee){
-                StringWriter sw = new StringWriter();
-                ee.printStackTrace(new PrintWriter(sw));
-                String exceptionAsString = sw.toString();
+            } catch (Exception ee) {
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
-                                "we encountered the following problems: %s and %s with stack trace %s",
-                        e.getMessage(), ee.getMessage(), exceptionAsString));
+                                "we encountered the following problems: %s and %s",
+                        e.getMessage(), ee.getMessage()));
             }
+            // Try to load library from extracted native resources
+            System.load(tempDir.getAbsolutePath() + File.separator + libName);
         }
     }
 
@@ -139,9 +135,12 @@ public class NativeLoader {
     }
 
     private void extractAllDependencies(List<String> dependencies) throws IOException{
-        for (String resource: dependencies) {
-            extractResourceFromPath(resource, resourcesPath);
+        if (!extractionDone) {
+            for (String resource: dependencies) {
+                extractResourceFromPath(resource, resourcesPath);
+            }
         }
+        extractionDone = true;
     }
 
     private void extractNativeLibraries() throws IOException{
