@@ -97,10 +97,13 @@ public class NativeLoader {
                 System.load(tempDir.getAbsolutePath() + File.separator + libName);
             }
             catch (Exception ee){
+                StringWriter sw = new StringWriter();
+                ee.printStackTrace(new PrintWriter(sw));
+                String exceptionAsString = sw.toString();
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
                                 "we encountered the following problems: %s and %s with stack trace %s",
-                        e.getMessage(), ee.getMessage(), ee.getStackTrace()));
+                        e.getMessage(), ee.getMessage(), exceptionAsString));
             }
         }
     }
