@@ -82,7 +82,7 @@ public class NativeLoader {
      * Only if that fails, the named native library and its dependencies will be extracted to
      * a temporary folder and loaded from there.</p>
      * */
-    public void loadLibraryWithDepsByName(String libName, List<String> dependencies){
+    public void loadLibraryWithDepsByName(String libName, List<String> dependencies, Boolean mapName){
         try{
             // First try loading by name
             // It's possible that the native library is already on a path java can discover
@@ -91,7 +91,9 @@ public class NativeLoader {
         catch (UnsatisfiedLinkError e){
             try {
                 // Get the OS specific library name
-                libName = System.mapLibraryName(libName);
+                if (mapName) {
+                    libName = System.mapLibraryName(libName);
+                }
                 extractAllDependencies(dependencies);
             } catch (Exception ee) {
                 throw new UnsatisfiedLinkError(String.format(

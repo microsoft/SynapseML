@@ -54,8 +54,8 @@ object ImageSchema {
   private[spark] def loadLibraryForAllPartitions[T:ClassTag](rdd: RDD[T], lib: String):RDD[T] = {
     def perPartition(it: Iterator[T]):Iterator[T] = {
       val nativeLoader = new NativeLoader("/org/bytedeco/javacpp")
-      nativeLoader.loadLibraryWithDepsByName("libopencv_core.so.3.2", dependencies.asJava)
-      nativeLoader.loadLibraryWithDepsByName(lib, dependencies.asJava); it }
+      nativeLoader.loadLibraryWithDepsByName("libopencv_core.so.3.2", dependencies.asJava, false)
+      nativeLoader.loadLibraryWithDepsByName(lib, dependencies.asJava, true); it }
     rdd.mapPartitions(perPartition, preservesPartitioning = true)
   }
 }
