@@ -5,7 +5,6 @@ package com.microsoft.ml.spark;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.util.ArrayList;
 
 /**
  * A helper class for loading native libraries from Java
@@ -28,51 +27,15 @@ import java.util.ArrayList;
  * */
 public class NativeLoader {
 
-    private static final String manifestName = "NATIVE_MANIFEST";
-    private static final String loadManifestName = "NATIVE_LOAD_MANIFEST";
     private String resourcesPath;
-    private String[] nativeList = new String[0];
     private Boolean extractionDone = false;
     private File tempDir;
+    private Object lock = new Object();
 
     public NativeLoader(String topLevelResourcesPath) throws IOException{
         this.resourcesPath = getResourcesPath(topLevelResourcesPath);
         tempDir = Files.createTempDirectory("tmp").toFile();
         tempDir.deleteOnExit();
-    }
-
-
-    /**
-     * Loads all native libraries from the jar file, if the jar contains a plain text file
-     * named 'NATIVE_MANIFEST'.
-     *
-     * <p>The NATIVE_MANIFEST contains what libraries to be extracted (one per line, full name)
-     * and the order in which they should be loaded. Alternatively, if only specific top-level
-     * libraries should be loaded, they can be specified in the NATIVE_LOAD_MANIFEST file in order.</p>
-     * */
-    public void loadAll(){
-        try{
-            extractNativeLibraries();
-            try{
-                // First try to find the NATIVE_LOAD_MANIFEST and load the libraries there
-                String[] loadList = getResourceLines(loadManifestName);
-                for (String libName: loadList){
-                    System.load(tempDir.getAbsolutePath() + File.separator + libName);
-                }
-            }
-            catch (IOException ee){
-                // If loading the NATIVE_LOAD_MANIFEST failed, try loading the libraries
-                // in the order provided by the NATIVE_MANIFEST
-                for (String libName: nativeList){
-                    System.load(tempDir.getAbsolutePath() + File.separator + libName);
-                }
-            }
-        }
-        catch (Exception e){
-            // If nothing worked, throw exception
-            throw new UnsatisfiedLinkError(String.format("Could not load all native libraries because " +
-                    "we encountered the following error: %s", e.getMessage()));
-        }
     }
 
     /**
@@ -90,9 +53,9 @@ public class NativeLoader {
         }
         catch (UnsatisfiedLinkError e){
             try{
-                extractNativeLibraries();
                 // Get the OS specific library name
                 libName = System.mapLibraryName(libName);
+                extractNativeLibraries(libName);
                 // Try to load library from extracted native resources
                 System.load(tempDir.getAbsolutePath() + File.separator + libName);
             }
@@ -105,55 +68,28 @@ public class NativeLoader {
         }
     }
 
-    private void extractNativeLibraries() throws IOException{
-        if (!extractionDone) {
-            nativeList = getResourceLines(manifestName);
-            // Extract all OS specific native libraries to temporary location
-            for (String libName: nativeList) {
+    private void extractNativeLibraries(String libName) throws IOException{
+        synchronized (lock) {
+            if (!extractionDone) {
                 extractResourceFromPath(libName, resourcesPath);
             }
+            extractionDone = true;
         }
-        extractionDone = true;
-    }
-
-    private String[] getResourceLines(String resourceName) throws IOException{
-        // Read resource file if it exists
-        InputStream inStream = NativeLoader.class
-                .getResourceAsStream(resourcesPath + resourceName);
-        if (inStream == null) {
-            throw new FileNotFoundException("Could not find native resources in jar. " +
-                    "Make sure the jar containing the native libraries was added to the classpath.");
-        }
-        BufferedReader resourceReader = new BufferedReader(
-                new InputStreamReader(inStream, "UTF-8")
-        );
-        ArrayList<String> lines = new ArrayList<String>();
-        for (String line; (line = resourceReader.readLine()) != null; ) {
-            lines.add(line);
-        }
-        resourceReader.close();
-        inStream.close();
-        return lines.toArray(new String[lines.size()]);
     }
 
     private static String getResourcesPath(String topLevelResourcesPath){
         String sep = "/";
         String OS = System.getProperty("os.name").toLowerCase();
-        String resourcePrefix = topLevelResourcesPath
-                + sep + "%s"
-                + sep;
-        if (OS.contains("linux")){
-            return String.format(resourcePrefix, "linux");
-        }
-        else if (OS.contains("windows")){
-            return String.format(resourcePrefix, "windows");
-        }
-        else if (OS.contains("mac")|| OS.contains("darwin")){
-            return String.format(resourcePrefix, "mac");
-        }
-        else{
+        String resourcePrefix = topLevelResourcesPath + sep + "%s" + sep;
+        if (OS.contains("linux")) {
+            return String.format(resourcePrefix, "linux/x86_64");
+        } else if (OS.contains("windows")) {
+            return String.format(resourcePrefix, "windows/x86_64");
+        } else if (OS.contains("mac") || OS.contains("darwin")) {
+            return String.format(resourcePrefix, "osx/x86_64");
+        } else {
             throw new UnsatisfiedLinkError(
-                    String.format("This component doesn't currently have native support for OS: %s", OS)
+                String.format("This component doesn't currently have native support for OS: %s", OS)
             );
         }
     }

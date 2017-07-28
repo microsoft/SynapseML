@@ -35,7 +35,7 @@ object Extras {
     // should include these things in the distributed jar
     "io.spray"         %% "spray-json"  % "1.3.2",
     "com.microsoft.CNTK" % "cntk_jni"   % "2.0rc3",
-    "org.opencv"         % "opencv_jni" % "3.2.0"
+    "org.openpnp"         % "opencv" % "3.2.0-1"
     )
   def overrideLibs = Set(
     // spark wants 2.2.6, but we don't use its tests anyway
