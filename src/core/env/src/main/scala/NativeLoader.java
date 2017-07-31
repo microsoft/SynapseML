@@ -3,9 +3,15 @@
 
 package com.microsoft.ml.spark;
 
+import io.netty.util.internal.NativeLibraryLoader;
+import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.opencv_core;
+
 import java.io.*;
+import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A helper class for loading native libraries from Java
@@ -41,7 +47,6 @@ public class NativeLoader {
         tempDir.deleteOnExit();
     }
 
-
     /**
      * Loads all native libraries from the jar file, if the jar contains a plain text file
      * named 'NATIVE_MANIFEST'.
@@ -76,6 +81,41 @@ public class NativeLoader {
     }
 
     /**
+     * Loads a named native library from the jar file and all of its dependencies
+     *
+     * <p>This method will first try to load the library from java.library.path system property.
+     * Only if that fails, the named native library and its dependencies will be extracted to
+     * a temporary folder and loaded from there.</p>
+     * */
+    public void loadLibraryWithDepsByName(String libName, List<String> dependencies, Boolean mapName){
+        try{
+            // First try loading by name
+            // It's possible that the native library is already on a path java can discover
+            System.loadLibrary(libName);
+        }
+        catch (UnsatisfiedLinkError e){
+            try {
+                // Get the OS specific library name
+                if (mapName) {
+                    libName = System.mapLibraryName(libName);
+                }
+                extractAllDependencies(dependencies);
+                // Try to load library from extracted native resources
+                String path = tempDir.getAbsolutePath() + File.separator + libName;
+                URL url = new File(path).toURI().toURL();
+                // Loader.load(opencv_core.class);
+                Loader.loadLibrary(new URL[] { url }, libName);
+                // System.load(path);
+            } catch (Exception ee) {
+                throw new UnsatisfiedLinkError(String.format(
+                        "Could not load the native libraries because " +
+                                "we encountered the following problems: %s and %s",
+                        e.getMessage(), ee.getMessage()));
+            }
+        }
+    }
+
+    /**
      * Loads a named native library from the jar file
      *
      * <p>This method will first try to load the library from java.library.path system property.
@@ -103,6 +143,15 @@ public class NativeLoader {
                         e.getMessage(), ee.getMessage()));
             }
         }
+    }
+
+    private void extractAllDependencies(List<String> dependencies) throws IOException{
+        if (!extractionDone) {
+            for (String resource: dependencies) {
+                extractResourceFromPath(resource, resourcesPath);
+            }
+        }
+        extractionDone = true;
     }
 
     private void extractNativeLibraries() throws IOException{
@@ -143,7 +192,7 @@ public class NativeLoader {
                 + sep + "%s"
                 + sep;
         if (OS.contains("linux")){
-            return String.format(resourcePrefix, "linux");
+            return String.format(resourcePrefix, "linux-x86_64");
         }
         else if (OS.contains("windows")){
             return String.format(resourcePrefix, "windows");

@@ -9,11 +9,12 @@ import javax.swing._
 
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.DataFrame
-import org.opencv.core.{Mat, MatOfByte}
-import org.opencv.imgcodecs.Imgcodecs
-import org.opencv.imgproc.Imgproc
 import org.apache.spark.sql.Row
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.schema.ImageSchema
+import org.bytedeco.javacpp.opencv_core.{Mat, Rect, Size}
+import org.bytedeco.javacpp.opencv_imgproc.{COLOR_BGR2GRAY, THRESH_BINARY}
+import org.bytedeco.javacpp.opencv_imgcodecs.imencode
 import org.apache.spark.sql.SaveMode
 import org.apache.commons.io.FileUtils
 
@@ -116,7 +117,7 @@ class ImageTransformerSuite extends LinuxOnly {
 
     val tr = new ImageTransformer()
       .setOutputCol("out")
-      .colorFormat(Imgproc.COLOR_BGR2GRAY)
+      .colorFormat(COLOR_BGR2GRAY)
 
     val preprocessed = tr.transform(images)
 
@@ -160,7 +161,7 @@ class ImageTransformerSuite extends LinuxOnly {
 
     val tr = new ImageTransformer()
       .setOutputCol("out")
-      .threshold(100, 100, Imgproc.THRESH_BINARY)
+      .threshold(100, 100, THRESH_BINARY)
 
     val preprocessed = tr.transform(images)
 
@@ -245,12 +246,12 @@ class ImageTransformerSuite extends LinuxOnly {
     val (jframe, panel) = createScrollingFrame(images.count())
     images.collect().foreach(
       (row:Row) => {
-        val img = new Mat(row.getInt(0), row.getInt(1), row.getInt(2))
-        img.put(0,0,row.getAs[Array[Byte]](3))
-        // Have to do the MatOfByte dance here
-        val matOfByte = new MatOfByte()
-        Imgcodecs.imencode(".jpg", img, matOfByte)
-        val icon = new ImageIcon(matOfByte.toArray)
+
+        val img = ImageTransformer.row2mat(row)._2
+        val encoded = new org.bytedeco.javacpp.BytePointer
+        imencode(".jpg", img, encoded)
+
+        val icon = new ImageIcon(encoded.asBuffer.array)
         val label: JLabel = new JLabel()
         label.setIcon(icon)
         panel.add(label)
