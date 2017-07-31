@@ -16,10 +16,8 @@ import scala.collection.mutable.ListBuffer
 import com.microsoft.ml.spark.schema.BinaryFileSchema
 
 import scala.collection.mutable.{ListBuffer, WrappedArray}
-import org.opencv.core.Core
-import org.opencv.core.Mat
-import org.opencv.core.{Rect, Size}
-import org.opencv.imgproc.Imgproc
+import org.bytedeco.javacpp.opencv_core.{Mat, Rect, Size}
+import org.bytedeco.javacpp.opencv_imgproc._
 import org.apache.spark.ml.util.Identifiable
 
 /** Image processing stage.
@@ -39,14 +37,14 @@ abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializa
   * @param params ParameterMap of the parameters
   */
 class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height = params(ResizeImage.height).asInstanceOf[Int].toDouble
-  val width = params(ResizeImage.width).asInstanceOf[Int].toDouble
+  val height = params(ResizeImage.height).asInstanceOf[Int]
+  val width = params(ResizeImage.width).asInstanceOf[Int]
   override val stageName = ResizeImage.stageName
 
   override def apply(image: Mat): Mat = {
-    var resized = new Mat()
+    val resized = new Mat()
     val sz = new Size(width, height)
-    Imgproc.resize(image, resized, sz)
+    resize(image, resized, sz)
     resized
   }
 }
@@ -74,7 +72,7 @@ class CropImage(params: Map[String, Any]) extends ImageTransformerStage(params) 
   val x = params(CropImage.x).asInstanceOf[Int]
   val y = params(CropImage.y).asInstanceOf[Int]
   val height = params(CropImage.height).asInstanceOf[Int]
-  val width = params(CropImage.width).asInstanceOf[Int]
+  val width  = params(CropImage.width).asInstanceOf[Int]
   override val stageName = CropImage.stageName
 
   override def apply(image: Mat): Mat = {
@@ -102,7 +100,7 @@ class ColorFormat(params: Map[String, Any]) extends ImageTransformerStage(params
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.cvtColor(image, dst, format)
+    cvtColor(image, dst, format)
     dst
   }
 }
@@ -118,13 +116,13 @@ object ColorFormat {
   * @param params
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height = params(Blur.height).asInstanceOf[Double]
-  val width = params(Blur.width).asInstanceOf[Double]
+  val height = params(Blur.height).asInstanceOf[Double].toInt
+  val width  = params(Blur.width).asInstanceOf[Double].toInt
   override val stageName = Blur.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.blur(image, dst, new Size(height, width))
+    blur(image, dst, new Size(height, width))
     dst
   }
 }
@@ -141,15 +139,15 @@ object Blur {
   * @param params
   */
 class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val threshold = params(Threshold.threshold).asInstanceOf[Double]
+  val thresholdVal = params(Threshold.threshold).asInstanceOf[Double]
   val maxVal = params(Threshold.maxVal).asInstanceOf[Double]
-  // EG Imgproc.THRESH_BINARY
+  // eg THRESH_BINARY
   val thresholdType = params(Threshold.thresholdType).asInstanceOf[Int]
   override val stageName = Threshold.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.threshold(image, dst, threshold, maxVal, thresholdType)
+    threshold(image, dst, thresholdVal, maxVal, thresholdType)
     dst
   }
 }
@@ -173,8 +171,8 @@ class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(par
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    val kernel = Imgproc.getGaussianKernel(appertureSize, sigma)
-    Imgproc.filter2D(image, dst, -1, kernel)
+    val kernel = getGaussianKernel(appertureSize, sigma)
+    filter2D(image, dst, -1, kernel)
     dst
   }
 }
@@ -191,23 +189,22 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   override def load(path: String): ImageTransformer = super.load(path)
 
   /** Convert Spark image representation to OpenCV format. */
-  private def row2mat(row: Row): (String, Mat) = {
+  private[spark] def row2mat(row: Row): (String, Mat) = {
     val path    = ImageSchema.getPath(row)
     val height  = ImageSchema.getHeight(row)
     val width   = ImageSchema.getWidth(row)
     val ocvType = ImageSchema.getType(row)
     val bytes   = ImageSchema.getBytes(row)
-
-    val img = new Mat(height, width, ocvType)
-    img.put(0,0,bytes)
+    val img = new Mat(Array(height, width), ocvType,
+                      new org.bytedeco.javacpp.BytePointer(bytes:_ *))
     (path, img)
   }
 
   /**  Convert from OpenCV format to Dataframe Row; unroll if needed. */
   private def mat2row(img: Mat, path: String = ""): Row = {
     var ocvBytes = new Array[Byte](img.total.toInt*img.elemSize.toInt)
-    img.get(0,0,ocvBytes)         //extract OpenCV bytes
-    Row(path, img.height, img.width, img.`type`, ocvBytes)
+    img.data.get(ocvBytes)         // extract OpenCV bytes
+    Row(path, img.rows, img.cols, img.`type`, ocvBytes)
   }
 
   /** Apply all OpenCV transformation stages to a single image; unroll the result if needed
@@ -305,7 +302,8 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val schema = dataset.toDF.schema
 
-    val loaded = ImageSchema.loadLibraryForAllPartitions(dataset.toDF.rdd, Core.NATIVE_LIBRARY_NAME)
+    val loaded = dataset.toDF.rdd
+      // ??? ImageSchema.loadLibraryForAllPartitions(dataset.toDF.rdd, "NATIVE_LIBRARY_NAME")
 
     val df = spark.createDataFrame(loaded, schema)
 
@@ -338,5 +336,3 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
 }
-
-
