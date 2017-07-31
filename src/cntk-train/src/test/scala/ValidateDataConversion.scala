@@ -3,6 +3,9 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
+import java.net.URI
+
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.types._
@@ -11,7 +14,9 @@ import org.apache.spark.ml.linalg._
 
 import FileUtilities._
 
-class ValidateDataConversion extends TestBase {
+class ValidateDataConversion extends TestBase with TestFileCleanup {
+
+  override var cleanupPath: File = new File(new URI(dir))
 
   import session.implicits._
 
