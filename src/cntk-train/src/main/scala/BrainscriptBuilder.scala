@@ -38,6 +38,10 @@ class BrainScriptBuilder {
   }
 
   def getModelPath: String = {
+    s"""file://$getLocalModelPath"""
+  }
+
+  def getLocalModelPath: String = {
     s"""$outDir/Models/$modelName"""
   }
 
@@ -87,7 +91,7 @@ class BrainScriptBuilder {
       "deviceId=\"auto\"",
       s"""rootDir="$rootDir" """,
       s"""outputDir="$outDir" """,
-      s"""modelPath="${getModelPath}" """)
+      s"""modelPath="${getLocalModelPath}" """)
     val commandReaders = commands.map(c => s"$c = [ ${toReaderConfig} ]")
 
     rootOverrides ++ commandReaders

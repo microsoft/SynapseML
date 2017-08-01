@@ -8,13 +8,12 @@ import java.net.URI
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
 
-import com.microsoft.ml.spark.schema._
 import FileUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
 
-import scala.sys.process._
+import StreamUtilities.using
 
 abstract class CNTKCommandBuilderBase(log: Logger) {
   val command: String
@@ -132,10 +131,8 @@ class MPICommandBuilder(log: Logger,
     val identityPath = new Path(identity)
     val outputPath = new Path(s"file:///${identityDir.getAbsolutePath}/identity")
     // Copy from wasb to local file
-    using(Seq(inputPath.getFileSystem(hadoopConf))) { fs =>
-      log.info(s"Copying from wasb: $inputPath to local: $identityPath")
-      fs(0).copyToLocalFile(inputPath, identityPath)
-      fs(0).setOwner(outputPath, System.getProperty("user.name"), null)
+    using(inputPath.getFileSystem(hadoopConf)) { fs =>
+      fs.copyToLocalFile(inputPath, identityPath)
     }.get
     var localDir = workingDir.toString.replaceFirst("file:/+", "/")
     val modelPath = new Path(localDir, new Path(outputDir, "Models")).toString
