@@ -3,18 +3,16 @@
 
 package com.microsoft.ml.spark
 
+import java.io.FileNotFoundException
 import java.net.URI
 
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
-
-import com.microsoft.ml.spark.schema._
 import FileUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
-
-import scala.sys.process._
+import StreamUtilities.using
 
 abstract class CNTKCommandBuilderBase(log: Logger) {
   val command: String
@@ -92,6 +90,7 @@ class MPICommandBuilder(log: Logger,
                         gpuMachines: Array[String],
                         hdfsPath: Option[(String, String, String)],
                         mountedInputPath: String,
+                        username: String,
                         fileBased: Boolean = true) extends CNTKCommandBuilderBase(log) with MPIConfiguration {
   private val defaultNumGPUs = 1
 
@@ -109,6 +108,10 @@ class MPICommandBuilder(log: Logger,
 
   val argName = "-n"
   val arguments = Seq(argName, nodeConfig.head._2.toString)
+  val identityKeyException =
+    "Please run the passwordless ssh setup: mmlspark/tools/hdi/setup-ssh-keys.sh\n" +
+    "  to create a private key.\n" +
+    "Identity file not found: "
 
   def runCommand(): Unit = {
     val pathEnvVar = "PATH=/usr/bin/cntk/cntk/bin:$PATH"
@@ -132,21 +135,23 @@ class MPICommandBuilder(log: Logger,
     val identityPath = new Path(identity)
     val outputPath = new Path(s"file:///${identityDir.getAbsolutePath}/identity")
     // Copy from wasb to local file
-    using(Seq(inputPath.getFileSystem(hadoopConf))) { fs =>
-      log.info(s"Copying from wasb: $inputPath to local: $identityPath")
-      fs(0).copyToLocalFile(inputPath, identityPath)
-      fs(0).setOwner(outputPath, System.getProperty("user.name"), null)
-    }.get
+    try {
+      using(inputPath.getFileSystem(hadoopConf)) { fs =>
+        fs.copyToLocalFile(inputPath, identityPath)
+      }.get
+    } catch {
+      case e: FileNotFoundException =>
+        throw new RuntimeException(identityKeyException + e.getMessage, e)
+    }
+
     var localDir = workingDir.toString.replaceFirst("file:/+", "/")
     val modelPath = new Path(localDir, new Path(outputDir, "Models")).toString
     val localOutputPath = new Path(localDir, outputDir).toString
     val modelDir = new File(modelPath)
     // Create the directory if it does not exist
-    if (!modelDir.exists()) {
-      modelDir.mkdirs()
-    }
+    if (!modelDir.exists()) modelDir.mkdirs()
     val nodeName = nodeConfig.head._1
-    val gpuUser = s"sshuser@$nodeName"
+    val gpuUser = s"$username@$nodeName"
 
     // Give less permissive file permissions to the private RSA key
     printOutput(Seq("hdfs", "dfs", "-chmod", "700", outputPath.toString))
