@@ -200,6 +200,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       case "StringParam" => "str"
       case "Param" => "str"
       case "StringArrayParam" => "list"
+      case "ByteArrayParam" => "list"
       case "MapArrayParam" => "dict"
       case _ => "object"
     }

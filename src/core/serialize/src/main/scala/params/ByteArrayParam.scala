@@ -7,9 +7,9 @@ package org.apache.spark.ml.param
   * types but not ByteArray.
   */
 class ByteArrayParam(parent: Params, name: String, doc: String, isValid: Array[Byte] => Boolean)
-  extends ComplexParam[Array[Byte]](parent, name, doc, isValid) {
+    extends ComplexParam[Array[Byte]](parent, name, doc, isValid) {
 
-    def this(parent: Params, name: String, doc: String) =
-      this(parent, name, doc, ParamValidators.alwaysTrue)
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  }
+}
