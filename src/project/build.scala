@@ -34,7 +34,7 @@ object Extras {
     "org.scalatest"    %% "scalatest"   % "3.0.0"  % "provided",
     // should include these things in the distributed jar
     "io.spray"         %% "spray-json"  % "1.3.2",
-    "com.microsoft.CNTK" % "cntk_jni"   % "2.0rc3",
+    "com.microsoft.CNTK" % "cntk_jni"   % "2.1",
     "org.openpnp"         % "opencv" % "3.2.0-1"
     )
   def overrideLibs = Set(
