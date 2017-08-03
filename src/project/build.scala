@@ -25,16 +25,13 @@ object Extras {
   def scalaVer = env("SCALA_FULL_VERSION", null)
   def sparkVer = env("SPARK_VERSION", null)
 
-  def commonResolvers = Seq(
-    "MMLSpark Maven Repo" at "https://mmlspark.azureedge.net/maven"
-    )
   def commonLibs = Seq(
     "org.apache.spark" %% "spark-core"  % sparkVer % "provided",
     "org.apache.spark" %% "spark-mllib" % sparkVer % "provided",
     "org.scalatest"    %% "scalatest"   % "3.0.0"  % "provided",
     // should include these things in the distributed jar
     "io.spray"         %% "spray-json"  % "1.3.2",
-    "com.microsoft.CNTK" % "cntk_jni"   % "2.0rc3",
+    "com.microsoft.cntk" % "cntk"   % "2.0",
     "org.openpnp"         % "opencv" % "3.2.0-1"
     )
   def overrideLibs = Set(
@@ -110,7 +107,6 @@ object Extras {
     // Common stuff: defaults for all subprojects
     scalaVersion in ThisBuild := scalaVer,
     organization in ThisBuild := defaultOrg,
-    resolvers in ThisBuild ++= commonResolvers,
     libraryDependencies in ThisBuild ++= commonLibs,
     dependencyOverrides in ThisBuild ++= overrideLibs,
     scalacOptions in ThisBuild ++= scalacOpts,
