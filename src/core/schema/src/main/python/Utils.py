@@ -8,7 +8,8 @@ if sys.version >= "3":
 
 from pyspark.ml.util import JavaMLReadable, JavaMLReader, MLReadable
 from pyspark.ml.wrapper import JavaParams
-from pyspark.ml.common import inherit_doc
+from pyspark.ml.common import inherit_doc, _java2py
+from pyspark import SparkContext
 
 def from_java(java_stage, stage_name):
     """
@@ -64,6 +65,26 @@ class JavaMMLReadable(MLReadable):
     def read(cls):
         """Returns an MLReader instance for this class."""
         return JavaMMLReader(cls)
+
+@inherit_doc
+class ComplexParamsMixin(MLReadable):
+    def _transfer_params_from_java(self):
+        """
+        Transforms the embedded params from the companion Java object.
+        """
+        sc = SparkContext._active_spark_context
+        for param in self.params:
+            if self._java_obj.hasParam(param.name):
+                java_param = self._java_obj.getParam(param.name)
+                # SPARK-14931: Only check set params back to avoid default params mismatch.
+                complex_param_class = sc._gateway.jvm.org.apache.spark.ml.param.ComplexParam._java_lang_class
+                is_complex_param = complex_param_class.isAssignableFrom(java_param.getClass())
+                if self._java_obj.isSet(java_param):
+                    if is_complex_param:
+                        value = self._java_obj.getOrDefault(java_param)
+                    else:
+                        value = _java2py(sc, self._java_obj.getOrDefault(java_param))
+                    self._set(**{param.name: value})
 
 @inherit_doc
 class JavaMMLReader(JavaMLReader):

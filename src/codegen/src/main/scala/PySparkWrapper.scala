@@ -35,8 +35,9 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     ""
   }
 
-  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1, kwargs is an
-  //       instance attribute. Once support for 2.1.0 is dropped, the else part of the if/else can be removed,
+  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
+  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
+  //   if/else can be removed
   protected def classTemplate(importsString: String, inheritanceString: String,
                               classParamsString: String,
                               paramDefinitionsAndDefaultsString: String, paramGettersAndSettersString: String,
@@ -149,7 +150,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |    @staticmethod
         |    def _from_java(java_stage):
         |        module_name=${entryPointName}.__module__
-        |        module_name=module_name.rsplit(".", 1)[0] + ".${entryPointName}"
+        |        module_name=module_name.rsplit(".", 1)[0] + ".${
+      if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName}"
         |        return from_java(java_stage, module_name)
         |""".stripMargin
   }
@@ -164,7 +166,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 
   val psType: String
   private lazy val objectBaseClass: String = "Java" + psType
-  private lazy val autoInheritedClasses = Seq("JavaMLReadable", "JavaMLWritable", objectBaseClass)
+  private lazy val autoInheritedClasses =
+    Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", objectBaseClass)
   // Complex types are not easily recognized by Py4j. They need special processing.
   private lazy val complexTypes =  Set[String](
     "TransformerParam",
@@ -344,7 +347,7 @@ class SparkEstimatorWrapper(entryPoint: Estimator[_],
         |""".stripMargin
 
   private def modelClassString(className: String, superClass: String): String = {
-    s"""|class ${className}(JavaModel, JavaMLWritable, JavaMLReadable):
+    s"""|class ${className}(ComplexParamsMixin, JavaModel, JavaMLWritable, JavaMLReadable):
         |    "\""
         |    Model fitted by :class:`${superClass}`.
         |

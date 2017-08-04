@@ -42,7 +42,7 @@ object CodeGen {
   }
 
   def generateArtifacts(): Unit = {
-    println(s"""|Running registration with config:
+    println(s"""|Running code generation with config:
                 |  topDir:    $topDir
                 |  srcDir:    $srcDir
                 |  outputDir: $outputDir
