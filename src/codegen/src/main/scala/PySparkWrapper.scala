@@ -3,10 +3,7 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.FileUtilities._
-
 import scala.collection.mutable.ListBuffer
-import scala.tools.nsc.util.DocStrings
 
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
@@ -15,25 +12,19 @@ import org.apache.spark.ml.param.Param
 
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
-import WrapperClassDoc._
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
 abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
-                              entryPointQualifiedName: String) {
+                              entryPointQualifiedName: String) extends WritableWrapper {
 
   private val additionalImports = Map(
     ("complexTypes",
       s"from ${toZipDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
     ("utils", s"from ${toZipDir.getName}.Utils import *")
   )
-
-  def toPySpark(): String = {
-    val output = new StringBuilder()
-    ""
-  }
 
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
@@ -324,9 +315,9 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   }
 }
 
-class SparkTransformerWrapper(entryPoint: Transformer,
-                              entryPointName: String,
-                              entryPointQualifiedName: String)
+class PySparkTransformerWrapper(entryPoint: Transformer,
+                                entryPointName: String,
+                                entryPointQualifiedName: String)
     extends PySparkWrapper(entryPoint,
                            entryPointName,
                            entryPointQualifiedName) {
@@ -334,11 +325,11 @@ class SparkTransformerWrapper(entryPoint: Transformer,
   override val psType = "Transformer"
 }
 
-class SparkEstimatorWrapper(entryPoint: Estimator[_],
-                            entryPointName: String,
-                            entryPointQualifiedName: String,
-                            companionModelName: String,
-                            companionModelQualifiedName: String)
+class PySparkEstimatorWrapper(entryPoint: Estimator[_],
+                              entryPointName: String,
+                              entryPointQualifiedName: String,
+                              companionModelName: String,
+                              companionModelQualifiedName: String)
   extends PySparkWrapper(entryPoint,
                          entryPointName,
                          entryPointQualifiedName) {

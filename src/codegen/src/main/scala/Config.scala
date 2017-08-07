@@ -12,9 +12,12 @@ object Config {
   val topDir     = new File("..").getCanonicalFile()
   val rootsFile  = new File(srcDir, "project/project-roots.txt")
   val outputDir  = new File(topDir, "BuildArtifacts/sdk")
+  val packageDir = new File(topDir, "BuildArtifacts/packages")
   val toZipDir   = new File(srcDir, "src/main/resources/mmlspark")
+  val toRDir     = new File(packageDir, "r")
   val zipFile    = new File(outputDir, "mmlspark.zip")
   val pyTestDir  = new File(topDir, "TestResults/generated_pytests")
+  val RTestDir   = new File(topDir, "TestResults/generated_Rtests")
   val pyDocDir   = new File(topDir, "BuildArtifacts/pydocsrc")
   val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
   val pyRelPath  = "src/main/python"
@@ -25,6 +28,8 @@ object Config {
   val scopeDepth = " " * 4
   val tmpDocDir  = new File(pyDocDir, "tmpDoc")
   val txtRelPath = "src/main/scala"
+  val sparklyRWrappersFile = "ml_wrappers.R"
+  val sparklyRNamespaceFile = "NAMESPACE"
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.
