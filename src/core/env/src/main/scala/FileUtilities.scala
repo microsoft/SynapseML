@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import java.nio.file.{Files, StandardCopyOption}
+import java.nio.file.{Files, StandardCopyOption, StandardOpenOption}
+
 import scala.io._
 
 object FileUtilities {
@@ -11,6 +12,8 @@ object FileUtilities {
   // Make `File` available to everyone who uses these utilities
   //   (Future TODO: make it some nice type, something like `file` in SBT)
   type File = java.io.File
+  // Same for StandardOpenOption
+  type StandardOpenOption = java.nio.file.StandardOpenOption
 
   def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
     def loop(dir: File): Array[File] = {
@@ -29,8 +32,8 @@ object FileUtilities {
   }
   def readFile(file: File): String = readFile(file, _.mkString)
 
-  def writeFile(file: File, stuff: Any): Unit = {
-    Files.write(file.toPath, stuff.toString.getBytes())
+  def writeFile(file: File, stuff: Any, flags: StandardOpenOption*): Unit = {
+    Files.write(file.toPath, stuff.toString.getBytes(), flags: _*)
     ()
   }
 

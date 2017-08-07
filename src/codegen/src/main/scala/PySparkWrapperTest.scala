@@ -16,7 +16,7 @@ import Config._
   */
 abstract class PySparkWrapperTest(entryPoint: PipelineStage,
                                   entryPointName: String,
-                                  entryPointQualifiedName: String) {
+                                  entryPointQualifiedName: String) extends WritableWrapper {
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
@@ -247,9 +247,9 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
 
 }
 
-class SparkTransformerWrapperTest(entryPoint: Transformer,
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String)
+class PySparkTransformerWrapperTest(entryPoint: Transformer,
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String)
   extends PySparkWrapperTest(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -274,11 +274,11 @@ class SparkTransformerWrapperTest(entryPoint: Transformer,
 
 }
 
-class SparkEstimatorWrapperTest(entryPoint: Estimator[_],
-                                entryPointName: String,
-                                entryPointQualifiedName: String,
-                                companionModelName: String,
-                                companionModelQualifiedName: String)
+class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String,
+                                  companionModelName: String,
+                                  companionModelQualifiedName: String)
     extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
 
   private val modelName = entryPointName + "Model"
