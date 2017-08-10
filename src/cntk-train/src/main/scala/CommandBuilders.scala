@@ -91,6 +91,7 @@ class MPICommandBuilder(log: Logger,
                         gpuMachines: Array[String],
                         hdfsPath: Option[(String, String, String)],
                         mountedInputPath: String,
+                        username: String,
                         fileBased: Boolean = true) extends CNTKCommandBuilderBase(log) with MPIConfiguration {
   private val defaultNumGPUs = 1
 
@@ -143,7 +144,7 @@ class MPICommandBuilder(log: Logger,
       modelDir.mkdirs()
     }
     val nodeName = nodeConfig.head._1
-    val gpuUser = s"sshuser@$nodeName"
+    val gpuUser = s"$username@$nodeName"
 
     // Give less permissive file permissions to the private RSA key
     printOutput(Seq("hdfs", "dfs", "-chmod", "700", outputPath.toString))

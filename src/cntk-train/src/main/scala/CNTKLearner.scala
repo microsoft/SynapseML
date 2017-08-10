@@ -61,6 +61,10 @@ trait CNTKParams extends MMLParams {
   def setGPUMachines(value: Array[String]): this.type = set(gpuMachines, value)
   def getGPUMachines: Array[String] = $(gpuMachines)
 
+  val username = StringParam(this, "username", "username for the GPU VM", "sshuser")
+  def setUserName(value: String): this.type = set(username, value)
+  def getUserName: String = $(username)
+
 }
 
 object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
@@ -142,7 +146,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
 
     // Train the learner
     val cb =
-      if (getParallelTrain) new MPICommandBuilder(log, getGPUMachines, hdfsPath, remappedInPath)
+      if (getParallelTrain) new MPICommandBuilder(log, getGPUMachines, hdfsPath, remappedInPath, getUserName)
       else new CNTKCommandBuilder(log)
     cb
       .setWorkingDir(cntkrootPath)
