@@ -30,6 +30,7 @@ mistune=0.7.4
 mkl=2017.0.1
 nbconvert=5.1.1
 nbformat=4.3.0
+nltk=3.2.4
 notebook=5.0.0
 numpy=1.12.1
 olefile=0.44
