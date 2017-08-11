@@ -3,16 +3,15 @@
 
 package com.microsoft.ml.spark
 
+import java.io.FileNotFoundException
 import java.net.URI
 
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
-
 import FileUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
-
 import StreamUtilities.using
 
 abstract class CNTKCommandBuilderBase(log: Logger) {
@@ -109,6 +108,10 @@ class MPICommandBuilder(log: Logger,
 
   val argName = "-n"
   val arguments = Seq(argName, nodeConfig.head._2.toString)
+  val identityKeyException =
+    "Please run the passwordless ssh setup: mmlspark/tools/hdi/setup-ssh-keys.sh\n" +
+    "  to create a private key.\n" +
+    "Identity file not found: "
 
   def runCommand(): Unit = {
     val pathEnvVar = "PATH=/usr/bin/cntk/cntk/bin:$PATH"
@@ -132,17 +135,21 @@ class MPICommandBuilder(log: Logger,
     val identityPath = new Path(identity)
     val outputPath = new Path(s"file:///${identityDir.getAbsolutePath}/identity")
     // Copy from wasb to local file
-    using(inputPath.getFileSystem(hadoopConf)) { fs =>
-      fs.copyToLocalFile(inputPath, identityPath)
-    }.get
+    try {
+      using(inputPath.getFileSystem(hadoopConf)) { fs =>
+        fs.copyToLocalFile(inputPath, identityPath)
+      }.get
+    } catch {
+      case e: FileNotFoundException =>
+        throw new RuntimeException(identityKeyException + e.getMessage, e)
+    }
+
     var localDir = workingDir.toString.replaceFirst("file:/+", "/")
     val modelPath = new Path(localDir, new Path(outputDir, "Models")).toString
     val localOutputPath = new Path(localDir, outputDir).toString
     val modelDir = new File(modelPath)
     // Create the directory if it does not exist
-    if (!modelDir.exists()) {
-      modelDir.mkdirs()
-    }
+    if (!modelDir.exists()) modelDir.mkdirs()
     val nodeName = nodeConfig.head._1
     val gpuUser = s"$username@$nodeName"
 
