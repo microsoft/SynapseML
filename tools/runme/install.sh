@@ -121,7 +121,7 @@ _retrieve_file() { # url file sha256
         && "$(< "$cache.sha256")" = "$sha256" ]]; then
     _ ln -sf "$cache" "$target"; return
   fi
-  _ curl --output "$target" $CURL_FLAGS "$url"
+  _curl --output "$target" "$url"
   local sha256sum="$(__ sha256sum "$target")"; sha256sum="${sha256sum%% *}"
   if [[ "x$sha256sum" = "x" ]]; then failwith "could not get sha256 checksum"; fi
   if [[ "$sha256sum" != "$sha256" ]]; then

@@ -348,6 +348,12 @@ azblob() {
   az storage blob "$verb" --account-name "$MAIN_STORAGE" "$@"
 }
 
+# ---< _curl arg... >-----------------------------------------------------------
+# Convenience for running curl as "_ curl $CURL_FLAGS arg...".
+_curl() {
+  _ curl $CURL_FLAGS "$@"
+}
+
 # ------------------------------------------------------------------------------
 # Internal functions follow
 

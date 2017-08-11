@@ -26,13 +26,17 @@ object Extras {
   def sparkVer = env("SPARK_VERSION", null)
 
   def commonLibs = Seq(
-    "org.apache.spark"   %% "spark-core"  % sparkVer % "provided",
-    "org.apache.spark"   %% "spark-mllib" % sparkVer % "provided",
-    "org.scalatest"      %% "scalatest"   % "3.0.0"  % "provided",
+    "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
+    "org.apache.spark"   %% "spark-mllib"  % sparkVer % "provided",
+    "org.scalatest"      %% "scalatest"    % "3.0.0"  % "provided",
     // should include these things in the distributed jar
-    "io.spray"           %% "spray-json"  % "1.3.2",
-    "com.microsoft.cntk" %  "cntk"        % "2.1",
-    "org.openpnp"        %  "opencv"      % "3.2.0-1"
+    "io.spray"           %% "spray-json"   % "1.3.2",
+    "com.microsoft.cntk"  % "cntk"         % "2.1",
+    "org.openpnp"         % "opencv"       % "3.2.0-1"
+    // needed for wasb access, but it collides with the version that comes with Spark,
+    // so it gets installed manually for now (see "tools/config.sh")
+
+    // "org.apache.hadoop"   % "hadoop-azure" % "2.7.3"
     )
   def overrideLibs = Set(
     // spark wants 2.2.6, but we don't use its tests anyway

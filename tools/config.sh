@@ -174,6 +174,15 @@ Spark.setup() {
     echo "  </property>"
     echo "</configuration>"
   } > "conf/hive-site.xml"
+  cd "jars"
+  # Patch the Spark jars: add hadoop-azure and azure-storage to make WASB access
+  # work.  Ideally, we would just add `hadoop-azure` to the SBT dependencies,
+  # but that collides with the hadoop version that comes with Spark (see comment
+  # in "src/project/build.scala").  When/if spark is updated for a newer hadoop,
+  # then go back to the sbt route.
+  local mvn="http://central.maven.org/maven2"
+  _curl -O "$mvn/com/microsoft/azure/azure-storage/2.0.0/azure-storage-2.0.0.jar"
+  _curl -O "$mvn/org/apache/hadoop/hadoop-azure/2.7.3/hadoop-azure-2.7.3.jar"
 }
 Spark.init() {
   local f; for f in "python/lib/"*.zip; do
