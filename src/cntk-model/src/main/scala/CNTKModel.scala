@@ -25,13 +25,22 @@ private object CNTKModelUtils extends java.io.Serializable {
                          broadcastedModel: Broadcast[CNTKFunction],
                          minibatchSize: Int,
                          inputNode: Int,
-                         outputNode: Option[String])(inputRows: Iterator[Row]): Iterator[Row] = {
+                         outputNodeName: Option[String],
+                         outputNodeIndex: Option[Int])(inputRows: Iterator[Row]): Iterator[Row] = {
     val device = DeviceDescriptor.useDefaultDevice
     val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
 
+    val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
+      case (Some(name),None) => Some(Option(m.findByName(name)).getOrElse(
+        throw new IllegalArgumentException(s"Node $name does not exist")))
+      case (None, Some(index)) => Some(m.getOutputs.get(index).getOwner)
+      case (Some(_), Some(_)) =>
+        throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
+      case _ => None
+    }
+
     val model = outputNode
-      .map { name => CNTKLib.AsComposite(Option(m.findByName(name)).getOrElse(
-              throw new IllegalArgumentException(s"Node $name does not exist"))) }
+      .map { f => CNTKLib.AsComposite(f) }
       .getOrElse(m)
 
     val inputVar = model.getArguments.get(inputNode)
@@ -103,9 +112,9 @@ private object CNTKModelUtils extends java.io.Serializable {
   // here just for serialization
   val applyModelFunc = (inputIndex: Int, broadcastedModel: Broadcast[CNTKFunction],
                         minibatchSize: Int, inputNode: Int,
-                        outputNode: Option[String]) => {
+                        outputNodeName: Option[String], outputNodeIndex: Option[Int]) => {
     (inputRows: Iterator[Row]) => {
-      applyModel(inputIndex, broadcastedModel, minibatchSize, inputNode, outputNode)(inputRows)
+      applyModel(inputIndex, broadcastedModel, minibatchSize, inputNode, outputNodeName, outputNodeIndex)(inputRows)
     }
   }
 
@@ -159,6 +168,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** @group getParam */
   def getInputNode: Int                   = $(inputNode)
   setDefault(inputNode -> 0)
+
+  /** Returns the dimensions of the required input**/
+  def getInputShape: Array[Int] =
+    getModel.getInputs.get(getInputNode).getShape.getDimensions.map(_.toInt)
 
   /** Index of the output node
     * @group param
@@ -247,7 +260,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
                                     broadcastedModel,
                                     getMiniBatchSize,
                                     getInputNode,
-                                    outputNode))
+                                    get(outputNodeName),
+                                    get(outputNodeIndex)))
     val output = spark.createDataFrame(rdd, df.schema.add(StructField(getOutputCol, VectorType)))
 
     coersionOptionUDF match {

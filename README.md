@@ -22,6 +22,7 @@ Python 3.5+.  See the API documentation
 * Easily ingest images from HDFS into Spark `DataFrame` ([example:301])
 * Pre-process image data using transforms from OpenCV ([example:302])
 * Featurize images using pre-trained deep neural nets using CNTK ([example:301])
+* Use pre-trained bidirectional LSTMs from Keras for medical entity extraction ([example:304])
 * Train DNN-based image classification models on N-Series GPU VMs on Azure
 * Featurize free-form text data using convenient APIs on top of primitives in
   SparkML via a single transformer ([example:201])
@@ -42,6 +43,8 @@ See our [notebooks](notebooks/samples/) for all examples.
   "CIFAR10 CNTK CNN Evaluation"
 [example:302]: notebooks/samples/302%20-%20Pipeline%20Image%20Transformations.ipynb
   "Pipeline Image Transformations"
+[example:304]: notebooks/samples/304%20-%20Medical%20Entity%20Extraction.ipynb
+  "Medical Entity Extraction"
 
 
 ## A short example
