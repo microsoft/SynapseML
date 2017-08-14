@@ -139,34 +139,34 @@ the Azure CLI 2.0 using the instruction found in [Install Azure CLI
 
 CNTK training using MMLSpark requires passwordless ssh connection from the
 HDInsight spark cluster to the GPU VM.  The setup of this connection is done
-through a [script](../tools/deployment/gpuvmsetup.sh) and it needs to be done
+through a [script](../tools/hdi/setup-ssh-keys.sh) and it needs to be done
 once.  The script takes two parameters:
 
-    ./setup-ssh.sh -m <vmName> -u <userName>
+    ./setup-ssh-keys.sh <vm-name> [<username>]
 
-The parameter userName is optional if the HDI spark cluster and the GPU VM share
-the same ssh user name.
+The `<username>` parameter is optional if the HDI spark cluster and the GPU VM
+share the same ssh user name.
 
 ## Shutdown GPU VM to save money
 
-Azure will stop billing if a VM is in the "Stopped (Deallocated)" state.  Please
-note that Billing will continue if a VM is in the "Stopped" state.  In Azure
-portal, clicking on the Stop button will make the VM in the "Stopped
-(Deallocated)" state and clicking on the Start button to bring the VM back.
-Please refer to this
-[article](https://buildazure.com/2017/03/16/properly-shutdown-azure-vm-to-save-money/)
+Azure will stop billing if a VM is in the "Stopped (**Deallocated**)" state.
+Please note that billing will continue if a VM is in the "Stopped" state (so
+make sure it is *Deallocated* to avoid billing).  In Azure portal, clicking the
+"Stop" button will get VM into a "Stopped (Deallocated)" state and clicking the
+"Start" button brings the VM back.  See "[Properly Shutdown Azure VM to Save
+Money](https://buildazure.com/2017/03/16/properly-shutdown-azure-vm-to-save-money/)"
 for more details.
 
-Here is an example of the steps to Stop and Start a VM in Azure PowerShell:
-
-    Login-AzureRmAccount
-    Select-AzureRmSubscription -SubscriptionID "90856715-5231-42a2-9069-4bf974b1xxxx"
-    Stop-AzureRmVM -ResourceGroupName "MyResourceGroupName" -Name "mygpuvm"
-    Start-AzureRmVM -ResourceGroupName "MyResourceGroupName" -Name "mygpuvm"
-
-Here an example of the steps to Stop and Start a VM in Azure CLI 2.0:
+Here is an example of the steps to "Stop" and "Start" a VM using the `az` CLI:
 
     az login
-    az account set --subscription 90856715-5231-42a2-9069-4bf974b1xxxx
+    az account set --subscription 12345678-90ab-cdef-0123-4567890abcde
     az vm deallocate --resource-group MyResourceGroupName --name mygpuvm
     az vm start --resource-group MyResourceGroupName --name mygpuvm
+
+and in PowerShell:
+
+    Login-AzureRmAccount
+    Select-AzureRmSubscription -SubscriptionID "12345678-90ab-cdef-0123-4567890abcde"
+    Stop-AzureRmVM -ResourceGroupName "MyResourceGroupName" -Name "mygpuvm"
+    Start-AzureRmVM -ResourceGroupName "MyResourceGroupName" -Name "mygpuvm"
