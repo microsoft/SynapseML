@@ -98,7 +98,7 @@
    "id": "[resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet'))]",
    "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet')), concat('/subnets/', parameters('virtualNetworkSubnetName')))]"
   },
-  "scriptActionUri": "https://mmlspark.azureedge.net/buildartifacts/0.5/install-mmlspark.sh"
+  "scriptActionUri": "https://mmlspark.azureedge.net/buildartifacts/0.7/install-mmlspark.sh"
  },
  "resources": [
   {
