@@ -40,6 +40,7 @@ object BinaryFileReader {
     var data: RDD[(String, Array[Byte])] = null
     try {
       val streams = spark.sparkContext.binaryFiles(path, spark.sparkContext.defaultParallelism)
+        .repartition(spark.sparkContext.defaultParallelism)
 
       // Create files RDD and load bytes
       data = if (!inspectZip) {
