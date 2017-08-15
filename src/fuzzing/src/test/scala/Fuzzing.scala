@@ -257,10 +257,11 @@ class Fuzzing extends TestBase {
     try {
       func()
     } catch {
-      onFailure()
       case ne: java.util.NoSuchElementException =>
+        onFailure()
         throwOrLog(ne, s"Could not transform: $ne", disableFailure)
       case th: Throwable =>
+        onFailure()
         throwOrLog(th, s"Encountered unknown error: $th", disableFailure)
     }
   }
