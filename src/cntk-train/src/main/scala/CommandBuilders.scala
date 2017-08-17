@@ -89,7 +89,7 @@ trait MPIConfiguration {
 class MPICommandBuilder(log: Logger,
                         gpuMachines: Array[String],
                         hdfsPath: Option[(String, String, String)],
-                        mountedInputPath: String,
+                        fileInputPath: String,
                         username: String,
                         fileBased: Boolean = true) extends CNTKCommandBuilderBase(log) with MPIConfiguration {
   private val defaultNumGPUs = 1
@@ -160,44 +160,36 @@ class MPICommandBuilder(log: Logger,
       Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no", localDir, s"$gpuUser:$localDir"))
 
     // Run commands below only if writing input data to HDFS
-    var gpuHdfsMntProc: Option[Process] = None
-    var mountedDir: String = ""
+    var fileDirStr: String = ""
     if (hdfsPath.isDefined) {
       // Add the mounted directory and all parents if it does not exist so mount will work
-      mountedDir = new URI(hdfsPath.get._3).toString
-      if (!mountedDir.startsWith("/")) {
-        mountedDir = "/" + mountedDir
+      fileDirStr = new URI(hdfsPath.get._3).toString
+      if (!fileDirStr.startsWith("/")) {
+        fileDirStr = "/" + fileDirStr
       }
-      printOutput(Seq("ssh", "-i", identity, gpuUser, "mkdir", "-p", mountedDir))
+      printOutput(Seq("ssh", "-i", identity, gpuUser, "mkdir", "-p", fileDirStr))
       // Get the node:port from the hdfs URI
       var nodeAndPort = hdfsPath.get._1.replaceFirst("hdfs://", "")
       // Formatting: remove the trailing slash if it exists, otherwise we get unknown port error
       if (nodeAndPort.endsWith("/")) {
         nodeAndPort = nodeAndPort.substring(0, nodeAndPort.length - 1)
       }
-      // Setup hdfs if used to read in dataset on the GPU VM
-      val gpuHdfsMnt: ProcessBuilder =
-        Seq("ssh", "-i", identity, gpuUser, "hdfs-mount", nodeAndPort, mountedDir)
-      val gpulogger = ProcessLogger(output => log.info(s"Output received from VM mount: $output"))
-      gpuHdfsMntProc = Some(gpuHdfsMnt.run(gpulogger))
       // Concatenate the hdfs output files together into one merged one
       val mergedOutputFile = s"${hdfsPath.get._2}/merged-input.txt"
       // Create local directory if it does not exist on the driver
-      val mountedDirFolder = new File(mountedDir)
-      if (!mountedDirFolder.exists()) {
-        mountedDirFolder.mkdirs()
+      val fileDirFile = new File(fileDirStr)
+      if (!fileDirFile.exists()) {
+        fileDirFile.mkdirs()
       }
       // Do HDFS merge to local directory
-      printOutput(Seq("hdfs", "dfs", "-getmerge", s"${hdfsPath.get._2}/*.txt", mountedInputPath))
-      // Copy back to HDFS
-      printOutput(Seq("hdfs", "dfs", "-moveFromLocal", mountedInputPath, s"${hdfsPath.get._2}/merged-input.txt"))
+      printOutput(Seq("hdfs", "dfs", "-getmerge", s"${hdfsPath.get._2}/*.txt", fileInputPath))
+      // scp the file to the GPU machine
+      printOutput(
+        Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no",
+          fileInputPath, s"$gpuUser:$fileDirStr/merged-input.txt"))
     }
     // Run the mpi command
     printOutput(Seq("ssh", "-i", identity, gpuUser, command, mpiArgs, cntkArgs, "parallelTrain=true"))
-    if (gpuHdfsMntProc.isDefined) {
-      // Destroy the mount on the GPU VM
-      gpuHdfsMntProc.get.destroy()
-    }
     // Copy the model back
     val modelOrigin = s"$gpuUser:$modelPath"
     printOutput(Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no", modelOrigin, localOutputPath))
@@ -206,10 +198,8 @@ class MPICommandBuilder(log: Logger,
     if (hdfsPath.isDefined) {
       // Cleanup: Remove the HDFS directory
       printOutput(Seq("hdfs", "dfs", "-rm", "-r", s"${hdfsPath.get._2}"))
-      // Cleanup: close the mounted drive on the GPU VM
-      printOutput(Seq("ssh", "-i", identity, gpuUser, "fusermount", "-uz", mountedDir))
       // Remove the empty directory
-      printOutput(Seq("ssh", "-i", identity, gpuUser, "rmdir", mountedDir))
+      printOutput(Seq("ssh", "-i", identity, gpuUser, "rmdir", fileDirStr))
     }
   }
 
