@@ -102,6 +102,7 @@ for ((i=-1; i<len; i++)); do
     --container "$DOCS_CONTAINER" --content-type "text/html" \
     --file "$tmp" --name "$webdir" \
     2> /dev/null
+  sleep 5 # FIXME!! Remove this when throttling is resolved!
 done
 rm -f "$tmp"
 
