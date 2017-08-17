@@ -22,7 +22,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setMiniBatchSize(minibatchSize)
-      .setOutputNodeIndex(3)
+      .setOutputNodeIndices(Array(3))
   }
   val images = testImages(session)
 
@@ -44,7 +44,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
       .setModelLocation(session, modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setOutputNodeName("z")
+      .setOutputNodeNames(Array("z"))
 
     val data   = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
@@ -56,7 +56,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     val model = new CNTKModel()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setOutputNodeName("nonexistant-node")
+      .setOutputNodeNames(Array("nonexistant-node"))
       .setModelLocation(session, modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
@@ -141,12 +141,25 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     }
   }
 
+  test("supports multi in and multi out") {
+    val model  = new CNTKModel().setModelLocation(session, modelPath)
+                                .setInputCols(Array(inputCol, labelCol))
+    model.write.overwrite().save(saveFile)
+    val modelLoaded = CNTKModel.load(saveFile)
+    import images.sparkSession.implicits._
+    val oneHotEncodedLabels = Seq(1.0 +: Array.fill(9)(0.0)).toDF(labelCol)
+    val dfWithLabels = images.crossJoin(oneHotEncodedLabels)
+    val result = modelLoaded.transform(dfWithLabels)
+    outputCols.foreach(colName => assert(result.columns.contains(colName)))
+  }
+
   val dfRoundTrip: DataFrame = images
   val reader: MLReadable[_] = CNTKModel
   val modelReader: MLReadable[_] = CNTKModel
   val stageRoundTrip: PipelineStage with MLWritable = testModel()
 
-  test(" should roundtrip"){
+  test(" should roundtrip") {
     testRoundTrip()
   }
+
 }
