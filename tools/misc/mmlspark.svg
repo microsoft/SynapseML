@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1">
-  <g>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="262" height="200" viewbox="0 0 242 180">
+  <g transform="translate(10,10)">
     <path style="fill:#00bbf1;fill-opacity:1;stroke:none"
-          d="M -190.5,371.08333 H 105.83333 L 21.166667,286.41667 Z" />
+          d="M 130,180 v -180 l -38,142 Z" />
+    <path style="fill:#7fdcf7;fill-opacity:1;stroke:none"
+          d="M 130,180 v -180 l 38,142 Z" />
     <path style="fill:#00bbf1;fill-opacity:1;stroke:none"
-          d="M 153.45833,371.08333 52.916667,270.54167 153.45833,-105.16667 Z" />
+          d="M 0,180 h 112 l -32,-32 Z" />
     <path style="fill:#7fdcf7;fill-opacity:1;stroke:none"
-          d="m 153.45833,371.08333 v -476.25 L 254,270.54167 Z" />
+          d="M 148,180 h 76 l -44,-32 Z" />
     <path style="fill:#7fdcf7;fill-opacity:1;stroke:none"
-          d="M 201.08333,371.08333 H 402.16667 L 285.75,286.41667 Z" />
-    <path style="fill:#7fdcf7;fill-opacity:1;stroke:none"
-          d="m 277.8125,262.60417 -18.52083,-68.79167 190.5,-76.72917 L 325.4375,297 Z" />
+          d="M 177,139 l -7,-26 l 72,-29 l -47,68 Z" />
   </g>
 </svg>

@@ -93,14 +93,12 @@ INSTALLATIONS=(
   vers:   "cat version|<{ver}>"
   where:  "devel build"
 
-  # Note: this is different than the version defined in SBT to avoid breaking
-  # work in progress; but when that's done, we need to sync up the two version
-  # via a shared version seetting so they cannot diverge.
-  CNTK ver: "beta12"
-  url:    "$INSTALLER_URL/CNTK-2-0-<{ver}>-0-Linux-64bit-CPU-Only.tar.gz"
-  sha256: "033c5da4b3034f51d0bde6f0d926f7d075a146b16e7c6148a38cecba928efc6c"
+  CNTK ver: "2.1"
+  url:    "$INSTALLER_URL/CNTK-2-1-Linux-64bit-CPU-Only.tar.gz"
+  sha256: "6fef06b6c9b9bdb782c0d3c4b860c7f7834a04bdf02a6e79938551dfaceea3c1"
   exes:   "cntk"
-  vers:   "cntk|*Built time: Feb 22 2017 13:29:08"
+  # Note: no good way to find the installed version, see cntk pr #2228
+  vers:   "ls cntk/lib/libCntk.Core-*.so|*/libCntk.Core-<{ver}>.so"
   bindir: "cntk/bin"
   where:  "devel build"
 
