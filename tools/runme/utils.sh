@@ -397,10 +397,10 @@ _set_build_info() {
     done
     # collect git information that is used for both MML_VERSION and MML_LATEST
     local tag="$(git describe --abbrev=0)"
-    local head="$(git rev-parse HEAD)"
+    local headref="$(git rev-parse HEAD)"
     # (note: prefer origin/master since VSTS doesn't update master)
-    local branch="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
-                    || git merge-base HEAD refs/heads/master)"
+    local branchref="$(git merge-base HEAD refs/remotes/origin/master 2> /dev/null \
+                       || git merge-base HEAD refs/heads/master)"
     local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
     # MML_VERSION
     if [[ -r "$BUILD_ARTIFACTS/version" ]]; then
@@ -416,18 +416,20 @@ _set_build_info() {
       version="${tag#v}"
       # 2. ".dev" + number of commits on master since the tag, unless
       #    we're right on the tag
-      if [[ "$tagref" != "$head" ]]; then
-        version+=".dev$(git rev-list --count "$tag..$branch")"
+      if [[ "$tagref" != "$headref" ]]; then
+        version+=".dev$(git rev-list --count "$tag..$branchref")"
       fi
       # 3. if building a branch or building locally:
       #    "+" + number of commits on top of master ".g" + abbreviated sha1
-      if [[ "$branch" != "$head" || "$BUILDMODE" != "server" ]]; then
-        version+="+$(git rev-list --count "$branch..$head")"
-        version+=".g$(git rev-parse --short "$head")"
+      if [[ "$branchref" != "$headref" || "$BUILDMODE" != "server" ]]; then
+        version+="+$(git rev-list --count "$branchref..$headref")"
+        version+=".g$(git rev-parse --short "$headref")"
       fi
-      # 4. ".local" for local builds, ".dirty" for a dirty tree
-      if [[ "$BUILDMODE" != "server" ]]; then version+=".local"; fi
-      if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
+      # 4. ".local" for local builds, ".dirty" for a local+dirty tree
+      if [[ "$BUILDMODE" != "server" ]]; then
+        version+=".local"
+        if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
+      fi
     fi
     # MML_BUILD_INFO
     if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
@@ -454,7 +456,7 @@ _set_build_info() {
     info="$version: $info"
     # MML_LATEST
     # "yes" when building an exact version which is the latest on origin/master
-    local latest="$(git describe --abbrev=0 "$branch")"
+    local latest="$(git describe --abbrev=0 "$branchref")"
     if [[ "$version" = "${tag#v}" && "$tag" = "$latest" ]]
     then is_latest="yes"; else is_latest="no"; fi
     #
@@ -462,7 +464,7 @@ _set_build_info() {
   fi
   defvar -x MML_VERSION    "$version"
   defvar -x MML_BUILD_INFO "$info"
-  defvar    MML_LATEST     "$is_latest"
+  defvar -x MML_LATEST     "$is_latest"
 }
 # To be called when re-creating $BUILD_ARTIFACTS
 _reset_build_info() {
