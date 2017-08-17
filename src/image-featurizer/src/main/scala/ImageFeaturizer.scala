@@ -59,19 +59,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getMiniBatchSize: Int = getCntkModel.getMiniBatchSize
 
-  /** @group setParam */
-  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNode(value))
-
-  /** @group getParam */
-  def getInputNode: Int = getCntkModel.getInputNode
-
   def setModelLocation(spark: SparkSession, path: String): this.type = {
     set(cntkModel, getCntkModel.setModelLocation(spark, path))
   }
 
   def setModel(spark: SparkSession, modelSchema: ModelSchema): this.type = {
     setLayerNames(modelSchema.layerNames)
-      .setInputNode(modelSchema.inputNode)
       .setModelLocation(spark, modelSchema.uri.toString)
   }
 
@@ -118,10 +111,10 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   override def transform(dataset: Dataset[_]): DataFrame = {
     val spark = dataset.sparkSession
 
-    val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
+    val resizedCol = DatasetExtensions.produceUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel
-      .setOutputNodeName(getLayerNames.apply(getCutOutputLayers))
+      .setOutputNodeNames(Array(getLayerNames.apply(getCutOutputLayers)))
       .setInputCol(resizedCol)
       .setOutputCol(getOutputCol)
 

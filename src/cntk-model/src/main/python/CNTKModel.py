@@ -25,3 +25,17 @@ class CNTKModel(_CNTKModel):
     def rebroadcastCNTKModel(self, sparkSession):
         jSpark = sparkSession._jsparkSession
         self._java_obj = self._java_obj.rebroadcastCNTKModel(jSpark)
+
+    def setInputCol(self, value):
+        self._java_obj.setInputCol(value)
+        return self
+
+    def getInputCol(self):
+        return self._java_obj.getInputCol()
+
+    def setOutputCol(self, value):
+        self._java_obj.setOutputCol(value)
+        return self
+
+    def getOutputCol(self):
+        return self._java_obj.getOutputCol()
