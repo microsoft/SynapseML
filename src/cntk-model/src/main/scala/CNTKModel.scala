@@ -3,11 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import java.io.File
-
-import com.microsoft.CNTK.{DataType => CNTKDataType, Function => CNTKFunction, _}
+import com.microsoft.CNTK.CNTKExtensions._
+import com.microsoft.CNTK.{DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
 import com.microsoft.ml.spark.schema.DatasetExtensions
-import org.apache.commons.io.FileUtils._
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -24,12 +22,13 @@ import scala.collection.mutable.ListBuffer
 private object CNTKModelUtils extends java.io.Serializable {
 
   private def applyModel(inputIndex: Int,
-                         broadcastModelBytes: Broadcast[Array[Byte]],
+                         broadcastedModel: Broadcast[CNTKFunction],
                          minibatchSize: Int,
                          inputNode: Int,
                          outputNode: Option[String])(inputRows: Iterator[Row]): Iterator[Row] = {
     val device = DeviceDescriptor.useDefaultDevice
-    val m = CNTKModel.loadModelFromBytes(broadcastModelBytes.value, device)
+    val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
+
     val model = outputNode
       .map { name => CNTKLib.AsComposite(Option(m.findByName(name)).getOrElse(
               throw new IllegalArgumentException(s"Node $name does not exist"))) }
@@ -102,11 +101,11 @@ private object CNTKModelUtils extends java.io.Serializable {
   }
 
   // here just for serialization
-  val applyModelFunc = (inputIndex: Int, broadcastModelBytes: Broadcast[Array[Byte]],
+  val applyModelFunc = (inputIndex: Int, broadcastedModel: Broadcast[CNTKFunction],
                         minibatchSize: Int, inputNode: Int,
                         outputNode: Option[String]) => {
     (inputRows: Iterator[Row]) => {
-      applyModel(inputIndex, broadcastModelBytes, minibatchSize, inputNode, outputNode)(inputRows)
+      applyModel(inputIndex, broadcastedModel, minibatchSize, inputNode, outputNode)(inputRows)
     }
   }
 
@@ -115,20 +114,7 @@ private object CNTKModelUtils extends java.io.Serializable {
   }
 }
 
-object CNTKModel extends ComplexParamsReadable[CNTKModel] {
-  def loadModelFromBytes(bytes: Array[Byte],
-                         device: DeviceDescriptor =
-                           DeviceDescriptor.useDefaultDevice): CNTKFunction = {
-    import java.util.UUID._
-    val modelFile = new File(s"$getTempDirectoryPath/$randomUUID.model")
-    writeByteArrayToFile(modelFile, bytes)
-    val model = try {
-      CNTKFunction.load(modelFile.getPath, device)
-    } finally forceDelete(modelFile)
-    model
-  }
-
-}
+object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 @InternalWrapper
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
@@ -139,19 +125,27 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** Array of bytes containing the serialized CNTK <code>Function</code>
     * @group param
     */
-  val model: ByteArrayParam =
-    new ByteArrayParam(this, "model", "Array of bytes containing the serialized CNTKModel")
+  val model: CNTKFunctionParam =
+    new CNTKFunctionParam(this, "model", "Array of bytes containing the serialized CNTKModel")
+
+  private var broadcastedModelOption: Option[Broadcast[CNTKFunction]] = None
 
   /** @group setParam */
-  def setModel(bytes: Array[Byte]): this.type = set(model, bytes)
+  def setModel(value: CNTKFunction): this.type = {
+    // Free up memory used by the previous model
+    // TODO: investigate using destroy()
+    broadcastedModelOption.foreach(_.unpersist())
+    broadcastedModelOption = None
+    set(model, value)
+  }
 
   /** @group getParam */
-  def getModel: Array[Byte] = $(model)
+  def getModel: CNTKFunction = $(model)
 
   /** @group setParam */
   def setModelLocation(spark: SparkSession, path: String): this.type = {
     val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
-    setModel(modelBytes)
+    setModel(CNTKFunction.loadModelFromBytes(modelBytes))
   }
 
   /** Index of the input node
@@ -211,24 +205,20 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     */
   def transform(dataset: Dataset[_]): DataFrame = {
     val spark      = dataset.sparkSession
-    val sc         = spark.sparkContext
     val inputIndex = dataset.columns.indexOf(getInputCol)
-    val device     = DeviceDescriptor.useDefaultDevice
 
     if (inputIndex == -1)
       throw new IllegalArgumentException(s"Input column $getInputCol does not exist")
 
-    val model = CNTKModel.loadModelFromBytes(getModel, device)
-
     val setByName  = get(outputNodeName)
     val setByIndex = get(outputNodeIndex)
     if ((setByName.isDefined && setByIndex.isDefined) ||
-          (!setByName.isDefined && !setByIndex.isDefined))
+          (setByName.isEmpty && setByIndex.isEmpty))
       throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
 
     val outputNode: Option[String] =
       if (setByName.isDefined) setByName
-      else                     setByIndex.map(i => model.getOutputs.get(i).getName)
+      else                     setByIndex.map(i => getModel.getOutputs.get(i).getName)
 
     val coersionOptionUDF = dataset.schema.fields(inputIndex).dataType match {
       case ArrayType(tp, _) =>
@@ -250,10 +240,11 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     }
 
     val inputType = df.schema($(inputCol)).dataType
-    val broadcastModelBytes = sc.broadcast(getModel)
+    val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
+    //val broadcastedModel = getModel
     val rdd = df.rdd.mapPartitions(
       CNTKModelUtils.applyModelFunc(selectedIndex,
-                                    broadcastModelBytes,
+                                    broadcastedModel,
                                     getMiniBatchSize,
                                     getInputNode,
                                     outputNode))

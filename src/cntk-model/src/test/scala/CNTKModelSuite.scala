@@ -19,7 +19,6 @@ import org.apache.spark.sql.types._
 class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
 
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
-  val saveFile = s"$getTempDirectoryPath/${new Date()}-spark-z.model"
 
   def testModel(minibatchSize: Int = 10): CNTKModel = {
     new CNTKModel()
@@ -29,7 +28,6 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
       .setMiniBatchSize(minibatchSize)
       .setOutputNodeIndex(3)
   }
-
   val images = testImages(session)
 
   private def checkParameters(minibatchSize: Int) = {
@@ -40,7 +38,6 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
 
   test("A CNTK model should be able to support setting the input and output node") {
     val model = testModel().setInputNode(0)
-
     val data = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
     assert(result.select(outputCol).count() == 3)
@@ -103,8 +100,6 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     val model = testModel()
     val result = model.transform(images.repartition(1))
     compareToTestModel(result)
-    //images.printSchema()
-    //result.show()
   }
 
   test("A CNTK model should work on an empty dataframe") {
