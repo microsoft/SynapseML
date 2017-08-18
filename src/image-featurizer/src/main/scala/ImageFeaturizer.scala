@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.CNTK.CNTKExtensions._
+import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -66,10 +68,10 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   }
 
   /** @group setParam */
-  def setModel(bytes: Array[Byte]): this.type = set(cntkModel, getCntkModel.setModel(bytes))
+  def setModel(model: CNTKFunction): this.type = set(cntkModel, getCntkModel.setModel(model))
 
   /** @group getParam */
-  def getModel: Array[Byte] = getCntkModel.getModel
+  def getModel: CNTKFunction = getCntkModel.getModel
 
   // Parameters for just the ImageFeaturizer
 
@@ -115,8 +117,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
       .setInputCol(resizedCol)
       .setOutputCol(getOutputCol)
 
-    val requiredSize = CNTKModel.loadModelFromBytes(cntkModel.getModel)
-      .getArguments.get(0).getShape().getDimensions
+    val requiredSize = cntkModel.getModel.getArguments.get(0).getShape().getDimensions
 
     val prepare = new ImageTransformer()
       .setInputCol($(inputCol))
