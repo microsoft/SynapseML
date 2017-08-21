@@ -60,17 +60,17 @@ defvar INSTALLER_CACHE_DIR "$HOME/.mmlspark_cache"
 INSTALLATIONS=(
 
   Java ver: "1.8.0" lib: "jdk"
-  url:    "http://cdn.azul.com/zulu/bin/zulu8.21.0.1-jdk8.0.131-linux_x64.tar.gz"
-  sha256: "17218c6bdd608b5714ffba9d5e28522bb2efc309266ba46232b8b918e6e62133"
+  url:    "http://cdn.azul.com/zulu/bin/zulu8.23.0.3-jdk8.0.144-linux_x64.tar.gz"
+  sha256: "7e6284739c0e5b7142bc7a9adc61ced70dc5bb26b130b582b18e809013bcb251"
   exes:   "java javac jar javadoc"
   vers:   "java -version|openjdk version \"<{ver}>_*\""
   where:  "devel runtime build"
 
-  SBT ver: "0.13.15"
+  SBT ver: "1.0.0"
   url:    "https://github.com/sbt/sbt/releases/download/v<{ver}>/sbt-<{ver}>.tgz"
-  sha256: "b6e073d7c201741dcca92cfdd1dd3cd76c42a47dc9d8c8ead8df7117deed7aef"
+  sha256: "9ae04f4972145f2ac56c4deb868c9a5bb8b8b85c5151885dff3b997712645c5a"
   exes:   "sbt"
-  vers:   "sbt -no-colors sbt-version|?info? <{ver}>"
+  vers:   "sbt -no-colors sbtVersion|?info? <{ver}>"
   where:  "devel build"
 
   Spark ver: "2.1.1"

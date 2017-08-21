@@ -8,6 +8,7 @@ import sys.process.Process
 
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
+import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
 
 object Extras {
@@ -39,7 +40,7 @@ object Extras {
 
     // "org.apache.hadoop"   % "hadoop-azure" % "2.7.3"
     )
-  def overrideLibs = Set(
+  def overrideLibs = Seq(
     // spark wants 2.2.6, but we don't use its tests anyway
     "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
     )
@@ -67,7 +68,8 @@ object Extras {
   val sectionPrefix =
     if (env("BUILDMODE") == "server") "##[section]SBT: " else "===>>> SBT: "
   def addCommands(st: State, cmds: String*): State =
-    st.copy(remainingCommands = cmds ++ st.remainingCommands)
+    st.copy(remainingCommands =
+              cmds.map(Exec(_, None, None)).toList ++ st.remainingCommands)
   def newCommands = Seq(
     Command.single("cd") { (st, arg) =>
       addCommands(st, s"project $arg") },
@@ -126,7 +128,7 @@ object Extras {
     test in assembly := {},
     // Documentation settings
     autoAPIMappings in ThisBuild := true,
-    target in (config("scalaunidoc"), unidoc) := docsDir,
+    target in (ScalaUnidoc, unidoc) := docsDir,
     // Ctrl+C kills a running job, not sbt
     cancelable in ThisBuild := true,
     // No verbose logs during update
@@ -161,7 +163,7 @@ object Extras {
     // "-assembly" name).  Later in the build we discard the junk files, and
     // leave only the combined one.
     Seq(artifact in (Compile, assembly) :=
-          (artifact in (Compile, assembly)).value.copy(`classifier` = Some("assembly"))) ++
+          (artifact in (Compile, assembly)).value.withClassifier(Some("assembly"))) ++
     addArtifact(artifact in (Compile, assembly), assembly) ++
     Seq(
       // This creates a maven structure, which we upload to azure storage later
