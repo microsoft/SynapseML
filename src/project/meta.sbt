@@ -12,7 +12,7 @@ val _ = {
   def userError(message: String): Nothing = {
     System.err.println(message)
     System.err.println("Aborting...")
-    exit(1)
+    sys.exit(1)
   }
 
   case class Proj(val dir: File, val children: List[Proj]) {
@@ -82,7 +82,6 @@ val _ = {
 
   IO.write(topDir / "project" / "autogen.scala",
     s"""// Automatically generated, DO NOT EDIT\n
-       |import sbt._\nimport Keys._\n
        |object SubProjects {
        |  val all = Seq(
        |    ${sortedProjs.filter(_.children.isEmpty)
