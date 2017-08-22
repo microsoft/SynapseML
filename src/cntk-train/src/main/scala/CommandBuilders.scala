@@ -88,7 +88,7 @@ trait MPIConfiguration {
 
 class MPICommandBuilder(log: Logger,
                         gpuMachines: Array[String],
-                        hdfsPath: Option[(String, String, String)],
+                        hdfsPath: Option[(String, String)],
                         fileInputPath: String,
                         username: String,
                         fileBased: Boolean = true) extends CNTKCommandBuilderBase(log) with MPIConfiguration {
@@ -117,7 +117,7 @@ class MPICommandBuilder(log: Logger,
     val pathEnvVar = "PATH=/usr/bin/cntk/cntk/bin:$PATH"
     val ldLibraryPathEnvVar =
       "LD_LIBRARY_PATH=/usr/bin/cntk/cntk/lib:/usr/bin/cntk/cntk/dependencies/lib:$LD_LIBRARY_PATH"
-    val mpiArgs = s" -x $pathEnvVar -x $ldLibraryPathEnvVar --npernode 1 "
+    val mpiArgs = s" -x $pathEnvVar -x $ldLibraryPathEnvVar --npernode ${nodeConfig.head._2} "
     val cntkArgs = "cntk " + configs
       .map(c => if (fileBased) s"configFile=${configToFile(c)} " else c.text.mkString(" "))
       .mkString(" ")
@@ -163,30 +163,23 @@ class MPICommandBuilder(log: Logger,
     var fileDirStr: String = ""
     if (hdfsPath.isDefined) {
       // Add the mounted directory and all parents if it does not exist so mount will work
-      fileDirStr = new URI(hdfsPath.get._3).toString
+      fileDirStr = new URI(hdfsPath.get._2).toString
       if (!fileDirStr.startsWith("/")) {
         fileDirStr = "/" + fileDirStr
       }
       printOutput(Seq("ssh", "-i", identity, gpuUser, "mkdir", "-p", fileDirStr))
-      // Get the node:port from the hdfs URI
-      var nodeAndPort = hdfsPath.get._1.replaceFirst("hdfs://", "")
-      // Formatting: remove the trailing slash if it exists, otherwise we get unknown port error
-      if (nodeAndPort.endsWith("/")) {
-        nodeAndPort = nodeAndPort.substring(0, nodeAndPort.length - 1)
-      }
-      // Concatenate the hdfs output files together into one merged one
-      val mergedOutputFile = s"${hdfsPath.get._2}/merged-input.txt"
+      val mergedInputFile = "merged-input.txt"
       // Create local directory if it does not exist on the driver
       val fileDirFile = new File(fileDirStr)
       if (!fileDirFile.exists()) {
         fileDirFile.mkdirs()
       }
       // Do HDFS merge to local directory
-      printOutput(Seq("hdfs", "dfs", "-getmerge", s"${hdfsPath.get._2}/*.txt", fileInputPath))
+      printOutput(Seq("hdfs", "dfs", "-getmerge", s"${hdfsPath.get._1}/*.txt", fileInputPath))
       // scp the file to the GPU machine
       printOutput(
         Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no",
-          fileInputPath, s"$gpuUser:$fileDirStr/merged-input.txt"))
+          fileInputPath, s"$gpuUser:$fileInputPath"))
     }
     // Run the mpi command
     printOutput(Seq("ssh", "-i", identity, gpuUser, command, mpiArgs, cntkArgs, "parallelTrain=true"))
@@ -197,9 +190,9 @@ class MPICommandBuilder(log: Logger,
     printOutput(Seq("ssh", "-i", identity, gpuUser, "rm", "-r", localDir))
     if (hdfsPath.isDefined) {
       // Cleanup: Remove the HDFS directory
-      printOutput(Seq("hdfs", "dfs", "-rm", "-r", s"${hdfsPath.get._2}"))
-      // Remove the empty directory
-      printOutput(Seq("ssh", "-i", identity, gpuUser, "rmdir", fileDirStr))
+      printOutput(Seq("hdfs", "dfs", "-rm", "-r", s"${hdfsPath.get._1}"))
+      // Remove the temporary files on the GPU machine
+      printOutput(Seq("ssh", "-i", identity, gpuUser, "rm", "-r", fileDirStr))
     }
   }
 

@@ -32,6 +32,24 @@ class ValidateDataConversion extends TestBase with TestFileCleanup {
     assert(outputs === expected)
   }
 
+  test("validate empty vectors to dense text") {
+    val testVectors = List(
+      new DenseVector(Array(1.0, 0.0, 0.0, 4.0)),
+      new DenseVector(Array(0.0, 0.0, 0.0, 0.0)),
+      new SparseVector(4, Array(), Array()),
+      new DenseVector(Array(2.0, 3.0, 4.0, 5.0))
+    )
+
+    val expected = Seq(
+      "1.0 0.0 0.0 4.0 ",
+      "0.0 0.0 0.0 0.0 ",
+      "0.0 0.0 0.0 0.0 ",
+      "2.0 3.0 4.0 5.0 ")
+
+    val outputs = testVectors.map(vector => DataTransferUtils.convertVectorToText(vector, CNTKLearner.denseForm))
+    assert(outputs === expected)
+  }
+
   val mockLabelColumn = "Label"
 
   def createMockDataset: DataFrame = {
