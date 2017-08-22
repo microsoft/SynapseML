@@ -50,7 +50,7 @@ object DataTransferUtils {
             ()
           }
         } else if (form == CNTKLearner.denseForm) {
-          convertVectorToText(sv.toDense, form)
+          sb.append(convertVectorToText(sv.toDense, form))
         } else {
           throw new Exception(s"Unknown vector form $form")
         }
@@ -174,7 +174,7 @@ class LocalWriter(log: Logger, path: String) extends SingleFileResolver(log, pat
   }
 }
 
-class HdfsMountWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: SparkContext)
+class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: SparkContext)
   extends SingleFileResolver(log, path) {
   val partitions = parts
   val hConf = sc.hadoopConfiguration
@@ -196,6 +196,6 @@ class HdfsMountWriter(log: Logger, localMnt: String, parts: Int, path: String, s
   def getHdfsToMount: String = new URI("hdfs", namenode, "/", null, null).toString
   // The directory containing the input data in HDFS
   def getHdfsInputDataDir: String = constructedPath
-  // The mount point
-  def getMountPoint: String = mountPoint
+  // The root directory
+  def getRootDir: String = remappedRoot
 }
