@@ -165,7 +165,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       .setOutputCol(labels)
   }
 
-  def getWriter(dataset: Dataset[_], relativeInPath: String): (SingleFileResolver, Option[(String, String, String)]) = {
+  def getWriter(dataset: Dataset[_], relativeInPath: String): (SingleFileResolver, Option[(String, String)]) = {
     getDataTransfer match {
       case CNTKLearner.localDataTransfer => (new LocalWriter(log, relativeInPath), None)
       case CNTKLearner.hdfsDataTransfer => {
@@ -180,12 +180,12 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
         }
         logInfo(s"hdfs-mount mounted at $mntpt, writing ${dataset.rdd.getNumPartitions} distributed files")
         val hdfsWriter =
-          new HdfsMountWriter(log,
+          new HdfsWriter(log,
             mntpt,
             dataset.rdd.getNumPartitions,
             relativeInPath,
             dataset.sparkSession.sparkContext)
-        val hdfsPath = Some((hdfsWriter.getHdfsToMount, hdfsWriter.getHdfsInputDataDir, hdfsWriter.getMountPoint))
+        val hdfsPath = Some((hdfsWriter.getHdfsInputDataDir, hdfsWriter.getRootDir))
         (hdfsWriter, hdfsPath)
       }
       case _ =>
