@@ -17,7 +17,7 @@ let repo = {owner: "Azure", repo: "mmlspark"};
 let repo_pg = Object.assign({}, repo, {per_page: 100});
 
 module.exports = ctx => {
-  let blob = az.createBlobService(process.env.AzureWebJobsStorage);
+  let blob = az.createBlobService(process.env.MMLSparkStorage);
   let gh   = new ghAPI();
   let timeStamp = new Date().toISOString()
                         .replace(/:[0-9][0-9]\.[0-9]+Z/, "").replace(/T/, " ");

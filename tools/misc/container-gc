@@ -27,6 +27,9 @@ github_prs="$(curl --silent --show-error "$GH_API/pulls" \
               | jq -r 'map(.number | tostring) | " " + join(" ") + " "')"
 
 export AZURE_STORAGE_ACCOUNT="$MAIN_STORAGE"
+export AZURE_STORAGE_KEY="$(
+  az storage account keys list -n "$MAIN_STORAGE" -g "$MAIN_RESOURCE_GROUP" | \
+    jq -r '.[0].value')"
 
 now=0; _minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
 show-time() (
@@ -103,8 +106,13 @@ tmp="/tmp/$(basename "$0")-$$"
 cachedir="$HOME/.$(basename "$0")"; mkdir -p "$cachedir"
 
 (cd "$cachedir"
- find . -type f -empty -execdir rm -f "{}" +
- rm -f "$(ls -t | tail -1)")
+ for f in *; do
+   # delete version infos that were deleted
+   if [[ ! -s "$f" ]]; then rm -f "$f"; continue; fi
+   # or possibly created during their build (recent file close enough to creation time)
+   del="$(jq -r 'if .created - .maxtime < 2*60*60 then "x" else "." end' < "$f")"
+   if [[ "$del" = "x" ]]; then rm -f "$f"; fi
+ done)
 
 get-ver-info() (
   v="$1" info="{}"
@@ -141,6 +149,12 @@ get-ver-info() (
   if [[ "$binfo" =~ $rx ]]; then pr="${BASH_REMATCH[1]}"; else pr=""; fi
   info="$(jq --arg pr "$pr" '. + {github_pr: $pr}' <<<"$info")"
   #
+  info="$(jq --argjson now "$(date +"%s")" \
+             '. + (to_entries
+                   | map(select((.value | type) == "array") | .value) | add
+                   | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
+                   | sort | {created: $now, mintime: .[0], maxtime: .[-1]})' <<<"$info")"
+  #
   echo "$info" > "$cachedir/$v"
 )
 
@@ -151,10 +165,7 @@ show-all-oneline() {
     if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
     printf '  %-22s' "$v"
     get-ver-info "$v"
-    times="$(jq -r 'to_entries | map(select((.value | type) == "array") | .value) | add
-                    | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
-                    | sort | "\(.[0]):\(.[-1])"
-                   ' < "$cachedir/$v")"
+    times="$(jq -r '"\(.mintime):\(.maxtime)"' < "$cachedir/$v")"
     printf ' %-16s' "$(show-time-range "${times%:*}" "${times#*:}")"
     info="$(jq -r '.label' < "$cachedir/$v")"
     pr="$(jq -r '.github_pr' < "$cachedir/$v")"
@@ -224,7 +235,7 @@ do-delete() (
       then _copy "$blob/*"; fi
     fi
   done
-  sleep 15 # just in case?
+  sleep 4 # just in case?
   # no patterns in the delete cli
   do-actual-delete
 )
@@ -235,6 +246,10 @@ do-list() (
     printf '  | %s\n' "${X[container]}/$blob"
   done
 )
+
+do-refresh() {
+  rm -f "$cachedir/$ver"
+}
 
 do-requests() {
   local ver vers c show_all=1
@@ -252,11 +267,12 @@ do-requests() {
     jq -r '.buildinfo' < "$cachedir/$ver" | awk '{ print "  | " $0 }'
     echo "  |"
     show_all=1
-    read -p $'  Delete/Label/listBlobs? ' c
+    read -p $'  Delete/Label/listBlobs/Refresh? ' c
     case "${c,,}" in
       ("d"*) do-delete  ;;
       ("l"*) do-label   ;;
       ("b"*) do-list    ;;
+      ("r"*) do-refresh ;;
       (*)    show_all=0 ;;
     esac
   done
