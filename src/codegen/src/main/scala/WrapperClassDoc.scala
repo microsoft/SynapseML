@@ -8,6 +8,7 @@ import java.nio.file.{Files, Paths}
 import org.apache.commons.lang3.StringUtils
 import scala.io.Source
 import scala.collection.mutable.ListBuffer
+import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
 /** Provide class level python help documentation for generated classes.
@@ -16,24 +17,16 @@ import Config._
   *
   * Where possible, there is also sample code to illustrate usage.
   *
-  * The default case, TODO + classname will help identify missing class docs as more modules are added
-  * to the codebase. When new classes are added, please add a case and docstring here.
+  * The default case, TODO + classname will help identify missing class docs as more modules are
+  * added to the codebase. When new classes are added, please add a case and docstring here.
   */
 
 object WrapperClassDoc {
   def GenerateWrapperClassDoc(className: String): String = {
-    var doc = ListBuffer[String]()
-    if (!Files.exists(Paths.get(tmpDocDir.getPath, className + ".txt"))) {
-      println("No class documentation file exists for " + className)
-      ""
-    }
-    else {
-      val bufferedSource = Source.fromFile(
-        Paths.get(tmpDocDir.getPath, className + ".txt").normalize().toString())
-      for (line <- bufferedSource.getLines) doc += s"$scopeDepth$line"
-      bufferedSource.close()
-      doc.mkString("\n")
-    }
+    val f = new File(tmpDocDir, className + ".txt")
+    if (!f.exists) { println("No class documentation file exists for " + className); "" }
+    else readFile(f, _.getLines.toList)
+           .map{s => if (s.isEmpty) s else scopeDepth + s}.mkString("\n")
   }
 
   // The __init__.py file

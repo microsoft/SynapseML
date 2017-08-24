@@ -7,6 +7,7 @@ Sampling mode.  The options are:
 The default is RandomSample.
 
 Relevant parameters for the different modes are:
+
 - When the mode is AssignToPartition:
     - seed - the seed for random partition assignment.
     - numParts - the number of partitions.  The Default is 10.
