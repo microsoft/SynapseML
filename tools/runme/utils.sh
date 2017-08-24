@@ -342,10 +342,10 @@ get_runtime_hash() {
 }
 
 # ---< azblob verb arg... >-----------------------------------------------------
-# Same as "az storage blob <verb> --account-name $MAIN_STORAGE arg..."
+# Same as "az storage blob <verb> arg..."
 azblob() {
   local verb="$1"; shift
-  az storage blob "$verb" --account-name "$MAIN_STORAGE" "$@"
+  az storage blob "$verb" "$@"
 }
 
 # ---< _curl arg... >-----------------------------------------------------------
