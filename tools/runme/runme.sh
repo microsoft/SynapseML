@@ -25,6 +25,17 @@ PATH="/usr/bin:/bin"
 [[ -r "$TOOLSDIR/local-config.sh" ]] && @ "$TOOLSDIR/local-config.sh"
 @ "../config.sh"; _post_config
 
+# arrange to set these lazily, when `az` is called
+az() {
+  unset -f az
+  export AZURE_STORAGE_ACCOUNT="$MAIN_STORAGE"
+  export AZURE_STORAGE_KEY="$(
+    x="$(az storage account keys list -n "$MAIN_STORAGE" -g "$MAIN_RESOURCE_GROUP" \
+            -o tsv | head -1)"
+    echo "${x##*$'\t'}")"
+  az "$@"
+}
+
 # main runme functionality
 _runme() {
   @ "install.sh"

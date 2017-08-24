@@ -184,15 +184,14 @@ _publish_docs() {
     # there is no api for copying to a different path, so re-do the whole thing,
     # but first, delete any paths that are not included in the new contents
     local d f
-    # FIXME!!  Disabled deletion to avoid extra api calls, re-enable when throttling is resolved!
-    # for d in "scala" "pyspark"; do
-    #   __ azblob list --container-name "$DOCS_CONTAINER" --prefix "$d/" -o tsv | cut -f 3
-    # done | while read -r f; do
-    #   if [[ -e "$BUILD_ARTIFACTS/docs/$f" ]]; then continue; fi
-    #   echo -n "deleting $f..."
-    #   if collect_log=1 __ azblob delete --container-name "$DOCS_CONTAINER" -n "$f" > /dev/null
-    #   then echo " done"; else echo " failed"; failwith "deletion of $f failed"; fi
-    # done
+    for d in "scala" "pyspark"; do
+      __ azblob list --container-name "$DOCS_CONTAINER" --prefix "$d/" -o tsv | cut -f 3
+    done | while read -r f; do
+      if [[ -e "$BUILD_ARTIFACTS/docs/$f" ]]; then continue; fi
+      echo -n "deleting $f..."
+      if collect_log=1 __ azblob delete --container-name "$DOCS_CONTAINER" -n "$f" > /dev/null
+      then echo " done"; else echo " failed"; failwith "deletion of $f failed"; fi
+    done
     @ "../pydocs/publish" --top
     _add_to_description '* Also copied as [toplevel documentation](%s).\n' "$DOCS_URL"
   fi

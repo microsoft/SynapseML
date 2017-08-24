@@ -26,11 +26,6 @@ GH_API="https://api.github.com/repos/Azure/mmlspark"
 github_prs="$(curl --silent --show-error "$GH_API/pulls" \
               | jq -r 'map(.number | tostring) | " " + join(" ") + " "')"
 
-export AZURE_STORAGE_ACCOUNT="$MAIN_STORAGE"
-export AZURE_STORAGE_KEY="$(
-  az storage account keys list -n "$MAIN_STORAGE" -g "$MAIN_RESOURCE_GROUP" | \
-    jq -r '.[0].value')"
-
 now=0; _minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
 show-time() (
   time="$1"
