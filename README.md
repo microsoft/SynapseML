@@ -85,15 +85,11 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
-    spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.7 \
-                --repositories https://mmlspark.azureedge.net/maven
+    spark-shell --packages Azure:mmlspark:0.7
 
-    pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.7 \
-            --repositories https://mmlspark.azureedge.net/maven
+    pyspark --packages Azure:mmlspark:0.7
 
-    spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.7 \
-                 --repositories https://mmlspark.azureedge.net/maven \
-                 MyApp.jar
+    spark-submit Azure:mmlspark:0.7 MyApp.jar
 
 <img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
 
