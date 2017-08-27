@@ -199,15 +199,6 @@ _publish_docs() {
 
 _publish_to_dockerhub() {
   @ "../docker/build-docker"
-  local itag="mmlspark:latest" otag otags
-  otag="microsoft/mmlspark:$MML_VERSION"; otag="${otag//+/_}"; otags=("$otag")
-  if [[ "$MML_LATEST" = "yes" ]]; then otags+=( "microsoft/mmlspark:latest" ); fi
-  show section "Pushing to Dockerhub as ${otags[*]}"
-  show - "Image info:"
-  local info="$(docker images "$itag")"
-  if [[ "$info" != *$'\n'* ]]; then failwith "tag not found: $itag"; fi
-  info="  | ${info//$'\n'/$'\n  | '}"
-  echo "$info"
   local auth user pswd
   __ docker logout > /dev/null
   auth="$(__ az keyvault secret show --vault-name mmlspark-keys --name dockerhub-auth)"
@@ -216,16 +207,30 @@ _publish_to_dockerhub() {
   user="${auth%%:*}" pswd="${auth#*:}"
   ___ docker login -u "$user" -p "$pswd" > /dev/null
   unset user pass auth
-  local txt="" fst=1
-  for otag in "${otags[@]}"; do
-    if ((!fst)); then txt+=","; fi; fst=0; txt+=" \`$otag\`"
-    show - "Pushing \"$otag\""
-    _ docker tag "$itag" "$otag"
-    _ docker push "$otag"
-    _ docker rmi "$otag"
+  local txt=""
+  # mmlspark       -> microsoft/mmlspark:X.Y,       microsoft/mmlspark:latest
+  # mmlspark-$mode -> microsoft/mmlspark:$mode-X.Y, microsoft/mmlspark:$mode
+  local mode
+  for mode in "" "plus" "gpu" "plus-gpu"; do
+    local itag="mmlspark${mode:+-}${mode}:latest" otag otags
+    otag="microsoft/mmlspark:${mode}${mode:+-}$MML_VERSION"
+    otag="${otag//+/_}"; otags=("$otag")
+    if [[ "$MML_LATEST" = "yes" ]]; then otags+=("microsoft/mmlspark:${mode:-latest}"); fi
+    show section "Pushing to Dockerhub as ${otags[*]}"
+    show - "Image info:"
+    local info="$(docker images "$itag")"
+    if [[ "$info" != *$'\n'* ]]; then failwith "tag not found: $itag"; fi
+    echo "  | ${info//$'\n'/$'\n  | '}"
+    for otag in "${otags[@]}"; do
+      txt+=", \`$otag\`"
+      show - "Pushing \"$otag\""
+      _ docker tag "$itag" "$otag"
+      _ docker push "$otag"
+      _ docker rmi "$otag"
+    done
   done
   __ docker logout > /dev/null
-  _add_to_description '* Docker hub image pushed: %s.\n' "$txt"
+  _add_to_description '* Docker hub images pushed: %s.\n' "${txt:2}"
 }
 
 _upload_artifacts_to_VSTS() {
