@@ -23,24 +23,40 @@ if [[ -r "$envtgz" ]]; then
   _ cp -al "$envtgz" "mmlspark.tgz"
 else
   show - "Creating base environment cache"
-  docker run --interactive --rm \
-             -v "$BASEDIR:/mkenv/src:ro" \
-             -v "$INSTALLER_CACHE_DIR:/mkenv/cache:ro" \
-             -v "$(pwd):/home" \
-             ubuntu:16.04 "/mkenv/src/tools/docker/build-env" \
+  _ docker run --interactive --rm \
+               -v "$BASEDIR:/mkenv/src:ro" \
+               -v "$INSTALLER_CACHE_DIR:/mkenv/cache:ro" \
+               -v "$(pwd):/home" \
+               ubuntu:16.04 "/mkenv/src/tools/docker/build-env" \
     2>&1 | ( IFS=""; while read -r line; do echo "| $line"; done )
-  _ cp -al "mmlspark.tgz" "$envtgz"
+  _ cp -al "mmlspark.tgz" "$envtgz"; rm "mmlspark.tgz"
 fi
 
 _ _tgzip "notebooks" "$BUILD_ARTIFACTS/notebooks/local"
 _ _tgzip "mml-m2"    "$BUILD_ARTIFACTS/packages/m2"
 _ _tgzip "bin"       "$TOOLSDIR/docker/bin"
-_ cp "$TOOLSDIR/docker/Dockerfile" .
+_ cp "$TOOLSDIR/docker/Dockerfile"* .
 
 find . -type f | xargs cksum > ~/tmp/1
 
 _ docker system prune -f
-_ docker-buildx -t mmlspark .
+
+# plain image
+_ cp -al "$envtgz" "mmlspark.tgz" # (do this since the Dockerfile deletes it)
+_ MML_DOCKER_BASE_IMAGE="ubuntu:16.04" \
+  MML_DOCKER_TARGET_TAG="mmlspark" \
+  docker-buildx -t mmlspark .
+# extended image
+_ MML_DOCKER_BASE_IMAGE="mmlspark" \
+  docker-buildx -f Dockerfile-plus -t mmlspark-plus .
+# gpu image
+_ cp -al "$envtgz" "mmlspark.tgz" # (do this since the Dockerfile deletes it)
+_ MML_DOCKER_BASE_IMAGE="nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04" \
+  MML_DOCKER_TARGET_TAG="mmlspark-gpu" \
+  docker-buildx -t mmlspark-gpu .
+# extended gpu image
+_ MML_DOCKER_BASE_IMAGE="mmlspark-gpu" \
+  docker-buildx -f Dockerfile-plus -t mmlspark-plus-gpu .
 
 _ cd "$BASEDIR"
 _rm "$BUILD_ARTIFACTS/docker-work"

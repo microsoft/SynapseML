@@ -1,9 +1,9 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-FROM ubuntu:16.04
+#META# echo FROM ${MML_DOCKER_BASE_IMAGE:-ubuntu:16.04}
 
-#META# echo LABEL maintainer="$SUPPORT_EMAIL"
+#META# echo LABEL maintainer=\"$SUPPORT_EMAIL\"
 
 #META# H="/home/mmlspark"; echo ENV \
   USER="mmlspark" HOME="$H" PATH="$H/bin:\$PATH"
@@ -22,7 +22,7 @@ USER $USER:$USER
 # add the premade runtime environment
 ADD mmlspark.tgz ..
 
-#BUILD# -t mmlspark:keep-for-cache
+#BUILD# -t "${MML_DOCKER_TARGET_TAG:-mmlspark}:keep-for-cache"
 #META# rm -f "mmlspark.tgz" # avoid re-hashing a big file
 
 #META# H="/home/mmlspark"; echo ENV \
