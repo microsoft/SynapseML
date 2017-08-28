@@ -46,8 +46,11 @@ RUN : '==== make the notebooks convenient to access and have the right date' \
  && bash -c ". ./.mmlspark_profile; \
       spark-shell --master \"local[*]\" \
         --repositories \"$MML_M2REPOS\" --packages \"$MML_PACKAGE\" < /dev/null"
+#BUILD#
+# #SQUASH# (would be good, but: https://github.com/moby/moby/issues/31983)
 
-# #SQUASH#
+#META# R() { docker run --rm -h tmphost $BUILDXTAG bash -c "$*"; }
+#META# echo "ENV $(comm -13 <(R "bin/print-envvars") <(R ". .bashrc; bin/print-envvars") | tr '\n' ' ')"
 
 # use CMD to get both "docker run this" and "docker run this command" work
 EXPOSE $MMLSPARK_JUPYTER_PORT
