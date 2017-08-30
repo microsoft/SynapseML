@@ -22,7 +22,7 @@ USER $USER:$USER
 # add the premade runtime environment
 ADD mmlspark.tgz ..
 
-#BUILD# -t mmlspark:keep-for-cache
+#BUILD# -t mmlspark:old-conda-keep-for-cache
 #META# rm -f "mmlspark.tgz" # avoid re-hashing a big file
 
 #META# H="/home/mmlspark"; echo ENV \
