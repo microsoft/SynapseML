@@ -5,6 +5,8 @@ package com.microsoft.ml.spark
 
 import java.io.File
 import java.util.Date
+
+import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FileUtils.getTempDirectoryPath
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{ByteArrayParam, Param, ParamMap, Params}
@@ -53,6 +55,7 @@ object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = s"$getTempDirectoryPath/${new Date()}-spark-z.model"
+  val saveFile2 = s"$getTempDirectoryPath/${new Date()}-spark-z2.model"
 
   session
 
@@ -77,8 +80,23 @@ class ValidateComplexParamSerializer extends TestBase {
     assert(mpt1.getStringParam === mpt2.getStringParam)
   }
 
+  test("Complex Param serialization should yield portable models"){
+    val bytes ="foo".toCharArray.map(_.toByte)
+    val s = "foo"
+
+    val mpt1 = new MixedParamTest("foo").setByteArray(bytes).setStringParam(s)
+    mpt1.write.overwrite().save(saveFile)
+
+    FileUtils.moveDirectory(new File(saveFile), new File(saveFile2))
+
+    val mpt2 = MixedParamTest.load(saveFile2)
+    assert(mpt1.getByteArray === mpt2.getByteArray)
+    assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
   override def afterAll(): Unit = {
     new File(saveFile).delete()
+    new File(saveFile2).delete()
     super.afterAll()
   }
 }

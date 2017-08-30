@@ -36,7 +36,7 @@ private[ml] class ComplexParamsWriter(instance: Params) extends MLWriter {
     val complexParamLocs = ComplexParamsWriter.getComplexParamLocations(instance, path)
     val complexParamJson = ComplexParamsWriter.getComplexMetadata(complexParamLocs)
     ComplexParamsWriter.saveMetadata(instance, path, sc, complexParamJson)
-    ComplexParamsWriter.saveComplexParams(complexParamLocs, shouldOverwrite)
+    ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite)
   }
 }
 
@@ -57,17 +57,17 @@ private[ml] object ComplexParamsWriter {
       case ParamPair(_: ComplexParam[_], _) => true
       case _ => false
     }
-    val complexParamBaseLocation = new Path(path, "complexParams")
     complexParams.map {
-      pp => pp -> new Path(complexParamBaseLocation, pp.param.name)
+      pp => pp -> new Path("complexParams", pp.param.name)
     }.toMap
   }
 
-  def saveComplexParams(complexParamLocs: Map[ParamPair[_], Path], shouldOverwrite: Boolean): Unit = {
+  def saveComplexParams(basePath: String, complexParamLocs: Map[ParamPair[_], Path],
+                        shouldOverwrite: Boolean): Unit = {
     val spark = SparkSession.builder().getOrCreate()
     complexParamLocs.foreach {
       case (ParamPair(p: ComplexParam[Any], v), loc) =>
-        p.save(v, spark, loc, shouldOverwrite)
+        p.save(v, spark, new Path(basePath, loc), shouldOverwrite)
     }
   }
 
@@ -84,12 +84,11 @@ private[ml] object ComplexParamsWriter {
     *                      Otherwise, all [[org.apache.spark.ml.param.Param]]s are encoded using
     *                      [[org.apache.spark.ml.param.Param.jsonEncode()]].
     */
-  def saveMetadata(
-                    instance: Params,
-                    path: String,
-                    sc: SparkContext,
-                    extraMetadata: Option[JObject] = None,
-                    paramMap: Option[JValue] = None): Unit = {
+  def saveMetadata(instance: Params,
+                   path: String,
+                   sc: SparkContext,
+                   extraMetadata: Option[JObject] = None,
+                   paramMap: Option[JValue] = None): Unit = {
     val metadataPath = new Path(path, "metadata").toString
     val metadataJson = getMetadataToSave(instance, sc, extraMetadata, paramMap)
     sc.parallelize(Seq(metadataJson), 1).saveAsTextFile(metadataPath)
@@ -100,11 +99,10 @@ private[ml] object ComplexParamsWriter {
     *
     * @see [[saveMetadata()]] for details on what this includes.
     */
-  def getMetadataToSave(
-                         instance: Params,
-                         sc: SparkContext,
-                         extraMetadata: Option[JObject] = None,
-                         paramMap: Option[JValue] = None): String = {
+  def getMetadataToSave(instance: Params,
+                        sc: SparkContext,
+                        extraMetadata: Option[JObject] = None,
+                        paramMap: Option[JValue] = None): String = {
     val uid = instance.uid
     val cls = instance.getClass.getName
     val params = instance.extractParamMap().toSeq
@@ -144,21 +142,21 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
     val instance =
       cls.getConstructor(classOf[String]).newInstance(metadata.uid).asInstanceOf[Params]
     DefaultParamsReader.getAndSetParams(instance, metadata)
-    ComplexParamsReader.getAndSetComplexParams(instance, metadata)
+    ComplexParamsReader.getAndSetComplexParams(instance, metadata, path)
     instance.asInstanceOf[T]
   }
 }
 
 private[ml] object ComplexParamsReader {
 
-  def getAndSetComplexParams(instance: Params, metadata: Metadata): Unit = {
+  def getAndSetComplexParams(instance: Params, metadata: Metadata, basePath: String): Unit = {
     val spark = SparkSession.builder().getOrCreate()
     implicit val format = DefaultFormats
     val complexParamLocs = (metadata.metadata \ "complexParamLocs") match {
       case JNothing =>
         Map[String, Path]()
       case j =>
-        j.extract[Map[String, String]].map { case (name, path) => (name, new Path(path)) }
+        j.extract[Map[String, String]].map { case (name, path) => (name, new Path(basePath, path)) }
     }
 
     instance.params.foreach {
