@@ -419,9 +419,10 @@ _set_build_info() {
       if [[ "$tagref" != "$headref" ]]; then
         version+=".dev$(git rev-list --count "$tag..$branchref")"
       fi
-      # 3. if building a branch or building locally:
+      # 3. if building a branch (except when it's tagged), or building locally:
       #    "+" + number of commits on top of master ".g" + abbreviated sha1
-      if [[ "$branchref" != "$headref" || "$BUILDMODE" != "server" ]]; then
+      if [[ "$branchref" != "$headref" && "$tagref" != "$headref" ]] \
+         || [[ "$BUILDMODE" != "server" ]]; then
         version+="+$(git rev-list --count "$branchref..$headref")"
         version+=".g$(git rev-parse --short "$headref")"
       fi
