@@ -145,11 +145,11 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |    @staticmethod
         |    def getJavaPackage():
         |        "\"" Returns package name String. "\""
-        |        return \"${entryPointQualifiedName}\"
+        |        return \"$entryPointQualifiedName\"
         |
         |    @staticmethod
         |    def _from_java(java_stage):
-        |        module_name=${entryPointName}.__module__
+        |        module_name=$entryPointName.__module__
         |        module_name=module_name.rsplit(".", 1)[0] + ".${
       if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName}"
         |        return from_java(java_stage, module_name)
