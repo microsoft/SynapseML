@@ -18,6 +18,10 @@ class ExecuteSparkmagicPreprocessor(ExecutePreprocessor):
         if cell.cell_type != "code":
             return cell, resources
         outputs = self.run_cell(cell)
+        # for some reason, the hdi setup started producing a 2-tuple
+        # with the expected list in the second place
+        if isinstance(outputs,tuple) and len(outputs) == 2:
+            outputs = outputs[1]
         cell.outputs = outputs
         if not self.allow_errors:
             for out in outputs:
