@@ -10,6 +10,8 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.{DataFrame, _}
 import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.linalg.DenseVector
+import org.scalactic.{Equality, TolerantNumerics}
 import org.scalactic.source.Position
 import org.scalatest._
 
@@ -173,6 +175,32 @@ trait RoundTripTestBase extends TestBase {
 
   val savePath: String = Files.createTempDirectory("SavedModels-").toString
 
+  val epsilon = 1e-4
+  implicit val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
+  implicit val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
+    def areEqual(a: DenseVector, b: Any): Boolean = b match {
+      case bArr:DenseVector =>
+        a.values.zip(bArr.values).forall {case (x,y) => doubleEq.areEqual(x,y)}
+    }
+  }
+
+  private def assertDataFrameEq(a: DataFrame, b: DataFrame): Unit ={
+    assert(a.columns === b.columns)
+    val aSort = a.collect()
+    val bSort = b.collect()
+    assert(aSort.length == bSort.length)
+    aSort.zip(bSort).zipWithIndex.foreach {case ((rowA, rowB), i) =>
+      a.columns.indices.foreach(j =>{
+        rowA(j) match {
+          case lhs: DenseVector =>
+            assert(lhs === rowB(j), s"row $i column $j not equal")
+          case lhs =>
+            assert(lhs === rowB(j), s"row $i column $j not equal")
+        }
+      })
+    }
+  }
+
   private def testRoundTripHelper(path: String,
                                   stage: PipelineStage with MLWritable,
                                   reader: MLReadable[_], df: DataFrame): Unit = {
@@ -180,9 +208,9 @@ trait RoundTripTestBase extends TestBase {
     val loadedStage = reader.load(path)
     (stage, loadedStage) match {
       case (e1: Estimator[_], e2: Estimator[_]) =>
-        assert(e1.fit(df).transform(df).collect() === e2.fit(df).transform(df).collect())
+        assertDataFrameEq(e1.fit(df).transform(df), e2.fit(df).transform(df))
       case (t1: Transformer, t2: Transformer) =>
-        assert(t1.transform(df).collect() === t2.transform(df).collect())
+        assertDataFrameEq(t1.transform(df), t2.transform(df))
       case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
     }
     ()

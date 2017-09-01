@@ -21,84 +21,61 @@ import scala.collection.mutable.ListBuffer
 
 private object CNTKModelUtils extends java.io.Serializable {
 
-  private def applyModel(inputIndex: Int,
-                         broadcastedModel: Broadcast[CNTKFunction],
-                         minibatchSize: Int,
-                         inputNode: Int,
-                         outputNodeName: Option[String],
-                         outputNodeIndex: Option[Int])(inputRows: Iterator[Row]): Iterator[Row] = {
-    val device = DeviceDescriptor.useDefaultDevice
-    val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
+  def applyCNTKFunction(model: CNTKFunction,
+                        inputFVV: FloatVectorVector,
+                        inputVar: Variable,
+                        device: DeviceDescriptor): FloatVectorVector = {
+    val inputShape    = inputVar.getShape
+    val inputVal      = Value.createDenseFloat(inputShape, inputFVV, device)
+    val inputDataMap  = new UnorderedMapVariableValuePtr()
+    inputDataMap.add(inputVar, inputVal)
 
-    val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
-      case (Some(name),None) => Some(Option(m.findByName(name)).getOrElse(
-        throw new IllegalArgumentException(s"Node $name does not exist")))
-      case (None, Some(index)) => Some(m.getOutputs.get(index).getOwner)
-      case (Some(_), Some(_)) =>
-        throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
-      case _ => None
-    }
+    val outputDataMap = new UnorderedMapVariableValuePtr()
+    val outputVar     = model.getOutputs.get(0)
+    outputDataMap.add(outputVar, null)
 
-    val model = outputNode
-      .map { f => CNTKLib.AsComposite(f) }
-      .getOrElse(m)
+    model.evaluate(inputDataMap, outputDataMap, device)
 
-    val inputVar = model.getArguments.get(inputNode)
-    require(inputVar.getDataType() == CNTKDataType.Float, "input variable type is not Float input type")
-    val inputShape = inputVar.getShape
+    val outputFVV = new FloatVectorVector()
+    outputDataMap.getitem(outputVar).copyVariableValueToFloat(outputVar, outputFVV)
+    outputFVV
+  }
 
-    // This defines and instantiates an iterator, hasNext and next are the abstract methods that
-    // define the interface and inputBuffer and outputBuffer hold the input and output rows so that
-    // they can be joined and returned.
-    // The logic inside next checks to see if the buffer is empty, and if so sends a new batch off
-    // to be evaluated
+  /** This defines and instantiates an iterator, hasNext and next are the abstract methods that
+    * define the interface and inputBuffer and outputBuffer hold the input and output rows so that
+    * they can be joined and returned.
+    * The logic inside next checks to see if the buffer is empty, and if so sends a new batch off
+    * to be evaluated.
+    */
+  def minibatchIterator(model: CNTKFunction,
+                    inputVar: Variable,
+                    device: DeviceDescriptor,
+                    inputRows: Iterator[Row],
+                    minibatchSize: Int,
+                    inputIndex: Int): Iterator[Row] ={
     new Iterator[Row] {
       val inputBuffer    = new ListBuffer[Row]()
       val outputBuffer   = new ListBuffer[Row]()
-      val inputSize: Int = inputShape.getTotalSize().toInt
-      val inputFVV       = new FloatVectorVector(minibatchSize.toLong)
-      val fvs: Array[FloatVector] =
-        (0 until minibatchSize).map(_ => new FloatVector(inputSize.toLong)).toArray
+      val inputSize: Int = inputVar.getShape.getTotalSize().toInt
 
       def hasNext: Boolean = inputRows.hasNext || outputBuffer.nonEmpty
 
       def next(): Row = {
         if (outputBuffer.isEmpty) {
-          var paddedRows = 0
-          for (i <- 0 until minibatchSize) {
-            if (inputRows.hasNext) {
-              val row = inputRows.next()
-              inputBuffer += row
-              for ((x, j) <- row.getSeq[Float](inputIndex).view.zipWithIndex) {
-                fvs(i).set(j, x)
-              }
-            } else {
-              //TODO remove padding after CNTK bug is fixed
-              paddedRows += 1
-              for (j <- 0 until inputSize) {
-                fvs(i).set(j, 0.0.toFloat)
-              }
+          inputBuffer ++= inputRows.take(minibatchSize)
+          val inputFVV = new FloatVectorVector(inputBuffer.length.toLong)
+          inputBuffer.zipWithIndex.foreach { case (row, i) =>
+            val fv = new FloatVector(inputSize.toLong)
+            row.getSeq[Float](inputIndex).view.zipWithIndex.foreach { case (x, j) =>
+              fv.set(j, x)
             }
-            inputFVV.set(i, fvs(i))
+            inputFVV.set(i, fv)
           }
 
-          val inputVal =
-            Value.createDenseFloat(inputShape, inputFVV, device)
-          val inputDataMap = new UnorderedMapVariableValuePtr()
-          inputDataMap.add(inputVar, inputVal)
-
-          val outputDataMap = new UnorderedMapVariableValuePtr()
-          val outputVar     = model.getOutputs.get(0)
-          outputDataMap.add(outputVar, null)
-
-          model.evaluate(inputDataMap, outputDataMap, device)
-
-          val outputFVV = new FloatVectorVector()
-          outputDataMap.getitem(outputVar).copyVariableValueToFloat(outputVar, outputFVV)
+          val outputFVV = applyCNTKFunction(model,inputFVV, inputVar, device)
           assert(outputBuffer.isEmpty,
                  "The output row buffer should be empty before new elements are added.")
           outputBuffer ++= toSeqSeq(outputFVV)
-            .dropRight(paddedRows)
             .map(fs => Row(Vectors.dense(fs.map(_.toDouble).toArray)))
         }
         val ret = Row.merge(inputBuffer.head, outputBuffer.head)
@@ -109,17 +86,35 @@ private object CNTKModelUtils extends java.io.Serializable {
     }
   }
 
-  // here just for serialization
-  val applyModelFunc = (inputIndex: Int, broadcastedModel: Broadcast[CNTKFunction],
-                        minibatchSize: Int, inputNode: Int,
-                        outputNodeName: Option[String], outputNodeIndex: Option[Int]) => {
-    (inputRows: Iterator[Row]) => {
-      applyModel(inputIndex, broadcastedModel, minibatchSize, inputNode, outputNodeName, outputNodeIndex)(inputRows)
+  def applyModel(inputIndex: Int,
+                 broadcastedModel: Broadcast[CNTKFunction],
+                 minibatchSize: Int,
+                 inputNode: Int,
+                 outputNodeName: Option[String],
+                 outputNodeIndex: Option[Int])(inputRows: Iterator[Row]): Iterator[Row] = {
+    val device = DeviceDescriptor.useDefaultDevice
+    val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
+    val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
+      case (Some(name), None) =>
+          Some(Option(m.findByName(name)).getOrElse(
+                 throw new IllegalArgumentException(s"Node $name does not exist")))
+      case (None, Some(index)) => Some(m.getOutputs.get(index).getOwner)
+      case (Some(_), Some(_)) =>
+        throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
+      case _ => None
     }
+
+    val model = outputNode.map(CNTKLib.AsComposite(_)).getOrElse(m)
+
+    val inputVar = model.getArguments.get(inputNode)
+    require(inputVar.getDataType() == CNTKDataType.Float,
+            "input variable type is not Float input type")
+    minibatchIterator(model, inputVar, device, inputRows, minibatchSize, inputIndex)
   }
 
   private def toSeqSeq(fvv: FloatVectorVector): Seq[Seq[Float]] = {
-    (0 until fvv.size.toInt).map(i => (0 until fvv.get(i).size.toInt).map(j => fvv.get(i).get(j)))
+    (0 until fvv.size.toInt)
+      .map(i => (0 until fvv.get(i).size.toInt).map(j => fvv.get(i).get(j)))
   }
 }
 
@@ -169,7 +164,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   def getInputNode: Int                   = $(inputNode)
   setDefault(inputNode -> 0)
 
-  /** Returns the dimensions of the required input**/
+  /** Returns the dimensions of the required input */
   def getInputShape: Array[Int] =
     getModel.getInputs.get(getInputNode).getShape.getDimensions.map(_.toInt)
 
@@ -229,10 +224,6 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
           (setByName.isEmpty && setByIndex.isEmpty))
       throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
 
-    val outputNode: Option[String] =
-      if (setByName.isDefined) setByName
-      else                     setByIndex.map(i => getModel.getOutputs.get(i).getName)
-
     val coersionOptionUDF = dataset.schema.fields(inputIndex).dataType match {
       case ArrayType(tp, _) =>
         tp match {
@@ -254,14 +245,13 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     val inputType = df.schema($(inputCol)).dataType
     val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
-    //val broadcastedModel = getModel
     val rdd = df.rdd.mapPartitions(
-      CNTKModelUtils.applyModelFunc(selectedIndex,
-                                    broadcastedModel,
-                                    getMiniBatchSize,
-                                    getInputNode,
-                                    get(outputNodeName),
-                                    get(outputNodeIndex)))
+      CNTKModelUtils.applyModel(selectedIndex,
+                                broadcastedModel,
+                                getMiniBatchSize,
+                                getInputNode,
+                                get(outputNodeName),
+                                get(outputNodeIndex)))
     val output = spark.createDataFrame(rdd, df.schema.add(StructField(getOutputCol, VectorType)))
 
     coersionOptionUDF match {
