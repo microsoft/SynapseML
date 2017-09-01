@@ -21,3 +21,7 @@ class ImageFeaturizer(_ImageFeaturizer):
         jSpark = sparkSession._jsparkSession
         self._java_obj = self._java_obj.setModelLocation(jSpark, location)
         return self
+
+    def setMiniBatchSize(self, size):
+        self._java_obj = self._java_obj.setMiniBatchSize(size)
+        return self

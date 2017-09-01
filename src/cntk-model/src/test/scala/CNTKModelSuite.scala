@@ -15,6 +15,7 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types._
+import org.scalactic.{Equality, TolerantNumerics}
 
 class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
 

@@ -83,7 +83,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
     evaluateRandomMinibatch(model, 2, seed=1)
   }
 
-  ignore("Evaluate should be able to change batch size ") {
+  test("Evaluate should be able to change batch size ") {
     val model = CNTKFunction.load(modelPath, DeviceDescriptor.useDefaultDevice)
     evaluateRandomMinibatch(model, 1)
     evaluateRandomMinibatch(model, 3)

@@ -52,6 +52,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   def getCntkModel: CNTKModel = $(cntkModel).asInstanceOf[CNTKModel]
 
   /** @group setParam */
+  def setMiniBatchSize(value: Int): this.type = set(cntkModel, getCntkModel.setMiniBatchSize(value))
+
+  /** @group getParam */
+  def getMiniBatchSize: Int = getCntkModel.getMiniBatchSize
+
+  /** @group setParam */
   def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNode(value))
 
   /** @group getParam */
