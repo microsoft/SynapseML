@@ -127,9 +127,7 @@ trait PartitionSampleParams extends MMLParams {
 object PartitionSample extends DefaultParamsReadable[PartitionSample]
 
 // UID should be overridden by driver for controlled identification at the DAG level
-/**
-  * @param uid The id of the module
-  */
+/** @param uid The id of the module */
 sealed class PartitionSample(override val uid: String) extends Transformer with PartitionSampleParams {
 
   def this() = this(Identifiable.randomUID("PartitionSample"))

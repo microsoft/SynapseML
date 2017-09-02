@@ -46,8 +46,7 @@ object NullOrdering {
   def apply[T](ord: Ordering[T]): NullOrdering[T] = new NullOrdering(ord)
 }
 
-/**
-  * Fits a dictionary of values from the input column.
+/** Fits a dictionary of values from the input column.
   * Model then transforms a column to a categorical column of the given array of values.
   * Similar to StringIndexer except it can be used on any value types.
   */
@@ -96,9 +95,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
     ValueIndexer.validateAndTransformSchema(schema, getOutputCol)
 }
 
-/**
-  * Model produced by [[ValueIndexer]].
-  */
+/** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
     extends Model[ValueIndexerModel] with ValueIndexerParams with MLWritable {
 

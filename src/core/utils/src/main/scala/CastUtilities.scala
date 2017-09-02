@@ -6,9 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.sql.catalyst.expressions.{Cast, Literal}
 import org.apache.spark.sql.types.DataType
 
-/**
-  * Utilities for casting values.
-  */
+/** Utilities for casting values. */
 object CastUtilities {
   /** Implicit method that casts a value to the given datatype.
     * @param any The value to cast, can be any type.

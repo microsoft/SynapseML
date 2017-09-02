@@ -17,8 +17,7 @@ import org.apache.spark.sql.types._
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
-/** Trains a regression model.
-  */
+/** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
   with HasLabelCol with MMLParams {
 

@@ -45,7 +45,8 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     * - 'AUC"
     * The default is: "accuracy"
     *
-    * @group param */
+    * @group param
+    */
   val evaluationMetric: Param[String] = StringParam(this, "evaluationMetric", "Metric to evaluate models with",
     (s: String) => Seq(ComputeModelStatistics.MseSparkMetric,
     ComputeModelStatistics.RmseSparkMetric,
