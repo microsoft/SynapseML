@@ -8,9 +8,7 @@ import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
 
-/**
-  * Tests to validate the functionality of Train Classifier module.
-  */
+/** Tests to validate the functionality of Train Classifier module. */
 class VerifyValueIndexer extends EstimatorFuzzingTest {
 
   import session.implicits._

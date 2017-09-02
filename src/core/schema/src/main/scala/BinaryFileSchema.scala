@@ -8,8 +8,7 @@ import org.apache.spark.sql.types.{StructType, StructField, StringType, BinaryTy
 
 object BinaryFileSchema {
 
-  /* Schema for the binary file column: Row(String, Array[Byte])
-   */
+  /** Schema for the binary file column: Row(String, Array[Byte]) */
   val columnSchema = StructType(Seq(
     StructField("path",   StringType,  true),
     StructField("bytes",  BinaryType, true)     //raw file bytes

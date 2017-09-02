@@ -13,9 +13,9 @@ import java.nio.file.Files;
  * This class is a simple utility that can load the native libraries from a jar in one of two ways:</p>
  *
  * <ul>
- *     <li>By name: If a particular native library is needed, it will extract it to a temp folder
+ * <li>By name: If a particular native library is needed, it will extract it to a temp folder
  *     (along with its dependencies) and load it from there.</li>
- *     <li>All libraries: all libraries will be extracted to a temp folder and the libraries in the
+ * <li>All libraries: all libraries will be extracted to a temp folder and the libraries in the
  *     load manifest are loaded in the order provided, or loaded in the order specified in the
  *     native manifest if no load manifest is provided. </li>
  * </ul>

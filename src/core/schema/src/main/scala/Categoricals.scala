@@ -252,8 +252,7 @@ class CategoricalMap[T](val levels: Array[T],
 
 }
 
-/** Utilities for getting categorical column info.
-  */
+/** Utilities for getting categorical column info. */
 object CategoricalColumnInfo {
   /** Gets the datatype from the column metadata.
     * @param columnMetadata The column metadata

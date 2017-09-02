@@ -18,8 +18,7 @@ import reflect.runtime.universe.TypeTag
 
 object IndexToValue extends DefaultParamsReadable[IndexToValue]
 
-/**
-  * This class takes in a categorical column with MML style attibutes and then transforms
+/** This class takes in a categorical column with MML style attibutes and then transforms
   * it back to the original values.  This extends MLLIB IndexToString by allowing the transformation
   * back to any types of values.
   */

@@ -10,9 +10,7 @@ import java.lang.{Double => JDouble, Integer => JInt, Boolean => JBoolean}
 
 import org.scalactic.TolerantNumerics
 
-/**
-  * Tests to validate the functionality of Clean Missing Data estimator.
-  */
+/** Tests to validate the functionality of Clean Missing Data estimator. */
 class VerifyCleanMissingData extends EstimatorFuzzingTest {
 
   val tolerance = 0.01
