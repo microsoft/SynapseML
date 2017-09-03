@@ -5,12 +5,13 @@ package com.microsoft.ml.spark
 
 import java.util.Date
 
+import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.spark.sql._
 import org.apache.spark.ml.linalg.DenseVector
 import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.commons.io.FileUtils.getTempDirectoryPath
 
-trait CNTKTestUtils {
+trait CNTKTestUtils extends TestBase {
 
   val filesRoot = s"${sys.env("DATASETS_HOME")}/"
   val imagePath = s"$filesRoot/Images/CIFAR"
@@ -20,7 +21,7 @@ trait CNTKTestUtils {
   val labelCol  = "labels"
 
   val featureVectorLength = 3 * 32 * 32
-  val saveFile = s"$getTempDirectoryPath/${new Date()}-spark-z.model"
+  val saveFile = new File(tmpDir.toFile, "spark-z.model").toString
 
   def testModelDF(spark: SparkSession): DataFrame = {
     import spark.implicits._

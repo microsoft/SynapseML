@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
 import java.nio.file.Files
 
 import org.apache.spark._
@@ -51,6 +52,12 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   protected lazy val sc: SparkContext = session.sparkContext
   protected lazy val dir = SparkSessionFactory.workingDir
 
+  private var tmpDirCreated = false
+  protected lazy val tmpDir = {
+    tmpDirCreated = true
+    Files.createTempDirectory("MML-Test-")
+  }
+
   protected def normalizePath(path: String) = SparkSessionFactory.customNormalize(path)
 
   // Timing info
@@ -85,6 +92,9 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   protected override def afterAll(): Unit = {
     logTime(s"Suite $this", suiteElapsed, 10000)
+    if (tmpDirCreated) {
+      FileUtils.forceDelete(tmpDir.toFile)
+    }
     if (sessionInitialized) {
       info("Shutting down spark session")
       session.stop()
@@ -173,7 +183,12 @@ trait RoundTripTestBase extends TestBase {
 
   val stageRoundTrip: PipelineStage with MLWritable
 
-  val savePath: String = Files.createTempDirectory("SavedModels-").toString
+  val saveDir = new File(tmpDir.toFile, "SavedModels")
+
+  val savePath: String = {
+    assert(saveDir.mkdir(), "directory creation failed")
+    saveDir.toString
+  }
 
   val epsilon = 1e-4
   implicit val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
@@ -233,11 +248,6 @@ trait RoundTripTestBase extends TestBase {
     }
     val fitPipe = pipe.fit(dfRoundTrip)
     testRoundTripHelper(savePath + "/fitPipe", fitPipe, PipelineModel, dfRoundTrip)
-  }
-
-  override def afterAll(): Unit = {
-    FileUtils.forceDelete(new java.io.File(savePath))
-    super.afterAll()
   }
 
 }

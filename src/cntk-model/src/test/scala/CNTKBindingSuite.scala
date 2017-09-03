@@ -90,8 +90,4 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
     evaluateRandomMinibatch(model, 2)
   }
 
-  override def afterAll(): Unit = {
-    new File(saveFile).delete()
-    super.afterAll()
-  }
 }
