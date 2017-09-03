@@ -146,11 +146,6 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     }
   }
 
-  override def afterAll(): Unit = {
-    new File(saveFile).delete()
-    super.afterAll()
-  }
-
   val dfRoundTrip: DataFrame = images
   val reader: MLReadable[_] = CNTKModel
   val modelReader: MLReadable[_] = CNTKModel
