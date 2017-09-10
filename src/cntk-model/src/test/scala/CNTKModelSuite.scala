@@ -3,19 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import java.io.File
-import java.util.Date
-
-import org.apache.commons.io.FileUtils.getTempDirectoryPath
 import org.apache.spark.SparkException
 import org.apache.spark.ml.classification.LogisticRegression
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.{Pipeline, PipelineModel, PipelineStage}
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.ml.{Pipeline, PipelineModel, PipelineStage}
 import org.apache.spark.sql.types._
-import org.scalactic.{Equality, TolerantNumerics}
+import org.apache.spark.sql.{DataFrame, Row}
 
 class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
 

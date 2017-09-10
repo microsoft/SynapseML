@@ -56,7 +56,7 @@ object SerializableFunction {
 }
 
 class SerializableFunction(f: Function) extends Serializable {
-  var fvar = f
+  var fvar: Function = f
 
   @throws(classOf[IOException])
   private def writeObject(out: ObjectOutputStream): Unit = {

@@ -195,7 +195,7 @@ trait RoundTripTestBase extends TestBase {
   implicit val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
     def areEqual(a: DenseVector, b: Any): Boolean = b match {
       case bArr:DenseVector =>
-        a.values.zip(bArr.values).forall {case (x,y) => doubleEq.areEqual(x,y)}
+        a.values.zip(bArr.values).forall {case (x, y) => doubleEq.areEqual(x, y)}
     }
   }
 
