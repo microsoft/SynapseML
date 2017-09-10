@@ -7,7 +7,6 @@ import com.microsoft.ml.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types._
-
 import scala.reflect.ClassTag
 
 object ImageSchema {
@@ -35,9 +34,17 @@ object ImageSchema {
   def isImage(df: DataFrame, column: String): Boolean =
     df.schema(column).dataType == columnSchema
 
-  private[spark] def loadLibraryForAllPartitions[T:ClassTag](rdd: RDD[T], lib: String):RDD[T] = {
-    def perPartition(it: Iterator[T]):Iterator[T] = {
-      new NativeLoader("/nu/pattern/opencv").loadLibraryByName(lib); it }
-    rdd.mapPartitions(perPartition, preservesPartitioning = true)
+  /** This object will load the openCV binaries when the object is referenced
+    * for the first time, subsequent references will not re-load the binaries.
+    * In spark, this loads one copy for each running jvm, instead of once per partition.
+    * This technique is similar to that used by the cntk_jni jar,
+    * but in the case where microsoft cannot edit the jar
+    */
+  private[spark] object OpenCVLoader {
+    import org.opencv.core.Core
+    new NativeLoader("/nu/pattern/opencv").loadLibraryByName(Core.NATIVE_LIBRARY_NAME)
   }
+
+  private[spark] def loadOpenCV[T:ClassTag](rdd: RDD[T]):RDD[T] =
+    rdd.mapPartitions({it => OpenCVLoader; it}, preservesPartitioning = true)
 }

@@ -48,7 +48,7 @@ object ImageReader {
            sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
 
     val binaryRDD = BinaryFileReader.readRDD(path, recursive, spark, sampleRatio, inspectZip)
-    val binaryRDDlib = ImageSchema.loadLibraryForAllPartitions(binaryRDD, Core.NATIVE_LIBRARY_NAME)
+    val binaryRDDlib = ImageSchema.loadOpenCV(binaryRDD)
 
     val validImages = binaryRDDlib.flatMap {
       case (filename, bytes) => {

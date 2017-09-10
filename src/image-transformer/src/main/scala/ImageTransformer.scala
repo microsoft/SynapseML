@@ -341,7 +341,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val schema = dataset.toDF.schema
 
-    val loaded = ImageSchema.loadLibraryForAllPartitions(dataset.toDF.rdd, Core.NATIVE_LIBRARY_NAME)
+    val loaded = ImageSchema.loadOpenCV(dataset.toDF.rdd)
 
     val df = spark.createDataFrame(loaded, schema)
 

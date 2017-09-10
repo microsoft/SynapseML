@@ -25,16 +25,15 @@ import java.nio.file.Files;
  * the libraries will be loaded in the order specified in the manifest. The native libraries should be
  * in folders describing the OS they run on: linux, windows, mac. </p>
  * */
-public class NativeLoader {
+public class NativeLoader implements Serializable {
 
     private String resourcesPath;
     private Boolean extractionDone = false;
     private File tempDir;
-    private Object lock = new Object();
 
-    public NativeLoader(String topLevelResourcesPath) throws IOException{
+    public NativeLoader(String topLevelResourcesPath) throws IOException {
         this.resourcesPath = getResourcesPath(topLevelResourcesPath);
-        tempDir = Files.createTempDirectory("tmp").toFile();
+        tempDir = Files.createTempDirectory("mml-natives").toFile();
         tempDir.deleteOnExit();
     }
 
@@ -45,21 +44,21 @@ public class NativeLoader {
      * Only if that fails, the named native library and its dependencies will be extracted to
      * a temporary folder and loaded from there.</p>
      * */
-    public void loadLibraryByName(String libName){
-        try{
+    public void loadLibraryByName(String libName) {
+        try {
             // First try loading by name
             // It's possible that the native library is already on a path java can discover
             System.loadLibrary(libName);
         }
-        catch (UnsatisfiedLinkError e){
-            try{
+        catch (UnsatisfiedLinkError e) {
+            try {
                 // Get the OS specific library name
                 libName = System.mapLibraryName(libName);
                 extractNativeLibraries(libName);
                 // Try to load library from extracted native resources
                 System.load(tempDir.getAbsolutePath() + File.separator + libName);
             }
-            catch (Exception ee){
+            catch (Exception ee) {
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
                         "we encountered the following problems: %s and %s",
@@ -68,16 +67,14 @@ public class NativeLoader {
         }
     }
 
-    private void extractNativeLibraries(String libName) throws IOException{
-        synchronized (lock) {
-            if (!extractionDone) {
-                extractResourceFromPath(libName, resourcesPath);
-            }
-            extractionDone = true;
+    private void extractNativeLibraries(String libName) throws IOException {
+        if (!extractionDone) {
+            extractResourceFromPath(libName, resourcesPath);
         }
+        extractionDone = true;
     }
 
-    private static String getResourcesPath(String topLevelResourcesPath){
+    private static String getResourcesPath(String topLevelResourcesPath) {
         String sep = "/";
         String OS = System.getProperty("os.name").toLowerCase();
         String resourcePrefix = topLevelResourcesPath + sep + "%s" + sep;
@@ -94,7 +91,7 @@ public class NativeLoader {
         }
     }
 
-    private void extractResourceFromPath(String libName, String prefix) throws IOException{
+    private void extractResourceFromPath(String libName, String prefix) throws IOException {
 
         File temp = new File(tempDir.getPath() + File.separator + libName);
         temp.createNewFile();
