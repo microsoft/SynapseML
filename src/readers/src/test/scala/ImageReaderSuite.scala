@@ -3,12 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.sql._
-import com.microsoft.ml.spark.schema.ImageSchema.isImage
-import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
-import org.apache.spark.input.PortableDataStream
-import com.microsoft.ml.spark.Readers.implicits._
 import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.schema.ImageSchema.isImage
 
 object FileReaderSuiteUtils {
   val fileLocation = s"${sys.env("DATASETS_HOME")}"
@@ -22,13 +19,13 @@ object FileReaderSuiteUtils {
       if (!zipfile.exists()) zipFolder(dir, zipfile)
   }
 
-  def creatZips(): Unit ={
+  def createZips(): Unit ={
     createZip(groceriesDirectory)
     createZip(cifarDirectory)
   }
 }
 
-import FileReaderSuiteUtils._
+import com.microsoft.ml.spark.FileReaderSuiteUtils._
 
 class ImageReaderSuite extends TestBase {
 
@@ -50,7 +47,7 @@ class ImageReaderSuite extends TestBase {
 
   test("with zip file") {
     /* remove when datasets/Images is updated */
-    creatZips
+    createZips
 
     val images = session.readImages(imagesDirectory, recursive = true)
     assert(isImage(images, "image"))
