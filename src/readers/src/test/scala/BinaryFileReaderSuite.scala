@@ -3,10 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.sql._
-import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
+import com.microsoft.ml.spark.FileReaderSuiteUtils._
 import com.microsoft.ml.spark.Readers.implicits._
-import FileReaderSuiteUtils._
+import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
 
 class BinaryFileReaderSuite extends TestBase {
 
@@ -32,7 +31,7 @@ class BinaryFileReaderSuite extends TestBase {
 
   test("with zip file") {
     /* remove when datasets/Images is updated */
-    creatZips
+    createZips
 
     val images = session.readBinaryFiles(imagesDirectory, recursive = true)
     assert(images.count == 74)
