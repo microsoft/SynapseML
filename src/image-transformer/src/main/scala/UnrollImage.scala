@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.schema.ImageSchema._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._

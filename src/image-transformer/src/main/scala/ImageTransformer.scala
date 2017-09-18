@@ -3,24 +3,17 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.schema.{BinarySchema, ImageSchema}
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.DefaultParamsReadable
+import org.apache.spark.ml.param.{ParamMap, _}
+import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.ml.param._
-import com.microsoft.ml.spark.schema.ImageSchema
+import org.opencv.core.{Core, Mat, Rect, Size}
+import org.opencv.imgproc.Imgproc
 
 import scala.collection.mutable.ListBuffer
-import com.microsoft.ml.spark.schema.BinaryFileSchema
-
-import scala.collection.mutable.{ListBuffer, WrappedArray}
-import org.opencv.core.Core
-import org.opencv.core.Mat
-import org.opencv.core.{Rect, Size}
-import org.opencv.imgproc.Imgproc
-import org.apache.spark.ml.util.Identifiable
 
 /** Image processing stage.
   * @param params Map of parameters
@@ -242,8 +235,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     if (row == null) return None
 
     val decoded = if (decode) {
-      val path = BinaryFileSchema.getPath(row)
-      val bytes = BinaryFileSchema.getBytes(row)
+      val path  = BinarySchema.getPath(row)
+      val bytes = BinarySchema.getBytes(row)
 
       //early return if the image can't be decompressed
       ImageReader.decode(path, bytes).getOrElse(return None)
@@ -341,11 +334,9 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val schema = dataset.toDF.schema
 
-    val loaded = ImageSchema.loadOpenCV(dataset.toDF.rdd)
+    val df = ImageReader.loadOpenCV(dataset.toDF)
 
-    val df = spark.createDataFrame(loaded, schema)
-
-    val isBinary = BinaryFileSchema.isBinaryFile(df, $(inputCol))
+    val isBinary = BinarySchema.isBinaryFile(df, $(inputCol))
     assert(ImageSchema.isImage(df, $(inputCol)) || isBinary, "input column should have Image or BinaryFile type")
 
     var transforms = ListBuffer[ImageTransformerStage]()
@@ -363,7 +354,7 @@ class ImageTransformer(val uid: String) extends Transformer
     }
 
     val func = process(transforms, decode = isBinary)(_)
-    val convert = udf(func, ImageSchema.columnSchema)
+    val convert = udf(func, ImageSchema.internalSchema)
 
     df.withColumn($(outputCol), convert(df($(inputCol))))
   }
@@ -371,7 +362,7 @@ class ImageTransformer(val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add($(outputCol), ImageSchema.columnSchema)
+    schema.add($(outputCol), ImageSchema.internalSchema)
   }
 
 }

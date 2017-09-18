@@ -25,7 +25,7 @@ object Readers {
         */
       def readBinaryFiles(path: String, recursive: Boolean,
                           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame =
-        BinaryFileReader.read(path, recursive, sparkSession, sampleRatio, inspectZip)
+        BinaryReader.read(path, recursive, sparkSession, sampleRatio, inspectZip)
 
       /** Read the directory of images from the local or remote source
         *

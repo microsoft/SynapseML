@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import java.io.ByteArrayOutputStream
+import java.io.{ByteArrayOutputStream, InputStream}
 import java.util.zip.ZipInputStream
+
 import org.apache.commons.io.IOUtils
 import org.apache.spark.input.PortableDataStream
+
 import scala.util.Random
 
 object StreamUtilities {
@@ -34,24 +36,17 @@ object StreamUtilities {
 
   /** Iterate through the entries of a streamed .zip file, selecting only sampleRatio of them
     *
-    * @param portableStream  Stream of zip file
+    * @param stream  Stream of zip file
     * @param zipfile         File name is only used to construct the names of the entries
     * @param sampleRatio     What fraction of files is returned from zip
     */
-  class ZipIterator(portableStream: PortableDataStream, zipfile: String, sampleRatio: Double = 1)
+  class ZipIterator(stream: InputStream, zipfile: String, sampleRatio: Double = 1, random: Random)
     extends Iterator[(String, Array[Byte])] {
 
-    val stream = portableStream.open
-    private val zipstream = new ZipInputStream(stream)
-
-    val random = {
-      val rd = new Random()
-      rd.setSeed(0)
-      rd
-    }
+    private val zipStream = new ZipInputStream(stream)
 
     private def getNext: Option[(String, Array[Byte])] = {
-      var entry = zipstream.getNextEntry
+      var entry = zipStream.getNextEntry
       while (entry != null) {
         if (!entry.isDirectory && random.nextDouble < sampleRatio) {
 
@@ -59,7 +54,7 @@ object StreamUtilities {
 
           //extracting all bytes of a given entry
           val byteStream = new ByteArrayOutputStream
-          IOUtils.copy(zipstream, byteStream)
+          IOUtils.copy(zipStream, byteStream)
           val bytes = byteStream.toByteArray
 
           assert(bytes.length == entry.getSize,
@@ -67,7 +62,7 @@ object StreamUtilities {
 
           return Some((filename, bytes))
         }
-        entry = zipstream.getNextEntry
+        entry = zipStream.getNextEntry
       }
 
       stream.close()
@@ -76,7 +71,7 @@ object StreamUtilities {
 
     private var nextValue = getNext
 
-    def hasNext: Boolean = !nextValue.isEmpty
+    def hasNext: Boolean = nextValue.isDefined
 
     def next: (String, Array[Byte]) = {
       val result = nextValue.get

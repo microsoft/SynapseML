@@ -4,15 +4,18 @@
 package com.microsoft.ml.spark.schema
 
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{StructType, StructField, StringType, BinaryType}
+import org.apache.spark.sql.types.{BinaryType, StringType, StructField, StructType}
 
-object BinaryFileSchema {
+object BinarySchema {
 
   /** Schema for the binary file column: Row(String, Array[Byte]) */
-  val columnSchema = StructType(Seq(
-    StructField("path",   StringType,  true),
+  val internalSchema = StructType(Seq(
+    StructField("path",   StringType, true),
     StructField("bytes",  BinaryType, true)     //raw file bytes
   ))
+
+  /** Schema for the binary file column: Row(String, Array[Byte]) */
+  val schema = StructType(StructField("value", internalSchema, true) :: Nil)
 
   def getPath(row: Row): String = row.getString(0)
   def getBytes(row: Row): Array[Byte] = row.getAs[Array[Byte]](1)
@@ -24,6 +27,6 @@ object BinaryFileSchema {
     * @return
     */
   def isBinaryFile(df: DataFrame, column: String): Boolean =
-    df.schema(column).dataType == columnSchema
+    df.schema(column).dataType == internalSchema
 
 }

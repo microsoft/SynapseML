@@ -75,7 +75,7 @@ class HadoopUtils(hadoopConf: Configuration) {
 }
 
 /** Filter that allows loading a fraction of HDFS files. */
-class SamplePathFilter extends Configured with PathFilter {
+class SamplePathFilter extends Configured with PathFilter with Serializable {
   val random = {
     val rd = new Random()
     rd.setSeed(0)
@@ -98,9 +98,10 @@ class SamplePathFilter extends Configured with PathFilter {
 
   override def accept(path: Path): Boolean = {
     // Note: checking fileSystem.isDirectory is very slow here, so we use basic rules instead
+    val double = random.nextDouble()
     !SamplePathFilter.isFile(path) ||
       (SamplePathFilter.isZipFile(path) && inspectZip) ||
-      random.nextDouble() < sampleRatio
+      double < sampleRatio
   }
 }
 

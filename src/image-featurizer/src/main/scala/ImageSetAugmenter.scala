@@ -63,7 +63,7 @@ class ImageSetAugmenter(val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {
-    schema.add(getOutputCol, ImageSchema.columnSchema)
+    schema.add(getOutputCol, ImageSchema.schema)
   }
 
 }

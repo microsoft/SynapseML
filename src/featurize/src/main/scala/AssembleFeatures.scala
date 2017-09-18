@@ -4,27 +4,26 @@
 package com.microsoft.ml.spark
 
 import java.io._
-import java.sql.{Date, Time, Timestamp}
+import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
 
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions, ImageSchema}
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import org.apache.hadoop.fs.Path
+import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions, ImageSchema}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.feature._
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{SparseVector, Vectors}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{SparseVector, Vectors}
 import org.apache.spark.mllib.linalg.VectorUDT
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, _}
 
+import scala.collection.immutable.{BitSet, HashSet}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.collection.immutable.{BitSet, HashSet}
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 private object AssembleFeaturesUtilities
@@ -220,7 +219,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
             if (!getAllowImages) {
               throw new UnsupportedOperationException("Featurization of images columns disabled")
             }
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.columnSchema
+            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.internalSchema
             columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
           }
           case default => throw new Exception(s"Unsupported type for assembly: $default")
@@ -399,7 +398,7 @@ class AssembleFeaturesModel(val uid: String,
                 Seq(dataset(col),
                   extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
               }
-              case imageType if imageType == ImageSchema.columnSchema => {
+              case imageType if imageType == ImageSchema.internalSchema => {
                 val extractImageFeatures = udf((row: Row) => {
                   val image  = ImageSchema.getBytes(row).map(_.toDouble)
                   val height = ImageSchema.getHeight(row).toDouble
