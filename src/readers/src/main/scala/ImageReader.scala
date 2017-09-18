@@ -3,16 +3,37 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.spark.sql.types._
+import org.apache.hadoop.fs.Path
+import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.opencv.core.{Core, CvException, MatOfByte}
+import org.opencv.core.{CvException, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 
 object ImageReader {
 
-  //single column of images named "image"
-  private val imageDFSchema = StructType(StructField("image", ImageSchema.columnSchema, true) :: Nil)
+  /** This object will load the openCV binaries when the object is referenced
+    * for the first time, subsequent references will not re-load the binaries.
+    * In spark, this loads one copy for each running jvm, instead of once per partition.
+    * This technique is similar to that used by the cntk_jni jar,
+    * but in the case where microsoft cannot edit the jar
+    */
+  object OpenCVLoader {
+    import org.opencv.core.Core
+    new NativeLoader("/nu/pattern/opencv").loadLibraryByName(Core.NATIVE_LIBRARY_NAME)
+  }
+
+  private[spark] def loadOpenCVFunc[A](it: Iterator[A]) = {
+    OpenCVLoader
+    it
+  }
+
+  private[spark] def loadOpenCV(df: DataFrame):DataFrame ={
+    val encoder = RowEncoder(df.schema)
+    df.mapPartitions(loadOpenCVFunc)(encoder)
+  }
 
   /** Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
     * See ImageSchema for details.
@@ -21,7 +42,7 @@ object ImageReader {
     * @param bytes image bytes (for example, jpeg)
     * @return returns None if decompression fails
     */
-  private[spark] def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
+  def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
     val mat = new MatOfByte(bytes: _*)
     val decodedOpt = try {
       Some(Imgcodecs.imdecode(mat, Imgcodecs.CV_LOAD_IMAGE_COLOR))
@@ -45,20 +66,33 @@ object ImageReader {
     *
     * @param path      Path to the image directory
     * @param recursive Recursive search flag
-    * @return Dataframe with a single column of "images", see imageSchema for details
+    * @return          DataFrame with a single column of "images", see "columnSchema" for details
     */
   def read(path: String, recursive: Boolean, spark: SparkSession,
            sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
-
-    val binaryRDD = BinaryFileReader.readRDD(path, recursive, spark, sampleRatio, inspectZip)
-    val binaryRDDlib = ImageSchema.loadOpenCV(binaryRDD)
-
-    val validImages = binaryRDDlib.flatMap {
-      case (filename, bytes) => {
-        decode(filename, bytes).map(x => Row(x))
-      }
+    val p = new Path(path)
+    val globs = if (recursive){
+      recursePath(p.getFileSystem(spark.sparkContext.hadoopConfiguration), p, {fs => fs.isDirectory})
+        .map(g => g) ++ Array(p)
+    }else{
+      Array(p)
     }
-
-    spark.createDataFrame(validImages, imageDFSchema)
+    spark.read.format(classOf[ImageFileFormat].getName)
+      .option("subsample", sampleRatio)
+      .option("inspectZip", inspectZip).load(globs.map(_.toString):_*)
   }
+
+  /** Read the directory of image files from the local or remote source
+    *
+    * @param path       Path to the directory
+    * @return           DataFrame with a single column of "imageFiles", see "columnSchema" for details
+    */
+  def stream(path: String, spark: SparkSession,
+             sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+    val p = new Path(path)
+    spark.readStream.format(classOf[ImageFileFormat].getName)
+      .option("subsample", sampleRatio)
+      .option("inspectZip",inspectZip).schema(ImageSchema.schema).load(p.toString)
+  }
+
 }
