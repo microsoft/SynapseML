@@ -13,6 +13,7 @@ import org.apache.spark.ml.linalg.{DenseVector, Vectors}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -245,14 +246,14 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     val inputType = df.schema($(inputCol)).dataType
     val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
-    val rdd = df.rdd.mapPartitions(
+    val encoder = RowEncoder(df.schema.add(StructField(getOutputCol, VectorType)))
+    val output = df.mapPartitions(
       CNTKModelUtils.applyModel(selectedIndex,
                                 broadcastedModel,
                                 getMiniBatchSize,
                                 getInputNode,
                                 get(outputNodeName),
-                                get(outputNodeIndex)))
-    val output = spark.createDataFrame(rdd, df.schema.add(StructField(getOutputCol, VectorType)))
+                                get(outputNodeIndex)))(encoder)
 
     coersionOptionUDF match {
       case Some(_) => output.drop(coercedCol)

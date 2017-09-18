@@ -12,6 +12,7 @@ import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.{DataFrame, _}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.scalactic.{Equality, TolerantNumerics}
 import org.scalactic.source.Position
 import org.scalatest._
@@ -50,6 +51,8 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   protected lazy val sc: SparkContext = session.sparkContext
+  protected lazy val ssc: StreamingContext = new StreamingContext(sc, Seconds(1))
+
   protected lazy val dir = SparkSessionFactory.workingDir
 
   private var tmpDirCreated = false
