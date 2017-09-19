@@ -83,10 +83,8 @@ object Serializer {
   def writeToHDFS[O](sc: SparkContext, obj: O, outputPath: Path, overwrite: Boolean)
                     (implicit ttag: TypeTag[O]): Unit = {
     val hadoopConf = sc.hadoopConfiguration
-    using(outputPath.getFileSystem(hadoopConf)) { fs =>
-      using(fs.create(outputPath, overwrite)) { os =>
-        write[O](obj, os)(ttag)
-      }.get
+    using(outputPath.getFileSystem(hadoopConf).create(outputPath, overwrite)) { os =>
+      write[O](obj, os)(ttag)
     }.get
   }
 
@@ -97,10 +95,8 @@ object Serializer {
     */
   def readFromHDFS[O](sc: SparkContext, path: Path)(implicit ttag: TypeTag[O]): O = {
     val hadoopConf = sc.hadoopConfiguration
-    using(path.getFileSystem(hadoopConf)) { fs =>
-      using(fs.open(path)) { in =>
-        read[O](in)(ttag)
-      }.get
+    using(path.getFileSystem(hadoopConf).open(path)) { in =>
+      read[O](in)(ttag)
     }.get
   }
 
