@@ -15,6 +15,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 object ClassifierTestUtils {
 
@@ -29,8 +30,12 @@ object ClassifierTestUtils {
 /** Tests to validate the functionality of Train Classifier module. */
 class VerifyTrainClassifier extends EstimatorFuzzingTest {
 
-  val thisDirectory = new File("src/test/scala")
   val targetDirectory = new File("target")
+  val thisDirectory = {
+    // intellij runs from a different directory
+    val d = new File("src/test/scala")
+    if (d.isDirectory) d else new File("train-classifier/src/test/scala")
+  }
   assert(thisDirectory.isDirectory, "-- the test should run in the sub-project root level")
   val historicMetricsFile  = new File(thisDirectory, "benchmarkMetrics.csv")
   val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
@@ -67,6 +72,13 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
       (0, 3, 0.78, 0.99, 2),
       (1, 4, 0.12, 0.34, 3)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
+  }
+
+  def getFileSystem(): FileSystem = {
+    val config = sc.hadoopConfiguration
+    import org.apache.hadoop.fs.Path
+    val dfs_cwd = new Path(".")
+    dfs_cwd.getFileSystem(config)
   }
 
   test("Smoke test for training on a classifier") {
@@ -121,21 +133,33 @@ class VerifyTrainClassifier extends EstimatorFuzzingTest {
     TrainClassifierTestUtilities.trainScoreDataset(mockLabelColumn, catDataset, randomForestClassifier)
   }
 
-  test("Verify a trained classifier model can be saved and loaded") {
+  test("Verify saving and loading a trained classifier model") {
     val dataset: DataFrame = createMockDataset
+
+    val subfolder = "subdir"
+    val fileSystem = getFileSystem
+    fileSystem.setWorkingDirectory(new Path(fileSystem.getWorkingDirectory().toString(), subfolder))
+    val stagingInit = fileSystem.getWorkingDirectory().toString()
+    println("Running Spark job in " + stagingInit)
 
     val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
 
     val model = logisticRegressor.fit(dataset)
 
     val myModelName = "testModel"
-    lazy val dir = new File(myModelName)
+    lazy val dir = new File(subfolder + "/" + myModelName)
     try {
       model.write.overwrite().save(myModelName)
       // write a second time with overwrite flag, verify still works
       model.write.overwrite().save(myModelName)
       // assert directory exists
       assert(dir.exists())
+
+      val fileSystem = getFileSystem
+      val stagingAfterSave = fileSystem.getWorkingDirectory().toString()
+      println("Running Spark job in " + stagingAfterSave)
+
+      assert(stagingInit == stagingAfterSave)
 
       // load the model
       val loadedModel = TrainedClassifierModel.load(myModelName)
