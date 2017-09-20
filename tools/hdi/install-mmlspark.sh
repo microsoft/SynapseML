@@ -17,7 +17,7 @@ HDFS_NOTEBOOKS_FOLDER="/HdiNotebooks/Microsoft ML Spark Examples"
 CPATH="/usr/bin/anaconda/bin"
 CONDA_ENVS=( $("$CPATH/conda" info --envs | grep "^[^#]" | sed -e "s/ .*//") )
 
-CNTK_VER="2.0.beta12.0"
+CNTK_VER="2.2"
 CNTK_BASE_URL="https://cntk.ai/PythonWheel/CPU-Only"
 declare -A CNTK_WHEELS=(
   [root]="$CNTK_BASE_URL/cntk-$CNTK_VER-cp27-cp27mu-linux_x86_64.whl"
