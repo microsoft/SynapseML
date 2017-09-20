@@ -6,22 +6,18 @@
 # Configurations for installing mmlspark + dependencies on an HDI
 # cluster, from a specific storage blob (which is created by the build).
 
-# These are replaced by the build process.
-DOWNLOAD_URL="<=<=fill-in-url=>=>"
-MAVEN_PACKAGE="<=<=fill-in-maven-package=>=>"
-MAVEN_URL="<=<=fill-in-maven-url=>=>"
-PIP_PACKAGE="<=<=fill-in-pip-package=>=>"
-SDK_DIR="<=<=fill-in-sdk-dir=>=>"
+# <=<= this line is replaced with variables defined with `defvar -X` =>=>
+DOWNLOAD_URL="$STORAGE_URL/$MML_VERSION"
+
 HDFS_NOTEBOOKS_FOLDER="/HdiNotebooks/Microsoft ML Spark Examples"
 
 CPATH="/usr/bin/anaconda/bin"
 CONDA_ENVS=( $("$CPATH/conda" info --envs | grep "^[^#]" | sed -e "s/ .*//") )
 
-CNTK_VER="2.0.beta12.0"
 CNTK_BASE_URL="https://cntk.ai/PythonWheel/CPU-Only"
 declare -A CNTK_WHEELS=(
-  [root]="$CNTK_BASE_URL/cntk-$CNTK_VER-cp27-cp27mu-linux_x86_64.whl"
-  [py35]="$CNTK_BASE_URL/cntk-$CNTK_VER-cp35-cp35m-linux_x86_64.whl")
+  [root]="$CNTK_BASE_URL/cntk-$CNTK_VERSION-cp27-cp27mu-linux_x86_64.whl"
+  [py35]="$CNTK_BASE_URL/cntk-$CNTK_VERSION-cp35-cp35m-linux_x86_64.whl")
 
 get_headnodes() {
   hdfssite="$(< "/etc/hadoop/conf/hdfs-site.xml")"
@@ -46,12 +42,14 @@ apt-get install -y openmpi-bin libunwind8
 
 # Install CNTK in all environments
 for env in "${CONDA_ENVS[@]}"; do
+  # wheel="${CNTK_WHEELS[$env]:?"Unknown conda env for CNTK: $env"}"
+  # ... but hdi will have additional environments, created by vienna
+  if [[ -z "${CNTK_WHEELS[$env]}" ]]; then continue; fi
   echo -n "[$env] "
-  wheel="${CNTK_WHEELS[$env]:?"Unknown conda env for CNTK: $env"}"
   . "$CPATH/activate" "$env"
   pkg="$(pip freeze | grep "^cntk")"
   if [[ "$pkg" != "cntk"* ]]; then echo "Installing CNTK..."; pip install "$wheel"
-  elif [[ "$pkg" = *"$CNTK_VER" ]]; then echo "CNTK is already installed."
+  elif [[ "$pkg" = *"$CNTK_VERSION" ]]; then echo "CNTK is already installed."
   else echo "Updating CNTK..."; pip install --upgrade --no-deps "$wheel"
   fi
   . "$CPATH/deactivate"
@@ -64,8 +62,8 @@ mkdir "$tmp"
 echo "Downloading materials..."
 curl $curlflags -o "$tmp/BuildArifacts.zip" "$DOWNLOAD_URL/BuildArtifacts.zip"
 curl $curlflags -o "$tmp/update_livy.py" "$DOWNLOAD_URL/update_livy.py"
-rm -rf "$SDK_DIR"; mkdir -p "$SDK_DIR"
-cd "$SDK_DIR"; unzip "$tmp/BuildArifacts.zip"; rm "$tmp/BuildArifacts.zip"
+rm -rf "$CLUSTER_SDK_DIR"; mkdir -p "$CLUSTER_SDK_DIR"
+cd "$CLUSTER_SDK_DIR"; unzip "$tmp/BuildArifacts.zip"; rm "$tmp/BuildArifacts.zip"
 
 # Change the Livy configuration
 echo "Updating the Livy configuration..."
@@ -77,7 +75,7 @@ for env in "${CONDA_ENVS[@]}"; do
   # first uninstall it, since otherwise an existing "1.2.dev3+4" version makes
   # pip consider "1.2.dev3" as "already satisfied"
   pip uninstall -y "mmlspark"
-  pip install "$PIP_PACKAGE"
+  pip install "$PIP_URL/$PIP_PACKAGE"
   . "$CPATH/deactivate"
 done
 
@@ -110,7 +108,7 @@ urlencode() {
   printf '\n'
 }
 
-for f in "$SDK_DIR/notebooks/hdinsight/"*.ipynb; do
+for f in "$CLUSTER_SDK_DIR/notebooks/hdinsight/"*.ipynb; do
   hdfs dfs -copyFromLocal "$(urlencode "$f")" "$HDFS_NOTEBOOKS_FOLDER"
 done
 

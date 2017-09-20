@@ -251,13 +251,12 @@ _upload_artifacts_to_storage() {
   ( cd "$BUILD_ARTIFACTS"
     _ zip -qr9 "$tmp/$(basename "$BUILD_ARTIFACTS.zip")" * )
   local f txt
+  local varlinerx="^(.*)# +<=<= .*? =>=>(.*)\$"
   for f in "$TOOLSDIR/hdi/"*; do
     txt="$(< "$f")"
-    txt="${txt//<=<=fill-in-maven-package=>=>/com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:$MML_VERSION}"
-    txt="${txt//<=<=fill-in-maven-url=>=>/$MAVEN_URL}"
-    txt="${txt//<=<=fill-in-pip-package=>=>/$PIP_URL/$PIP_PACKAGE}"
-    txt="${txt//<=<=fill-in-sdk-dir=>=>/$CLUSTER_SDK_DIR}"
-    txt="${txt//<=<=fill-in-url=>=>/$STORAGE_URL/$MML_VERSION}"
+    if [[ "$txt" =~ $varlinerx ]]; then
+      txt="${BASH_REMATCH[1]}$(_show_gen_vars)${BASH_REMATCH[2]}"
+    fi
     echo "$txt" > "$tmp/$(basename "$f")"
   done
   _ azblob upload-batch --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"

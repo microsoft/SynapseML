@@ -7,12 +7,19 @@
 # ---< defvar [opts] var val >--------------------------------------------------
 # Use this to define customize-able variables (no effect if it exists).
 # Additional arguments are concatenated (wihtout spaces) to make long value
-# settings look nice.  Use "-x" to export the variable, "-p" to resolve the
-# value to an absolute path from where we are, "-f" to set the value even if
-# it's already set.  You can also use "-d" to define values with delayed
-# references to other variables using "...<{var}>..." -- these will be replaced
-# at the end of processing the config file.
+# settings look nice.  Uses the following flags:
+# * `-x`: export the variable,
+# * `-X`: mark the variable to be included in generated script resources
+#         like the HDI script actions,
+# * `-e`: set in the user environment (in "$HOME/.mmlspark_profile"),
+# * `-E`: implies `-xXe`,
+# * `-p`: resolve the value to an absolute path from where we are,
+# * `-f`: set the value even if it's already set,
+# * `-d`: define values with delayed references to other variables using
+#         `...<{var}>...` -- these will be replaced at the end of
+#         processing the config file.
 _delayed_vars=()
+_gen_vars=()
 defvar() {
   local opts=""; while [[ "x$1" == "x-"* ]]; do opts+="${1:1}"; shift; done
   local var="$1" val v; shift
@@ -20,8 +27,17 @@ defvar() {
     val=""; for v; do val+="$v"; done; printf -v "$var" "%s" "$val"; fi
   if [[ "$opts" == *"p"* && "x${!var}" != "/"* ]]; then
     printf -v "$var" "%s" "$(realpath -m "${!var}")"; fi
-  if [[ "$opts" == *"x"* ]]; then export "$var"; fi
-  if [[ "$opts" == *"d"* ]]; then _delayed_vars+=( "$var" ); fi
+  if [[ "$opts" == *[xE]* ]]; then export "$var"; fi
+  if [[ "$opts" == *[XE]* && " ${_gen_vars[*]} " != *" $var "* ]]; then
+    _gen_vars+=( "$var" ); fi
+  if [[ "$opts" == *"d"* ]]; then
+    _delayed_vars+=( "$var" ); fi
+  if [[ "$opts" == *[eE]* ]]; then
+    envinit_commands+=("export $var=$(qstr "${!var}")"); fi
+}
+_show_gen_vars() {
+  local var
+  for var in "${_gen_vars[@]}"; do printf '%s=%s\n' "$var" "$(qstr "${!var}")"; done
 }
 _replace_delayed_vars() {
   local var val pfx sfx change=1
@@ -322,10 +338,6 @@ set_install_info_vars() {
 envinit_commands=('export MMLSPARK_PROFILE="yes"')
 envinit_eval() { envinit_commands+=("$*"); eval "$*"; }
 
-# ---< setenv var val >---------------------------------------------------------
-# Set an environment variable; include the setting in the user environment too.
-setenv() { envinit_eval "export $1=$(qstr "$2")"; }
-
 # ---< get_runtime_hash >-------------------------------------------------------
 # Prints out a hash of the currently configured runtime environment.  The hash
 # depends on the relevant bits of configuration, including a .setup and .init
@@ -463,9 +475,9 @@ _set_build_info() {
     #
     cd "$owd"
   fi
-  defvar -x MML_VERSION    "$version"
-  defvar -x MML_BUILD_INFO "$info"
-  defvar -x MML_LATEST     "$is_latest"
+  defvar -xX MML_VERSION    "$version"
+  defvar -xX MML_BUILD_INFO "$info"
+  defvar -xX MML_LATEST     "$is_latest"
 }
 # To be called when re-creating $BUILD_ARTIFACTS
 _reset_build_info() {

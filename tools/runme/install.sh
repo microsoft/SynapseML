@@ -46,7 +46,7 @@ _do_envinits() {
     if [[ "$cmd" = "export "*"="* ]]; then
       var="${cmd#export }"; var="${var%%=*}"; val="$(qstr "${!var}")"
     fi
-    # print only commands and setenvs that change values
+    # print only commands and var settings that change values
     if [[ "$var" = "" || "$cmd" != "export $var=$val" ]]; then show command "$cmd"; fi
   done
   eval "$script"
@@ -143,8 +143,8 @@ _install() { # libname
      || (                             " $where " != *" devel "*   ) ]]; then return
   fi
   local dir="$HOME/lib/$lib"
-  setenv "${envvar}_VERSION" "$ver"
-  setenv "${envvar}_HOME"    "$dir"
+  defvar -E "${envvar}_VERSION" "$ver"
+  defvar -xe "${envvar}_HOME"    "$dir"
   if [[ "x$prereq" != "x" ]] && ! eval "${prereq%|*}" > /dev/null 2>&1; then
     failwith "$libname: prerequisite failure: ${prereq##*|}"
   fi
@@ -157,8 +157,8 @@ _install() { # libname
   else Op="Installing"; _note_work "Install"; fi
   # avoid output up to here, so there's nothing unless we actually do something
   show section "$Op $libname v$ver in $dir"
-  show command setenv "${envvar}_VERSION" "$ver"
-  show command setenv "${envvar}_HOME"    "$dir"
+  show command export "${envvar}_VERSION=$ver"
+  show command export "${envvar}_HOME=$dir"
   if [[ "$update" = "Y" && "$(_verify_version "$libname")" = "" ]]; then
     show warning "Looks like $libname was already updated, noting new version"
     _ cd "$dir"
