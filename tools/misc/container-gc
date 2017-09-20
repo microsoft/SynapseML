@@ -26,7 +26,7 @@ GH_API="https://api.github.com/repos/Azure/mmlspark"
 github_prs="$(curl --silent --show-error "$GH_API/pulls" \
               | jq -r 'map(.number | tostring) | " " + join(" ") + " "')"
 
-vsort() { sort -t "+" -k 1,1 -V "$@"; }
+vsort() { sort -t "+" -k 1,2 -V "$@"; }
 
 now=0; _minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
 show-time() (

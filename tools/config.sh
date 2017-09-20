@@ -55,7 +55,7 @@ _main_url() { echo "https://$MAIN_STORAGE.azureedge.net/$1"; }
 # The base URL for our installables
 defvar INSTALLER_URL "$(_main_url "installers")"
 # Directory for caching installers; if it is empty then no caching is used
-defvar INSTALLER_CACHE_DIR "$HOME/.mmlspark_cache"
+defvar -p INSTALLER_CACHE_DIR "$HOME/.mmlspark_cache"
 
 INSTALLATIONS=(
 
@@ -155,8 +155,8 @@ SBT.setup() {
 defvar SCALA_VERSION "2.11"
 defvar SCALA_FULL_VERSION "$SCALA_VERSION.8"
 SBT.init() {
-  setenv SCALA_VERSION "$SCALA_VERSION"
-  setenv SCALA_FULL_VERSION "$SCALA_FULL_VERSION"
+  defvar -E SCALA_VERSION "$SCALA_VERSION"
+  defvar -E SCALA_FULL_VERSION "$SCALA_FULL_VERSION"
 }
 
 Spark.setup() {
@@ -238,24 +238,24 @@ CNTK.init() {
 
 # Storage for build artifacts
 defvar STORAGE_CONTAINER "buildartifacts"
-defvar STORAGE_URL "$(_main_url "$STORAGE_CONTAINER")"
+defvar -X STORAGE_URL    "$(_main_url "$STORAGE_CONTAINER")"
 
 # Container for docs and maven/pip packages
-defvar DOCS_CONTAINER  "docs"
-defvar DOCS_URL        "$(_main_url "$DOCS_CONTAINER")"
-defvar MAVEN_CONTAINER  "maven"
-defvar -x MAVEN_URL     "$(_main_url "$MAVEN_CONTAINER")"
-defvar -d MAVEN_PACKAGE "com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:<{MML_VERSION}>"
-defvar PIP_CONTAINER    "pip"
-defvar -x PIP_URL       "$(_main_url "$PIP_CONTAINER")"
-defvar -d PIP_PACKAGE   "mmlspark-<{MML_VERSION}>-py2.py3-none-any.whl"
+defvar DOCS_CONTAINER    "docs"
+defvar DOCS_URL          "$(_main_url "$DOCS_CONTAINER")"
+defvar MAVEN_CONTAINER   "maven"
+defvar -xX MAVEN_URL     "$(_main_url "$MAVEN_CONTAINER")"
+defvar -dX MAVEN_PACKAGE "com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:<{MML_VERSION}>"
+defvar PIP_CONTAINER     "pip"
+defvar -xX PIP_URL       "$(_main_url "$PIP_CONTAINER")"
+defvar -dX PIP_PACKAGE   "mmlspark-<{MML_VERSION}>-py2.py3-none-any.whl"
 
 # E2E test cluster information
 defvar E2E_CLUSTER_NAME   "mmlsparktest"
 defvar E2E_RESOURCE_GROUP "mmlsparktest"
 defvar E2E_CLUSTER_SSH    "spark@${E2E_CLUSTER_NAME}-ssh.azurehdinsight.net"
 defvar E2E_PARALLEL_RUNS  "2"
-defvar CLUSTER_SDK_DIR    "/mml-sdk" # this is for all clusters
+defvar -X CLUSTER_SDK_DIR "/mml-sdk" # this is for all clusters
 
 # Demo cluster information
 defvar DEMO_CLUSTER_NAME   "mmlsparkdemo"

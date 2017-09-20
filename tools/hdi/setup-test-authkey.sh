@@ -2,8 +2,9 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-SDK_DIR="<=<=fill-in-sdk-dir=>=>"
-NB_DIR="$SDK_DIR/notebooks" # This gets created as root, need to chown to spark
+# <=<= this line is replaced with variables defined with `defvar -X` =>=>
+
+NB_DIR="$CLUSTER_SDK_DIR/notebooks" # gets created as root, need to chown to spark
 
 # This is the public key used by the build to access the test cluster
 PUB_KEY="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0FUryXQloryZQGXVP9vOqBVsuUWihHs"
