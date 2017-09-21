@@ -88,7 +88,7 @@ object Extras {
                       "compile",
                       if (testSpec == "none") null else "test:compile",
                       "package",
-                      if (testSpec == "none") null else "on-all-subs test",
+                      // if (testSpec == "none") null else "on-all-subs test",
                       "codegen/run",
                       "publish",
                       "unidoc")
