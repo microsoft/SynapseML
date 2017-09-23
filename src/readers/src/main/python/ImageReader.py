@@ -38,6 +38,31 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
 
 setattr(sql.SparkSession, 'readImages', classmethod(readImages))
 
+def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True):
+    """
+    Reads the directory of images from the local or remote (WASB) source.
+    This function is attached to SparkSession class.
+    Example: spark.streamImages(path, .5, ...)
+
+    Args:
+        sparkSession (SparkSession): Existing sparkSession
+        path (str): Path to the image directory
+        sampleRatio (double): Fraction of the images loaded
+        inspectZip: (boolean): Whether to look inside zip folders
+
+    Returns:
+        DataFrame: DataFrame with a single column of "images", see imageSchema
+        for details
+    """
+    ctx = SparkContext.getOrCreate()
+    reader = ctx._jvm.com.microsoft.ml.spark.ImageReader
+    sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
+    jsession = sql_ctx.sparkSession._jsparkSession
+    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip)
+    return DataFrame(jresult, sql_ctx)
+
+setattr(sql.SparkSession, 'streamImages', classmethod(streamImages))
+
 def isImage(df, column):
     """
     Returns True if the column contains images

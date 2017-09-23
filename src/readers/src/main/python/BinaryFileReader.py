@@ -47,13 +47,38 @@ def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip
 
     """
     ctx = SparkContext.getOrCreate()
-    reader = ctx._jvm.com.microsoft.ml.spark.BinaryFileReader
+    reader = ctx._jvm.com.microsoft.ml.spark.BinaryReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
     jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip)
     return DataFrame(jresult, sql_ctx)
 
 setattr(sql.SparkSession, 'readBinaryFiles', classmethod(readBinaryFiles))
+
+def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True):
+    """
+    Streams the directory of binary files from the local or remote (WASB) source
+    This function is attached to SparkSession class.
+
+    :Example:
+
+    >>> spark.streamBinaryFiles(path, sampleRatio = 1.0, inspectZip = True)
+
+    Args:
+         path (str): Path to the file directory
+
+    Returns:
+        DataFrame: DataFrame with a single column "value"; see binaryFileSchema for details
+
+    """
+    ctx = SparkContext.getOrCreate()
+    reader = ctx._jvm.com.microsoft.ml.spark.BinaryReader
+    sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
+    jsession = sql_ctx.sparkSession._jsparkSession
+    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip)
+    return DataFrame(jresult, sql_ctx)
+
+setattr(sql.SparkSession, 'streamBinaryFiles', classmethod(streamBinaryFiles))
 
 def isBinaryFile(df, column):
     """
@@ -68,5 +93,5 @@ def isBinaryFile(df, column):
 
     """
     ctx = SparkContext.getOrCreate()
-    schema = ctx._jvm.com.microsoft.ml.spark.schema.BinaryFileSchema
+    schema = ctx._jvm.com.microsoft.ml.spark.schema.BinarySchema
     return schema.isBinaryFile(df._jdf, column)
