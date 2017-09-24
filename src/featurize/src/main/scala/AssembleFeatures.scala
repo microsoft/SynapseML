@@ -219,7 +219,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
             if (!getAllowImages) {
               throw new UnsupportedOperationException("Featurization of images columns disabled")
             }
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.internalSchema
+            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.columnSchema
             columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
           }
           case default => throw new Exception(s"Unsupported type for assembly: $default")
@@ -398,7 +398,7 @@ class AssembleFeaturesModel(val uid: String,
                 Seq(dataset(col),
                   extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
               }
-              case imageType if imageType == ImageSchema.internalSchema => {
+              case imageType if imageType == ImageSchema.columnSchema => {
                 val extractImageFeatures = udf((row: Row) => {
                   val image  = ImageSchema.getBytes(row).map(_.toDouble)
                   val height = ImageSchema.getHeight(row).toDouble

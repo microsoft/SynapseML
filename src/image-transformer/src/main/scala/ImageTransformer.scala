@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.{BinarySchema, ImageSchema}
+import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{ParamMap, _}
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -235,8 +235,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     if (row == null) return None
 
     val decoded = if (decode) {
-      val path  = BinarySchema.getPath(row)
-      val bytes = BinarySchema.getBytes(row)
+      val path  = BinaryFileSchema.getPath(row)
+      val bytes = BinaryFileSchema.getBytes(row)
 
       //early return if the image can't be decompressed
       ImageReader.decode(path, bytes).getOrElse(return None)
@@ -336,7 +336,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val df = ImageReader.loadOpenCV(dataset.toDF)
 
-    val isBinary = BinarySchema.isBinaryFile(df, $(inputCol))
+    val isBinary = BinaryFileSchema.isBinaryFile(df, $(inputCol))
     assert(ImageSchema.isImage(df, $(inputCol)) || isBinary, "input column should have Image or BinaryFile type")
 
     var transforms = ListBuffer[ImageTransformerStage]()
@@ -354,7 +354,7 @@ class ImageTransformer(val uid: String) extends Transformer
     }
 
     val func = process(transforms, decode = isBinary)(_)
-    val convert = udf(func, ImageSchema.internalSchema)
+    val convert = udf(func, ImageSchema.columnSchema)
 
     df.withColumn($(outputCol), convert(df($(inputCol))))
   }
@@ -362,7 +362,7 @@ class ImageTransformer(val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add($(outputCol), ImageSchema.internalSchema)
+    schema.add($(outputCol), ImageSchema.columnSchema)
   }
 
 }

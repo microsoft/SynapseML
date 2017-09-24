@@ -173,7 +173,7 @@ class VerifyFeaturize extends EstimatorFuzzingTest {
   }
 
   test("Featurizing with image columns") {
-    val imageDFSchema = StructType(Array(StructField("image", ImageSchema.internalSchema, true)))
+    val imageDFSchema = StructType(Array(StructField("image", ImageSchema.columnSchema, true)))
     val path1: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00000.png"
     val path2: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00001.png"
     val height = 32

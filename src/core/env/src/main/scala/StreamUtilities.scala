@@ -40,7 +40,7 @@ object StreamUtilities {
     * @param zipfile         File name is only used to construct the names of the entries
     * @param sampleRatio     What fraction of files is returned from zip
     */
-  class ZipIterator(stream: InputStream, zipfile: String, sampleRatio: Double = 1, random: Random)
+  class ZipIterator(stream: InputStream, zipfile: String, random: Random, sampleRatio: Double = 1)
     extends Iterator[(String, Array[Byte])] {
 
     private val zipStream = new ZipInputStream(stream)

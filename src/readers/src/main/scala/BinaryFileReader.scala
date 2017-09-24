@@ -3,14 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.BinarySchema
+import com.microsoft.ml.spark.schema.BinaryFileSchema
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.language.existentials
 
-object BinaryReader {
+object BinaryFileReader {
 
   private def recursePath(fileSystem: FileSystem,
                           path: Path,
@@ -57,7 +57,7 @@ object BinaryReader {
     val p = new Path(path)
     spark.readStream.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
-      .option("inspectZip",inspectZip).schema(BinarySchema.schema).load(p.toString)
+      .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
   }
 
 }

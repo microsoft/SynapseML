@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.BinaryReader.recursePath
+import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.hadoop.fs.Path
 import org.apache.spark.image.ImageFileFormat

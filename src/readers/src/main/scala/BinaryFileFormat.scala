@@ -7,7 +7,7 @@ import java.io.{Closeable, InputStream}
 import java.net.URI
 
 import com.microsoft.ml.spark.StreamUtilities.ZipIterator
-import com.microsoft.ml.spark.schema.BinarySchema
+import com.microsoft.ml.spark.schema.BinaryFileSchema
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -79,7 +79,7 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
     inputStream = fs.open(file)
     rng.setSeed(filename.hashCode.toLong)
     if (inspectZip && FilenameUtils.getExtension(filename) == "zip") {
-        zipIterator = new ZipIterator(inputStream, filename, subsample, rng)
+        zipIterator = new ZipIterator(inputStream, filename, rng, subsample)
     }
   }
 
@@ -105,7 +105,6 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
         false
       }
     } else {
-      rng.setSeed(filename.hashCode.toLong)
       if (rng.nextDouble() <= subsample) {
         val barr = IOUtils.toByteArray(inputStream)
         recordValue = new BytesWritable()
@@ -138,7 +137,7 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
     if (files.isEmpty) {
       None
     } else {
-      Some(BinarySchema.schema)
+      Some(BinaryFileSchema.schema)
     }
   }
 

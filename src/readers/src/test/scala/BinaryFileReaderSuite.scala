@@ -6,9 +6,9 @@ package com.microsoft.ml.spark
 import java.io.FileOutputStream
 
 import com.microsoft.ml.spark.Readers.implicits._
-import com.microsoft.ml.spark.schema.BinarySchema.isBinaryFile
+import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
 import com.microsoft.ml.spark.FileUtilities.{File, zipFolder}
-import com.microsoft.ml.spark.schema.BinarySchema
+import com.microsoft.ml.spark.schema.BinaryFileSchema
 import org.apache.commons.io.FileUtils
 import org.apache.spark.binary.BinaryFileFormat
 
@@ -42,7 +42,7 @@ trait FileReaderUtils {
   }
 }
 
-class BinaryReaderSuite extends TestBase with FileReaderUtils {
+class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
 
   test("binary dataframe") {
     val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
@@ -111,7 +111,7 @@ class BinaryReaderSuite extends TestBase with FileReaderUtils {
     val imageDF = session
       .readStream
       .format(classOf[BinaryFileFormat].getName)
-      .schema(BinarySchema.schema)
+      .schema(BinaryFileSchema.schema)
       .load(cifarDirectory)
 
     val q1 = imageDF.writeStream

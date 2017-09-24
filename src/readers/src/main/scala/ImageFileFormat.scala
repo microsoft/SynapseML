@@ -67,7 +67,7 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
           case None => None
           case Some(row) =>
             val imGenRow = new GenericInternalRow(1)
-            val genRow = new GenericInternalRow(ImageSchema.internalSchema.fields.length)
+            val genRow = new GenericInternalRow(ImageSchema.columnSchema.fields.length)
             genRow.update(0, UTF8String.fromString(row.getString(0)))
             genRow.update(1, row.getInt(1))
             genRow.update(2, row.getInt(2))

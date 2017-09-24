@@ -47,7 +47,7 @@ def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip
 
     """
     ctx = SparkContext.getOrCreate()
-    reader = ctx._jvm.com.microsoft.ml.spark.BinaryReader
+    reader = ctx._jvm.com.microsoft.ml.spark.BinaryFileReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
     jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip)
@@ -72,7 +72,7 @@ def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True):
 
     """
     ctx = SparkContext.getOrCreate()
-    reader = ctx._jvm.com.microsoft.ml.spark.BinaryReader
+    reader = ctx._jvm.com.microsoft.ml.spark.BinaryFileReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
     jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip)
@@ -93,5 +93,5 @@ def isBinaryFile(df, column):
 
     """
     ctx = SparkContext.getOrCreate()
-    schema = ctx._jvm.com.microsoft.ml.spark.schema.BinarySchema
+    schema = ctx._jvm.com.microsoft.ml.spark.schema.BinaryFileSchema
     return schema.isBinaryFile(df._jdf, column)

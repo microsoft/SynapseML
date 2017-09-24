@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 object ImageSchema {
 
   /** Schema for the image column: Row(String, Int, Int, Int, Array[Byte]) */
-  val internalSchema = StructType(
+  val columnSchema = StructType(
     StructField("path",     StringType,  true) ::
       StructField("height", IntegerType, true) ::
       StructField("width",  IntegerType, true) ::
@@ -17,7 +17,7 @@ object ImageSchema {
       StructField("bytes",  BinaryType,  true) :: Nil)   //OpenCV bytes: row-wise BGR in most cases
 
   //single column of images named "image"
-  val schema = StructType(StructField("image", internalSchema, true) :: Nil)
+  val schema = StructType(StructField("image", columnSchema, true) :: Nil)
 
   def getPath(row: Row): String = row.getString(0)
   def getHeight(row: Row): Int = row.getInt(1)
@@ -32,6 +32,6 @@ object ImageSchema {
     * @return
     */
   def isImage(df: DataFrame, column: String): Boolean =
-    df.schema(column).dataType == internalSchema
+    df.schema(column).dataType == columnSchema
 
 }
