@@ -167,7 +167,7 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 * [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
 
 * [Azure Machine Learning
-  Operationalization](https://github.com/Azure/Machine-Learning-Operationalization)
+  preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
 
 *Apache®, Apache Spark, and Spark® are either registered trademarks or
 trademarks of the Apache Software Foundation in the United States and/or other
