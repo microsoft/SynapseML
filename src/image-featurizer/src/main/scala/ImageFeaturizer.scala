@@ -118,7 +118,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   override def transform(dataset: Dataset[_]): DataFrame = {
     val spark = dataset.sparkSession
 
-    val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
+    val resizedCol = DatasetExtensions.produceUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel
       .setOutputNodeNames(Array(getLayerNames.apply(getCutOutputLayers)))
