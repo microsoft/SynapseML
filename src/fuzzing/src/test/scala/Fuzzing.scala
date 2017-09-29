@@ -50,6 +50,7 @@ class Fuzzing extends TestBase {
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.TrainRegressor",
       "com.microsoft.ml.spark.FindBestModel",
+      "com.microsoft.ml.spark.ClassBalancer",
       "com.microsoft.ml.spark.CleanMissingData",
       "com.microsoft.ml.spark.Timer",
       "com.microsoft.ml.spark.ValueIndexer",
