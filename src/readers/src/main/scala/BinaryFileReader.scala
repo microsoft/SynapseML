@@ -4,74 +4,60 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.BinaryFileSchema
-import org.apache.spark.input.PortableDataStream
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
+import org.apache.spark.binary.BinaryFileFormat
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.language.existentials
-import com.microsoft.ml.spark.StreamUtilities.{ZipIterator}
-import com.microsoft.ml.spark.hadoop.{SamplePathFilter, RecursiveFlag}
 
 object BinaryFileReader {
 
-  //single column of images named "image"
-  private val binaryDFSchema = StructType(StructField("value", BinaryFileSchema.columnSchema, true) :: Nil)
-
-  /** Read the directory of images from the local or remote source
-    *
-    * @param path      Path to the image directory
-    * @param recursive Recursive search flag
-    * @return Dataframe with a single column of "images", see imageSchema for details
-    */
-  private[spark] def readRDD(path: String, recursive: Boolean, spark: SparkSession,
-                               sampleRatio: Double, inspectZip: Boolean)
-  : RDD[(String, Array[Byte])] = {
-
-    require(sampleRatio <= 1.0 && sampleRatio >= 0, "sampleRatio should be between 0 and 1")
-
-    val oldRecursiveFlag = RecursiveFlag.setRecursiveFlag(Some(recursive.toString), spark)
-    val oldPathFilter: Option[Class[_]] =
-      if (sampleRatio < 1)
-        SamplePathFilter.setPathFilter(Some(classOf[SamplePathFilter]), Some(sampleRatio), Some(inspectZip), spark)
-      else
-        None
-
-    var data: RDD[(String, Array[Byte])] = null
-    try {
-      val streams = spark.sparkContext.binaryFiles(path, spark.sparkContext.defaultParallelism)
-        .repartition(spark.sparkContext.defaultParallelism)
-
-      // Create files RDD and load bytes
-      data = if (!inspectZip) {
-        streams.mapValues((stream: PortableDataStream) => stream.toArray)
-      } else {
-        // if inspectZip is enabled, examine/sample the contents of zip files
-        streams.flatMap({ case (filename: String, stream: PortableDataStream) =>
-          if (SamplePathFilter.isZipFile(filename)) {
-            new ZipIterator(stream, filename, sampleRatio)
-          } else {
-            Some((filename, stream.toArray))
-          }
-        })
-      }
-    }
-    finally {
-      // return Hadoop flag to its original value
-      RecursiveFlag.setRecursiveFlag(oldRecursiveFlag, spark = spark)
-      SamplePathFilter.setPathFilter(oldPathFilter, spark = spark)
-      ()
-    }
-
-    data
+  private def recursePath(fileSystem: FileSystem,
+                          path: Path,
+                          pathFilter:FileStatus => Boolean,
+                          visitedSymlinks: Set[Path]): Array[Path] ={
+    val filteredPaths = fileSystem.listStatus(path).filter(pathFilter)
+    val filteredDirs = filteredPaths.filter(fs => fs.isDirectory & !visitedSymlinks(fs.getPath))
+    val symlinksFound = visitedSymlinks ++ filteredDirs.filter(_.isSymlink).map(_.getPath)
+    filteredPaths.map(_.getPath) ++ filteredDirs.map(_.getPath)
+      .flatMap(p => recursePath(fileSystem, p, pathFilter, symlinksFound))
   }
 
+  def recursePath(fileSystem: FileSystem, path: Path, pathFilter:FileStatus => Boolean): Array[Path] ={
+    recursePath(fileSystem, path, pathFilter, Set())
+  }
+
+  /** Read the directory of binary files from the local or remote source
+    *
+    * @param path       Path to the directory
+    * @param recursive  Recursive search flag
+    * @return           DataFrame with a single column of "binaryFiles", see "columnSchema" for details
+    */
   def read(path: String, recursive: Boolean, spark: SparkSession,
            sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
-    val rowRDD = readRDD(path, recursive, spark, sampleRatio, inspectZip)
-      .map({row:(String, Array[Byte]) => Row(Row(row._1, row._2))})
-
-    spark.createDataFrame(rowRDD, binaryDFSchema)
+    val p = new Path(path)
+    val globs = if (recursive){
+      recursePath(p.getFileSystem(spark.sparkContext.hadoopConfiguration), p, {fs => fs.isDirectory})
+        .map(g => g) ++ Array(p)
+    }else{
+      Array(p)
+    }
+    spark.read.format(classOf[BinaryFileFormat].getName)
+      .option("subsample", sampleRatio)
+      .option("inspectZip",inspectZip).load(globs.map(g => g.toString):_*)
   }
-}
 
+  /** Read the directory of binary files from the local or remote source
+    *
+    * @param path       Path to the directory
+    * @return           DataFrame with a single column of "binaryFiles", see "columnSchema" for details
+    */
+  def stream(path: String, spark: SparkSession,
+           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+    val p = new Path(path)
+    spark.readStream.format(classOf[BinaryFileFormat].getName)
+      .option("subsample", sampleRatio)
+      .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
+  }
+
+}

@@ -5,16 +5,17 @@ package com.microsoft.ml.spark
 
 import java.net.URI
 
-import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.FileUtilities.File
-import org.apache.spark.ml.linalg.DenseVector
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.schema.ImageSchema
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.PipelineStage
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.image.ImageFileFormat
 
-import scala.collection.JavaConversions._
-
-class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
+class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase with FileReaderUtils {
   val images: DataFrame = session.readImages(imagePath, true).withColumnRenamed("image", inputCol)
 
   val modelDir = new File(filesRoot, "CNTKModel")
@@ -34,6 +35,33 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTe
     compareToTestModel(result)
   }
 
+  test("structured streaming"){
+
+    val model = new ImageFeaturizer()
+      .setInputCol("image")
+      .setOutputCol(outputCol)
+      .setModelLocation(session, s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setCutOutputLayers(0)
+      .setLayerNames(Array("z"))
+
+    val imageDF = session
+      .readStream
+      .format(classOf[ImageFileFormat].getName)
+      .schema(ImageSchema.schema)
+      .load(cifarDirectory)
+
+    val resultDF = model.transform(imageDF)
+
+    val q1 = resultDF.writeStream
+      .format("memory")
+      .queryName("images")
+      .start()
+
+    tryWithRetries(){ () =>
+      assert(session.sql("select * from images").count() == 6)
+    }
+  }
+
   def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
@@ -41,6 +69,16 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTe
 
   test("the Image feature should work with the modelSchema") {
     val result = resNetModel().setCutOutputLayers(0).transform(images)
+    compareToTestModel(result)
+  }
+
+  test("the Image feature should work with the modelSchema + new images") {
+    val newImages = session.read
+      .format(classOf[ImageFileFormat].getName)
+      .load(cifarDirectory)
+      .withColumnRenamed("image","cntk_images")
+
+    val result = resNetModel().setCutOutputLayers(0).transform(newImages)
     compareToTestModel(result)
   }
 
