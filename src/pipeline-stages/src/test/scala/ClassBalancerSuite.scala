@@ -40,4 +40,5 @@ class ClassBalancerSuite extends TestBase with RoundTripTestBase {
     assert(df2.collect()(8).getDouble(3) == 2.5)
     assert(df2.schema.fields.toSet == model.transformSchema(df.schema).fields.toSet)
   }
+
 }
