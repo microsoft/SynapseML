@@ -102,7 +102,8 @@ let _srcStrings = _arrOf((value, path) => {
   assertType(value, "string", path);
   if (value.endsWith(" ")) bad(`${path}: bad string, ends with a space`);
   if (value.length > 120)  bad(`${path}: bad string, too long`);
-  if (value.match(/\n./))  bad(`${path}: bad string, \\n not and EOS`);
+  if (value.match(/\n./))  bad(`${path}: bad string, \\n not at EOS`);
+  if (value.match(/ \n/))  bad(`${path}: bad string, space before \\n`);
 });
 
 let getNotebooks = () => {
