@@ -69,7 +69,7 @@ object ImageReader {
     * @return          DataFrame with a single column of "images", see "columnSchema" for details
     */
   def read(path: String, recursive: Boolean, spark: SparkSession,
-           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+           sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame = {
     val p = new Path(path)
     val globs = if (recursive){
       recursePath(p.getFileSystem(spark.sparkContext.hadoopConfiguration), p, {fs => fs.isDirectory})
@@ -79,6 +79,7 @@ object ImageReader {
     }
     spark.read.format(classOf[ImageFileFormat].getName)
       .option("subsample", sampleRatio)
+      .option("seed", seed)
       .option("inspectZip", inspectZip).load(globs.map(_.toString):_*)
   }
 
@@ -88,10 +89,11 @@ object ImageReader {
     * @return           DataFrame with a single column of "imageFiles", see "columnSchema" for details
     */
   def stream(path: String, spark: SparkSession,
-             sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+             sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame = {
     val p = new Path(path)
     spark.readStream.format(classOf[ImageFileFormat].getName)
       .option("subsample", sampleRatio)
+      .option("seed", seed)
       .option("inspectZip",inspectZip).schema(ImageSchema.schema).load(p.toString)
   }
 

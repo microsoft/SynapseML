@@ -34,7 +34,7 @@ object BinaryFileReader {
     * @return           DataFrame with a single column of "binaryFiles", see "columnSchema" for details
     */
   def read(path: String, recursive: Boolean, spark: SparkSession,
-           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+           sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame = {
     val p = new Path(path)
     val globs = if (recursive){
       recursePath(p.getFileSystem(spark.sparkContext.hadoopConfiguration), p, {fs => fs.isDirectory})
@@ -44,6 +44,7 @@ object BinaryFileReader {
     }
     spark.read.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
+      .option("seed", seed)
       .option("inspectZip",inspectZip).load(globs.map(g => g.toString):_*)
   }
 
@@ -53,10 +54,11 @@ object BinaryFileReader {
     * @return           DataFrame with a single column of "binaryFiles", see "columnSchema" for details
     */
   def stream(path: String, spark: SparkSession,
-           sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame = {
+           sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame = {
     val p = new Path(path)
     spark.readStream.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
+      .option("seed", seed)
       .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
   }
 

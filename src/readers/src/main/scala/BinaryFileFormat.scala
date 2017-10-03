@@ -33,7 +33,7 @@ import scala.util.Random
   * @param subsample  what ratio to subsample
   * @param inspectZip whether to inspect zip files
   */
-private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: Boolean)
+private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: Boolean, val seed: Long)
   extends RecordReader[String, BytesWritable] {
 
   private var done: Boolean = false
@@ -72,7 +72,7 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
     filename = file.toString            // open the File
 
     inputStream = fs.open(file)
-    rng.setSeed(filename.hashCode.toLong)
+    rng.setSeed(filename.hashCode.toLong ^ seed)
     if (inspectZip && FilenameUtils.getExtension(filename) == "zip") {
         zipIterator = new ZipIterator(inputStream, filename, rng, subsample)
     }
@@ -154,10 +154,11 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
 
     val subsample = options.getOrElse("subsample", "1.0").toDouble
     val inspectZip = options.getOrElse("inspectZip", "false").toBoolean
+    val seed = options.getOrElse("seed", "0").toLong
 
     assert(subsample >= 0.0 & subsample <= 1.0)
     (file: PartitionedFile) => {
-      val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip)
+      val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip, seed)
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
       fileReader.map { bytes =>
         val row = new GenericInternalRow(2)
@@ -181,7 +182,8 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
 private[spark] class HadoopFileReader(file: PartitionedFile,
                                       conf: Configuration,
                                       subsample: Double,
-                                      inspectZip: Boolean)
+                                      inspectZip: Boolean,
+                                      seed: Long)
   extends Iterator[BytesWritable] with Closeable {
 
   private val iterator = {
@@ -192,7 +194,7 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
       Array.empty)
     val attemptId = new TaskAttemptID(new TaskID(new JobID(), TaskType.MAP, 0), 0)
     val hadoopAttemptContext = new TaskAttemptContextImpl(conf, attemptId)
-    val reader = new BinaryRecordReader(subsample, inspectZip)
+    val reader = new BinaryRecordReader(subsample, inspectZip, seed)
     reader.initialize(fileSplit, hadoopAttemptContext)
     new RecordReaderIterator(reader)
   }

@@ -24,8 +24,8 @@ object Readers {
         * @return Dataframe with a single column "value" of binary files, see BinaryFileSchema for details
         */
       def readBinaryFiles(path: String, recursive: Boolean,
-                          sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame =
-        BinaryFileReader.read(path, recursive, sparkSession, sampleRatio, inspectZip)
+                          sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame =
+        BinaryFileReader.read(path, recursive, sparkSession, sampleRatio, inspectZip, seed)
 
       /** Read the directory of images from the local or remote source
         *
@@ -36,8 +36,8 @@ object Readers {
         * @return Dataframe with a single column "image" of images, see ImageSchema for details
         */
       def readImages(path: String, recursive: Boolean,
-                     sampleRatio: Double = 1, inspectZip: Boolean = true): DataFrame =
-        ImageReader.read(path, recursive, sparkSession, sampleRatio, inspectZip)
+                     sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame =
+        ImageReader.read(path, recursive, sparkSession, sampleRatio, inspectZip, seed)
     }
 
     implicit def ImplicitSession(sparkSession: SparkSession):Session = new Session(sparkSession)
