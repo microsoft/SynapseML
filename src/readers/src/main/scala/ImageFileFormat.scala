@@ -54,9 +54,10 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
     val subsample = options.getOrElse("subsample","1.0").toDouble
     assert(subsample>=0.0 & subsample <=1.0)
     val inspectZip = options.getOrElse("inspectZip", "false").toBoolean
+    val seed = options.getOrElse("seed", "0").toLong
 
     (file: PartitionedFile) => {
-      val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip)
+      val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip, seed)
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
       fileReader.flatMap {bytes =>
         val byteArray = bytes.getBytes

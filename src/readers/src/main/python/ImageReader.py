@@ -13,7 +13,7 @@ from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
 
-def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspectZip = True):
+def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspectZip = True, seed = 0):
     """
     Reads the directory of images from the local or remote (WASB) source.
     This function is attached to SparkSession class.
@@ -33,12 +33,12 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
     reader = ctx._jvm.com.microsoft.ml.spark.ImageReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
-    jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip)
+    jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
 setattr(sql.SparkSession, 'readImages', classmethod(readImages))
 
-def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True):
+def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True, seed = 0):
     """
     Reads the directory of images from the local or remote (WASB) source.
     This function is attached to SparkSession class.
@@ -58,7 +58,7 @@ def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True):
     reader = ctx._jvm.com.microsoft.ml.spark.ImageReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
-    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip)
+    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
 setattr(sql.SparkSession, 'streamImages', classmethod(streamImages))

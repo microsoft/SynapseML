@@ -29,7 +29,7 @@ Schema records consist of BinaryFileFields name, Type, and ??
   bytes
 """
 
-def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip = True):
+def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip = True, seed=0):
     """
     Reads the directory of binary files from the local or remote (WASB) source
     This function is attached to SparkSession class.
@@ -50,12 +50,12 @@ def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip
     reader = ctx._jvm.com.microsoft.ml.spark.BinaryFileReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
-    jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip)
+    jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
 setattr(sql.SparkSession, 'readBinaryFiles', classmethod(readBinaryFiles))
 
-def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True):
+def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True, seed=0):
     """
     Streams the directory of binary files from the local or remote (WASB) source
     This function is attached to SparkSession class.
@@ -75,7 +75,7 @@ def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True):
     reader = ctx._jvm.com.microsoft.ml.spark.BinaryFileReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
-    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip)
+    jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
 setattr(sql.SparkSession, 'streamBinaryFiles', classmethod(streamBinaryFiles))
