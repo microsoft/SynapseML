@@ -85,7 +85,7 @@ _sbt_build() {
   show section "Running SBT Build"
   local owd="$PWD" restore_opt="$(shopt -p nullglob)"; shopt -s nullglob
   cd "$SRCDIR"
-  local rmjars=( **/"target/scala-"*/!(*"-$MML_VERSION")".jar" )
+  local rmjars=( **/"target/scala-"*/!(*"-$MML_VERSION"@(|-*))".jar" )
   $restore_opt
   if [[ "${#rmjars[@]}" != "0" ]]; then
     show command "rm **/target/...stale-jars"

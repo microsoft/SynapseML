@@ -248,11 +248,14 @@ get_suffix() {
 
 # ---< call_ifdef [_] fun arg... >----------------------------------------------
 # If the named function exists, calls it with the given arguments.  Calls only
-# functions, not external executables or builtins.
+# functions, not external executables or builtins.  Restores original working
+# directory if it was changed.
 call_ifdef() {
   local pfx=""; if [[ "$1" = "_" ]]; then pfx="_"; shift; fi
   local fun="$1"; shift
+  local owd="$PWD"
   if [[ "$(type -t "$fun")" = "function" ]]; then $pfx "$fun" "$@"; fi
+  cd "$owd"
 }
 
 # ---< deftag tag [supertag] >--------------------------------------------------
