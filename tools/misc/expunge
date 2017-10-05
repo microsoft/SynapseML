@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+. "$(dirname "${BASH_SOURCE[0]}")/../../runme"
+
+rm -f "/tmp/expunge-paths"
+
+numlines() { local n="$(wc -l "$@")"; echo "${n%% *}"; }
+
+run_filter() {
+  local label="$1";   shift
+  local azquery="$1"; shift
+  local jqquery="$1"; shift
+  #
+  local azcmd=(az storage blob list -c "deleted")
+  if [[ -n "$azquery" ]]; then azcmd+=("--query" "$azquery"); fi
+  #
+  local jqcmd=(jq -r '.[]')
+  if [[ -n "$jqquery" ]]; then jqcmd[2]+=" | select($jqquery)"; fi
+  #
+  local cmdstr=""
+  for x in "${azcmd[@]}"; do cmdstr+="$(maybe_qstr "$x") "; done
+  cmdstr+=$'\\\n  |'
+  for x in "${jqcmd[@]}"; do cmdstr+=" $(maybe_qstr "$x")"; done
+  show - "$label:"
+  show command "${cmdstr# }"
+  "${azcmd[@]}" | "${jqcmd[@]}" > "/tmp/expunge-chunk"
+  printf "%s paths\n" "$(numlines "/tmp/expunge-chunk")"
+  cat "/tmp/expunge-chunk" >> "/tmp/expunge-paths"
+  rm -f "/tmp/expunge-chunk"
+  echo ""
+}
+
+# Uses the lastModified field, which is the date that the "deleted" copy
+# was made, so the filtered dates apply to the time they were deleted.
+run_filter \
+  "blobs older than 2 months" \
+  "[?properties.lastModified<'$(date --iso --date="2 months ago")'].name" \
+  ""
+run_filter \
+  ".dev*+* blobs (from pr builds) older than 1 month" \
+  "[?properties.lastModified<'$(date --iso --date="1 month ago")'].name" \
+  "test(\"0([.][0-9]+)+.dev[0-9]+[+][0-9]\")"
+
+sort < "/tmp/expunge-paths" > "/tmp/expunge-paths-sorted"
+mv "/tmp/expunge-paths-sorted" "/tmp/expunge-paths"
+
+n="$(numlines "/tmp/expunge-paths")"
+printf "Total paths: %s\n\n" "$n"
+
+while read -r l; do
+  printf "\r%s %s...\e[K" $((n--)) "$l"
+  if ! az storage blob delete -c "deleted" -n "$l" > /dev/null
+  then printf "\rfail: %s\e[K\n" "$l"; fi
+done < "/tmp/expunge-paths"
+
+printf "\rDone.\e[K\n"
+
+rm -f "/tmp/expunge-paths"
