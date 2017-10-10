@@ -90,7 +90,15 @@ def postprocess_notebooks(input_dir, output_base_dir):
     import os
     import glob
     from nbformat import read, write, NO_CONVERT
-    notebooks = [(os.path.split(nbfile)[-1], read(nbfile, NO_CONVERT))
+
+    def _read(nbfile, to_conv):
+        try:
+            return read(nbfile, to_conv)
+        except Exception as e:
+            e.args += ("File name: {}".format(os.path.split(nbfile)[-1]),)
+            raise e
+
+    notebooks = [(os.path.split(nbfile)[-1], _read(nbfile, NO_CONVERT))
                  for nbfile in glob.glob(os.path.join(input_dir, "*.ipynb"))]
     notebooks_by_target = _postprocessed_notebooks_by_target(notebooks)
 
