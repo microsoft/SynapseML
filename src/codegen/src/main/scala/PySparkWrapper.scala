@@ -170,7 +170,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     "TransformerParam",
     "TransformerArrayParam",
     "EstimatorParam",
-    "PipelineStageParam")
+    "PipelineStageParam",
+    "EstimatorArrayParam")
   protected def isComplexType(paramType: String): Boolean = complexTypes.contains(paramType)
 
   protected def getParamExplanation(param: Param[_]): String = {

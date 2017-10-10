@@ -3,10 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.SchemaConstants
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{Param, ParamMap, TransformerArrayParam}
+import org.apache.spark.ml.param.{ParamMap, TransformerArrayParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -21,7 +20,7 @@ object FindBestModel extends DefaultParamsReadable[FindBestModel] {
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with MMLParams {
+class FindBestModel(override val uid: String) extends Estimator[BestModel] with MMLParams with HasEvaluationMetric {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
   /** List of models to be evaluated. The list is an Array of models
@@ -34,37 +33,6 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
-
-  /** Metric used to evaluate models and determine best model. Specify the metric as one of the following:
-    * - "mse"
-    * - "rmse"
-    * - "r2"
-    * - "mae"
-    * - "accuracy"
-    * - "recall"
-    * - 'AUC"
-    * The default is: "accuracy"
-    *
-    * @group param
-    */
-  val evaluationMetric: Param[String] = StringParam(this, "evaluationMetric", "Metric to evaluate models with",
-    (s: String) => Seq(ComputeModelStatistics.MseSparkMetric,
-    ComputeModelStatistics.RmseSparkMetric,
-    ComputeModelStatistics.R2SparkMetric,
-    ComputeModelStatistics.MaeSparkMetric,
-    ComputeModelStatistics.AccuracySparkMetric,
-    ComputeModelStatistics.PrecisionSparkMetric,
-    ComputeModelStatistics.RecallSparkMetric,
-    ComputeModelStatistics.AucSparkMetric) contains s)
-
-  // Set default evaluation metric to accuracy
-  setDefault(evaluationMetric -> ComputeModelStatistics.AccuracySparkMetric)
-
-  /** @group getParam */
-  def getEvaluationMetric: String = $(evaluationMetric)
-
-  /** @group setParam */
-  def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
 
   var selectedModel: Transformer = null
 
@@ -83,16 +51,6 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     if (trainedModels.isEmpty) {
       throw new Exception("No trained models to evaluate.")
     }
-    // Find type of trained models
-    def modelTypeDiscriminant(model: Transformer):String = {
-      model match {
-        case reg: TrainedRegressorModel => SchemaConstants.RegressionKind
-        case cls: TrainedClassifierModel => SchemaConstants.ClassificationKind
-        case evm: BestModel => modelTypeDiscriminant(evm.getBestModel)
-        case _ => throw new Exception("Model type not supported for evaluation")
-      }
-    }
-    val modelType = modelTypeDiscriminant(trainedModels(0))
     val evaluator = new ComputeModelStatistics()
     evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
 
@@ -101,43 +59,18 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     val modelMetrics = ListBuffer[Double]()
     val models = ListBuffer[String]()
     val parameters = ListBuffer[String]()
+    val firstModel = trainedModels(0)
 
-    // TODO: Add the other metrics
-    // TODO: Check metrics per model
-    val chooseHighest = (current: Double, best: Double) => { current > best }
-    val chooseLowest = (current: Double, best: Double) => { current < best }
-    val (evaluationMetricColumnName, operator): (String, (Double, Double) => Boolean) = modelType match {
-      case SchemaConstants.RegressionKind => getEvaluationMetric match {
-        case ComputeModelStatistics.MseSparkMetric  => (ComputeModelStatistics.MseColumnName,  chooseLowest)
-        case ComputeModelStatistics.RmseSparkMetric => (ComputeModelStatistics.RmseColumnName, chooseLowest)
-        case ComputeModelStatistics.R2SparkMetric   => (ComputeModelStatistics.R2ColumnName,   chooseHighest)
-        case ComputeModelStatistics.MaeSparkMetric  => (ComputeModelStatistics.MaeColumnName,  chooseLowest)
-        case _ => throw new Exception("Metric is not supported for regressors")
-      }
-      case SchemaConstants.ClassificationKind => getEvaluationMetric match {
-        case ComputeModelStatistics.AucSparkMetric       => (ComputeModelStatistics.AucColumnName, chooseHighest)
-        case ComputeModelStatistics.PrecisionSparkMetric => (ComputeModelStatistics.PrecisionColumnName, chooseHighest)
-        case ComputeModelStatistics.RecallSparkMetric    => (ComputeModelStatistics.RecallColumnName, chooseHighest)
-        case ComputeModelStatistics.AccuracySparkMetric  => (ComputeModelStatistics.AccuracyColumnName, chooseHighest)
-        case _ => throw new Exception("Metric is not supported for classifiers")
-      }
-      case _ => throw new Exception("Model type not supported for evaluation")
-    }
+    val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
+      EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
+    val modelType = EvaluationUtils.getModelType(firstModel)
 
     val compareModels = (model: Transformer, metrics: DataFrame, scoredDataset: Dataset[_]) => {
       val currentMetric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
       modelMetrics += currentMetric
       models += model.uid
-      def getModelParams(model: Transformer): ParamMap = {
-        model match {
-          case reg: TrainedRegressorModel => reg.getParamMap
-          case cls: TrainedClassifierModel => cls.getParamMap
-          case evm: BestModel => getModelParams(evm.getBestModel)
-          case _ => throw new Exception("Model type not supported for evaluation")
-        }
-      }
-      parameters += getModelParams(model).toSeq.map(pv => s"${pv.param.name}: ${pv.value}").mkString(", ")
-      if (bestMetric.isNaN || operator(currentMetric, bestMetric)) {
+      parameters += EvaluationUtils.modelParamsToString(model)
+      if (bestMetric.isNaN || operator.gt(currentMetric, bestMetric)) {
         bestMetric = currentMetric
         selectedModel = model
         selectedScoredDataset = scoredDataset
@@ -146,7 +79,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
     for (trainedModel <- trainedModels) {
       // Check that models are consistent
-      if (modelTypeDiscriminant(trainedModel) != modelType) {
+      if (EvaluationUtils.getModelType(trainedModel) != modelType) {
         throw new Exception("Models are inconsistent. Please evaluate only regressors or classifiers.")
       }
       val df = trainedModel.transform(dataset)
