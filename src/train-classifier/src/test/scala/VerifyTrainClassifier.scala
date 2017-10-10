@@ -4,19 +4,17 @@
 package com.microsoft.ml.spark
 
 import FileUtilities._
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants}
 
-import scala.collection.mutable.ArrayBuffer
-import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructType
 import org.apache.commons.io.FileUtils
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.Path
 
 object ClassifierTestUtils {
 
@@ -29,17 +27,9 @@ object ClassifierTestUtils {
 }
 
 /** Tests to validate the functionality of Train Classifier module. */
-class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassifier] {
+class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassifier] {
 
-  val targetDirectory = new File("target")
-  val thisDirectory = {
-    // intellij runs from a different directory
-    val d = new File("src/test/scala")
-    if (d.isDirectory) d else new File("train-classifier/src/test/scala")
-  }
-  assert(thisDirectory.isDirectory, "-- the test should run in the sub-project root level")
-  val historicMetricsFile  = new File(thisDirectory, "benchmarkMetrics.csv")
-  val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
+  lazy val moduleName = "train-classifier"
 
   val LogisticRegressionClassifierName = "LogisticRegression"
   val DecisionTreeClassifierName = "DecisionTreeClassification"
@@ -47,14 +37,6 @@ class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassif
   val GradientBoostedTreesClassifierName = "GradientBoostedTreesClassification"
   val NaiveBayesClassifierName = "NaiveBayesClassifier"
   val MultilayerPerceptronClassifierName = "MultilayerPerceptronClassifier"
-
-  val accuracyResults = ArrayBuffer.empty[String]
-  def addAccuracyResult(items: Any*): Unit = {
-    val line = items.map(_.toString).mkString(",")
-    println(s"... $line")
-    accuracyResults += line
-    ()
-  }
 
   val mockLabelColumn = "Label"
 
@@ -73,13 +55,6 @@ class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassif
       (0, 3, 0.78, 0.99, 2),
       (1, 4, 0.12, 0.34, 3)))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
-  }
-
-  def getFileSystem(): FileSystem = {
-    val config = sc.hadoopConfiguration
-    import org.apache.hadoop.fs.Path
-    val dfs_cwd = new Path(".")
-    dfs_cwd.getFileSystem(config)
   }
 
   test("Smoke test for training on a classifier") {
@@ -222,22 +197,7 @@ class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassif
   verifyLearnerOnBinaryCsvFile("TelescopeData.csv",                " Class", 2, false)
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
-    try writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
-    catch {
-      case e: java.io.IOException => throw new Exception("Not able to process benchmarks file")
-    }
-    val historicMetrics = readFile(historicMetricsFile, _.getLines.toList)
-    if (historicMetrics.length != accuracyResults.length)
-      throw new Exception(s"Mis-matching number of lines in new benchmarks file: $benchmarkMetricsFile")
-    for (((hist,acc),i) <- (historicMetrics zip accuracyResults).zipWithIndex) {
-      assert(hist == acc,
-        s"""Lines do not match on file comparison:
-           |  $historicMetricsFile:$i:
-           |    $hist
-           |  $benchmarkMetricsFile:$i:
-           |    $acc
-           |.""".stripMargin)
-    }
+    compareBenchmarkFiles()
   }
 
   def verifyLearnerOnBinaryCsvFile(fileName: String,
@@ -463,15 +423,6 @@ class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassif
     result
   }
 
-  /** Rounds the given metric to 2 decimals.
-    * @param metric The metric to round.
-    * @return The rounded metric.
-    */
-  def round(metric: Double, decimals: Int): Double = {
-    BigDecimal(metric)
-      .setScale(decimals, BigDecimal.RoundingMode.HALF_UP).toDouble
-  }
-
   override def testObjects(): Seq[TestObject[TrainClassifier]] =
     List(new TestObject(
       new TrainClassifier().setModel(new LogisticRegression()).setLabelCol(mockLabelColumn), createMockDataset))
@@ -482,33 +433,28 @@ class VerifyTrainClassifier extends TestBase with  EstimatorFuzzing[TrainClassif
 
 /** Test helper methods for Train Classifier module. */
 object TrainClassifierTestUtilities {
+  val defaultFeaturesCol = "mlfeatures"
 
-  def createLogisticRegressor(labelColumn: String): Estimator[TrainedClassifierModel] = {
+  def createLogisticRegressor(labelColumn: String): TrainClassifier = {
     val logisticRegression = new LogisticRegression()
       .setRegParam(0.3)
       .setElasticNetParam(0.8)
       .setMaxIter(10)
-    val trainClassifier = new TrainClassifier()
-    trainClassifier
-      .setModel(logisticRegression)
-      .set(trainClassifier.labelCol, labelColumn)
+    wrapInTrainClassifier(logisticRegression, labelColumn)
   }
 
-  def createDecisionTreeClassifier(labelColumn: String): Estimator[TrainedClassifierModel] = {
+  def createDecisionTreeClassifier(labelColumn: String): TrainClassifier = {
     val decisionTreeClassifier = new DecisionTreeClassifier()
       .setMaxBins(32)
       .setMaxDepth(5)
       .setMinInfoGain(0.0)
       .setMinInstancesPerNode(1)
       .setSeed(0L)
-    val trainClassifier = new TrainClassifier()
-    trainClassifier
-      .setModel(decisionTreeClassifier)
-      .set(trainClassifier.labelCol, labelColumn)
+    wrapInTrainClassifier(decisionTreeClassifier, labelColumn)
   }
 
-  def createGradientBoostedTreesClassifier(labelColumn: String): Estimator[TrainedClassifierModel] = {
-    val decisionTreeClassifier = new GBTClassifier()
+  def createGradientBoostedTreesClassifier(labelColumn: String): TrainClassifier = {
+    val gbtClassifier = new GBTClassifier()
       .setMaxBins(32)
       .setMaxDepth(5)
       .setMaxIter(20)
@@ -517,14 +463,11 @@ object TrainClassifierTestUtilities {
       .setStepSize(0.1)
       .setSubsamplingRate(1.0)
       .setSeed(0L)
-    val trainClassifier = new TrainClassifier()
-    trainClassifier
-      .setModel(decisionTreeClassifier)
-      .set(trainClassifier.labelCol, labelColumn)
+    wrapInTrainClassifier(gbtClassifier, labelColumn)
   }
 
-  def createRandomForestClassifier(labelColumn: String): Estimator[TrainedClassifierModel] = {
-    val decisionTreeClassifier = new RandomForestClassifier()
+  def createRandomForestClassifier(labelColumn: String): TrainClassifier = {
+    val randomForestClassifier = new RandomForestClassifier()
       .setMaxBins(32)
       .setMaxDepth(5)
       .setMinInfoGain(0.0)
@@ -532,13 +475,10 @@ object TrainClassifierTestUtilities {
       .setNumTrees(20)
       .setSubsamplingRate(1.0)
       .setSeed(0L)
-    val trainClassifier = new TrainClassifier()
-    trainClassifier
-      .setModel(decisionTreeClassifier)
-      .set(trainClassifier.labelCol, labelColumn)
+    wrapInTrainClassifier(randomForestClassifier, labelColumn)
   }
 
-  def createMultilayerPerceptronClassifier(labelColumn: String): Estimator[TrainedClassifierModel] = {
+  def createMultilayerPerceptronClassifier(labelColumn: String): TrainClassifier = {
     val layers = Array[Int](2, 5, 2)
     val multilayerPerceptronClassifier = new MultilayerPerceptronClassifier()
       .setLayers(layers)
@@ -546,18 +486,20 @@ object TrainClassifierTestUtilities {
       .setMaxIter(1)
       .setTol(1e-6)
       .setSeed(0L)
-    val trainClassifier = new TrainClassifier()
-    trainClassifier
-      .setModel(multilayerPerceptronClassifier)
-      .set(trainClassifier.labelCol, labelColumn)
+    wrapInTrainClassifier(multilayerPerceptronClassifier, labelColumn)
   }
 
-  def createNaiveBayesClassifier(labelColumn: String): Estimator[TrainedClassifierModel] = {
+  def createNaiveBayesClassifier(labelColumn: String): TrainClassifier = {
     val naiveBayesClassifier = new NaiveBayes()
+    wrapInTrainClassifier(naiveBayesClassifier, labelColumn)
+  }
+
+  def wrapInTrainClassifier(est: Estimator[_ <: Model[_]], labelColumn: String): TrainClassifier = {
     val trainClassifier = new TrainClassifier()
     trainClassifier
-      .setModel(naiveBayesClassifier)
-      .set(trainClassifier.labelCol, labelColumn)
+      .setModel(est)
+      .setLabelCol(labelColumn)
+      .setFeaturesCol(defaultFeaturesCol)
   }
 
   def trainScoreDataset(labelColumn: String, dataset: DataFrame,

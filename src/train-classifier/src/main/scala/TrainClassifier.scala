@@ -7,7 +7,6 @@ import java.util.UUID
 
 import com.microsoft.ml.spark.schema._
 import com.microsoft.ml.spark.CastUtilities._
-import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._
@@ -38,7 +37,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * Validate labels matches column type, try to recast to label type, reindex label column
   */
 class TrainClassifier(override val uid: String) extends Estimator[TrainedClassifierModel]
-  with HasLabelCol with MMLParams {
+  with HasLabelCol with HasFeaturesCol with MMLParams {
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
@@ -52,13 +51,10 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     * @group param
     */
   val model = new EstimatorParam(this, "model", "Classifier to run")
-
   /** @group getParam */
   def getModel: Estimator[_ <: Model[_]] = $(model)
   /** @group setParam */
   def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
-
-  val featuresColumn = this.uid + "_features"
 
   /** Number of features to hash to
     * @group param
@@ -89,6 +85,13 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   /** @group setParam */
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
+  /** Optional parameter, specifies the name of the features column passed to the learner.
+    * Must have a unique name different from the input columns.
+    * By default, set to <uid>_features.
+    * @group param
+    */
+  setDefault(featuresCol, this.uid + "_features")
+
   /** Fits the classification model.
     *
     * @param dataset The input dataset to train.
@@ -113,9 +116,9 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
             .setClassifier(
               logisticRegressionClassifier
                 .setLabelCol(getLabelCol)
-                .setFeaturesCol(featuresColumn))
+                .setFeaturesCol(getFeaturesCol))
             .setLabelCol(getLabelCol)
-            .setFeaturesCol(featuresColumn)
+            .setFeaturesCol(getFeaturesCol)
         } else {
           logisticRegressionClassifier
         }
@@ -137,7 +140,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
       case predictor: Predictor[_, _, _] => {
         predictor
           .setLabelCol(getLabelCol)
-          .setFeaturesCol(featuresColumn).asInstanceOf[Estimator[_ <: PipelineStage]]
+          .setFeaturesCol(getFeaturesCol).asInstanceOf[Estimator[_ <: PipelineStage]]
       }
       case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
         // assume label col and features col already set
@@ -155,7 +158,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
 
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(featuresColumn -> featureColumns))
+      .setFeatureColumns(Map(getFeaturesCol -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
       .setNumberOfFeatures(featuresToHashTo)
     val featurizedModel = featurizer.fit(convertedLabelDataset)
@@ -167,7 +170,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     if (modifyInputLayer) {
       val multilayerPerceptronClassifier = classifier.asInstanceOf[MultilayerPerceptronClassifier]
       val row = processedData.take(1)(0)
-      val featuresVector = row.get(row.fieldIndex(featuresColumn))
+      val featuresVector = row.get(row.fieldIndex(getFeaturesCol))
       val vectorSize = featuresVector.asInstanceOf[linalg.Vector].size
       multilayerPerceptronClassifier.getLayers(0) = vectorSize
       multilayerPerceptronClassifier.setLayers(multilayerPerceptronClassifier.getLayers)
@@ -180,7 +183,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
 
     // Note: The fit shouldn't do anything here
     val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
-    new TrainedClassifierModel(uid, getLabelCol, pipelineModel, levels, featuresColumn)
+    new TrainedClassifierModel(uid, getLabelCol, pipelineModel, levels, getFeaturesCol)
   }
 
   def getFeaturizeParams: (Boolean, Boolean, Int) = {
@@ -248,7 +251,10 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     }
   }
 
-  override def copy(extra: ParamMap): Estimator[TrainedClassifierModel] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[TrainedClassifierModel] = {
+    setModel(getModel.copy(extra))
+    defaultCopy(extra)
+  }
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = {
