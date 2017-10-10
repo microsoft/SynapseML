@@ -25,7 +25,8 @@ object Extras {
   def defaultOrg = "com.microsoft.ml.spark"
   def scalaVer = env("SCALA_FULL_VERSION", null)
   def sparkVer = env("SPARK_VERSION", null)
-  def cntkVer  = env("CNTK_VERSION", null)
+  def cntkVer  = if (env("CNTK_VERSION", null) == "2.2") "2.2.0.1"
+                 else sys.error("Time to remove the CNTK 2.2.0.1 hack!")
 
   def commonLibs = Seq(
     "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
