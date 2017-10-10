@@ -3,15 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import java.io.File
-
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.{Estimator, PipelineStage, Transformer}
+import org.apache.spark.ml.{PipelineStage, Transformer}
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.apache.commons.io.FileUtils
 
-class VerifyFindBestModel extends TestBase with RoundTripTestBase{
+class VerifyFindBestModel extends TestBase with RoundTripTestBase {
 
   val mockLabelColumn = "Label"
 

@@ -6,7 +6,6 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
-import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._
@@ -125,7 +124,10 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
     new TrainedRegressorModel(uid, labelColumn, pipelineModel, featuresColumn)
   }
 
-  override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = {
+    setModel(getModel.copy(extra))
+    defaultCopy(extra)
+  }
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = TrainRegressor.validateTransformSchema(schema)

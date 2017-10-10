@@ -26,6 +26,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.TrainRegressor",
+      "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.Repartition",
@@ -67,6 +68,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.TrainRegressor",
+      "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.Repartition",
@@ -112,6 +114,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.TrainRegressor",
+      "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.Repartition",
@@ -156,8 +159,8 @@ class FuzzingTest extends TestBase {
     val badChars = List(",", "\"", "'", ".")
     pipelineStages.foreach { pipelineStage =>
       pipelineStage.params.foreach { param =>
-        assertOrLog(!param.name.contains(badChars))
-        assertOrLog(!param.doc.contains("\""))
+        assertOrLog(!param.name.contains(badChars), param.name)
+        assertOrLog(!param.doc.contains("\""), param.doc)
       }
     }
   }

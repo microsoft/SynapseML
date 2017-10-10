@@ -1,0 +1,4 @@
+Tunes model hyperparameters
+
+Supports distributed hyperparameter tuning through randomized grid search.
+In the near future will support Nelder-Mead and kernel density optimization.
