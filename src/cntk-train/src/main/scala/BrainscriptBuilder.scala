@@ -22,10 +22,17 @@ class BrainScriptBuilder {
 
   var rootDir: String = ""
   var outDir: String = ""
-  var weightPrecision: String = "float"
+  var weightPrecision: String = CNTKLearner.floatPrecision
 
   var commands = ListBuffer[String]("trainNetwork")
   var testModel = false
+
+  var activeNameNode: String = ""
+
+  def setWeightPrecision(precision: String): this.type = {
+    weightPrecision = precision
+    this
+  }
 
   def setInputFile(path: String, format: String, shapes: Map[String, InputShape]): this.type = {
     inData = Some(InputData(format, path, shapes))
@@ -34,6 +41,13 @@ class BrainScriptBuilder {
 
   def setModelName(n: String): this.type = {
     modelName = n
+    this
+  }
+
+  def setHDFSPath(hdfsPath: Option[(String, String, String)]): this.type = {
+    if (hdfsPath.isDefined) {
+      activeNameNode = hdfsPath.get._3
+    }
     this
   }
 
@@ -74,13 +88,39 @@ class BrainScriptBuilder {
     this
   }
 
+  def textReaderConfig(loc: String, ipstring: String): String = {
+    s"""reader = [ readerType = CNTKTextFormatReader; file = "$loc" ; $ipstring ]"""
+  }
+
+  def parquetReaderConfig(loc: String, ipstring: String): String = {
+    s"""    reader = {
+      |        deserializers = (
+      |                        [
+      |                            type = "DataFrameDeserializer"
+      |                            module = "Cntk.Deserializers.DF"
+      |                            $ipstring
+      |                            hdfs = {
+      |                                host = "$activeNameNode";
+      |                                port = "${CNTKLearner.rpcPortNumber}";
+      |                                filePath = "$loc";
+      |                                format = "Parquet"
+      |                            }
+      |                        ]
+      |                    )
+      |        prefetch = false
+      |        randomize = true
+      |        keepDataInMemory = true     # cache all data in memory
+      |    }
+    """.stripMargin
+  }
+
   def toReaderConfig: String = {
     val ipstring = getInputString
     val loc = inData.get.path
-    val form = inData.get.format match {
-      case "text" => "CNTKTextFormatReader"
+    inData.get.format match {
+      case CNTKLearner.textDataFormat => textReaderConfig(loc, ipstring)
+      case CNTKLearner.parquetDataFormat => parquetReaderConfig(loc, ipstring)
     }
-    s"""reader = [ readerType = $form ; file = "$loc" ; $ipstring ]"""
   }
 
   def toOverrideConfig: Seq[String] = {

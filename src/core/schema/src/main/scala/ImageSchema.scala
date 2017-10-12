@@ -10,11 +10,13 @@ object ImageSchema {
 
   /** Schema for the image column: Row(String, Int, Int, Int, Array[Byte]) */
   val columnSchema = StructType(
-    StructField("path",     StringType,  true) ::
-      StructField("height", IntegerType, true) ::
-      StructField("width",  IntegerType, true) ::
-      StructField("type",   IntegerType, true) ::                 //OpenCV type: CV_8U in most cases
-      StructField("bytes",  BinaryType,  true) :: Nil)   //OpenCV bytes: row-wise BGR in most cases
+    StructField("path",   StringType,  true) ::
+    StructField("height", IntegerType, true) ::
+    StructField("width",  IntegerType, true) ::
+    // OpenCV type: CV_8U in most cases
+    StructField("type", IntegerType, true) ::
+    // OpenCV bytes: row-wise BGR in most cases
+    StructField("bytes",  BinaryType, true) :: Nil)
 
   // single column of images named "image"
   val schema = StructType(StructField("image", columnSchema, true) :: Nil)
