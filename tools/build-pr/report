@@ -16,10 +16,10 @@ fi
 ICONS_URL="https://$MAIN_STORAGE.blob.core.windows.net/icons"
 icon="$ICONS_URL/Robot"
 case "${AGENT_JOBSTATUS,,}" in
-  ( succeeded ) icon+="2.png"; box="![PASS]($icon) Pass";       state="success" ;;
-  ( canceled  ) icon+="1.png"; box="![CANCEL]($icon) Canceled"; state="error"   ;;
-  ( failed    ) icon+="0.png"; box="![FAIL]($icon) Fail";       state="failure" ;;
-  ( *         ) icon+="1.png"; box="![$AGENT_JOBSTATUS]($icon) Unknown"; state="error" ;;
+  ( succeeded ) icon+="2.svg"; box="![PASS]($icon) Pass";       state="success" ;;
+  ( canceled  ) icon+="1.svg"; box="![CANCEL]($icon) Canceled"; state="error"   ;;
+  ( failed    ) icon+="0.svg"; box="![FAIL]($icon) Fail";       state="failure" ;;
+  ( *         ) icon+="1.svg"; box="![$AGENT_JOBSTATUS]($icon) Unknown"; state="error" ;;
 esac
 
 if [[ "$BUILDPR" = "" ]]; then
