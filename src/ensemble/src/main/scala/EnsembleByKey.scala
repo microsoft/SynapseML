@@ -12,6 +12,7 @@ import org.apache.spark.sql.expressions.{MutableAggregationBuffer, UserDefinedAg
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import spray.json.DefaultJsonProtocol._
 
 import scala.collection.mutable
 
@@ -68,7 +69,14 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
   def setCollapseGroup(value: Boolean): this.type = set(collapseGroup, value)
 
-  setDefault(collapseGroup -> true)
+  val vectorDims =new MapParam[String, Int](this, "vectorDims",
+    "the dimensions of any vector columns, used to avoid materialization")
+
+  def getVectorDims: Map[String, Int] = $(vectorDims)
+
+  def setVectorDims(value: Map[String, Int]): this.type = set(vectorDims, value)
+
+  setDefault(collapseGroup -> true, vectorDims -> Map())
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
@@ -84,7 +92,8 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
     val strategyToVectorFunction = Map(
       "mean" -> { (x: String, y: String) =>
-        val dim = dataset.select(x).take(1)(0).getAs[DenseVector](0).size
+        val dim = getVectorDims.getOrElse(x,
+          dataset.select(x).take(1)(0).getAs[DenseVector](0).size)
         new VectorAvg(dim)(dataset(x)).asInstanceOf[Column].alias(y)
       }
     )
