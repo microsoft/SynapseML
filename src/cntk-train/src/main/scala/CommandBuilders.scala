@@ -22,6 +22,7 @@ abstract class CNTKCommandBuilderBase(log: Logger) {
   var workingDir = new File(".").toURI
   var outputDir: String = ""
   var sparkSession: SparkSession = null
+  var dataFormat: String = ""
 
   def setWorkingDir(p: String): this.type = {
     workingDir = new File(p).toURI
@@ -45,6 +46,11 @@ abstract class CNTKCommandBuilderBase(log: Logger) {
 
   def setSparkSession(p: SparkSession): this.type = {
     sparkSession = p
+    this
+  }
+
+  def setDataFormat(d: String): this.type = {
+    dataFormat = d
     this
   }
 
@@ -88,7 +94,7 @@ trait MPIConfiguration {
 
 class MPICommandBuilder(log: Logger,
                         gpuMachines: Array[String],
-                        hdfsPath: Option[(String, String)],
+                        hdfsPath: Option[(String, String, String)],
                         fileInputPath: String,
                         username: String,
                         fileBased: Boolean = true) extends CNTKCommandBuilderBase(log) with MPIConfiguration {
@@ -114,10 +120,8 @@ class MPICommandBuilder(log: Logger,
     "Identity file not found: "
 
   def runCommand(): Unit = {
-    val pathEnvVar = "PATH=/usr/bin/cntk/cntk/bin:$PATH"
-    val ldLibraryPathEnvVar =
-      "LD_LIBRARY_PATH=/usr/bin/cntk/cntk/lib:/usr/bin/cntk/cntk/dependencies/lib:$LD_LIBRARY_PATH"
-    val mpiArgs = s" -x $pathEnvVar -x $ldLibraryPathEnvVar --npernode ${nodeConfig.head._2} "
+    val exportClasspath = "export CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath --glob); "
+    val mpiArgs = s" --npernode ${nodeConfig.head._2} "
     val cntkArgs = "cntk " + configs
       .map(c => if (fileBased) s"configFile=${configToFile(c)} " else c.text.mkString(" "))
       .mkString(" ")
@@ -161,14 +165,13 @@ class MPICommandBuilder(log: Logger,
 
     // Run commands below only if writing input data to HDFS
     var fileDirStr: String = ""
-    if (hdfsPath.isDefined) {
+    if (hdfsPath.isDefined && dataFormat == CNTKLearner.textDataFormat) {
       // Add the mounted directory and all parents if it does not exist so mount will work
       fileDirStr = new URI(hdfsPath.get._2).toString
       if (!fileDirStr.startsWith("/")) {
         fileDirStr = "/" + fileDirStr
       }
       printOutput(Seq("ssh", "-i", identity, gpuUser, "mkdir", "-p", fileDirStr))
-      val mergedInputFile = "merged-input.txt"
       // Create local directory if it does not exist on the driver
       val fileDirFile = new File(fileDirStr)
       if (!fileDirFile.exists()) {
@@ -181,8 +184,9 @@ class MPICommandBuilder(log: Logger,
         Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no",
           fileInputPath, s"$gpuUser:$fileInputPath"))
     }
+    val runMPI = "''" + s"$exportClasspath $command $mpiArgs $cntkArgs" + "''"
     // Run the mpi command
-    printOutput(Seq("ssh", "-i", identity, gpuUser, command, mpiArgs, cntkArgs, "parallelTrain=true"))
+    printOutput(Seq("ssh", "-i", identity, gpuUser, runMPI))
     // Copy the model back
     val modelOrigin = s"$gpuUser:$modelPath"
     printOutput(Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no", modelOrigin, localOutputPath))
@@ -191,8 +195,10 @@ class MPICommandBuilder(log: Logger,
     if (hdfsPath.isDefined) {
       // Cleanup: Remove the HDFS directory
       printOutput(Seq("hdfs", "dfs", "-rm", "-r", s"${hdfsPath.get._1}"))
-      // Remove the temporary files on the GPU machine
-      printOutput(Seq("ssh", "-i", identity, gpuUser, "rm", "-r", fileDirStr))
+      // Remove the temporary input data files on the GPU machine (not needed for parquet data)
+      if (dataFormat == CNTKLearner.textDataFormat) {
+        printOutput(Seq("ssh", "-i", identity, gpuUser, "rm", "-r", fileDirStr))
+      }
     }
   }
 

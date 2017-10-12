@@ -16,12 +16,10 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
 trait CNTKParams extends MMLParams {
-
-  // This is only needed until Train* accepts CNTKLearner instead of CL acting like Train*
-  val labelsColumnName = StringParam(this, "labelsColumnName", "Label col", "labels")
+  val labelsColumnName = StringParam(this, "labelsColumnName", "label column name", "labels")
   def getLabelsColumnName: String = $(labelsColumnName)
 
-  val featuresColumnName = StringParam(this, "featuresColumnName", "feats col", "features")
+  val featuresColumnName = StringParam(this, "featuresColumnName", "features column name", "features")
   def getFeaturesColumnName: String = $(featuresColumnName)
 
   // This will go away after the CNTK HDFS Deserializer
@@ -34,9 +32,10 @@ trait CNTKParams extends MMLParams {
 
   // TODO: Convert to enum contract shared with CNTK's HDFS Deserializer
   val dataFormat = StringParam(this, "dataFormat", "transfer format", "text")
+  def setDataFormat(s: String): this.type = set(dataFormat, s)
   def getDataFormat: String = $(dataFormat)
 
-  val weightPrecision = StringParam(this, "weightPrecision", "weights", "double")
+  val weightPrecision = StringParam(this, "weightPrecision", "weights", CNTKLearner.floatPrecision)
   def getWeightPrecision: String = $(weightPrecision)
 
   val featureCount = IntParam(this, "featureCount", "num features for reduction", 1)
@@ -74,6 +73,8 @@ object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
   val parquetDataFormat = "parquet"
   val denseForm = "dense"
   val sparseForm = "sparse"
+  val doublePrecision = "double"
+  val floatPrecision = "float"
 }
 
 @InternalWrapper
@@ -94,7 +95,6 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       convertedLabelDataset,
       labels,
       features,
-      getWeightPrecision,
       getFeatureCount)
 
     // TODO: we should store vector sizes in schema for quick retrieval in the future
@@ -123,7 +123,9 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
     val conformedData = getDataFormat match {
       case CNTKLearner.textDataFormat =>
         DataTransferUtils.convertDatasetToCNTKTextFormat(reducedData, labels, features, labelForm, featureForm)
-      case CNTKLearner.parquetDataFormat => reducedData
+      case CNTKLearner.parquetDataFormat =>
+        DataTransferUtils.convertDatasetToCNTKParquetFormat(reducedData,
+          labels, features, labelForm, featureForm, getWeightPrecision)
     }
 
     conformedData.persist()
@@ -143,6 +145,8 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
         getDataFormat,
         Map(features -> InputShape(featureDim, featureForm),
             labels -> InputShape(labelDim, labelForm)))
+      .setHDFSPath(hdfsPath)
+      .setWeightPrecision(getWeightPrecision)
 
     // Train the learner
     val cb =
@@ -154,6 +158,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       .appendOverrideConfig(config.toOverrideConfig)
       .setOutputDir(outputDir)
       .setSparkSession(spark)
+      .setDataFormat(getDataFormat)
 
     val output = cb.runCommand
     logInfo("CNTK training finished")
@@ -165,7 +170,8 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       .setOutputCol(labels)
   }
 
-  def getWriter(dataset: Dataset[_], relativeInPath: String): (SingleFileResolver, Option[(String, String)]) = {
+  def getWriter(dataset: Dataset[_], relativeInPath: String): (SingleFileResolver,
+    Option[(String, String, String)]) = {
     getDataTransfer match {
       case CNTKLearner.localDataTransfer => (new LocalWriter(log, relativeInPath), None)
       case CNTKLearner.hdfsDataTransfer => {
@@ -185,7 +191,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
             dataset.rdd.getNumPartitions,
             relativeInPath,
             dataset.sparkSession.sparkContext)
-        val hdfsPath = Some((hdfsWriter.getHdfsInputDataDir, hdfsWriter.getRootDir))
+        val hdfsPath = Some((hdfsWriter.getHdfsInputDataDir, hdfsWriter.getRootDir, hdfsWriter.getNameNode))
         (hdfsWriter, hdfsPath)
       }
       case _ =>
