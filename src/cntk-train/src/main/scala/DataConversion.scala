@@ -76,10 +76,7 @@ object DataTransferUtils {
   def reduceAndAssemble(data: Dataset[_],
                         label: String,
                         outputVecName: String,
-                        precision: String,
                         features: Int): DataFrame = {
-    if (precision != "double") throw new NotImplementedError("only doubles")
-
     val tempFeaturizer = new Featurize()
       .setFeatureColumns(Map(outputVecName -> data.columns.filter(_ != label)))
       .setNumberOfFeatures(features)
@@ -104,6 +101,74 @@ object DataTransferUtils {
         lit(s"|$feats "),
         featStrCol)
     data.select(uberCol.as('value))
+  }
+
+  def toFloat(data: Array[Double]): Array[Float] = data.map(_.toFloat)
+
+  def convertDatasetToCNTKParquetFormat(data: Dataset[_],
+                                        label: String,
+                                        feats: String,
+                                        labelForm: String,
+                                        featureForm: String,
+                                        weightPrecision: String): DataFrame = {
+    // Dense conversion functions
+    val toDenseArray =
+      if (weightPrecision == CNTKLearner.floatPrecision) {
+        udf({
+          vector: Vector => vector match {
+            case dv: DenseVector => toFloat(dv.toArray)
+            case sv: SparseVector => toFloat(sv.toDense.toArray)
+          }
+        })
+      } else {
+        udf({
+          vector: Vector => vector match {
+            case dv: DenseVector => dv.toArray
+            case sv: SparseVector => sv.toDense.toArray
+          }
+        })
+      }
+    // Sparse format conversion functions
+    val getNZs = udf({
+      vector: Vector => vector match {
+        case dv: DenseVector => dv.toSparse.numNonzeros
+        case sv: SparseVector => sv.numNonzeros
+      }
+    })
+    val getIdxes = udf({
+      vector: Vector => vector match {
+        case dv: DenseVector => dv.toSparse.indices
+        case sv: SparseVector => sv.indices
+      }
+    })
+    val getVals =
+      if (weightPrecision == CNTKLearner.floatPrecision) {
+        udf({
+          vector: Vector => vector match {
+            case dv: DenseVector => toFloat(dv.toSparse.values)
+            case sv: SparseVector => toFloat(sv.values)
+          }
+        })
+      } else {
+        udf({
+          vector: Vector => vector match {
+            case dv: DenseVector => dv.toSparse.values
+            case sv: SparseVector => sv.values
+          }
+        })
+      }
+    // Note: order matters, features column needs to come first
+    val cols = data.select(feats, label).columns.flatMap(name => {
+      if ((name == label && labelForm == CNTKLearner.denseForm) ||
+        (name == feats && featureForm == CNTKLearner.denseForm)) {
+        Seq(toDenseArray(data.col(name)).alias(name))
+      } else {
+        Seq(getNZs(data.col(name)).alias(name + "_size"),
+          getIdxes(data.col(name)).alias(name + "_indices"),
+          getVals(data.col(name)).alias(name + "_values"))
+      }
+    })
+    data.select(cols: _*)
   }
 
 }
@@ -184,10 +249,15 @@ class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: Sp
   val remappedRoot = mountPoint + relativeDest
 
   override protected def remapPath(extension: String): String = {
-    log.info(s"Wrote unmerged text files to hdfs path: $constructedPath")
-    log.info(s"Mount point for process: $mountPoint")
-    log.info(s"Remapped root for file: $remappedRoot")
-    val file = s"$remappedRoot/merged-input.txt"
+    log.info(s"Wrote $extension files to hdfs path: $constructedPath")
+    val file =
+      if (extension == CNTKLearner.parquetDataFormat) {
+        relativeDest
+      } else {
+        log.info(s"Mount point for process: $mountPoint")
+        log.info(s"Remapped root for file: $remappedRoot")
+        s"$remappedRoot/merged-input.txt"
+      }
     log.info(s"Path to mnt file on GPU VM: $file")
     file
   }
@@ -198,4 +268,6 @@ class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: Sp
   def getHdfsInputDataDir: String = constructedPath
   // The root directory
   def getRootDir: String = remappedRoot
+  // The active name node, with port removed at the end
+  def getNameNode: String = namenode.replace(":8020", "")
 }
