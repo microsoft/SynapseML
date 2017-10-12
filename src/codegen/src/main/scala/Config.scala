@@ -8,28 +8,31 @@ import sys.process.Process
 
 object Config {
 
-  val srcDir     = new File(".").getCanonicalFile()
-  val topDir     = new File("..").getCanonicalFile()
-  val rootsFile  = new File(srcDir, "project/project-roots.txt")
-  val outputDir  = new File(topDir, "BuildArtifacts/sdk")
-  val packageDir = new File(topDir, "BuildArtifacts/packages")
-  val toZipDir   = new File(srcDir, "src/main/resources/mmlspark")
-  val toRDir     = new File(packageDir, "r")
-  val zipFile    = new File(outputDir, "mmlspark.zip")
-  val pyTestDir  = new File(topDir, "TestResults/generated_pytests")
-  val RTestDir   = new File(topDir, "TestResults/generated_Rtests")
-  val pyDocDir   = new File(topDir, "BuildArtifacts/pydocsrc")
-  val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
-  val pyRelPath  = "src/main/python"
   val mmlVer     = sys.env.getOrElse("MML_VERSION",
                                      Process("../tools/runme/show-version").!!.trim)
   val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
+
+  val srcDir     = new File(".").getCanonicalFile()
+  val topDir     = new File("..").getCanonicalFile()
+  val rootsFile  = new File(srcDir, "project/project-roots.txt")
+  val artifactsDir = new File(topDir, "BuildArtifacts")
+  val outputDir  = new File(artifactsDir, "sdk")
+  val pyDir      = new File(srcDir, "src/main/resources/mmlspark")
+  val pyZipFile  = new File(outputDir, "mmlspark.zip")
+  val rDir       = new File(artifactsDir, "packages/R/mmlspark")
+  val rSrcDir    = new File(rDir, "R")
+  val rZipFile   = new File(s"$rDir-$mmlVer.zip")
+  val pyTestDir  = new File(topDir, "TestResults/generated_pytests")
+  val rTestDir   = new File(topDir, "TestResults/generated_Rtests")
+  val pyDocDir   = new File(artifactsDir, "pydocsrc")
+  val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
+  val pyRelPath  = "src/main/python"
+  val rRelPath   = "src/main/R"
   val internalPrefix  = "_"
   val scopeDepth = " " * 4
   val tmpDocDir  = new File(pyDocDir, "tmpDoc")
   val txtRelPath = "src/main/scala"
-  val sparklyRWrappersFile = "ml_wrappers.R"
-  val sparklyRNamespaceFile = "NAMESPACE"
+  val sparklyRNamespacePath = new File(rDir, "NAMESPACE")
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.

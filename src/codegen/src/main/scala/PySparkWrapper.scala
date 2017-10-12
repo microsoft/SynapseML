@@ -18,12 +18,13 @@ import Config._
   */
 abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
-                              entryPointQualifiedName: String) extends WritableWrapper {
+                              entryPointQualifiedName: String)
+    extends WritableWrapper {
 
   private val additionalImports = Map(
     ("complexTypes",
-      s"from ${toZipDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
-    ("utils", s"from ${toZipDir.getName}.Utils import *")
+      s"from ${pyDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
+    ("utils", s"from ${pyDir.getName}.Utils import *")
   )
 
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
@@ -31,7 +32,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   //   if/else can be removed
   protected def classTemplate(importsString: String, inheritanceString: String,
                               classParamsString: String,
-                              paramDefinitionsAndDefaultsString: String, paramGettersAndSettersString: String,
+                              paramDefinitionsAndDefaultsString: String,
+                              paramGettersAndSettersString: String,
                               classDocString: String, paramDocString: String,
                               classParamDocString: String): String = {
     s"""|$copyrightLines
@@ -189,16 +191,16 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 
   protected def getPythonizedDataType(paramType: String): String =
     paramType match {
-      case "BooleanParam" => "bool"
-      case "IntParam" => "int"
-      case "LongParam" => "long"
-      case "FloatParam" => "float"
-      case "DoubleParam" => "double"
-      case "StringParam" => "str"
-      case "Param" => "str"
+      case "BooleanParam"     => "bool"
+      case "IntParam"         => "int"
+      case "LongParam"        => "long"
+      case "FloatParam"       => "float"
+      case "DoubleParam"      => "double"
+      case "StringParam"      => "str"
+      case "Param"            => "str"
       case "StringArrayParam" => "list"
-      case "MapArrayParam" => "dict"
-      case _ => "object"
+      case "MapArrayParam"    => "dict"
+      case _                  => "object"
     }
 
   protected def getParamDefault(param: Param[_]): (String, String) = {
@@ -216,8 +218,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       else {
         try{
           entryPoint.getParam(param.name).w(paramDefault)
-        }
-        catch{
+        } catch {
           case e: Exception =>
             defaultStringIsParsable = false
         }
@@ -286,7 +287,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     }
 
     // Build strings
-    val importsString = imports.mkString("\n")
+    val importsString     = imports.mkString("\n")
     val inheritanceString = inheritedClasses.mkString(", ")
     val classParamsString = paramsAndDefaults.mkString(", ")
     val paramDefinitionsAndDefaultsString = paramDefinitionsAndDefaults.mkString("\n")
@@ -313,6 +314,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   def writeWrapperToFile(dir: File): Unit = {
     writeFile(new File(dir, entryPointName + ".py"), pysparkWrapperBuilder())
   }
+
 }
 
 class PySparkTransformerWrapper(entryPoint: Transformer,
@@ -321,7 +323,6 @@ class PySparkTransformerWrapper(entryPoint: Transformer,
     extends PySparkWrapper(entryPoint,
                            entryPointName,
                            entryPointQualifiedName) {
-
   override val psType = "Transformer"
 }
 
