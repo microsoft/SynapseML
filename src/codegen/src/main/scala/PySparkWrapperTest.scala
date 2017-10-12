@@ -175,6 +175,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         case "FastVectorAssembler" => "inputCols=\"col1\""
         case "MultiNGram"          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
         case "SelectColumns"       => "cols=[\"col1\"]"
+        case "DropColumns"         => "cols=[\"col1\"]"
         case "Repartition"         => "n=2"
         case "IndexToValue"        => "inputCol=\"catOutput\""
         case "ValueIndexerModel"   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
