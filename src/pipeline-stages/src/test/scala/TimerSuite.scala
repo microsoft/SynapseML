@@ -46,6 +46,31 @@ class TimerSuite extends RoundTripTestBase {
     val pipe = new Pipeline().setStages(Array(ttok, hash, tidf))
     pipe.fit(df).transform(df)
   }
+
+  test("should be able to turn off timing") {
+    val tok = new Tokenizer()
+      .setInputCol("sentence")
+      .setOutputCol("tokens")
+    val ttok = new Timer().setStage(tok)
+    val hash = new HashingTF().setInputCol("tokens").setOutputCol("hash")
+    val idf  = new IDF().setInputCol("hash").setOutputCol("idf")
+    val tidf = new Timer().setStage(idf)
+    val pipe = new Pipeline().setStages(Array(ttok, hash, tidf))
+    val model = pipe.fit(df)
+
+    println("Transforming")
+    println(model.stages(0).params.foreach(println(_)))
+    model.stages(0).asInstanceOf[TimerModel].setDisable(true)
+    model.stages(2).asInstanceOf[TimerModel].setDisable(true)
+
+    println("here")
+    println(model.stages(0).getParam("disableMaterialization"))
+
+    model.stages(0).params.foreach(p =>println("foo: " + p.toString))
+
+    model.transform(df)
+  }
+
   val dfRoundTrip: DataFrame = df
   val reader: MLReadable[_] = Timer
   val modelReader: MLReadable[_] = TimerModel

@@ -5,8 +5,9 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.sql.DataFrame
 
-class EnsembleByKeySuite extends TestBase {
+class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey] {
 
   test("Should work on Dataframes doubles or vectors") {
     val scoreDF = session.createDataFrame(Seq(
@@ -50,6 +51,27 @@ class EnsembleByKeySuite extends TestBase {
     df1.show()
   }
 
+  val testDF: DataFrame = {
+    val initialTestDF = session.createDataFrame(
+      Seq((0, "foo", 1.0, .1),
+        (1, "bar", 4.0, -2.0),
+        (1, "bar", 0.0, -3.0)))
+      .toDF("label1", "label2", "score1", "score2")
+
+    new VectorAssembler().setInputCols(Array("score1", "score2"))
+      .setOutputCol("v1").transform(initialTestDF)
+  }
+
+  val testModel: EnsembleByKey = new EnsembleByKey().setKey("label1").setCol("score1")
+      .setCollapseGroup(false).setVectorDims(Map("v1"->2))
+
+  test("should support passing the vector dims to avoid maerialization") {
+    val df1 = testModel.transform(testDF)
+    assert(df1.collect().map(r => (r.getInt(0), r.getDouble(5))).toSet === Set((1, 2.0), (0, 1.0)))
+    assert(df1.count() == testDF.count())
+    df1.show()
+  }
+
   test("should overwrite a column if instructed") {
     val scoreDF = session.createDataFrame(
         Seq((0, "foo", 1.0, .1),
@@ -67,4 +89,11 @@ class EnsembleByKeySuite extends TestBase {
 
   }
 
+  test("should rountrip serialize") {
+    testRoundTrip()
+  }
+
+  def testObjects(): Seq[TestObject[EnsembleByKey]] = Seq(new TestObject(testModel, testDF))
+
+  def reader: EnsembleByKey.type = EnsembleByKey
 }
