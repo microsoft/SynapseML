@@ -72,7 +72,7 @@ class ValidateDataConversion extends TestBase with TestFileCleanup {
   test("Checkpoint the data") {
     val data = createMockDataset
 
-    val rData = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", "double", 10)
+    val rData = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", 10)
     val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData,
       mockLabelColumn,
       "feats",
@@ -90,8 +90,8 @@ class ValidateDataConversion extends TestBase with TestFileCleanup {
 
   test("Verify vector labels") {
     val data = createMockDataset
-    val rData1 = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", "double", 10)
-    val rData = DataTransferUtils.reduceAndAssemble(rData1, "feats", "labels", "double", 10)
+    val rData1 = DataTransferUtils.reduceAndAssemble(data, mockLabelColumn, "feats", 10)
+    val rData = DataTransferUtils.reduceAndAssemble(rData1, "feats", "labels", 10)
     val cdata = DataTransferUtils.convertDatasetToCNTKTextFormat(rData,
       "labels",
       "feats",
