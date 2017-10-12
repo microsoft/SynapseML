@@ -46,4 +46,3 @@ def complexTypeConverter(name, value, cache):
             return value._to_java()
     except Py4JError as e:
         return value
-

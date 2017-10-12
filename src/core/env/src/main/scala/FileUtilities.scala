@@ -14,6 +14,11 @@ object FileUtilities {
   type File = java.io.File
   // Same for StandardOpenOption
   type StandardOpenOption = java.nio.file.StandardOpenOption
+  object StandardOpenOption {
+    import java.nio.file.{StandardOpenOption => S}
+    val APPEND = S.APPEND
+    val CREATE = S.CREATE
+  }
 
   def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
     def loop(dir: File): Array[File] = {

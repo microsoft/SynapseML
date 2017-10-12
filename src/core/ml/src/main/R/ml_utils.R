@@ -1,3 +1,6 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for information.
+
 #' Calls transform on the Spark model
 #'
 #' Given a \code{ml_model} fit alongside a data set, transforms

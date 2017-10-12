@@ -73,5 +73,3 @@ class UnrollImage(val uid: String) extends Transformer with HasInputCol with Has
   }
 
 }
-
-
