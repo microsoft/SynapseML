@@ -56,13 +56,17 @@ your directory as a sub-project which gets included in SBT work.
 
 You can put the usual SBT customizations in your `build.sbt`, for example:
 
-    version := "1.0"
-    name := "A Useful Module"
+   ```scala
+   version := "1.0"
+   name := "A Useful Module"
+   ```
 
 In addition, there are a few utilities in `Extras` that can be useful to
 specify some things.  Currently, there is only one such utility:
 
-    Extras.noJar
+   ```scala
+   Extras.noJar
+   ```
 
 putting this in your `build.sbt` indicates that no `.jar` file should be
 created for your sub-project in the `package` step.  (Useful, for example, for
@@ -75,6 +79,8 @@ appears in it is done via "meta comments" in your `build.sbt`.  This is
 currently used to specify dependencies for your sub-project --- in most cases
 you will want to add this:
 
-    //> DependsOn: core
+   ```scala
+   //> DependsOn: core
+   ```
 
 to use the shared code in the `common` sub-project.

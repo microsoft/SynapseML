@@ -59,9 +59,11 @@ notebook][example:301].
 
    ```python
    ...
-   import mmlspark as mml
+   import mmlspark
    # Initialize CNTKModel and define input and output columns
-   cntkModel = mml.CNTKModel().setInputCol("images").setOutputCol("output").setModelLocation(modelFile)
+   cntkModel = mmlspark.CNTKModel() \
+                       .setInputCol("images").setOutputCol("output") \
+                       .setModelLocation(modelFile)
    # Train on dataset with internal spark pipeline
    scoredImages = cntkModel.transform(imagesWithLabels)
    ...
@@ -79,24 +81,26 @@ and [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
 do so, run the following command:
 
-    docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
+   ```bash
+   docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
+   ```
 
 Navigate to <http://localhost:8888> in your web browser to run the sample
 notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
-> To read the EULA for using the docker image, run
->     docker run -it -p 8888:8888 microsoft/mmlspark eula
+> To read the EULA for using the docker image, run \
+> `docker run -it -p 8888:8888 microsoft/mmlspark eula`
 
 ### Spark package
 
 MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
-    spark-shell --packages Azure:mmlspark:0.9
-
-    pyspark --packages Azure:mmlspark:0.9
-
-    spark-submit Azure:mmlspark:0.9 MyApp.jar
+   ```bash
+   spark-shell --packages Azure:mmlspark:0.9
+   pyspark --packages Azure:mmlspark:0.9
+   spark-submit Azure:mmlspark:0.9 MyApp.jar
+   ```
 
 <img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
 
