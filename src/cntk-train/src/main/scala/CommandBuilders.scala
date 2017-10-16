@@ -184,7 +184,7 @@ class MPICommandBuilder(log: Logger,
         Seq("scp", "-i", identity, "-r", "-o", "StrictHostKeyChecking=no",
           fileInputPath, s"$gpuUser:$fileInputPath"))
     }
-    val runMPI = "''" + s"$exportClasspath $command $mpiArgs $cntkArgs" + "''"
+    val runMPI = "''" + s"$exportClasspath time $command $mpiArgs $cntkArgs" + "''"
     // Run the mpi command
     printOutput(Seq("ssh", "-i", identity, gpuUser, runMPI))
     // Copy the model back
