@@ -5,18 +5,22 @@
 Begin by installing [Docker for your OS][docker-products].  Then, to get the
 MMLSpark image and run it, open a terminal (powershell/cmd on Windows) and run
 
-    docker run -it -p 8888:8888 microsoft/mmlspark
+   ```bash
+   docker run -it -p 8888:8888 microsoft/mmlspark
+   ```
 
 In your browser, go to <http://localhost:8888/> — you'll see the Docker image
 EULA, and once you accept it, the Jupyter notebook interface will start.  To
 skip this step, add `-e ACCEPT_EULA=yes` to the Docker command:
 
-    docker run -it -p 8888:8888 -e ACCEPT_EULA=y microsoft/mmlspark
+   ```bash
+   docker run -it -p 8888:8888 -e ACCEPT_EULA=y microsoft/mmlspark
+   ```
 
 You can now select one of the sample notebooks and run it, or create your own.
 
 > Note: The EULA is needed only for running the MMLSpark Docker image; the
-> source code is released under the MIT license (see the (LICENSE)[../LICENSE]
+> source code is released under the MIT license (see the [LICENSE](../LICENSE)
 > file).
 
 
@@ -38,21 +42,25 @@ our [Docker Hub repository][mmlspark-dockerhub].
 The previous section had a rather simplistic command.  A more complete command
 that you will probably want to use can look as follows:
 
-    docker run -it --rm \
-               -e ACCEPT_EULA=y \
-               -p 127.0.0.1:80:8888 \
-               -v ~/myfiles:/notebooks/myfiles \
-               microsoft/mmlspark:0.9
+   ```bash
+   docker run -it --rm \
+              -e ACCEPT_EULA=y \
+              -p 127.0.0.1:80:8888 \
+              -v ~/myfiles:/notebooks/myfiles \
+              microsoft/mmlspark:0.9
+   ```
 
 In this example, backslashes are used to break things up for readability; you
 can enter it as one long like.  Note that in powershell, the `myfiles` local
 path and line breaks looks a little different:
 
-    docker run -it --rm `
-               -e ACCEPT_EULA=y `
-               -p 127.0.0.1:80:8888 `
-               -v C:\myfiles:/notebooks/myfiles `
-               microsoft/mmlspark:0.9
+   ```
+   docker run -it --rm `
+              -e ACCEPT_EULA=y `
+              -p 127.0.0.1:80:8888 `
+              -v C:\myfiles:/notebooks/myfiles `
+              microsoft/mmlspark:0.9
+   ```
 
 Let's break this command and go over the meaning of each part:
 
@@ -129,9 +137,11 @@ Let's break this command and go over the meaning of each part:
   With such directory sharing in place, you can create/edit notebooks, and code
   in notebooks can use the shared directory for additional data, for example:
 
-      data = spark.read.csv('myfiles/mydata.csv')
-      ...
-      model.write().overwrite().save('myfiles/myTrainedModel.mml')
+     ```python
+     data = spark.read.csv('myfiles/mydata.csv')
+     ...
+     model.write().overwrite().save('myfiles/myTrainedModel.mml')
+     ```
 
 * **`microsoft/mmlspark:0.9`**
 
@@ -146,7 +156,9 @@ it in a "detached" mode, as a server, using the `-d` (or `--detach`) flag.  An
 additional flag that is useful for this is `--name` that gives a convenient
 label to the running image:
 
-    docker run -d --name my-mmlspark ...flags... microsoft/mmlspark
+   ```bash
+   docker run -d --name my-mmlspark ...flags... microsoft/mmlspark
+   ```
 
 When running in this mode, you can use
 
@@ -164,15 +176,19 @@ of an *existing* active container.  To use it, you specify the container name,
 and the command to run.  For example, with a detached container started as
 above, you can use
 
-    docker exec -it my-mmlspark bash
+   ```bash
+   docker exec -it my-mmlspark bash
+   ```
 
 to start a shell in the context of the server, roughly equivalent to starting a
 terminal in the Jupyter interface.
 
 Other common Linux executables can be used, e.g.,
 
-    docker exec -it my-mmlspark top
-    docker exec my-mmlspark ps auxw
+   ```bash
+   docker exec -it my-mmlspark top
+   docker exec my-mmlspark ps auxw
+   ```
 
 (Note that `ps` does not need `-it` since it's not an interactive command.)
 
@@ -195,7 +211,9 @@ specifying an alternative executable to run instead of the default launcher that
 fires up the Jupyter notebook server.  This makes it possible to use the Spark
 environment directly in the container if you start it as:
 
-    docker run -it ...flags... microsoft/mmlspark bash
+   ```bash
+   docker run -it ...flags... microsoft/mmlspark bash
+   ```
 
 This starts the container with bash instead of Jupyter.  This environment has
 all of the Spark executables available in its `$PATH`.  You still need to
@@ -203,7 +221,9 @@ specify the command-line flags that load the MMLSpark package, but there are
 convenient environment variables that hold the required package and repositories
 to use:
 
-    pyspark --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE" --master "local[*]"
+   ```bash
+   pyspark --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE" --master "local[*]"
+   ```
 
 Many of the above listed flags are useful in this case too, such as mapping work
 directories with `-v`.
@@ -220,7 +240,9 @@ checking for new tags that were pushed.
 This means that you need to explicitly tell Docker to check for a new version
 and pull it if one exists.  You do this with the `pull` command:
 
-    docker pull microsoft/mmlspark
+   ```bash
+   docker pull microsoft/mmlspark
+   ```
 
 Since we didn't specify an explicit tag here, `docker` adds the implied
 `:latest` tag, and checks the available `microsoft/mmlspark` image with this tag
