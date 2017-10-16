@@ -138,10 +138,10 @@ You can use MMLSpark in both your Scala and PySpark notebooks.
 If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
-    ```scala
-    resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
-    libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.9"
-    ```
+   ```scala
+   resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
+   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.9"
+   ```
 
 ### Building from source
 
