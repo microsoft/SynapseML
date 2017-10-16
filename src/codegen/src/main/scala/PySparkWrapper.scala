@@ -124,7 +124,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        Returns:
         |            $docType: ${res(1)}
         |        "\""
-        |        return self._cache[\"$pname\"]
+        |        return self._cache.get(\"$pname\", None)
         |
         |""".stripMargin
   }
