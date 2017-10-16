@@ -4,67 +4,74 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.ml.{PipelineStage, Transformer}
-import org.apache.spark.ml.param.{Param, ParamMap, TransformerParam}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel, PipelineStage}
+import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types._
 
-object MultiColumnAdapter extends DefaultParamsReadable[MultiColumnAdapter]
+object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
 
-/** The <code>MultiColumnAdapter</code> takes a unary transformer and a list of input output column pairs
-  * and applies the transformer to each column
+/** The <code>MultiColumnAdapter</code> takes a unary pipeline stage and a list of input output column pairs
+  * and applies the pipeline stage to each input column after being fit
   */
-class MultiColumnAdapter(override val uid: String) extends Transformer with MMLParams {
-
+class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineModel]
+  with Wrappable with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))
 
-  /** Comma separated list of input column names, encoded as a string. These are the columns to be transformed.
+  /** List of input column names, encoded as a string. These are the columns for the pipeline stage.
     * @group param
     */
-  val inputCols: Param[String] =
-    StringParam(
-      this,
+  val inputCols: StringArrayParam =
+    new StringArrayParam(this,
       "inputCols",
-      "Comma separated list of column names encoded as a string")
+      "list of column names encoded as a string")
 
   /** @group getParam */
-  final def getInputCols: String = $(inputCols)
+  final def getInputCols: Array[String] = $(inputCols)
 
   /** @group setParam */
-  def setInputCols(value: String): this.type = set(inputCols, value)
+  def setInputCols(value: Array[String]): this.type = set(inputCols, value)
 
-  /** Comma separated list of column names for the transformed columns, encoded as a string.
+  /** List of column names for the pipeline staged columns, encoded as a string.
     * @group param
     */
-  val outputCols: Param[String] =
-    StringParam(
-      this,
+  val outputCols: StringArrayParam =
+    new StringArrayParam(this,
       "outputCols",
-      "Comma separated list of column names encoded as a string")
+      "list of column names encoded as a string")
 
   /** @group getParam */
-  final def getOutputCols: String = $(outputCols)
+  final def getOutputCols: Array[String] = $(outputCols)
 
   /** @group setParam */
-  def setOutputCols(value: String): this.type = set(outputCols, value)
+  def setOutputCols(value: Array[String]): this.type = set(outputCols, value)
 
   /** @return List of input/output column name pairs. */
-  def getInputOutputPairs: List[(String, String)] =
-    getInputCols.split(",").zip(getOutputCols.split(",")).toList
+  def getInputOutputPairs: List[(String, String)] = getInputCols.zip(getOutputCols).toList
 
-  /** Base transformer to apply to every column in the input column list.
+  def getStages: Array[PipelineStage] = getInputOutputPairs.toArray.map(getInOutPairStage)
+
+  private def getInOutPairStage(inputOutputPair: (String, String)): PipelineStage = {
+    val model = getBaseStage.copy(new ParamMap())
+    setParamInternal(setParamInternal(model,
+      "inputCol", inputOutputPair._1),
+      "outputCol", inputOutputPair._2)
+    model
+  }
+
+  /** Base pipeline stage to apply to every column in the input column list.
     * @group param
     */
-  val baseTransformer: TransformerParam =
-    new TransformerParam(this,
-                         "baseTransformer",
-                         "Base transformer to apply to every column")
+  val baseStage: PipelineStageParam =
+    new PipelineStageParam(this,
+                           "baseStage",
+                           "base pipeline stage to apply to every column")
 
   /** @group getParam */
-  final def getBaseTransformer: Transformer = $(baseTransformer)
+  final def getBaseStage: PipelineStage = $(baseStage)
 
   /** @group setParam */
-  def setBaseTransformer(value: Transformer): this.type = {
+  def setBaseStage(value: PipelineStage): this.type = {
     try {
       //Test to see whether the class has the appropriate getters and setters
       value.getParam("inputCol")
@@ -74,9 +81,9 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
     } catch {
       case e: Exception =>
         throw new IllegalArgumentException(
-          "Need to pass a transformer with inputCol and outputCol params")
+          "Need to pass a pipeline stage with inputCol and outputCol params")
     }
-    set(baseTransformer, value)
+    set(baseStage, value)
   }
 
   private def setParamInternal[M <: PipelineStage, V](model: M,
@@ -89,25 +96,13 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
     model.getOrDefault(model.getParam(name))
   }
 
-  private def setInOutCols[M <: PipelineStage](
-      model: M,
-      inputOutputPair: (String, String)) = {
-    setParamInternal(setParamInternal(model, "inputCol", inputOutputPair._1),
-                     "outputCol",
-                     inputOutputPair._2)
-  }
-
-  /** Apply the transform to all the columns in the input column list
+  /** Fit the pipeline stage to all the columns in the input column list
     * @param dataset
-    * @return DataFrame with transformed columns bearing the output column names
+    * @return PipelineModel fit on the columns bearing the input column names
     */
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  override def fit(dataset: Dataset[_]): PipelineModel = {
     transformSchema(dataset.schema)
-    val firstOutput = setInOutCols(getBaseTransformer,
-                                   getInputOutputPairs.head).transform(dataset)
-    getInputOutputPairs.tail.foldLeft(firstOutput: DataFrame) { (df, pair) =>
-      setInOutCols(getBaseTransformer, pair).transform(df)
-    }
+    new Pipeline(uid).setStages(getStages).fit(dataset)
   }
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -127,7 +122,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
 
   override def transformSchema(schema: StructType): StructType = {
     getInputOutputPairs.foldLeft(schema) { (schema, pair) =>
-      setInOutCols(getBaseTransformer, pair).transformSchema(schema)
+      getInOutPairStage(pair).transformSchema(schema)
     }
   }
 

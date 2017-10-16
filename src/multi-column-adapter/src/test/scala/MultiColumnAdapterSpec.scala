@@ -3,40 +3,57 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.feature.Tokenizer
+import org.apache.spark.ml.feature.{StringIndexer, Tokenizer}
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.StructType
+import scala.collection.mutable
 
-class MultiColumnAdapterSpec extends TestBase with TransformerFuzzing[MultiColumnAdapter] {
+class MultiColumnAdapterSpec extends TestBase with EstimatorFuzzing[MultiColumnAdapter] {
 
   val wordDF = session.createDataFrame(Seq(
     (0, "This is a test", "this is one too"),
-    (1, "could be a test", "maybe not"),
-    (2, "foo", "bar")))
+    (1, "could be a test", "bar"),
+    (2, "foo", "bar"),
+    (3, "foo", "maybe not")))
     .toDF("label", "words1", "words2")
-  val inputCols = "words1,words2"
-  val outputCols = "output1,output2"
-  val transformer1 = new Tokenizer()
-  val adapter1 =
-    new MultiColumnAdapter().setBaseTransformer(transformer1).setInputCols(inputCols).setOutputCols(outputCols)
+  val inputCols  = Array[String]("words1",  "words2")
+  val outputCols = Array[String]("output1", "output2")
+  val stage = new StringIndexer()
+  val adaptedEstimator =
+    new MultiColumnAdapter().setBaseStage(stage)
+          .setInputCols(inputCols).setOutputCols(outputCols)
 
   test("parallelize transformers") {
-
-    val tokenizedDF = adapter1.transform(wordDF)
+    val stage1 = new Tokenizer()
+    val transformer =
+      new MultiColumnAdapter().setBaseStage(stage1)
+            .setInputCols(inputCols).setOutputCols(outputCols)
+    val tokenizedDF = transformer.fit(wordDF).transform(wordDF)
     val lines = tokenizedDF.getColAs[Array[String]]("output2")
-
     val trueLines = Array(
       Array("this", "is", "one", "too"),
-      Array("maybe", "not"),
-      Array("bar")
+      Array("bar"),
+      Array("bar"),
+      Array("maybe", "not")
     )
     assert(lines === trueLines)
   }
 
-  def testObjects(): Seq[TestObject[MultiColumnAdapter]] = List(new TestObject(adapter1, wordDF))
+  test("parallelize estimator") {
+    val stringIndexedDF = adaptedEstimator.fit(wordDF).transform(wordDF)
+    val lines1 = stringIndexedDF.getColAs[Array[String]]("output1")
+    val trueLines1 = mutable.ArraySeq(1, 2, 0, 0)
+    assert(lines1 === trueLines1)
+
+    val lines2 = stringIndexedDF.getColAs[Array[String]]("output2")
+    val trueLines2 = mutable.ArraySeq(1, 0, 0, 2)
+    assert(lines2 === trueLines2)
+  }
+  def testObjects(): Seq[TestObject[MultiColumnAdapter]] = List(new TestObject(adaptedEstimator, wordDF))
 
   override def reader: MLReadable[_] = MultiColumnAdapter
+
+  override def modelReader: MLReadable[_] = PipelineModel
+
 }

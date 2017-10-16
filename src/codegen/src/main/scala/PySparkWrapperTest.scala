@@ -101,6 +101,10 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
           |        model = my$entryPointName.fit(data)
           |        self.assertNotEqual(model, None)""".stripMargin
 
+  protected def tryMultiColumnFitTemplate(entryPointName: String, model: String) =
+      s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
+          |        model = my$entryPointName.fit(data)
+          |        self.assertNotEqual(model, None)""".stripMargin
   private def evaluateSetupTemplate(entryPointName: String) =
     s"""|    def test_$entryPointName(self):
         |        data = {
@@ -159,6 +163,8 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
     else if (entryPointName.contains("Classifier"))
       tryFitTemplate(entryPointName, "LogisticRegression()")
+    else if (entryPointName.contains("MultiColumnAdapter"))
+      tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
   protected def evaluateString(entryPointName: String): String          = evaluateTemplate(entryPointName)
@@ -168,8 +174,6 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
     val param: String =
       entryPointName match {
         case "WriteBlob" => "blobPath=\"file:///tmp/" + java.util.UUID.randomUUID + ".tsv\""
-        case "MultiColumnAdapter" =>
-          "baseTransformer=Tokenizer(), inputCols = \"col5,col6\", outputCols = \"output1,output2\"\n "
         case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
         case "DataConversion"      => "col=\"col1\", convertTo=\"double\""
         case "FastVectorAssembler" => "inputCols=\"col1\""

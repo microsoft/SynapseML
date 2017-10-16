@@ -442,12 +442,13 @@ class AssembleFeaturesModel(val uid: String,
         val ohe = new OneHotEncoder()
         val inputColsKeys = columnNamesToFeaturize.categoricalColumns.keys
         val outputColsKeys = columnNamesToFeaturize.categoricalColumns.values
-        val inputCols = inputColsKeys.mkString(",")
-        val outputCols = outputColsKeys.mkString(",")
+        val inputCols = inputColsKeys.toArray
+        val outputCols = outputColsKeys.toArray
         val oheAdapter =
-          new MultiColumnAdapter().setBaseTransformer(ohe).setInputCols(inputCols).setOutputCols(outputCols)
+          new MultiColumnAdapter().setBaseStage(ohe).setInputCols(inputCols).setOutputCols(outputCols)
+        val oheAdapterModel = oheAdapter.fit(stringFeaturizedData)
         columnsToDrop = columnsToDrop.union(columnNamesToFeaturize.categoricalColumns.keys.toSeq)
-        oheAdapter.transform(stringFeaturizedData)
+        oheAdapterModel.transform(stringFeaturizedData)
       } else {
         stringFeaturizedData
       }
