@@ -174,7 +174,6 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
 
 /** Featurize text.
   *
-  * The default output column name is "<uid>__output"
   * @param uid The id of the module
   */
 class TextFeaturizer(override val uid: String)

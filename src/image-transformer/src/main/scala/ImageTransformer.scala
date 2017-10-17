@@ -264,13 +264,11 @@ class ImageTransformer(val uid: String) extends Transformer
 
   val stages: ArrayMapParam = new ArrayMapParam(this, "stages", "Image transformation stages")
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
-  def getStages: Array[Map[String, Any]] = $(stages)
-  private def addStage(stage: Map[String, Any]): this.type = set(stages, $(stages) :+ stage)
+  val emptyStages = Array[Map[String, Any]]()
+  def getStages: Array[Map[String, Any]] = if (isDefined(stages)) $(stages) else emptyStages
+  private def addStage(stage: Map[String, Any]): this.type = set(stages, getStages :+ stage)
 
-  setDefault(inputCol -> "image",
-    outputCol -> (uid + "_output"),
-    stages -> Array[Map[String, Any]]()
-  )
+  setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   // every stage has a name like "resize", "normalize", "unroll"
   val stageName = "action"
@@ -279,18 +277,18 @@ class ImageTransformer(val uid: String) extends Transformer
     require(width >= 0 && height >= 0, "width and height should be nonnegative")
 
     addStage(Map(stageName -> ResizeImage.stageName,
-      ResizeImage.width -> width,
-      ResizeImage.height -> height))
+                 ResizeImage.width -> width,
+                 ResizeImage.height -> height))
   }
 
   def crop(x: Int, y: Int, height: Int, width: Int): this.type = {
     require(x >= 0 && y >= 0 && width >= 0 && height >= 0, "crop values should be nonnegative")
 
     addStage(Map(stageName -> CropImage.stageName,
-      CropImage.width -> width,
-      CropImage.height -> height,
-      CropImage.x -> x,
-      CropImage.y -> y))
+                 CropImage.width -> width,
+                 CropImage.height -> height,
+                 CropImage.x -> x,
+                 CropImage.y -> y))
   }
 
   def colorFormat(format: Int): this.type = {
@@ -303,9 +301,9 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def threshold(threshold: Double, maxVal: Double, thresholdType: Int): this.type = {
     addStage(Map(stageName -> Threshold.stageName,
-      Threshold.maxVal -> maxVal,
-      Threshold.threshold -> threshold,
-      Threshold.thresholdType -> thresholdType))
+                 Threshold.maxVal -> maxVal,
+                 Threshold.threshold -> threshold,
+                 Threshold.thresholdType -> thresholdType))
   }
 
   /** Flips the image
@@ -337,18 +335,19 @@ class ImageTransformer(val uid: String) extends Transformer
     val df = ImageReader.loadOpenCV(dataset.toDF)
 
     val isBinary = BinaryFileSchema.isBinaryFile(df, $(inputCol))
-    assert(ImageSchema.isImage(df, $(inputCol)) || isBinary, "input column should have Image or BinaryFile type")
+    assert(ImageSchema.isImage(df, $(inputCol)) || isBinary,
+           "input column should have Image or BinaryFile type")
 
-    var transforms = ListBuffer[ImageTransformerStage]()
-    for (stage <- $(stages)) {
+    val transforms = ListBuffer[ImageTransformerStage]()
+    for (stage <- getStages) {
       stage(stageName) match  {
-        case ResizeImage.stageName => transforms += new ResizeImage(stage)
-        case CropImage.stageName => transforms += new CropImage(stage)
-        case ColorFormat.stageName => transforms += new ColorFormat(stage)
-        case Blur.stageName => transforms += new Blur(stage)
-        case Threshold.stageName => transforms += new Threshold(stage)
+        case ResizeImage.stageName    => transforms += new ResizeImage(stage)
+        case CropImage.stageName      => transforms += new CropImage(stage)
+        case ColorFormat.stageName    => transforms += new ColorFormat(stage)
+        case Blur.stageName           => transforms += new Blur(stage)
+        case Threshold.stageName      => transforms += new Threshold(stage)
         case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
-        case Flip.stageName => transforms += new Flip(stage)
+        case Flip.stageName           => transforms += new Flip(stage)
         case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
       }
     }
@@ -366,5 +365,3 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
 }
-
-

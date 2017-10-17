@@ -39,17 +39,19 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   // Parameters related to the inner model
 
-  val cntkModel: TransformerParam = new TransformerParam(this,
-    "cntkModel", "The internal CNTK model used in the featurizer",
-    { t => t.isInstanceOf[CNTKModel] })
-
-  setDefault(cntkModel->new CNTKModel())
+  val cntkModel: TransformerParam =
+    new TransformerParam(
+      this,
+      "cntkModel", "The internal CNTK model used in the featurizer",
+      { t => t.isInstanceOf[CNTKModel] })
 
   /** @group setParam */
   def setCntkModel(value: CNTKModel): this.type = set(cntkModel, value)
 
+  val emptyCntkModel = new CNTKModel()
   /** @group getParam */
-  def getCntkModel: CNTKModel = $(cntkModel).asInstanceOf[CNTKModel]
+  def getCntkModel: CNTKModel =
+    if (isDefined(cntkModel)) $(cntkModel).asInstanceOf[CNTKModel] else emptyCntkModel
 
   /** @group setParam */
   def setMiniBatchSize(value: Int): this.type = set(cntkModel, getCntkModel.setMiniBatchSize(value))
