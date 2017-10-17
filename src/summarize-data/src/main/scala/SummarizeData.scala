@@ -19,7 +19,7 @@ trait SummarizeDataParams extends MMLParams {
   /** Compute count statistics. Default is true.
     * @group param
     */
-  final val counts: BooleanParam = BooleanParam(this, "counts", "compute count statistics", true)
+  final val counts: BooleanParam = BooleanParam(this, "counts", "Compute count statistics", true)
 
   /** @group getParam */
   final def getCounts: Boolean = $(counts)
@@ -30,7 +30,7 @@ trait SummarizeDataParams extends MMLParams {
   /** Compute basic statistics. Default is true.
     * @group param
     */
-  final val basic: BooleanParam = new BooleanParam(this, "basic", "compute basic statistics")
+  final val basic: BooleanParam = new BooleanParam(this, "basic", "Compute basic statistics")
   setDefault(basic, true)
 
   /** @group getParam */
@@ -42,7 +42,7 @@ trait SummarizeDataParams extends MMLParams {
   /** Compute sample statistics. Default is true.
     * @group param
     */
-  final val sample: BooleanParam = new BooleanParam(this, "sample", "compute sample statistics")
+  final val sample: BooleanParam = new BooleanParam(this, "sample", "Compute sample statistics")
   setDefault(sample, true)
 
   /** @group getParam */
@@ -54,7 +54,7 @@ trait SummarizeDataParams extends MMLParams {
   /** Compute percentiles. Default is true
     * @group param
     */
-  final val percentiles: BooleanParam = new BooleanParam(this, "percentiles", "compute percentiles")
+  final val percentiles: BooleanParam = new BooleanParam(this, "percentiles", "Compute percentiles")
   setDefault(percentiles, true)
 
   /** @group getParam */
@@ -67,7 +67,7 @@ trait SummarizeDataParams extends MMLParams {
     * @group param
     */
   final val errorThreshold: DoubleParam =
-    new DoubleParam(this, "errorThreshold", "threshold for quantiles - 0 is exact")
+    new DoubleParam(this, "errorThreshold", "Threshold for quantiles - 0 is exact")
   setDefault(errorThreshold, 0.0)
 
   /** @group getParam */

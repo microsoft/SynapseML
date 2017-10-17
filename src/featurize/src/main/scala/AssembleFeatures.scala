@@ -101,7 +101,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     * @group param
     */
   val columnsToFeaturize: StringArrayParam =
-    new StringArrayParam(this, "columnsToFeaturize", "columns to featurize", array => true)
+    new StringArrayParam(this, "columnsToFeaturize", "Columns to featurize", array => true)
 
   /** @group getParam */
   final def getColumnsToFeaturize: Array[String] = $(columnsToFeaturize)
@@ -114,7 +114,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     */
   val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
     "oneHotEncodeCategoricals",
-    "one hot encode categoricals",
+    "One-hot encode categoricals",
     true)
 
   /** @group getParam */
@@ -127,7 +127,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     * @group param
     */
   val numberOfFeatures: IntParam =
-    IntParam(this, "numberOfFeatures", "number of features to hash string columns to")
+    IntParam(this, "numberOfFeatures", "Number of features to hash string columns to")
 
   /** @group getParam */
   final def getNumberOfFeatures: Int = $(numberOfFeatures)
@@ -136,7 +136,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
   /** Specifies whether to allow featurization of images */
-  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "allow featurization of images", false)
+  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "Allow featurization of images", false)
 
   /** @group getParam */
   final def getAllowImages: Boolean = $(allowImages)

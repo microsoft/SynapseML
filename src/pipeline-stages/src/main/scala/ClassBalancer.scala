@@ -30,7 +30,7 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   setDefault(outputCol -> "weight")
 
   val broadcastJoin = new BooleanParam(this, "broadcastJoin",
-    "whether to broadcast the class to weight mapping to the worker")
+    "Whether to broadcast the class to weight mapping to the worker")
 
   def getBroadcastJoin: Boolean = $(broadcastJoin)
 

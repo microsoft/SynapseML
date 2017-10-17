@@ -14,7 +14,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 object Timer extends DefaultParamsReadable[Timer]
 
 trait TimerParams extends Wrappable {
-  val stage = new PipelineStageParam(this, "stage", "the stage to time")
+  val stage = new PipelineStageParam(this, "stage", "The stage to time")
 
   def getStage: PipelineStage = $(stage)
 
@@ -26,7 +26,7 @@ trait TimerParams extends Wrappable {
 
   val disableMaterialization =
     BooleanParam(this, "disableMaterialization",
-                 "whether to disable timing (so that one can turn it off for evaluation)",
+                 "Whether to disable timing (so that one can turn it off for evaluation)",
                  false)
 
   def getDisableMaterialization: Boolean = $(disableMaterialization)

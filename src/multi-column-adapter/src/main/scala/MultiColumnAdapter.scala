@@ -25,7 +25,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
     StringParam(
       this,
       "inputCols",
-      "comma separated list of column names encoded as a string")
+      "Comma separated list of column names encoded as a string")
 
   /** @group getParam */
   final def getInputCols: String = $(inputCols)
@@ -40,7 +40,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
     StringParam(
       this,
       "outputCols",
-      "comma separated list of column names encoded as a string")
+      "Comma separated list of column names encoded as a string")
 
   /** @group getParam */
   final def getOutputCols: String = $(outputCols)
@@ -58,7 +58,7 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
   val baseTransformer: TransformerParam =
     new TransformerParam(this,
                          "baseTransformer",
-                         "base transformer to apply to every column")
+                         "Base transformer to apply to every column")
 
   /** @group getParam */
   final def getBaseTransformer: Transformer = $(baseTransformer)

@@ -262,7 +262,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def this() = this(Identifiable.randomUID("ImageTransformer"))
 
-  val stages: ArrayMapParam = new ArrayMapParam(this, "stages", "image transformation stages")
+  val stages: ArrayMapParam = new ArrayMapParam(this, "stages", "Image transformation stages")
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
   def getStages: Array[Map[String, Any]] = $(stages)
   private def addStage(stage: Map[String, Any]): this.type = set(stages, $(stages) :+ stage)

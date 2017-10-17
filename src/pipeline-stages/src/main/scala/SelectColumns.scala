@@ -21,7 +21,7 @@ object SelectColumns extends DefaultParamsReadable[SelectColumns]
 class SelectColumns(val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("SelectColumns"))
 
-  val cols: StringArrayParam = new StringArrayParam(this, "cols", "comma separated list of selected column names")
+  val cols: StringArrayParam = new StringArrayParam(this, "cols", "Comma separated list of selected column names")
 
   /** @group getParam */
   final def getCols: Array[String] = $(cols)

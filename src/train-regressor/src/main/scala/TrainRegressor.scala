@@ -38,7 +38,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
   /** Number of feature to hash to
     * @group param
     */
-  val numFeatures = IntParam(this, "numFeatures", "number of features to hash to", 0)
+  val numFeatures = IntParam(this, "numFeatures", "Number of features to hash to", 0)
   /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
   /** @group setParam */

@@ -28,7 +28,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** Feature columns - the columns to be featurized
     * @group param
     */
-  val featureColumns: MapArrayParam = new MapArrayParam(this, "featureColumns", "feature columns")
+  val featureColumns: MapArrayParam = new MapArrayParam(this, "featureColumns", "Feature columns")
 
   /** @group getParam */
   final def getFeatureColumns: Map[String, Seq[String]] = $(featureColumns)
@@ -41,7 +41,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
     */
   val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
     "oneHotEncodeCategoricals",
-    "one hot encode categoricals",
+    "One-hot encode categoricals",
     true)
 
   /** @group getParam */
@@ -56,7 +56,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   val numberOfFeatures: IntParam =
     IntParam(this,
       "numberOfFeatures",
-      "number of features to hash string columns to",
+      "Number of features to hash string columns to",
       FeaturizeUtilities.numFeaturesDefault)
 
   /** @group getParam */
@@ -66,7 +66,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
   /** Specifies whether to allow featurization of images */
-  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "allow featurization of images", false)
+  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "Allow featurization of images", false)
 
   /** @group getParam */
   final def getAllowImages: Boolean = $(allowImages)

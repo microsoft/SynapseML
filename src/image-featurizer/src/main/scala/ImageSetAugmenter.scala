@@ -19,13 +19,13 @@ class ImageSetAugmenter(val uid: String) extends Transformer
 
   // if the problem is symmetric, the training dataset is supplemented with the "flipped" images
   // by default, we assume the left-right symmetry, but not up-down
-  val flipLeftRight = BooleanParam(this, "flipLeftRight", "symmetric lr", false)
+  val flipLeftRight = BooleanParam(this, "flipLeftRight", "Symmetric Left-Right", false)
 
   def setFlipLeftRight(value: Boolean): this.type = set(flipLeftRight, value)
 
   def getFlipLeftRight: Boolean = $(flipLeftRight)
 
-  val flipUpDown = BooleanParam(this, "flipUpDown", "symmetric ud", false)
+  val flipUpDown = BooleanParam(this, "flipUpDown", "Symmetric Up-Down", false)
 
   def setFlipUpDown(value: Boolean): this.type = set(flipUpDown, value)
 

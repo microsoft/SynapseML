@@ -104,7 +104,7 @@ class ValueIndexerModel(val uid: String)
   /** Levels in categorical array
     * @group param
     */
-  val levels = new ArrayParam(this, "levels", "levels in categorical array")
+  val levels = new ArrayParam(this, "levels", "Levels in categorical array")
   /** @group getParam */
   def getLevels: Array[_] = $(levels)
   /** @group setParam */
@@ -114,7 +114,7 @@ class ValueIndexerModel(val uid: String)
   /** The datatype of the levels as a jason string
     * @group param
     */
-  val dataType = StringParam(this, "dataType", "the datatype of the levels as json string", "string")
+  val dataType = StringParam(this, "dataType", "The datatype of the levels as a Json string", "string")
   /** @group getParam */
   def getDataTypeStr: String = if ($(dataType) == "string") DataTypes.StringType.json else $(dataType)
   /** @group setParam */
