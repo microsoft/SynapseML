@@ -69,8 +69,8 @@ class MultiColumnAdapter(override val uid: String) extends Transformer with MMLP
       //Test to see whether the class has the appropriate getters and setters
       value.getParam("inputCol")
       value.getParam("outputCol")
-      setParamInternal(value, "inputCol", this.uid + "__in")
-      setParamInternal(value, "outputCol", this.uid + "__out")
+      setParamInternal(value, "inputCol", this.uid + "_in")
+      setParamInternal(value, "outputCol", this.uid + "_out")
     } catch {
       case e: Exception =>
         throw new IllegalArgumentException(

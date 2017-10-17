@@ -182,7 +182,7 @@ class TextFeaturizer(override val uid: String)
     with TextFeaturizerParams with HasInputCol with HasOutputCol {
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
 
-  setDefault(outputCol, uid + "__output")
+  setDefault(outputCol, uid + "_output")
 
   def setUseTokenizer(value: Boolean): this.type = set(useTokenizer, value)
 
