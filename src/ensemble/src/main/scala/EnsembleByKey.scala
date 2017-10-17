@@ -21,7 +21,7 @@ object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("EnsembleByKey"))
 
-  val keys = new StringArrayParam(this, "keys", "keys to group by")
+  val keys = new StringArrayParam(this, "keys", "Keys to group by")
 
   def getKeys: Array[String] = $(keys)
 
@@ -63,7 +63,7 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
   setDefault(strategy -> "mean")
 
   val collapseGroup =
-    BooleanParam(this, "collapseGroup", "whether to collapse all items in group to one entry")
+    BooleanParam(this, "collapseGroup", "Whether to collapse all items in group to one entry")
 
   def getCollapseGroup: Boolean = $(collapseGroup)
 

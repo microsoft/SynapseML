@@ -156,7 +156,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** Index of the input node
     * @group param
     */
-  val inputNode: IntParam                 = new IntParam(this, "inputNode", "index of the input node")
+  val inputNode: IntParam                 = new IntParam(this, "inputNode", "Index of the input node")
 
   /** @group setParam */
   def setInputNode(value: Int): this.type = set(inputNode, value)
@@ -172,7 +172,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** Index of the output node
     * @group param
     */
-  val outputNodeIndex: IntParam = new IntParam(this, "outputNodeIndex", "index of the output node")
+  val outputNodeIndex: IntParam = new IntParam(this, "outputNodeIndex", "Index of the output node")
 
   /** @group setParam */
   def setOutputNodeIndex(value: Int): this.type = set(outputNodeIndex, value)
@@ -183,7 +183,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** Name of the output node
     * @group param
     */
-  val outputNodeName: Param[String] = new Param(this, "outputNodeName", "name of the output node")
+  val outputNodeName: Param[String] = new Param(this, "outputNodeName", "Name of the output node")
 
   /** @group setParam */
   def setOutputNodeName(value: String): this.type = set(outputNodeName, value)
@@ -195,7 +195,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @group param
     */
   val miniBatchSize: IntParam =
-    new IntParam(this, "miniBatchSize", "size of minibatches", ParamValidators.gt(0))
+    new IntParam(this, "miniBatchSize", "Size of minibatches", ParamValidators.gt(0))
 
   /** @group setParam */
   def setMiniBatchSize(value: Int): this.type = set(miniBatchSize, value)

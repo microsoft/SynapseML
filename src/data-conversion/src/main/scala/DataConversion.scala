@@ -27,7 +27,7 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     * @group param
     */
   val col: Param[String] = StringParam(this, "col",
-    "comma separated list of columns whose type will be converted", "")
+    "Comma separated list of columns whose type will be converted", "")
 
   /** @group getParam */
   final def getCol: String = $(col)
@@ -38,7 +38,7 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
   /** The result type
     * @group param
     */
-  val convertTo: Param[String] = StringParam(this, "convertTo", "the result type", "")
+  val convertTo: Param[String] = StringParam(this, "convertTo", "The result type", "")
 
   /** @group getParam */
   final def getConvertTo: String = $(convertTo)
@@ -51,7 +51,7 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     * @group param
     */
   val dateTimeFormat: Param[String] = StringParam(this, "dateTimeFormat",
-    "format for DateTime when making DateTime:String conversions", "yyyy-MM-dd HH:mm:ss")
+    "Format for DateTime when making DateTime:String conversions", "yyyy-MM-dd HH:mm:ss")
 
   /** @group getParam */
   final def getDateTimeFormat: String = $(dateTimeFormat)
@@ -105,9 +105,9 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     * @return the DataFrame that results from data conversion
     */
   override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
-    setCol(paramMap.getOrElse(new Param("col", "col","name of column whose type will be converted"), ""))
-    setConvertTo(paramMap.getOrElse(new Param("convertTo", "convertTo","result type"), ""))
-    setDateTimeFormat(paramMap.getOrElse(new Param("dateTimeFormat", "dateTimeFormat", "time string format"), ""))
+    setCol(paramMap.getOrElse(new Param("col", "col","Name of column whose type will be converted"), ""))
+    setConvertTo(paramMap.getOrElse(new Param("convertTo", "convertTo","Result type"), ""))
+    setDateTimeFormat(paramMap.getOrElse(new Param("dateTimeFormat", "dateTimeFormat", "Time string format"), ""))
     transform(dataset)
   }
 

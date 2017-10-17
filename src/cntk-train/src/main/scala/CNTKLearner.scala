@@ -16,28 +16,28 @@ import org.apache.spark.sql.types._
 trait CNTKParams extends MMLParams {
 
   // This is only needed until Train* accepts CNTKLearner instead of CL acting like Train*
-  val labelsColumnName = StringParam(this, "labelsColumnName", "Label col", "labels")
-  val featuresColumnName = StringParam(this, "featuresColumnName", "feats col", "features")
+  val labelsColumnName = StringParam(this, "labelsColumnName", "Label column", "labels")
+  val featuresColumnName = StringParam(this, "featuresColumnName", "Feature column", "features")
 
   // This will go away after the CNTK HDFS Deserializer
-  val localHdfsMount = StringParam(this, "localHdfsMount", "local mount point for hdfs:///")
-  val dataTransfer = StringParam(this, "dataTransfer", "transfer strategy", "local")
+  val localHdfsMount = StringParam(this, "localHdfsMount", "Local mount point for hdfs:///")
+  val dataTransfer = StringParam(this, "dataTransfer", "Transfer strategy", "local")
   def setTransferStrategy(s: String): this.type = set(dataTransfer, s)
 
   // TODO: Convert to enum contract shared with CNTK's HDFS Deserializer
-  val dataFormat = StringParam(this, "dataFormat", "transfer format", "text")
-  val weightPrecision = StringParam(this, "weightPrecision", "weights", "double")
-  val featureCount = IntParam(this, "featureCount", "num features for reduction", 1)
+  val dataFormat = StringParam(this, "dataFormat", "Transfer format", "text")
+  val weightPrecision = StringParam(this, "weightPrecision", "Weights", "double")
+  val featureCount = IntParam(this, "featureCount", "Number of features for reduction", 1)
   def setFeatureCount(c: Int): this.type = set(featureCount, c)
 
-  val brainScript = StringParam(this, "brainScript", "string of BS config")
+  val brainScript = StringParam(this, "brainScript", "String of BS config")
   def setBrainScriptText(t: String): this.type = set(brainScript, t)
   def setBrainScriptFile(f: String): this.type = set(brainScript, FileUtilities.readFile(new File(f)))
 
-  val parallelTrain = BooleanParam(this, "parallelTrain", "train using an MPI ring", true)
+  val parallelTrain = BooleanParam(this, "parallelTrain", "Train using an MPI ring", true)
   def setParallelTrain(b: Boolean): this.type = set(parallelTrain, b)
 
-  val workingDir = StringParam(this, "workingDir", "working directory for CNTK", "tmp")
+  val workingDir = StringParam(this, "workingDir", "Working directory for CNTK", "tmp")
   def setWorkingDirectory(d: String): this.type = set(workingDir, d)
 
 }

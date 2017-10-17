@@ -40,7 +40,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   // Parameters related to the inner model
 
   val cntkModel: TransformerParam = new TransformerParam(this,
-    "cntkModel", "the internal cntk model used in the featurizer",
+    "cntkModel", "The internal CNTK model used in the featurizer",
     { t => t.isInstanceOf[CNTKModel] })
 
   setDefault(cntkModel->new CNTKModel())
@@ -86,7 +86,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     *
     * @group param
     */
-  val cutOutputLayers: IntParam = IntParam(this, "cutOutputLayers", "the number of layers to cut " +
+  val cutOutputLayers: IntParam = IntParam(this, "cutOutputLayers", "The number of layers to cut " +
     "off the end of the network, 0 leaves the network intact," +
     " 1 removes the output layer, etc", ParamValidators.gtEq(0))
 
@@ -102,8 +102,8 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     * @group param
     */
   val layerNames: StringArrayParam = new StringArrayParam(this, "layerNames",
-    "Array with valid CNTK nodes to choose from, this first entries of this array should be closer to the " +
-      "output node")
+    "Array with valid CNTK nodes to choose from, the first entries of" +
+      " this array should be closer to the output node")
 
   /** @group setParam */
   def setLayerNames(value: Array[String]): this.type = set(layerNames, value)

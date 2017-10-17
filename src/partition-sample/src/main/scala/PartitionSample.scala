@@ -66,7 +66,7 @@ trait PartitionSampleParams extends MMLParams {
     * Default is -1
     * @group param
     */
-  final val seed = LongParam(this, "seed", "seed for random ops", -1L)
+  final val seed = LongParam(this, "seed", "Seed for random operations", -1L)
   /** @group getParam */
   final def getSeed: Long = $(seed)
   /** @group setParam */
@@ -76,7 +76,7 @@ trait PartitionSampleParams extends MMLParams {
     * Default is .01
     * @group param
     */
-  final val percent = DoubleParam(this, "percent", "percent of rows to return", 0.01)
+  final val percent = DoubleParam(this, "percent", "Percent of rows to return", 0.01)
   /** @group getParam */
   final def getPercent: Double = $(percent)
   /** @group setParam */
@@ -88,7 +88,7 @@ trait PartitionSampleParams extends MMLParams {
     * Default is 1000
     * @group param
     */
-  final val count = LongParam(this, "count", "number of rows to return", 1000L)
+  final val count = LongParam(this, "count", "Number of rows to return", 1000L)
   /** @group getParam */
   final def getCount: Long = $(count)
   /** @group setParam */
@@ -99,7 +99,7 @@ trait PartitionSampleParams extends MMLParams {
     * Default is \"Partition\"
     * @group param
     */
-  final val newColName = StringParam(this, "newColName", "name of the partition column", PSConstants.newColDefault)
+  final val newColName = StringParam(this, "newColName", "Name of the partition column", PSConstants.newColDefault)
   /** @group getParam */
   final def getNewColName: String = $(newColName)
   /** @group setParam */
@@ -110,7 +110,7 @@ trait PartitionSampleParams extends MMLParams {
     * Default is 10
     * @group param
     */
-  final val numParts = IntParam(this, "numParts", "number of partitions", 10)
+  final val numParts = IntParam(this, "numParts", "Number of partitions", 10)
   /** @group getParam */
   final def getNumParts: Int = $(numParts)
   /** @group setParam */

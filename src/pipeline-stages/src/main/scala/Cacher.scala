@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.StructType
 class Cacher(val uid: String) extends Transformer with DefaultParamsWritable {
 
   val disable = new BooleanParam(this,
-    "disable", "whether or disable caching (so that you can turn it off during evaluation)")
+    "disable", "Whether or disable caching (so that you can turn it off during evaluation)")
 
   def getDisable: Boolean = $(disable)
 

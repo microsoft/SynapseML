@@ -48,14 +48,14 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
-  val cleaningMode = StringParam(this, "cleaningMode", "cleaning mode", CleanMissingData.meanOpt)
+  val cleaningMode = StringParam(this, "cleaningMode", "Cleaning mode", CleanMissingData.meanOpt)
   def setCleaningMode(value: String): this.type = set(cleaningMode, value)
   def getCleaningMode: String = $(cleaningMode)
 
   /** Custom value for imputation, supports numeric, string and boolean types.
     * Date and Timestamp currently not supported.
     */
-  val customValue = StringParam(this, "customValue", "custom value for replacement")
+  val customValue = StringParam(this, "customValue", "Custom value for replacement")
   def setCustomValue(value: String): this.type = set(customValue, value)
   def getCustomValue: String = $(customValue)
 

@@ -19,7 +19,7 @@ class Repartition(val uid: String) extends Transformer with MMLParams {
   def this() = this(Identifiable.randomUID("Repartition"))
 
   val disable = new BooleanParam(this, "disable",
-    "whether to disable repartitioning (so that one can turn it off for evaluation)")
+    "Whether to disable repartitioning (so that one can turn it off for evaluation)")
 
   def getDisable: Boolean = $(disable)
 
