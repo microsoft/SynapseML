@@ -105,11 +105,11 @@ class ValueIndexerModel(val uid: String)
     * @group param
     */
   val levels = new ArrayParam(this, "levels", "Levels in categorical array")
+  val emptyLevels = Array()
   /** @group getParam */
-  def getLevels: Array[_] = $(levels)
+  def getLevels: Array[_] = if (isDefined(levels)) $(levels) else emptyLevels
   /** @group setParam */
   def setLevels(value: Array[_]): this.type = set(levels, value)
-  setDefault(levels -> Array())
 
   /** The datatype of the levels as a jason string
     * @group param
@@ -244,4 +244,5 @@ object ValueIndexerModel extends MLReadable[ValueIndexerModel] {
         .setOutputCol(outputCol)
     }
   }
+
 }

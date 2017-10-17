@@ -177,7 +177,10 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   protected def isComplexType(paramType: String): Boolean = complexTypes.contains(paramType)
 
   protected def getParamExplanation(param: Param[_]): String = {
-    entryPoint.explainParam(param)
+    // the result might have the instance UID: it shouldn't be in the generated code
+    val expl = entryPoint.explainParam(param).replace(entryPoint.uid, "[self.uid]")
+    // if no defaults, Spark's explainParam() will end with "(undefined)", remove it
+    " *\\(undefined\\)$".r.replaceAllIn(expl, "")
   }
 
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
