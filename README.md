@@ -93,9 +93,9 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 #### GPU VM Setup
 
-MMLSpark can be used to train deep learning models on a set of GPU nodes from a
-Spark application.  For instructions on setting up an Azure GPU VM, see [this
-guide](docs/azure-setup.md).
+MMLSpark can be used to train deep learning models on a GPU node from a Spark
+application.  See the instructions for [setting up an Azure GPU
+VM](docs/gpu-setup.md).
 
 ### Spark package
 
