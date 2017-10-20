@@ -139,7 +139,7 @@ deftag extended
   deftag e2e extended
 deftag linuxonly
 # Tag definitions for $PUBLISH
-map deftag storage maven pip docs demo docker
+map deftag storage maven pip r docs demo docker
 
 defvar -p SRCDIR          "$BASEDIR/src"
 defvar -p BUILD_ARTIFACTS "$BASEDIR/BuildArtifacts"
@@ -240,7 +240,7 @@ CNTK.init() {
 defvar STORAGE_CONTAINER "buildartifacts"
 defvar -X STORAGE_URL    "$(_main_url "$STORAGE_CONTAINER")"
 
-# Container for docs and maven/pip packages
+# Container for docs and maven/pip/r packages
 defvar DOCS_CONTAINER    "docs"
 defvar DOCS_URL          "$(_main_url "$DOCS_CONTAINER")"
 defvar MAVEN_CONTAINER   "maven"
@@ -249,6 +249,9 @@ defvar -dX MAVEN_PACKAGE "com.microsoft.ml.spark:mmlspark_$SCALA_VERSION:<{MML_V
 defvar PIP_CONTAINER     "pip"
 defvar -xX PIP_URL       "$(_main_url "$PIP_CONTAINER")"
 defvar -dX PIP_PACKAGE   "mmlspark-<{MML_VERSION}>-py2.py3-none-any.whl"
+defvar R_CONTAINER       "rrr"
+defvar -xX R_URL         "$(_main_url "$R_CONTAINER")"
+defvar -dX R_PACKAGE     "mmlspark-<{MML_VERSION}>.zip"
 
 # E2E test cluster information
 defvar E2E_CLUSTER_NAME   "mmlsparktest"

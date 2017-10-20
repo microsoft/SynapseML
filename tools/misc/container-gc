@@ -18,6 +18,10 @@ declare -A P=([container]="$PIP_CONTAINER"
 declare -A D=([container]="$DOCS_CONTAINER"
               [path]=""
               [suffix]="")
+declare -A R=([container]="$R_CONTAINER"
+              [path]=""
+              [prefix]="mmlspark-"
+              [suffix]=".zip")
 
 set -e
 shopt -s nullglob
