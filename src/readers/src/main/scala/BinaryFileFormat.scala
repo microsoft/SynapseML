@@ -160,12 +160,14 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
     (file: PartitionedFile) => {
       val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip, seed)
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
-      fileReader.map { bytes =>
+      fileReader.map { record =>
+        val recordPath = record._1
+        val bytes = record._2
         val row = new GenericInternalRow(2)
-        row.update(0, UTF8String.fromString(file.filePath))
-        row.update(1, bytes.getBytes)
+        row.update(0, UTF8String.fromString(recordPath))
+        row.update(1, bytes)
         val outerRow = new GenericInternalRow(1)
-        outerRow.update(0,row)
+        outerRow.update(0, row)
         outerRow
       }
     }
@@ -184,7 +186,7 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
                                       subsample: Double,
                                       inspectZip: Boolean,
                                       seed: Long)
-  extends Iterator[BytesWritable] with Closeable {
+  extends Iterator[(String, BytesWritable)] with Closeable {
 
   private val iterator = {
     val fileSplit = new FileSplit(
@@ -196,12 +198,12 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
     val hadoopAttemptContext = new TaskAttemptContextImpl(conf, attemptId)
     val reader = new BinaryRecordReader(subsample, inspectZip, seed)
     reader.initialize(fileSplit, hadoopAttemptContext)
-    new RecordReaderIterator(reader)
+    new KeyValueReaderIterator(reader)
   }
 
   override def hasNext: Boolean = iterator.hasNext
 
-  override def next(): BytesWritable = iterator.next()
+  override def next(): (String, BytesWritable) = iterator.next()
 
   override def close(): Unit = iterator.close()
 

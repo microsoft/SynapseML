@@ -54,6 +54,10 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
 
     val images = session.readImages(imagesDirectory, recursive = true)
     assert(ImageSchema.isImage(images, "image"))
+    // Validate path contains an image
+    val extensions = Seq(".jpg", ".png")
+    val sampleImagePath = images.select("image.path").take(1)(0)(0).toString()
+    assert(extensions.exists(ext => sampleImagePath.endsWith(ext)))
     assert(images.count == 72)
 
     val images1 = session.readImages(imagesDirectory, recursive = true, inspectZip = false)
