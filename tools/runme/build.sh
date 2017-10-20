@@ -119,6 +119,10 @@ _upload_package_to_storage() { # name, pkgdir, container
     _add_to_description '* **PIP** package [uploaded](%s/%s).\n' \
                         "$PIP_URL" "$PIP_PACKAGE"
     ;;
+  ( "R" )
+    _add_to_description '* **R** package [uploaded](%s/%s).\n' \
+                        "$R_URL" "$R_PACKAGE"
+    ;;
   esac
 }
 
@@ -281,8 +285,9 @@ _full_build() {
     _ az account show > /dev/null # fail if not logged-in to azure
   fi
   # basic publish steps that happen before testing
-  should publish maven   && _upload_package_to_storage "Maven" "m2" "$MAVEN_CONTAINER"
-  should publish pip     && _upload_package_to_storage "PIP" "pip" "$PIP_CONTAINER"
+  should publish maven && _upload_package_to_storage "Maven" "m2"  "$MAVEN_CONTAINER"
+  should publish pip   && _upload_package_to_storage "PIP"   "pip" "$PIP_CONTAINER"
+  should publish r     && _upload_package_to_storage "R"     "R"   "$R_CONTAINER"
   should publish storage && _upload_artifacts_to_storage
   # tests
   should test python     && @ "../pytests/auto-tests"
