@@ -72,11 +72,11 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
   val vectorDims =new MapParam[String, Int](this, "vectorDims",
     "the dimensions of any vector columns, used to avoid materialization")
 
-  def getVectorDims: Map[String, Int] = $(vectorDims)
+  def getVectorDims: Map[String, Int] = get(vectorDims).getOrElse(Map())
 
   def setVectorDims(value: Map[String, Int]): this.type = set(vectorDims, value)
 
-  setDefault(collapseGroup -> true, vectorDims -> Map())
+  setDefault(collapseGroup -> true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
