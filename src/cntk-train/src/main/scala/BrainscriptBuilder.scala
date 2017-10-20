@@ -101,7 +101,7 @@ class BrainScriptBuilder {
       |                            $ipstring
       |                            hdfs = {
       |                                host = "$activeNameNode";
-      |                                port = "8020";
+      |                                port = "${CNTKLearner.rpcPortNumber}";
       |                                filePath = "$loc";
       |                                format = "Parquet"
       |                            }

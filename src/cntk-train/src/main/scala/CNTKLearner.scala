@@ -75,6 +75,9 @@ object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
   val sparseForm = "sparse"
   val doublePrecision = "double"
   val floatPrecision = "float"
+  val rpcPortNumber = 8020
+  val identityLocation = "wasb:///MML-GPU/identity"
+  val localSSH = ".ssh/MML-GPU"
 }
 
 @InternalWrapper
