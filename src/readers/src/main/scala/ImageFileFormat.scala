@@ -59,8 +59,9 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
     (file: PartitionedFile) => {
       val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip, seed)
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
-      fileReader.flatMap {bytes =>
-        val byteArray = bytes.getBytes
+      fileReader.flatMap { record =>
+        val recordPath = record._1
+        val byteArray = record._2.getBytes
         ImageReader.OpenCVLoader
         val rowOpt = ImageReader.decode(file.filePath, byteArray)
 
@@ -69,7 +70,7 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
           case Some(row) =>
             val imGenRow = new GenericInternalRow(1)
             val genRow = new GenericInternalRow(ImageSchema.columnSchema.fields.length)
-            genRow.update(0, UTF8String.fromString(row.getString(0)))
+            genRow.update(0, UTF8String.fromString(recordPath))
             genRow.update(1, row.getInt(1))
             genRow.update(2, row.getInt(2))
             genRow.update(3, row.getInt(3))
