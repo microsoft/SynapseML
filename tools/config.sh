@@ -14,6 +14,8 @@ defvar -xp HOME; mkdir -p "$HOME"
 # * ver: The version of the library.  This version can be used in other settings
 #   by using "<{ver}>", it is also available in the `.setup` and `.init` hooks
 #   as "$ver".
+# Note: actually all keys can be used with "<{key}>" potentially with bash-like
+# variable substitutions (similar to `defvar -d`).
 # * lib: The name of the directory (in ~/lib) to install to, defaults to the
 #   library name in lowercase.
 # * envvar: An environment variable prefix to set to the library's version and
@@ -94,12 +96,11 @@ INSTALLATIONS=(
   vers:   "cat version|<{ver}>"
   where:  "devel build"
 
-  CNTK ver: "2.1"
-  url:    "$INSTALLER_URL/CNTK-2-1-Linux-64bit-CPU-Only.tar.gz"
+  CNTK ver: "2.1" dashver: "<{ver//./-}>"
+  url:    "$INSTALLER_URL/CNTK-<{dashver}>-Linux-64bit-CPU-Only.tar.gz"
   sha256: "6fef06b6c9b9bdb782c0d3c4b860c7f7834a04bdf02a6e79938551dfaceea3c1"
   exes:   "cntk"
-  # Note: no good way to find the installed version, see cntk pr #2228
-  vers:   "ls cntk/lib/libCntk.Core-*.so|*/libCntk.Core-<{ver}>.so"
+  vers:   "cat version.txt|CNTK-<{dashver}>"
   bindir: "cntk/bin"
   where:  "devel build"
 

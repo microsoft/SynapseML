@@ -10,7 +10,7 @@ show section "Building Python Documentation"
 here="$(cd $(dirname "${BASH_SOURCE[0]}"); pwd)"
 pydocsrc="$BUILD_ARTIFACTS/pydocsrc"
 
-cd "$BUILD_ARTIFACTS/docs"
+_mcd "$BUILD_ARTIFACTS/docs"
 _rm "pyspark"; _md "pyspark"
 
 show - "Copying source files"
