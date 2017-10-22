@@ -1,5 +1,6 @@
 Converts the specified list of columns to the specified type.  The types
 are specified by the following strings:
+
 - "boolean"
 - "byte"
 - "short"

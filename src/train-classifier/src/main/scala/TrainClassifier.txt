@@ -2,6 +2,7 @@ Trains a classifier model
 
 The currently supported models and the names to be provided in the
 "model" parameter are:
+
 - Logistic Regression - "LogisticRegression"
 - Decision Tree - "DecisionTreeClassification"
 - Random Forest - "RandomForestClassification"

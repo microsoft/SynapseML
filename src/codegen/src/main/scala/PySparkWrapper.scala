@@ -74,6 +74,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        Set the (keyword only) parameters
         |
         |        Args:
+        |
         |$paramDocString
         |        "\""
         |        if hasattr(self, \"_input_kwargs\"):
@@ -94,6 +95,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |
         |        Args:
+        |
         |$explanation
         |
         |        "\""
@@ -109,6 +111,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |
         |        Returns:
+        |
         |            $docType: ${res(1)}
         |        "\""
         |        return self.getOrDefault(self.$pname)
@@ -122,6 +125,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |
         |        Returns:
+        |
         |            $docType: ${res(1)}
         |        "\""
         |        return self._cache.get(\"$pname\", None)
@@ -297,7 +301,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     //val classParamDocString = classParamDocList.mkString("\n")
     val classParamDocString = {
       if (classParamDocList.isEmpty) ""
-      else scopeDepth + "Args:\n" + classParamDocList.mkString("\n")
+      else scopeDepth + "Args:\n\n" + classParamDocList.mkString("\n")
     }
 
     classTemplate(importsString, inheritanceString,

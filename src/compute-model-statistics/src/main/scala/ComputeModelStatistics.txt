@@ -4,6 +4,7 @@ models specified
 The possible metrics are:
 
 Binary Classifiers:
+
 - "AreaUnderROC"
 - "AUC"
 - "accuracy"
@@ -11,6 +12,7 @@ Binary Classifiers:
 - "all"
 
 Regression Classifiers:
+
 - "mse"
 - "rmse"
 - "r2"
