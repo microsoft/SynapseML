@@ -76,9 +76,17 @@ _prepare_build_artifacts() {
 
 _sbt_run() { # sbt-args...
   local flags=""; if [[ "$BUILDMODE" = "server" ]]; then flags="-no-colors"; fi
+  # temporary hack around the sbt+bash problem in v1.0.0,
+  # (should be fixed in 1.0.3, and then this should be removed)
+  local stty_settings=""
+  if [[ "$SBT_VERSION" > "1.0.2" ]]; then failwith "Time to remove the stty workaround"
+  elif [[ "$BUILDMODE" != "server" ]]; then stty_settings="$(stty -g)"
+  fi
   (set -o pipefail; export BUILD_ARTIFACTS TEST_RESULTS
-   _ sbt $flags "$@" < /dev/null 2>&1 | _postprocess_sbt_log) \
-    || exit $?
+   _ sbt $flags "$@" < /dev/null 2>&1 | _postprocess_sbt_log)
+  local ret=$?
+  if [[ -n "$stty_settings" ]]; then stty "$stty_settings"; fi
+  if ((ret != 0)); then exit $ret; fi
 }
 
 _sbt_build() {

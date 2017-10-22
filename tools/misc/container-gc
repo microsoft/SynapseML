@@ -4,7 +4,7 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
-types=(S M P D)
+types=(S M P D R)
 declare -A S=([container]="$STORAGE_CONTAINER"
               [path]=""
               [suffix]="/")

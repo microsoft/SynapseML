@@ -16,8 +16,8 @@
 # * `-p`: resolve the value to an absolute path from where we are,
 # * `-f`: set the value even if it's already set,
 # * `-d`: define values with delayed references to other variables using
-#         `...<{var}>...` -- these will be replaced at the end of
-#         processing the config file.
+#         `...<{var}>...` -- these will be replaced at the end of processing
+#         the config file, bash variable substitutions can work here too.
 _delayed_vars=()
 _gen_vars=()
 defvar() {
@@ -39,14 +39,15 @@ _show_gen_vars() {
   local var
   for var in "${_gen_vars[@]}"; do printf '%s=%s\n' "$var" "$(qstr "${!var}")"; done
 }
-_replace_delayed_vars() {
+_replace_var_substs() { # var...
   local var val pfx sfx change=1
-  for var in "${_delayed_vars[@]}"; do
+  for var; do
     val="${!var}"
     while [[ "$val" = *"<{"*"}>"* ]]; do
       pfx="${val%%"<{"*}"; val="${val#*"<{"}"
       sfx="${val#*"}>"}"; val="${val%%"}>"*}"
-      val="$pfx${!val}$sfx"
+      eval "val=\${$val}"
+      val="$pfx$val$sfx"
       printf -v "$var" "%s" "$val"
     done
   done
@@ -306,21 +307,9 @@ should() {
 }
 
 # ---< get_install_info libname key >-------------------------------------------
-# Print the value for $key in the setup section of $libname.  Properly deals
-# with various default values.
+# Print the value for $key in the setup section of $libname.
 get_install_info() {
-  local ret="${_install_info[$1.$2]}"
-  if [[ "$ret" = "" ]]; then
-    case "$2" in
-      ( "lib"    ) ret="${1,,}" ;;
-      ( "envvar" ) ret="${1^^}" ;;
-      ( "bindir" ) ret="bin"    ;;
-    esac
-    if [[ "$ret" != "" ]]; then
-      _install_info[$1.$2]="$ret"; _replace_ver_in_info $1.$2
-    fi
-  fi
-  echo "$ret"
+  echo "${_install_info[$1.$2]}"
 }
 
 # ---< set_install_info_vars libname key... >-----------------------------------
@@ -493,20 +482,24 @@ _reset_build_info() {
 declare -A _install_info
 install_packages=()
 _parse_install_info() {
-  local key="" libname="" x keys=1
-  for x in "${INSTALLATIONS[@]}"; do
-    if [[ "$key" != "" ]];     then _install_info[${libname}.${key%:}]="$x" key=""
-    elif [[ "$x" = *: ]];      then key="$x" keys=1
+  if [[ "${INSTALLATIONS[0]}" = *: ]]; then failwith "INSTALLATIONS starts with a \"key:\""; fi
+  local key="" libname="" x keys=()
+  for x in "${INSTALLATIONS[@]}" "EOF"; do
+    if [[ "$key" != "" ]];     then local "$key"; printf -v "$key" "%s" "$x"; key=""
+    elif [[ "$x" = ?*":" ]];   then key="${x%:}" keys+=("$key")
     elif [[ "$x" != [A-Z]* ]]; then failwith "bad package name: $x"
-    elif ((!keys)); then failwith "install entry with no keys: $libname"
-    else libname="$x"; key=""; keys=0; install_packages+=("$x")
+    elif [[ -z "$libname" ]];  then libname="$x"
+    elif [[ "${#keys[*]}" = 0 ]]; then failwith "install entry with no keys: $libname"
+    else
+      local _keys="${keys[*]}"
+      if [[ "$_keys" != *" lib "*    ]]; then local lib="${libname,,}";    keys+=("lib");    fi
+      if [[ "$_keys" != *" envvar "* ]]; then local envvar="${libname^^}"; keys+=("envvar"); fi
+      if [[ "$_keys" != *" bindir "* ]]; then local bindir="bin";          keys+=("bindir"); fi
+      _replace_var_substs "${keys[@]}"
+      for key in "${keys[@]}"; do _install_info[${libname}.${key}]="${!key}"; done
+      unset "${keys[@]}"; keys=(); key=""; libname="$x"; install_packages+=("$x")
     fi
   done
-  # replace "<{ver}>"s
-  for x in "${!_install_info[@]}"; do _replace_ver_in_info "$x"; done
-}
-_replace_ver_in_info() { # lib.field
-  _install_info[$1]="${_install_info[$1]//"<{ver}>"/"${_install_info[${1%%.*}.ver]}"}"
 }
 
 _post_config() {
@@ -514,5 +507,5 @@ _post_config() {
   _parse_install_info
   _parse_TESTS
   _parse_PUBLISH
-  _replace_delayed_vars
+  _replace_var_substs "${_delayed_vars[@]}"
 }
