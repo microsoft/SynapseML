@@ -1,6 +1,7 @@
 Compute summary statistics for the dataset.
 
 Statistics to be computed:
+
 - counts
 - basic
 - sample
