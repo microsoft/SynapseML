@@ -384,7 +384,6 @@ _parse_TESTS()   { _parse_tags TESTS   _test_info;    }
 _parse_PUBLISH() { _parse_tags PUBLISH _publish_info; }
 
 # Defines $MML_VERSION and $MML_BUILD_INFO
-_used_preexisting_version=0
 _set_build_info() {
   local info version is_latest
   # make it possible to avoid running git
@@ -405,34 +404,26 @@ _set_build_info() {
                        || git merge-base HEAD refs/heads/master)"
     local tagref="$(git rev-parse "refs/tags/$tag^{commit}")"
     # MML_VERSION
-    if [[ -r "$BUILD_ARTIFACTS/version" ]]; then
-      # if there is a built version, use it, so that we don't get a new version
-      # after commits are made (but it'll get reset in ./runme since it
-      # recreates the $BUILD_ARTIFACTS directory)
-      _used_preexisting_version=1
-      version="$(< "$BUILD_ARTIFACTS/version")"
-    else
-      # generate a version string (that works for pip wheels too) as follows:
-      # 1. main version, taken from the most recent version tag
-      #    (that's all if we're building this tagged version)
-      version="${tag#v}"
-      # 2. ".dev" + number of commits on master since the tag, unless
-      #    we're right on the tag
-      if [[ "$tagref" != "$headref" ]]; then
-        version+=".dev$(git rev-list --count "$tag..$branchref")"
-      fi
-      # 3. if building a branch (except when it's tagged), or building locally:
-      #    "+" + number of commits on top of master ".g" + abbreviated sha1
-      if [[ "$branchref" != "$headref" && "$tagref" != "$headref" ]] \
-         || [[ "$BUILDMODE" != "server" ]]; then
-        version+="+$(git rev-list --count "$branchref..$headref")"
-        version+=".g$(git rev-parse --short "$headref")"
-      fi
-      # 4. ".local" for local builds, ".dirty" for a local+dirty tree
-      if [[ "$BUILDMODE" != "server" ]]; then
-        version+=".local"
-        if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
-      fi
+    # generate a version string (that works for pip wheels too) as follows:
+    # 1. main version, taken from the most recent version tag
+    #    (that's all if we're building this tagged version)
+    version="${tag#v}"
+    # 2. ".dev" + number of commits on master since the tag, unless
+    #    we're right on the tag
+    if [[ "$tagref" != "$headref" ]]; then
+      version+=".dev$(git rev-list --count "$tag..$branchref")"
+    fi
+    # 3. if building a branch (except when it's tagged), or building locally:
+    #    "+" + number of commits on top of master ".g" + abbreviated sha1
+    if [[ "$branchref" != "$headref" && "$tagref" != "$headref" ]] \
+       || [[ "$BUILDMODE" != "server" ]]; then
+      version+="+$(git rev-list --count "$branchref..$headref")"
+      version+=".g$(git rev-parse --short "$headref")"
+    fi
+    # 4. ".local" for local builds, ".dirty" for a local+dirty tree
+    if [[ "$BUILDMODE" != "server" ]]; then
+      version+=".local"
+      if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
     fi
     # MML_BUILD_INFO
     if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
@@ -450,7 +441,7 @@ _set_build_info() {
     else
       local branch="${BUILD_SOURCEBRANCH#refs/heads/}"
       # drop the commit sha1 for builds that are on the main line
-      if [[ "$BUILDPR:$branch" = ":master" && ! -r "$BUILD_ARTIFACTS/version" ]]; then
+      if [[ "$BUILDPR:$branch" = ":master" ]]; then
         version="${version%+g[0-9a-f][0-9a-f]*}"
       fi
       info="$BUILD_REPOSITORY_NAME/$branch@${BUILD_SOURCEVERSION:0:8}"
@@ -468,12 +459,6 @@ _set_build_info() {
   defvar -xX MML_VERSION    "$version"
   defvar -xX MML_BUILD_INFO "$info"
   defvar -xX MML_LATEST     "$is_latest"
-}
-# To be called when re-creating $BUILD_ARTIFACTS
-_reset_build_info() {
-  if ((!_used_preexisting_version)); then return; fi
-  unset MML_BUILD_INFO MML_VERSION MML_LATEST; _used_preexisting_version=0
-  _set_build_info
 }
 
 # Parse $INSTALLATIONS info

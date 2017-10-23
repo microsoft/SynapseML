@@ -61,7 +61,6 @@ _postprocess_sbt_log() {
 _prepare_build_artifacts() {
   show section "Preparing Build"
   _rm "$BUILD_ARTIFACTS" "$TEST_RESULTS"
-  _reset_build_info
   _ mkdir -p "$BUILD_ARTIFACTS/sdk" "$TEST_RESULTS"
   _ cp -a "$BASEDIR/LICENSE" "$BUILD_ARTIFACTS"
   _ cp -a "$BASEDIR/LICENSE" "$BUILD_ARTIFACTS/sdk"
