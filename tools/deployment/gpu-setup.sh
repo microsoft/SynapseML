@@ -47,10 +47,10 @@ install_url() { # dir, url, inst_arg...
     failwith "error retrieving $url"
   cd "$INSTALL_DIR"
   case "$file" in
-  ( *.tgz *.tar.gz ) tar xzf "$tmp" || failwith "Could not extract $file"
-  ( *.sh *.run )     chmod +x "$tmp"
-                     "$tmp" "$@" || failwith "Errors while running $file"
-  ( * ) failwith "Internal error: unknown file extension: $file"
+  *.tgz | *.tar.gz ) tar xzf "$tmp" || failwith "Could not extract $file";;
+  *.sh  | *.run )     chmod +x "$tmp"
+                     "$tmp" "$@" || failwith "Errors while running $file";;
+  * ) failwith "Internal error: unknown file extension: $file";;
   esac
   rm -f "$tmp"
   cd "$owd"
@@ -76,7 +76,7 @@ maybe_install "gcc" "g++" "make"
 
 # Install Zulu
 echo "deb $ZULU_DOWNLOAD_SITE stable main" > "/etc/apt/sources.list.d/zulu.list"
-maybe_install "$ZULU_PKG"
+apt-get update && apt-get install -y --allow-unauthenticated "$ZULU_PKG"
 add_new_line "/etc/environment" "JAVA_HOME=$JAVA_HOME"
 
 # Install NVIDIA driver (in silent mode)
@@ -94,6 +94,7 @@ install_url "$MPI_INSTALLER_URL"
 cd "$INSTALL_DIR/$MPI_PATH"
 ./configure --prefix="$INSTALL_DIR" && make -j all && make install || \
    failwith "Error building MPI"
+add_new_line "/etc/environment" "LD_LIBRARY_PATH=$INSTALL_DIR/lib:$LD_LIBRARY_PATH"
 
 # Install Hadoop binary
 install_url "$HADOOP_INSTALLER_URL"
