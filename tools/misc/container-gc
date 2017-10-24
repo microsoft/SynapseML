@@ -4,7 +4,7 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
-types=(S M P D R)
+types=(S M P R D)
 declare -A S=([container]="$STORAGE_CONTAINER"
               [path]=""
               [suffix]="/")
@@ -15,13 +15,13 @@ declare -A P=([container]="$PIP_CONTAINER"
               [path]=""
               [prefix]="mmlspark-"
               [suffix]="-py2.py3-none-any.whl")
-declare -A D=([container]="$DOCS_CONTAINER"
-              [path]=""
-              [suffix]="")
 declare -A R=([container]="$R_CONTAINER"
               [path]=""
               [prefix]="mmlspark-"
               [suffix]=".zip")
+declare -A D=([container]="$DOCS_CONTAINER"
+              [path]=""
+              [suffix]="")
 
 set -e
 shopt -s nullglob
@@ -116,47 +116,53 @@ cachedir="$HOME/.$(basename "$0")"; mkdir -p "$cachedir"
  done)
 
 get-ver-info() (
-  v="$1" info="{}"
+  v="$1" info="$tmp-info"
+  echo "{}" > "$info"
   if [[ -r "$cachedir/$v" ]]; then return; fi
   for t in "${types[@]}"; do
     declare -n X="$t"
     pfx="${X[path]}${X[path]:+/}${X[prefix]}$v${X[suffix]}"
-    info="$(az storage blob list -c "${X[container]}" --prefix "$pfx" \
-            | jq --argjson i "$info" --arg pfx "$pfx" '$i + {"'"$t"'":
-                map(select((.name == $pfx)
-                           or ((.name | startswith($pfx))
-                               and (($pfx | endswith("/"))
-                                    or (.name | .[($pfx | length):]
-                                        | startswith("/"))))))}')"
+    az storage blob list -c "${X[container]}" --prefix "$pfx" \
+    | jq --slurpfile i "$info" --arg pfx "$pfx" '$i[0] + {"'"$t"'":
+        map(select((.name == $pfx)
+                   or ((.name | startswith($pfx))
+                       and (($pfx | endswith("/"))
+                            or (.name | .[($pfx | length):]
+                                | startswith("/"))))))}' \
+    > "$info-new"; mv "$info-new" "$info"
   done
   #
   label="$(jq -r '.S | map(select(.name | endswith("/.label")) | .name) | .[]' \
-                 <<<"$info")"
+                 < "$info")"
   if [[ "$label" = *$'\n'* ]]; then failwith "found multiple .label blobs"; fi
   if [[ -n "$label" ]]; then
     az storage blob download -c "${S[container]}" -n "$label" -f "$tmp" > /dev/null
     label="$(< "$tmp")"
     rm -f "$tmp"
   fi
-  info="$(jq --arg l "$label" '. + {label: $l}' <<<"$info")"
+  jq --arg l "$label" '. + {label: $l}' \
+     < "$info" > "$info-new"; mv "$info-new" "$info"
   #
   az storage blob download -c "${S[container]}" -n "$v/Build.md" -f "$tmp.md" > /dev/null
   binfo="$(< "$tmp.md")"; rm -f "$tmp.md"
   if [[ -z "$binfo" ]]; then binfo="(No info: \"Build.md\" file not found)"; fi
-  info="$(jq --arg b "$binfo" '. + {buildinfo: $b}' <<<"$info")"
+  jq --arg b "$binfo" '. + {buildinfo: $b}' \
+     < "$info" > "$info-new"; mv "$info-new" "$info"
   #
   rx="\n#+ [^\n]* build [^\n]*github PR #([0-9]+)"
   rx=$'\n'"#+ [^"$'\n'"]* build [^"$'\n'"]*github PR #([0-9]+)"
   if [[ "$binfo" =~ $rx ]]; then pr="${BASH_REMATCH[1]}"; else pr=""; fi
-  info="$(jq --arg pr "$pr" '. + {github_pr: $pr}' <<<"$info")"
+  jq --arg pr "$pr" '. + {github_pr: $pr}' \
+     < "$info" > "$info-new"; mv "$info-new" "$info"
   #
-  info="$(jq --argjson now "$(date +"%s")" \
+  jq --argjson now "$(date +"%s")" \
              '. + (to_entries
                    | map(select((.value | type) == "array") | .value) | add
                    | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
-                   | sort | {created: $now, mintime: .[0], maxtime: .[-1]})' <<<"$info")"
+                   | sort | {created: $now, mintime: .[0], maxtime: .[-1]})' \
+     < "$info" > "$info-new"; mv "$info-new" "$info"
   #
-  echo "$info" > "$cachedir/$v"
+  mv "$info" "$cachedir/$v"
 )
 
 show-all-oneline() {

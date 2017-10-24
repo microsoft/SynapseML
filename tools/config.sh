@@ -149,9 +149,9 @@ defvar -p TEST_RESULTS    "$BASEDIR/TestResults"
 # Specific installation functions
 
 SBT.setup() {
-  local f="$SRCDIR/project/build.properties" txt="sbt.version = $SBT_VERSION"
+  local f="$SRCDIR/project/build.properties" txt="sbt.version=$SBT_VERSION"
   if [[ ! -e "$f" ]]; then echo "$txt" > "$f"; return; fi
-  if [[ "x$(< "$f")" != "x$txt" ]]; then failwith "$f exists"; fi
+  if [[ "$(< "$f")" != "$txt" ]]; then failwith "$f exists with unexpected contents"; fi
 }
 defvar SCALA_VERSION "2.11"
 defvar SCALA_FULL_VERSION "$SCALA_VERSION.8"

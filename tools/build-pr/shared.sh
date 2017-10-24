@@ -13,7 +13,7 @@ fi
 
 T=""
 _get_T() {
-  if [[ "x$T" = "x" ]]; then
+  if [[ -z "$T" ]]; then
     T="$(__ az keyvault secret show --vault-name mmlspark-keys --name github-auth \
          | jq -r ".value" | base64 -d)"
   fi
