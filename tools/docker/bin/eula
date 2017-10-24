@@ -9,5 +9,5 @@ echo ""
 echo "(Note: you can also use \"-e ACCEPT_EULA=Y\" to indicate agreement.)"
 echo ""
 read -ep "Do you agree to the EULA? " R
-if [[ "x${R,,}" != @("xy"|"xyes") ]]; then echo "Bye."
+if [[ "${R,,}" != @("y"|"yes") ]]; then echo "Bye."
 else ACCEPT_EULA=Y launcher; fi

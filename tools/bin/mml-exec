@@ -20,7 +20,7 @@ else echo "Could not find \"runme\"" 1>&2; exit 1; fi
 # If we let spark guess a driver, it can find "python2.7" in the path (eg, the
 # system's installation) and use that; so do this to force it to use "python" in
 # our path, which is a symlink to the conda python.
-if [[ "x$PYSPARK_PYTHON" = "x" ]]; then export PYSPARK_PYTHON="python"; fi
+if [[ -z "$PYSPARK_PYTHON" ]]; then export PYSPARK_PYTHON="python"; fi
 
 if [[ "$exe" == "jupyter-notebook" ]]; then
   if [[ "${#args[@]}" = 0 ]]; then args=""

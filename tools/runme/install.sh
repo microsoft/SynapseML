@@ -106,7 +106,7 @@ _unpack_zip() {
 }
 
 _unpack_sh() {
-  if [[ "x$instcmd" != "x" ]]; then eval "_ $instcmd"
+  if [[ -n "$instcmd" ]]; then eval "_ $instcmd"
   else failwith "sh package without instcmd: $1"; fi
 }
 
@@ -123,7 +123,7 @@ _retrieve_file() { # url file sha256
   fi
   _curl --output "$target" "$url"
   local sha256sum="$(__ sha256sum "$target")"; sha256sum="${sha256sum%% *}"
-  if [[ "x$sha256sum" = "x" ]]; then failwith "could not get sha256 checksum"; fi
+  if [[ -z "$sha256sum" ]]; then failwith "could not get sha256 checksum"; fi
   if [[ "$sha256sum" != "$sha256" ]]; then
     failwith "sha256 checksum failed for $target (retrieved from $url)"
   fi
@@ -143,9 +143,9 @@ _install() { # libname
      || (                             " $where " != *" devel "*   ) ]]; then return
   fi
   local dir="$HOME/lib/$lib"
-  defvar -E "${envvar}_VERSION" "$ver"
+  defvar -E  "${envvar}_VERSION" "$ver"
   defvar -xe "${envvar}_HOME"    "$dir"
-  if [[ "x$prereq" != "x" ]] && ! eval "${prereq%|*}" > /dev/null 2>&1; then
+  if [[ -n "$prereq" ]] && ! eval "${prereq%|*}" > /dev/null 2>&1; then
     failwith "$libname: prerequisite failure: ${prereq##*|}"
   fi
   if [[ "$(_verify_version -q "$libname")" = "" ]]; then

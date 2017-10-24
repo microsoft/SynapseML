@@ -11,8 +11,9 @@
 # * `-x`: export the variable,
 # * `-X`: mark the variable to be included in generated script resources
 #         like the HDI script actions,
-# * `-e`: set in the user environment (in "$HOME/.mmlspark_profile"),
-# * `-E`: implies `-xXe`,
+# * `-e`: set in the user environment in "$HOME/.mmlspark_profile"
+#         (implies -f to avoid "sticky values"),
+# * `-E`: shorthand for `-xXef`,
 # * `-p`: resolve the value to an absolute path from where we are,
 # * `-f`: set the value even if it's already set,
 # * `-d`: define values with delayed references to other variables using
@@ -23,7 +24,7 @@ _gen_vars=()
 defvar() {
   local opts=""; while [[ "x$1" == "x-"* ]]; do opts+="${1:1}"; shift; done
   local var="$1" val v; shift
-  if [[ "$opts" == *"f"* || -z "${!var+x}" ]]; then
+  if [[ "$opts" == *[feE]* || -z "${!var+x}" ]]; then
     val=""; for v; do val+="$v"; done; printf -v "$var" "%s" "$val"; fi
   if [[ "$opts" == *"p"* && "x${!var}" != "/"* ]]; then
     printf -v "$var" "%s" "$(realpath -m "${!var}")"; fi
@@ -92,13 +93,10 @@ esac; shift; done
 # generic output.  $hide_in_log can be set to a string holding sensitive
 # information that should be hidden in the output.  The display uses "$HOME"
 # instead of the actual value whenever it appears.
-first_show="Y"
 hide_in_log=""
 show() {
   local tag="$1"; shift
-  if [[ "$first_show" = "Y" ]]; then first_show="N";
-  elif [[ "x$tag" = "xsection" ]]; then echo ""
-  fi
+  if [[ "x$tag" = "xsection" ]]; then echo ""; fi
   if [[ "x$tag" = "x-" ]]; then tag=""
   elif [[ "$BUILDMODE" = "server" ]]; then tag="##[$tag]"
   else case "$tag" in
