@@ -6,7 +6,7 @@
 if [[ "${RUNME_LOADED:-}" = "$$" ]]; then return; else RUNME_LOADED="$$"; fi
 
 # extra bash globs, quote expansion of quoted parameters
-shopt -s globstar extglob extquote
+shopt -s globstar nullglob extglob extquote
 
 # Where are we?
 RUNMEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"

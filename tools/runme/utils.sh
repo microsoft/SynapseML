@@ -386,9 +386,22 @@ _parse_PUBLISH() { _parse_tags PUBLISH _publish_info; }
 # Defines $MML_VERSION and $MML_BUILD_INFO
 _set_build_info() {
   local info version is_latest
-  # make it possible to avoid running git
   if [[ -n "$MML_BUILD_INFO" && -n "$MML_VERSION" && -n "$MML_LATEST" ]]; then
+    # make it possible to avoid running git
     info="$MML_BUILD_INFO"; version="$MML_VERSION"; is_latest="$MML_LATEST"
+  elif [[ "$BUILDMODE" != "server" ]]; then
+    version="0.0"
+    is_latest="no"
+    info="Local build: ${USERNAME:-$USER} ${BASEDIR:-$PWD}"
+    local line
+    info+="$(git branch --no-color -vv --contains HEAD --merged | \
+               while read line; do
+                 if [[ "x$line" != "x*"* ]]; then continue; fi
+                 line="${line#"* "}";
+                 if [[ "$line" = *\[*\]* ]]; then line="${line%%\]*}]"; fi
+                 if [[ "$line" = *\(*\)* ]]; then line="${line%%)*})"; fi
+                 echo "//$line"; done)"
+    if ! git diff-index --quiet HEAD; then info+=" (dirty)"; fi
   else
     local owd="$PWD"; cd "$BASEDIR"
     # sanity checks for version tags
@@ -420,33 +433,14 @@ _set_build_info() {
       version+="+$(git rev-list --count "$branchref..$headref")"
       version+=".g$(git rev-parse --short "$headref")"
     fi
-    # 4. ".local" for local builds, ".dirty" for a local+dirty tree
-    if [[ "$BUILDMODE" != "server" ]]; then
-      version+=".local"
-      if ! git diff-index --quiet HEAD --; then version+=".dirty"; fi
-    fi
     # MML_BUILD_INFO
-    if [[ "$BUILDMODE" != "server" || "$AGENT_ID" = "" ]]; then
-      info="Local build: ${USERNAME:-$USER} ${BASEDIR:-$PWD}"
-      local line
-      info+="$(
-        git branch --no-color -vv --contains HEAD --merged | \
-          while read line; do
-            if [[ "x$line" = "x*"* ]]; then
-              line="${line#"* "}";
-              if [[ "$line" = *\[*\]* ]]; then line="${line%%\]*}]"; fi
-              if [[ "$line" = *\(*\)* ]]; then line="${line%%)*})"; fi
-              echo "//$line"; fi; done)"
-      if ! git diff-index --quiet HEAD; then info+=" (dirty)"; fi
-    else
-      local branch="${BUILD_SOURCEBRANCH#refs/heads/}"
-      # drop the commit sha1 for builds that are on the main line
-      if [[ "$BUILDPR:$branch" = ":master" ]]; then
-        version="${version%+g[0-9a-f][0-9a-f]*}"
-      fi
-      info="$BUILD_REPOSITORY_NAME/$branch@${BUILD_SOURCEVERSION:0:8}"
-      info+="; $BUILD_DEFINITIONNAME#$BUILD_BUILDNUMBER"
+    local branch="${BUILD_SOURCEBRANCH#refs/heads/}"
+    # drop the commit sha1 for builds that are on the main line
+    if [[ "$BUILDPR:$branch" = ":master" ]]; then
+      version="${version%+g[0-9a-f][0-9a-f]*}"
     fi
+    info="$BUILD_REPOSITORY_NAME/$branch@${BUILD_SOURCEVERSION:0:8}"
+    info+="; $BUILD_DEFINITIONNAME#$BUILD_BUILDNUMBER"
     info="$version: $info"
     # MML_LATEST
     # "yes" when building an exact version which is the latest on origin/master

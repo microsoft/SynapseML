@@ -199,9 +199,8 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
   // description file; need to encode version as decimal
   val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
                 .format(new java.util.Date())
-  val ver0 = mmlVer.replace(".local", "-0").replace(".dirty", "-9")
-  val ver1 = "\\.dev|\\+".r.replaceAllIn(ver0, "-")
-  val ver  = "\\.g([0-9a-f]+)".r.replaceAllIn(ver1, m =>
+  val ver0 = "\\.dev|\\+".r.replaceAllIn(mmlVer, "-")
+  val ver  = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
       "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
   writeFile(new File(rDir, "DESCRIPTION"),

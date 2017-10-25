@@ -67,7 +67,7 @@ for mt in "${mime_types[@]}"; do
   show - "Copying $glob as $type"
   for ((i=0; i<len; i++)); do
     # mimics the matching that `upload-batch` with `--pattern` is doing
-    if [[ -n "${files[$i]}" && "${files[$i]}" = $glob ]]; then unset files[$i]; fi
+    if [[ -n "${files[$i]}" && "${files[$i]}" = $glob ]]; then unset -v "files[$i]"; fi
   done
   collect_log=1 _ azblob upload-batch \
     --source "." --destination "$DOCS_CONTAINER${target:+/}$target" \
@@ -83,7 +83,7 @@ for ((i=-1; i<len; i++)); do
   then f="."; webdir="$MML_VERSION"; redirect="$MML_VERSION/"
   else f="${files[$i]}"; webdir="$target${target:+/}$f"; redirect="${f##*/}/"; fi
   if [[ -z "$f" || ! -d "$f" ]]; then continue; fi
-  unset files[$i]
+  unset -v "files[$i]"
   if [[ ! -e "$f/$default" ]]; then continue; fi
   # copy "foo/$default" also to "foo/"
   collect_log=1 _ azblob upload \
