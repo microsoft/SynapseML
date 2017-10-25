@@ -90,10 +90,9 @@ _sbt_run() { # sbt-args...
 
 _sbt_build() {
   show section "Running SBT Build"
-  local owd="$PWD" restore_opt="$(shopt -p nullglob)"; shopt -s nullglob
+  local owd="$PWD"
   cd "$SRCDIR"
   local rmjars=( **/"target/scala-"*/!(*"-$MML_VERSION"@(|-*))".jar" )
-  $restore_opt
   if [[ "${#rmjars[@]}" != "0" ]]; then
     show command "rm **/target/...stale-jars"
     __ rm "${rmjars[@]}"
