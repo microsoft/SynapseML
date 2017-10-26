@@ -465,7 +465,7 @@ _parse_install_info() {
     if [[ "$key" != "" ]];     then local "$key"; printf -v "$key" "%s" "$x"; key=""
     elif [[ "$x" = ?*":" ]];   then key="${x%:}" keys+=("$key")
     elif [[ "$x" != [A-Z]* ]]; then failwith "bad package name: $x"
-    elif [[ -z "$libname" ]];  then libname="$x"
+    elif [[ -z "$libname" ]];  then libname="$x"; install_packages+=("$x")
     elif [[ "${#keys[*]}" = 0 ]]; then failwith "install entry with no keys: $libname"
     else
       local _keys="${keys[*]}"
