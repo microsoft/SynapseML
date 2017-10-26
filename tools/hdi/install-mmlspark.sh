@@ -38,7 +38,7 @@ get_primary_headnode() {
 # Run on all nodes
 
 # Install prerequisites
-apt-get install -y openmpi-bin libunwind8
+apt-get install -y openmpi-bin libunwind8 libpng12-0 libjasper1
 
 # Install CNTK in all environments
 for env in "${CONDA_ENVS[@]}"; do
@@ -54,6 +54,18 @@ for env in "${CONDA_ENVS[@]}"; do
   fi
   . "$CPATH/deactivate"
 done
+
+# Add CNTK dependencies to the system library paths
+cntklibs="$("$CPATH/conda" info --envs | grep "^py35")"
+if [[ -z "$cntklibs" ]]; then
+  echo "Error: no \"py35\" environment found" 1>&2; exit 1
+fi
+cntklibs="/${cntklibs#*/}/lib/python3.5/site-packages/cntk/libs"
+if [[ ! -d "$cntklibs" ]]; then
+  echo "Error: no \"$cntklibs\" directory found" 1>&2; exit 1
+fi
+echo "$cntklibs" > "/etc/ld.so.conf.d/cntk-mmlspark.conf"
+rm "/etc/ld.so.cache"; ldconfig # reload
 
 # Download build artifacts & scripts
 tmp="/tmp/mmlinstall-$$"

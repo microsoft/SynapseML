@@ -356,6 +356,20 @@ _curl() {
   _ curl $CURL_FLAGS "$@"
 }
 
+# ---< has_libs lib... >--------------------------------------------------------
+# Convenient utility function to verify that a bunch of library files are
+# present on the system.  The libraries are verified with the output of
+# "ldconfig -p": each one is searched in the text, as a full so name.
+_all_libs=""
+has_libs() {
+  if [[ -z "$_all_libs" ]]; then
+    _all_libs="$(/sbin/ldconfig -p)"; _all_libs="${_all_libs//$'\t'/ }"
+  fi
+  local ret=0 lib
+  for lib; do if [[ "$_all_libs" != *" $lib "* ]]; then ret=1; fi; done
+  return $ret
+}
+
 # ------------------------------------------------------------------------------
 # Internal functions follow
 

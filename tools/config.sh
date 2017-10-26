@@ -36,7 +36,8 @@ defvar -xp HOME; mkdir -p "$HOME"
 #   defaults to "bin".
 # * prereq: Prerequisite information in a format of "cmd|msg", where cmd is a
 #   shell command to run (its output will not be shown), and a message to show
-#   in case of failure.  The message cannot contain "|"s.
+#   in case of failure.  The message cannot contain "|"s.  `has_libs` is useful
+#   in this context.
 # * where: A list of contexts where the library is needed; the contexts are:
 #   "devel" for developer installation, "build" for just building (eg, on the
 #   build server), "runtime" for libraries that are needed it a user
@@ -101,6 +102,7 @@ INSTALLATIONS=(
   sha256: "98236d98259d881d489a13ecf2d6bc5d45df773feddc2db1f302614b6cb02d64"
   exes:   "cntk"
   vers:   "cat version.txt|CNTK-<{dashver}>"
+  prereq: "has_libs libpng12.so.0 libjasper.so.1|libpng12 and libjasper1 are required"
   bindir: "cntk/bin"
   where:  "devel build"
 
