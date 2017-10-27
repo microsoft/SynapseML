@@ -43,7 +43,7 @@ class DropColumns(val uid: String) extends Transformer with MMLParams {
     StructType(schema.fields.filter(f => !droppedCols(f.name)))
   }
 
-  def copy(extra: ParamMap): SelectColumns = defaultCopy(extra)
+  def copy(extra: ParamMap): DropColumns = defaultCopy(extra)
 
   private def verifySchema(schema: StructType): Unit = {
     val providedCols = schema.fields.map(_.name).toSet
