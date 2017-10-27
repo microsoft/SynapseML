@@ -99,7 +99,7 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
    ```bash
    spark-shell --packages Azure:mmlspark:0.9
    pyspark --packages Azure:mmlspark:0.9
-   spark-submit Azure:mmlspark:0.9 MyApp.jar
+   spark-submit --packages Azure:mmlspark:0.9 MyApp.jar
    ```
 
 <img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
