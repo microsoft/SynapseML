@@ -11,7 +11,7 @@ NVIDIA_INSTALLER_URL+="/NVIDIA-Linux-x86_64-$NVIDIA_VERSION.run"
 # Note: this is a custom build that includes the Parquet reader,
 # all of these should change when it is part of CNTK
 #  (Probably also run "Scripts/install/linux/install-cntk.sh")
-CNTK_VERSION="2.0rc2"
+CNTK_VERSION="2.2"
 CNTK_INSTALLER_URL="https://mmlspark.blob.core.windows.net/installers"
 CNTK_INSTALLER_URL+="/cntk-$CNTK_VERSION-parquet-gpu.tgz"
 CNTK_PATH="cntk-$CNTK_VERSION-parquet-gpu"
@@ -71,7 +71,7 @@ add_new_line() { # file, line...
 }
 
 echo "## Installing prerequisites"
-maybe_install "gcc" "g++" "make"
+maybe_install "gcc" "g++" "make" "libjasper1" "libpng12-0"
 
 echo "## Installing Zulu Java"
 echo "Adding the \"Azul Systems\" key"
