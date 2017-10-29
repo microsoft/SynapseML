@@ -16,7 +16,10 @@ if [[ "$BUILDPR" = "" ]]; then exit 0; fi
 echo "##[section] PR Build for #$BUILDPR"
 
 get_pr_info
-api "pulls/$BUILDPR" - '.head.sha // error("no such PR")' > /dev/null
+if [[ "$(api "pulls/$BUILDPR" - '.state')" != "open" ]]; then
+  failwith "PR#$BUILDPR is not open"
+fi
+
 repourl="https://github.com/$REPO"
 
 printf 'PR BUILD for #%s\n  repo: %s\n  ref: %s\n  sha1: %s\n' \
