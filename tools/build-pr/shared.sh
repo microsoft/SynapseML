@@ -48,10 +48,11 @@ GURL="" SHA1="" REPO="" REF=""
 
 get_pr_info() {
   if [[ "$SHA1" != "" ]]; then return; fi
-  SHA1="$(api "pulls/$BUILDPR" - '.head.sha')"
-  REPO="$(api "pulls/$BUILDPR" - '.head.repo.full_name')"
-  REF="$( api "pulls/$BUILDPR" - '.head.ref')"
-  GURL="$(api "pulls/$BUILDPR" - '.html_url')"
+  SHA1="$(api "pulls/$BUILDPR" - '.head.sha // empty')"
+  REPO="$(api "pulls/$BUILDPR" - '.head.repo.full_name // empty')"
+  REF="$( api "pulls/$BUILDPR" - '.head.ref // empty')"
+  GURL="$(api "pulls/$BUILDPR" - '.html_url // empty')"
+  if [[ -z "$SHA1" ]]; then failwith "no such PR: $BUILDPR"; fi
 }
 
 # post a status, only if we're running all tests
