@@ -399,7 +399,7 @@ _parse_PUBLISH() { _parse_tags PUBLISH _publish_info; }
 
 # Defines $MML_VERSION and $MML_BUILD_INFO
 _set_build_info() {
-  local info version is_latest
+  local info version is_latest owd="$PWD"; cd "$BASEDIR"
   if [[ -n "$MML_BUILD_INFO" && -n "$MML_VERSION" && -n "$MML_LATEST" ]]; then
     # make it possible to avoid running git
     info="$MML_BUILD_INFO"; version="$MML_VERSION"; is_latest="$MML_LATEST"
@@ -417,7 +417,6 @@ _set_build_info() {
                  echo "//$line"; done)"
     if ! git diff-index --quiet HEAD; then info+=" (dirty)"; fi
   else
-    local owd="$PWD"; cd "$BASEDIR"
     # sanity checks for version tags
     local t rx="(0|[1-9][0-9]*)"; rx="^v$rx[.]$rx([.][1-9][0-9]*)?$"
     for t in $(git tag -l); do
@@ -462,8 +461,8 @@ _set_build_info() {
     if [[ "$version" = "${tag#v}" && "$tag" = "$latest" ]]
     then is_latest="yes"; else is_latest="no"; fi
     #
-    cd "$owd"
   fi
+  cd "$owd"
   defvar -xX MML_VERSION    "$version"
   defvar -xX MML_BUILD_INFO "$info"
   defvar -xX MML_LATEST     "$is_latest"
