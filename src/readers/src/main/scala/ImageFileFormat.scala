@@ -3,20 +3,25 @@
 
 package org.apache.spark.image
 
-import com.microsoft.ml.spark.ImageReader
+import java.io.ByteArrayInputStream
+
+import com.microsoft.ml.spark.{ImageReader, ImageWriter}
 import com.microsoft.ml.spark.schema.ImageSchema
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileStatus, Path}
+import org.apache.hadoop.fs.{FileStatus, FileSystem, FileUtil, Path}
 import org.apache.hadoop.mapreduce._
-import org.apache.spark.TaskContext
+import org.apache.spark.{SparkContext, TaskContext}
 import org.apache.spark.binary._
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.unsafe.types.UTF8String
+import org.apache.spark.util.SerializableConfiguration
+import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.spark.util.SerializableConfiguration
 
 class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with Serializable {
@@ -33,11 +38,32 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
     Some(ImageSchema.schema)
   }
 
+  private def verifySchema(schema: StructType): Unit = {
+    val target = ImageSchema.schema.add("filenames",StringType)
+    if (schema != target) {
+      throw new IllegalArgumentException(
+        s"Image data source supports $target, and you have $schema.")
+    }
+  }
+
   override def prepareWrite(sparkSession: SparkSession,
                             job: Job,
                             options: Map[String, String],
                             dataSchema: StructType): OutputWriterFactory = {
-    throw new NotImplementedError("writing to image files is not supported")
+    verifySchema(dataSchema)
+    new OutputWriterFactory {
+      override def newInstance(
+                                path: String,
+                                dataSchema: StructType,
+                                context: TaskAttemptContext): OutputWriter = {
+        new ImageOutputWriter(path, dataSchema, context,
+          sparkSession, options.getOrElse("extension", ".png"))
+      }
+
+      override def getFileExtension(context: TaskAttemptContext): String = {
+        "" //TODO make this work will many types of image formats
+      }
+    }
   }
 
   override def buildReader(sparkSession: SparkSession,
@@ -87,5 +113,44 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
   override def hashCode(): Int = getClass.hashCode()
 
   override def equals(other: Any): Boolean = other.isInstanceOf[BinaryFileFormat]
+
+}
+
+class ImageOutputWriter(val path: String,
+                        val dataSchema: StructType,
+                        val context: TaskAttemptContext,
+                        val sparkSession: SparkSession,
+                        val extension: String)
+  extends OutputWriter {
+
+  private val hconf = context.getConfiguration
+
+  private val fs = new Path(path).getFileSystem(hconf)
+
+  override def write(row: InternalRow): Unit = {
+    ImageReader.OpenCVLoader
+    val rowInternals = row.getStruct(0, ImageSchema.columnSchema.fields.length)
+    val bytes = ImageWriter.encode(rowInternals, extension)
+    val outputPath = new Path(path, row.getString(1))
+    val os = fs.create(outputPath)
+    val is = new ByteArrayInputStream(bytes)
+    try {
+      HUtils.copyBytes(is, os, hconf)
+    } finally {
+      os.close()
+      is.close()
+    }
+  }
+
+  override def close(): Unit = {
+    fs.close()
+  }
+}
+
+object ConfUtils {
+
+  def getHConf(df: DataFrame): SerializableConfiguration ={
+    new SerializableConfiguration(df.sparkSession.sparkContext.hadoopConfiguration)
+  }
 
 }
