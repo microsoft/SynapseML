@@ -3,9 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
+
 import com.microsoft.ml.spark.Readers.implicits._
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StringType
 
 class ImageReaderSuite extends TestBase with FileReaderUtils {
 
@@ -26,6 +30,67 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .option("subsample", .5)
       .load(cifarDirectory)
     assert(imageDF.count() == 3)
+  }
+
+  object UDFs extends Serializable{
+    val cifarDirectoryVal = cifarDirectory
+    val rename = udf({x:String=>x.split("/").last}, StringType)
+  }
+
+  def recursiveListFiles(f: File): Array[File] = {
+    val these = f.listFiles
+    these ++ these.filter(_.isDirectory).flatMap(recursiveListFiles)
+  }
+
+  test("read images from files"){
+    val files = recursiveListFiles(new File(cifarDirectory)).toSeq.map(f => Tuple1("file://" + f.toString))
+    val df = session
+      .createDataFrame(files)
+      .toDF("filenames")
+    val imageDF = ImageReader.readFromPaths(df, "filenames")
+    assert(imageDF.select("image.bytes").collect().map(_.getAs[Array[Byte]](0)).length == 6)
+  }
+
+  test("write images with subsample"){
+    val imageDF = session
+      .read
+      .format(classOf[ImageFileFormat].getName)
+      .option("subsample", .5)
+      .load(cifarDirectory)
+      .withColumn("filenames", UDFs.rename(col("image.path")))
+
+    imageDF.printSchema()
+    assert(imageDF.count() == 3)
+    val saveDir = new File(tmpDir.toFile, "images").toString
+    imageDF.write.mode("overwrite").format(classOf[ImageFileFormat].getName).save(saveDir)
+
+    val newImageDf = session
+      .read
+      .format(classOf[ImageFileFormat].getName)
+      .load(saveDir + "/*")
+    assert(newImageDf.count() == 3)
+    assert(ImageSchema.isImage(newImageDf,"image"))
+  }
+
+  test("write images with subsample function 2"){
+    val imageDF = session
+      .read
+      .format(classOf[ImageFileFormat].getName)
+      .option("subsample", .5)
+      .load(cifarDirectory)
+      .withColumn("filenames", UDFs.rename(col("image.path")))
+
+    imageDF.printSchema()
+    assert(imageDF.count() == 3)
+    val saveDir = new File(tmpDir.toFile, "images").toString
+    ImageWriter.write(imageDF, saveDir)
+
+    val newImageDf = session
+      .read
+      .format(classOf[ImageFileFormat].getName)
+      .load(saveDir)
+    assert(newImageDf.count() == 3)
+    assert(ImageSchema.isImage(newImageDf,"image"))
   }
 
   test("structured streaming with images"){
