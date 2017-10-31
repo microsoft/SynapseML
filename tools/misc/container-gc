@@ -155,9 +155,10 @@ get-ver-info() (
   jq --arg pr "$pr" '. + {github_pr: $pr}' \
      < "$info" > "$info-new"; mv "$info-new" "$info"
   #
-  jq --argjson now "$(date +"%s")" \
+  jq --argjson now "$(date +"%s")" --arg labelpath "$v/.label" \
              '. + (to_entries
                    | map(select((.value | type) == "array") | .value) | add
+                   | map(select(.name != $labelpath))
                    | map(.properties.lastModified | sub("\\+00:00$"; "Z") | fromdate)
                    | sort | {created: $now, mintime: .[0], maxtime: .[-1]})' \
      < "$info" > "$info-new"; mv "$info-new" "$info"
