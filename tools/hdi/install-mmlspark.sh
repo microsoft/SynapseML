@@ -42,9 +42,9 @@ apt-get install -y openmpi-bin libunwind8 libpng12-0 libjasper1
 
 # Install CNTK in all environments
 for env in "${CONDA_ENVS[@]}"; do
-  # local wheel="${CNTK_WHEELS[$env]:?"Unknown conda env for CNTK: $env"}"
+  # wheel="${CNTK_WHEELS[$env]:?"Unknown conda env for CNTK: $env"}"
   # ... but hdi will have additional environments, created by vienna
-  local wheel="${CNTK_WHEELS[$env]}"
+  wheel="${CNTK_WHEELS[$env]}"
   if [[ -z "$wheel" ]]; then continue; fi
   echo -n "[$env] "
   . "$CPATH/activate" "$env"
