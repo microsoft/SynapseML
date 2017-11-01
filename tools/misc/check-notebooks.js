@@ -3,8 +3,10 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 "use strict";
-
 let [fs, path, util] = ["fs", "path", "util"].map(require);
+
+// start scanning at the project root
+let baseDir = path.dirname(path.dirname(path.dirname(__filename)));
 
 class CheckError extends Error {};
 let bad = (...message) => {
@@ -87,11 +89,14 @@ function check(file, expected) {
 }
 
 function checkAll(files, expected) {
-  try { files.forEach(file => check(file, expected)); }
-  catch (err) {
-    if (!(err instanceof CheckError)) throw err;
-    process.stdout.write(`FAIL!\n${err.message}\n`);
-  }
+  files.forEach(file => {
+    try { check(file, expected); }
+    catch (err) {
+      let rel = path.relative(baseDir, file);
+      if (!(err instanceof CheckError)) throw err;
+      process.stdout.write(`FAIL!\n${rel}\n${err.message}\n`);
+    }
+  });
 }
 
 let _cellMetadata =
@@ -106,15 +111,24 @@ let _srcStrings = _arrOf((value, path) => {
   if (value.match(/ \n/))  bad(`${path}: bad string, space before \\n`);
 });
 
+let _language_info = {
+  codemirror_mode: { name: "ipython", version: 3 },
+  file_extension: ".py",
+  mimetype: "text/x-python",
+  name: "python",
+  nbconvert_exporter: "python",
+  pygments_lexer: "ipython3",
+  version: "3.5.2"
+}
+
 let getNotebooks = () => {
   let rx = /\.ipynb$/;
   let scanDir = (dir) => {
     let paths = fs.readdirSync(dir).map(p => path.join(dir,p));
     let dirs  = paths.filter(p => fs.statSync(p).isDirectory());
-    let files = paths.filter(p => dirs.indexOf(p) < 0);
+    let files = paths.filter(p => !dirs.includes(p));
     return files.filter(f => rx.test(f)).concat(...(dirs.map(scanDir)));
   };
-  let baseDir = path.dirname(path.dirname(path.dirname(__filename)));
   return scanDir(baseDir);
 };
 
@@ -133,6 +147,6 @@ checkAll(
               kernelspec: {display_name: "Python [default]",
                            language: "python",
                            name: "python3"},
-              language_info: _},
+              language_info: _language_info},
    nbformat: 4,
    nbformat_minor: 0});
