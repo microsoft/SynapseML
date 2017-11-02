@@ -167,7 +167,7 @@ questions or comments.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 To give feedback and/or report an issue, open a [GitHub
-Issue](https://help.github.com/articles/creating-an-issue/).
+Issue](https://help.github.com/articles/creating-an-issue/) or contact our [support email](mmlspark-support@microsoft.com).
 
 
 ## Other relevant projects
