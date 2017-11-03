@@ -245,7 +245,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     }
 
     val inputType = df.schema($(inputCol)).dataType
-    val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
+    if (broadcastedModelOption.isEmpty){
+      broadcastedModelOption = Some(spark.sparkContext.broadcast(getModel))
+    }
+    val broadcastedModel = broadcastedModelOption.get
     val encoder = RowEncoder(df.schema.add(StructField(getOutputCol, VectorType)))
     val output = df.mapPartitions(
       CNTKModelUtils.applyModel(selectedIndex,
