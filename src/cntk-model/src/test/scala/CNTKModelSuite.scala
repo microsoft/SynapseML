@@ -150,7 +150,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
   val modelReader: MLReadable[_] = CNTKModel
   val stageRoundTrip: PipelineStage with MLWritable = testModel()
 
-  test(" should roundtrip"){
+  test(" should roundtrip") {
     testRoundTrip()
   }
 }
