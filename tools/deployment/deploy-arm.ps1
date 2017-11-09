@@ -1,50 +1,72 @@
 <#
+
  .SYNOPSIS
     Deploys a template to Azure
 
  .DESCRIPTION
-    Deploys an Azure Resource Manager template
+    Deploys an Azure Resource Manager template with a given parameters file.
 
  .PARAMETER subscriptionId
-    The subscription id where the template will be deployed.
+    The Subscription ID where the template will be deployed.
 
  .PARAMETER resourceGroupName
-    The resource group where the template will be deployed. Can be the name of an existing or a new resource group.
+    The Resource Group where the template will be deployed.
+    Can be the name of an existing resource group or a new one which will be
+    created.
 
  .PARAMETER resourceGroupLocation
-    Optional, a resource group location. If specified, will try to create a new resource group in this location. If not specified, assumes resource group is existing.
+    A resource group location.
+    If the resourceGroupName does not exist, this parameter is required for the
+    creation of the group, specifying its location.
 
  .PARAMETER deploymentName
     The deployment name.
 
  .PARAMETER templateFilePath
-    Optional, path to the template file. Defaults to azureDeployMainTemplate.json.
+    Path of the template file to deploy.
+    Optional, defaults to deploy-main-template.json in this directory.
 
  .PARAMETER parametersFilePath
-    Optional, path to the parameters file. Defaults to azureDeployParameters.json. If file is not found, will prompt for parameter values based on template.
+    Path of the parameters file to use for the template, use
+    deploy-parameters.template to create this file.
+
+    If file is not found, will prompt for parameter values based on
+    template.
+
+ .EXAMPLE
+   Deploy-Arm
+   Interactively read values and run.
+
+ .EXAMPLE
+   Deploy-Arm deploy-main-template.json -resourceGroupName MyCluster -parametersFilePath MyParameters.json
+
+   Deploy the Cluster + GPU template, in the default subscription, under
+   the existing "MyCluster" group with the parameters in MyParameters.json
+
 #>
 
 param(
- [Parameter(Mandatory=$True)]
- [string]
- $subscriptionId,
+  [Parameter(Mandatory=$True)]
+  [string]
+  $subscriptionId,
 
- [Parameter(Mandatory=$True)]
- [string]
- $resourceGroupName,
+  [Parameter(Mandatory=$True)]
+  [string]
+  $resourceGroupName,
 
- [string]
- $resourceGroupLocation,
+  [string]
+  $resourceGroupLocation,
 
- [Parameter(Mandatory=$True)]
- [string]
- $deploymentName,
+  [Parameter(Mandatory=$False)]
+  [string]
+  $deploymentName,
 
- [string]
- $templateFilePath = "azureDeployMainTemplate.json",
+  [string]
+  $templateFilePath = "deploy-main-template.json",
 
- [string]
- $parametersFilePath = "azureDeployParameters.json"
+  [Parameter(Mandatory=$True)]
+  [string]
+  $parametersFilePath
 )
 
 <#

@@ -68,16 +68,16 @@ trait CNTKParams extends MMLParams {
 
 object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
   val localDataTransfer = "local"
-  val hdfsDataTransfer = "hdfs-mount"
-  val textDataFormat = "text"
+  val hdfsDataTransfer  = "hdfs-mount"
+  val textDataFormat    = "text"
   val parquetDataFormat = "parquet"
-  val denseForm = "dense"
-  val sparseForm = "sparse"
-  val doublePrecision = "double"
-  val floatPrecision = "float"
-  val rpcPortNumber = 8020
-  val identityLocation = "wasb:///MML-GPU/identity"
-  val localSSH = ".ssh/MML-GPU"
+  val denseForm         = "dense"
+  val sparseForm        = "sparse"
+  val doublePrecision   = "double"
+  val floatPrecision    = "float"
+  val rpcPortNumber     = 8020
+  val identityLocation  = "wasb:///MML-GPU/identity"
+  val localSSH          = ".ssh/MML-GPU"
 }
 
 @InternalWrapper
@@ -125,10 +125,11 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
     // Generating the CNTK text file
     val conformedData = getDataFormat match {
       case CNTKLearner.textDataFormat =>
-        DataTransferUtils.convertDatasetToCNTKTextFormat(reducedData, labels, features, labelForm, featureForm)
+        DataTransferUtils.convertDatasetToCNTKTextFormat(
+          reducedData, labels, features, labelForm, featureForm)
       case CNTKLearner.parquetDataFormat =>
-        DataTransferUtils.convertDatasetToCNTKParquetFormat(reducedData,
-          labels, features, labelForm, featureForm, getWeightPrecision)
+        DataTransferUtils.convertDatasetToCNTKParquetFormat(
+          reducedData, labels, features, labelForm, featureForm, getWeightPrecision)
     }
 
     conformedData.persist()
@@ -155,8 +156,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
     val cb =
       if (getParallelTrain) new MPICommandBuilder(log, getGPUMachines, hdfsPath, remappedInPath, getUserName)
       else new CNTKCommandBuilder(log)
-    cb
-      .setWorkingDir(cntkrootPath)
+    cb.setWorkingDir(cntkrootPath)
       .insertBaseConfig(getBrainScript)
       .appendOverrideConfig(config.toOverrideConfig)
       .setOutputDir(outputDir)
@@ -190,23 +190,25 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
         logInfo(s"hdfs-mount mounted at $mntpt, writing ${dataset.rdd.getNumPartitions} distributed files")
         val hdfsWriter =
           new HdfsWriter(log,
-            mntpt,
-            dataset.rdd.getNumPartitions,
-            relativeInPath,
-            dataset.sparkSession.sparkContext)
-        val hdfsPath = Some((hdfsWriter.getHdfsInputDataDir, hdfsWriter.getRootDir, hdfsWriter.getNameNode))
+                         mntpt,
+                         dataset.rdd.getNumPartitions,
+                         relativeInPath,
+                         dataset.sparkSession.sparkContext)
+        val hdfsPath = Some((hdfsWriter.getHdfsInputDataDir,
+                             hdfsWriter.getRootDir,
+                             hdfsWriter.getNameNode))
         (hdfsWriter, hdfsPath)
       }
       case _ =>
-        throw new Exception(s"Only ${CNTKLearner.localDataTransfer} " +
-          s"and ${CNTKLearner.hdfsDataTransfer} supported options for data transfer")
+        throw new Exception(
+          s"Only ${CNTKLearner.localDataTransfer} and" +
+          s" ${CNTKLearner.hdfsDataTransfer} supported options for data transfer")
     }
   }
 
   override def copy(extra: ParamMap): Estimator[CNTKModel] = defaultCopy(extra)
 
-  /**
-    * Taken from CNTKModel - adds the output column to the input
+  /** Taken from CNTKModel - adds the output column to the input
     * @param schema The input schema
     * @return The transformed schema with output column added
     */

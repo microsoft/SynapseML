@@ -16,8 +16,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.slf4j.Logger
 
-/**
-  * Utilities for reducing data to CNTK format and generating the text file output to disk.
+/** Utilities for reducing data to CNTK format and generating the text file output to disk.
   */
 object DataTransferUtils {
 
@@ -114,48 +113,38 @@ object DataTransferUtils {
     // Dense conversion functions
     val toDenseArray =
       if (weightPrecision == CNTKLearner.floatPrecision) {
-        udf({
-          vector: Vector => vector match {
-            case dv: DenseVector => toFloat(dv.toArray)
-            case sv: SparseVector => toFloat(sv.toDense.toArray)
-          }
-        })
+        udf({vector: Vector => vector match {
+               case dv: DenseVector => toFloat(dv.toArray)
+               case sv: SparseVector => toFloat(sv.toDense.toArray)
+             }})
       } else {
-        udf({
-          vector: Vector => vector match {
-            case dv: DenseVector => dv.toArray
-            case sv: SparseVector => sv.toDense.toArray
-          }
-        })
+        udf({vector: Vector => vector match {
+               case dv: DenseVector => dv.toArray
+               case sv: SparseVector => sv.toDense.toArray
+             }})
       }
     // Sparse format conversion functions
-    val getNZs = udf({
-      vector: Vector => vector match {
-        case dv: DenseVector => dv.toSparse.numNonzeros
-        case sv: SparseVector => sv.numNonzeros
-      }
-    })
-    val getIdxes = udf({
-      vector: Vector => vector match {
-        case dv: DenseVector => dv.toSparse.indices
-        case sv: SparseVector => sv.indices
-      }
-    })
+    val getNZs =
+      udf({vector: Vector => vector match {
+             case dv: DenseVector => dv.toSparse.numNonzeros
+             case sv: SparseVector => sv.numNonzeros
+           }})
+    val getIdxes =
+      udf({vector: Vector => vector match {
+             case dv: DenseVector => dv.toSparse.indices
+             case sv: SparseVector => sv.indices
+           }})
     val getVals =
       if (weightPrecision == CNTKLearner.floatPrecision) {
-        udf({
-          vector: Vector => vector match {
-            case dv: DenseVector => toFloat(dv.toSparse.values)
-            case sv: SparseVector => toFloat(sv.values)
-          }
-        })
+        udf({vector: Vector => vector match {
+               case dv: DenseVector => toFloat(dv.toSparse.values)
+               case sv: SparseVector => toFloat(sv.values)
+             }})
       } else {
-        udf({
-          vector: Vector => vector match {
-            case dv: DenseVector => dv.toSparse.values
-            case sv: SparseVector => sv.values
-          }
-        })
+        udf({vector: Vector => vector match {
+               case dv: DenseVector => dv.toSparse.values
+               case sv: SparseVector => sv.values
+             }})
       }
     // Note: order matters, features column needs to come first
     val cols = data.select(feats, label).columns.flatMap(name => {
@@ -163,9 +152,9 @@ object DataTransferUtils {
         (name == feats && featureForm == CNTKLearner.denseForm)) {
         Seq(toDenseArray(data.col(name)).alias(name))
       } else {
-        Seq(getNZs(data.col(name)).alias(name + "_size"),
-          getIdxes(data.col(name)).alias(name + "_indices"),
-          getVals(data.col(name)).alias(name + "_values"))
+        Seq(getNZs(data.col(name))  .alias(name + "_size"),
+            getIdxes(data.col(name)).alias(name + "_indices"),
+            getVals(data.col(name)) .alias(name + "_values"))
       }
     })
     data.select(cols: _*)
@@ -270,4 +259,5 @@ class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: Sp
   def getRootDir: String = remappedRoot
   // The active name node, with port removed at the end
   def getNameNode: String = namenode.replace(":8020", "")
+
 }

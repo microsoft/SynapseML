@@ -22,7 +22,7 @@ to check availability in your data center.
 
 MMLSpark provides an Azure Resource Manager (ARM) template to create a setup
 that includes an HDInsight cluster and/or a GPU machine for training.  The
-[template](../tools/deployment/azureDeployMainTemplate.json) has the following
+[template](../tools/deployment/deploy-main-template.json) has the following
 parameters to allow you to configure the HDI Spark cluster and the GPU VM:
 - `clusterName`: The name of the HDInsight Spark cluster to create
 - `clusterLoginUserName`: These credentials can be used to submit jobs to the
@@ -52,14 +52,14 @@ For the naming rules and restrictions for Azure resources please refer to the
 article](https://docs.microsoft.com/en-us/azure/architecture/best-practices/naming-conventions).
 
 MMLSpark provides three ARM templates:
-- [`azureDeployMainTemplate.json`](../tools/deployment/azureDeployMainTemplate.json):
-  This is the main template, references the following two child templates
-- [`sparkClusterInVnetTemplate.json`](../tools/deployment/sparkClusterInVnetTemplate.json):
-  The template for creating an HDI Spark cluster within a VNet, including
-  MMLSpark and its dependencies
-- [`gpuVmExistingVNetTemplate.json`](../tools/deployment/gpuVmExistingVNetTemplate.json):
-  The template for creating a GPU VM within an existing VNet, including CNTK
-  and other dependencies that MMLSpark needs for GPU training.
+- [`deploy-main-template.json`](../tools/deployment/deploy-main-template.json):
+  This is the main template.  It referencs the following two child templates.
+- [`spark-cluster-template.json`](../tools/deployment/spark-cluster-template.json):
+  A template for creating an HDI Spark cluster within a VNet, including
+  MMLSpark and its dependencies.
+- [`gpu-vm-template.json`](../tools/deployment/gpu-vm-template.json):
+  A template for creating a GPU VM within an existing VNet, including
+  CNTK and other dependencies that MMLSpark needs for GPU training.
 
 Note that the last two child templates can also be deployed independently, if
 you don't need both parts of the installation.
@@ -75,7 +75,7 @@ API:
 
 The URI can be one for either an *Azure Blob* or a *GitHub file*.  For example,
 
-    https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmystorage.blob.core.windows.net%2FazureDeployMainTemplate.json
+    https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmystorage.blob.core.windows.net%2Fdeploy-main-template.json
 
 (Note that the URL is percent-encoded.)  Clicking on the above link will
 open the template in the Portal.  If needed, click the **Edit template** button
@@ -83,61 +83,59 @@ open the template in the Portal.  If needed, click the **Edit template** button
 
 ![ARM template in Portal](http://image.ibb.co/gZ6iiF/arm_Template_In_Portal.png)
 
-### 2. Deploy an ARM template with the [MMLSpark Azure PowerShell](../tools/deployment/powershelldeploy.ps1)
-
-MMLSpark provides a [PowerShell
-script](../tools/deployment/powershelldeploy.ps1) to deploy an ARM template
-(such as
-[azureDeployMainTemplate.json](../tools/deployment/azureDeployMainTemplate.json))
-along with a parameter file (such as
-[azureDeployParameters.json](../tools/deployment/azureDeployParameters.json)).
-
-The script take the following parameters:
-- `subscriptionId`: The GUID that identifies your subscription (e.g.,
-  `01234567-89ab-cdef-0123-456789abcdef`)
-- `resourceGroupName`: If the name doesn’t exist a new Resource Group will be
-  created
-- `resourceGroupLocation`: The location of the Resource Group (e.g., `East US`)
-- `deploymentName`: The name for this deployment
-- `templateFilePath`: The path to the ARM template file.  By default, it is set
-  to `azureDeployMainTemplate.json`
-- `parametersFilePath`: The path to the parameter file.  By default, it is set
-  to `azureDeployParameters.json`
-
-If no parameters are specified on the command line, the scripts will prompt you
-for the required ones (`subscriptionId`, `resourceGroupName`, and
-`deploymentName`) and will default values for the rest.  If needed, install the
-Azure PowerShell using the instructions found in the [Azure PowerShell
-guide](https://docs.microsoft.com/powershell/azureps-cmdlets-docs/).
-
-### 3. Deploy an ARM template with [MMLSpark Azure CLI 2.0](../tools/deployment/bashshelldeploy.sh)
+### 2. Deploy an ARM template with [MMLSpark Azure CLI 2.0](../tools/deployment/deploy-arm.sh)
 
 MMLSpark provides an Azure CLI 2.0 script
-([`bashshelldeploy.sh`](../tools/deployment/bashshelldeploy.sh)) to deploy an ARM
+([`deploy-arm.sh`](../tools/deployment/deploy-arm.sh)) to deploy an ARM
 template (such as
-[`azureDeployMainTemplate.json`](../tools/deployment/azureDeployMainTemplate.json))
-along with a parameter file (such as
-[`azureDeployParameters.json`](../tools/deployment/azureDeployMainTemplate.json)).
+[`deploy-main-template.json`](../tools/deployment/deploy-main-template.json))
+along with a parameter file (see
+[deploy-parameters.template](../tools/deployment/deploy-parameters.template)
+for a template of such a file).
 
-The script takes the same set of parameters as the above PowerShell version:
+The script take the following arguments:
+- `subscriptionId`: The GUID that identifies your subscription (e.g.,
+  `01234567-89ab-cdef-0123-456789abcdef`), defaults to setting in your
+  `az` environment
+- `resourceGroupName` (required): If the name doesn’t exist a new
+  resource group will be created
+- `resourceGroupLocation`: The location of the resource group (e.g.,
+  `East US`), note that this is required if creating a new resource
+  group
+- `deploymentName`: The name for this deployment
+- `templateFilePath`: The path to the ARM template file.  By default, it
+  is set to `deploy-main-template.json`
+- `parametersFilePath`: The path to the parameter file, which you need
+  to create.  Use `deploy-parameters.template` as a template for
+  creating a parameters file.
 
-    ./bashshelldeploy.sh -i <subscriptionId> -g <resourceGroupName> \
-                         -n <deploymentName> -l <resourceGroupLocation> \
-                         -t <templateFilePath> -p <parametersFilePath>
+Run the script with a `-h` or `--help` to see the flags that are used to
+set these arguments:
 
-Again, if no parameters are specified on the command line, the script will
-prompt for required values and use defaults for the rest.  If needed, install
-the Azure CLI 2.0 using the instruction found in [Install Azure CLI
-2.0](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
+    ./deploy-arm.sh -h
+
+If no flags are specified on the command line, the script will prompt
+for all values.  If needed, install the Azure CLI 2.0 using the
+instruction found in the [Azure CLI Installation
+Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
+
+### 3. Deploy an ARM template with the [MMLSpark Azure PowerShell](../tools/deployment/deploy-arm.ps1)
+
+MMLSpark also provides a [PowerShell
+script](../tools/deployment/deploy-arm.ps1) to deploy ARM templates,
+similar to the above bash script, run it with `-?` to see the usage
+instructions (or use `get-help`).  If needed, install the Azure
+PowerShell cmdlets using the instructions in the [Azure PowerShell
+Guide](https://docs.microsoft.com/powershell/azureps-cmdlets-docs/).
 
 ## Set up passwordless SSH login to the GPU VM
 
 CNTK training using MMLSpark requires passwordless SSH access from the
-HDInsight Spark cluster to the GPU VM.  The setup of this connection is done
-through a [script](../tools/hdi/setup-ssh-keys.sh) and it needs to be done
-once.  The script takes two parameters:
+HDInsight Spark cluster to the GPU VM.  The setup of this connection can
+be done by a [helper shell script](../tools/hdi/setup-ssh-access.sh)
+which you need to run once.  This script takes two parameters:
 
-    ./setup-ssh-keys.sh <vm-name> [<username>]
+    ./setup-ssh-access.sh <vm-name> [<username>]
 
 The `<username>` parameter is optional, defaulting to the cluster's username
 (if they share the same ssh user name).
