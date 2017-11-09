@@ -11,8 +11,7 @@ case class InputData(format: String, path: String, shapes: Map[String, InputShap
 
 case class BrainScriptConfig(name: String, text: Seq[String])
 
-/**
-  * Utility methods for manipulating the BrainScript and overrides configs output to disk.
+/** Utility methods for manipulating the BrainScript and overrides configs output to disk.
   */
 class BrainScriptBuilder {
 
@@ -93,24 +92,22 @@ class BrainScriptBuilder {
   }
 
   def parquetReaderConfig(loc: String, ipstring: String): String = {
-    s"""    reader = {
-      |        deserializers = (
-      |                        [
-      |                            type = "DataFrameDeserializer"
-      |                            module = "Cntk.Deserializers.DF"
-      |                            $ipstring
-      |                            hdfs = {
-      |                                host = "$activeNameNode";
-      |                                port = "${CNTKLearner.rpcPortNumber}";
-      |                                filePath = "$loc";
-      |                                format = "Parquet"
-      |                            }
-      |                        ]
-      |                    )
-      |        prefetch = false
-      |        randomize = true
-      |        keepDataInMemory = true     # cache all data in memory
-      |    }
+    s"""reader = {
+       |  deserializers = ([
+       |    type = "DataFrameDeserializer"
+       |    module = "Cntk.Deserializers.DF"
+       |    $ipstring
+       |    hdfs = {
+       |      host = "$activeNameNode";
+       |      port = "${CNTKLearner.rpcPortNumber}";
+       |      filePath = "$loc";
+       |      format = "Parquet"
+       |    }
+       |  ])
+       |  prefetch = false
+       |  randomize = true
+       |  keepDataInMemory = true  # cache all data in memory
+       |}
     """.stripMargin
   }
 

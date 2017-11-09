@@ -1,21 +1,28 @@
+This file is inteneded for use when deploying on the command line (eg,
+via deploy-arm.sh).  You should create a copy of this file with your
+desired parametere values -- some have a sensible default value, but
+look for "your" to find fields that you *should* set.  (Remove this
+section when you're done.)
+-------------------------------------------------------------------------------
+
 {
  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
  "contentVersion": "1.0.0.0",
  "parameters": {
   "clusterName": {
-   "value": "mysparkwithvnet1"
+   "value": "your spark cluster name"
   },
   "clusterLoginUserName": {
    "value": "admin"
   },
   "clusterLoginPassword": {
-   "value": "MyPassword2017!"
+   "value": "your password"
   },
   "sshUserName": {
    "value": "sshuser"
   },
   "sshPassword": {
-   "value": "MyPassword2017!"
+   "value": "your password"
   },
   "headNodeSize": {
    "value": "Standard_D3_v2"
@@ -27,7 +34,7 @@
    "value": "Standard_D3_v2"
   },
   "gpuVirtualMachineName": {
-   "value": "mygpuvm"
+   "value": "your gpu vm name"
   },
   "gpuVirtualMachineSize": {
    "value": "Standard_NC12"

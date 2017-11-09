@@ -94,8 +94,8 @@
   "vnetName": "[concat(parameters('clusterName'),'-vnet')]",
   "subnetName": "subnet1",
   "templateBaseUrl": "https://raw.githubusercontent.com/Azure/mmlspark/master/tools/deployment/",
-  "sparkClusterTemplateUrl": "[concat(variables('templateBaseUrl'), 'sparkClusterInVnetTemplate.json')]",
-  "vmTemplateUrl": "[concat(variables('templateBaseUrl'), 'gpuVmExistingVNetTemplate.json')]",
+  "sparkClusterTemplateUrl": "[concat(variables('templateBaseUrl'), 'spark-cluster-template.json')]",
+  "gpuVmTemplateUrl": "[concat(variables('templateBaseUrl'), 'gpu-vm-template.json')]",
   "sparkClusterDeploymentName": "sparkClusterTemplate",
   "vmDeploymentName": "gpuVmTemplate"
  },
@@ -154,7 +154,7 @@
    "properties": {
     "mode": "incremental",
     "templateLink": {
-     "uri": "[variables('vmTemplateUrl')]",
+     "uri": "[variables('gpuVmTemplateUrl')]",
      "contentVersion": "1.0.0.0"
     },
     "parameters": {

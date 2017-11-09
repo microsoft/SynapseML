@@ -115,8 +115,9 @@ class MPICommandBuilder(log: Logger,
   val argName = "-n"
   val arguments = Seq(argName, nodeConfig.head._2.toString)
   val identityKeyException =
-    "Please run the passwordless ssh setup: mmlspark/tools/hdi/setup-ssh-keys.sh\n" +
-    "  to create a private key.\n" +
+    "Please run the passwordless ssh setup:" +
+    " mmlspark/tools/hdi/setup-ssh-access.sh\n" +
+    "to create a private key.\n" +
     "Identity file not found: "
 
   def runCommand(): Unit = {

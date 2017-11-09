@@ -21,11 +21,11 @@ object ImageSchema {
   // single column of images named "image"
   val schema = StructType(StructField("image", columnSchema, true) :: Nil)
 
-  def getPath(row: Row): String = row.getString(0)
-  def getHeight(row: Row): Int = row.getInt(1)
-  def getWidth(row: Row): Int = row.getInt(2)
-  def getType(row: Row): Int = row.getInt(3)
-  def getBytes(row: Row): Array[Byte] = row.getAs[Array[Byte]](4)
+  def getPath  (row: Row): String = row.getString(0)
+  def getHeight(row: Row): Int    = row.getInt(1)
+  def getWidth (row: Row): Int    = row.getInt(2)
+  def getType  (row: Row): Int    = row.getInt(3)
+  def getBytes (row: Row): Array[Byte] = row.getAs[Array[Byte]](4)
 
   /** Check if the dataframe column contains images (i.e. has imageSchema)
     *
