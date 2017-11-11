@@ -7,21 +7,26 @@
 types=(S M P R D)
 declare -A S=([container]="$STORAGE_CONTAINER"
               [path]=""
-              [suffix]="/")
+              [suffix]="/"
+              [since]="0.0")
 declare -A M=([container]="$MAVEN_CONTAINER"
               [path]="com/microsoft/ml/spark/mmlspark_$SCALA_VERSION"
-              [suffix]="/")
+              [suffix]="/"
+              [since]="0.2")
 declare -A P=([container]="$PIP_CONTAINER"
               [path]=""
               [prefix]="mmlspark-"
-              [suffix]="-py2.py3-none-any.whl")
+              [suffix]="-py2.py3-none-any.whl"
+              [since]="0.2")
 declare -A R=([container]="$R_CONTAINER"
               [path]=""
               [prefix]="mmlspark-"
-              [suffix]=".zip")
+              [suffix]=".zip"
+              [since]="0.9.dev6")
 declare -A D=([container]="$DOCS_CONTAINER"
               [path]=""
-              [suffix]="")
+              [suffix]=""
+              [since]="0.5")
 
 set -e
 shopt -s nullglob
@@ -31,6 +36,16 @@ github_prs="$(curl --silent --show-error "$GH_API/pulls" \
               | jq -r 'map(.number | tostring) | " " + join(" ") + " "')"
 
 vsort() { sort -t "+" -k 1,2 -V "$@"; }
+
+declare -A _ver_lte_cache
+ver-lte() {
+  local xy="$1 ? $2"
+  if [[ -z "${_ver_lte_cache["$xy"]+x}" ]]; then
+    [[ "$1" = "$(printf "%s\n" "$1" "$2" | vsort | head -1)" ]]
+    _ver_lte_cache["$xy"]=$?
+  fi
+  [[ ${_ver_lte_cache["$xy"]} = 0 ]]
+}
 
 now=0; _minute=$((60)); _hour=$((60*60)); _day=$((_hour*24))
 show-time() (
@@ -91,14 +106,15 @@ get-versions-for() {
 show-not-all() (
   fst=1
   for v in "${all[@]}"; do
-    where=""
+    where="" expected=""
     for t in "${types[@]}"; do
       declare -n X="$t"
       if [[ "${X[vers_]}" = *" $v "* ]]; then where+="$t"; fi
+      if ver-lte "${X[since]}" "$v"; then expected+="$t"; fi
     done
-    if [[ "$where" != "$types_" ]]; then
+    if [[ "$where" != "$expected" ]]; then
       if ((fst)); then printf "\nNot all found:\n"; fst=0; fi
-      echo "  $v $where"
+      echo "  $v $where / $expected"
     fi
   done
 )
@@ -286,7 +302,7 @@ do-requests() {
   done
 }
 
-types_="${types[*]}"; types_="${types_// /}"; all=()
+all=()
 map get-versions-for "${types[@]}"
 all=($(printf '%s\n' "${all[@]}" | vsort -u))
 
