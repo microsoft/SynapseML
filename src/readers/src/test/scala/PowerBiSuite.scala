@@ -17,13 +17,14 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
       (None, "bad_row")))
     .toDF("bar", "foo")
     .withColumn("baz", current_timestamp())
+  val bigdf = (1 to 10).foldRight(df){case (_, ldf) => ldf.union(df)}.repartition(2)
 
   test("write to powerBi") {
     PowerBIWriter.write(df, url)
   }
 
   test("stream to powerBi") {
-    df.write.parquet(tmpDir + "powerBI.parquet")
+    bigdf.write.parquet(tmpDir + "powerBI.parquet")
     val sdf = session.readStream.schema(df.schema).parquet(tmpDir + "powerBI.parquet")
     val q1 = PowerBIWriter.stream(sdf, url).start()
     q1.processAllAvailable()
