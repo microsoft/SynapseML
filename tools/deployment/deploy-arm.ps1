@@ -25,9 +25,9 @@
  .PARAMETER deploymentName
     The deployment name.
 
- .PARAMETER templateFilePath
-    Path of the template file to deploy.
-    Optional, defaults to deploy-main-template.json in this directory.
+ .PARAMETER templateLocation
+    URL of the template to deploy.
+    Optional, defaults to the one corresponding to this script.
 
  .PARAMETER parametersFilePath
     Path of the parameters file to use for the template, use
@@ -57,6 +57,7 @@ param(
   [string]
   $resourceGroupName,
 
+  [Parameter(Mandatory=$False)]
   [string]
   $resourceGroupLocation,
 
@@ -64,30 +65,40 @@ param(
   [string]
   $deploymentName,
 
+  [Parameter(Mandatory=$False)]
   [string]
-  $templateFilePath = "deploy-main-template.json",
+  $templateLocation,
 
   [Parameter(Mandatory=$True)]
   [string]
   $parametersFilePath
 )
 
+# <=<= this line is replaced with variables defined with `defvar -X` =>=>
+$DOWNLOAD_URL = "$STORAGE_URL/$MML_VERSION"
+# TODO: throw an error if $MML_VERSION is not defined
+
 <#
 .SYNOPSIS
     Registers RPs
 #>
 Function RegisterRP {
-    Param(
-        [string]$ResourceProviderNamespace
-    )
-    Write-Host "Registering resource provider '$ResourceProviderNamespace'";
-    Register-AzureRmResourceProvider -ProviderNamespace $ResourceProviderNamespace;
+  Param(
+    [string]$ResourceProviderNamespace
+  )
+  Write-Host "Registering resource provider '$ResourceProviderNamespace'";
+  Register-AzureRmResourceProvider -ProviderNamespace $ResourceProviderNamespace;
 }
 
 #******************************************************************************
 # Script body
 # Execution begins here
 #******************************************************************************
+
+if (!$templateLocation) {
+  $templateLocation = $DOWNLOAD_URL + "/deploy-main-template.json";
+}
+
 $ErrorActionPreference = "Stop"
 
 # sign in
@@ -101,29 +112,29 @@ Select-AzureRmSubscription -SubscriptionID $subscriptionId;
 # Register RPs
 $resourceProviders = @("microsoft.hdinsight");
 if ($resourceProviders.length) {
-    Write-Host "Registering resource providers"
-    foreach ($resourceProvider in $resourceProviders) {
-        RegisterRP($resourceProvider);
-    }
+  Write-Host "Registering resource providers"
+  foreach ($resourceProvider in $resourceProviders) {
+    RegisterRP($resourceProvider);
+  }
 }
 
 #Create or check for existing resource group
 $resourceGroup = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorAction SilentlyContinue
 if (!$resourceGroup) {
-    Write-Host "Resource group '$resourceGroupName' does not exist. To create a new resource group, please enter a location.";
-    if (!$resourceGroupLocation) {
-        $resourceGroupLocation = Read-Host "resourceGroupLocation";
-    }
-    Write-Host "Creating resource group '$resourceGroupName' in location '$resourceGroupLocation'";
-    New-AzureRmResourceGroup -Name $resourceGroupName -Location $resourceGroupLocation
+  Write-Host "Resource group '$resourceGroupName' does not exist. To create a new resource group, please enter a location.";
+  if (!$resourceGroupLocation) {
+    $resourceGroupLocation = Read-Host "resourceGroupLocation";
+  }
+  Write-Host "Creating resource group '$resourceGroupName' in location '$resourceGroupLocation'";
+  New-AzureRmResourceGroup -Name $resourceGroupName -Location $resourceGroupLocation
 } else {
-    Write-Host "Using existing resource group '$resourceGroupName'";
+  Write-Host "Using existing resource group '$resourceGroupName'";
 }
 
 # Start the deployment
 Write-Host "Starting deployment...";
 if (Test-Path $parametersFilePath) {
-    New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateFile $templateFilePath -TemplateParameterFile $parametersFilePath;
+  New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateUri $templateLocation -TemplateParameterFile $parametersFilePath;
 } else {
-    New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateFile $templateFilePath;
+  New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateUri $templateLocation;
 }

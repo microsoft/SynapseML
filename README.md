@@ -91,7 +91,7 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 > To read the EULA for using the docker image, run \
 > `docker run -it -p 8888:8888 microsoft/mmlspark eula`
 
-#### GPU VM Setup
+### GPU VM Setup
 
 MMLSpark can be used to train deep learning models on a GPU node from a Spark
 application.  See the instructions for [setting up an Azure GPU
