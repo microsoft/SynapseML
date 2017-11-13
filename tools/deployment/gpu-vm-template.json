@@ -127,7 +127,7 @@
       "autoUpgradeMinorVersion": true,
       "settings": {
        "fileUris": [
-        "https://raw.githubusercontent.com/Azure/mmlspark/master/tools/deployment/gpu-setup.sh"
+        "[uri(deployment().properties.templateLink.uri, 'gpu-setup.sh')]"
        ],
        "commandToExecute": "./gpu-setup.sh"
       }
@@ -196,7 +196,7 @@
  "outputs": {
   "gpuvm": {
    "type": "object",
-   "value": "[reference(resourceId('Microsoft.Compute/virtualMachines',parameters('virtualMachineName')))]"
+   "value": "[reference(resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachineName')))]"
   }
  }
 }

@@ -87,7 +87,7 @@
  },
  "variables": {
   "defaultStorageAccount": {
-   "name": "[concat('wasbsto00',uniqueString(resourceGroup().id))]",
+   "name": "[concat('wasbsto00', uniqueString(resourceGroup().id))]",
    "type": "Standard_LRS"
   },
   "vNet": {
@@ -95,10 +95,10 @@
    "addressSpacePrefix": "10.0.0.0/16",
    "subnetName": "[parameters('virtualNetworkSubnetName')]",
    "subnetPrefix": "10.0.0.0/24",
-   "id": "[resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet'))]",
-   "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'),'-vnet')), concat('/subnets/', parameters('virtualNetworkSubnetName')))]"
+   "id": "[resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'), '-vnet'))]",
+   "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat(parameters('clusterName'), '-vnet')), '/subnets/', parameters('virtualNetworkSubnetName'))]"
   },
-  "scriptActionUri": "https://mmlspark.azureedge.net/buildartifacts/0.9/install-mmlspark.sh"
+  "scriptActionUri": "[uri(deployment().properties.templateLink.uri, 'install-mmlspark.sh')]"
  },
  "resources": [
   {
@@ -139,8 +139,8 @@
    "location": "[resourceGroup().location]",
    "apiVersion": "2015-03-01-preview",
    "dependsOn": [
-    "[concat('Microsoft.Storage/storageAccounts/',variables('defaultStorageAccount').name)]",
-    "[concat('Microsoft.Network/virtualNetworks/',variables('vNet').name)]"
+    "[concat('Microsoft.Storage/storageAccounts/', variables('defaultStorageAccount').name)]",
+    "[concat('Microsoft.Network/virtualNetworks/', variables('vNet').name)]"
    ],
    "tags": {},
    "properties": {
@@ -163,7 +163,7 @@
     "storageProfile": {
      "storageaccounts": [
       {
-       "name": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', variables('defaultStorageAccount').name), '2016-01-01').primaryEndpoints.blob,'https://',''),'/','')]",
+       "name": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', variables('defaultStorageAccount').name), '2016-01-01').primaryEndpoints.blob, 'https://', ''), '/', '')]",
        "isDefault": true,
        "container": "[toLower(parameters('clusterName'))]",
        "key": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('defaultStorageAccount').name), '2016-01-01').keys[0].value]"
@@ -240,11 +240,11 @@
  "outputs": {
   "vnet": {
    "type": "object",
-   "value": "[reference(resourceId('Microsoft.Network/virtualNetworks',variables('vNet').name))]"
+   "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vNet').name))]"
   },
   "cluster": {
    "type": "object",
-   "value": "[reference(resourceId('Microsoft.HDInsight/clusters',parameters('clusterName')))]"
+   "value": "[reference(resourceId('Microsoft.HDInsight/clusters', parameters('clusterName')))]"
   }
  }
 }

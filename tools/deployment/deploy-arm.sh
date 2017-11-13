@@ -14,7 +14,7 @@ usage() {
   echo "Usage: $(basename "$0") \\"
   echo "           -i <subscriptionId> -g <resourceGroupName> \\"
   echo "           -n <deploymentName> -l <resourceGroupLocation> \\"
-  echo "           -t <templateFilePath> -p <parametersFilePath>"
+  echo "           -t <templateLocation> -p <parametersFilePath>"
   echo "Run without any arguments for interactive argument reading."
   echo "Use \"$here/deploy-parameters.template\" to create your parameters file."
   exit
@@ -28,7 +28,7 @@ subscriptionId=""
 resourceGroupName=""
 deploymentName=""
 resourceGroupLocation=""
-templateFilePath=""
+templateLocation=""
 parametersFilePath=""
 while getopts ":i:g:n:l:t:p:" arg; do
   case "${arg}" in
@@ -36,7 +36,7 @@ while getopts ":i:g:n:l:t:p:" arg; do
     ( g ) resourceGroupName="${OPTARG}"     ;;
     ( n ) deploymentName="${OPTARG}"        ;;
     ( l ) resourceGroupLocation="${OPTARG}" ;;
-    ( t ) templateFilePath="${OPTARG}"      ;;
+    ( t ) templateLocation="${OPTARG}"      ;;
     ( p ) parametersFilePath="${OPTARG}"    ;;
   esac
 done
@@ -57,8 +57,8 @@ readarg() { # [-rf] varname name [default]
       echo "Setting $var to default value: \"$dflt\""; X="$dflt"
     fi
   fi
-  if [[ $file = 1 && ! -r "$X" ]]; then failwith "$var: $X not found"; fi
   if [[ $req = 1 && -z "$X" ]]; then failwith "$name required"; fi
+  if [[ $file = 1 && ! -r "$X" ]]; then failwith "$var: \"$X\" not found"; fi
 }
 
 # login if needed
@@ -71,7 +71,7 @@ readarg    subscriptionId        "Subscription ID" "$cursub"
 readarg -r resourceGroupName     "Resource Group Name"
 readarg    deploymentName        "Deployment Name"
 readarg    resourceGroupLocation "Resource Group Location"
-readarg -f templateFilePath      "Template File" "$here/deploy-main-template.json"
+readarg    templateLocation      "Template Location (Path/URL)" "$here/deploy-main-template.json"
 readarg -rf parametersFilePath   "Parameters File"
 
 if [[ "$subscriptionId" != "$cursub" ]]; then
@@ -98,9 +98,14 @@ fi
 echo "Starting deployment..."
 args=()
 if [[ -n "$deploymentName" ]]; then args+=(--name "$deploymentName"); fi
-args+=(--resource-group "$resourceGroupName"
-       --template-file "$templateFilePath"
-       --parameters "@$parametersFilePath")
+args+=(--resource-group "$resourceGroupName")
+if   [[ "$templateLocation" = "http://"*  ]]; then args+=(--template-uri)
+elif [[ "$templateLocation" = "https://"* ]]; then args+=(--template-uri)
+elif [[ -r "$templateLocation" ]];            then args+=(--template-file)
+else failwith "templateLocation is neither a URL, nor does it point at a file"
+fi
+args+=("$templateLocation")
+args+=(--parameters "@$parametersFilePath")
 
 az group deployment create "${args[@]}" || failwith "Deployment failed"
-echo "Template has been successfully created and deployed"
+echo "Template has been successfully deployed"
