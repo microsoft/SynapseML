@@ -98,6 +98,8 @@ def readFromPaths(df, pathCol, imageCol="image"):
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jresult, sql_ctx)
 
+setattr(pyspark.sql.DataFrame, 'readImagesFromPaths', readFromPaths)
+
 def write(df, basePath, pathCol="filenames", imageCol="image", encoding=".png"):
     """
     Reads images from a column of filenames
