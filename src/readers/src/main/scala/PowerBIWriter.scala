@@ -7,6 +7,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.message.BufferedHeader
+import org.apache.log4j.LogManager
 import org.apache.spark.sql.functions.{col, struct, to_json}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
@@ -14,6 +15,8 @@ import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
 import scala.collection.mutable
 
 object PowerBIWriter {
+
+  val logger = LogManager.getRootLogger
 
   private def sendJsonStrings(jsonStrings: Seq[String], url: String): Unit = {
     if (jsonStrings.isEmpty) return
@@ -24,13 +27,26 @@ object PowerBIWriter {
 
     StreamUtilities.using(HttpClientBuilder.create().build()) { client =>
       val response = client.execute(post)
-      if (response.getStatusLine.getStatusCode == 429) {
+      val code = response.getStatusLine.getStatusCode
+      if (code == 429) {
         val waitTime = response.headerIterator("Retry-After")
           .nextHeader().asInstanceOf[BufferedHeader]
           .getBuffer.toString.split(" ").last.toInt
-        Thread.sleep(waitTime.toLong * 500)
+        logger.warn(s"429 response code, waiting for $waitTime s." +
+          s" Consider tuning batch interval")
+        Thread.sleep((1 + waitTime.toLong) * 1000)
         sendJsonStrings(jsonStrings, url)
         return
+      }else if (code == 503){
+        logger.warn(s"503 response code, retrying")
+        var retryNum = 0
+        val waitTimes = List(1L, 2L, 4L)
+        while (retryNum < 2){
+          Thread.sleep(waitTimes(retryNum) * 1000)
+          val response = client.execute(post)
+          if (response.getStatusLine.getStatusCode == 200) return
+          retryNum+=1
+        }
       }
       assert(response.getStatusLine.getStatusCode == 200, response.toString)
     }.get
