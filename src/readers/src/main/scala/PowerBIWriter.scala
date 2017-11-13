@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.message.BufferedHeader
 import org.apache.spark.sql.functions.{col, struct, to_json}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
@@ -23,6 +24,14 @@ object PowerBIWriter {
 
     StreamUtilities.using(HttpClientBuilder.create().build()) { client =>
       val response = client.execute(post)
+      if (response.getStatusLine.getStatusCode == 429) {
+        val waitTime = response.headerIterator("Retry-After")
+          .nextHeader().asInstanceOf[BufferedHeader]
+          .getBuffer.toString.split(" ").last.toInt
+        Thread.sleep(waitTime.toLong * 500)
+        sendJsonStrings(jsonStrings, url)
+        return
+      }
       assert(response.getStatusLine.getStatusCode == 200, response.toString)
     }.get
   }
