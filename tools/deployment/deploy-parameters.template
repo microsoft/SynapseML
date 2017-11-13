@@ -9,35 +9,15 @@ section when you're done.)
  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
  "contentVersion": "1.0.0.0",
  "parameters": {
-  "clusterName": {
-   "value": "your spark cluster name"
-  },
-  "clusterLoginUserName": {
-   "value": "admin"
-  },
-  "clusterLoginPassword": {
-   "value": "your password"
-  },
-  "sshUserName": {
-   "value": "sshuser"
-  },
-  "sshPassword": {
-   "value": "your password"
-  },
-  "headNodeSize": {
-   "value": "Standard_D3_v2"
-  },
-  "workerNodeCount": {
-   "value": "1"
-  },
-  "workerNodeSize": {
-   "value": "Standard_D3_v2"
-  },
-  "gpuVirtualMachineName": {
-   "value": "your gpu vm name"
-  },
-  "gpuVirtualMachineSize": {
-   "value": "Standard_NC12"
-  }
+  "clusterName":           { "value": "your spark cluster name" },
+  "clusterLoginUserName":  { "value": "admin" },
+  "clusterLoginPassword":  { "value": "your password" },
+  "sshUserName":           { "value": "sshuser" },
+  "sshPassword":           { "value": "your password" },
+  "headNodeSize":          { "value": "Standard_D3_v2" },
+  "workerNodeCount":       { "value": "1" },
+  "workerNodeSize":        { "value": "Standard_D3_v2" },
+  "gpuVirtualMachineName": { "value": "your gpu vm name" },
+  "gpuVirtualMachineSize": { "value": "Standard_NC12" }
  }
 }

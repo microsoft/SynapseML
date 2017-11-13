@@ -8,6 +8,9 @@
 
 # <=<= this line is replaced with variables defined with `defvar -X` =>=>
 DOWNLOAD_URL="$STORAGE_URL/$MML_VERSION"
+if [[ -z "$MML_VERSION" ]]; then
+  echo "Error: this script cannot be executed as-is" 1>&2; exit 1
+fi
 
 HDFS_NOTEBOOKS_FOLDER="/HdiNotebooks/Microsoft ML Spark Examples"
 

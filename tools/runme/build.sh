@@ -260,14 +260,19 @@ _upload_artifacts_to_storage() {
   mkdir -p "$tmp"
   ( cd "$BUILD_ARTIFACTS"
     _ zip -qr9 "$tmp/$(basename "$BUILD_ARTIFACTS.zip")" * )
-  local f txt
+  local f txt target
   local varlinerx="^(.*)# +<=<= .*? =>=>(.*)\$"
-  for f in "$TOOLSDIR/hdi/"*; do
+  for f in "$TOOLSDIR/"{hdi,deployment}"/"*; do
+    target="$tmp/$(basename "$f")"
+    if [[ -e "$target" ]]; then
+      failwith "duplicate file intended for $STORAGE_CONTAINER: $(basename "$f")";
+    fi
     txt="$(< "$f")"
     if [[ "$txt" =~ $varlinerx ]]; then
       txt="${BASH_REMATCH[1]}$(_show_gen_vars)${BASH_REMATCH[2]}"
     fi
-    echo "$txt" > "$tmp/$(basename "$f")"
+    # might be useful to allow <{...}> substitutions: _replace_var_substs txt
+    echo "$txt" > "$target"
   done
   _ azblob upload-batch --source "$tmp" --destination "$STORAGE_CONTAINER/$MML_VERSION"
   _rm "$tmp"

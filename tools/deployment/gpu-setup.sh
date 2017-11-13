@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
 
 # Install the prerequisites for MMLSpark on a GPU VM
 

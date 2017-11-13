@@ -14,16 +14,19 @@ third party software used by MMLSpark.
 
 ### Data Center Compatibility
 
-Not all data centers currently have GPU VMs available.  See [the Linux VMs
-page](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
+Currently, not all data centers have GPU VMs available.  See [the Linux
+VMs page](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
 to check availability in your data center.
 
 ## Connect an HDI cluster and a GPU VM via the ARM template
 
 MMLSpark provides an Azure Resource Manager (ARM) template to create a setup
 that includes an HDInsight cluster and/or a GPU machine for training.  The
-[template](../tools/deployment/deploy-main-template.json) has the following
-parameters to allow you to configure the HDI Spark cluster and the GPU VM:
+template can be found here:
+<https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-main-template.json>.
+
+It has the following parameters that configure the HDI Spark cluster and
+the associated GPU VM:
 - `clusterName`: The name of the HDInsight Spark cluster to create
 - `clusterLoginUserName`: These credentials can be used to submit jobs to the
   cluster and to log into cluster dashboards
@@ -51,15 +54,21 @@ For the naming rules and restrictions for Azure resources please refer to the
 [Naming conventions
 article](https://docs.microsoft.com/en-us/azure/architecture/best-practices/naming-conventions).
 
-MMLSpark provides three ARM templates:
-- [`deploy-main-template.json`](../tools/deployment/deploy-main-template.json):
-  This is the main template.  It referencs the following two child templates.
-- [`spark-cluster-template.json`](../tools/deployment/spark-cluster-template.json):
+There are actually three templates that are used for deployment:
+- [`deploy-main-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-main-template.json):
+  This is the main template.  It referencs the following two child
+  templates — these are relative references so they are expected to be
+  found in the same base URL.
+- [`spark-cluster-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/spark-cluster-template.json):
   A template for creating an HDI Spark cluster within a VNet, including
-  MMLSpark and its dependencies.
-- [`gpu-vm-template.json`](../tools/deployment/gpu-vm-template.json):
+  MMLSpark and its dependencies.  (This template installs MMLSpark using
+  the HDI script action:
+  [`install-mmlspark.sh`](https://mmlspark.azureedge.net/buildartifacts/0.9/install-mmlspark.sh).)
+- [`gpu-vm-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/gpu-vm-template.json):
   A template for creating a GPU VM within an existing VNet, including
   CNTK and other dependencies that MMLSpark needs for GPU training.
+  (This is done via a script action that runs
+  [`gpu-setup.sh`](https://mmlspark.azureedge.net/buildartifacts/0.9/gpu-setup.sh).)
 
 Note that the last two child templates can also be deployed independently, if
 you don't need both parts of the installation.
@@ -83,28 +92,36 @@ open the template in the Portal.  If needed, click the **Edit template** button
 
 ![ARM template in Portal](http://image.ibb.co/gZ6iiF/arm_Template_In_Portal.png)
 
-### 2. Deploy an ARM template with [MMLSpark Azure CLI 2.0](../tools/deployment/deploy-arm.sh)
+### 2. Deploy an ARM template with [MMLSpark Azure CLI 2.0](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.sh)
 
 MMLSpark provides an Azure CLI 2.0 script
 ([`deploy-arm.sh`](../tools/deployment/deploy-arm.sh)) to deploy an ARM
 template (such as
-[`deploy-main-template.json`](../tools/deployment/deploy-main-template.json))
+[`deploy-main-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-main-template.json))
 along with a parameter file (see
 [deploy-parameters.template](../tools/deployment/deploy-parameters.template)
 for a template of such a file).
 
+> Note that you cannot use the
+> [template file](../tools/deployment/deploy-main-template.json) from
+> the source tree, since it requires additional resources that are
+> created by the build (specifically, a working version of
+> [`install-mmlspark.sh`](../tools/hdi/install-mmlspark.sh)).
+
 The script take the following arguments:
 - `subscriptionId`: The GUID that identifies your subscription (e.g.,
   `01234567-89ab-cdef-0123-456789abcdef`), defaults to setting in your
-  `az` environment
+  `az` environment.
 - `resourceGroupName` (required): If the name doesn’t exist a new
-  resource group will be created
+  resource group will be created.
 - `resourceGroupLocation`: The location of the resource group (e.g.,
   `East US`), note that this is required if creating a new resource
-  group
-- `deploymentName`: The name for this deployment
-- `templateFilePath`: The path to the ARM template file.  By default, it
-  is set to `deploy-main-template.json`
+  group.
+- `deploymentName`: The name for this deployment.
+- `templateLocation`: The URL of an ARM template file, or the path to
+  one.  By default, it is set to `deploy-main-template.json` in the same
+  directory, but note that this will normally not work without the rest
+  of the required resources.
 - `parametersFilePath`: The path to the parameter file, which you need
   to create.  Use `deploy-parameters.template` as a template for
   creating a parameters file.
@@ -115,17 +132,18 @@ set these arguments:
     ./deploy-arm.sh -h
 
 If no flags are specified on the command line, the script will prompt
-for all values.  If needed, install the Azure CLI 2.0 using the
+you for all values.  If needed, install the Azure CLI 2.0 using the
 instruction found in the [Azure CLI Installation
 Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
 
-### 3. Deploy an ARM template with the [MMLSpark Azure PowerShell](../tools/deployment/deploy-arm.ps1)
+### 3. Deploy an ARM template with the [MMLSpark Azure PowerShell](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.ps1)
 
 MMLSpark also provides a [PowerShell
-script](../tools/deployment/deploy-arm.ps1) to deploy ARM templates,
-similar to the above bash script, run it with `-?` to see the usage
-instructions (or use `get-help`).  If needed, install the Azure
-PowerShell cmdlets using the instructions in the [Azure PowerShell
+script](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.ps1)
+to deploy ARM templates, similar to the above bash script, run it with
+`-?` to see the usage instructions (or use `get-help`).  If needed,
+install the Azure PowerShell cmdlets using the instructions in the
+[Azure PowerShell
 Guide](https://docs.microsoft.com/powershell/azureps-cmdlets-docs/).
 
 ## Set up passwordless SSH login to the GPU VM
