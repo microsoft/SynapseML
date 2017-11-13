@@ -2,20 +2,23 @@
 
 ## Requirements
 
-CNTK training using MMLSpark in Azure requires an HDInsight Spark cluster and a
-GPU virtual machine (VM).  The GPU VM should be reachable via SSH from the
-cluster, but no public SSH access (or even a public IP address) is required.
-As an example, it can be on a private Azure virtual network (VNet), and within
-this VNet, it can be addressed directly by its name and access the Spark
-clsuter nodes (e.g., use the active NameNode RPC endpoint).
+CNTK training using MMLSpark in Azure requires an HDInsight Spark
+cluster and a GPU virtual machine (VM).  The GPU VM should be reachable
+via SSH from the cluster, but no public SSH access (or even a public IP
+address) is required, and the cluster's NameNode should be accessible
+from the GPU machine via the HDFS RPC.  As an example, it can be on a
+private Azure virtual network (VNet), and within this VNet, it can be
+addressed directly by its name and access the Spark clsuter nodes (e.g.,
+use the active NameNode RPC endpoint).
 
-See the original [copyright and license notices](third-party-notices.txt) of
-third party software used by MMLSpark.
+(See the original [copyright and license
+notices](third-party-notices.txt) of third party software used by
+MMLSpark.)
 
 ### Data Center Compatibility
 
-Currently, not all data centers have GPU VMs available.  See [the Linux
-VMs page](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
+Currently, not all data centers have GPU VMs available.  See [the Linux VMs
+page](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
 to check availability in your data center.
 
 ## Connect an HDI cluster and a GPU VM via the ARM template
@@ -44,21 +47,7 @@ the associated GPU VM:
 - `gpuVirtualMachineName`: The name of the GPU virtual machine to create
 - `gpuVirtualMachineSize`: The size of the GPU virtual machine to create
 
-If you need to further configure the environment (for example, to change [the
-class of VM
-sizes](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
-for HDI cluster nodes), modify the template directly before deployment.  See
-also [the guide for best ARM template
-practices](https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-template-best-practices).
-For the naming rules and restrictions for Azure resources please refer to the
-[Naming conventions
-article](https://docs.microsoft.com/en-us/azure/architecture/best-practices/naming-conventions).
-
-There are actually three templates that are used for deployment:
-- [`deploy-main-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-main-template.json):
-  This is the main template.  It referencs the following two child
-  templates — these are relative references so they are expected to be
-  found in the same base URL.
+There are actually two additional templates that are used from this main template:
 - [`spark-cluster-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/spark-cluster-template.json):
   A template for creating an HDI Spark cluster within a VNet, including
   MMLSpark and its dependencies.  (This template installs MMLSpark using
@@ -69,46 +58,40 @@ There are actually three templates that are used for deployment:
   CNTK and other dependencies that MMLSpark needs for GPU training.
   (This is done via a script action that runs
   [`gpu-setup.sh`](https://mmlspark.azureedge.net/buildartifacts/0.9/gpu-setup.sh).)
-
-Note that the last two child templates can also be deployed independently, if
+Note that these child templates can also be deployed independently, if
 you don't need both parts of the installation.
 
 ## Deploying an ARM template
 
 ### 1. Deploy an ARM template within the [Azure Portal](https://ms.portal.azure.com/)
 
-An ARM template can be opened within the Azure Portal via the following REST
-API:
+[Click here to open the above
+template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.9%2Fdeploy-main-template.json)
+in the Azure portal.
 
-    https://portal.azure.com/#create/Microsoft.Template/uri/<ARM-template-URI>
+(If needed, you click the **Edit template** button to view and edit the
+template.)
 
-The URI can be one for either an *Azure Blob* or a *GitHub file*.  For example,
+This link is using the Azure Portal API:
 
-    https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmystorage.blob.core.windows.net%2Fdeploy-main-template.json
+    https://portal.azure.com/#create/Microsoft.Template/uri/〈ARM-template-URI〉
 
-(Note that the URL is percent-encoded.)  Clicking on the above link will
-open the template in the Portal.  If needed, click the **Edit template** button
-(see screenshot below) to view and edit the template.
+where the template URI is percent-encoded.
 
-![ARM template in Portal](http://image.ibb.co/gZ6iiF/arm_Template_In_Portal.png)
+### 2. Deploy an ARM template with MMLSpark Azure CLI 2.0
 
-### 2. Deploy an ARM template with [MMLSpark Azure CLI 2.0](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.sh)
+We also provide a convenient shell script to create a deployment on the
+command line:
 
-MMLSpark provides an Azure CLI 2.0 script
-([`deploy-arm.sh`](../tools/deployment/deploy-arm.sh)) to deploy an ARM
-template (such as
-[`deploy-main-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-main-template.json))
-along with a parameter file (see
-[deploy-parameters.template](../tools/deployment/deploy-parameters.template)
-for a template of such a file).
+* Download the [shell
+  script](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.sh)
+  and make a local copy of it
 
-> Note that you cannot use the
-> [template file](../tools/deployment/deploy-main-template.json) from
-> the source tree, since it requires additional resources that are
-> created by the build (specifically, a working version of
-> [`install-mmlspark.sh`](../tools/hdi/install-mmlspark.sh)).
+* Create a JSON parameter file by downloading [this template
+  file](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-parameters.template)
+  and modify it according to your specification.
 
-The script take the following arguments:
+You can now run the script — it takes the following arguments:
 - `subscriptionId`: The GUID that identifies your subscription (e.g.,
   `01234567-89ab-cdef-0123-456789abcdef`), defaults to setting in your
   `az` environment.
@@ -118,13 +101,10 @@ The script take the following arguments:
   `East US`), note that this is required if creating a new resource
   group.
 - `deploymentName`: The name for this deployment.
-- `templateLocation`: The URL of an ARM template file, or the path to
-  one.  By default, it is set to `deploy-main-template.json` in the same
-  directory, but note that this will normally not work without the rest
-  of the required resources.
-- `parametersFilePath`: The path to the parameter file, which you need
-  to create.  Use `deploy-parameters.template` as a template for
-  creating a parameters file.
+- `templateLocation`: The URL of an ARM template file.  By default, it
+  is set to the above main template.
+- `parametersFilePath`: The path to the parameter file, which you have
+  created.
 
 Run the script with a `-h` or `--help` to see the flags that are used to
 set these arguments:
@@ -132,15 +112,17 @@ set these arguments:
     ./deploy-arm.sh -h
 
 If no flags are specified on the command line, the script will prompt
-you for all values.  If needed, install the Azure CLI 2.0 using the
-instruction found in the [Azure CLI Installation
-Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli).
+you for all needed values.
 
-### 3. Deploy an ARM template with the [MMLSpark Azure PowerShell](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.ps1)
+> Note that the script uses the Azure CLI 2.0, see the
+> [Azure CLI Installation Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+> if you need to install it.
+
+### 3. Deploy an ARM template with the MMLSpark Azure PowerShell
 
 MMLSpark also provides a [PowerShell
 script](https://mmlspark.azureedge.net/buildartifacts/0.9/deploy-arm.ps1)
-to deploy ARM templates, similar to the above bash script, run it with
+to deploy ARM templates, similar to the above bash script.  Run it with
 `-?` to see the usage instructions (or use `get-help`).  If needed,
 install the Azure PowerShell cmdlets using the instructions in the
 [Azure PowerShell
@@ -164,7 +146,7 @@ Azure will stop billing if a VM is in a "Stopped (**Deallocated**)" state,
 which is different from the "Stopped" state.  So make sure it is *Deallocated*
 to avoid billing.  In the Azure Portal, clicking the "Stop" button will put the
 VM into a "Stopped (Deallocated)" state and clicking the "Start" button brings
-it VM.  See "[Properly Shutdown Azure VM to Save
+it back up.  See "[Properly Shutdown Azure VM to Save
 Money](https://buildazure.com/2017/03/16/properly-shutdown-azure-vm-to-save-money/)"
 for futher details.
 

@@ -93,8 +93,7 @@
  "variables": {
   "vnetName": "[concat(parameters('clusterName'), '-vnet')]",
   "subnetName": "subnet1",
-  "sparkClusterTemplateUrl": "[uri(deployment().properties.templateLink.uri, 'spark-cluster-template.json')]",
-  "gpuVmTemplateUrl": "[uri(deployment().properties.templateLink.uri, 'gpu-vm-template.json')]",
+  "thisTemplateUri": "[deployment().properties.templateLink.uri]",
   "sparkClusterDeploymentName": "sparkClusterTemplate",
   "vmDeploymentName": "gpuVmTemplate"
  },
@@ -106,7 +105,7 @@
    "properties": {
     "mode": "incremental",
     "templateLink": {
-     "uri": "[variables('sparkClusterTemplateUrl')]",
+     "uri": "[uri(variables('thisTemplateUri'), 'spark-cluster-template.json')]",
      "contentVersion": "1.0.0.0"
     },
     "parameters": {
@@ -153,7 +152,7 @@
    "properties": {
     "mode": "incremental",
     "templateLink": {
-     "uri": "[variables('gpuVmTemplateUrl')]",
+     "uri": "[uri(variables('thisTemplateUri'), 'gpu-vm-template.json')]",
      "contentVersion": "1.0.0.0"
     },
     "parameters": {

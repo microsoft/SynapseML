@@ -2,6 +2,15 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+# This script deploys a Spark Cluster and a GPU, see docs/gpu-setup.md
+# for details.
+
+# <=<= this line is replaced with variables defined with `defvar -X` =>=>
+DOWNLOAD_URL="$STORAGE_URL/$MML_VERSION"
+if [[ -z "$MML_VERSION" ]]; then
+  echo "Error: this script cannot be executed as-is" 1>&2; exit 1
+fi
+
 set -euo pipefail
 # -e: exit if any command has a non-zero exit status
 # -u: unset variables are an error
@@ -71,7 +80,8 @@ readarg    subscriptionId        "Subscription ID" "$cursub"
 readarg -r resourceGroupName     "Resource Group Name"
 readarg    deploymentName        "Deployment Name"
 readarg    resourceGroupLocation "Resource Group Location"
-readarg    templateLocation      "Template Location (Path/URL)" "$here/deploy-main-template.json"
+readarg    templateLocation      "Template Location URL" \
+             "$DOWNLOAD_URL/deploy-main-template.json"
 readarg -rf parametersFilePath   "Parameters File"
 
 if [[ "$subscriptionId" != "$cursub" ]]; then
@@ -99,12 +109,7 @@ echo "Starting deployment..."
 args=()
 if [[ -n "$deploymentName" ]]; then args+=(--name "$deploymentName"); fi
 args+=(--resource-group "$resourceGroupName")
-if   [[ "$templateLocation" = "http://"*  ]]; then args+=(--template-uri)
-elif [[ "$templateLocation" = "https://"* ]]; then args+=(--template-uri)
-elif [[ -r "$templateLocation" ]];            then args+=(--template-file)
-else failwith "templateLocation is neither a URL, nor does it point at a file"
-fi
-args+=("$templateLocation")
+args+=(--template-uri "$templateLocation")
 args+=(--parameters "@$parametersFilePath")
 
 az group deployment create "${args[@]}" || failwith "Deployment failed"

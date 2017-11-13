@@ -36,9 +36,14 @@ defvar() {
   if [[ "$opts" == *[eE]* ]]; then
     envinit_commands+=("export $var=$(qstr "${!var}")"); fi
 }
-_show_gen_vars() {
-  local var
-  for var in "${_gen_vars[@]}"; do printf '%s=%s\n' "$var" "$(qstr "${!var}")"; done
+_show_gen_vars() { # mode, which is either "sh" or "ps1"
+  local var mode="$1"; shift
+  case "$mode" in
+    ( "sh"  ) mode='%s=%s\n' ;;
+    ( "ps1" ) mode='$%s = %s;\n' ;;
+    ( * ) failwith "internal error, unknown mode for _show_gen_vars: $mode"
+  esac
+  for var in "${_gen_vars[@]}"; do printf "$mode" "$var" "$(qstr "${!var}")"; done
 }
 _replace_var_substs() { # var...
   local var val pfx sfx change=1

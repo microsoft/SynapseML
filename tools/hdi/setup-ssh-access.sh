@@ -17,7 +17,7 @@ if [[ "$#" = 0 || "$1" = "-h" || "$1" == "--help" ]]; then usage; fi
 vmname="$1"; shift
 user="$1"; shift
 
-if [[ -z "$vmname" "x$1" == "x" ]]; then usage; fi
+if [[ -z "$vmname" ]]; then usage; fi
 
 wasb_dir="wasb:///MML-GPU"
 wasb_private="$wasb_dir/identity"
