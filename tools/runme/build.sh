@@ -74,6 +74,13 @@ _prepare_build_artifacts() {
 }
 
 _sbt_run() { # sbt-args...
+  if [[ "$BUILDMODE" = "server" ]]
+  then
+    POWERBI_URL="$(__ az keyvault secret show --vault-name mmlspark-keys --name powerbi-url)"
+    POWERBI_URL="${POWERBI_URL##*\"value\": \"}"; POWERBI_URL="${POWERBI_URL%%\"*}"
+    export POWERBI_URL
+  fi
+
   local flags=""; if [[ "$BUILDMODE" = "server" ]]; then flags="-no-colors"; fi
   # temporary hack around the sbt+bash problem in v1.0.0,
   # (should be fixed in 1.0.3, and then this should be removed)
