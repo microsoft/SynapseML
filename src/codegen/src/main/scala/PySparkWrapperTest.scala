@@ -268,8 +268,8 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
         case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
-        case "_CNTKModel" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer" | "_ImageFeaturizer"
-           | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "Timer"
+        case "_CNTKModel" | "_UDFTransformer" | "FastVectorAssembler" | "MultiNGram" | "ImageFeaturizer"
+           | "_ImageFeaturizer" | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "Timer"
            | "StopWordsRemoverTransform"  | "ImageSetAugmenter"
            => ""
         case _ =>

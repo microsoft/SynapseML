@@ -142,17 +142,19 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   def makeBasicDF(): DataFrame = {
     val df = Seq(
-      (0, "guitars", "drums"),
-      (1, "piano", "trumpet"),
-      (2, "bass", "cymbals")).toDF("numbers", "words", "more")
+      (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
+      (1, 1.toDouble, "piano", "trumpet", 2.toLong, false),
+      (2, 2.toDouble, "bass", "cymbals", 3.toLong, true))
+      .toDF("numbers", "doubles", "words", "more", "longs", "booleans")
     df
   }
 
   def makeBasicNullableDF(): DataFrame = {
     val df = Seq(
-      (0, 2.5, "guitars", "drums"),
-      (1, Double.NaN, "piano", "trumpet"),
-      (2, 8.9, "bass", null)).toDF("indices", "numbers","words", "more")
+      (0, 2.5, "guitars", Some("drums"), Some(2.toLong), None),
+      (1, Double.NaN, "piano", Some("trumpet"), Some(1.toLong), Some(true)),
+      (2, 8.9, "bass", None, None, Some(false)))
+      .toDF("numbers", "doubles", "words", "more", "longs", "booleans")
     df
   }
 

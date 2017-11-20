@@ -163,7 +163,8 @@ class FuzzingTest extends TestBase {
   }
 
   test("Verify all pipeline stage values match their param names") {
-    val exemptions: Set[String] = Set()
+    val exemptions: Set[String] = Set[String](
+      "com.microsoft.ml.spark.UDFTransformer") // needs to hide setters from model
     pipelineStages.foreach { pipelineStage =>
       if (!exemptions(pipelineStage.getClass.getName)) {
         val paramFields =
