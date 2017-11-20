@@ -15,7 +15,7 @@ class SelectColumnsSuite extends TestBase with TransformerFuzzing[SelectColumns]
   test("Select all columns in a data frame") {
     val input = makeBasicDF()
     val result = new SelectColumns()
-      .setCols(Array("numbers", "words", "more"))
+      .setCols(input.columns)
       .transform(input)
     assert(verifyResult(input, result))
   }
