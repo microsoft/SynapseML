@@ -4,10 +4,10 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.{BooleanParam, DoubleParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{BooleanType, DoubleType, NumericType, StructType, StructField, StringType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.storage.StorageLevel
 
@@ -133,7 +133,9 @@ class SummarizeData(override val uid: String)
 
   private def computeCountsImpl(col: String, df: DataFrame): Array[Double] = {
     val column = df.col(col)
-    val mExpr = isnan(column) || isnull(column)
+    val dataType = df.schema(col).dataType
+    val mExpr = isnull(column) || (if (dataType.equals(BooleanType)) isnan(column.cast(DoubleType)) else isnan(column))
+
     val countMissings = df.where(mExpr).count().toDouble
     // approxCount returns Long which > Double!
     val dExpr = approx_count_distinct(column)
