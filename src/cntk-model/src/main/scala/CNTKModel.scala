@@ -320,6 +320,8 @@ with ComplexParamsWritable with Wrappable {
             }
           })
 
+        setDefault(outputCols -> getModel.getOutputs.map(_.getName).toArray) // defaults to all CNTK model outputs
+
         val inputType           = df.schema($(inputCols).head).dataType
         val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
         val encoder = RowEncoder(transformSchema(df.schema))
@@ -332,7 +334,6 @@ with ComplexParamsWritable with Wrappable {
         if (setByName.isDefined && setByIndex.isDefined)
           throw new Exception("Must specify neither or only one of outputNodeName or outputNodeIndices")
 
-        setDefault(outputCols -> getModel.getOutputs.map(_.getName).toArray) // defaults to all CNTK model outputs
         output.drop(coercedCols:_*)
   }
 
