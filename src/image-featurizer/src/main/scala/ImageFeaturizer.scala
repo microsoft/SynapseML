@@ -59,19 +59,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getMiniBatchSize: Int = getCntkModel.getMiniBatchSize
 
-  /** @group setParam */
-  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNode(value))
-
-  /** @group getParam */
-  def getInputNode: Int = getCntkModel.getInputNode
-
   def setModelLocation(spark: SparkSession, path: String): this.type = {
     set(cntkModel, getCntkModel.setModelLocation(spark, path))
   }
 
   def setModel(spark: SparkSession, modelSchema: ModelSchema): this.type = {
     setLayerNames(modelSchema.layerNames)
-      .setInputNode(modelSchema.inputNode)
       .setModelLocation(spark, modelSchema.uri.toString)
   }
 

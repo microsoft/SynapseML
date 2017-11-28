@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
-import com.microsoft.CNTK.{DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
+import com.microsoft.CNTK.{Function, DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.Model
@@ -20,6 +20,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 private object CNTKModelUtils extends java.io.Serializable {
 
@@ -58,7 +59,7 @@ private object CNTKModelUtils extends java.io.Serializable {
     device: DeviceDescriptor,
     inputRows: Iterator[Row],
     minibatchSize: Int,
-    inputColInds: Array[Int]): Iterator[Row] ={
+    inputColInds: Array[Int]): Iterator[Row] = {
       new Iterator[Row] {
         val inputBuffer    = new ListBuffer[Row]()
         val outputBuffer   = new ListBuffer[Row]()
@@ -116,24 +117,20 @@ private object CNTKModelUtils extends java.io.Serializable {
   def applyModel(inputColInds: Array[Int],
     broadcastedModel: Broadcast[CNTKFunction],
     minibatchSize: Int,
-    inputNodeInds: Array[Int],
-    outputNodes: Option[Array[String]])(inputRows: Iterator[Row]): Iterator[Row] = {
+    outputNodeNames: Array[String])(inputRows: Iterator[Row]): Iterator[Row] = {
       val device = DeviceDescriptor.useDefaultDevice
-      val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
-      val model = outputNodes
-        .map { names =>
-          if (names.length == 1)
-            CNTKLib.AsComposite(
-              Option(m.findByName(names.head))
-                .getOrElse(throw new IllegalArgumentException(s"Node $names does not exist")))
-            else m
-        }
-          .getOrElse(m)
+      val model = {
+        val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
+        if (outputNodeNames.size != m.getOutputs.size) {
+          val outputVars = outputNodeNames.flatMap(name => m.getOutputs.find(_.getName == name))
+          Function.combine(new java.util.ArrayList(seqAsJavaList(outputVars)))
+        } else m
+      }
 
-          val inputVars = inputNodeInds.map(model.getArguments.get(_))
-          require(inputVars.forall(_.getDataType() == CNTKDataType.Float),
-            "all input variable types are not Float")
-          minibatchIterator(model, inputVars, device, inputRows, minibatchSize, inputColInds)
+      val inputVars = model.getArguments.asScala.toArray
+      require(inputVars.forall(_.getDataType() == CNTKDataType.Float),
+        "all input variable types are not Float")
+      minibatchIterator(model, inputVars, device, inputRows, minibatchSize, inputColInds)
     }
 
   private def toSeqSeq(fvv: FloatVectorVector): Seq[Seq[Float]] = {
@@ -177,30 +174,6 @@ with ComplexParamsWritable with Wrappable {
     val modelBytes = spark.sparkContext.binaryFiles(path).first()._2.toArray
     setModel(CNTKFunction.loadModelFromBytes(modelBytes))
   }
-
-  /** Index of the input node
-   * @group param
-   */
-  val inputNodes: IntArrayParam = new IntArrayParam(this, "inputNode", "index of the input node")
-
-  /** @group setParam */
-  def setInputNode(value: Int): this.type = set(inputNodes, Array(value))
-
-  /** @group setParam */
-  def setInputNodes(value: Array[Int]): this.type = set(inputNodes, value)
-
-  /** @group getParam */
-  def getInputNode: Int = {
-    if (getInputNodes.length == 1) getInputNodes.head
-    else throw new Exception("Must have one and only one inputNode set in order to getInputNode")
-  }
-
-  /** @group getParam */
-  def getInputNodes: Array[Int] = $(inputNodes)
-
-  /** Returns the dimensions of the required input */
-  def getInputShape: Array[Int] =
-    getModel.getInputs.get(getInputNode).getShape.getDimensions.map(_.toInt)
 
   /** Index of the output node
    * @group param
@@ -269,72 +242,69 @@ with ComplexParamsWritable with Wrappable {
   def transform(dataset: Dataset[_]): DataFrame = {
     val spark = dataset.sparkSession
     val sc    = spark.sparkContext
+    val df    = dataset.toDF
 
-    setDefault(inputCols -> getModel.getArguments.map(_.getName).toArray)
-    val inputIndices = getInputCols.map(dataset.columns.indexOf(_))
+    val modelInputNames = getModel.getArguments.map(_.getName).toArray
 
-    val missingCols =
-      (inputIndices zip getInputCols).filter { case (ind, col) => ind == -1 }.map(_._2)
-    require(missingCols.isEmpty, s"Input column(s) ${missingCols.mkString("[", ", ", "]")} do not exist")
+    if (modelInputNames.forall(df.columns.contains)) setDefault(inputCols-> modelInputNames)
 
-    setDefault(inputNodes -> {
-      val namedInputIndices = getInputCols.map(getModel.getArguments.indexOf)
-      if (namedInputIndices.forall(_ != -1)) namedInputIndices
-      else                                   Array.range(0, getInputCols.size)
+    val inputColNamesAndInds = getInputCols.map(col => (col, df.columns.indexOf(col)))
+    val missingInputCols = inputColNamesAndInds.collect { case (col, ind) if (ind == -1) => col }
+    require(missingInputCols.isEmpty, s"Input column(s) ${missingInputCols.mkString("[", ", ", "]")} do not exist")
+
+    val modelOutputNames = getModel.getOutputs.map(_.getName).toArray
+    setDefault(outputNodeNames -> {
+      if (isDefined(outputNodeIndices)) $(outputNodeIndices).map(i => modelOutputNames(i))
+      else                              modelOutputNames
     })
+    setDefault(outputCols -> getOutputNodeNames) // defaults to all CNTK model outputs
 
-    val setByName  = get(outputNodeNames)
-    val setByIndex = get(outputNodeIndices)
-
-    val outputNodes: Option[Array[String]] =
-      if (setByName.isDefined) setByName
-      else                     setByIndex.map(_.map(getModel.getOutputs.get(_).getName))
-
-      val coersionOptionUDFs = inputIndices.map {
-        dataset.schema.fields(_).dataType match {
-          case ArrayType(tp, _) =>
-            tp match {
-              case DoubleType => Some(udf((x: mutable.WrappedArray[Double]) => x.map(_.toFloat)))
-              case FloatType  => None
-              case _ =>
-                throw new IllegalArgumentException(s"improper column type: $tp, need Array[Float]")
-            }
-              case VectorType => Some(udf((x: DenseVector) => x.toArray.map(_.toFloat)))
-        }
+    val coersionOptionUDFs = getOrDefault(inputCols).map { name =>
+      df.schema.fields.find(_.name == name).get.dataType match {
+        case ArrayType(tp, _) =>
+          tp match {
+            case DoubleType => Some(udf((x: mutable.WrappedArray[Double]) => x.map(_.toFloat)))
+            case FloatType  => None
+            case _ =>
+              throw new IllegalArgumentException(s"improper column type: $tp, need Array[Float]")
+          }
+            case VectorType => Some(udf((x: DenseVector) => x.toArray.map(_.toFloat)))
       }
+    }
 
-      val (df, selectedIndices, coercedCols) = (coersionOptionUDFs zip inputIndices).foldLeft(
-        (dataset.toDF, Array[Int](), Array[String]()))(
-          (workDFAndOutputIndsAndPreviouslyCoerced, optionUDFAndInputInd) => {
-            val (workDF,    outputInds, previouslyCoerced) = workDFAndOutputIndsAndPreviouslyCoerced
-            val (optionUDF, inputInd)                      = optionUDFAndInputInd
-            optionUDF match {
-              case Some(coersionUDF) => {
-                val coercedCol =
-                  DatasetExtensions.produceUnusedColumnName("coerced")(workDF.columns.toSet)
-                val coercedDF =
-                  workDF.withColumn(coercedCol, coersionUDF(col(workDF.columns(inputInd))))
-                (coercedDF, outputInds :+ workDF.columns.size, previouslyCoerced :+ coercedCol)
-              }
-              case None => (workDF, outputInds :+ inputIndices(outputInds.size), previouslyCoerced)
+    val inputColIndices = inputColNamesAndInds.map(_._2)
+    val (coercedDF, coercedIndices, coercedColNames) =
+      (coersionOptionUDFs zip inputColIndices).foldLeft((df, Array[Int](), Array[String]()))(
+        (workDFAndOutputIndsAndPreviouslyCoerced, optionUDFAndInputInd) => {
+
+          val (workDF,    outputInds, previouslyCoerced) = workDFAndOutputIndsAndPreviouslyCoerced
+          val (optionUDF, inputInd)                      = optionUDFAndInputInd
+
+          optionUDF match {
+            case Some(coersionUDF) => {
+              val coercedColName =
+                DatasetExtensions.produceUnusedColumnName("coerced")(workDF.columns.toSet)
+              val cDF = workDF.withColumn(coercedColName, coersionUDF(col(workDF.columns(inputInd))))
+              (cDF, outputInds :+ workDF.columns.size, previouslyCoerced :+ coercedColName)
             }
-          })
+            case None => (workDF, outputInds :+ inputColIndices(outputInds.size), previouslyCoerced)
+          }
+        })
 
-        setDefault(outputCols -> getModel.getOutputs.map(_.getName).toArray) // defaults to all CNTK model outputs
+    setDefault(outputCols -> getModel.getOutputs.map(_.getName).toArray) // defaults to all CNTK model outputs
 
-        val inputType           = df.schema($(inputCols).head).dataType
-        val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
-        val encoder = RowEncoder(transformSchema(df.schema))
-        val output = df.mapPartitions(
-          CNTKModelUtils.applyModel(selectedIndices,
-            broadcastedModel,
-            getMiniBatchSize,
-            getInputNodes,
-            outputNodes))(encoder)
-        if (setByName.isDefined && setByIndex.isDefined)
-          throw new Exception("Must specify neither or only one of outputNodeName or outputNodeIndices")
+    val inputType        = df.schema($(inputCols).head).dataType
+    val broadcastedModel = broadcastedModelOption.getOrElse(sc.broadcast(getModel))
+    val encoder = RowEncoder(transformSchema(coercedDF.schema))
+    val output = coercedDF.mapPartitions(
+      CNTKModelUtils.applyModel(coercedIndices,
+        broadcastedModel,
+        getMiniBatchSize,
+        getOutputNodeNames))(encoder)
+    //if (setByName.isDefined && setByIndex.isDefined)
+      //throw new Exception("Must specify neither or only one of outputNodeName or outputNodeIndices")
 
-        output.drop(coercedCols:_*)
+    output.drop(coercedColNames:_*)
   }
 
 }

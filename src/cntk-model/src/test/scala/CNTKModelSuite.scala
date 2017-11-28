@@ -33,7 +33,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
   }
 
   test("A CNTK model should be able to support setting the input and output node") {
-    val model = testModel().setInputNode(0)
+    val model = testModel()
     val data = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
     assert(result.select(outputCol).count() == 3)
@@ -54,14 +54,12 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
 
   test("throws useful exception when invalid node name is given") {
     val model = new CNTKModel()
-      .setInputCol(inputCol)
+      .setInputCol("nonexistant-node")
       .setOutputCol(outputCol)
-      .setOutputNodeNames(Array("nonexistant-node"))
       .setModelLocation(session, modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
-    val se = intercept[SparkException] { model.transform(data).collect() }
-    assert(se.getCause.isInstanceOf[IllegalArgumentException])
+    assertThrows[IllegalArgumentException] { model.transform(data).collect() }
   }
 
   test("A CNTK model should work on doubles") {
