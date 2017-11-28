@@ -21,3 +21,7 @@ class CNTKModel(_CNTKModel):
         jSpark = sparkSession._jsparkSession
         self._java_obj = self._java_obj.setModelLocation(jSpark, location)
         return self
+
+    def rebroadcastCNTKModel(self, sparkSession):
+        jSpark = sparkSession._jsparkSession
+        self._java_obj = self._java_obj.rebroadcastCNTKModel(jSpark)

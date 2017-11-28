@@ -9,8 +9,12 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.ml.{Pipeline, PipelineModel, PipelineStage}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Encoder, Row, SparkSession}
+
+import scala.collection.mutable
 
 class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
 

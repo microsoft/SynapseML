@@ -3,14 +3,22 @@
 
 package com.microsoft.ml.spark
 
+import java.io.ByteArrayInputStream
+
 import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.hadoop.fs.Path
+import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.{Configuration => HConf}
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.io.{IOUtils => HUtils}
+import org.apache.spark.SparkContext
 import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.opencv.core.{CvException, MatOfByte}
+import org.opencv.core.{CvException, Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
+import org.apache.spark.image.ConfUtils
 
 object ImageReader {
 
@@ -59,7 +67,22 @@ object ImageReader {
         Some(Row(filename, decoded.height, decoded.width, decoded.`type`, ocvBytes))
       case _ => None
     }
+  }
 
+  def encode(row: InternalRow, extension: String): Array[Byte] = {
+    val mat = new Mat(row.getInt(1),row.getInt(2),row.getInt(3))
+    mat.put(0, 0, row.getBinary(4))
+    val out = new MatOfByte()
+    Imgcodecs.imencode(extension, mat, out)
+    out.toArray
+  }
+
+  def encode(row: Row, extension: String): Array[Byte] = {
+    val mat = new Mat(row.getInt(1),row.getInt(2),row.getInt(3))
+    mat.put(0, 0, row.getAs[Array[Byte]](4))
+    val out = new MatOfByte()
+    Imgcodecs.imencode(extension, mat, out)
+    out.toArray
   }
 
   /** Read the directory of images from the local or remote source
@@ -95,6 +118,49 @@ object ImageReader {
       .option("subsample", sampleRatio)
       .option("seed", seed)
       .option("inspectZip",inspectZip).schema(ImageSchema.schema).load(p.toString)
+  }
+
+  def readFromPaths(df: DataFrame, pathCol:String, imageCol:String = "image"): DataFrame ={
+    val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
+    val encoder = RowEncoder(outputSchema)
+    val hconf = ConfUtils.getHConf(df)
+    df.mapPartitions { rows =>
+      ImageReader.OpenCVLoader
+      rows.map { row =>
+        val path = new Path(row.getAs[String](pathCol))
+        val fs = path.getFileSystem(hconf.value)
+        val is = fs.open(path)
+        val imageRow = ImageReader.decode(path.toString,IOUtils.toByteArray(is)).getOrElse(Row(None))
+        val ret = Row.merge(Seq(row, Row(imageRow)):_*)
+        ret
+      }
+    }(encoder)
+  }
+
+  def write(df: DataFrame,
+            basePath: String,
+            pathCol:String = "filenames",
+            imageCol:String = "image",
+            encoding: String=".png"):Unit ={
+
+    val hconf = ConfUtils.getHConf(df)
+    df.select(imageCol, pathCol).foreachPartition { rows =>
+      val fs = FileSystem.get(new Path(basePath).toUri, hconf.value)
+      ImageReader.OpenCVLoader
+      rows.foreach {row =>
+        val rowInternals = row.getStruct(0)
+        val bytes = ImageReader.encode(rowInternals, encoding)
+        val outputPath = new Path(basePath,row.getString(1))
+        val os = fs.create(outputPath)
+        val is = new ByteArrayInputStream(bytes)
+        try
+          os.write(IOUtils.toByteArray(is))
+        finally {
+          os.close()
+          is.close()
+        }
+      }
+    }
   }
 
 }

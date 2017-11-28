@@ -208,6 +208,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
+  def rebroadcastCNTKModel(spark: SparkSession): Unit = {
+    broadcastedModelOption = Some(spark.sparkContext.broadcast(getModel))
+  }
+
   /** Evaluate the model
     * @param dataset the dataset to featurize
     * @return featurized dataset
@@ -245,7 +249,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     }
 
     val inputType = df.schema($(inputCol)).dataType
-    val broadcastedModel = broadcastedModelOption.getOrElse(spark.sparkContext.broadcast(getModel))
+    if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
+    val broadcastedModel = broadcastedModelOption.get
     val encoder = RowEncoder(df.schema.add(StructField(getOutputCol, VectorType)))
     val output = df.mapPartitions(
       CNTKModelUtils.applyModel(selectedIndex,
