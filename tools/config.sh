@@ -97,7 +97,7 @@ INSTALLATIONS=(
   vers:   "cat version|<{ver}>"
   where:  "devel build"
 
-  CNTK ver: "2.2" dashver: "<{ver//./-}>"
+  CNTK ver: "2.3" dashver: "<{ver//./-}>"
   url:    "$INSTALLER_URL/CNTK-<{dashver}>-Linux-64bit-CPU-Only.tar.gz"
   sha256: "98236d98259d881d489a13ecf2d6bc5d45df773feddc2db1f302614b6cb02d64"
   exes:   "cntk"
