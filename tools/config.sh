@@ -99,10 +99,10 @@ INSTALLATIONS=(
 
   CNTK ver: "2.3" dashver: "<{ver//./-}>"
   url:    "$INSTALLER_URL/CNTK-<{dashver}>-Linux-64bit-CPU-Only.tar.gz"
-  sha256: "98236d98259d881d489a13ecf2d6bc5d45df773feddc2db1f302614b6cb02d64"
+  sha256: "fc3e4e304fc810e93b9a350a80a6872fdc64cd124fd49571bd1ff9297c212f40"
   exes:   "cntk"
   vers:   "cat version.txt|CNTK-<{dashver}>"
-  prereq: "has_libs libpng12.so.0 libjasper.so.4|libpng12 and libjasper1 are required"
+  prereq: "has_libs libpng12.so.0 libjasper.so.1|libpng12 and libjasper1 are required"
   bindir: "cntk/bin"
   where:  "devel build"
 
