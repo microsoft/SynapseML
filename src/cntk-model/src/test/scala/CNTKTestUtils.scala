@@ -18,6 +18,7 @@ trait CNTKTestUtils extends TestBase {
   val modelPath = s"$filesRoot/CNTKModel/ConvNet_CIFAR10.model"
   val inputCol  = "cntk_images"
   val outputCol = "out"
+  val outputCols = Array("ce", "errs", "top5Errs", "z")
   val labelCol  = "labels"
 
   val featureVectorLength = 3 * 32 * 32

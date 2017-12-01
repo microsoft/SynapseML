@@ -164,7 +164,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     // Remap and convert columns prior to training
     columns.foreach {
       col => if (columnsToFeaturize.contains(col)) {
-        val unusedColumnName = DatasetExtensions.findUnusedColumnName(col)(allIntermediateCols)
+        val unusedColumnName = DatasetExtensions.produceUnusedColumnName(col)(allIntermediateCols)
         allIntermediateCols += unusedColumnName
 
         // Find out if column is categorical
@@ -175,7 +175,8 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
         val categoricalInfo = new CategoricalColumnInfo(datasetAsDf, col)
         val isCategorical = categoricalInfo.isCategorical
         if (isCategorical) {
-          val oheColumnName = DatasetExtensions.findUnusedColumnName("TmpOHE_" + unusedColumnName)(allIntermediateCols)
+          val oheColumnName =
+            DatasetExtensions.produceUnusedColumnName("TmpOHE_" + unusedColumnName)(allIntermediateCols)
           columnNamesToFeaturize.categoricalColumns += unusedColumnName -> oheColumnName
         }
 

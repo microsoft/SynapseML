@@ -21,3 +21,17 @@ class CNTKModel(_CNTKModel):
         jSpark = sparkSession._jsparkSession
         self._java_obj = self._java_obj.setModelLocation(jSpark, location)
         return self
+
+    def setInputCol(self, value):
+        self._java_obj.setInputCol(value)
+        return self
+
+    def getInputCol(self):
+        return self._java_obj.getInputCol()
+
+    def setOutputCol(self, value):
+        self._java_obj.setOutputCol(value)
+        return self
+
+    def getOutputCol(self):
+        return self._java_obj.getOutputCol()

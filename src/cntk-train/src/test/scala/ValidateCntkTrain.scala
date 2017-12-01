@@ -279,7 +279,7 @@ TrainNetwork = {
     val model = learner.fit(dataset)
       .setInputCol(inputCol)
       .setOutputCol("out_labels")
-      .setOutputNodeIndex(3)
+      .setOutputNodeIndices(Array(3))
 
     val result = model.transform(dataset)
     result.take(1)

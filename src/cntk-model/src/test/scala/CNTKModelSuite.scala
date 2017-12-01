@@ -22,7 +22,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setMiniBatchSize(minibatchSize)
-      .setOutputNodeIndex(3)
+      .setOutputNodeIndices(Array(3))
   }
   val images = testImages(session)
 
@@ -33,7 +33,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
   }
 
   test("A CNTK model should be able to support setting the input and output node") {
-    val model = testModel().setInputNode(0)
+    val model = testModel()
     val data = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
     assert(result.select(outputCol).count() == 3)
@@ -44,7 +44,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
       .setModelLocation(session, modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setOutputNodeName("z")
+      .setOutputNodeNames(Array("z"))
 
     val data   = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
@@ -54,14 +54,12 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
 
   test("throws useful exception when invalid node name is given") {
     val model = new CNTKModel()
-      .setInputCol(inputCol)
+      .setInputCol("nonexistant-node")
       .setOutputCol(outputCol)
-      .setOutputNodeName("nonexistant-node")
       .setModelLocation(session, modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
-    val se = intercept[SparkException] { model.transform(data).collect() }
-    assert(se.getCause.isInstanceOf[IllegalArgumentException])
+    assertThrows[IllegalArgumentException] { model.transform(data).collect() }
   }
 
   test("A CNTK model should work on doubles") {
@@ -141,12 +139,25 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     }
   }
 
+  test("supports multi in and multi out") {
+    val model  = new CNTKModel().setModelLocation(session, modelPath)
+                                .setInputCols(Array(inputCol, labelCol))
+    model.write.overwrite().save(saveFile)
+    val modelLoaded = CNTKModel.load(saveFile)
+    import images.sparkSession.implicits._
+    val oneHotEncodedLabels = Seq(1.0 +: Array.fill(9)(0.0)).toDF(labelCol)
+    val dfWithLabels = images.crossJoin(oneHotEncodedLabels)
+    val result = modelLoaded.transform(dfWithLabels)
+    outputCols.foreach(colName => assert(result.columns.contains(colName)))
+  }
+
   val dfRoundTrip: DataFrame = images
   val reader: MLReadable[_] = CNTKModel
   val modelReader: MLReadable[_] = CNTKModel
   val stageRoundTrip: PipelineStage with MLWritable = testModel()
 
-  test(" should roundtrip"){
+  test(" should roundtrip") {
     testRoundTrip()
   }
+
 }
