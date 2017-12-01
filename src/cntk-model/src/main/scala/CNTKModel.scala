@@ -143,8 +143,7 @@ object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 @InternalWrapper
 class CNTKModel(override val uid: String) extends Model[CNTKModel]
-with HasInputCol  with HasInputCols
-with HasOutputCol with HasOutputCols
+with HasInputCols with HasOutputCols
 with ComplexParamsWritable with Wrappable {
 
   def this() = this(Identifiable.randomUID("CNTKModel"))
@@ -213,19 +212,19 @@ with ComplexParamsWritable with Wrappable {
   setDefault(miniBatchSize -> 10)
 
   /** @group setParam */
-  override def setOutputCol(value: String): this.type = super.setOutputCols(Array(value))
+  def setOutputCol(value: String): this.type = setOutputCols(Array(value))
 
   /** @group getParam */
-  override def getOutputCol: String = {
+  def getOutputCol: String = {
     if (getOutputCols.length == 1) getOutputCols.head
     else throw new Exception("Must have one and only one outputCol set in order to getOutputCol")
   }
 
   /** @group setParam */
-  override def setInputCol(value: String): this.type = super.setInputCols(Array(value))
+  def setInputCol(value: String): this.type = setInputCols(Array(value))
 
   /** @group getParam */
-  override def getInputCol: String = {
+  def getInputCol: String = {
     if (getInputCols.length == 1) getInputCols.head
     else throw new Exception("Must have one and only one inputCol set in order to getInputCol")
   }
