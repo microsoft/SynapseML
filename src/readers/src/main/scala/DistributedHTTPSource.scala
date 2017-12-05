@@ -154,9 +154,10 @@ class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) e
   }
 
   private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
-    request.sendResponseHeaders(code, response.length.toLong)
+    val bytes = response.getBytes("UTF-8")
+    request.sendResponseHeaders(code, bytes.length.toLong)
     using(request.getResponseBody) { os =>
-      os.write(response.getBytes)
+      os.write(bytes)
       os.flush()
     }.get
     request.close()
@@ -223,7 +224,7 @@ class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) e
   @GuardedBy("this")
   private val server = tryCreateServer(host, port, maxAttempts)
   server.createContext(s"/$name", new RequestHandler)
-  server.setExecutor(Executors.newFixedThreadPool(20))
+  server.setExecutor(Executors.newFixedThreadPool(100))
   server.start()
 
   val address: ID = server.getAddress.toString
@@ -241,6 +242,7 @@ class DistributedHTTPSource(name: String,
                             host: String,
                             port: Int,
                             maxPortAttempts: Int,
+                            maxPartitions: Option[Int],
                             sqlContext: SQLContext)
   extends Source with Logging with Serializable {
 
@@ -255,7 +257,9 @@ class DistributedHTTPSource(name: String,
   // TODO allow for dynamic allocation
   private[spark] val serverInfoDF: DataFrame = {
     val enc = RowEncoder(new StructType().add("ip", StringType).add("id", StringType))
-    val serverInfo = sqlContext.sparkContext.parallelize(Seq(Tuple1("placeholder")))
+    val serverInfo = sqlContext.sparkContext
+      .parallelize(Seq(Tuple1("placeholder")),
+        maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
       .toDF("plcaholder")
       .mapPartitions { _ =>
         val s = server.get
@@ -355,8 +359,10 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     val host = parameters("host")
     val port = parameters("port").toInt
     val name = parameters("name")
+    val maxPartitions = parameters.get("maxPartitions").map(_.toInt)
     val maxAttempts = parameters.getOrElse("maxPortAttempts", "10").toInt
-    val source = new DistributedHTTPSource(name, host, port, maxAttempts, sqlContext)
+    val source = new DistributedHTTPSource(
+      name, host, port, maxAttempts, maxPartitions, sqlContext)
     DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)
     source
   }

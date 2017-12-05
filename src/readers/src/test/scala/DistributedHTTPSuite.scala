@@ -4,11 +4,13 @@
 package com.microsoft.ml.spark
 
 import java.util.UUID
+import java.util.concurrent.{Executors, TimeUnit}
 
 import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.functions.{col, length}
@@ -17,17 +19,22 @@ import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.parsing.json.JSONObject
 
 //TODO add tests for shuffles
 class DistributedHTTPSuite extends TestBase with FileReaderUtils {
 
+  Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.DEBUG)
+  Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.DEBUG)
+
   def createServer(): DataStreamWriter[Row] = {
+    println(classOf[DistributedHTTPSourceProvider].getName)
     session.readStream.format(classOf[DistributedHTTPSourceProvider].getName)
       .option("host", "localhost")
       .option("port", 8889)
       .option("name", "foo")
+      .option("maxPartitions",5)
       .load()
       .withColumn("newCol", length(col("value")))
       .writeStream
@@ -35,7 +42,8 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
       .option("name", "foo")
       .queryName("foo")
       .option("replyCol", "newCol")
-      .option("checkpointLocation", new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
   }
 
   def waitForServer(server: StreamingQuery, checkEvery: Int = 100, maxTimeWaited: Int = 10000): Unit = {
@@ -74,14 +82,46 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
 
     assert(responses === correctResponses)
 
+    (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here"), 8889))
+      .foreach(resp => assert(resp === "{\"newCol\":27}"))
+
     server.stop()
     client.close()
+  }
+
+  test("spark client", TestBase.Extended) {
+    val server = createServer().start()
+
+    def sendRequest(client: CloseableHttpClient, map: Map[String, Any], port: Int): String = {
+      val post = new HttpPost(s"http://localhost:$port/foo")
+      val params = new StringEntity(JSONObject(map).toString())
+      post.addHeader("content-type", "application/json")
+      post.setEntity(params)
+      val res = client.execute(post)
+      val out = new BasicResponseHandler().handleResponse(res)
+      res.close()
+      out
+    }
+
+    waitForServer(server)
+    //TODO investigate why this hangs with 8 partitions
+    val rdd = sc.parallelize(1 to 80, 5).mapPartitions{it =>
+      val client = HttpClientBuilder.create().build()
+      val res = it.toList.map(row =>
+        sendRequest(client, Map("foo" -> 1, "bar" -> "here"), 8889))
+      client.close()
+      res.toIterator
+    }
+    val responses = rdd.collect()
+    println(responses.toList)
+    server.stop()
   }
 
   test("async client", TestBase.Extended) {
     val server = createServer().start()
     val client = HttpClientBuilder.create().build()
-    implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+
+    implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(30))
 
     def sendRequest(map: Map[String, Any], port: Int): Future[String] = {
       Future {
@@ -106,10 +146,15 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
     )
 
     val responses = futures.map(f => Await.result(f, Duration.Inf))
-    //.map(_.get().getResponseBody)
     val correctResponses = List(27, 28, 29, 30).map(n => "{\"newCol\":" + n + "}")
 
     assert(responses === correctResponses)
+
+    (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here"), 8889))
+      .foreach{f =>
+        val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+        assert(resp === "{\"newCol\":27}")
+      }
 
     server.stop()
     client.close()
