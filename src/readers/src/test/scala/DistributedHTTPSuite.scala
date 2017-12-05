@@ -25,6 +25,9 @@ import scala.util.parsing.json.JSONObject
 //TODO add tests for shuffles
 class DistributedHTTPSuite extends TestBase with FileReaderUtils {
 
+  println(classOf[DistributedHTTPSource])
+  println(classOf[JVMSharedServer])
+
   Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.DEBUG)
   Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.DEBUG)
 
@@ -121,7 +124,7 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
     val server = createServer().start()
     val client = HttpClientBuilder.create().build()
 
-    implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(30))
+    implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
     def sendRequest(map: Map[String, Any], port: Int): Future[String] = {
       Future {
@@ -191,5 +194,11 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
       val states2: Array[Row] = df2.collect()
       assert(states2.forall(_.getInt(0) === states2.length))
     }
+  }
+
+  test("ip"){
+    import java.net.InetAddress
+    val ip = InetAddress.getLocalHost
+
   }
 }

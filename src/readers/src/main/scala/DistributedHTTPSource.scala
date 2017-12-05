@@ -94,7 +94,9 @@ class MultiChannelMap[K, V](var nLists: Int) {
 
 }
 
-class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) extends Logging {
+class JVMSharedServer(name: String, host: String,
+                      port: Int, maxAttempts: Int,
+                      handleResponseErrors: Boolean) extends Logging {
 
   type Body = String
   type Exchange = HttpExchange
@@ -153,15 +155,32 @@ class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) e
     logDebug(s"trimming ${(start to batch).toList} on $address")
   }
 
-  private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
+  private def responseHelper(request: HttpExchange, code: Int, response: String): Unit = synchronized {
     val bytes = response.getBytes("UTF-8")
-    request.sendResponseHeaders(code, bytes.length.toLong)
-    using(request.getResponseBody) { os =>
-      os.write(bytes)
-      os.flush()
-    }.get
-    request.close()
+    request.synchronized {
+      request.sendResponseHeaders(code, bytes.length.toLong)
+      using(request.getResponseBody){os =>
+        os.write(bytes)
+        os.flush()
+      }
+      request.close()
+    }
     requestsAnswered += 1
+  }
+
+  private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
+    logDebug(s"responding $response batch: $currentBatch ip: $address")
+    if (handleResponseErrors) {
+      try {
+        responseHelper(request, code, response)
+      } catch {
+        case e: Exception =>
+          logError(s"ERROR on server $address: " + e.getMessage)
+          logError("TRACEBACK: " + e.getStackTrace.mkString("\n"))
+      }
+    } else {
+      responseHelper(request, code, response)
+    }
     logDebug(s"responding $response batch: $currentBatch ip: $address")
     ()
   }
@@ -214,7 +233,7 @@ class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) e
         " try increasing the number of ports to try")
     }
     try {
-      HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 0)
+      HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
     } catch {
       case _: java.net.BindException =>
         tryCreateServer(host, startingPort + 1, triesLeft - 1)
@@ -227,7 +246,7 @@ class JVMSharedServer(name: String, host: String, port: Int, maxAttempts: Int) e
   server.setExecutor(Executors.newFixedThreadPool(100))
   server.start()
 
-  val address: ID = server.getAddress.toString
+  val address: String = InetAddress.getLocalHost.toString
 
   def stop(): Unit = synchronized {
     server.stop(0)
@@ -243,13 +262,14 @@ class DistributedHTTPSource(name: String,
                             port: Int,
                             maxPortAttempts: Int,
                             maxPartitions: Option[Int],
+                            handleResponseErrors: Boolean,
                             sqlContext: SQLContext)
   extends Source with Logging with Serializable {
 
   import sqlContext.implicits._
 
   private[spark] val server = SharedSingleton {
-    new JVMSharedServer(name, host, port, maxPortAttempts)
+    new JVMSharedServer(name, host, port, maxPortAttempts, handleResponseErrors)
   }
 
   // Access point to run code on nodes through mapPartitions
@@ -361,8 +381,9 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     val name = parameters("name")
     val maxPartitions = parameters.get("maxPartitions").map(_.toInt)
     val maxAttempts = parameters.getOrElse("maxPortAttempts", "10").toInt
+    val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "true").toBoolean
     val source = new DistributedHTTPSource(
-      name, host, port, maxAttempts, maxPartitions, sqlContext)
+      name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
     DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)
     source
   }
