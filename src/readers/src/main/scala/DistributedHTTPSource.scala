@@ -158,7 +158,8 @@ class JVMSharedServer(name: String, host: String,
   private def responseHelper(request: HttpExchange, code: Int, response: String): Unit = synchronized {
     val bytes = response.getBytes("UTF-8")
     request.synchronized {
-      request.sendResponseHeaders(code, bytes.length.toLong)
+      request.getResponseHeaders.add("Content-Type", "application/json")
+      request.sendResponseHeaders(code, 0)
       using(request.getResponseBody){os =>
         os.write(bytes)
         os.flush()
@@ -381,7 +382,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     val name = parameters("name")
     val maxPartitions = parameters.get("maxPartitions").map(_.toInt)
     val maxAttempts = parameters.getOrElse("maxPortAttempts", "10").toInt
-    val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "true").toBoolean
+    val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "false").toBoolean
     val source = new DistributedHTTPSource(
       name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
     DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)

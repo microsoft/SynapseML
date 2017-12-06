@@ -7,6 +7,7 @@ import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.microsoft.ml.spark.FileUtilities.File
+import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
@@ -117,6 +118,60 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
     }
     val responses = rdd.collect()
     println(responses.toList)
+    server.stop()
+  }
+
+  test("python client", TestBase.Extended) {
+    val server = createServer().start()
+
+    waitForServer(server)
+
+    val pythonClientCode =
+      """
+        |import requests
+        |import threading
+        |import time
+        |
+        |exitFlag = 0
+        |s = requests.Session()
+        |
+        |class myThread(threading.Thread):
+        |    def __init__(self, threadID):
+        |        threading.Thread.__init__(self)
+        |        self.threadID = threadID
+        |
+        |    def run(self):
+        |        print("Starting " + str(self.threadID))
+        |        r = s.post("http://localhost:8889/foo",
+        |                          data={'number': 12524, 'type': 'issue', 'action': 'show'},
+        |                          headers = {"content-type": "application/json"},
+        |                          timeout=5)
+        |
+        |        assert r.status_code==200
+        |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
+        |
+        |
+        |threads = []
+        |for i in range(100):
+        |    # Create new threads
+        |    t = myThread(i)
+        |    t.start()
+        |    threads.append(t)
+        |
+        |
+      """.stripMargin
+
+    val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
+    FileUtilities.writeFile(pythonFile, pythonClientCode)
+
+    val p = Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
+    p.waitFor
+
+    val output = IOUtils.toString(p.getInputStream)
+    val error = IOUtils.toString(p.getErrorStream)
+
+    assert(error === "")
+
     server.stop()
   }
 
