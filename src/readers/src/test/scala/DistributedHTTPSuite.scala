@@ -152,7 +152,7 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
         |
         |
         |threads = []
-        |for i in range(100):
+        |for i in range(4):
         |    # Create new threads
         |    t = myThread(i)
         |    t.start()
@@ -164,13 +164,16 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
     val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
     FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-    val p = Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
-    p.waitFor
+    val processes = (1 to 50).map(i =>
+      Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
+    )
 
-    val output = IOUtils.toString(p.getInputStream)
-    val error = IOUtils.toString(p.getErrorStream)
-
-    assert(error === "")
+    processes.foreach {p =>
+      p.waitFor
+      val output = IOUtils.toString(p.getInputStream)
+      val error = IOUtils.toString(p.getErrorStream)
+      assert(error === "")
+    }
 
     server.stop()
   }
@@ -251,9 +254,4 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
     }
   }
 
-  test("ip"){
-    import java.net.InetAddress
-    val ip = InetAddress.getLocalHost
-
-  }
 }

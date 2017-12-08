@@ -7,8 +7,9 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.Executors
 import javax.annotation.concurrent.GuardedBy
-import com.microsoft.ml.spark.SharedSingleton
+
 import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.{AzureLoadBalancer, SharedSingleton}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
@@ -18,6 +19,7 @@ import org.apache.spark.sql.functions.{col, struct, to_json}
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
+
 import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
 
@@ -228,13 +230,14 @@ class JVMSharedServer(name: String, host: String,
 
   }
 
-  private def tryCreateServer(host: String, startingPort: Int, triesLeft: Int): HttpServer = {
+  private def tryCreateServer(host: String, startingPort: Int, triesLeft: Int): (HttpServer, Int) = {
     if (triesLeft == 0) {
       throw new java.net.BindException("Could not find open ports in the range," +
         " try increasing the number of ports to try")
     }
     try {
-      HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
+      val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
+      return (server, startingPort)
     } catch {
       case _: java.net.BindException =>
         tryCreateServer(host, startingPort + 1, triesLeft - 1)
@@ -242,12 +245,13 @@ class JVMSharedServer(name: String, host: String,
   }
 
   @GuardedBy("this")
-  private val server = tryCreateServer(host, port, maxAttempts)
+  private val (server, serverPort) = tryCreateServer(host, port, maxAttempts)
   server.createContext(s"/$name", new RequestHandler)
   server.setExecutor(Executors.newFixedThreadPool(100))
   server.start()
 
-  val address: String = InetAddress.getLocalHost.toString
+  val address: String = server.getAddress.getHostString + ":" + serverPort
+  val machine: String = InetAddress.getLocalHost.toString
 
   def stop(): Unit = synchronized {
     server.stop(0)
@@ -277,14 +281,17 @@ class DistributedHTTPSource(name: String,
   // TODO do this by hooking deeper into spark,
   // TODO allow for dynamic allocation
   private[spark] val serverInfoDF: DataFrame = {
-    val enc = RowEncoder(new StructType().add("ip", StringType).add("id", StringType))
+    val enc = RowEncoder(new StructType()
+      .add("machine", StringType)
+      .add("ip", StringType)
+      .add("id", StringType))
     val serverInfo = sqlContext.sparkContext
       .parallelize(Seq(Tuple1("placeholder")),
         maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
       .toDF("plcaholder")
       .mapPartitions { _ =>
         val s = server.get
-        Iterator(Row(s.address, s.serverIdentity))
+        Iterator(Row(s.machine, s.address, s.serverIdentity))
       }(enc).cache()
 
     val serverToNumPartitions = serverInfo
@@ -295,8 +302,10 @@ class DistributedHTTPSource(name: String,
     }(enc).cache()
     serverInfoConfigured.collect() // materialize to trigger setup
 
-    logInfo("Got or Created services at the following adresses: "
-      + serverInfoConfigured.collect().toList.mkString(", "))
+    logInfo("Got or Created services: "
+      + serverInfoConfigured.collect().map{r =>
+        s"machine: ${r.getString(0)}, address: ${r.getString(1)}, guid: ${r.getString(2)}"
+      }.toList.mkString(", "))
     serverInfoConfigured
   }
 
@@ -386,10 +395,15 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     val source = new DistributedHTTPSource(
       name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
     DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)
+
+    parameters.get("deployLoadBalancer") match {
+      case Some(s) if s.toBoolean => AzureLoadBalancer.deployFromParameters(parameters)
+      case _ =>
+    }
     source
   }
 
-  /** String that represents the format that this data source provider uses. */
+   /** String that represents the format that this data source provider uses. */
   override def shortName(): String = "DistributedHTTP"
 }
 
