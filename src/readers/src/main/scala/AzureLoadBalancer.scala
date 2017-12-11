@@ -66,8 +66,13 @@ class AzureLoadBalancer(
     val lbName = lbNameOption.getOrElse(s"LB-$resourceSuffix")
     val ruleName = s"rule-$resourceSuffix"
 
+    //val thisCluster = azure.genericResources().list().asScala.filter(r =>
+    //  r.name()=="marhamilTest" && r.resourceProviderNamespace()=="Microsoft.HDInsight").head
+    //println(thisCluster)
+
     try {
-      val lb: LoadBalancer = getResource(azure.loadBalancers(), lbName).getOrElse(
+      val lbOpt = getResource(azure.loadBalancers(), lbName)
+      val lb = lbOpt.getOrElse(
         throw new NoResourceError("No Load Balancer Found"))
       assert(lb.backends().containsKey(backendName))
 

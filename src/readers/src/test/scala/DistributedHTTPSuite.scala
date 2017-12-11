@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
 import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.commons.io.IOUtils
@@ -50,13 +50,17 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
   }
 
-  def waitForServer(server: StreamingQuery, checkEvery: Int = 100, maxTimeWaited: Int = 10000): Unit = {
+  def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 10000, checkEvery: Int = 100): Unit = {
     var waited = 0
     while (waited < maxTimeWaited) {
+      if (!server.isActive) {
+        throw server.exception.get
+      }
       if (server.recentProgress.length > 0) return
       Thread.sleep(checkEvery.toLong)
       waited += checkEvery
     }
+    throw new TimeoutException(s"Server Did not start within $maxTimeWaited ms")
   }
 
   test("standard client", TestBase.Extended) {
@@ -252,6 +256,11 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
       val states2: Array[Row] = df2.collect()
       assert(states2.forall(_.getInt(0) === states2.length))
     }
+  }
+
+  test("foo"){
+    val v = new com.fasterxml.jackson.core.JsonFactory().version()
+    println(v)
   }
 
 }

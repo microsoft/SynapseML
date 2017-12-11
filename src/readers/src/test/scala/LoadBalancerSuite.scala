@@ -3,9 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import java.util.UUID
+
 import com.microsoft.azure.credentials.AzureCliCredentials
 import com.microsoft.azure.management.Azure
-
+import com.microsoft.ml.spark.FileUtilities.File
+import org.apache.spark.sql.functions.{length, col}
 class LoadBalancerSuite extends TestBase with FileReaderUtils {
 
   test("Creation of a load balancer", TestBase.Extended) {
@@ -23,6 +26,11 @@ class LoadBalancerSuite extends TestBase with FileReaderUtils {
       8889,
       "servingTest"
     )
+  }
+
+  override def afterAll(): Unit = {
+
+    super.afterAll()
   }
 
 }

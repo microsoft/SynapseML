@@ -5,9 +5,9 @@ import sbt._
 import Keys._
 
 import sys.process.Process
-
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
+import sbtassembly.{MergeStrategy, ShadeRule}
 import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
 
@@ -44,8 +44,8 @@ object Extras {
     )
   def overrideLibs = Seq(
     // spark wants 2.2.6, but we don't use its tests anyway
-    "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
-    )
+    "org.scalatest" %% "scalatest" % "3.0.0" % "provided",
+  )
 
   def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts"))
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))
@@ -146,7 +146,11 @@ object Extras {
     // For convenience, import the main package in a scala console
     initialCommands in (ThisBuild, console) := "import com.microsoft.ml.spark._",
     // Use the above commands
-    commands in ThisBuild ++= newCommands
+    commands in ThisBuild ++= newCommands,
+    assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("com.fasterxml.**" -> "shaded.com.fasterxml.@1")
+        .inLibrary("com.microsoft.azure" % "azure" % "1.4.0")
+    )
     ) ++ testOpts
 
   def rootSettings =
@@ -179,7 +183,12 @@ object Extras {
       // Don't include things we depend on (we leave the dependency in the POM)
       assemblyOption in assembly :=
         (assemblyOption in assembly).value.copy(
-          includeScala = false, includeDependency = false),
+          includeScala = false, includeDependency = true),
+
+      assemblyMergeStrategy in assembly := {
+        case _ => MergeStrategy.deduplicate
+      },
+      
       pomPostProcess := { n: scala.xml.Node =>
         import scala.xml._, scala.xml.transform._
         new RuleTransformer(new RewriteRule {
