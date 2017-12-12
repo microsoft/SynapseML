@@ -36,10 +36,10 @@ object BinaryFileReader {
   def read(path: String, recursive: Boolean, spark: SparkSession,
            sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame = {
     val p = new Path(path)
-    val globs = if (recursive){
+    val globs = if (recursive) {
       recursePath(p.getFileSystem(spark.sparkContext.hadoopConfiguration), p, {fs => fs.isDirectory})
         .map(g => g) ++ Array(p)
-    }else{
+    } else {
       Array(p)
     }
     spark.read.format(classOf[BinaryFileFormat].getName)

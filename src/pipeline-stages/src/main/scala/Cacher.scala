@@ -21,9 +21,9 @@ class Cacher(val uid: String) extends Transformer with DefaultParamsWritable {
   setDefault(disable->false)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    if (!getDisable){
+    if (!getDisable) {
       dataset.toDF.cache()
-    }else{
+    } else {
       dataset.toDF
     }
   }

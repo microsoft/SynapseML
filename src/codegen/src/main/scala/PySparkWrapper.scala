@@ -221,7 +221,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
                                                + paramParent.length)
       else {
-        try{
+        try {
           entryPoint.getParam(param.name).w(paramDefault)
         } catch {
           case e: Exception =>

@@ -30,8 +30,8 @@ trait FileReaderUtils {
   }
 
   def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
-    for ((t, i) <- times.zipWithIndex){
-      try{
+    for ((t, i) <- times.zipWithIndex) {
+      try {
         return block()
       } catch {
         case _: Exception if (i + 1) < times.length =>
@@ -89,7 +89,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
     }
   }
 
-  test("binary files should allow recursion"){
+  test("binary files should allow recursion") {
     val df = session
       .read
       .format(classOf[BinaryFileFormat].getName)
@@ -98,7 +98,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
     df.printSchema()
   }
 
-  test("static load with new reader"){
+  test("static load with new reader") {
     val df = session
       .read
       .format(classOf[BinaryFileFormat].getName)
@@ -107,7 +107,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
     assert(df.count()==3)
   }
 
-  test("structured streaming with binary files"){
+  test("structured streaming with binary files") {
     val imageDF = session
       .readStream
       .format(classOf[BinaryFileFormat].getName)
@@ -119,10 +119,10 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
       .queryName("images")
       .start()
 
-   tryWithRetries(){ () =>
-     val df = session.sql("select * from images")
-     assert(df.count() == 6)
-   }
+    tryWithRetries(){ () =>
+      val df = session.sql("select * from images")
+      assert(df.count() == 6)
+    }
     q1.stop()
   }
 

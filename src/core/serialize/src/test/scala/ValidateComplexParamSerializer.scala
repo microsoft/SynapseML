@@ -59,7 +59,7 @@ class ValidateComplexParamSerializer extends TestBase {
 
   session
 
-  test("Complex Param serialization should work on all complex, all normal, or mixed"){
+  test("Complex Param serialization should work on all complex, all normal, or mixed") {
     val bytes ="foo".toCharArray.map(_.toByte)
     val s = "foo"
 
@@ -80,7 +80,7 @@ class ValidateComplexParamSerializer extends TestBase {
     assert(mpt1.getStringParam === mpt2.getStringParam)
   }
 
-  test("Complex Param serialization should yield portable models"){
+  test("Complex Param serialization should yield portable models") {
     val bytes ="foo".toCharArray.map(_.toByte)
     val s = "foo"
 

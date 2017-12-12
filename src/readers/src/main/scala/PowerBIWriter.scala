@@ -37,15 +37,15 @@ object PowerBIWriter {
         Thread.sleep((1 + waitTime.toLong) * 1000)
         sendJsonStrings(jsonStrings, url)
         return
-      }else if (code == 503){
+      } else if (code == 503) {
         logger.warn(s"503 response code, retrying")
         var retryNum = 0
         val waitTimes = List(1L, 2L, 4L)
-        while (retryNum < 2){
+        while (retryNum < 2) {
           Thread.sleep(waitTimes(retryNum) * 1000)
           val response = client.execute(post)
           if (response.getStatusLine.getStatusCode == 200) return
-          retryNum+=1
+          retryNum += 1
         }
       }
       assert(response.getStatusLine.getStatusCode == 200, response.toString)
