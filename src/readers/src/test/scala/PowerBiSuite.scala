@@ -7,7 +7,7 @@ import org.apache.spark.sql.functions.current_timestamp
 
 class PowerBiSuite extends TestBase with FileReaderUtils {
 
-  val url = sys.env("POWERBI_URL")
+  lazy val url = sys.env("MML_POWERBI_URL")
   val df = session
     .createDataFrame(Seq(
       (Some(0), "a"),
@@ -19,11 +19,11 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
     .withColumn("baz", current_timestamp())
   val bigdf = (1 to 5).foldRight(df){case (_, ldf) => ldf.union(df)}.repartition(2)
 
-  test("write to powerBi", TestBase.Extended) {
+  test("write to powerBi", TestBase.BuildServer) {
     PowerBIWriter.write(df, url)
   }
 
-  test("stream to powerBi", TestBase.Extended) {
+  test("stream to powerBi", TestBase.BuildServer) {
     bigdf.write.parquet(tmpDir + "powerBI.parquet")
     val sdf = session.readStream.schema(df.schema).parquet(tmpDir + "powerBI.parquet")
     val q1 = PowerBIWriter.stream(sdf, url, 0).start()

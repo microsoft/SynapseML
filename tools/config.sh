@@ -124,9 +124,9 @@ INSTALLATIONS=(
 # behave as you'd expect, but they can have additional benefits (e.g., `none`
 # will avoid even compiling the tests); avoid using them with other tags.  The
 # default is `+scala,-extended` for local builds, and `all` for server builds.
-# The value is normalized to hold comma-separated `+tag` or `-tag`, except for a
-# single `all`/`none` which don't get a sign prefix.  $PUBLISH similarly holds
-# the specification of things to publish.
+# The value is normalized to hold comma-separated `+tag` or `-tag`, except for
+# a single `all`/`none` which don't get a sign prefix.  $PUBLISH similarly
+# holds the specification of things to publish.
 defvar -x TESTS   ""
 defvar -x PUBLISH ""
 if [[ -z "$TESTS" ]]; then
@@ -138,6 +138,7 @@ fi
 # Tag definitions for $TESTS
 deftag scala
 deftag extended
+  deftag buildserver extended
   deftag python extended
   deftag e2e extended
 deftag linuxonly
