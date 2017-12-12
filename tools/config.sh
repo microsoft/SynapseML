@@ -69,9 +69,9 @@ INSTALLATIONS=(
   vers:   "java -version|openjdk version \"<{ver}>_*\""
   where:  "devel runtime build"
 
-  SBT ver: "1.0.0"
+  SBT ver: "1.0.4"
   url:    "https://github.com/sbt/sbt/releases/download/v<{ver}>/sbt-<{ver}>.tgz"
-  sha256: "9ae04f4972145f2ac56c4deb868c9a5bb8b8b85c5151885dff3b997712645c5a"
+  sha256: "813776f81b1dfa990fba11cd6d0120df3467bee00742b115f282a0e8e254e23f"
   exes:   "sbt"
   vers:   "sbt -no-colors sbtVersion|?info? <{ver}>"
   where:  "devel build"
