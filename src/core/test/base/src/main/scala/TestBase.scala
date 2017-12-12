@@ -22,8 +22,13 @@ import scala.reflect.ClassTag
 // Common test tags
 object TestBase {
 
+  // Long, network, etc -- not running by default in local runs
   object Extended extends Tag("com.microsoft.ml.spark.test.tags.extended")
 
+  // Depends on build environment (specifically, logged in through the az cli)
+  object BuildServer extends Tag("com.microsoft.ml.spark.test.tags.buildserver")
+
+  // Run only on Linux
   object LinuxOnly extends Tag("com.microsoft.ml.spark.test.tags.linuxonly")
 
 }
