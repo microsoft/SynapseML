@@ -35,7 +35,7 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTe
     compareToTestModel(result)
   }
 
-  test("structured streaming"){
+  test("structured streaming") {
 
     val model = new ImageFeaturizer()
       .setInputCol("image")

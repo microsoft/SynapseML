@@ -23,7 +23,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     println(s"   area of image 1 ${areas.take(1)(0)}")
   }
 
-  test("read images with subsample"){
+  test("read images with subsample") {
     val imageDF = session
       .read
       .format(classOf[ImageFileFormat].getName)
@@ -32,7 +32,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     assert(imageDF.count() == 3)
   }
 
-  object UDFs extends Serializable{
+  object UDFs extends Serializable {
     val cifarDirectoryVal = cifarDirectory
     val rename = udf({x:String=>x.split("/").last}, StringType)
   }
@@ -42,7 +42,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     these ++ these.filter(_.isDirectory).flatMap(recursiveListFiles)
   }
 
-  test("read images from files"){
+  test("read images from files") {
     val files = recursiveListFiles(new File(cifarDirectory)).toSeq.map(f => Tuple1("file://" + f.toString))
     val df = session
       .createDataFrame(files)
@@ -51,7 +51,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     assert(imageDF.select("image.bytes").collect().map(_.getAs[Array[Byte]](0)).length == 6)
   }
 
-  test("write images with subsample"){
+  test("write images with subsample") {
     val imageDF = session
       .read
       .format(classOf[ImageFileFormat].getName)
@@ -72,7 +72,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     assert(ImageSchema.isImage(newImageDf,"image"))
   }
 
-  test("write images with subsample function 2"){
+  test("write images with subsample function 2") {
     val imageDF = session
       .read
       .format(classOf[ImageFileFormat].getName)
@@ -93,7 +93,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     assert(ImageSchema.isImage(newImageDf,"image"))
   }
 
-  test("structured streaming with images"){
+  test("structured streaming with images") {
     val schema = ImageSchema.schema
     val imageDF = session
       .readStream

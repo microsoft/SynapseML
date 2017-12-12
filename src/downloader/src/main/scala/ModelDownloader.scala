@@ -82,9 +82,9 @@ private[spark] class HDFSRepo[S <: Schema](val uri: URI, val hconf: HadoopConf)
       os.close()
     }
     val downloadedIs = fs.open(path)
-    try{
+    try {
       schema.assertMatchingHash(downloadedIs)
-    }finally{
+    } finally {
       downloadedIs.close()
     }
 

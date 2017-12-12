@@ -24,5 +24,5 @@ def writeToPowerBI(df, url):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.ml.spark.PowerBIWriter
     writer.write(df._jdf, url)
-setattr(pyspark.sql.DataFrame, 'writeToPowerBI', writeToPowerBI)
 
+setattr(pyspark.sql.DataFrame, 'writeToPowerBI', writeToPowerBI)
