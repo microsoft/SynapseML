@@ -183,12 +183,8 @@ object Extras {
       // Don't include things we depend on (we leave the dependency in the POM)
       assemblyOption in assembly :=
         (assemblyOption in assembly).value.copy(
-          includeScala = false, includeDependency = true),
+          includeScala = false, includeDependency = false),
 
-      assemblyMergeStrategy in assembly := {
-        case _ => MergeStrategy.deduplicate
-      },
-      
       pomPostProcess := { n: scala.xml.Node =>
         import scala.xml._, scala.xml.transform._
         new RuleTransformer(new RewriteRule {

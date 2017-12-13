@@ -29,8 +29,9 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
   println(classOf[DistributedHTTPSource])
   println(classOf[JVMSharedServer])
 
-  Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.DEBUG)
-  Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.DEBUG)
+  //Logger.getRootLogger.setLevel(Level.WARN)
+  //Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
+  //Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
 
   def createServer(): DataStreamWriter[Row] = {
     println(classOf[DistributedHTTPSourceProvider].getName)
@@ -179,6 +180,8 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
       assert(error === "")
     }
 
+    Thread.sleep(1000000)
+
     server.stop()
   }
 
@@ -223,6 +226,30 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
 
     server.stop()
     client.close()
+  }
+  test("end to end"){
+    //TODO make a cleanup function for this
+    val server = session.readStream.format("org.apache.spark.sql.execution.streaming.DistributedHTTPSourceProvider")
+      .option("host", "0.0.0.0")
+      .option("port", 8889)
+      .option("name", "foo")
+      .option("handleResponseErrors", "true")
+      .load()
+      .withColumn("newCol", length(col("value")))
+      .writeStream
+      .format("org.apache.spark.sql.execution.streaming.DistributedHTTPSinkProvider")
+      .option("name", "foo")
+      .queryName("foo")
+      .option("replyCol", "newCol")
+      .option("checkpointLocation", new File(tmpDir.toFile,s"/server-test-${UUID.randomUUID()}").toString)
+      .start()
+
+    waitForServer(server, 200000)
+
+    Thread.sleep(100000000L)
+
+    assert(server.isActive && server.recentProgress.length>0)
+
   }
 
   test("State can be saved in a Shared singleton") {

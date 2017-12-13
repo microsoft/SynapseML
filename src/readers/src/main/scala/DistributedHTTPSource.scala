@@ -161,6 +161,9 @@ class JVMSharedServer(name: String, host: String,
     val bytes = response.getBytes("UTF-8")
     request.synchronized {
       request.getResponseHeaders.add("Content-Type", "application/json")
+      request.getResponseHeaders.add("Access-Control-Allow-Origin", "*")
+      request.getResponseHeaders.add("Access-Control-Allow-Method", "GET, PUT, POST, DELETE, HEAD")
+      request.getResponseHeaders.add("Access-Control-Allow-Headers", "*")
       request.sendResponseHeaders(code, 0)
       using(request.getResponseBody){os =>
         os.write(bytes)
@@ -203,7 +206,9 @@ class JVMSharedServer(name: String, host: String,
 
     override def handle(request: HttpExchange): Unit = synchronized {
       requestsSeen += 1
-      if (request.getRequestMethod != "POST") {
+      if (request.getRequestMethod == "OPTIONS") {
+        respond(request, 200, "")
+      }else  if (request.getRequestMethod != "POST") {
         respond(request, 405, "Only POSTs accepted")
       }
       val headers = request.getRequestHeaders
