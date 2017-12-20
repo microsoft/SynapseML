@@ -180,7 +180,7 @@ class DistributedHTTPSuite extends TestBase with FileReaderUtils {
       assert(error === "")
     }
 
-    Thread.sleep(1000000)
+    //Thread.sleep(10000000)
 
     server.stop()
   }
