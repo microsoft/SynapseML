@@ -17,8 +17,27 @@ Python 3.5+.  See the API documentation
 [for Scala](http://mmlspark.azureedge.net/docs/scala/) and
 [for PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
+<details>
+<summary><strong><em>Table of Contents</em></strong></summary>
 
-## Salient features
+* [Notable features](#notable-features)
+* [A short example](#a-short-example)
+* [Setup and installation](#setup-and-installation)
+  - [Docker](#docker)
+  - [GPU VM Setup](#gpu-vm-setup)
+  - [Spark package](#spark-package)
+  - [Python](#python)
+  - [HDInsight](#hdinsight)
+  - [Databricks cloud](#databricks-cloud)
+  - [SBT](#sbt)
+  - [Building from source](#building-from-source)
+* [Contributing & feedback](#contributing--feedback)
+* [Other relevant projects](#other-relevant-projects)
+
+</details>
+
+
+## Notable features
 
 [<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
   />](https://github.com/Azure/mmlspark/releases)
@@ -106,6 +125,24 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
    spark-shell --packages Azure:mmlspark:0.10
    pyspark --packages Azure:mmlspark:0.10
    spark-submit --packages Azure:mmlspark:0.10 MyApp.jar
+   ```
+
+This can be used in other Spark contexts too, for example, you can use
+MMLSpark in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
+`.aztk/spark-defaults.conf` file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
+
+### Python
+
+To try out MMLSpark on a Python (or Conda) installation you can get
+Spark installed via pip with `pip install pyspark`.  You can then use
+`pyspark` as in the above example, or from python:
+
+   ```
+   import pyspark
+   sp = pyspark.sql.SparkSession.builder.appName("MyApp") \
+               .config("spark.jars.packages", "Azure:mmlspark:0.10") \
+               .getOrCreate()
+   import mmlspark
    ```
 
 <img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
