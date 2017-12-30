@@ -18,13 +18,15 @@ class DropColumnsSuite extends TestBase with TransformerFuzzing[DropColumns] {
   }
 
   test("Drop all but two columns in a data frame") {
+    val keep = Set("words", "more")
+    val input = makeBasicDF()
     val expected = Seq(
       ("guitars", "drums"),
       ("piano", "trumpet"),
       ("bass", "cymbals")
     ).toDF("words", "more")
     val result = new DropColumns()
-      .setCols(Array("numbers"))
+      .setCols(input.columns.filterNot(keep.contains))
       .transform(makeBasicDF())
     assert(verifyResult(expected, result))
   }

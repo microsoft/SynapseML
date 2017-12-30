@@ -24,6 +24,6 @@ class RenameColumnSuite extends TestBase with TransformerFuzzing[RenameColumn] {
   def testObjects(): Seq[TestObject[RenameColumn]] = List(new TestObject(
     new RenameColumn().setInputCol("numbers").setOutputCol("out"), makeBasicDF()))
 
-  override def reader: MLReadable[_] = DropColumns
+  override def reader: MLReadable[_] = RenameColumn
 
 }
