@@ -13,6 +13,7 @@ import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.recommendation.ALS.Rating
+import org.apache.spark.ml.recommendation.MsftRecommendationModel.MsftRecommendationModelWriter
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.functions.{col, lit, udf}
@@ -132,7 +133,7 @@ class MsftRecommendationModel private[ml](
     SchemaUtils.appendColumn(schema, $(predictionCol), FloatType)
   }
 
-  override def write = new MsftRecommendationModel.MsftRecommendationModelWriter(this)
+  override def write: MsftRecommendationModelWriter = new MsftRecommendationModel.MsftRecommendationModelWriter(this)
 }
 
 object MsftRecommendationModel extends MLReadable[MsftRecommendationModel] {
