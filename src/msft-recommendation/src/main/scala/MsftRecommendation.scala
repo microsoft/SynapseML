@@ -25,13 +25,9 @@ import org.json4s.JsonDSL._
 
 import scala.util.Random
 
-private[recommendation] trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol {
+private[recommendation] trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
 
-}
-
-private[recommendation] trait MsftRecommendationParams extends MsftRecommendationModelParams with ALSParams {
-
-}
+private[recommendation] trait MsftRecommendationParams extends MsftRecommendationModelParams with ALSParams
 
 class MsftRecommendationModel private[ml](
                                            override val uid: String,
@@ -144,11 +140,12 @@ object MsftRecommendationModel extends MLReadable[MsftRecommendationModel] {
   private val NaN = "nan"
   private val Drop = "drop"
 
-  override def read = new MsftRecommendationModelReader
+  override def read: MsftRecommendationModelReader = new MsftRecommendationModelReader
 
   override def load(path: String): MsftRecommendationModel = super.load(path)
 
-  private[MsftRecommendationModel] class MsftRecommendationModelWriter(instance: MsftRecommendationModel) extends MLWriter {
+  private[MsftRecommendationModel] class MsftRecommendationModelWriter(instance: MsftRecommendationModel)
+    extends MLWriter {
     override protected def saveImpl(path: String): Unit = {
       val extraMetadata = "rank" -> instance.rank
       DefaultParamsWriter.saveMetadata(instance, path, sc, Some(extraMetadata))
@@ -366,20 +363,20 @@ class MsftRecommendationHelper() {
 
     val tr_idx = perm_indices.map(r => (r._1, r._2.slice(0, math.round(r._3.size.toDouble * RATIO).toInt)))
 
-    val pre_train = inputDF.rdd
+    val train = inputDF.rdd
       .groupBy(r => r(1))
       .join(tr_idx)
       .flatMap(r => r._2._1.slice(0, r._2._2.size))
-
-    val train = pre_train.map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
+      .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2)))
+      .toDF("customerID", "itemID", "rating")
 
     train.cache()
 
-    val test_idx = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
+    val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
 
     val test = inputDF.rdd
       .groupBy(r => r(1))
-      .join(test_idx)
+      .join(testIndex)
       .flatMap(r => r._2._1.drop(r._2._2.size))
       .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
 
