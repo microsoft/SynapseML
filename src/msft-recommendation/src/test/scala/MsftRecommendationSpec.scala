@@ -116,10 +116,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
     .toDF("customerID", "itemID", "rating")
 
   test("No Cold Start") {
-    val dfs = new MsftRecommendationHelper().split(dfRaw2)
-    val dfFit = dfs._1
-    val dfTransform = dfs._2
-
+    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
 
     val model = new MsftRecommendation()
       .setRank(1)
