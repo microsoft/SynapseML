@@ -173,7 +173,7 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
       numItemBlocks = 5, numUserBlocks = 5)
   }
 
-  val dfRawInt = session
+  val dfRawInt: DataFrame = session
     .createDataFrame(Seq((0, 0, 0),
       (0, 1, 4),
       (0, 2, 4),
