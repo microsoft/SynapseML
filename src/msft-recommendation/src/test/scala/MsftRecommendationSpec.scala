@@ -173,13 +173,16 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
       numItemBlocks = 5, numUserBlocks = 5)
   }
 
-  override def testObjects(): Seq[TestObject[MsftRecommendation]] =
+  override def testObjects(): Seq[TestObject[MsftRecommendation]] = {
+    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
+
     List(
       new TestObject(new MsftRecommendation()
         .setItemCol("itemID")
         .setUserCol("customerID")
         .setRatingCol("rating")
-        , dfRaw))
+        , dfFit))
+  }
 
   override def reader: MLReadable[_] = MsftRecommendation
 
