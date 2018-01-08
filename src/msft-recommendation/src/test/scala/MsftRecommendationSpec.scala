@@ -177,15 +177,25 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
     val (training, test) =
       genExplicitTestData(numUsers = 4, numItems = 4, rank = 1)
 
+    val dfRaw = session
+      .createDataFrame(Seq((0, 0, 0),
+        (0, 1, 4),
+        (0, 2, 4),
+        (0, 3, 4),
+        (1, 1, 4),
+        (1, 2, 4),
+        (1, 3, 4),
+        (1, 0, 4),
+        (2, 1, 5),
+        (2, 3, 5),
+        (2, 2, 4),
+      ))
+
     val spark = this.session
-    import spark.implicits._
 
     List(
       new TestObject(new MsftRecommendation()
-        , training.toDF()),
-      new TestObject(new MsftRecommendation()
-        , training.toDF()
-        , test.toDF()))
+        , dfRaw))
   }
 
   override def reader: MLReadable[_] = MsftRecommendation
