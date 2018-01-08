@@ -188,9 +188,8 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
     ))
     .toDF("customerID", "itemID", "rating")
 
-  override def testObjects(): Seq[TestObject[MsftRecommendation]] = {
+  override def testObjects(): Seq[TestObject[MsftRecommendation]] =
     List(new TestObject(new MsftRecommendation(), dfRawInt))
-  }
 
   override def reader: MLReadable[_] = MsftRecommendation
 
