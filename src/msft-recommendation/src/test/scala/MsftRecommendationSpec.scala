@@ -7,7 +7,7 @@ import java.util.Random
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.recommendation.{MsftRecommendation, MsftRecommendationHelper, MsftRecommendationModel}
+import org.apache.spark.ml.recommendation.msft.{MsftRecommendation, MsftRecommendationHelper, MsftRecommendationModel}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -174,14 +174,25 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
   }
 
   override def testObjects(): Seq[TestObject[MsftRecommendation]] = {
-    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
+    val df = session.createDataFrame(Seq((0, 0, 0),
+      (0, 1, 4),
+      (0, 2, 4),
+      (0, 3, 4),
+      (1, 1, 4),
+      (1, 2, 4),
+      (1, 3, 4),
+      (1, 0, 4),
+      (2, 1, 5),
+      (2, 3, 5),
+      (2, 2, 4)
+    )).toDF("customerID", "itemID", "rating")
+//    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
 
     List(
       new TestObject(new MsftRecommendation()
         .setItemCol("itemID")
         .setUserCol("customerID")
-        .setRatingCol("rating")
-        , dfFit))
+        .setRatingCol("rating"), df))
   }
 
   override def reader: MLReadable[_] = MsftRecommendation
