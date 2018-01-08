@@ -190,6 +190,7 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
         (2, 3, 5),
         (2, 2, 4),
       ))
+      .toDF("customerID", "itemID", "rating")
 
     val spark = this.session
 
