@@ -182,14 +182,8 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
 
     List(
       new TestObject(new MsftRecommendation()
-        .setItemCol("itemID")
-        .setUserCol("customerID")
-        .setRatingCol("rating")
         , training.toDF()),
       new TestObject(new MsftRecommendation()
-        .setItemCol("itemID")
-        .setUserCol("customerID")
-        .setRatingCol("rating")
         , training.toDF()
         , test.toDF()))
   }
