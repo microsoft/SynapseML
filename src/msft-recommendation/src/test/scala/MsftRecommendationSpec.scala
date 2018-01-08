@@ -16,7 +16,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
 
-class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommendation] {
+class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
   val dfRaw: DataFrame = session
     .createDataFrame(Seq(
       ("11", "Movie 01", 4),
@@ -174,7 +174,12 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
   }
 
   override def testObjects(): Seq[TestObject[MsftRecommendation]] =
-    List(new TestObject(new MsftRecommendation().setItemCol("itemID"), dfRaw))
+    List(
+      new TestObject(new MsftRecommendation()
+        .setItemCol("itemID")
+        .setUserCol("customerID")
+        .setRatingCol("rating")
+        , dfRaw))
 
   override def reader: MLReadable[_] = MsftRecommendation
 
