@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.recommendation
+package org.apache.spark.ml.recommendation.msft
 
 import java.{util => ju}
 
@@ -13,7 +13,8 @@ import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.recommendation.MsftRecommendationModel.MsftRecommendationModelWriter
+import org.apache.spark.ml.recommendation.msft.MsftRecommendationModel.MsftRecommendationModelWriter
+import org.apache.spark.ml.recommendation.{ALS, ALSModelParams, ALSParams, TopByKeyAggregator}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.functions.{col, lit, udf}
