@@ -7,7 +7,6 @@ import java.util.Random
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.recommendation.MsftRecommendationModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -16,7 +15,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
 
-class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
+class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommendation] {
 
   test("No Cold Start") {
     val dfRaw2: DataFrame = session
@@ -55,7 +54,7 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
         ("44", "Movie 10", 3)))
       .toDF("customerID", "itemID", "rating")
 
-    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
+    val (dfFit, dfTransform) = MsftRecommendationHelper.split(dfRaw2)
 
     val model = new MsftRecommendation()
       .setRank(1)

@@ -8,7 +8,7 @@ import org.apache.spark.sql.DataFrame
 
 import scala.util.Random
 
-class MsftRecommendationHelper() {
+object MsftRecommendationHelper {
   def split(dfRaw: DataFrame): (DataFrame, DataFrame) = {
     val ratingsTemp = dfRaw.dropDuplicates()
 
