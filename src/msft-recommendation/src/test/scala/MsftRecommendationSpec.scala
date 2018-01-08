@@ -128,6 +128,11 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
 
     List(
       new TestObject(new MsftRecommendation()
+        .setRank(1)
+        .setRegParam(1)
+        .setMaxIter(1)
+        .setNumUserBlocks(200)
+        .setNumItemBlocks(20)
         .setItemCol("itemID")
         .setUserCol("customerID")
         .setRatingCol("rating"), df))

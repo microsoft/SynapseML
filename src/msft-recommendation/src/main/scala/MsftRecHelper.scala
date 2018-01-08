@@ -5,22 +5,21 @@ package org.apache.spark.ml.recommendation
 
 import java.{util => ju}
 
-import breeze.linalg.rank
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
-import org.apache.hadoop.fs.Path
+import com.microsoft.ml.spark.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.BLAS
-import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.HasPredictionCol
-import org.apache.spark.ml.recommendation.MsftRecommendationModel.MsftRecommendationModelWriter
+import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.util.BoundedPriorityQueue
-import org.json4s.{DefaultFormats, JObject}
+
+import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
 
@@ -50,7 +49,8 @@ class MsftRecommendationModel(
                                val rank: Int,
                                val userFactors: DataFrame,
                                val itemFactors: DataFrame)
-  extends Model[MsftRecommendationModel] with MsftRecommendationModelParams with MLWritable {
+  extends Model[MsftRecommendationModel] with MsftRecommendationModelParams
+    with ConstructorWritable[MsftRecommendationModel] {
 
   def recommendForAllUsers(numItems: Int): DataFrame = {
     recommendForAll(userFactors, itemFactors, $(userCol), $(itemCol), numItems)
@@ -144,52 +144,13 @@ class MsftRecommendationModel(
   override def transformSchema(schema: StructType): StructType =
     new ALS().transformSchema(schema)
 
-  override def write: MsftRecommendationModelWriter = new MsftRecommendationModel.MsftRecommendationModelWriter(this)
+  override val ttag: TypeTag[MsftRecommendationModel] = typeTag[MsftRecommendationModel]
+  override def objectsToSave: List[AnyRef] = List(uid, rank.toString,  userFactors, itemFactors)
 }
 
-object MsftRecommendationModel extends MLReadable[MsftRecommendationModel] {
-
+object MsftRecommendationModel extends ConstructorReadable[MsftRecommendationModel] {
   private val NaN = "nan"
   private val Drop = "drop"
-
-  override def read: MsftRecommendationModelReader = new MsftRecommendationModelReader
-
-  override def load(path: String): MsftRecommendationModel = super.load(path)
-
-  private[MsftRecommendationModel] class MsftRecommendationModelWriter(instance: MsftRecommendationModel)
-    extends MLWriter {
-    override protected def saveImpl(path: String): Unit = {
-      val extraMetadata = "rank" -> instance.rank
-      DefaultParamsWriter.saveMetadata(instance, path, sc)
-      val userPath = new Path(path, "userFactors").toString
-      instance.userFactors.write.format("parquet").save(userPath)
-      val itemPath = new Path(path, "itemFactors").toString
-      instance.itemFactors.write.format("parquet").save(itemPath)
-    }
-
-  }
-
-  private[MsftRecommendationModel] class MsftRecommendationModelReader extends MLReader[MsftRecommendationModel] {
-
-    /** Checked against metadata when loading model */
-    private val className = classOf[MsftRecommendationModel].getName
-
-    override def load(path: String): MsftRecommendationModel = {
-      val metadata = new MsftRecHelper().loadMetadata(path, sc, className)
-      implicit val format: DefaultFormats.type = DefaultFormats
-      val rank = (metadata.metadata \ "rank").extract[Int]
-      val userPath = new Path(path, "userFactors").toString
-      val userFactors = sparkSession.read.format("parquet").load(userPath)
-      val itemPath = new Path(path, "itemFactors").toString
-      val itemFactors = sparkSession.read.format("parquet").load(itemPath)
-
-      val model = new MsftRecommendationModel(metadata.uid, rank, userFactors, itemFactors)
-
-      new MsftRecHelper().getAndSetParams(model, metadata)
-      model
-    }
-  }
-
 }
 
 
