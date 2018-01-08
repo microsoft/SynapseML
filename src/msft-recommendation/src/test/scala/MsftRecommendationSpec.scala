@@ -186,7 +186,6 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
       (2, 3, 5),
       (2, 2, 4)
     )).toDF("customerID", "itemID", "rating")
-//    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
 
     List(
       new TestObject(new MsftRecommendation()
