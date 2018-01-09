@@ -11,9 +11,10 @@ import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.{col, lit, udf}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.storage.StorageLevel
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
@@ -95,22 +96,24 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
 
     val r = if ($(ratingCol) != "") col($(ratingCol)).cast(FloatType) else lit(1.0f)
 
-    def getRow(row: Row): Rating = Rating(row.getInt(0), row.getInt(1), row.getFloat(2))
+    def getRow(row: Row): Rating[Int] = Rating(row.getInt(0), row.getInt(1), row.getFloat(2))
 
     val ratings = dataset
       .select(checkedCast(col($(userCol))), checkedCast(col($(itemCol))), r)
       .rdd
       .map(getRow(_))
 
-    val (userFactors, itemFactors) = ALS.train(ratings, rank = $(rank),
-      numUserBlocks = $(numUserBlocks), numItemBlocks = $(numItemBlocks),
-      maxIter = $(maxIter), regParam = $(regParam), implicitPrefs = $(implicitPrefs),
-      alpha = $(alpha), nonnegative = $(nonnegative),
-      intermediateRDDStorageLevel = StorageLevel.fromString($(intermediateStorageLevel)),
-      finalRDDStorageLevel = StorageLevel.fromString($(finalStorageLevel)),
-      checkpointInterval = $(checkpointInterval), seed = $(seed))
-    val userDF = userFactors.toDF("id", "features")
-    val itemDF = itemFactors.toDF("id", "features")
+    val (userFactors, itemFactors): (RDD[(Int, Array[Float])], RDD[(Int, Array[Float])]) =
+      ALS.train(ratings, rank = $(rank),
+        numUserBlocks = $(numUserBlocks), numItemBlocks = $(numItemBlocks),
+        maxIter = $(maxIter), regParam = $(regParam), implicitPrefs = $(implicitPrefs),
+        alpha = $(alpha), nonnegative = $(nonnegative),
+        intermediateRDDStorageLevel = StorageLevel.fromString($(intermediateStorageLevel)),
+        finalRDDStorageLevel = StorageLevel.fromString($(finalStorageLevel)),
+        checkpointInterval = $(checkpointInterval), seed = $(seed))
+
+    val userDF: DataFrame = userFactors.toDF("id", "features")
+    val itemDF: DataFrame = itemFactors.toDF("id", "features")
     val model = new MsftRecommendationModel(uid, $(rank), userDF, itemDF).setParent(this)
     copyValues(model)
   }
