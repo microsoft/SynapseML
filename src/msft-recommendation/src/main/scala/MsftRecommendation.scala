@@ -94,12 +94,13 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
     import dataset.sparkSession.implicits._
 
     val r = if ($(ratingCol) != "") col($(ratingCol)).cast(FloatType) else lit(1.0f)
+   
+    def getRow(row: Row): Rating = Rating(row.getInt(0), row.getInt(1), row.getFloat(2))
+   
     val ratings = dataset
       .select(checkedCast(col($(userCol))), checkedCast(col($(itemCol))), r)
       .rdd
-      .map { row =>
-        Rating(row.getInt(0), row.getInt(1), row.getFloat(2))
-      }
+      .map(getRow(_))
 
     val (userFactors, itemFactors) = ALS.train(ratings, rank = $(rank),
       numUserBlocks = $(numUserBlocks), numItemBlocks = $(numItemBlocks),
