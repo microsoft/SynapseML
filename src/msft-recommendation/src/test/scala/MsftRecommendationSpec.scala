@@ -7,7 +7,6 @@ import java.util.Random
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.recommendation.msft.{MsftRecommendation, MsftRecommendationHelper, MsftRecommendationModel}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -16,107 +15,46 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
 
-class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
-  val dfRaw: DataFrame = session
-    .createDataFrame(Seq(
-      ("11", "Movie 01", 4),
-      ("11", "Movie 02", 5),
-      ("11", "Movie 03", 1),
-      ("11", "Movie 04", 5),
-      ("11", "Movie 05", 3),
-      ("11", "Movie 06", 3),
-      ("11", "Movie 07", 1),
-      ("11", "Movie 09", 1),
-      ("11", "Movie 10", 4),
-      ("11", "Movie 11", 1),
-      ("11", "Movie 12", 3),
-      ("11", "Movie 15", 1),
-      ("11", "Movie 16", 3),
-      ("11", "Movie 17", 1),
-      ("11", "Movie 18", 5),
-      ("11", "Movie 19", 1),
-      ("11", "Movie 20", 2),
-      ("22", "Movie 01", 4),
-      ("22", "Movie 02", 5),
-      ("22", "Movie 03", 1),
-      ("22", "Movie 04", 5),
-      ("22", "Movie 10", 3),
-      ("22", "Movie 11", 1),
-      ("22", "Movie 12", 3),
-      ("22", "Movie 13", 1),
-      ("22", "Movie 14", 4),
-      ("22", "Movie 15", 1),
-      ("22", "Movie 16", 3),
-      ("33", "Movie 05", 3),
-      ("33", "Movie 06", 3),
-      ("33", "Movie 07", 1),
-      ("33", "Movie 09", 1),
-      ("33", "Movie 10", 4),
-      ("33", "Movie 11", 1),
-      ("33", "Movie 12", 3),
-      ("33", "Movie 13", 1),
-      ("33", "Movie 14", 2),
-      ("33", "Movie 15", 1),
-      ("33", "Movie 16", 3),
-      ("44", "Movie 01", 4),
-      ("44", "Movie 02", 5),
-      ("44", "Movie 03", 1),
-      ("44", "Movie 04", 5),
-      ("44", "Movie 05", 3),
-      ("44", "Movie 06", 3),
-      ("44", "Movie 07", 1),
-      ("44", "Movie 13", 1),
-      ("44", "Movie 14", 5),
-      ("44", "Movie 20", 2),
-      ("55", "Movie 01", 4),
-      ("55", "Movie 10", 4),
-      ("55", "Movie 11", 1),
-      ("55", "Movie 15", 1),
-      ("55", "Movie 16", 3),
-      ("55", "Movie 17", 1),
-      ("55", "Movie 18", 5),
-      ("55", "Movie 19", 1),
-      ("55", "Movie 20", 2)))
-    .toDF("customerID", "itemID", "rating")
-
-  val dfRaw2: DataFrame = session
-    .createDataFrame(Seq(
-      ("11", "Movie 01", 4),
-      ("11", "Movie 03", 1),
-      ("11", "Movie 04", 5),
-      ("11", "Movie 05", 3),
-      ("11", "Movie 06", 4),
-      ("11", "Movie 07", 1),
-      ("11", "Movie 08", 5),
-      ("11", "Movie 09", 3),
-      ("22", "Movie 01", 4),
-      ("22", "Movie 02", 5),
-      ("22", "Movie 03", 1),
-      ("22", "Movie 05", 3),
-      ("22", "Movie 06", 4),
-      ("22", "Movie 07", 5),
-      ("22", "Movie 08", 1),
-      ("22", "Movie 10", 3),
-      ("33", "Movie 01", 4),
-      ("33", "Movie 03", 1),
-      ("33", "Movie 04", 5),
-      ("33", "Movie 05", 3),
-      ("33", "Movie 06", 4),
-      ("33", "Movie 08", 1),
-      ("33", "Movie 09", 5),
-      ("33", "Movie 10", 3),
-      ("44", "Movie 01", 4),
-      ("44", "Movie 02", 5),
-      ("44", "Movie 03", 1),
-      ("44", "Movie 05", 3),
-      ("44", "Movie 06", 4),
-      ("44", "Movie 07", 5),
-      ("44", "Movie 08", 1),
-      ("44", "Movie 10", 3)))
-    .toDF("customerID", "itemID", "rating")
+class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommendation] {
 
   test("No Cold Start") {
-    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
+    val dfRaw2: DataFrame = session
+      .createDataFrame(Seq(
+        ("11", "Movie 01", 4),
+        ("11", "Movie 03", 1),
+        ("11", "Movie 04", 5),
+        ("11", "Movie 05", 3),
+        ("11", "Movie 06", 4),
+        ("11", "Movie 07", 1),
+        ("11", "Movie 08", 5),
+        ("11", "Movie 09", 3),
+        ("22", "Movie 01", 4),
+        ("22", "Movie 02", 5),
+        ("22", "Movie 03", 1),
+        ("22", "Movie 05", 3),
+        ("22", "Movie 06", 4),
+        ("22", "Movie 07", 5),
+        ("22", "Movie 08", 1),
+        ("22", "Movie 10", 3),
+        ("33", "Movie 01", 4),
+        ("33", "Movie 03", 1),
+        ("33", "Movie 04", 5),
+        ("33", "Movie 05", 3),
+        ("33", "Movie 06", 4),
+        ("33", "Movie 08", 1),
+        ("33", "Movie 09", 5),
+        ("33", "Movie 10", 3),
+        ("44", "Movie 01", 4),
+        ("44", "Movie 02", 5),
+        ("44", "Movie 03", 1),
+        ("44", "Movie 05", 3),
+        ("44", "Movie 06", 4),
+        ("44", "Movie 07", 5),
+        ("44", "Movie 08", 1),
+        ("44", "Movie 10", 3)))
+      .toDF("customerID", "itemID", "rating")
+
+    val (dfFit, dfTransform) = MsftRecommendationHelper.split(dfRaw2)
 
     val model = new MsftRecommendation()
       .setRank(1)
@@ -186,10 +124,14 @@ class MsftRecommendationSpec extends TestBase with Fuzzing[MsftRecommendation] {
       (2, 3, 5),
       (2, 2, 4)
     )).toDF("customerID", "itemID", "rating")
-//    val (dfFit, dfTransform) = new MsftRecommendationHelper().split(dfRaw2)
 
     List(
       new TestObject(new MsftRecommendation()
+        .setRank(1)
+        .setRegParam(1)
+        .setMaxIter(1)
+        .setNumUserBlocks(200)
+        .setNumItemBlocks(20)
         .setItemCol("itemID")
         .setUserCol("customerID")
         .setRatingCol("rating"), df))
