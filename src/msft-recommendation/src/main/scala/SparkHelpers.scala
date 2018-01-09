@@ -7,10 +7,11 @@ import org.apache.spark.SparkContext
 import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.param.shared.HasPredictionCol
-import org.apache.spark.ml.util.DefaultParamsReader
+import org.apache.spark.ml.util.{DefaultParamsReader, Identifiable}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.github.fommil.netlib.{BLAS => NetlibBLAS}
+import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.util.BoundedPriorityQueue
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
@@ -41,4 +42,23 @@ object MsftRecHelper {
 
   def getBoundedPriorityQueue(maxSize: Int)(implicit ord: Ordering[(Int, Float)]): BoundedPriorityQueue[(Int, Float)] =
     new BoundedPriorityQueue[(Int, Float)](maxSize)(Ordering.by(_._2))
+
+  def getRow(row: Row): Rating[Int] = Rating.apply(row.getInt(0), row.getInt(1), row.getFloat(2))
+
+  def recommendForAll(
+                       rank: Int,
+                       srcFactors: DataFrame,
+                       dstFactors: DataFrame,
+                       srcOutputColumn: String,
+                       dstOutputColumn: String,
+                       num: Int): DataFrame =
+    new ALSModel(Identifiable.randomUID("als"), rank, srcFactors, dstFactors).recommendForAllUsers(num)
+
+  def transform(
+                 rank: Int,
+                 userFactors: DataFrame,
+                 itemFactors: DataFrame,
+                 dataset: Dataset[_]): DataFrame =
+    new ALSModel(Identifiable.randomUID("als"), rank, userFactors, itemFactors).transform(dataset)
+
 }
