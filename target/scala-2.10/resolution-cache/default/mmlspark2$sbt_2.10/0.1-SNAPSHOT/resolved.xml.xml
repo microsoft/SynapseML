@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+	<info organisation="default"
+		module="mmlspark2$sbt_2.10"
+		revision="0.1-SNAPSHOT"
+		status="integration"
+		publication="20180109163039"
+	/>
+	<configurations>
+		<conf name="default" visibility="public"/>
+	</configurations>
+	<publications>
+	</publications>
+	<dependencies>
+		<dependency org="org.scala-sbt" name="sbt" rev="0.13.16" conf="default->default(compile)"/>
+		<dependency org="org.jetbrains" name="sbt-structure-extractor" rev="2017.2" conf="default->default(compile)" scalaVersion="2.10" sbtVersion="0.13"/>
+		<dependency org="org.jetbrains" name="sbt-idea-shell" rev="2017.2" conf="default->default(compile)" scalaVersion="2.10" sbtVersion="0.13"/>
+	</dependencies>
+</ivy-module>
