@@ -194,7 +194,10 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .flatMap(r => r._2._1.drop(r._2._2.size))
       .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
 
-    Array(train.as[Row], test.as[Row])
+    train.withColumn("train", typedLit(1))
+    test.withColumn("train", typedLit(0))
+
+    train.union(test)
   }
 }
 
