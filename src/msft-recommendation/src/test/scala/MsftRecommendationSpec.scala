@@ -54,7 +54,9 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
         ("44", "Movie 10", 3)))
       .toDF("customerID", "itemID", "rating")
 
-    val (dfFit, dfTransform) = MsftRecommendation.split(dfRaw2)
+    val dfSplit = MsftRecommendation.split(dfRaw2)
+    val dfFit = dfSplit.where("train == 1").drop("train")
+    val dfTransform = dfSplit.where("train == 0").drop("train")
 
     val model = new MsftRecommendation()
       .setRank(1)

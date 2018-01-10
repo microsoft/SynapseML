@@ -12,7 +12,7 @@ import org.apache.spark.ml.param.shared.HasPredictionCol
 import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util.{DefaultParamsReader, Identifiable}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql._
 import org.apache.spark.util.BoundedPriorityQueue
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
@@ -47,13 +47,13 @@ object MsftRecHelper {
   def getRow(row: Row): Rating[Int] = Rating.apply(row.getInt(0), row.getInt(1), row.getFloat(2))
 
   def recommendForAllUsers(
-                       alsModel: ALSModel,
-                       num: Int): DataFrame =
+                            alsModel: ALSModel,
+                            num: Int): DataFrame =
     alsModel.recommendForAllUsers(num)
 
   def recommendForAllItems(
-                       alsModel: ALSModel,
-                       num: Int): DataFrame =
+                            alsModel: ALSModel,
+                            num: Int): DataFrame =
     alsModel.recommendForAllItems(num)
 
   def transform(
