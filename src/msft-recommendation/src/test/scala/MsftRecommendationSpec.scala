@@ -65,14 +65,16 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       .setItemCol("itemID")
       .setUserCol("customerID")
       .setRatingCol("rating")
-//      .fit(dfFit)
+      .fit(dfFit)
 
-//    val predictions = model.transform(dfTransform)
-//    assert(predictions.count() > 0)
-//    val test1 = predictions.collect()
-//    val userRecs = model.recommendForAllUsers(3)
-//    val test2 = userRecs.collect()
-//    assert(userRecs.count() > 0)
+    val items = model.recommendForAllUsers(3)
+    val users = model.recommendForAllItems(3)
+    //    val predictions = model.transform(dfTransform)
+    //    assert(predictions.count() > 0)
+    //    val test1 = predictions.collect()
+    //    val userRecs = model.recommendForAllUsers(3)
+    //    val test2 = userRecs.collect()
+    //    assert(userRecs.count() > 0)
   }
 
   test("exact rank-1 matrix") {
@@ -100,7 +102,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
     for ((numUserBlocks, numItemBlocks) <- Seq((1, 1), (1, 2), (2, 1), (2, 2))) {
       testALS(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03,
-      numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks)
+        numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks)
     }
   }
 

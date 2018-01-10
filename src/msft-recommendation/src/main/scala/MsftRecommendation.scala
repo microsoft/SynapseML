@@ -203,7 +203,11 @@ class MsftRecommendationModel(
     with ConstructorWritable[MsftRecommendationModel] {
 
   def recommendForAllUsers(numItems: Int): DataFrame = {
-    MsftRecHelper.recommendForAll(rank, userFactors, itemFactors, $(userCol), $(itemCol), numItems)
+    MsftRecHelper.recommendForAllUsers(alsModel, numItems)
+  }
+
+  def recommendForAllItems(numUsers: Int): DataFrame = {
+    MsftRecHelper.recommendForAllItems(alsModel, numUsers)
   }
 
   override def copy(extra: ParamMap): MsftRecommendationModel = {

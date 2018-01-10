@@ -46,14 +46,15 @@ object MsftRecHelper {
 
   def getRow(row: Row): Rating[Int] = Rating.apply(row.getInt(0), row.getInt(1), row.getFloat(2))
 
-  def recommendForAll(
-                       rank: Int,
-                       srcFactors: DataFrame,
-                       dstFactors: DataFrame,
-                       srcOutputColumn: String,
-                       dstOutputColumn: String,
+  def recommendForAllUsers(
+                       alsModel: ALSModel,
                        num: Int): DataFrame =
-    new ALSModel(Identifiable.randomUID("als"), rank, srcFactors, dstFactors).recommendForAllUsers(num)
+    alsModel.recommendForAllUsers(num)
+
+  def recommendForAllItems(
+                       alsModel: ALSModel,
+                       num: Int): DataFrame =
+    alsModel.recommendForAllItems(num)
 
   def transform(
                  rank: Int,
