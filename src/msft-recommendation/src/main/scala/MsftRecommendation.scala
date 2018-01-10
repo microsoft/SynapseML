@@ -7,12 +7,14 @@ import java.{util => ju}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.Random
@@ -130,7 +132,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
   def split(dfRaw: DataFrame,
             minRatingsU: Int = 1,
             minRatingsI: Int = 1,
-            RATIO: Double = 0.75): Array[DataFrame] = {
+            RATIO: Double = 0.75): Array[Dataset[Row]] = {
     val ratingsTemp = dfRaw.dropDuplicates()
 
     val ratingsIndexed1 = new StringIndexer()
@@ -184,8 +186,6 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2)))
       .toDF("customerID", "itemID", "rating")
 
-    train.cache()
-
     val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
 
     val test = inputDF.rdd
@@ -194,9 +194,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .flatMap(r => r._2._1.drop(r._2._2.size))
       .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
 
-    test.cache()
-
-    Array(train, test)
+    Array(train.as[Row], test.as[Row])
   }
 }
 
