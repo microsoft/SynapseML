@@ -117,7 +117,20 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
 }
 
 object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
-  def split(dfRaw: DataFrame): (DataFrame, DataFrame) = {
+  /**
+    * Returns top `numItems` items recommended for each user, for all users.
+    *
+    * @param dfRaw input DataFrame
+    * @param minRatingsU input DataFrame
+    * @param minRatingsI input DataFrame
+    * @param RATIO input DataFrame
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
+  def split(dfRaw: DataFrame,
+            minRatingsU: Int = 1,
+            minRatingsI: Int = 1,
+            RATIO: Double = 0.75): (DataFrame, DataFrame) = {
     val ratingsTemp = dfRaw.dropDuplicates()
 
     val customerIndexer = new StringIndexer()
@@ -135,10 +148,6 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .drop("itemID").withColumnRenamed("itemIDindex", "itemID")
 
     ratings.cache()
-
-    val minRatingsU = 1
-    val minRatingsI = 1
-    val RATIO = 0.75
 
     import dfRaw.sqlContext.implicits._
     import org.apache.spark.sql.functions._
@@ -193,6 +202,14 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
   }
 }
 
+/**
+  * Model fitted by ALS.
+  *
+  * @param rank        rank of the matrix factorization model
+  * @param userFactors a DataFrame that stores user factors in two columns: `id` and `features`
+  * @param itemFactors a DataFrame that stores item factors in two columns: `id` and `features`
+  * @param alsModel    a trained ALS model
+  */
 class MsftRecommendationModel(
                                override val uid: String,
                                val rank: Int,
@@ -202,10 +219,24 @@ class MsftRecommendationModel(
   extends Model[MsftRecommendationModel] with MsftRecommendationModelParams
     with ConstructorWritable[MsftRecommendationModel] {
 
+  /**
+    * Returns top `numItems` items recommended for each user, for all users.
+    *
+    * @param numItems max number of recommendations for each user
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
   def recommendForAllUsers(numItems: Int): DataFrame = {
     MsftRecHelper.recommendForAllUsers(alsModel, numItems)
   }
 
+  /**
+    * Returns top `numUsers` users recommended for each item, for all items.
+    *
+    * @param numUsers max number of recommendations for each item
+    * @return a DataFrame of (itemCol: Int, recommendations), where recommendations are
+    *         stored as an array of (userCol: Int, rating: Float) Rows.
+    */
   def recommendForAllItems(numUsers: Int): DataFrame = {
     MsftRecHelper.recommendForAllItems(alsModel, numUsers)
   }
