@@ -3,20 +3,21 @@
 
 package org.apache.spark.ml.recommendation
 
+import com.github.fommil.netlib.{BLAS => NetlibBLAS}
+import com.microsoft.ml.spark.Wrappable
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.param.shared.HasPredictionCol
-import org.apache.spark.ml.util.{DefaultParamsReader, Identifiable}
-import org.apache.spark.ml.util.DefaultParamsReader.Metadata
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import com.github.fommil.netlib.{BLAS => NetlibBLAS}
 import org.apache.spark.ml.recommendation.ALS.Rating
+import org.apache.spark.ml.util.DefaultParamsReader.Metadata
+import org.apache.spark.ml.util.{DefaultParamsReader, Identifiable}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.util.BoundedPriorityQueue
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
 
-trait MsftRecommendationParams extends MsftRecommendationModelParams with ALSParams
+trait MsftRecommendationParams extends Wrappable with MsftRecommendationModelParams with ALSParams
 
 trait MsftHasPredictionCol extends Params with HasPredictionCol
 
