@@ -132,7 +132,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
   def split(dfRaw: DataFrame,
             minRatingsU: Int = 1,
             minRatingsI: Int = 1,
-            RATIO: Double = 0.75): Array[Dataset[Row]] = {
+            RATIO: Double = 0.75): DataFrame = {
     val ratingsTemp = dfRaw.dropDuplicates()
 
     val ratingsIndexed1 = new StringIndexer()
