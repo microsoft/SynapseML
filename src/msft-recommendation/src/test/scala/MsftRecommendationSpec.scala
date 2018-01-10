@@ -54,7 +54,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
         ("44", "Movie 10", 3)))
       .toDF("customerID", "itemID", "rating")
 
-    val (dfFit, dfTransform) = MsftRecommendationHelper.split(dfRaw2)
+    val (dfFit, dfTransform) = MsftRecommendation.split(dfRaw2)
 
     val model = new MsftRecommendation()
       .setRank(1)
@@ -100,7 +100,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
     for ((numUserBlocks, numItemBlocks) <- Seq((1, 1), (1, 2), (2, 1), (2, 2))) {
       testALS(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03,
-        numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks)
+      numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks)
     }
   }
 
