@@ -195,9 +195,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
 
     train.withColumn("train", typedLit(1))
-    test.withColumn("train", typedLit(0))
-
-    train.union(test)
+      .union(test.withColumn("train", typedLit(0)))
   }
 }
 
