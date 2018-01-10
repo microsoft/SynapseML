@@ -120,30 +120,28 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
   /**
     * Returns top `numItems` items recommended for each user, for all users.
     *
-    * @param dfRaw input DataFrame
+    * @param dfRaw       input DataFrame
     * @param minRatingsU input DataFrame
     * @param minRatingsI input DataFrame
-    * @param RATIO input DataFrame
+    * @param RATIO       input DataFrame
     * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
     *         stored as an array of (itemCol: Int, rating: Float) Rows.
     */
   def split(dfRaw: DataFrame,
             minRatingsU: Int = 1,
             minRatingsI: Int = 1,
-            RATIO: Double = 0.75): (DataFrame, DataFrame) = {
+            RATIO: Double = 0.75): Array[DataFrame] = {
     val ratingsTemp = dfRaw.dropDuplicates()
 
-    val customerIndexer = new StringIndexer()
+    val ratingsIndexed1 = new StringIndexer()
       .setInputCol("customerID")
       .setOutputCol("customerIDindex")
+      .fit(ratingsTemp).transform(ratingsTemp)
 
-    val ratingsIndexed1 = customerIndexer.fit(ratingsTemp).transform(ratingsTemp)
-
-    val itemIndexer = new StringIndexer()
+    val ratings = new StringIndexer()
       .setInputCol("itemID")
       .setOutputCol("itemIDindex")
-
-    val ratings = itemIndexer.fit(ratingsIndexed1).transform(ratingsIndexed1)
+      .fit(ratingsIndexed1).transform(ratingsIndexed1)
       .drop("customerID").withColumnRenamed("customerIDindex", "customerID")
       .drop("itemID").withColumnRenamed("itemIDindex", "itemID")
 
@@ -198,7 +196,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
 
     test.cache()
 
-    (train, test)
+    Array(train, test)
   }
 }
 
