@@ -159,9 +159,9 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
   protected def tryFitString(entryPointName: String): String =
-    if (entryPointName.contains("Regressor"))
+    if (entryPointName.contains("Regressor") && !entryPointName.contains("LightGBM"))
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
-    else if (entryPointName.contains("Classifier"))
+    else if (entryPointName.contains("Classifier") && !entryPointName.contains("LightGBM"))
       tryFitTemplate(entryPointName, "LogisticRegression()")
     else if (entryPointName.contains("MultiColumnAdapter"))
       tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")

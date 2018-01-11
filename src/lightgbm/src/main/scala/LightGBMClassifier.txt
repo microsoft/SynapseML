@@ -1,0 +1,3 @@
+Trains a LightGBM Binary Classification model, a fast, distributed, high performance gradient boosting
+framework based on decision tree algorithms.
+For more information please see here: https://github.com/Microsoft/LightGBM.
