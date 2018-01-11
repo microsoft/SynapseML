@@ -9,6 +9,7 @@ import org.apache.spark.ml.recommendation.TVSplitRecommendationParams
 import org.apache.spark.ml.tuning.TrainValidationSplit
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, count}
 import org.apache.spark.sql.types.StructType
@@ -46,7 +47,7 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
 
   override def transformSchema(schema: StructType): StructType = transformSchemaImpl(schema)
 
-  private def filterRatings(dataset: Dataset[_]): DataFrame = {
+  def filterRatings(dataset: Dataset[_]): DataFrame = {
     import dataset.sqlContext.implicits._
 
     val tmpDF = dataset
@@ -67,50 +68,47 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     inputDF
   }
 
-  private def splitDF(dataset: DataFrame): Array[DataFrame] = {
+  def splitDF(dataset: DataFrame): Array[DataFrame] = {
     import dataset.sqlContext.implicits._
 
-    val nusers_by_item = dataset.groupBy("itemID")
+    val nusers_by_item: RDD[Row] = dataset.groupBy("itemID")
       .agg('itemID, count("customerID"))
       .withColumnRenamed("count(customerID)", "nusers")
       .rdd
 
-    def permIndicesLambda(r: Row): (Any, List[Any], List[Any]) = {
-      (r(0), Random.shuffle(List(r(1))), List(r(1)))
-    }
-
-    def makeIndexs(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
-      (r._1, r._2.slice(0, math.round(r._3.size.toDouble * $(trainRatio)).toInt))
-
-    def flatMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] = {
-      r._2._1.slice(0, r._2._2.size)
-    }
-
-    def mapLambda(r: Row): (Int, Int, String, String, Int) =
-      (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
+    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+      r._2._1.drop(r._2._2.size)
 
     def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
       (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
 
-    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] = {
-      r._2._1.drop(r._2._2.size)
-    }
+    def mapLambda(r: Row): (Int, Int, String, String, Int) =
+      (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
 
-    val perm_indices = nusers_by_item.map(permIndicesLambda)
+    def flatMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+      r._2._1.slice(0, r._2._2.size)
+
+    def makeIndexs(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
+      (r._1, r._2.slice(0, math.round(r._3.size.toDouble * $(trainRatio)).toInt))
+
+    def permIndicesLambda(r: Row): (Any, List[Any], List[Any]) =
+      (r(0), Random.shuffle(List(r(1))), List(r(1)))
+
+    val perm_indices: RDD[(Any, List[Any], List[Any])] = nusers_by_item.map(permIndicesLambda)
     perm_indices.cache()
 
-    val tr_idx = perm_indices.map(makeIndexs)
+    val tr_idx: RDD[(Any, List[Any])] = perm_indices.map(makeIndexs)
 
-    val trainingDataset = dataset.rdd
+    val trainingDataset: DataFrame = dataset.rdd
       .groupBy(_ (1))
       .join(tr_idx)
       .flatMap(flatMapLambda)
       .map(mapLambda)
       .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
 
-    val testIndex = perm_indices.map(testIndexLambda)
+    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
 
-    val validationDataset = dataset.rdd
+    val validationDataset: DataFrame = dataset.rdd
       .groupBy(_ (1))
       .join(testIndex)
       .flatMap(validationFlaptMapLambda)
@@ -131,22 +129,36 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     //    val nItems = validationDataset.map(_ (0)).distinct().count()
     //
     //    val nRatings = validationDataset.count()
+//    val perUserRecommendedItemsDF: DataFrame = recs
+//      .select("user", "product")
+//      .withColumnRenamed("user", "customerID")
+//      .groupBy("customerID")
+//      .agg('customerID, collect_list('product))
+//      .withColumnRenamed("collect_list(product)", "recommended")
+
     val perUserRecommendedItemsDF: DataFrame = recs
-      .select("user", "product")
-      .withColumnRenamed("user", "customerID")
+      .select("customerID", "recommendations")
       .groupBy("customerID")
-      .agg('customerID, collect_list('product))
-      .withColumnRenamed("collect_list(product)", "recommended")
+      .agg('customerID, collect_list('recommendations))
+      .withColumnRenamed("collect_list(recommendations)", "recommended")
 
     val windowSpec = Window.partitionBy("customerID").orderBy(col("rating").desc)
+
+//    val perUserActualItemsDF = validationDataset
+//      .select("customerID", "itemID", "rating")
+//      .withColumn("rank", rank().over(windowSpec).alias("rank"))
+//      .where(col("rank") <= 3)
+//      .groupBy("customerID")
+//      .agg('customerID, collect_list('product))
+//      .withColumnRenamed("collect_list(product)", "actual")
 
     val perUserActualItemsDF = validationDataset
       .select("customerID", "itemID", "rating")
       .withColumn("rank", rank().over(windowSpec).alias("rank"))
       .where(col("rank") <= 3)
       .groupBy("customerID")
-      .agg('customerID, collect_list('product))
-      .withColumnRenamed("collect_list(product)", "actual")
+      .agg('customerID, collect_list('itemID))
+      .withColumnRenamed("collect_list(itemID)", "actual")
 
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, "customerID")
@@ -169,7 +181,8 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     val inputDF = filterRatings(ratings)
     inputDF.cache()
 
-    val Array(trainingDataset, validationDataset) = splitDF(inputDF)
+//    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(inputDF)
+    val Array(trainingDataset, validationDataset) = Array(inputDF, inputDF)
     trainingDataset.cache()
     validationDataset.cache()
 
