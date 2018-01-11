@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.FileUtilities.{File, readFile, writeFile}
 import org.apache.hadoop.fs.FileSystem
+import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -32,6 +33,19 @@ abstract class Benchmarks extends TestBase {
     import org.apache.hadoop.fs.Path
     val dfs_cwd = new Path(".")
     dfs_cwd.getFileSystem(config)
+  }
+
+  /** Reads a CSV file given the file name and file location.
+    * @param fileName The name of the csv file.
+    * @param fileLocation The full path to the csv file.
+    * @return A dataframe from read CSV file.
+    */
+  def readCSV(fileName: String, fileLocation: String): DataFrame = {
+    session.read
+      .option("header", "true").option("inferSchema", "true")
+      .option("treatEmptyValuesAsNulls", "false")
+      .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
+      .csv(fileLocation)
   }
 
   /** Rounds the given metric to 2 decimals.
