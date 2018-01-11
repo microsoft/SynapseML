@@ -77,13 +77,12 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       .withColumnRenamed("count(customerID)", "nusers")
       .rdd
 
-    //
-    //    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
-    //      r._2._1.drop(r._2._2.size)
-    //
-    //    def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
-    //      (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
-    //
+    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+      r._2._1.drop(r._2._2.size)
+
+    def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
+      (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
+
     def mapLambda(r: Row): (Int, Int, String, String, Int) =
       (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
 
@@ -97,29 +96,29 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       (r(0), Random.shuffle(List(r(1))), List(r(1)))
 
     val perm_indices: RDD[(Any, List[Any], List[Any])] = nusers_by_item.map(permIndicesLambda)
-    //    perm_indices.cache()
-    //
+    perm_indices.cache()
+
     val tr_idx: RDD[(Any, List[Any])] = perm_indices.map(makeIndexs)
 
     def popRow(r: Row): Any = r.getDouble(1)
 
     val trainingDataset = dataset.rdd
       .groupBy(popRow)
-          .join(tr_idx)
-    //      .flatMap(flatMapLambda)
-    //      .map(mapLambda)
-    //      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
-    //
-    //    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
-    //
-    //    val validationDataset: DataFrame = dataset.rdd
-    //      .groupBy(_ (1))
-    //      .join(testIndex)
-    //      .flatMap(validationFlaptMapLambda)
-    //      .map(mapLambda)
-    //      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
-    //
-    //    perm_indices.unpersist()
+      .join(tr_idx)
+      .flatMap(flatMapLambda)
+      .map(mapLambda)
+      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
+
+    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
+
+    val validationDataset: DataFrame = dataset.rdd
+      .groupBy(_ (1))
+      .join(testIndex)
+      .flatMap(validationFlaptMapLambda)
+      .map(mapLambda)
+      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
+
+    perm_indices.unpersist()
     trainingDataset.count()
     Array(dataset, dataset)
   }

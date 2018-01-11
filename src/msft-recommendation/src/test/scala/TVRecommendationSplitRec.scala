@@ -91,4 +91,8 @@ class TVRecommendationSplitRec
 
   override def modelReader: MLReadable[_] = TVRecommendationSplitModel
 
+  test("fuzzing"){
+    validateExperiments()
+    testRoundTrip()
+  }
 }
