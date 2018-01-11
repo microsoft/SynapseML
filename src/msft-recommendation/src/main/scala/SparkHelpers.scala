@@ -4,14 +4,16 @@
 package org.apache.spark.ml.recommendation
 
 import com.github.fommil.netlib.{BLAS => NetlibBLAS}
-import com.microsoft.ml.spark.Wrappable
+import com.microsoft.ml.spark.{HasLabelCol, Wrappable}
 import org.apache.spark.SparkContext
+import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.linalg.BLAS
-import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.HasPredictionCol
 import org.apache.spark.ml.recommendation.ALS.Rating
+import org.apache.spark.ml.tuning.ValidatorParams
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
-import org.apache.spark.ml.util.{DefaultParamsReader, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReader, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.util.BoundedPriorityQueue
 
@@ -20,6 +22,39 @@ trait MsftRecommendationModelParams extends Params with ALSModelParams with HasP
 trait MsftRecommendationParams extends Wrappable with MsftRecommendationModelParams with ALSParams
 
 trait MsftHasPredictionCol extends Params with HasPredictionCol
+
+trait TVSplitRecommendationParams extends Wrappable with ValidatorParams {
+  /**
+    * Param for ratio between train and validation data. Must be between 0 and 1.
+    * Default: 0.75
+    *
+    * @group param
+    */
+  val minRatingsU: IntParam = new IntParam(this, "minRatingsU",
+    "min ratings for users > 0", ParamValidators.inRange(1, Integer.MAX_VALUE))
+
+  val minRatingsI: IntParam = new IntParam(this, "minRatingsI",
+    "min ratings for items > 0", ParamValidators.inRange(1, Integer.MAX_VALUE))
+
+  val trainRatio: DoubleParam = new DoubleParam(this, "trainRatio",
+    "ratio between training set and validation set (>= 0 && <= 1)", ParamValidators.inRange(0, 1))
+
+  /** @group getParam */
+  def getTrainRatio: Double = $(trainRatio)
+
+  /** @group getParam */
+  def getMinRatingsU: Int = $(minRatingsU)
+
+  /** @group getParam */
+  def getMinRatingsI: Int = $(minRatingsI)
+
+  setDefault(trainRatio -> 0.75)
+  setDefault(minRatingsU -> 1)
+  setDefault(minRatingsI -> 1)
+}
+
+trait MsftRecEvaluatorParams extends Evaluator
+  with HasPredictionCol with HasLabelCol with DefaultParamsWritable
 
 object MsftRecHelper {
 
