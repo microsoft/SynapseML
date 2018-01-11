@@ -16,6 +16,7 @@ case class BrainScriptConfig(name: String, text: Seq[String])
 class BrainScriptBuilder {
 
   var modelName = "ModelOut"
+  var modelOutputDir = "Models"
 
   var inData: Option[InputData] = None
 
@@ -43,6 +44,11 @@ class BrainScriptBuilder {
     this
   }
 
+  def setModelOutputDir(n: String): this.type = {
+    modelOutputDir = n
+    this
+  }
+
   def setHDFSPath(hdfsPath: Option[(String, String, String)]): this.type = {
     if (hdfsPath.isDefined) {
       activeNameNode = hdfsPath.get._3
@@ -54,8 +60,16 @@ class BrainScriptBuilder {
     s"""file://$getLocalModelPath"""
   }
 
+  def getModelName: String = {
+    s"""$modelName"""
+  }
+
+  def getLocalModelOutputDir: String = {
+    s"""$outDir/$modelOutputDir"""
+  }
+
   def getLocalModelPath: String = {
-    s"""$outDir/Models/$modelName"""
+    s"""$getLocalModelOutputDir/$getModelName"""
   }
 
   def setRootDir(p: String): this.type = {

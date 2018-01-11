@@ -68,7 +68,7 @@ trait CNTKParams extends MMLParams {
 
 object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
   val localDataTransfer = "local"
-  val hdfsDataTransfer  = "hdfs-mount"
+  val hdfsDataTransfer  = "hdfs"
   val textDataFormat    = "text"
   val parquetDataFormat = "parquet"
   val denseForm         = "dense"
@@ -162,6 +162,8 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       .setOutputDir(outputDir)
       .setSparkSession(spark)
       .setDataFormat(getDataFormat)
+      .setModelOutputDir(config.getLocalModelOutputDir)
+      .setModelName(config.getModelName)
 
     val output = cb.runCommand
     logInfo("CNTK training finished")
