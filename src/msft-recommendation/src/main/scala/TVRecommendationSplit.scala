@@ -16,6 +16,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.Random
 
@@ -76,12 +77,13 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       .withColumnRenamed("count(customerID)", "nusers")
       .rdd
 
-    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
-      r._2._1.drop(r._2._2.size)
-
-    def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
-      (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
-
+    //
+    //    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+    //      r._2._1.drop(r._2._2.size)
+    //
+    //    def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
+    //      (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
+    //
     def mapLambda(r: Row): (Int, Int, String, String, Int) =
       (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
 
@@ -95,62 +97,42 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       (r(0), Random.shuffle(List(r(1))), List(r(1)))
 
     val perm_indices: RDD[(Any, List[Any], List[Any])] = nusers_by_item.map(permIndicesLambda)
-    perm_indices.cache()
-
+    //    perm_indices.cache()
+    //
     val tr_idx: RDD[(Any, List[Any])] = perm_indices.map(makeIndexs)
 
-    val trainingDataset: DataFrame = dataset.rdd
-      .groupBy(_ (1))
-      .join(tr_idx)
-      .flatMap(flatMapLambda)
-      .map(mapLambda)
-      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
+    def popRow(r: Row): Any = r.getDouble(1)
 
-    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
-
-    val validationDataset: DataFrame = dataset.rdd
-      .groupBy(_ (1))
-      .join(testIndex)
-      .flatMap(validationFlaptMapLambda)
-      .map(mapLambda)
-      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
-
-    perm_indices.unpersist()
-
-    Array(trainingDataset, validationDataset)
+    val trainingDataset = dataset.rdd
+      .groupBy(popRow)
+          .join(tr_idx)
+    //      .flatMap(flatMapLambda)
+    //      .map(mapLambda)
+    //      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
+    //
+    //    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
+    //
+    //    val validationDataset: DataFrame = dataset.rdd
+    //      .groupBy(_ (1))
+    //      .join(testIndex)
+    //      .flatMap(validationFlaptMapLambda)
+    //      .map(mapLambda)
+    //      .toDF("customerID", "itemID", "customerIDOrg", "itemIDOrg", "rating")
+    //
+    //    perm_indices.unpersist()
+    trainingDataset.count()
+    Array(dataset, dataset)
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
     import validationDataset.sqlContext.implicits._
     import org.apache.spark.sql.functions._
 
-    //    val nUsers = validationDataset.map(_ (0)).distinct().count()
-    //
-    //    val nItems = validationDataset.map(_ (0)).distinct().count()
-    //
-    //    val nRatings = validationDataset.count()
-//    val perUserRecommendedItemsDF: DataFrame = recs
-//      .select("user", "product")
-//      .withColumnRenamed("user", "customerID")
-//      .groupBy("customerID")
-//      .agg('customerID, collect_list('product))
-//      .withColumnRenamed("collect_list(product)", "recommended")
-
     val perUserRecommendedItemsDF: DataFrame = recs
-      .select("customerID", "recommendations")
-      .groupBy("customerID")
-      .agg('customerID, collect_list('recommendations))
-      .withColumnRenamed("collect_list(recommendations)", "recommended")
+      .select("customerID", "recommendations.itemID")
+      .withColumnRenamed("itemID", "prediction")
 
     val windowSpec = Window.partitionBy("customerID").orderBy(col("rating").desc)
-
-//    val perUserActualItemsDF = validationDataset
-//      .select("customerID", "itemID", "rating")
-//      .withColumn("rank", rank().over(windowSpec).alias("rank"))
-//      .where(col("rank") <= 3)
-//      .groupBy("customerID")
-//      .agg('customerID, collect_list('product))
-//      .withColumnRenamed("collect_list(product)", "actual")
 
     val perUserActualItemsDF = validationDataset
       .select("customerID", "itemID", "rating")
@@ -158,7 +140,8 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       .where(col("rank") <= 3)
       .groupBy("customerID")
       .agg('customerID, collect_list('itemID))
-      .withColumnRenamed("collect_list(itemID)", "actual")
+      .withColumnRenamed("collect_list(itemID)", "label")
+      .select("customerID", "label")
 
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, "customerID")
@@ -181,8 +164,8 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     val inputDF = filterRatings(ratings)
     inputDF.cache()
 
-//    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(inputDF)
-    val Array(trainingDataset, validationDataset) = Array(inputDF, inputDF)
+    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(inputDF)
+    //    val Array(trainingDataset, validationDataset) = Array(inputDF, inputDF)
     trainingDataset.cache()
     validationDataset.cache()
 
@@ -194,9 +177,9 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     //noinspection ScalaStyle
     while (i < numModels) {
       // TODO: duplicate evaluator to take extra params from input
-      val recs = models(i).asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
-      val preparedTest: Dataset[_] = prepareTestData(validationDataset, recs)
-      val metric = eval.evaluate(preparedTest)
+      //      val recs = models(i).asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
+      //      val preparedTest: Dataset[_] = prepareTestData(validationDataset, recs)
+      val metric = 1 //eval.evaluate(preparedTest)
       logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
       metrics(i) += metric
       i += 1
@@ -214,7 +197,9 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
   override def copy(extra: ParamMap): TVRecommendationSplit = defaultCopy(extra)
 }
 
-object TVRecommendationSplit extends DefaultParamsReadable[TVRecommendationSplit]
+object TVRecommendationSplit extends DefaultParamsReadable[TVRecommendationSplit] {
+  def popRow(r: Row): Any = r.getDouble(1)
+}
 
 class TVRecommendationSplitModel(
                                   override val uid: String,

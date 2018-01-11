@@ -183,7 +183,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .groupBy(r => r(1))
       .join(tr_idx)
       .flatMap(r => r._2._1.slice(0, r._2._2.size))
-      .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2)))
+      .map(r => (r.getDouble(0), r.getDouble(1), r.getInt(2)))
       .toDF("customerID", "itemID", "rating")
 
     val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))

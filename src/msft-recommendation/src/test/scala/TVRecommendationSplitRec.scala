@@ -90,4 +90,5 @@ class TVRecommendationSplitRec
   override def reader: MLReadable[_] = TVRecommendationSplit
 
   override def modelReader: MLReadable[_] = TVRecommendationSplitModel
+
 }

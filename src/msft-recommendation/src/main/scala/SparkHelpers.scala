@@ -4,12 +4,12 @@
 package org.apache.spark.ml.recommendation
 
 import com.github.fommil.netlib.{BLAS => NetlibBLAS}
-import com.microsoft.ml.spark.{HasLabelCol, Wrappable}
+import com.microsoft.ml.spark.Wrappable
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamValidators, Params}
-import org.apache.spark.ml.param.shared.HasPredictionCol
+import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol}
 import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.tuning.ValidatorParams
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
@@ -57,6 +57,7 @@ trait MsftRecEvaluatorParams extends Evaluator
   with HasPredictionCol with HasLabelCol with DefaultParamsWritable
 
 object MsftRecHelper {
+  def popRow(r: Row): Any = r.getDouble(1)
 
   private def blockify(
                         factors: Dataset[(Int, Array[Float])],
