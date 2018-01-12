@@ -5,8 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.recommendation.{MsftRecommendationParams, TVSplitRecommendationParams}
-import org.apache.spark.ml.tuning.TrainValidationSplit
+import org.apache.spark.ml.recommendation.{ALS, ALSModel, MsftRecommendationParams, TrainValidRecommendSplitParams}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineModel}
 import org.apache.spark.rdd.RDD
@@ -15,13 +14,10 @@ import org.apache.spark.sql.functions.{col, count}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.Random
 
-class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecommendationSplitModel]
-  with TVSplitRecommendationParams with ComplexParamsWritable with MsftRecommendationParams {
+class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
+  with TrainValidRecommendSplitParams with ComplexParamsWritable with MsftRecommendationParams {
 
   /** @group setParam */
   def setUserCol(value: String): this.type = set(userCol, value)
@@ -32,7 +28,7 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
   /** @group setParam */
   def setRatingCol(value: String): this.type = set(ratingCol, value)
 
-  def this() = this(Identifiable.randomUID("TVRecommendationSplit"))
+  def this() = this(Identifiable.randomUID("TrainValidRecommendSplit"))
 
   /** @group setParam */
   def setEstimator(value: Estimator[_ <: Model[_]]): this.type = set(estimator, value)
@@ -58,7 +54,6 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
   override def transformSchema(schema: StructType): StructType = transformSchemaImpl(schema)
 
   def filterRatings(dataset: Dataset[_]): DataFrame = {
-    import dataset.sqlContext.implicits._
 
     val userColumn = $(userCol)
     val tmpDF = dataset
@@ -132,10 +127,28 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
-    import validationDataset.sqlContext.implicits._
-    import org.apache.spark.sql.functions.{rank => r, collect_list}
-    val est = $(estimator).asInstanceOf[Pipeline]
-      .getStages($(estimator).asInstanceOf[Pipeline].getStages.length-1).asInstanceOf[MsftRecommendation]
+    import org.apache.spark.sql.functions.{collect_list, rank => r}
+
+    val est = $(estimator) match {
+      case p: Pipeline => {
+        //Assume Rec is last stage of pipeline
+        val pipe = $(estimator).asInstanceOf[Pipeline].getStages.last
+        pipe match {
+          case m: MsftRecommendation => {
+            pipe.asInstanceOf[MsftRecommendation]
+          }
+          case a: ALS => {
+            pipe.asInstanceOf[ALS]
+          }
+        }
+      }
+      case m: MsftRecommendation => {
+        $(estimator).asInstanceOf[MsftRecommendation]
+      }
+      case a: ALS => {
+        $(estimator).asInstanceOf[ALS]
+      }
+    }
 
     val userColumn = est.getUserCol
     val itemColumn = est.getItemCol
@@ -162,11 +175,12 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     joined_rec_actual
   }
 
-  override def fit(dataset: Dataset[_]): TVRecommendationSplitModel = {
+  override def fit(dataset: Dataset[_]): TrainValidRecommendSplitModel = {
+    // todo: something weird here
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = $(estimator)
-    val eval = $(evaluator)
+    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator[Any]]
     val epm = $(estimatorParamMaps)
     val numModels = epm.length
     val metrics = new Array[Double](epm.length)
@@ -178,6 +192,7 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
 
     val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(inputDF)
     //    val Array(trainingDataset, validationDataset) = Array(inputDF, inputDF)
+
     trainingDataset.cache()
     validationDataset.cache()
 
@@ -190,9 +205,35 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
     while (i < numModels) {
       // TODO: duplicate evaluator to take extra params from input
       models(i) match {
-        case n: PipelineModel => {
-          val recs = models(i).asInstanceOf[PipelineModel]
-            .stages(2).asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
+        case p: PipelineModel => {
+          //Assume Rec is last stage of pipeline
+          val modelTemp = models(i).asInstanceOf[PipelineModel].stages.last
+
+          val recs = modelTemp match {
+            case m: MsftRecommendationModel => {
+              modelTemp.asInstanceOf[MsftRecommendationModel].recommendForAllUsers(eval.getK)
+            }
+            case m: ALSModel => {
+              modelTemp.asInstanceOf[ALSModel].recommendForAllUsers(eval.getK)
+            }
+          }
+
+          val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+          val metric = eval.evaluate(preparedTest)
+          logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
+          metrics(i) += metric
+        }
+        case m: MsftRecommendationModel => {
+          val recs = models(i)
+            .asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
+          val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+          val metric = eval.evaluate(preparedTest)
+          logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
+          metrics(i) += metric
+        }
+        case a: ALSModel => {
+          val recs = models(i)
+            .asInstanceOf[ALSModel].recommendForAllUsers(3)
           val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
           val metric = eval.evaluate(preparedTest)
           logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
@@ -208,41 +249,12 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       else metrics.zipWithIndex.minBy(_._1)
 
     val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
-    copyValues(new TVRecommendationSplitModel(uid, bestModel, metrics).setParent(this))
+    copyValues(new TrainValidRecommendSplitModel(uid, bestModel, metrics).setParent(this))
   }
 
-  override def copy(extra: ParamMap): TVRecommendationSplit = defaultCopy(extra)
+  override def copy(extra: ParamMap): TrainValidRecommendSplit = defaultCopy(extra)
 }
 
-object TVRecommendationSplit extends ComplexParamsReadable[TVRecommendationSplit] {
+object TrainValidRecommendSplit extends ComplexParamsReadable[TrainValidRecommendSplit] {
   def popRow(r: Row): Any = r.getDouble(1)
 }
-
-class TVRecommendationSplitModel(
-                                  override val uid: String,
-                                  val bestModel: Model[_],
-                                  val validationMetrics: Array[Double])
-  extends Model[TVRecommendationSplitModel] with TVSplitRecommendationParams
-    with ConstructorWritable[TVRecommendationSplitModel] {
-
-  override def copy(extra: ParamMap): TVRecommendationSplitModel = {
-    val copied = new TVRecommendationSplitModel(uid, bestModel, validationMetrics)
-    copyValues(copied, extra).setParent(parent)
-  }
-
-  override val ttag: TypeTag[TVRecommendationSplitModel] = typeTag[TVRecommendationSplitModel]
-
-  override def objectsToSave: List[AnyRef] =
-    List(uid, bestModel, validationMetrics)
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema, logging = true)
-    bestModel.transform(dataset)
-  }
-
-  override def transformSchema(schema: StructType): StructType = {
-    bestModel.transformSchema(schema)
-  }
-}
-
-object TVRecommendationSplitModel extends ConstructorReadable[TVRecommendationSplitModel]

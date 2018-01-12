@@ -23,7 +23,7 @@ trait MsftRecommendationParams extends Wrappable with MsftRecommendationModelPar
 
 trait MsftHasPredictionCol extends Params with HasPredictionCol
 
-trait TVSplitRecommendationParams extends Wrappable with ValidatorParams {
+trait TrainValidRecommendSplitParams extends Wrappable with ValidatorParams {
   /**
     * Param for ratio between train and validation data. Must be between 0 and 1.
     * Default: 0.75
@@ -48,7 +48,7 @@ trait TVSplitRecommendationParams extends Wrappable with ValidatorParams {
   /** @group getParam */
   def getMinRatingsI: Int = $(minRatingsI)
 
-  override val estimatorParamMaps =
+  override val estimatorParamMaps: ArrayParamMapParam =
     new ArrayParamMapParam(this, "estimatorParamMaps", "param maps for the estimator")
 
   override val evaluator: EvaluatorParam = new EvaluatorParam(this, "evaluator",

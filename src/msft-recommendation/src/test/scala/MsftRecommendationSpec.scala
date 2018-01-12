@@ -82,7 +82,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
     val pipeline = new Pipeline()
       .setStages(Array(customerIndex, ratingsIndex, alsWReg))
 
-    val tvRecommendationSplit = new TVRecommendationSplit()
+    val tvRecommendationSplit = new TrainValidRecommendSplit()
       .setEstimator(pipeline)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
