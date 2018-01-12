@@ -32,7 +32,8 @@ class LightGBM(override val uid: String) extends Estimator[LightGBMModel]
     * @return The trained model.
     */
   override def fit(dataset: Dataset[_]): LightGBMModel = {
-    com.microsoft.ml.lightgbm.lightgbmlib.LGBM_NetworkFree()
+    val nodes = dataset.sparkSession.sparkContext.getExecutorMemoryStatus.keys
+    com.microsoft.ml.lightgbm.lightgbmlib.LGBM_NetworkInit("", 1, 2, 3)
     new LightGBMModel(uid)
   }
 
