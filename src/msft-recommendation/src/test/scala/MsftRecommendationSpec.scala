@@ -87,9 +87,9 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getOutputCol)
+      .setUserCol(customerIndex.getInputCol)
       .setRatingCol("rating")
-      .setItemCol(ratingsIndex.getOutputCol)
+      .setItemCol(ratingsIndex.getInputCol)
 
     val tvModel = tvRecommendationSplit.fit(ratings)
 
