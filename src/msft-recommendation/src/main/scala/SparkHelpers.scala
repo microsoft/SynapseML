@@ -7,20 +7,20 @@ import com.github.fommil.netlib.{BLAS => NetlibBLAS}
 import com.microsoft.ml.spark.Wrappable
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
-import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.tuning.{CrossValidatorParams, TrainValidationSplitParams, ValidatorParams}
+import org.apache.spark.ml.tuning.{CrossValidatorParams, TrainValidationSplitParams}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.BoundedPriorityQueue
-import org.json4s.{DefaultFormats, JObject}
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
+import org.json4s.{DefaultFormats, JObject}
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
 
@@ -90,16 +90,17 @@ trait TrainValidRecommendSplitParams extends Wrappable with HasSeed with Params 
   protected def logTuningParams(instrumentation: Instrumentation[_]): Unit = {
     instrumentation.logNamedValue("estimator", $(estimator).getClass.getCanonicalName)
     instrumentation.logNamedValue("evaluator", $(evaluator).getClass.getCanonicalName)
-    instrumentation.logNamedValue("estimatorParamMapsLength", $(estimatorParamMaps).length)
+    instrumentation.logNamedValue("estimatorParamMapsLength", Int.int2long($(estimatorParamMaps).length))
   }
 }
 
 private[ml] object TrainValidRecommendSplitParams {
   /**
-    * Check that [[ValidatorParams.evaluator]] and [[ValidatorParams.estimator]] are Writable.
-    * This does not check [[ValidatorParams.estimatorParamMaps]].
+    * Check that [[TrainValidRecommendSplitParams.evaluator]] and
+    * [[TrainValidRecommendSplitParams.estimator]] are Writable.
+    * This does not check [[TrainValidRecommendSplitParams.estimatorParamMaps]].
     */
-  def validateParams(instance: ValidatorParams): Unit = {
+  def validateParams(instance: TrainValidRecommendSplitParams): Unit = {
     def checkElement(elem: Params, name: String): Unit = elem match {
       case stage: MLWritable => // good
       case other =>
@@ -107,6 +108,7 @@ private[ml] object TrainValidRecommendSplitParams {
           s" because it contains $name which does not implement Writable." +
           s" Non-Writable $name: ${other.uid} of type ${other.getClass}")
     }
+
     checkElement(instance.getEvaluator, "evaluator")
     checkElement(instance.getEstimator, "estimator")
     // Check to make sure all Params apply to this estimator.  Throw an error if any do not.
@@ -122,13 +124,13 @@ private[ml] object TrainValidRecommendSplitParams {
   }
 
   /**
-    * Generic implementation of save for [[ValidatorParams]] types.
-    * This handles all [[ValidatorParams]] fields and saves [[Param]] values, but the implementing
+    * Generic implementation of save for [[TrainValidRecommendSplitParams]] types.
+    * This handles all [[TrainValidRecommendSplitParams]] fields and saves [[Param]] values, but the implementing
     * class needs to handle model data.
     */
   def saveImpl(
                 path: String,
-                instance: ValidatorParams,
+                instance: TrainValidRecommendSplitParams,
                 sc: SparkContext,
                 extraMetadata: Option[JObject] = None): Unit = {
     import org.json4s.JsonDSL._
@@ -165,8 +167,8 @@ private[ml] object TrainValidRecommendSplitParams {
   }
 
   /**
-    * Generic implementation of load for [[ValidatorParams]] types.
-    * This handles all [[ValidatorParams]] fields, but the implementing
+    * Generic implementation of load for [[TrainValidRecommendSplitParams]] types.
+    * This handles all [[TrainValidRecommendSplitParams]] fields, but the implementing
     * class needs to handle model data and special [[Param]] values.
     */
   def loadImpl[M <: Model[M]](
@@ -202,7 +204,6 @@ private[ml] object TrainValidRecommendSplitParams {
 
 trait MsftRecEvaluatorParams extends Evaluator
   with HasPredictionCol with HasLabelCol with DefaultParamsWritable
-
 
 object MsftRecHelper {
   def popRow(r: Row): Any = r.getDouble(1)
@@ -247,58 +248,4 @@ object MsftRecHelper {
                  dataset: Dataset[_]): DataFrame =
     new ALSModel(Identifiable.randomUID("als"), rank, userFactors, itemFactors).transform(dataset)
 
-}
-
-private[ml] trait ValidatorParams extends HasSeed with Params {
-
-  /**
-    * param for the estimator to be validated
-    *
-    * @group param
-    */
-  val estimator: Param[Estimator[_]] = new Param(this, "estimator", "estimator for selection")
-
-  /** @group getParam */
-  def getEstimator: Estimator[_] = $(estimator)
-
-  /**
-    * param for estimator param maps
-    *
-    * @group param
-    */
-  val estimatorParamMaps: Param[Array[ParamMap]] =
-    new Param(this, "estimatorParamMaps", "param maps for the estimator")
-
-  /** @group getParam */
-  def getEstimatorParamMaps: Array[ParamMap] = $(estimatorParamMaps)
-
-  /**
-    * param for the evaluator used to select hyper-parameters that maximize the validated metric
-    *
-    * @group param
-    */
-  val evaluator: Param[Evaluator] = new Param(this, "evaluator",
-    "evaluator used to select hyper-parameters that maximize the validated metric")
-
-  /** @group getParam */
-  def getEvaluator: Evaluator = $(evaluator)
-
-  protected def transformSchemaImpl(schema: StructType): StructType = {
-    require($(estimatorParamMaps).nonEmpty, s"Validator requires non-empty estimatorParamMaps")
-    val firstEstimatorParamMap = $(estimatorParamMaps).head
-    val est = $(estimator)
-    for (paramMap <- $(estimatorParamMaps).tail) {
-      est.copy(paramMap).transformSchema(schema)
-    }
-    est.copy(firstEstimatorParamMap).transformSchema(schema)
-  }
-
-  /**
-    * Instrumentation logging for tuning params including the inner estimator and evaluator info.
-    */
-  protected def logTuningParams(instrumentation: Instrumentation[_]): Unit = {
-    instrumentation.logNamedValue("estimator", $(estimator).getClass.getCanonicalName)
-    instrumentation.logNamedValue("evaluator", $(evaluator).getClass.getCanonicalName)
-    instrumentation.logNamedValue("estimatorParamMapsLength", $(estimatorParamMaps).length)
-  }
 }
