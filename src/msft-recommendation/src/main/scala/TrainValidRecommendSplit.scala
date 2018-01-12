@@ -7,7 +7,7 @@ import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALS, ALSModel, MsftRecommendationParams, TrainValidRecommendSplitParams}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineModel}
+import org.apache.spark.ml._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, count}
@@ -53,28 +53,84 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
   override def transformSchema(schema: StructType): StructType = transformSchemaImpl(schema)
 
-  def filterRatings(dataset: Dataset[_]): DataFrame = {
+  override def fit(dataset: Dataset[_]): TrainValidRecommendSplitModel = {
+    val schema = dataset.schema
+    transformSchema(schema, logging = true)
+    val est = $(estimator)
+    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator[Any]]
+    val epm = $(estimatorParamMaps)
+    val numModels = epm.length
+    val metrics = new Array[Double](epm.length)
 
-    val userColumn = $(userCol)
-    val tmpDF = dataset
-      .groupBy(userColumn)
-      .agg(col(userColumn), count(col($(itemCol))))
-      .withColumnRenamed("count(" + $(itemCol) + ")", "nitems")
-      .where(col("nitems") >= $(minRatingsU))
+    val filteredDataset = filterRatings(dataset.dropDuplicates())
+    filteredDataset.cache()
 
-    val inputDF = dataset.groupBy($(itemCol))
-      .agg(col($(itemCol)), count(col($(userCol))))
-      .withColumnRenamed("count(" + $(userCol) + ")", "ncustomers")
-      .where(col("ncustomers") >= $(minRatingsI))
-      .join(dataset, $(itemCol))
-      .drop("ncustomers")
-      .join(tmpDF, $(userCol))
-      .drop("nitems")
+    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
+    trainingDataset.cache()
+    validationDataset.cache()
+    filteredDataset.unpersist()
 
-    inputDF
+    val models = est.fit(trainingDataset, epm).asInstanceOf[Seq[Model[_]]]
+    trainingDataset.unpersist()
+    var i = 0
+    //noinspection ScalaStyle
+    while (i < numModels) {
+      // TODO: duplicate evaluator to take extra params from input
+      val metric = castModel(models(i))
+      logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
+      metrics(i) += metric
+      i += 1
+    }
+
+    def castModel(model: Transformer): Double = model match {
+      case p: PipelineModel => {
+        //Assume Rec is last stage of pipeline
+        val modelTemp = models(i).asInstanceOf[PipelineModel].stages.last
+        castModel(modelTemp)
+      }
+      case m: MsftRecommendationModel => {
+        val recs = model.asInstanceOf[MsftRecommendationModel].recommendForAllUsers(eval.getK)
+        val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+        eval.evaluate(preparedTest)
+      }
+      case a: ALSModel => {
+        val recs = model.asInstanceOf[ALSModel].recommendForAllUsers(eval.getK)
+        val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+        eval.evaluate(preparedTest)
+      }
+    }
+
+    validationDataset.unpersist()
+
+    val (bestMetric, bestIndex) =
+      if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
+      else metrics.zipWithIndex.minBy(_._1)
+
+    val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
+    copyValues(new TrainValidRecommendSplitModel(uid, bestModel, metrics).setParent(this))
   }
 
-  def splitDF(dataset: DataFrame): Array[DataFrame] = {
+  override def copy(extra: ParamMap): TrainValidRecommendSplit = defaultCopy(extra)
+
+  private def filterByItemCount(dataset: Dataset[_]): DataFrame = dataset
+    .groupBy($(userCol))
+    .agg(col($(userCol)), count(col($(itemCol))))
+    .withColumnRenamed("count(" + $(itemCol) + ")", "nitems")
+    .where(col("nitems") >= $(minRatingsU))
+    .drop("nitems")
+
+  private def filterByUserRatingCount(dataset: Dataset[_]): DataFrame = dataset
+    .groupBy($(itemCol))
+    .agg(col($(itemCol)), count(col($(userCol))))
+    .withColumnRenamed("count(" + $(userCol) + ")", "ncustomers")
+    .where(col("ncustomers") >= $(minRatingsI))
+    .join(dataset, $(itemCol))
+    .drop("ncustomers")
+
+  private def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
+    .join(filterByItemCount(dataset), $(userCol))
+
+  private def splitDF(dataset: DataFrame): Array[DataFrame] = {
     import dataset.sqlContext.implicits._
 
     val nusers_by_item: RDD[Row] = dataset.groupBy($(itemCol))
@@ -126,7 +182,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     Array(dataset, dataset)
   }
 
-  def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
+  private def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val est = $(estimator) match {
@@ -174,85 +230,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
     joined_rec_actual
   }
-
-  override def fit(dataset: Dataset[_]): TrainValidRecommendSplitModel = {
-    // todo: something weird here
-    val schema = dataset.schema
-    transformSchema(schema, logging = true)
-    val est = $(estimator)
-    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator[Any]]
-    val epm = $(estimatorParamMaps)
-    val numModels = epm.length
-    val metrics = new Array[Double](epm.length)
-
-    val ratings = dataset.dropDuplicates()
-
-    val inputDF = filterRatings(ratings)
-    inputDF.cache()
-
-    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(inputDF)
-    //    val Array(trainingDataset, validationDataset) = Array(inputDF, inputDF)
-
-    trainingDataset.cache()
-    validationDataset.cache()
-
-    inputDF.unpersist()
-
-    val models = est.fit(trainingDataset, epm).asInstanceOf[Seq[Model[_]]]
-    trainingDataset.unpersist()
-    var i = 0
-    //noinspection ScalaStyle
-    while (i < numModels) {
-      // TODO: duplicate evaluator to take extra params from input
-      models(i) match {
-        case p: PipelineModel => {
-          //Assume Rec is last stage of pipeline
-          val modelTemp = models(i).asInstanceOf[PipelineModel].stages.last
-
-          val recs = modelTemp match {
-            case m: MsftRecommendationModel => {
-              modelTemp.asInstanceOf[MsftRecommendationModel].recommendForAllUsers(eval.getK)
-            }
-            case m: ALSModel => {
-              modelTemp.asInstanceOf[ALSModel].recommendForAllUsers(eval.getK)
-            }
-          }
-
-          val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
-          val metric = eval.evaluate(preparedTest)
-          logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
-          metrics(i) += metric
-        }
-        case m: MsftRecommendationModel => {
-          val recs = models(i)
-            .asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
-          val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
-          val metric = eval.evaluate(preparedTest)
-          logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
-          metrics(i) += metric
-        }
-        case a: ALSModel => {
-          val recs = models(i)
-            .asInstanceOf[ALSModel].recommendForAllUsers(3)
-          val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
-          val metric = eval.evaluate(preparedTest)
-          logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
-          metrics(i) += metric
-        }
-      }
-      i += 1
-    }
-    validationDataset.unpersist()
-
-    val (bestMetric, bestIndex) =
-      if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
-      else metrics.zipWithIndex.minBy(_._1)
-
-    val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
-    copyValues(new TrainValidRecommendSplitModel(uid, bestModel, metrics).setParent(this))
-  }
-
-  override def copy(extra: ParamMap): TrainValidRecommendSplit = defaultCopy(extra)
 }
 
 object TrainValidRecommendSplit extends ComplexParamsReadable[TrainValidRecommendSplit] {

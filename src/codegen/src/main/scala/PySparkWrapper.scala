@@ -246,7 +246,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     val classParamDocList           = ListBuffer[String]()
 
     // Iterate over the params to build strings
-    val allParams: Array[Param[_]] = entryPoint.params
+    val allParams: Array[Param[_]] = entryPoint.params.toSet.toArray
     // Check for complex types
     if (allParams.exists(p => isComplexType(p.getClass.getSimpleName))) {
       // Add special imports
