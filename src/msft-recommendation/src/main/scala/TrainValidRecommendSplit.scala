@@ -178,8 +178,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .toDF($(userCol), $(itemCol), $(userCol) + "Org", $(itemCol) + "Org", $(ratingCol))
 
     perm_indices.unpersist()
-    trainingDataset.count()
-    Array(dataset, dataset)
+    Array(trainingDataset, validationDataset)
   }
 
   private def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
