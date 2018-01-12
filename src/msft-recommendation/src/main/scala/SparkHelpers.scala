@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.Wrappable
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.linalg.BLAS
-import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamValidators, Params}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol}
 import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.tuning.ValidatorParams
@@ -47,6 +47,14 @@ trait TVSplitRecommendationParams extends Wrappable with ValidatorParams {
 
   /** @group getParam */
   def getMinRatingsI: Int = $(minRatingsI)
+
+  override val estimatorParamMaps =
+    new ArrayParamMapParam(this, "estimatorParamMaps", "param maps for the estimator")
+
+  override val evaluator: EvaluatorParam = new EvaluatorParam(this, "evaluator",
+    "evaluator used to select hyper-parameters that maximize the validated metric")
+
+  override val estimator = new EstimatorBarParam(this, "estimator", "estimator for selection")
 
   setDefault(trainRatio -> 0.75)
   setDefault(minRatingsU -> 1)

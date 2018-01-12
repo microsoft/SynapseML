@@ -6,10 +6,10 @@ package com.microsoft.ml.spark
 import java.util.Random
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
-import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.tuning.ParamGridBuilder
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -87,18 +87,17 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
+      .setUserCol(customerIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getOutputCol)
 
-    val model = tvRecommendationSplit.fit(ratings)
+    val tvModel = tvRecommendationSplit.fit(ratings)
+
+    val model = tvModel.bestModel.asInstanceOf[PipelineModel].stages(2).asInstanceOf[MsftRecommendationModel]
 
     val items = model.recommendForAllUsers(3)
     val users = model.recommendForAllItems(3)
 
-    //    val predictions = model.transform(dfTransform)
-    //    assert(predictions.count() > 0)
-    //    val test1 = predictions.collect()
-    //    val userRecs = model.recommendForAllUsers(3)
-    //    val test2 = userRecs.collect()
-    //    assert(userRecs.count() > 0)
   }
 
   test("No Cold Start") {
@@ -211,7 +210,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       (2, 1, 5),
       (2, 3, 5),
       (2, 2, 4)
-    )).toDF("customerID", "itemID", "rating")
+    )).toDF("customerIDOrg", "itemIDOrg", "rating")
 
     List(
       new TestObject(new MsftRecommendation()
@@ -220,8 +219,8 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
         .setMaxIter(1)
         .setNumUserBlocks(200)
         .setNumItemBlocks(20)
-        .setItemCol("itemID")
-        .setUserCol("customerID")
+        .setItemCol("itemIDOrg")
+        .setUserCol("customerIDOrg")
         .setRatingCol("rating"), df))
   }
 

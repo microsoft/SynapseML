@@ -67,24 +67,26 @@ class TVRecommendationSplitRec
       .setItemCol(ratingsIndex.getOutputCol)
 
     val paramGrid: Array[ParamMap] = new ParamGridBuilder()
-      .addGrid(alsWReg.regParam, Array(0.1, 0.01))
+      .addGrid(alsWReg.regParam, Array(1.0))
       .build()
 
     val evaluator = new MsftRecommendationEvaluator()
       .setK(3)
 
-    val tvRecommendationSplit: TVRecommendationSplit = new TVRecommendationSplit()
-      .setEstimator(alsWReg)
+    val pipeline = new Pipeline()
+      .setStages(Array(customerIndex, ratingsIndex, alsWReg))
+
+    val tvRecommendationSplit = new TVRecommendationSplit()
+      .setEstimator(pipeline)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
+      .setUserCol(customerIndex.getInputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getInputCol)
+//    val testDF = pipeline.fit(df).transform(df)
 
-    val pipeline: Pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val testDF = pipeline.fit(df).transform(df)
-
-    List(new TestObject(tvRecommendationSplit, testDF))
+    List(new TestObject(tvRecommendationSplit, df))
   }
 
   override def reader: MLReadable[_] = TVRecommendationSplit
