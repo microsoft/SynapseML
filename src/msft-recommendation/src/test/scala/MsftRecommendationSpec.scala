@@ -72,28 +72,12 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
 
-    val paramGrid = new ParamGridBuilder()
-      .addGrid(alsWReg.regParam, Array(0.1, 0.01))
-      .build()
-
-    val evaluator = new MsftRecommendationEvaluator()
-      .setK(3)
-
     val pipeline = new Pipeline()
       .setStages(Array(customerIndex, ratingsIndex, alsWReg))
 
-    val tvRecommendationSplit = new TrainValidRecommendSplit()
-      .setEstimator(pipeline)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(paramGrid)
-      .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getInputCol)
-      .setRatingCol("rating")
-      .setItemCol(ratingsIndex.getInputCol)
+    val tvModel = pipeline.fit(ratings)
 
-    val tvModel = tvRecommendationSplit.fit(ratings)
-
-    val model = tvModel.bestModel.asInstanceOf[PipelineModel].stages(2).asInstanceOf[MsftRecommendationModel]
+    val model = tvModel.asInstanceOf[PipelineModel].stages(2).asInstanceOf[MsftRecommendationModel]
 
     val items = model.recommendForAllUsers(3)
     val users = model.recommendForAllItems(3)
