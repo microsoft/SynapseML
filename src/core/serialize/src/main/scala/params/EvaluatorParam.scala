@@ -3,13 +3,13 @@
 
 package org.apache.spark.ml.param
 
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.evaluation.Evaluator
 
 /** Param for Estimator.  Needed as spark has explicit params for many different
   * types but not Estimator.
   */
-class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimator[_ <: Model[_]] => Boolean)
-  extends ComplexParam[Estimator[_ <: Model[_]]](parent, name, doc, isValid) {
+class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluator => Boolean)
+  extends ComplexParam[Evaluator](parent, name, doc, isValid) {
 
     def this(parent: Params, name: String, doc: String) =
       this(parent, name, doc, ParamValidators.alwaysTrue)

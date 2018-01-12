@@ -191,7 +191,8 @@ class TVRecommendationSplit(override val uid: String) extends Estimator[TVRecomm
       // TODO: duplicate evaluator to take extra params from input
       models(i) match {
         case n: PipelineModel => {
-          val recs = models(i).asInstanceOf[PipelineModel].stages(2).asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
+          val recs = models(i).asInstanceOf[PipelineModel]
+            .stages(2).asInstanceOf[MsftRecommendationModel].recommendForAllUsers(3)
           val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
           val metric = eval.evaluate(preparedTest)
           logDebug(s"Got metric $metric for model trained with ${epm(i)}.")

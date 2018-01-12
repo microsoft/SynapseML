@@ -8,8 +8,8 @@ import org.apache.spark.ml.{Estimator, Model}
 /** Param for Estimator.  Needed as spark has explicit params for many different
   * types but not Estimator.
   */
-class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimator[_ <: Model[_]] => Boolean)
-  extends ComplexParam[Estimator[_ <: Model[_]]](parent, name, doc, isValid) {
+class EstimatorBarParam(parent: Params, name: String, doc: String, isValid: Estimator[_] => Boolean)
+  extends ComplexParam[Estimator[_]](parent, name, doc, isValid) {
 
     def this(parent: Params, name: String, doc: String) =
       this(parent, name, doc, ParamValidators.alwaysTrue)
