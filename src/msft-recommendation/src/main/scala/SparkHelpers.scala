@@ -202,7 +202,7 @@ private[ml] object TrainValidRecommendSplitParams {
   }
 }
 
-trait MsftRecEvaluatorParams extends Evaluator
+trait MsftRecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with DefaultParamsWritable
 
 object MsftRecHelper {

@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.recommendation.MsftRecEvaluatorParams
 import org.apache.spark.ml.param.{IntParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
@@ -13,7 +14,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.reflect.ClassTag
 
 final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
-  extends Wrappable with MsftRecEvaluatorParams {
+  extends Evaluator with MsftRecEvaluatorParams {
 
   def this() = this(Identifiable.randomUID("recEval"))
 
