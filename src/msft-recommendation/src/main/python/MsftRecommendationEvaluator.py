@@ -1,11 +1,25 @@
-from pyspark.ml.wrapper import JavaWrapper
-from pyspark.ml.param import Param, Params
-from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol, HasRawPredictionCol
-from pyspark.ml.util import keyword_only
-from pyspark.mllib.common import inherit_doc
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for information.
+
+import sys
+
+if sys.version >= '3':
+    basestring = str
+
+from pyspark.ml.param.shared import *
+from pyspark import keyword_only
+
+from pyspark.ml.wrapper import JavaEvaluator
+from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol, HasRawPredictionCol, HasFeaturesCol
+from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+
+from pyspark.ml.common import inherit_doc
+from mmlspark.Utils import *
 
 
-class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol):
+@inherit_doc
+class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, \
+        JavaMLReadable, JavaMLWritable):
     @keyword_only
     def __init__(self, rawPredictionCol="rawPrediction", labelCol="label",
                  metricName="ndcgAt"):
@@ -54,5 +68,3 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol):
         """
         kwargs = self._input_kwargs
         return self._set(**kwargs)
-
-
