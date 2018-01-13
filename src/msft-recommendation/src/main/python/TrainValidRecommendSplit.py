@@ -3,6 +3,7 @@
 
 
 import sys
+
 if sys.version >= '3':
     basestring = str
 
@@ -12,6 +13,7 @@ from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
 from pyspark.ml.common import inherit_doc
 from mmlspark.Utils import *
+
 
 @inherit_doc
 class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaEstimator):
@@ -46,25 +48,36 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
     """
 
     @keyword_only
-    def __init__(self, alpha=1.0, checkpointInterval=10, coldStartStrategy="nan", estimator=None, estimatorParamMaps=None, evaluator=None, finalStorageLevel="MEMORY_AND_DISK", implicitPrefs=False, intermediateStorageLevel="MEMORY_AND_DISK", itemCol="item", maxIter=10, minRatingsI=1, minRatingsU=1, nonnegative=False, numItemBlocks=10, numUserBlocks=10, predictionCol="prediction", rank=10, ratingCol="rating", regParam=0.1, seed=1893783045, trainRatio=0.75, userCol="user"):
+    def __init__(self, alpha=1.0, checkpointInterval=10, coldStartStrategy="nan", estimator=None,
+                 estimatorParamMaps=None, evaluator=None, finalStorageLevel="MEMORY_AND_DISK", implicitPrefs=False,
+                 intermediateStorageLevel="MEMORY_AND_DISK", itemCol="item", maxIter=10, minRatingsI=1, minRatingsU=1,
+                 nonnegative=False, numItemBlocks=10, numUserBlocks=10, predictionCol="prediction", rank=10,
+                 ratingCol="rating", regParam=0.1, seed=1893783045, trainRatio=0.75, userCol="user"):
         super(TrainValidRecommendSplit, self).__init__()
         self._java_obj = self._new_java_obj("com.microsoft.ml.spark.TrainValidRecommendSplit")
         self.alpha = Param(self, "alpha", "alpha: alpha for implicit preference (default: 1.0)")
         self._setDefault(alpha=1.0)
-        self.checkpointInterval = Param(self, "checkpointInterval", "checkpointInterval: set checkpoint interval (>= 1) or disable checkpoint (-1). E.g. 10 means that the cache will get checkpointed every 10 iterations (default: 10)")
+        self.checkpointInterval = Param(self, "checkpointInterval",
+                                        "checkpointInterval: set checkpoint interval (>= 1) or disable checkpoint (-1). E.g. 10 means that the cache will get checkpointed every 10 iterations (default: 10)")
         self._setDefault(checkpointInterval=10)
-        self.coldStartStrategy = Param(self, "coldStartStrategy", "coldStartStrategy: strategy for dealing with unknown or new users/items at prediction time. This may be useful in cross-validation or production scenarios, for handling user/item ids the model has not seen in the training data. Supported values: nan,drop. (default: nan)")
+        self.coldStartStrategy = Param(self, "coldStartStrategy",
+                                       "coldStartStrategy: strategy for dealing with unknown or new users/items at prediction time. This may be useful in cross-validation or production scenarios, for handling user/item ids the model has not seen in the training data. Supported values: nan,drop. (default: nan)")
         self._setDefault(coldStartStrategy="nan")
         self.estimator = Param(self, "estimator", "estimator: estimator for selection")
         self.estimatorParamMaps = Param(self, "estimatorParamMaps", "estimatorParamMaps: param maps for the estimator")
-        self.evaluator = Param(self, "evaluator", "evaluator: evaluator used to select hyper-parameters that maximize the validated metric")
-        self.finalStorageLevel = Param(self, "finalStorageLevel", "finalStorageLevel: StorageLevel for ALS model factors. (default: MEMORY_AND_DISK)")
+        self.evaluator = Param(self, "evaluator",
+                               "evaluator: evaluator used to select hyper-parameters that maximize the validated metric")
+        self.finalStorageLevel = Param(self, "finalStorageLevel",
+                                       "finalStorageLevel: StorageLevel for ALS model factors. (default: MEMORY_AND_DISK)")
         self._setDefault(finalStorageLevel="MEMORY_AND_DISK")
-        self.implicitPrefs = Param(self, "implicitPrefs", "implicitPrefs: whether to use implicit preference (default: false)")
+        self.implicitPrefs = Param(self, "implicitPrefs",
+                                   "implicitPrefs: whether to use implicit preference (default: false)")
         self._setDefault(implicitPrefs=False)
-        self.intermediateStorageLevel = Param(self, "intermediateStorageLevel", "intermediateStorageLevel: StorageLevel for intermediate datasets. Cannot be 'NONE'. (default: MEMORY_AND_DISK)")
+        self.intermediateStorageLevel = Param(self, "intermediateStorageLevel",
+                                              "intermediateStorageLevel: StorageLevel for intermediate datasets. Cannot be 'NONE'. (default: MEMORY_AND_DISK)")
         self._setDefault(intermediateStorageLevel="MEMORY_AND_DISK")
-        self.itemCol = Param(self, "itemCol", "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)")
+        self.itemCol = Param(self, "itemCol",
+                             "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)")
         self._setDefault(itemCol="item")
         self.maxIter = Param(self, "maxIter", "maxIter: maximum number of iterations (>= 0) (default: 10)")
         self._setDefault(maxIter=10)
@@ -72,7 +85,8 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._setDefault(minRatingsI=1)
         self.minRatingsU = Param(self, "minRatingsU", "minRatingsU: min ratings for users > 0 (default: 1)")
         self._setDefault(minRatingsU=1)
-        self.nonnegative = Param(self, "nonnegative", "nonnegative: whether to use nonnegative constraint for least squares (default: false)")
+        self.nonnegative = Param(self, "nonnegative",
+                                 "nonnegative: whether to use nonnegative constraint for least squares (default: false)")
         self._setDefault(nonnegative=False)
         self.numItemBlocks = Param(self, "numItemBlocks", "numItemBlocks: number of item blocks (default: 10)")
         self._setDefault(numItemBlocks=10)
@@ -88,9 +102,11 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._setDefault(regParam=0.1)
         self.seed = Param(self, "seed", "seed: random seed (default: 1893783045)")
         self._setDefault(seed=1893783045)
-        self.trainRatio = Param(self, "trainRatio", "trainRatio: ratio between training set and validation set (>= 0 && <= 1) (default: 0.75)")
+        self.trainRatio = Param(self, "trainRatio",
+                                "trainRatio: ratio between training set and validation set (>= 0 && <= 1) (default: 0.75)")
         self._setDefault(trainRatio=0.75)
-        self.userCol = Param(self, "userCol", "userCol: column name for user ids. Ids must be within the integer value range. (default: user)")
+        self.userCol = Param(self, "userCol",
+                             "userCol: column name for user ids. Ids must be within the integer value range. (default: user)")
         self._setDefault(userCol="user")
         if hasattr(self, "_input_kwargs"):
             kwargs = self._input_kwargs
@@ -99,7 +115,11 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self.setParams(**kwargs)
 
     @keyword_only
-    def setParams(self, alpha=1.0, checkpointInterval=10, coldStartStrategy="nan", estimator=None, estimatorParamMaps=None, evaluator=None, finalStorageLevel="MEMORY_AND_DISK", implicitPrefs=False, intermediateStorageLevel="MEMORY_AND_DISK", itemCol="item", maxIter=10, minRatingsI=1, minRatingsU=1, nonnegative=False, numItemBlocks=10, numUserBlocks=10, predictionCol="prediction", rank=10, ratingCol="rating", regParam=0.1, seed=1893783045, trainRatio=0.75, userCol="user"):
+    def setParams(self, alpha=1.0, checkpointInterval=10, coldStartStrategy="nan", estimator=None,
+                  estimatorParamMaps=None, evaluator=None, finalStorageLevel="MEMORY_AND_DISK", implicitPrefs=False,
+                  intermediateStorageLevel="MEMORY_AND_DISK", itemCol="item", maxIter=10, minRatingsI=1, minRatingsU=1,
+                  nonnegative=False, numItemBlocks=10, numUserBlocks=10, predictionCol="prediction", rank=10,
+                  ratingCol="rating", regParam=0.1, seed=1893783045, trainRatio=0.75, userCol="user"):
         """
         Set the (keyword only) parameters
 
@@ -146,7 +166,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(alpha=value)
         return self
 
-
     def getAlpha(self):
         """
 
@@ -155,7 +174,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             double: alpha for implicit preference (default: 1.0)
         """
         return self.getOrDefault(self.alpha)
-
 
     def setCheckpointInterval(self, value):
         """
@@ -168,7 +186,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(checkpointInterval=value)
         return self
 
-
     def getCheckpointInterval(self):
         """
 
@@ -177,7 +194,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: set checkpoint interval (>= 1) or disable checkpoint (-1). E.g. 10 means that the cache will get checkpointed every 10 iterations (default: 10)
         """
         return self.getOrDefault(self.checkpointInterval)
-
 
     def setColdStartStrategy(self, value):
         """
@@ -190,7 +206,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(coldStartStrategy=value)
         return self
 
-
     def getColdStartStrategy(self):
         """
 
@@ -199,7 +214,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: strategy for dealing with unknown or new users/items at prediction time. This may be useful in cross-validation or production scenarios, for handling user/item ids the model has not seen in the training data. Supported values: nan,drop. (default: nan)
         """
         return self.getOrDefault(self.coldStartStrategy)
-
 
     def setEstimator(self, value):
         """
@@ -212,7 +226,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(estimator=value)
         return self
 
-
     def getEstimator(self):
         """
 
@@ -221,7 +234,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             object: estimator for selection
         """
         return self.getOrDefault(self.estimator)
-
 
     def setEstimatorParamMaps(self, value):
         """
@@ -234,7 +246,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(estimatorParamMaps=value)
         return self
 
-
     def getEstimatorParamMaps(self):
         """
 
@@ -243,7 +254,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             object: param maps for the estimator
         """
         return self.getOrDefault(self.estimatorParamMaps)
-
 
     def setEvaluator(self, value):
         """
@@ -256,7 +266,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(evaluator=value)
         return self
 
-
     def getEvaluator(self):
         """
 
@@ -265,7 +274,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             object: evaluator used to select hyper-parameters that maximize the validated metric
         """
         return self.getOrDefault(self.evaluator)
-
 
     def setFinalStorageLevel(self, value):
         """
@@ -278,7 +286,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(finalStorageLevel=value)
         return self
 
-
     def getFinalStorageLevel(self):
         """
 
@@ -287,7 +294,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: StorageLevel for ALS model factors. (default: MEMORY_AND_DISK)
         """
         return self.getOrDefault(self.finalStorageLevel)
-
 
     def setImplicitPrefs(self, value):
         """
@@ -300,7 +306,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(implicitPrefs=value)
         return self
 
-
     def getImplicitPrefs(self):
         """
 
@@ -309,7 +314,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             bool: whether to use implicit preference (default: false)
         """
         return self.getOrDefault(self.implicitPrefs)
-
 
     def setIntermediateStorageLevel(self, value):
         """
@@ -322,7 +326,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(intermediateStorageLevel=value)
         return self
 
-
     def getIntermediateStorageLevel(self):
         """
 
@@ -331,7 +334,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: StorageLevel for intermediate datasets. Cannot be 'NONE'. (default: MEMORY_AND_DISK)
         """
         return self.getOrDefault(self.intermediateStorageLevel)
-
 
     def setItemCol(self, value):
         """
@@ -344,7 +346,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(itemCol=value)
         return self
 
-
     def getItemCol(self):
         """
 
@@ -353,7 +354,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: column name for item ids. Ids must be within the integer value range. (default: item)
         """
         return self.getOrDefault(self.itemCol)
-
 
     def setMaxIter(self, value):
         """
@@ -366,7 +366,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(maxIter=value)
         return self
 
-
     def getMaxIter(self):
         """
 
@@ -375,7 +374,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: maximum number of iterations (>= 0) (default: 10)
         """
         return self.getOrDefault(self.maxIter)
-
 
     def setMinRatingsI(self, value):
         """
@@ -388,7 +386,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(minRatingsI=value)
         return self
 
-
     def getMinRatingsI(self):
         """
 
@@ -397,7 +394,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: min ratings for items > 0 (default: 1)
         """
         return self.getOrDefault(self.minRatingsI)
-
 
     def setMinRatingsU(self, value):
         """
@@ -410,7 +406,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(minRatingsU=value)
         return self
 
-
     def getMinRatingsU(self):
         """
 
@@ -419,7 +414,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: min ratings for users > 0 (default: 1)
         """
         return self.getOrDefault(self.minRatingsU)
-
 
     def setNonnegative(self, value):
         """
@@ -432,7 +426,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(nonnegative=value)
         return self
 
-
     def getNonnegative(self):
         """
 
@@ -441,7 +434,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             bool: whether to use nonnegative constraint for least squares (default: false)
         """
         return self.getOrDefault(self.nonnegative)
-
 
     def setNumItemBlocks(self, value):
         """
@@ -454,7 +446,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(numItemBlocks=value)
         return self
 
-
     def getNumItemBlocks(self):
         """
 
@@ -463,7 +454,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: number of item blocks (default: 10)
         """
         return self.getOrDefault(self.numItemBlocks)
-
 
     def setNumUserBlocks(self, value):
         """
@@ -476,7 +466,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(numUserBlocks=value)
         return self
 
-
     def getNumUserBlocks(self):
         """
 
@@ -485,7 +474,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: number of user blocks (default: 10)
         """
         return self.getOrDefault(self.numUserBlocks)
-
 
     def setPredictionCol(self, value):
         """
@@ -498,7 +486,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(predictionCol=value)
         return self
 
-
     def getPredictionCol(self):
         """
 
@@ -507,7 +494,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: prediction column name (default: prediction)
         """
         return self.getOrDefault(self.predictionCol)
-
 
     def setRank(self, value):
         """
@@ -520,7 +506,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(rank=value)
         return self
 
-
     def getRank(self):
         """
 
@@ -529,7 +514,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             int: rank of the factorization (default: 10)
         """
         return self.getOrDefault(self.rank)
-
 
     def setRatingCol(self, value):
         """
@@ -542,7 +526,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(ratingCol=value)
         return self
 
-
     def getRatingCol(self):
         """
 
@@ -551,7 +534,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: column name for ratings (default: rating)
         """
         return self.getOrDefault(self.ratingCol)
-
 
     def setRegParam(self, value):
         """
@@ -564,7 +546,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(regParam=value)
         return self
 
-
     def getRegParam(self):
         """
 
@@ -573,7 +554,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             double: regularization parameter (>= 0) (default: 0.1)
         """
         return self.getOrDefault(self.regParam)
-
 
     def setSeed(self, value):
         """
@@ -586,7 +566,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(seed=value)
         return self
 
-
     def getSeed(self):
         """
 
@@ -595,7 +574,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             long: random seed (default: 1893783045)
         """
         return self.getOrDefault(self.seed)
-
 
     def setTrainRatio(self, value):
         """
@@ -608,7 +586,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(trainRatio=value)
         return self
 
-
     def getTrainRatio(self):
         """
 
@@ -617,7 +594,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             double: ratio between training set and validation set (>= 0 && <= 1) (default: 0.75)
         """
         return self.getOrDefault(self.trainRatio)
-
 
     def setUserCol(self, value):
         """
@@ -630,7 +606,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         self._set(userCol=value)
         return self
 
-
     def getUserCol(self):
         """
 
@@ -639,8 +614,6 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             str: column name for user ids. Ids must be within the integer value range. (default: user)
         """
         return self.getOrDefault(self.userCol)
-
-
 
     @classmethod
     def read(cls):
@@ -654,8 +627,8 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
 
     @staticmethod
     def _from_java(java_stage):
-        module_name=TrainValidRecommendSplit.__module__
-        module_name=module_name.rsplit(".", 1)[0] + ".TrainValidRecommendSplit"
+        module_name = TrainValidRecommendSplit.__module__
+        module_name = module_name.rsplit(".", 1)[0] + ".TrainValidRecommendSplit"
         return from_java(java_stage, module_name)
 
     def _create_model(self, java_model):
@@ -682,7 +655,6 @@ class TrainValidRecommendSplitModel(ComplexParamsMixin, JavaModel, JavaMLWritabl
 
     @staticmethod
     def _from_java(java_stage):
-        module_name=TrainValidRecommendSplitModel.__module__
-        module_name=module_name.rsplit(".", 1)[0] + ".TrainValidRecommendSplitModel"
+        module_name = TrainValidRecommendSplitModel.__module__
+        module_name = module_name.rsplit(".", 1)[0] + ".TrainValidRecommendSplitModel"
         return from_java(java_stage, module_name)
-

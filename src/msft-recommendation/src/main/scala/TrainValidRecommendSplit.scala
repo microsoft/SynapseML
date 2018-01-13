@@ -16,6 +16,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.util.Random
 
+@InternalWrapper
 class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
   with TrainValidRecommendSplitParams with ComplexParamsWritable with MsftRecommendationParams {
 
