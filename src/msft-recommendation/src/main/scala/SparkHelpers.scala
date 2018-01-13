@@ -203,7 +203,7 @@ private[ml] object TrainValidRecommendSplitParams {
 }
 
 trait MsftRecEvaluatorParams extends Wrappable
-  with HasPredictionCol with HasLabelCol with DefaultParamsWritable
+  with HasPredictionCol with HasLabelCol with ComplexParamsWritable
 
 object MsftRecHelper {
   def popRow(r: Row): Any = r.getDouble(1)
