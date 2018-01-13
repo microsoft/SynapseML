@@ -13,7 +13,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.reflect.ClassTag
 
 final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
-  extends MsftRecEvaluatorParams {
+  extends Wrappable with MsftRecEvaluatorParams {
 
   def this() = this(Identifiable.randomUID("recEval"))
 
