@@ -111,6 +111,18 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   // Utilities
 
+  def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
+    for ((t, i) <- times.zipWithIndex) {
+      try {
+        return block()
+      } catch {
+        case _: Exception if (i + 1) < times.length =>
+          Thread.sleep(t.toLong)
+      }
+    }
+    throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")
+  }
+
   def withoutLogging[T](e: => T): T = {
     // This should really keep the old level, but there is no sc.getLogLevel, so
     // take the cheap way out for now: just use "WARN", and do something proper
@@ -163,11 +175,16 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   def time[R](block: => R): R = {
+    val (result, t) = getTime(block)
+    println(s"Elapsed time: ${t / 1e9} sec")
+    result
+  }
+
+  def getTime[R](block: => R): (R, Long) = {
     val t0     = System.nanoTime()
     val result = block
     val t1     = System.nanoTime()
-    println(s"Elapsed time: ${(t1 - t0) / 1e9} sec")
-    result
+    (result, t1-t0)
   }
 
   private def logTime(name: String, time: Long, threshold: Long) = {
