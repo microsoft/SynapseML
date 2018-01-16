@@ -6,14 +6,13 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from pyspark.ml.param.shared import *
+from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol
 from pyspark import keyword_only
 
-from pyspark.ml.evalutation import JavaEvaluator
+from pyspark.ml.evaluation import JavaEvaluator
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
 from pyspark.ml.common import inherit_doc
-from mmlspark.Utils import *
 
 
 @inherit_doc
