@@ -43,9 +43,17 @@ object EnvironmentUtils {
     val envInfo = getEnvInfo(log)
     if (envInfo.isEmpty) None else {
       // Commons Lang has isNotBlank
-      val gpucnt = envInfo.get.split("\n").filter(!_.trim.isEmpty).length
+      val gpucnt = envInfo.get.split("\n").count(!_.trim.isEmpty)
       log.info(s"$gpucnt GPUs detected")
       Some(gpucnt)
+    }
+  }
+
+  def getEnv(s:String): String = {
+    System.getenv(s) match {
+      case null =>
+        throw new IllegalArgumentException(s"Environment variable $s not found")
+      case v => v
     }
   }
 
