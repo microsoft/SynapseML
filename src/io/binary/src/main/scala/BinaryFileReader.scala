@@ -8,8 +8,6 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.language.existentials
-
 object BinaryFileReader {
 
   private def recursePath(fileSystem: FileSystem,

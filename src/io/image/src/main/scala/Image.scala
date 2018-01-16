@@ -7,18 +7,17 @@ import java.io.ByteArrayInputStream
 
 import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
+import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.{Configuration => HConf}
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
-import org.apache.spark.SparkContext
-import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.image.{ConfUtils, ImageFileFormat}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.opencv.core.{CvException, Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
-import org.apache.spark.image.ConfUtils
 
 object ImageReader {
 
@@ -45,14 +44,18 @@ object ImageReader {
     df.mapPartitions(loadOpenCVFunc)(encoder)
   }
 
-  /** Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
+  def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
+    decode(Some(filename), bytes)
+  }
+
+    /** Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
     * See ImageSchema for details.
     *
     * @param filename arbitrary string
     * @param bytes    image bytes (for example, jpeg)
     * @return returns None if decompression fails
     */
-  def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
+  def decode(filename: Option[String], bytes: Array[Byte]): Option[Row] = {
     val mat = new MatOfByte(bytes: _*)
     val decodedOpt = try {
       Some(Imgcodecs.imdecode(mat, Imgcodecs.CV_LOAD_IMAGE_COLOR))
@@ -66,7 +69,7 @@ object ImageReader {
         // extract OpenCV bytes
         decoded.get(0, 0, ocvBytes)
         // type: CvType.CV_8U
-        Some(Row(filename, decoded.height, decoded.width, decoded.`type`, ocvBytes))
+        Some(Row(filename.orNull, decoded.height, decoded.width, decoded.`type`, ocvBytes))
       case _ => None
     }
   }
@@ -115,8 +118,42 @@ object ImageReader {
       rows.map { row =>
         val path = new Path(row.getAs[String](pathCol))
         val fs = path.getFileSystem(hconf.value)
-        val is = fs.open(path)
-        val imageRow = ImageReader.decode(path.toString, IOUtils.toByteArray(is)).getOrElse(Row(None))
+        val bytes = StreamUtilities.using(fs.open(path)) {is => IOUtils.toByteArray(is)}.get
+        val imageRow = ImageReader.decode(path.toString, bytes).getOrElse(Row(None))
+        val ret = Row.merge(Seq(row, Row(imageRow)): _*)
+        ret
+      }
+    }(encoder)
+  }
+
+  def readFromBytes(df: DataFrame, pathCol: String, bytesCol:String, imageCol: String = "image"): DataFrame = {
+    val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
+    val encoder = RowEncoder(outputSchema)
+    df.mapPartitions { rows =>
+      ImageReader.OpenCVLoader
+      rows.map { row =>
+        val path = row.getAs[String](pathCol)
+        val bytes = row.getAs[Array[Byte]](bytesCol)
+        val imageRow = ImageReader.decode(path, bytes).getOrElse(Row(None))
+        val ret = Row.merge(Seq(row, Row(imageRow)): _*)
+        ret
+      }
+    }(encoder)
+  }
+
+  def readFromStrings(df: DataFrame, bytesCol:String,
+                      imageCol: String = "image", dropPrefix: Boolean = false): DataFrame = {
+    val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
+    val encoder = RowEncoder(outputSchema)
+    df.mapPartitions { rows =>
+      ImageReader.OpenCVLoader
+      rows.map { row =>
+        val path = None
+        val encoded = row.getAs[String](bytesCol)
+        val bytes = new Base64().decode(
+          if (dropPrefix) encoded.split(",")(1) else encoded
+        )
+        val imageRow = ImageReader.decode(path, bytes).getOrElse(Row(None))
         val ret = Row.merge(Seq(row, Row(imageRow)): _*)
         ret
       }
@@ -169,4 +206,34 @@ object ImageWriter {
     }
   }
 
+}
+
+/** Implicit conversion allows sparkSession.readImages(...) syntax
+  * Example:
+  *     import com.microsoft.ml.spark.Readers.implicits._
+  *     sparkSession.readImages(path, recursive = false)
+  */
+object Image {
+
+  object implicits {
+    import scala.language.implicitConversions
+
+    class Session(sparkSession: SparkSession) {
+
+      /** Read the directory of images from the local or remote source
+        *
+        * @param path         Path to the image directory
+        * @param recursive    Recursive path search flag
+        * @param sampleRatio  Fraction of the files loaded
+        * @param inspectZip   Whether zip files are treated as directories
+        * @return Dataframe with a single column "image" of images, see ImageSchema for details
+        */
+      def readImages(path: String, recursive: Boolean,
+                     sampleRatio: Double = 1, inspectZip: Boolean = true, seed: Long = 0L): DataFrame =
+        ImageReader.read(path, recursive, sparkSession, sampleRatio, inspectZip, seed)
+    }
+
+    implicit def ImplicitSession(sparkSession: SparkSession):Session = new Session(sparkSession)
+
+  }
 }

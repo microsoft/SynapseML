@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import java.io.FileOutputStream
 
-import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.Binary.implicits._
 import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
 import com.microsoft.ml.spark.FileUtilities.{File, zipFolder}
 import com.microsoft.ml.spark.schema.BinaryFileSchema
@@ -29,17 +29,6 @@ trait FileReaderUtils {
     createZip(cifarDirectory)
   }
 
-  def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
-    for ((t, i) <- times.zipWithIndex) {
-      try {
-        return block()
-      } catch {
-        case _: Exception if (i + 1) < times.length =>
-          Thread.sleep(t.toLong)
-      }
-    }
-    throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")
-  }
 }
 
 class BinaryFileReaderSuite extends TestBase with FileReaderUtils {

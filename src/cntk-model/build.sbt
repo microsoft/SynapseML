@@ -1,3 +1,3 @@
 //> DependsOn: core
-//> DependsOn: readers
+//> DependsOn: io
 //> DependsOn: image-transformer
