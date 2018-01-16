@@ -10,19 +10,14 @@ import pyspark
 from pyspark import SparkContext
 from pyspark import sql
 from pyspark.sql import DataFrame
-
-import numpy as np
-from sklearn.metrics import confusion_matrix, roc_curve
-import itertools
 import warnings
-
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    warnings.warn("matplotlib not installed by default. "
-                  "Please install matplotlib in order to use plotting")
+import numpy as np
+import itertools
 
 def confusionMatrix(df, y_col, y_hat_col, labels):
+    from sklearn.metrics import confusion_matrix
+    import matplotlib.pyplot as plt
+
     if isinstance(sdf, pyspark.sql.dataframe.DataFrame):
         df = df.select([y_col, y_hat_col]).toPandas()
 
@@ -48,6 +43,9 @@ def confusionMatrix(df, y_col, y_hat_col, labels):
     plt.ylabel("True Label", fontsize=18)
 
 def roc(df, y_col, y_hat_col, thresh=.5):
+    from sklearn.metrics import roc_curve
+    import matplotlib.pyplot as plt
+
     if isinstance(sdf, pyspark.sql.dataframe.DataFrame):
         df = df.select([y_col, y_hat_col]).toPandas()
 
