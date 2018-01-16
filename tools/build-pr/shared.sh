@@ -61,7 +61,6 @@ get_pr_info() {
 # post a status, only if we're running all tests
 post_status() { # state text
   if [[ "$TESTS" != "all" ]]; then return; fi
-  get_pr_info
   local status='"context":"build-pr","state":"'"$1"'","target_url":"'"$VURL"'"'
   api "statuses/$SHA1" -d '{'"$status"',"description":'"$(jsonq "$2")"'}' > /dev/null
 }
