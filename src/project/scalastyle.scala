@@ -42,7 +42,7 @@ final object ScalaStyleExtras {
     // this matches the first token after a `val`, which might be `(` in case of val (x, y) = ...
     r("SW", "FieldNamesChecker", ("regex", "^([a-z][A-Za-z0-9]*| *\\( *)$")),
     r("SW", "MethodNamesChecker", ("regex", "^[a-z][A-Za-z0-9]*(_=)?$")),
-    r("SE", "ClassTypeParameterChecker", ("regex", "^[A-Z_]$")),
+    r("SW", "ClassTypeParameterChecker", ("regex", "^[A-Z_]$")),
     r("SE", "EqualsHashCodeChecker"),
     r("SE", "IllegalImportsChecker", ("illegalImports", "sun._")),
     r("SE", "DeprecatedJavaChecker"),
