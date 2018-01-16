@@ -58,7 +58,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = $(estimator)
-    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator[Any]]
+    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator]
     val epm = $(estimatorParamMaps)
     val numModels = epm.length
     val metrics = new Array[Double](epm.length)

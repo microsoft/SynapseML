@@ -14,7 +14,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row}
 
 @InternalWrapper
-final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
+final class MsftRecommendationEvaluator(override val uid: String)
   extends Evaluator with MsftRecEvaluatorParams {
 
   def this() = this(Identifiable.randomUID("recEval"))
@@ -59,9 +59,9 @@ final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
     val predictionAndLabels = dataset
       .select(col($(predictionCol)).cast(predictionType), col($(labelCol)).cast(labelType))
       .rdd.
-      map { case Row(prediction: Seq[T], label: Seq[T]) => (prediction.toArray, label.toArray) }
+      map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
 
-    val metrics = new RankingMetrics[T](predictionAndLabels)
+    val metrics = new RankingMetrics[Any](predictionAndLabels)
     val metric = $(metricName) match {
       case "map" => metrics.meanAveragePrecision
       case "ndcgAt" => metrics.ndcgAt($(k))
@@ -102,6 +102,6 @@ final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
 //    metric
 //  }
 
-  override def copy(extra: ParamMap): MsftRecommendationEvaluator[T] = defaultCopy(extra)
+  override def copy(extra: ParamMap): MsftRecommendationEvaluator = defaultCopy(extra)
 
 }
