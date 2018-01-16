@@ -9,8 +9,7 @@ if sys.version >= '3':
 from pyspark.ml.param.shared import *
 from pyspark import keyword_only
 
-from pyspark.ml.wrapper import JavaEvaluator
-from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol, HasRawPredictionCol, HasFeaturesCol
+from pyspark.ml.evalutation import JavaEvaluator
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
 from pyspark.ml.common import inherit_doc
