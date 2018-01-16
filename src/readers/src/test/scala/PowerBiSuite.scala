@@ -18,11 +18,11 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
     .withColumn("baz", current_timestamp())
   val bigdf = (1 to 5).foldRight(df) {case (_, ldf) => ldf.union(df)}.repartition(2)
 
-  test("write to powerBi", TestBase.BuildServer) {
+  test("write to powerBi", TestBase.Extended, TestBase.BuildServer) {
     PowerBIWriter.write(df, url)
   }
 
-  test("stream to powerBi", TestBase.BuildServer) {
+  test("stream to powerBi", TestBase.Extended, TestBase.BuildServer) {
     bigdf.write.parquet(tmpDir + "powerBI.parquet")
     val sdf = session.readStream.schema(df.schema).parquet(tmpDir + "powerBI.parquet")
     val q1 = PowerBIWriter.stream(sdf, url, 0).start()
