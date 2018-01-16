@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import scala.reflect.ClassTag
+
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.{IntParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.recommendation.MsftRecEvaluatorParams
@@ -12,7 +14,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row}
 
 @InternalWrapper
-final class MsftRecommendationEvaluator(override val uid: String)
+final class MsftRecommendationEvaluator[T: ClassTag](override val uid: String)
   extends Evaluator with MsftRecEvaluatorParams {
 
   def this() = this(Identifiable.randomUID("recEval"))
@@ -57,9 +59,9 @@ final class MsftRecommendationEvaluator(override val uid: String)
     val predictionAndLabels = dataset
       .select(col($(predictionCol)).cast(predictionType), col($(labelCol)).cast(labelType))
       .rdd.
-      map { case Row(prediction: Seq[_], label: Seq[_]) => (prediction.toArray, label.toArray) }
+      map { case Row(prediction: Seq[T], label: Seq[T]) => (prediction.toArray, label.toArray) }
 
-    val metrics = new RankingMetrics[_](predictionAndLabels)
+    val metrics = new RankingMetrics[T](predictionAndLabels)
     val metric = $(metricName) match {
       case "map" => metrics.meanAveragePrecision
       case "ndcgAt" => metrics.ndcgAt($(k))
