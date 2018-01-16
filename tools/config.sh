@@ -63,15 +63,15 @@ defvar -p INSTALLER_CACHE_DIR "$HOME/.mmlspark_cache"
 INSTALLATIONS=(
 
   Java ver: "1.8.0" lib: "jdk"
-  url:    "http://cdn.azul.com/zulu/bin/zulu8.23.0.3-jdk8.0.144-linux_x64.tar.gz"
-  sha256: "7e6284739c0e5b7142bc7a9adc61ced70dc5bb26b130b582b18e809013bcb251"
+  url:    "http://cdn.azul.com/zulu/bin/zulu8.25.0.1-jdk8.0.152-linux_x64.tar.gz"
+  sha256: "57911a136fedc476a8b505d00c364913bf4cf5b7a50ef6913334362bc219e21a"
   exes:   "java javac jar javadoc"
   vers:   "java -version|openjdk version \"<{ver}>_*\""
   where:  "devel runtime build"
 
-  SBT ver: "1.0.4"
+  SBT ver: "1.1.0"
   url:    "https://github.com/sbt/sbt/releases/download/v<{ver}>/sbt-<{ver}>.tgz"
-  sha256: "813776f81b1dfa990fba11cd6d0120df3467bee00742b115f282a0e8e254e23f"
+  sha256: "9d8cb24b297507ed4c49b476d3050da0abe2c39f7e7d97ba6d48c1b17854e2d7"
   exes:   "sbt"
   vers:   "sbt -no-colors sbtVersion|?info? <{ver}>"
   where:  "devel build"
@@ -83,9 +83,9 @@ INSTALLATIONS=(
   vers:   "spark-shell --version|* version <{ver}>"
   where:  "devel runtime build"
 
-  Conda ver: "4.3.21"
+  Conda ver: "4.3.31"
   url:    "https://repo.continuum.io/miniconda/Miniconda3-<{ver}>-Linux-x86_64.sh"
-  sha256: "e9089c735b4ae53cb1035b1a97cec9febe6decf76868383292af589218304a90"
+  sha256: "5551f01f436b6409d467412c33e12ecc4f43b5e029290870f8fdeca403c274e6"
   instcmd: 'PYTHONPATH="" bash "$1" -b -f -p "$PWD"'
   exes:   "python python3 ipython ipython3 jupyter conda pip"
   vers:   "PYTHONDONTWRITEBYTECODE=true conda --version|conda <{ver}>"
