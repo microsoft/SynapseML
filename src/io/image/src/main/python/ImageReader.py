@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 import pyspark
@@ -36,7 +36,7 @@ def readImages(sparkSession, path, recursive = False, sampleRatio = 1.0, inspect
     jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
-setattr(sql.SparkSession, 'readImages', classmethod(readImages))
+setattr(sql.SparkSession, "readImages", classmethod(readImages))
 
 def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True, seed = 0):
     """
@@ -61,7 +61,7 @@ def streamImages(sparkSession, path, sampleRatio = 1.0, inspectZip = True, seed 
     jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
-setattr(sql.SparkSession, 'streamImages', classmethod(streamImages))
+setattr(sql.SparkSession, "streamImages", classmethod(streamImages))
 
 def isImage(df, column):
     """
@@ -98,4 +98,25 @@ def readFromPaths(df, pathCol, imageCol="image"):
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jresult, sql_ctx)
 
-setattr(pyspark.sql.DataFrame, 'readImagesFromPaths', readFromPaths)
+setattr(pyspark.sql.DataFrame, "readImagesFromPaths", readFromPaths)
+
+def readFromStrings(df, bytesCol, imageCol="image", dropPrefix=False):
+    """
+    Reads images from a column of filenames
+
+    Args:
+        df (DataFrame): The DataFrame to be processed
+        pathCol  (str): The name of the column containing filenames
+        imageCol (str): The name of the added column of images
+
+    Returns:
+        df: The dataframe with loaded images
+    """
+    ctx = SparkContext.getOrCreate()
+    jvm = ctx.getOrCreate()._jvm
+    reader = jvm.com.microsoft.ml.spark.ImageReader
+    jresult = reader.readFromStrings(df._jdf, bytesCol, imageCol, dropPrefix)
+    sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
+    return DataFrame(jresult, sql_ctx)
+
+setattr(pyspark.sql.DataFrame, "readImagesFromStrings", readFromStrings)

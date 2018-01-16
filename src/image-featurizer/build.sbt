@@ -1,5 +1,5 @@
 //> DependsOn: core
-//> DependsOn: readers
+//> DependsOn: io
 //> DependsOn: downloader
 //> DependsOn: cntk-model
 //> DependsOn: image-transformer
