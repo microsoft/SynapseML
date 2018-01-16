@@ -20,22 +20,56 @@ import org.tensorflow.types.UInt8
 
 class TFModelExecutioner {
 
-  def main(args: Array[String]): Unit = {
+  //TODO: Modify the main to be able to evaluate multiple inputs - would save on loading model every time.
 
-    if (args.length != 2) {
-//      printUsage(System.err)
+  /**
+    * Evaluates a tensorflow graph on the provided input and prints the best matched label with confidence
+    * TODO: change that to inputs
+    *       @param args: array containing the path to the protobuf file (first arg), and the paths to the inputs to be eval
+    *       @param expectedShape:the expected shape of the images (Height, Width, Mean, Scale)
+    *       Height and Width will try to be deduced from graph definition, mean and scale default value are
+    *       128f and 1f (i.e no scaling and simple substraction of half max rgb value as normalization)
+    *       @param inputTensorName: name of the input Tensor. "input" by default
+    *       @param outputTensorName: name of the output Tensor. "output" by default
+    *
+    */
+  def main(args: Array[String],
+           expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
+           inputTensorName: String = "input",
+           outputTensorName: String = "output"): Unit = {
+
+    if (args.length != 4) {
+      System.out.println(System.err)
       System.exit(1)
     }
 
     val modelDir = args(0)
     val imageFile = args(1)
-    val graphDef = readAllBytesOrExit(Paths.get(modelDir, "tensorflow_inception_graph.pb"))
-    val labels = readAllLinesOrExit(Paths.get(modelDir, "imagenet_comp_graph_label_strings.txt"))
+    val graphDef = readAllBytesOrExit(Paths.get(modelDir, args(2)))
+    val labels = readAllLinesOrExit(Paths.get(modelDir, args(3)))
     val imageBytes = readAllBytesOrExit(Paths.get(imageFile))
-    val transformer = new InputToTensor("image_inception")
+
+    //Check if graph contains info on expected shape of input
+    val g = new Graph
+    g.importGraphDef(graphDef)
+
+    val shapeToUse : Array[Float] = expectedShape
+
+    //for now, will need to change this later to make it more flexible
+    val inputShape = g.operation(inputTensorName).output(0).shape()
+    if(inputShape.numDimensions() != -1){
+      var i = 0
+      for (i <- 1 to 2){
+        //second and third indeces only because we only want H and W!!
+
+        shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
+      }
+    }
+
+    val transformer = new InputToTensor("image_inception", shapeToUse)
     val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes)
     try {
-      val labelProbabilities = executeInceptionGraph(graphDef, image)
+      val labelProbabilities = executeInceptionGraph(graphDef, image, inputTensorName, outputTensorName)
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
       val bestPredictedLabel = labels.get(bestLabelIdx)
       val highestProb = labelProbabilities(bestLabelIdx) * 100f
@@ -43,18 +77,16 @@ class TFModelExecutioner {
     } finally if (image != null) image.close()
   }
 
-  private def executeInceptionGraph(graphDef: Array[Byte], image: Tensor[java.lang.Float]): Array[Float] = {
+  private def executeInceptionGraph(graphDef: Array[Byte],
+                                    image: Tensor[java.lang.Float],
+                                    inputTensorName: String = "input",
+                                    outputTensorName: String = "output"): Array[Float] = {
     val g = new Graph
     try {
       g.importGraphDef(graphDef)
-      val ops = g.operation("avgpool0/reshape/shape")
-      println(ops)
-//      while (ops.hasNext) { println(ops.next().name()) }
-      TensorFlow.
       val s = new Session(g)
-//      val s_meta = new Session.Run()
-//      println(s_meta.metadata)
-      val result = s.runner.feed("input", image).fetch("output").run.get(0).expect(classOf[java.lang.Float])
+
+      val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
       try {
         val rshape = result.shape
         if (result.numDimensions != 2 || rshape(0) != 1) throw new RuntimeException(String.format("Expected model to produce a [1 N] shaped tensor where N is the number of labels, instead it produced one with shape %s", util.Arrays.toString(rshape)))
