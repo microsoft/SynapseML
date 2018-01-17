@@ -37,7 +37,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * Validate labels matches column type, try to recast to label type, reindex label column
   */
 class TrainClassifier(override val uid: String) extends Estimator[TrainedClassifierModel]
-  with HasLabelCol with HasFeaturesCol with MMLParams {
+  with HasLabelCol with ComplexParamsWritable with HasFeaturesCol {
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
@@ -268,7 +268,7 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   }
 }
 
-object TrainClassifier extends DefaultParamsReadable[TrainClassifier] {
+object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
   def validateTransformSchema(hasScoreCols: Boolean, schema: StructType): StructType = {
     val scoresSchema =
       if (hasScoreCols) {

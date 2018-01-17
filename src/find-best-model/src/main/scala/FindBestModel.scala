@@ -13,14 +13,15 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
-object FindBestModel extends DefaultParamsReadable[FindBestModel] {
+object FindBestModel extends ComplexParamsReadable[FindBestModel] {
   val modelNameCol = "model_name"
   val metricsCol = "metric"
   val paramsCol = "parameters"
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with MMLParams with HasEvaluationMetric {
+class FindBestModel(override val uid: String) extends Estimator[BestModel]
+  with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
   /** List of models to be evaluated. The list is an Array of models

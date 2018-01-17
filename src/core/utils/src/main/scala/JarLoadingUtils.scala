@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.io.{InputStream, ObjectInputStream, ObjectStreamClass}
-import java.net.URLClassLoader
+import java.net.{URL, URLClassLoader}
 import java.util.jar.JarFile
 
 import FileUtilities._
@@ -50,9 +50,22 @@ object JarLoadingUtils {
 
   private val jarURLs = jarFileLocs.map(_.toURI.toURL)
 
-  val classLoader = new URLClassLoader(jarURLs.union(testOutputDirs
-    .map(file => new File(file.getCanonicalPath).toURI.toURL)).toArray,
-    this.getClass.getClassLoader)
+  private def addURL(url: URL): Unit = {
+    val classLoader = ClassLoader.getSystemClassLoader.asInstanceOf[URLClassLoader]
+    val clazz = classOf[URLClassLoader]
+    val method = clazz.getDeclaredMethod("addURL", classOf[URL])
+    method.setAccessible(true)
+    method.invoke(classLoader, url)
+    ()
+  }
+
+  val classLoader: ClassLoader = {
+    jarURLs.union(testOutputDirs
+      .map(file =>
+        new File(file.getCanonicalPath).toURI.toURL)
+    ).toArray.foreach(addURL)
+    ClassLoader.getSystemClassLoader
+  }
 
   private lazy val loadedClasses: List[Class[_]] = {
     val jarFiles = jarFileLocs.map(jf => new JarFile(jf.getAbsolutePath))

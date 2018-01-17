@@ -2,11 +2,9 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
+import org.apache.spark.ml.util.MLReadable
 
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions._
-
-class SummarizeDataSuite extends TestBase {
+class SummarizeDataSuite extends TransformerFuzzing[SummarizeData] {
 
   test("Smoke test for summarizing basic DF - schema transform") {
 
@@ -48,5 +46,12 @@ class SummarizeDataSuite extends TestBase {
     assert(result.count === input.columns.length)
     assert(result.columns.length < 11)
   }
+
+  override def testObjects(): Seq[TestObject[SummarizeData]] = Seq(new TestObject(
+    new SummarizeData(),
+    makeBasicDF()
+  ))
+
+  override def reader: MLReadable[_] = SummarizeData
 
 }

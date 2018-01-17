@@ -18,7 +18,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
-  with HasLabelCol with MMLParams {
+  with HasLabelCol with MMLParams with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
@@ -134,7 +134,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
 
 }
 
-object TrainRegressor extends DefaultParamsReadable[TrainRegressor] {
+object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   def validateTransformSchema(schema: StructType): StructType = {
     StructType(schema.fields :+ StructField(SchemaConstants.ScoresColumn, DoubleType))
   }

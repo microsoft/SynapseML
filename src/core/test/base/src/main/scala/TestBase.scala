@@ -141,21 +141,19 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   import session.implicits._
 
   def makeBasicDF(): DataFrame = {
-    val df = Seq(
+    Seq(
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
       (1, 1.toDouble, "piano", "trumpet", 2.toLong, false),
       (2, 2.toDouble, "bass", "cymbals", 3.toLong, true))
       .toDF("numbers", "doubles", "words", "more", "longs", "booleans")
-    df
   }
 
   def makeBasicNullableDF(): DataFrame = {
-    val df = Seq(
+    Seq(
       (0, 2.5, "guitars", Some("drums"), Some(2.toLong), None),
       (1, Double.NaN, "piano", Some("trumpet"), Some(1.toLong), Some(true)),
       (2, 8.9, "bass", None, None, Some(false)))
       .toDF("numbers", "doubles", "words", "more", "longs", "booleans")
-    df
   }
 
   def verifyResult(expected: DataFrame, result: DataFrame): Boolean = {
@@ -179,85 +177,6 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     } else {
       info(msg)
     }
-  }
-
-}
-
-trait RoundTripTestBase extends TestBase {
-
-  val dfRoundTrip: DataFrame
-
-  val reader: MLReadable[_]
-
-  val modelReader: MLReadable[_]
-
-  val stageRoundTrip: PipelineStage with MLWritable
-
-  val saveDir = new File(tmpDir.toFile, "SavedModels")
-
-  val savePath: String = {
-    assert(saveDir.mkdir(), "directory creation failed")
-    saveDir.toString
-  }
-
-  val epsilon = 1e-4
-  implicit val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
-  implicit val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
-    def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr:DenseVector =>
-        a.values.zip(bArr.values).forall {case (x, y) => doubleEq.areEqual(x, y)}
-    }
-  }
-
-  private def assertDataFrameEq(a: DataFrame, b: DataFrame): Unit ={
-    assert(a.columns === b.columns)
-    val aSort = a.collect()
-    val bSort = b.collect()
-    assert(aSort.length == bSort.length)
-    aSort.zip(bSort).zipWithIndex.foreach {case ((rowA, rowB), i) =>
-      a.columns.indices.foreach(j =>{
-        rowA(j) match {
-          case lhs: DenseVector =>
-            assert(lhs === rowB(j), s"row $i column $j not equal")
-          case lhs =>
-            assert(lhs === rowB(j), s"row $i column $j not equal")
-        }
-      })
-    }
-  }
-
-  private def testRoundTripHelper(path: String,
-                                  stage: PipelineStage with MLWritable,
-                                  reader: MLReadable[_], df: DataFrame): Unit = {
-    stage.write.overwrite().save(path)
-    val loadedStage = reader.load(path)
-    (stage, loadedStage) match {
-      case (e1: Estimator[_], e2: Estimator[_]) =>
-        assertDataFrameEq(e1.fit(df).transform(df), e2.fit(df).transform(df))
-      case (t1: Transformer, t2: Transformer) =>
-        assertDataFrameEq(t1.transform(df), t2.transform(df))
-      case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
-    }
-    ()
-  }
-
-  def testRoundTrip(ignoreEstimators: Boolean = false): Unit = {
-    val fitStage = stageRoundTrip match {
-      case stage: Estimator[_] =>
-        if (!ignoreEstimators) {
-          testRoundTripHelper(savePath + "/stage", stage, reader, dfRoundTrip)
-        }
-        stage.fit(dfRoundTrip).asInstanceOf[PipelineStage with MLWritable]
-      case stage: Transformer => stage
-      case s => throw new IllegalArgumentException(s"$s does not have correct type")
-    }
-    testRoundTripHelper(savePath + "/fitStage", fitStage, modelReader, dfRoundTrip)
-    val pipe = new Pipeline().setStages(Array(stageRoundTrip))
-    if (!ignoreEstimators) {
-      testRoundTripHelper(savePath + "/pipe", pipe, Pipeline, dfRoundTrip)
-    }
-    val fitPipe = pipe.fit(dfRoundTrip)
-    testRoundTripHelper(savePath + "/fitPipe", fitPipe, PipelineModel, dfRoundTrip)
   }
 
 }
