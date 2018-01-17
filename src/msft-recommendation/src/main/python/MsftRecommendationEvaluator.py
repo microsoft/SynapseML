@@ -12,12 +12,28 @@ from pyspark import keyword_only
 from pyspark.ml.evaluation import JavaEvaluator
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
+from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.ml.common import inherit_doc
 
 
 @inherit_doc
 class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, \
-        JavaMLReadable, JavaMLWritable):
+                                  JavaMLReadable, JavaMLWritable):
+    metricName = Param(Params._dummy(), "metricName",
+                       """metric name in evaluation - one of:
+                       map - 
+                       ndcgAt - 
+                       mapk - """,
+                       typeConverter=TypeConverters.toString)
+
+    labelCol = Param(Params._dummy(), "labelCol",
+                       """labelCol""",
+                       typeConverter=TypeConverters.toString)
+
+    rawPredictionCol = Param(Params._dummy(), "rawPredictionCol",
+                             """rawPredictionCol""",
+                             typeConverter=TypeConverters.toString)
+
     @keyword_only
     def __init__(self, rawPredictionCol="rawPrediction", labelCol="label",
                  metricName="ndcgAt"):
@@ -31,6 +47,12 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         self._setDefault(metricName="ndcgAt")
         kwargs = self._input_kwargs
         self._set(**kwargs)
+
+    def setRawPredictionCol(self, value):
+        return self._set(rawPredictionCol=value)
+
+    def getRawPredrectionCol(self):
+        return self.getOrDefault(self.rawPredictionCol)
 
     def setMetricName(self, value):
         """
