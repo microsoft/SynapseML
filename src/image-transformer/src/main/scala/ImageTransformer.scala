@@ -183,9 +183,12 @@ object Threshold {
   * @param params Map of parameter values containg the aperture and sigma for the kernel.
   */
 class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val appertureSize = params(GaussianKernel.appertureSize).asInstanceOf[Int]
-  val sigma = params(GaussianKernel.sigma).asInstanceOf[Double]
-  override val stageName = GaussianKernel.stageName
+  val appertureSize: Int = params(GaussianKernel.appertureSize).asInstanceOf[Int]
+  val sigma: Double = params(GaussianKernel.sigma) match {
+    case d: Double => d
+    case i: Int => i.toDouble
+  }
+  override val stageName: String = GaussianKernel.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()

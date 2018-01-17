@@ -15,7 +15,9 @@ import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.image.ImageFileFormat
 
-class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase with FileReaderUtils {
+class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
+  with TransformerFuzzing[ImageFeaturizer]{
+
   val images: DataFrame = session.readImages(imagePath, true).withColumnRenamed("image", inputCol)
 
   val modelDir = new File(filesRoot, "CNTKModel")
@@ -98,12 +100,9 @@ class ImageFeaturizerSuite extends LinuxOnly with CNTKTestUtils with RoundTripTe
       val result = model.transform(images)
     })
   }
-  val dfRoundTrip: DataFrame = images
-  val reader: MLReadable[_] = ImageFeaturizer
-  val modelReader: MLReadable[_] = ImageFeaturizer
-  val stageRoundTrip: PipelineStage with MLWritable = resNetModel()
 
-  test("an ImageFeaturizer should roundTrip") {
-    testRoundTrip()
-  }
+  val reader: MLReadable[_] = ImageFeaturizer
+  override def testObjects(): Seq[TestObject[ImageFeaturizer]] = Seq(
+    new TestObject(resNetModel(), images)
+  )
 }

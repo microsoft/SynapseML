@@ -17,13 +17,112 @@ import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.spark.sql.SaveMode
 import org.apache.commons.io.FileUtils
 
-class ImageTransformerSuite extends LinuxOnly {
+trait ImageTestUtils {
+  lazy val groceriesDirectory = "/Images/Grocery/"
+  lazy protected val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
 
-  val groceriesDirectory = "/Images/Grocery/"
-  private val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
+  protected def selectTestImageBytes(images: DataFrame): Array[Byte] = {
+    images.filter(row => row.getString(4).endsWith("negative/5.jpg"))
+      .head.getAs[Array[Byte]](3)
+  }
+
+  protected def selectImageCols(images: DataFrame): DataFrame = {
+    images.select(images("out.height"),
+      images("out.width"),
+      images("out.type"),
+      images("out.bytes"),
+      images("out.path"))
+  }
+
+  protected def displayImages(images: DataFrame): Unit = {
+    val (jframe, panel) = createScrollingFrame(images.count())
+    images.collect().foreach(
+      (row:Row) => {
+        val img = new Mat(row.getInt(0), row.getInt(1), row.getInt(2))
+        img.put(0,0,row.getAs[Array[Byte]](3))
+        // Have to do the MatOfByte dance here
+        val matOfByte = new MatOfByte()
+        Imgcodecs.imencode(".jpg", img, matOfByte)
+        val icon = new ImageIcon(matOfByte.toArray)
+        val label: JLabel = new JLabel()
+        label.setIcon(icon)
+        panel.add(label)
+        ()
+      }
+    )
+    jframe.pack()
+    jframe.setVisible(true)
+    Thread.sleep(10000)
+  }
+
+  protected def createScrollingFrame(count: Long): (JFrame, JPanel) = {
+    val jframe: JFrame = new JFrame("images")
+    jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+    val panel: JPanel = new JPanel()
+    panel.setLayout(new GridLayout(count.toInt, 1))
+    val scrPane: JScrollPane = new JScrollPane(panel)
+    jframe.getContentPane.add(scrPane)
+    (jframe, panel)
+  }
+
+  protected val firstBytes = Map(
+    "00001.png" -> Array(235.0, 231.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0),
+    "00002.png" -> Array(222.0, 218.0, 194.0, 186.0, 222.0, 236.0, 238.0, 241.0, 243.0, 245.0),
+    "00000.png" -> Array(49.0, 47.0, 51.0, 53.0, 46.0, 41.0, 47.0, 45.0, 44.0, 41.0),
+    "00004.png" -> Array(50.0, 64.0, 46.0, 30.0, 22.0, 36.0, 55.0, 57.0, 59.0, 54.0),
+    "00005.png" -> Array(83.0, 61.0, 26.0, 36.0, 65.0, 67.0, 58.0, 54.0, 63.0, 65.0),
+    "00003.png" -> Array(149.0, 187.0, 193.0, 205.0, 202.0, 183.0, 181.0, 180.0, 182.0, 189.0)
+  )
+
+  protected def compareArrays(x: Array[Double], y:Array[Double]): Boolean = {
+    val length = Math.min(x.length, y.length)
+    for (i <- 0 until length) {
+      if (Math.abs(x(i) - y(i)) > 1e-5) return false
+    }
+    true
+  }
+}
+
+class UnrollImageSuite extends LinuxOnly
+  with TransformerFuzzing[UnrollImage] with ImageTestUtils {
+
+  lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
+  lazy val imagePath = s"$filesRoot/Images/CIFAR"
+  lazy val images: DataFrame = session.readImages(imagePath, recursive = true)
+
+  test("unroll") {
+    assert(images.count() == 6)
+
+    val unroll = new UnrollImage().setOutputCol("result")
+    val unrolled = unroll.transform(images).select("image.path","result").collect
+
+    unrolled.foreach(row => {
+      val path = Paths.get(row.getString(0))
+      val expected = firstBytes(path.getFileName.toString)
+      val result = row(1).asInstanceOf[DenseVector].toArray
+
+      val length =result.length
+      if (length != 3072) throw new Exception(s"array length should be 3072, not $length ")
+
+      if (!compareArrays(expected, result)) {
+        println(path)
+        println("result:   " + result.slice(0,10).deep.toString)
+        println("expected: " + expected.deep.toString)
+        throw new Exception("incorrect numeric value for flattened image")
+      }
+    })
+  }
+
+  override def testObjects(): Seq[TestObject[UnrollImage]] =
+    Seq(new TestObject(new UnrollImage().setOutputCol("result"), images))
+
+  override def reader: UnrollImage.type = UnrollImage
+}
+
+class ImageTransformerSuite extends LinuxOnly
+  with TransformerFuzzing[ImageTransformer] with ImageTestUtils{
 
   test("general workflow") {
-
     val images = session.readImages(fileLocation, recursive = true)
     assert(images.count() == 30)
 
@@ -201,92 +300,11 @@ class ImageTransformerSuite extends LinuxOnly {
     }
   }
 
-  test("unroll") {
-    val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-    val imagePath = s"$filesRoot/Images/CIFAR"
+  override def testObjects(): Seq[TestObject[ImageTransformer]] =
+    Seq(new TestObject[ImageTransformer](new ImageTransformer()
+    .setOutputCol("out")
+    .gaussianKernel(20, 10),
+    session.readImages(fileLocation, recursive = true)))
 
-    val images = session.readImages(imagePath, recursive = true)
-    assert(images.count() == 6)
-
-    val unroll = new UnrollImage().setOutputCol("result")
-    val unrolled = unroll.transform(images).select("image.path","result").collect
-
-    unrolled.foreach(row => {
-      val path = Paths.get(row.getString(0))
-      val expected = firstBytes(path.getFileName().toString())
-      val result = row(1).asInstanceOf[DenseVector].toArray
-
-      val length =result.length
-      if (length != 3072) throw new Exception(s"array length should be 3072, not $length ")
-
-      if (!compareArrays(expected, result)) {
-        println(path)
-        println("result:   " + result.slice(0,10).deep.toString)
-        println("expected: " + expected.deep.toString)
-        throw new Exception("incorrect numeric value for flattened image")
-      }
-    })
-  }
-
-  private def selectTestImageBytes(images: DataFrame): Array[Byte] = {
-    images.filter(row => row.getString(4).endsWith("negative/5.jpg"))
-      .head.getAs[Array[Byte]](3)
-  }
-
-  private def selectImageCols(images: DataFrame): DataFrame = {
-    images.select(images("out.height"),
-      images("out.width"),
-      images("out.type"),
-      images("out.bytes"),
-      images("out.path"))
-  }
-
-  private def displayImages(images: DataFrame): Unit = {
-    val (jframe, panel) = createScrollingFrame(images.count())
-    images.collect().foreach(
-      (row:Row) => {
-        val img = new Mat(row.getInt(0), row.getInt(1), row.getInt(2))
-        img.put(0,0,row.getAs[Array[Byte]](3))
-        // Have to do the MatOfByte dance here
-        val matOfByte = new MatOfByte()
-        Imgcodecs.imencode(".jpg", img, matOfByte)
-        val icon = new ImageIcon(matOfByte.toArray)
-        val label: JLabel = new JLabel()
-        label.setIcon(icon)
-        panel.add(label)
-        ()
-      }
-    )
-    jframe.pack()
-    jframe.setVisible(true)
-    Thread.sleep(10000)
-  }
-
-  private def createScrollingFrame(count: Long): (JFrame, JPanel) = {
-    val jframe: JFrame = new JFrame("images")
-    jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
-    val panel: JPanel = new JPanel()
-    panel.setLayout(new GridLayout(count.toInt, 1))
-    val scrPane: JScrollPane = new JScrollPane(panel)
-    jframe.getContentPane.add(scrPane)
-    (jframe, panel)
-  }
-
-  private val firstBytes = Map(
-    "00001.png" -> Array(235.0, 231.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0),
-    "00002.png" -> Array(222.0, 218.0, 194.0, 186.0, 222.0, 236.0, 238.0, 241.0, 243.0, 245.0),
-    "00000.png" -> Array(49.0, 47.0, 51.0, 53.0, 46.0, 41.0, 47.0, 45.0, 44.0, 41.0),
-    "00004.png" -> Array(50.0, 64.0, 46.0, 30.0, 22.0, 36.0, 55.0, 57.0, 59.0, 54.0),
-    "00005.png" -> Array(83.0, 61.0, 26.0, 36.0, 65.0, 67.0, 58.0, 54.0, 63.0, 65.0),
-    "00003.png" -> Array(149.0, 187.0, 193.0, 205.0, 202.0, 183.0, 181.0, 180.0, 182.0, 189.0)
-  )
-
-  private def compareArrays(x: Array[Double], y:Array[Double]): Boolean = {
-    val length = Math.min(x.length, y.length)
-    for (i <- 0 to length-1) {
-      if (Math.abs(x(i) - y(i)) > 1e-5) return false
-    }
-    true
-  }
-
+  override def reader: ImageTransformer.type = ImageTransformer
 }

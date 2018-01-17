@@ -3,20 +3,15 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.Transformer
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.util.MLReadable
 
-class CheckpointDataSuite extends TestBase {
+class CheckpointDataSuite extends TransformerFuzzing[CheckpointData] {
 
   test("Smoke test for Spark session version") {
     assert(session.sparkContext.version ==
              sys.env.getOrElse("SPARK_VERSION",
                                sys.error("Missing $SPARK_VER environment variable")))
   }
-
-  import session.implicits._
 
   test("Cache DF") {
     val input = makeBasicDF()
@@ -38,4 +33,10 @@ class CheckpointDataSuite extends TestBase {
     assert(!input.sqlContext.isCached("cachingDFView"))
   }
 
+  override def testObjects(): Seq[TestObject[CheckpointData]] = Seq(new TestObject(
+    new CheckpointData().setDiskIncluded(false).setRemoveCheckpoint(false),
+    makeBasicDF()
+  ))
+
+  override def reader: MLReadable[_] = CheckpointData
 }

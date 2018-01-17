@@ -7,18 +7,18 @@ import com.microsoft.ml.spark.schema.DatasetExtensions._
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.ml.util.MLReadable
 
-class TextFeaturizerSpec extends TestBase with EstimatorFuzzing[TextFeaturizer]{
-  val dfRaw = session
+class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
+  lazy val dfRaw = session
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
                          (2, "we Cant go to the park, because of the snow!"),
                          (3, "")))
     .toDF("label", "sentence")
-  val dfTok = new Tokenizer()
+  lazy val dfTok = new Tokenizer()
     .setInputCol("sentence")
     .setOutputCol("tokens")
     .transform(dfRaw)
-  val dfNgram =
+  lazy val dfNgram =
     new NGram().setInputCol("tokens").setOutputCol("ngrams").transform(dfTok)
 
   test("operate on sentences,tokens,or ngrams") {

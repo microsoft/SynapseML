@@ -90,7 +90,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
   }
 
   test("should rountrip serialize") {
-    testRoundTrip()
+    testSerialization()
   }
 
   def testObjects(): Seq[TestObject[EnsembleByKey]] = Seq(new TestObject(testModel, testDF))

@@ -3,16 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.{Pipeline, PipelineStage}
+import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
-class TimerSuite extends RoundTripTestBase {
+class TimerSuite extends EstimatorFuzzing[Timer] {
 
-  import session.implicits._
-
-  val df = session
+  val df: DataFrame = session
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
                          (2, "we Cant go to the park, because of the snow!"),
@@ -71,18 +69,13 @@ class TimerSuite extends RoundTripTestBase {
     model.transform(df)
   }
 
-  val dfRoundTrip: DataFrame = df
   val reader: MLReadable[_] = Timer
   val modelReader: MLReadable[_] = TimerModel
-  val stageRoundTrip: PipelineStage with MLWritable = {
+
+  override def testObjects(): Seq[TestObject[Timer]] = Seq(new TestObject[Timer]({
     val tok = new Tokenizer()
       .setInputCol("sentence")
       .setOutputCol("tokens")
     new Timer().setStage(tok)
-  }
-
-  test("should roundtrip serialize") {
-    testRoundTrip(ignoreEstimators = true)
-  }
-
+  }, df))
 }

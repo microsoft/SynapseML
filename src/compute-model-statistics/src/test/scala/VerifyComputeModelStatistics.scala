@@ -10,15 +10,13 @@ import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
-import org.scalactic.TolerantNumerics
 
 /** Tests to validate the functionality of Evaluate Model module. */
-class VerifyComputeModelStatistics extends TestBase {
-  val tolerance = 0.01
-  implicit val tolEq = TolerantNumerics.tolerantDoubleEquality(tolerance)
+class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
   val labelColumn = "Label"
   val dataset = session.createDataFrame(Seq(
     (0, 2, 0.50, 0.60, 0),
@@ -63,10 +61,10 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScores)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(1).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(2).asInstanceOf[Double] === 1.0)
-    assert(firstRow.get(3).asInstanceOf[Double] === 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2) === 1.0)
+    assert(firstRow.getDouble(3) === 0.0)
 
     assert(evaluatedSchema == StructType(ComputeModelStatistics.regressionColumns.map(StructField(_, DoubleType))))
   }
@@ -95,10 +93,10 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScores)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(1).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(2).asInstanceOf[Double] === 1.0)
-    assert(firstRow.get(3).asInstanceOf[Double] === 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2) === 1.0)
+    assert(firstRow.getDouble(3) === 0.0)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
@@ -127,15 +125,15 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(1).asInstanceOf[Double] === 0.0)
-    assert(firstRow.get(2).asInstanceOf[Double].isNaN)
-    assert(firstRow.get(3).asInstanceOf[Double] === 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2).isNaN)
+    assert(firstRow.getDouble(3) === 0.0)
   }
 
+  val logisticRegressor = createLogisticRegressor(labelColumn)
+  val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
-    val logisticRegressor = createLogisticRegressor(labelColumn)
-    val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
@@ -269,4 +267,8 @@ class VerifyComputeModelStatistics extends TestBase {
     assert(auc === cmsAUC)
   }
 
+  override def testObjects(): Seq[TestObject[ComputeModelStatistics]] = Seq(new TestObject(
+    new ComputeModelStatistics(), scoredDataset))
+
+  override def reader: MLReadable[_] = ComputeModelStatistics
 }

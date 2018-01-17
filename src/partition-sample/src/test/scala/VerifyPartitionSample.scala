@@ -3,12 +3,10 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.Transformer
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.param._
 
-class PartitionSampleSmokeTests extends TestBase {
+class PartitionSampleSmokeTests extends TransformerFuzzing[PartitionSample] {
 
   import session.implicits._
 
@@ -63,5 +61,10 @@ class PartitionSampleSmokeTests extends TestBase {
         (31, 32))
       .toDF("Col1", "Col2")
   }
+
+  override def testObjects(): Seq[TestObject[PartitionSample]] = Seq(
+    new TestObject[PartitionSample](new PartitionSample().setMode("Head").setCount(3), makeDF))
+
+  override def reader: MLReadable[_] = PartitionSample
 
 }
