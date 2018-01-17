@@ -20,7 +20,10 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
                        """metric name in evaluation - one of:
                        map - 
                        ndcgAt - 
-                       mapk - """,
+                       mapk - 
+                       recallAtK - 
+                       diversityAtK - 
+                       maxDiversity - """,
                        typeConverter=TypeConverters.toString)
 
     # todo: Should not need this, but not sure how to remove
@@ -30,6 +33,10 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
 
     rawPredictionCol = Param(Params._dummy(), "rawPredictionCol",
                              """rawPredictionCol""",
+                             typeConverter=TypeConverters.toString)
+
+    k = Param(Params._dummy(), "k",
+                             """k""",
                              typeConverter=TypeConverters.toString)
 
     @keyword_only
@@ -85,7 +92,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
     def setParams(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):
         """
         setParams(self, rawPredictionCol="rawPrediction", labelCol="label", \
-                  metricName="areaUnderROC")
+                  metricName="ndcgAt")
         Sets params for binary classification evaluator.
         """
         kwargs = self._input_kwargs
