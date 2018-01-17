@@ -6,17 +6,18 @@ package com.microsoft.ml.spark
 import java.{util => ju}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
+import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.functions.{col, lit, udf}
-import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
+import scala.util.Random
 
 /** Featurize text.
   *
@@ -90,27 +91,23 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
   }
 
   override def fit(dataset: Dataset[_]): MsftRecommendationModel = {
-    transformSchema(dataset.schema)
-    import dataset.sparkSession.implicits._
+    val als = new ALS()
+      .setNonnegative(getNonnegative)
+      .setColdStartStrategy(getColdStartStrategy)
+      .setRank(getRank)
+      .setMaxIter(getMaxIter)
+      .setRegParam(getRegParam)
+      .setImplicitPrefs(getImplicitPrefs)
+      .setNumUserBlocks(getNumUserBlocks)
+      .setNumItemBlocks(getNumItemBlocks)
+      .setUserCol(getUserCol)
+      .setItemCol(getItemCol)
+      .setRatingCol(getRatingCol)
+      .setSeed(getSeed)
+    val model2: ALSModel = als.fit(dataset)
 
-    val r = if ($(ratingCol) != "") col($(ratingCol)).cast(FloatType) else lit(1.0f)
-    val ratings = dataset
-      .select(checkedCast(col($(userCol))), checkedCast(col($(itemCol))), r)
-      .rdd
-      .map { row =>
-        Rating(row.getInt(0), row.getInt(1), row.getFloat(2))
-      }
-
-    val (userFactors, itemFactors) = ALS.train(ratings, rank = $(rank),
-      numUserBlocks = $(numUserBlocks), numItemBlocks = $(numItemBlocks),
-      maxIter = $(maxIter), regParam = $(regParam), implicitPrefs = $(implicitPrefs),
-      alpha = $(alpha), nonnegative = $(nonnegative),
-      intermediateRDDStorageLevel = StorageLevel.fromString($(intermediateStorageLevel)),
-      finalRDDStorageLevel = StorageLevel.fromString($(finalStorageLevel)),
-      checkpointInterval = $(checkpointInterval), seed = $(seed))
-    val userDF = userFactors.toDF("id", "features")
-    val itemDF = itemFactors.toDF("id", "features")
-    val model = new MsftRecommendationModel(uid, $(rank), userDF, itemDF).setParent(this)
+    val model =
+      new MsftRecommendationModel(uid, $(rank), model2.userFactors, model2.itemFactors, model2).setParent(this)
     copyValues(model)
   }
 
@@ -121,111 +118,141 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
   override def copy(extra: ParamMap): MsftRecommendation = defaultCopy(extra)
 }
 
-object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation]
+object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
+  /**
+    * Returns top `numItems` items recommended for each user, for all users.
+    *
+    * @param dfRaw       input DataFrame
+    * @param minRatingsU input DataFrame
+    * @param minRatingsI input DataFrame
+    * @param RATIO       input DataFrame
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
+  def split(dfRaw: DataFrame,
+            minRatingsU: Int = 1,
+            minRatingsI: Int = 1,
+            RATIO: Double = 0.75): DataFrame = {
+    val ratingsTemp = dfRaw.dropDuplicates()
 
+    val ratingsIndexed1 = new StringIndexer()
+      .setInputCol("customerID")
+      .setOutputCol("customerIDindex")
+      .fit(ratingsTemp).transform(ratingsTemp)
+
+    val ratings = new StringIndexer()
+      .setInputCol("itemID")
+      .setOutputCol("itemIDindex")
+      .fit(ratingsIndexed1).transform(ratingsIndexed1)
+      .drop("customerID").withColumnRenamed("customerIDindex", "customerID")
+      .drop("itemID").withColumnRenamed("itemIDindex", "itemID")
+
+    ratings.cache()
+
+    import dfRaw.sqlContext.implicits._
+    import org.apache.spark.sql.functions._
+
+    val tmpDF = ratings
+      .groupBy("customerID")
+      .agg('customerID, count('itemID))
+      .withColumnRenamed("count(itemID)", "nitems")
+      .where(col("nitems") >= minRatingsU)
+
+    val inputDF = ratings.groupBy("itemID")
+      .agg('itemID, count('customerID))
+      .withColumnRenamed("count(customerID)", "ncustomers")
+      .where(col("ncustomers") >= minRatingsI)
+      .join(ratings, "itemID")
+      .drop("ncustomers")
+      .join(tmpDF, "customerID")
+      .drop("nitems")
+
+    inputDF.cache()
+
+    val nusers_by_item = inputDF.groupBy("itemID")
+      .agg('itemID, count("customerID"))
+      .withColumnRenamed("count(customerID)", "nusers")
+      .rdd
+
+    val perm_indices = nusers_by_item.map(r => (r(0), Random.shuffle(List(r(1))), List(r(1))))
+    perm_indices.cache()
+
+    val tr_idx = perm_indices.map(r => (r._1, r._2.slice(0, math.round(r._3.size.toDouble * RATIO).toInt)))
+
+    val train = inputDF.rdd
+      .groupBy(r => r(1))
+      .join(tr_idx)
+      .flatMap(r => r._2._1.slice(0, r._2._2.size))
+      .map(r => (r.getDouble(0), r.getDouble(1), r.getInt(2)))
+      .toDF("customerID", "itemID", "rating")
+
+    val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
+
+    val test = inputDF.rdd
+      .groupBy(r => r(1))
+      .join(testIndex)
+      .flatMap(r => r._2._1.drop(r._2._2.size))
+      .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
+
+    train.withColumn("train", typedLit(1))
+      .union(test.withColumn("train", typedLit(0)))
+  }
+}
+
+/**
+  * Model fitted by ALS.
+  *
+  * @param rank        rank of the matrix factorization model
+  * @param userFactors a DataFrame that stores user factors in two columns: `id` and `features`
+  * @param itemFactors a DataFrame that stores item factors in two columns: `id` and `features`
+  * @param alsModel    a trained ALS model
+  */
 class MsftRecommendationModel(
                                override val uid: String,
                                val rank: Int,
                                val userFactors: DataFrame,
-                               val itemFactors: DataFrame)
+                               val itemFactors: DataFrame,
+                               val alsModel: ALSModel)
   extends Model[MsftRecommendationModel] with MsftRecommendationModelParams
     with ConstructorWritable[MsftRecommendationModel] {
 
+  /**
+    * Returns top `numItems` items recommended for each user, for all users.
+    *
+    * @param numItems max number of recommendations for each user
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
   def recommendForAllUsers(numItems: Int): DataFrame = {
-    recommendForAll(userFactors, itemFactors, $(userCol), $(itemCol), numItems)
+    MsftRecHelper.recommendForAllUsers(alsModel, numItems)
   }
 
-  def recommendForAll(
-                       srcFactors: DataFrame,
-                       dstFactors: DataFrame,
-                       srcOutputColumn: String,
-                       dstOutputColumn: String,
-                       num: Int): DataFrame = {
-    import srcFactors.sparkSession.implicits._
-
-    val srcFactorsBlocked = blockify(srcFactors.as[(Int, Array[Float])])
-    val dstFactorsBlocked = blockify(dstFactors.as[(Int, Array[Float])])
-    val ratings = srcFactorsBlocked.crossJoin(dstFactorsBlocked)
-      .as[(Seq[(Int, Array[Float])], Seq[(Int, Array[Float])])]
-      .flatMap { case (srcIter, dstIter) =>
-        val m = srcIter.size
-        val n = math.min(dstIter.size, num)
-        val output = new Array[(Int, Int, Float)](m * n)
-        var i = 0
-        val pq = MsftRecHelper.getBoundedPriorityQueue(num)(Ordering.by(_._2))
-        srcIter.foreach { case (srcId, srcFactor) =>
-          dstIter.foreach { case (dstId, dstFactor) =>
-            // We use F2jBLAS which is faster than a call to native BLAS for vector dot product
-            val score = MsftRecHelper.f2jBLAS.sdot(rank, srcFactor, 1, dstFactor, 1)
-            pq += dstId -> score
-          }
-          pq.foreach { case (dstId, score) =>
-            output(i) = (srcId, dstId, score)
-            i += 1
-          }
-          pq.clear()
-        }
-        output.toSeq
-      }
-    // We'll force the IDs to be Int. Unfortunately this converts IDs to Int in the output.
-    val topKAggregator = MsftRecHelper.getTopByKeyAggregator(num, Ordering.by(_._2))
-    val recs = ratings.as[(Int, Int, Float)].groupByKey(_._1).agg(topKAggregator.toColumn)
-      .toDF("id", "recommendations")
-
-    val arrayType = ArrayType(
-      new StructType()
-        .add(dstOutputColumn, IntegerType)
-        .add("rating", FloatType)
-    )
-    recs.select($"id".as(srcOutputColumn), $"recommendations".cast(arrayType))
-  }
-
-  private def blockify(
-                        factors: Dataset[(Int, Array[Float])],
-                        blockSize: Int = 4096): Dataset[Seq[(Int, Array[Float])]] = {
-    import factors.sparkSession.implicits._
-    factors.mapPartitions(_.grouped(blockSize))
+  /**
+    * Returns top `numUsers` users recommended for each item, for all items.
+    *
+    * @param numUsers max number of recommendations for each item
+    * @return a DataFrame of (itemCol: Int, recommendations), where recommendations are
+    *         stored as an array of (userCol: Int, rating: Float) Rows.
+    */
+  def recommendForAllItems(numUsers: Int): DataFrame = {
+    MsftRecHelper.recommendForAllItems(alsModel, numUsers)
   }
 
   override def copy(extra: ParamMap): MsftRecommendationModel = {
-    val copied = new MsftRecommendationModel(uid, rank, userFactors, itemFactors)
+    val copied = new MsftRecommendationModel(uid, rank, userFactors, itemFactors, alsModel)
     copyValues(copied, extra).setParent(parent)
   }
 
-  private val predict = udf { (featuresA: Seq[Float], featuresB: Seq[Float]) =>
-    if (featuresA != null && featuresB != null) {
-      // TODO(SPARK-19759): try dot-producting on Seqs or another non-converted type for
-      // potential optimization.
-      blas.sdot(rank, featuresA.toArray, 1, featuresB.toArray, 1)
-    } else {
-      Float.NaN
-    }
-  }
-
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema)
-    // create a new column named map(predictionCol) by running the predict UDF.
-    val predictions = dataset
-      .join(userFactors,
-        checkedCast(dataset($(userCol))) === userFactors("id"), "left")
-      .join(itemFactors,
-        checkedCast(dataset($(itemCol))) === itemFactors("id"), "left")
-      .select(dataset("*"),
-        predict(userFactors("features"), itemFactors("features")).as($(predictionCol)))
-    getColdStartStrategy match {
-      case MsftRecommendationModel.Drop =>
-        predictions.na.drop("all", Seq($(predictionCol)))
-      case MsftRecommendationModel.NaN =>
-        predictions
-    }
+    alsModel.transform(dataset)
   }
 
   override def transformSchema(schema: StructType): StructType =
-    new ALS().transformSchema(schema)
+    alsModel.transformSchema(schema)
 
   override val ttag: TypeTag[MsftRecommendationModel] = typeTag[MsftRecommendationModel]
 
-  override def objectsToSave: List[AnyRef] = List(uid, rank.toString, userFactors, itemFactors)
+  override def objectsToSave: List[AnyRef] = List(uid, Int.box(rank), userFactors, itemFactors, alsModel)
 }
 
 object MsftRecommendationModel extends ConstructorReadable[MsftRecommendationModel] {

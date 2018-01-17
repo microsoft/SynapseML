@@ -7,12 +7,12 @@ import com.microsoft.ml.spark.schema.DatasetExtensions._
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.ml.util.MLReadable
 
-class TextFeaturizerSpec extends TestBase with EstimatorFuzzing[TextFeaturizer] {
+class TextFeaturizerSpec extends TestBase with EstimatorFuzzing[TextFeaturizer]{
   val dfRaw = session
     .createDataFrame(Seq((0, "Hi I"),
-      (1, "I wish for snow today"),
-      (2, "we Cant go to the park, because of the snow!"),
-      (3, "")))
+                         (1, "I wish for snow today"),
+                         (2, "we Cant go to the park, because of the snow!"),
+                         (3, "")))
     .toDF("label", "sentence")
   val dfTok = new Tokenizer()
     .setInputCol("sentence")
@@ -66,17 +66,16 @@ class TextFeaturizerSpec extends TestBase with EstimatorFuzzing[TextFeaturizer] 
       .setInputCol("tokens")
       .setOutputCol("features")
       .setNumFeatures(20)
-    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens"), dfTok)
-    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("ngrams"), dfNgram)
-    assertSparkException[IllegalArgumentException](tfTok.setInputCol("sentence"), dfRaw)
+    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens"),           dfTok)
+    assertSparkException[IllegalArgumentException](tfRaw.setInputCol("ngrams"),           dfNgram)
+    assertSparkException[IllegalArgumentException](tfTok.setInputCol("sentence"),         dfRaw)
     assertSparkException[IllegalArgumentException](tfRaw.setInputCol("tokens_incorrect"), dfTok)
-    assertSparkException[IllegalArgumentException](tfRaw.setOutputCol("tokens"), dfTok)
+    assertSparkException[IllegalArgumentException](tfRaw.setOutputCol("tokens"),          dfTok)
   }
 
   override def testObjects(): Seq[TestObject[TextFeaturizer]] =
     List(new TestObject(new TextFeaturizer().setInputCol("sentence"), dfRaw))
 
   override def reader: MLReadable[_] = TextFeaturizer
-
   override def modelReader: MLReadable[_] = TextFeaturizerModel
 }
