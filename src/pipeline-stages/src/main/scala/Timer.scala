@@ -5,13 +5,13 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam}
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util._
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
-object Timer extends DefaultParamsReadable[Timer]
+object Timer extends ComplexParamsReadable[Timer]
 
 trait TimerParams extends Wrappable {
   val stage = new PipelineStageParam(this, "stage", "The stage to time")
@@ -52,7 +52,7 @@ trait TimerParams extends Wrappable {
 }
 
 class Timer(val uid: String) extends Estimator[TimerModel]
-  with TimerParams with DefaultParamsWritable {
+  with TimerParams with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("Timer"))
 

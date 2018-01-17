@@ -9,7 +9,7 @@ import org.apache.spark.ml.{PipelineStage, Transformer}
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.apache.commons.io.FileUtils
 
-class VerifyFindBestModel extends TestBase with RoundTripTestBase {
+class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
   val mockLabelColumn = "Label"
 
@@ -88,17 +88,13 @@ class VerifyFindBestModel extends TestBase with RoundTripTestBase {
       .foreach(value => assert(value.getDouble(0) >= 0.5))
   }
 
-  val dfRoundTrip: DataFrame = createMockDataset
   val reader: MLReadable[_] = FindBestModel
   val modelReader: MLReadable[_] = BestModel
-  val stageRoundTrip: PipelineStage with MLWritable = {
+
+  override def testObjects(): Seq[TestObject[FindBestModel]] = Seq(new TestObject({
     val randomForestClassifier = TrainClassifierTestUtilities.createRandomForestClassifier(mockLabelColumn)
-    val model = randomForestClassifier.fit(dfRoundTrip)
+    val model = randomForestClassifier.fit(createMockDataset)
     new FindBestModel()
       .setModels(Array(model, model))
-      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
-  }
-
-  test("should roundtrip serialize") { testRoundTrip(ignoreEstimators = true) }
-
+      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)}, createMockDataset))
 }

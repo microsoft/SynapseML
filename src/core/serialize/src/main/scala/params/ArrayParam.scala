@@ -30,6 +30,9 @@ class ArrayParam(parent: Params, name: String, doc: String, isValid: Array[_] =>
         case dbArr: Array[Double] => compact(render(dbArr.toSeq))
         case strArr: Array[String] => compact(render(strArr.toSeq))
         case blArry: Array[Boolean] => compact(render(blArry.toSeq))
+        case intArr: Array[Integer] => compact(render(intArr.map(_.toLong).toSeq))
+        case _ =>
+          throw new IllegalArgumentException("Internal type not json serializable")
       }
     }
 

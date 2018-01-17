@@ -3,20 +3,21 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.hadoop.fs.Path
-import org.apache.spark.annotation.DeveloperApi
+import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
+
 import com.microsoft.ml.spark.schema._
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
+import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
-import reflect.runtime.universe.TypeTag
+
 import scala.math.Ordering
 import scala.reflect.ClassTag
-import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
+import scala.reflect.runtime.universe.TypeTag
 
 object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
   def validateAndTransformSchema(schema: StructType, outputCol: String): StructType = {
@@ -97,7 +98,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
-    extends Model[ValueIndexerModel] with ValueIndexerParams with MLWritable {
+    extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
@@ -126,9 +127,6 @@ class ValueIndexerModel(val uid: String)
 
   setDefault(inputCol -> "input", outputCol -> (uid + "_output"))
 
-  override def write: MLWriter =
-    new ValueIndexerModel.ValueIndexerModelWriter(uid, getLevels, getDataTypeStr, getInputCol, getOutputCol)
-
   override def copy(extra: ParamMap): ValueIndexerModel =
     new ValueIndexerModel(uid)
       .setLevels(getLevels)
@@ -151,7 +149,10 @@ class ValueIndexerModel(val uid: String)
   private def addCategoricalColumn[T: TypeTag](dataset: Dataset[_])
                                               (implicit ct: ClassTag[T]): DataFrame = {
     val nonNullLevels = getLevels.filter(_ != null)
-    val castLevels = nonNullLevels.map(_.asInstanceOf[T])
+    val castLevels = nonNullLevels.map {
+      case l: scala.math.BigInt => l.toInt.asInstanceOf[T]
+      case l => l.asInstanceOf[T]
+    }
     val hasNullLevel = getLevels.length != nonNullLevels.length
     val map = new CategoricalMap(castLevels, false, hasNullLevel)
     val unknownIndex =
@@ -179,70 +180,4 @@ class ValueIndexerModel(val uid: String)
     ValueIndexer.validateAndTransformSchema(schema, getOutputCol)
 }
 
-object ValueIndexerModel extends MLReadable[ValueIndexerModel] {
-
-  private val levelsPart = "levels"
-  private val dataPart = "data"
-
-  override def read: MLReader[ValueIndexerModel] = new ValueIndexerModelReader
-
-  override def load(path: String): ValueIndexerModel = super.load(path)
-
-  /** [[MLWriter]] instance for [[ValueIndexerModel]] */
-  private[ValueIndexerModel]
-  class ValueIndexerModelWriter(val uid: String,
-                                val levels: Array[_],
-                                val dataType: String,
-                                val inputCol: String,
-                                val outputCol: String)
-    extends MLWriter {
-
-    private case class Data(uid: String, dataType: String, inputCol: String, outputCol: String)
-
-    override protected def saveImpl(path: String): Unit = {
-      val overwrite = this.shouldOverwrite
-      val qualPath = Serializer.makeQualifiedPath(sc, path)
-      // Required in order to allow this to be part of an ML pipeline
-      Serializer.saveMetadata(uid,
-        ClassTag(ValueIndexerModel.getClass),
-        new Path(path, "metadata").toString,
-        sc,
-        overwrite)
-
-      // save the levels
-      Serializer.writeToHDFS(sc, levels, new Path(qualPath, levelsPart), overwrite)
-
-      // save model data
-      val data = Data(uid, dataType, inputCol, outputCol)
-      val dataPath = new Path(qualPath, dataPart).toString
-      val saveMode =
-        if (overwrite) SaveMode.Overwrite
-        else SaveMode.ErrorIfExists
-      sparkSession.createDataFrame(Seq(data)).repartition(1).write.mode(saveMode).parquet(dataPath)
-    }
-  }
-
-  private class ValueIndexerModelReader
-    extends MLReader[ValueIndexerModel] {
-
-    override def load(path: String): ValueIndexerModel = {
-      val qualPath = Serializer.makeQualifiedPath(sc, path)
-      // load the uid, input and output columns
-      val dataPath = new Path(qualPath, dataPart).toString
-      val data = sparkSession.read.format("parquet").load(dataPath)
-
-      val Row(uid: String, dataType: String, inputCol: String, outputCol: String) =
-        data.select("uid", "dataType", "inputCol", "outputCol").head()
-
-      // get the levels
-      val levels = Serializer.readFromHDFS[Array[_]](sc, new Path(qualPath, levelsPart))
-
-      new ValueIndexerModel(uid)
-        .setLevels(levels)
-        .setDataTypeStr(dataType)
-        .setInputCol(inputCol)
-        .setOutputCol(outputCol)
-    }
-  }
-
-}
+object ValueIndexerModel extends ComplexParamsReadable[ValueIndexerModel]

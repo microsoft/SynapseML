@@ -62,7 +62,7 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
     override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
 
     override def jsonEncode(value: Array[Map[String, Any]]): String = {
-      val json = value.toSeq.asInstanceOf[Seq[Map[String, Int]]].toJson
+      val json = value.toSeq.toJson
       json.prettyPrint
     }
 

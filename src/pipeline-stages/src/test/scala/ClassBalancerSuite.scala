@@ -3,12 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml._
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
-class ClassBalancerSuite extends TestBase with RoundTripTestBase {
-  val df = session
+class ClassBalancerSuite extends EstimatorFuzzing[ClassBalancer] {
+  val df: DataFrame = session
     .createDataFrame(Seq((0, 1.0, "Hi I"),
                          (1, 1.0, "I wish for snow today"),
                          (2, 2.0, "I wish for snow today"),
@@ -21,15 +20,10 @@ class ClassBalancerSuite extends TestBase with RoundTripTestBase {
                          (9, 2.0, "")))
     .toDF("index", "label", "sentence")
 
-  val dfRoundTrip: DataFrame = df
   val reader: MLReadable[_] = ClassBalancer
   val modelReader: MLReadable[_] = ClassBalancerModel
-  val stageRoundTrip: PipelineStage with MLWritable = new ClassBalancer()
-    .setInputCol("label")
-
-  test("should roundtrip serialize") {
-    testRoundTrip()
-  }
+  override def testObjects(): Seq[TestObject[ClassBalancer]] = Seq(new TestObject[ClassBalancer](new ClassBalancer()
+    .setInputCol("label"), df))
 
   test("yield proper weights") {
     val model = new ClassBalancer()
@@ -40,5 +34,4 @@ class ClassBalancerSuite extends TestBase with RoundTripTestBase {
     assert(df2.collect()(8).getDouble(3) == 2.5)
     assert(df2.schema.fields.toSet == model.transformSchema(df.schema).fields.toSet)
   }
-
 }

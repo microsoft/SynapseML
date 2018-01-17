@@ -12,7 +12,7 @@ import org.apache.spark.sql.DataFrame
 import scala.collection.mutable.ListBuffer
 
 /** Tests to validate the functionality of Tune Hyperparameters module. */
-class VerifyTuneHyperparameters extends Benchmarks with RoundTripTestBase {
+class VerifyTuneHyperparameters extends Benchmarks {
 
   lazy val moduleName = "tune-hyperparameters"
 
@@ -149,33 +149,31 @@ class VerifyTuneHyperparameters extends Benchmarks with RoundTripTestBase {
       .fit(dataset)
   }
 
-  test("test round trip serialize") {
-    testRoundTrip(ignoreEstimators = true)
-  }
-
   val reader: MLReadable[_] = TuneHyperparameters
   val modelReader: MLReadable[_] = TuneHyperparametersModel
-  val dfRoundTrip = createMockDataset
-  val stageRoundTrip =  {
-    val logisticRegressor =
-      TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
-    val decisionTreeClassifier =
-      TrainClassifierTestUtilities.createDecisionTreeClassifier(mockLabelColumn)
-    val models = ListBuffer[Estimator[_]]()
-    val hyperParams = ListBuffer[(Param[_], Dist[_])]()
-    hyperParams ++= DefaultHyperparams.defaultRange(logisticRegressor.getModel.asInstanceOf[LogisticRegression])
-    hyperParams ++=
-      DefaultHyperparams.defaultRange(decisionTreeClassifier.getModel.asInstanceOf[DecisionTreeClassifier])
-    models += logisticRegressor
-    models += decisionTreeClassifier
-    val randomSpace = new RandomSpace(hyperParams.toArray)
-    new TuneHyperparameters()
-      .setModels(models.toArray)
-      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
-      .setNumFolds(2)
-      .setNumRuns(2)
-      .setParallelism(1)
-      .setParamSpace(randomSpace)
-      .setSeed(345L)
-  }
+
+  def testObjects(): Seq[TestObject[TuneHyperparameters]] =
+    Seq(new TestObject({
+      val logisticRegressor =
+        TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
+      val decisionTreeClassifier =
+        TrainClassifierTestUtilities.createDecisionTreeClassifier(mockLabelColumn)
+      val models = ListBuffer[Estimator[_]]()
+      val hyperParams = ListBuffer[(Param[_], Dist[_])]()
+      hyperParams ++= DefaultHyperparams.defaultRange(logisticRegressor.getModel.asInstanceOf[LogisticRegression])
+      hyperParams ++=
+        DefaultHyperparams.defaultRange(decisionTreeClassifier.getModel.asInstanceOf[DecisionTreeClassifier])
+      models += logisticRegressor
+      models += decisionTreeClassifier
+      val randomSpace = new RandomSpace(hyperParams.toArray)
+      new TuneHyperparameters()
+        .setModels(models.toArray)
+        .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
+        .setNumFolds(2)
+        .setNumRuns(2)
+        .setParallelism(1)
+        .setParamSpace(randomSpace)
+        .setSeed(345L)
+    }, createMockDataset))
+
 }

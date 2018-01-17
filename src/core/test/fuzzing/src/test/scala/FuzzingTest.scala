@@ -24,76 +24,36 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.TrainRegressor",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.Repartition",
-      "com.microsoft.ml.spark.UnrollImage",
-      "com.microsoft.ml.spark.SummarizeData",
-      "com.microsoft.ml.spark.CheckpointData",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.ComputeModelStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.ImageTransformer",
-      "com.microsoft.ml.spark.IndexToValue",
-      "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.FindBestModel",
-      "com.microsoft.ml.spark.ImageFeaturizer",
-      "com.microsoft.ml.spark.CNTKModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
-      "com.microsoft.ml.spark.PartitionSample",
-      "com.microsoft.ml.spark.Cacher",
-      "com.microsoft.ml.spark.ImageSetAugmenter",
-      "com.microsoft.ml.spark.EnsembleByKey",
-      "com.microsoft.ml.spark.ClassBalancer",
-      "com.microsoft.ml.spark.Timer")
+      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.TuneHyperparameters",
+      "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.DataConversion"
+    )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], ExperimentFuzzing[_ <: PipelineStage]] =
-      experimentFuzzers.map(f => (f.experimentTestObjects().head.stage.getClass, f)).toMap
+      experimentFuzzers.map(f =>
+        (f.experimentTestObjects().head.stage.getClass, f)).toMap
     val classesWithFuzzers = classToFuzzer.keys
     val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
     assertOrLog(classesWithoutFuzzers.isEmpty,
-                "These classes do not have fuzzers: \n" +
+                "These classes do not have Experiment fuzzers, \n" +
+                  "(try extending Estimator/Transformer Fuzzing): \n" +
                   classesWithoutFuzzers.mkString("\n"))
-    applicableClasses.foreach { clazz =>
-      classToFuzzer(clazz).validateExperiments()
-      println(s"$clazz fit and transform succeeded")
-    }
   }
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.TrainRegressor",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.Repartition",
-      "com.microsoft.ml.spark.UnrollImage",
-      "com.microsoft.ml.spark.SummarizeData",
-      "com.microsoft.ml.spark.CheckpointData",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.ComputeModelStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.Featurize",
-      "com.microsoft.ml.spark.ImageTransformer",
-      "com.microsoft.ml.spark.IndexToValue",
-      "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.FindBestModel",
-      "com.microsoft.ml.spark.ImageFeaturizer",
-      "com.microsoft.ml.spark.CNTKModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
-      "com.microsoft.ml.spark.PartitionSample",
-      "com.microsoft.ml.spark.MultiColumnAdapter",
-      "com.microsoft.ml.spark.Cacher",
-      "com.microsoft.ml.spark.ImageSetAugmenter",
-      "com.microsoft.ml.spark.EnsembleByKey",
-      "com.microsoft.ml.spark.Timer",
-      "com.microsoft.ml.spark.ValueIndexer",
-      "com.microsoft.ml.spark.ClassBalancer"
+      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.DataConversion",
+      "com.microsoft.ml.spark.TuneHyperparameters"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -102,38 +62,20 @@ class FuzzingTest extends TestBase {
     val classesWithFuzzers = classToFuzzer.keys
     val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
     assertOrLog(classesWithoutFuzzers.isEmpty,
-      "These classes do not have fuzzers: \n" +
-        classesWithoutFuzzers.mkString("\n"))
-    applicableClasses.foreach { clazz =>
-      classToFuzzer(clazz).testRoundTrip()
-      println(s"$clazz round trip succeeded")
-    }
+      "These classes do not have Serialization fuzzers,\n" +
+        "(try extending Estimator/Transformer Fuzzing):\n  " +
+        classesWithoutFuzzers.mkString("\n  "))
   }
 
   ignore("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.TrainRegressor",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.PartitionSample",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.Repartition",
-      "com.microsoft.ml.spark.UnrollImage",
-      "com.microsoft.ml.spark.SummarizeData",
-      "com.microsoft.ml.spark.CheckpointData",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.ComputeModelStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.Featurize",
-      "com.microsoft.ml.spark.ImageTransformer",
-      "com.microsoft.ml.spark.IndexToValue",
-      "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.FindBestModel",
-      "com.microsoft.ml.spark.ImageFeaturizer",
-      "com.microsoft.ml.spark.CNTKModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
-      "com.microsoft.ml.spark.PartitionSample",
-      "com.microsoft.ml.spark.MultiColumnAdapter"
+      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.DataConversion",
+      "com.microsoft.ml.spark.TuneHyperparameters"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
