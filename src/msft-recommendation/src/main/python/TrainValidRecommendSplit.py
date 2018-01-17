@@ -12,7 +12,8 @@ from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 from pyspark.ml.wrapper import JavaEstimator, JavaModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.util import *
-
+from pyspark.sql.functions import col, expr
+import pyspark.sql.functions as F
 from mmlspark.Utils import *
 
 

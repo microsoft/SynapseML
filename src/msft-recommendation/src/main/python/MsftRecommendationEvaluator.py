@@ -6,19 +6,16 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol
 from pyspark import keyword_only
-
-from pyspark.ml.evaluation import JavaEvaluator
-from pyspark.ml.util import JavaMLReadable, JavaMLWritable
-
-from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.ml.common import inherit_doc
+from pyspark.ml.evaluation import JavaEvaluator
+from pyspark.ml.param import Param, Params, TypeConverters
+from pyspark.ml.param.shared import HasLabelCol, HasPredictionCol
+from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
 
 @inherit_doc
-class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, \
-                                  JavaMLReadable, JavaMLWritable):
+class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, JavaMLReadable, JavaMLWritable):
     metricName = Param(Params._dummy(), "metricName",
                        """metric name in evaluation - one of:
                        map - 
@@ -26,17 +23,17 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
                        mapk - """,
                        typeConverter=TypeConverters.toString)
 
+    # todo: Should not need this, but not sure how to remove
     labelCol = Param(Params._dummy(), "labelCol",
-                       """labelCol""",
-                       typeConverter=TypeConverters.toString)
+                     """labelCol""",
+                     typeConverter=TypeConverters.toString)
 
     rawPredictionCol = Param(Params._dummy(), "rawPredictionCol",
                              """rawPredictionCol""",
                              typeConverter=TypeConverters.toString)
 
     @keyword_only
-    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label",
-                 metricName="ndcgAt"):
+    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):
         """
         __init__(self, rawPredictionCol="rawPrediction", labelCol="label", \
                  metricName="ndcgAt")
@@ -49,9 +46,15 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         self._set(**kwargs)
 
     def setRawPredictionCol(self, value):
+        """
+        Sets the value of :py:attr:`rawPredictionCol`.
+        """
         return self._set(rawPredictionCol=value)
 
-    def getRawPredrectionCol(self):
+    def getRawPredictionCol(self):
+        """
+        Gets the value of rawPredictionCol or its default value.
+        """
         return self.getOrDefault(self.rawPredictionCol)
 
     def setMetricName(self, value):
@@ -79,8 +82,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         return self.getOrDefault(self.k)
 
     @keyword_only
-    def setParams(self, rawPredictionCol="rawPrediction", labelCol="label",
-                  metricName="ndcgAt"):
+    def setParams(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):
         """
         setParams(self, rawPredictionCol="rawPrediction", labelCol="label", \
                   metricName="areaUnderROC")
