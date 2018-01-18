@@ -26,15 +26,16 @@ object LightGBM extends DefaultParamsReadable[LightGBM] {
   val defaultListenTimeout = 120
 }
 
-class LightGBMBooster(val isEmpty: Boolean, val model: SWIGTYPE_p_void) {
-  def mergeModels(newModel: SWIGTYPE_p_void): LightGBMBooster = {
-    if (isEmpty) {
-      new LightGBMBooster(false, newModel)
-    } else {
-      // Merges models to first handle
-      lightgbmlib.LGBM_BoosterMerge(model, newModel)
-      new LightGBMBooster(false, model)
-    }
+/**
+  * Represents a LightGBM Booster learner
+  * @param model
+  */
+class LightGBMBooster(val model: SWIGTYPE_p_void) extends Serializable {
+  def mergeModels(newModel: LightGBMBooster): LightGBMBooster = {
+    // Merges models to first handle
+    if (model != null)
+      lightgbmlib.LGBM_BoosterMerge(model, newModel.model)
+    new LightGBMBooster(model)
   }
 }
 
@@ -68,10 +69,14 @@ class LightGBM(override val uid: String) extends Estimator[LightGBMModel]
     val nodesKeys = processedData.sparkSession.sparkContext.getExecutorMemoryStatus.keys
     val nodes = nodesKeys.mkString(",")
     val numNodes = nodesKeys.count((node: String) => true)
-    // Run a parallel job via map partitions to initialize the native library and network
-    LightGBMUtils.initialize(processedData.rdd, nodes, numNodes)
+    /* Run a parallel job via map partitions to initialize the native library and network,
+     * translate the data to the LightGBM in-memory representation and train the models
+     */
+    val encoder = Encoders.kryo[LightGBMBooster]
+    val lightGBMBooster = processedData.mapPartitions(LightGBMUtils.trainLightGBM(nodes, numNodes))(encoder)
+      .reduce((booster1, booster2) => booster1.mergeModels(booster2))
     // Run map partitions to train and merge models
-    new LightGBMModel(uid) // pass in featurizeModel
+    new LightGBMModel(uid, lightGBMBooster) // pass in featurizeModel
   }
 
   override def copy(extra: ParamMap): Estimator[LightGBMModel] = defaultCopy(extra)
@@ -81,27 +86,36 @@ class LightGBM(override val uid: String) extends Estimator[LightGBMModel]
 }
 
 private object LightGBMUtils extends java.io.Serializable {
-  private[spark] def initialize[T: ClassTag](rdd: RDD[T], nodes: String, numNodes: Int): RDD[T] = {
-    def perPartition(it: Iterator[T]):Iterator[T] = {
-      // Initialize the native library
-      new NativeLoader("/com/microsoft/ml/lightgbm/lib.linux").loadLibraryByName("lib_lightgbm.so")
-      // Initialize the network communication
-      lightgbmlib.LGBM_NetworkInit(nodes, LightGBM.defaultListenTimeout, LightGBM.defaultLocalListenPort, numNodes)
-      it
+  def initialize(inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    new Iterator[LightGBMBooster] {
+      def hasNext: Boolean = inputRows.hasNext
+
+      def next(): LightGBMBooster = {
+        // Get all the rows and translate to LightGBM dataset
+        inputRows.next()
+        new LightGBMBooster(null)
+      }
     }
-    rdd.mapPartitions(perPartition, preservesPartitioning = true)
+  }
+
+  def trainLightGBM(nodes: String, numNodes: Int)(inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    // Initialize the native library
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
+    // Initialize the network communication
+    lightgbmlib.LGBM_NetworkInit(nodes, LightGBM.defaultListenTimeout, LightGBM.defaultLocalListenPort, numNodes)
+    initialize(inputRows)
   }
 }
 
 /** Model produced by [[LightGBM]]. */
-class LightGBMModel(val uid: String)
+class LightGBMModel(val uid: String, model: LightGBMBooster)
     extends Model[LightGBMModel] with ConstructorWritable[LightGBMModel] {
 
   val ttag: TypeTag[LightGBMModel] = typeTag[LightGBMModel]
   val objectsToSave: List[AnyRef] = List(uid)
 
   override def copy(extra: ParamMap): LightGBMModel =
-    new LightGBMModel(uid)
+    new LightGBMModel(uid, model)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     dataset.toDF()
