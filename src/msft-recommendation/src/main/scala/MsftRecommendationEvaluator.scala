@@ -21,7 +21,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
   val metricsList = new ListBuffer[Map[String, Double]]()
 
   def printMetrics(): Unit = {
-    metricsList.foreach(map =>{
+    metricsList.foreach(map => {
       print(map.toString())
     })
   }
