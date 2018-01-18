@@ -7,6 +7,8 @@ import java.{util => ju}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.feature.StringIndexer
+
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
 import org.apache.spark.ml.util._
@@ -197,6 +199,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .union(test.withColumn("train", typedLit(0)))
   }
 }
+
 
 /**
   * Model fitted by ALS.

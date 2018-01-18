@@ -519,3 +519,4 @@ class MsftRecommendationModel(ComplexParamsMixin, JavaModel, JavaMLWritable, Jav
 
     def recommendForAllItems(self, numItems):
         return self._call_java("recommendForAllItems", numItems)
+      

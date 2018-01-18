@@ -253,7 +253,7 @@ class TrainValidRecommendSplitRec
 
     val items = model.recommendForAllUsers(3)
     val users = model.recommendForAllItems(3)
-
+    
     evaluator.setSaveAll(true)
     tvRecommendationSplit.fit(transformedDf)
     evaluator.printMetrics()

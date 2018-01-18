@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml._
+
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALS, ALSModel, MsftRecommendationParams, TrainValidRecommendSplitParams}

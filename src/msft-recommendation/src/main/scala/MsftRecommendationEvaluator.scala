@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
+
 import org.apache.spark.ml.recommendation.MsftRecEvaluatorParams
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.mllib.evaluation.RankingMetrics
