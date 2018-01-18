@@ -3,11 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ml._
+
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALS, ALSModel, MsftRecommendationParams, TrainValidRecommendSplitParams}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, count}
@@ -63,8 +64,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val numModels = epm.length
     val metrics = new Array[Double](epm.length)
 
-    val filteredDataset = filterRatings(dataset.dropDuplicates())
-    filteredDataset.cache()
+    val filteredDataset = filterRatings(dataset.dropDuplicates()).cache()
 
     val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
     trainingDataset.cache()
@@ -73,32 +73,34 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
     val models = est.fit(trainingDataset, epm).asInstanceOf[Seq[Model[_]]]
     trainingDataset.unpersist()
-    var i = 0
-    //noinspection ScalaStyle
-    while (i < numModels) {
-      // TODO: duplicate evaluator to take extra params from input
-      val metric = castModel(models(i))
-      logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
-      metrics(i) += metric
-      i += 1
-    }
 
-    def castModel(model: Transformer): Double = model match {
+    eval.setNItems(validationDataset.rdd.map(r => r(1)).distinct().count())
+    //noinspection ScalaStyle
+    def calculateMetrics(model: Transformer): Double = model match {
       case p: PipelineModel => {
         //Assume Rec is last stage of pipeline
-        val modelTemp = models(i).asInstanceOf[PipelineModel].stages.last
-        castModel(modelTemp)
+        val modelTemp = model.asInstanceOf[PipelineModel].stages.last
+        calculateMetrics(modelTemp)
       }
       case m: MsftRecommendationModel => {
         val recs = model.asInstanceOf[MsftRecommendationModel].recommendForAllUsers(eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs)
         eval.evaluate(preparedTest)
       }
       case a: ALSModel => {
         val recs = model.asInstanceOf[ALSModel].recommendForAllUsers(eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(models(i).transform(validationDataset), recs)
+        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs)
         eval.evaluate(preparedTest)
       }
+    }
+
+    var i = 0
+    while (i < numModels) {
+      // TODO: duplicate evaluator to take extra params from input
+      val metric = calculateMetrics(models(i))
+      logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
+      metrics(i) += metric
+      i += 1
     }
 
     validationDataset.unpersist()
@@ -131,58 +133,64 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
   private def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
     .join(filterByItemCount(dataset), $(userCol))
 
-  private def splitDF(dataset: DataFrame): Array[DataFrame] = {
+  def splitDF(dataset: DataFrame): Array[DataFrame] = {
     import dataset.sqlContext.implicits._
 
-    val nusers_by_item: RDD[Row] = dataset.groupBy($(itemCol))
-      .agg(col($(itemCol)), count($(userCol)))
-      .withColumnRenamed("count(" + $(userCol) + ")", "nusers")
-      .rdd
+    val (tr_idx: RDD[(Any, List[Any])], testIndex: RDD[(Any, List[Any])]) = {
+      def permIndicesLambda(r: Row): (Any, List[Any], List[Any]) =
+        (r(0), Random.shuffle(List(r(1))), List(r(1)))
 
-    def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
-      r._2._1.drop(r._2._2.size)
+      def firstN(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
+        (r._1, r._2.slice(0, math.round(r._3.size.toDouble * $(trainRatio)).toInt))
 
-    def testIndexLambda(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
-      (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
+      def lastN(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
+        (r._1, r._2.drop(math.round(r._3.size.toDouble * $(trainRatio)).toInt))
 
-    def mapLambda(r: Row): (Int, Int, String, String, Int) =
-      (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
+      val perm_indices: RDD[(Any, List[Any], List[Any])] = dataset
+        .groupBy($(itemCol))
+        .agg(col($(itemCol)), count($(userCol)))
+        .withColumnRenamed("count(" + $(userCol) + ")", "nusers").rdd
+        .map(permIndicesLambda)
+        .cache()
 
-    def flatMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
-      r._2._1.slice(0, r._2._2.size)
+      val tr_idx: RDD[(Any, List[Any])] = perm_indices.map(firstN)
+      val testIndex: RDD[(Any, List[Any])] = perm_indices.map(lastN)
+      perm_indices.unpersist()
 
-    def makeIndexs(r: (Any, List[Any], List[Any])): (Any, List[Any]) =
-      (r._1, r._2.slice(0, math.round(r._3.size.toDouble * $(trainRatio)).toInt))
+      (tr_idx, testIndex)
+    }
 
-    def permIndicesLambda(r: Row): (Any, List[Any], List[Any]) =
-      (r(0), Random.shuffle(List(r(1))), List(r(1)))
+    val (trainingDataset: DataFrame, validationDataset: DataFrame) = {
+      def validationFlaptMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+        r._2._1.drop(r._2._2.size)
 
-    val perm_indices: RDD[(Any, List[Any], List[Any])] = nusers_by_item.map(permIndicesLambda)
-    perm_indices.cache()
+      def mapLambda(r: Row): (Int, Int, String, String, Int) =
+        (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getString(2), r.getString(3), r.getInt(4))
 
-    val tr_idx: RDD[(Any, List[Any])] = perm_indices.map(makeIndexs)
+      def flatMapLambda(r: (Any, (Iterable[Row], List[Any]))): Iterable[Row] =
+        r._2._1.slice(0, r._2._2.size)
 
-    val trainingDataset = dataset.rdd
-      .groupBy(_ (0))
-      .join(tr_idx)
-      .flatMap(flatMapLambda)
-      .map(mapLambda)
-      .toDF($(userCol), $(itemCol), $(userCol) + "Org", $(itemCol) + "Org", $(ratingCol))
+      val trainingDataset = dataset.rdd
+        .groupBy(_ (0))
+        .join(tr_idx)
+        .flatMap(flatMapLambda)
+        .map(mapLambda)
+        .toDF($(userCol), $(itemCol), $(userCol) + "Org", $(itemCol) + "Org", $(ratingCol))
 
-    val testIndex: RDD[(Any, List[Any])] = perm_indices.map(testIndexLambda)
+      val validationDataset: DataFrame = dataset.rdd
+        .groupBy(_ (1))
+        .join(testIndex)
+        .flatMap(validationFlaptMapLambda)
+        .map(mapLambda)
+        .toDF($(userCol), $(itemCol), $(userCol) + "Org", $(itemCol) + "Org", $(ratingCol))
 
-    val validationDataset: DataFrame = dataset.rdd
-      .groupBy(_ (1))
-      .join(testIndex)
-      .flatMap(validationFlaptMapLambda)
-      .map(mapLambda)
-      .toDF($(userCol), $(itemCol), $(userCol) + "Org", $(itemCol) + "Org", $(ratingCol))
+      (trainingDataset, validationDataset)
+    }
 
-    perm_indices.unpersist()
     Array(trainingDataset, validationDataset)
   }
 
-  private def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
+  def prepareTestData(validationDataset: DataFrame, recs: DataFrame): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val est = $(estimator) match {

@@ -6,12 +6,18 @@ import sys
 if sys.version >= '3':
     basestring = str
 
+import numpy as np
+
+from pyspark.sql import Window
+
 from pyspark.ml.param.shared import *
 from pyspark import keyword_only
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 from pyspark.ml.wrapper import JavaEstimator, JavaModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.util import *
+from pyspark.sql.functions import col, expr
+import pyspark.sql.functions as F
 
 from mmlspark.Utils import *
 
@@ -523,27 +529,30 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         num_models = len(epm)
         metrics = [0.0] * num_models
 
+        customerID = self.getOrDefault(self.userCol)
+        itemID = self.getOrDefault(self.itemCol)
+
         def filter_ratings(dataset):
             minRatingsU = 4
 
             tmpDF = dataset \
-                .groupBy('customerID') \
-                .agg({"itemID": "count"}) \
-                .withColumnRenamed('count(itemID)', 'nitems') \
+                .groupBy(customerID) \
+                .agg({itemID: "count"}) \
+                .withColumnRenamed('count(' + itemID + ')', 'nitems') \
                 .where(col('nitems') >= minRatingsU)
 
             minRatingsI = 4
 
             tmp_df2 = dataset \
-                .groupBy('itemID') \
-                .agg({"customerID": "count"}) \
-                .withColumnRenamed('count(customerID)', 'ncustomers') \
+                .groupBy(itemID) \
+                .agg({customerID: "count"}) \
+                .withColumnRenamed('count(' + customerID + ')', 'ncustomers') \
                 .where(col('ncustomers') >= minRatingsI)
 
             input_df = tmp_df2 \
-                .join(dataset, 'itemID') \
+                .join(dataset, itemID) \
                 .drop('ncustomers') \
-                .join(tmpDF, 'customerID') \
+                .join(tmpDF, customerID) \
                 .drop('nitems')
 
             return input_df
@@ -553,9 +562,9 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         def split_df(input_df):
             # Stratified sampling by item into a train and test data set
             nusers_by_item = input_df \
-                .groupBy('itemID') \
-                .agg({"customerID": "count"}) \
-                .withColumnRenamed('count(customerID)', 'nusers').rdd
+                .groupBy(itemID) \
+                .agg({customerID: "count"}) \
+                .withColumnRenamed('count(' + customerID + ')', 'nusers').rdd
 
             perm_indices = nusers_by_item.map(lambda r: (r[0], np.random.permutation(r[1]), r[1]))
 
@@ -563,20 +572,10 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
             tr_idx = perm_indices.map(lambda r: (r[0], r[1][: int(round(r[2] * RATIO))]))
             test_idx = perm_indices.map(lambda r: (r[0], r[1][int(round(r[2] * RATIO)):]))
 
-            # tr_by_item = input_df.rdd\
-            #     .groupBy(lambda r: r[1])\
-            #     .join(tr_idx)\
-            #     .flatMap(lambda r: np.array([x for x in r[1][0]])[r[1][1]])
-
             tr_by_item = input_df.rdd \
                 .groupBy(lambda r: r[1]) \
                 .join(tr_idx) \
                 .flatMap(lambda r: [x for x in r[1][0]][: len(r[1][1])])
-
-            # test_by_item = input_df.rdd\
-            #     .groupBy(lambda r: r[1])\
-            #     .join(test_idx)\
-            #     .flatMap(lambda r: np.array([x for x in r[1][0]])[r[1][1]])
 
             test_by_item = input_df.rdd \
                 .groupBy(lambda r: r[1]) \
@@ -585,38 +584,25 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
 
             train_temp = tr_by_item \
                 .map(lambda r: tuple(r)) \
-                .toDF(schema=['customerID', 'itemID', 'customerID' + 'Org', 'itemID' + 'Org', rating])
+                .toDF(schema=[customerID, itemID, customerID + 'Org', itemID + 'Org', rating])
 
-            test_temp = test_by_item\
+            test_temp = test_by_item \
                 .map(lambda r: tuple(r)) \
-                .toDF(schema=['customerID', 'itemID', 'customerID' + 'Org', 'itemID' + 'Org', rating])
+                .toDF(schema=[customerID, itemID, customerID + 'Org', itemID + 'Org', rating])
 
             return [train_temp, test_temp]
 
         [train, validation] = split_df(filtered_dataset)
         train.cache()
         validation.cache()
-        # tRatio = self.getOrDefault(self.trainRatio)
-        # seed = self.getOrDefault(self.seed)
-        # randCol = self.uid + "_rand"
-        # df = dataset.select("*", rand(seed).alias(randCol))
-        # condition = (df[randCol] >= tRatio)
-        # validation = df.filter(condition)
-        # train = df.filter(~condition)
-
+        eva.setNumberItems(validation.rdd.map(lambda r: r[1]).distinct().count())
         models = est.fit(train, epm)
         train.unpersist()
 
-        def prepare_test_data(validation_dataset, recs):
+        def prepare_test_data(dataset, recs, k):
 
             userColumn = est.getUserCol()
             itemColumn = est.getItemCol()
-
-            # perUserRecommendedItemsDF = recs \
-            #     .select(userColumn, "product") \
-            #     .withColumnRenamed('user', 'customerID') \
-            #     .groupBy('customerID') \
-            #     .agg(expr('collect_list(product) as prediction'))
 
             perUserRecommendedItemsDF = recs \
                 .select(userColumn, "recommendations." + itemColumn) \
@@ -624,29 +610,27 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
 
             windowSpec = Window.partitionBy(userColumn).orderBy(col(rating).desc())
 
-            perUserActualItemsDF = validation_dataset \
+            perUserActualItemsDF = dataset \
                 .select(userColumn, itemColumn, rating, F.rank().over(windowSpec).alias('rank')) \
-                .where('rank <= {0}'.format(3)) \
+                .where('rank <= {0}'.format(k)) \
                 .groupBy(userColumn) \
                 .agg(expr('collect_list(' + itemColumn + ') as label')) \
                 .select(userColumn, "label")
 
             joined_rec_actual = perUserRecommendedItemsDF \
-                .join(perUserActualItemsDF, on='customerID') \
-                .drop('customerID')
+                .join(perUserActualItemsDF, on=userColumn) \
+                .drop(userColumn)
 
             return joined_rec_actual
 
-        def cast_model(model, epm):
-            recs = model._call_java("recommendForAllUsers", 3)
-            # recs = model.recommendForAllUsers(eva.getK())
-            prepared_test = prepare_test_data(model.transform(validation), recs)
-            prepared_test.printSchema()
+        def cast_model(model):
+            recs = model._call_java("recommendForAllUsers", eva.getK())
+            prepared_test = prepare_test_data(model.transform(validation), recs, eva.getK())
             metric = eva.evaluate(prepared_test)
             return metric
 
         for j in range(num_models):
-            metrics[j] += cast_model(models[j], epm[j])
+            metrics[j] += cast_model(models[j])
         validation.unpersist()
 
         if eva.isLargerBetter():
@@ -664,6 +648,7 @@ class TrainValidRecommendSplitModel(ComplexParamsMixin, JavaModel, JavaMLWritabl
     This class is left empty on purpose.
     All necessary methods are exposed through inheritance.
     """
+
     def __init__(self, bestModel, validationMetrics=[]):
         super(TrainValidRecommendSplitModel, self).__init__()
         #: best model from cross validation
