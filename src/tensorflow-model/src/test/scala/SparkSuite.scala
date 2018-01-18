@@ -62,9 +62,9 @@ class SparkSuite extends TestBase{
         val rawData = r.toSeq.toArray
         val rawDataDouble: Seq[Double] = rawData(0).asInstanceOf[DenseVector].values.toSeq
         //for above - TODO: Am I sure this is always the case? --> type and containing one element
-        val transformed = rawDataDouble.map(_ + 10.0).map(t => t.toString)
-//        val arrayTransformed = Array(transformed)
-        Row.fromSeq(transformed) //contains multiple elements, need to be changed into Seq of one denseVector
+        val transformed = rawDataDouble.map(_ + 10.0)
+        val arrayTransformed = Array(transformed.toArray.mkString("[",",","]")).toSeq
+        Row.fromSeq(arrayTransformed) //contains multiple elements, need to be changed into Seq of one denseVector
       }
 
     }(enc)
