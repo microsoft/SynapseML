@@ -65,12 +65,15 @@ abstract class Benchmarks extends TestBase {
   override def afterAll(): Unit = {
     super.afterAll()
   }
+
 }
 
 object ClassifierTestUtils {
+
   def classificationTrainFile(name: String): File =
     new File(s"${sys.env("DATASETS_HOME")}/Binary/Train", name)
 
   def multiclassClassificationTrainFile(name: String): File =
     new File(s"${sys.env("DATASETS_HOME")}/Multiclass/Train", name)
+
 }
