@@ -44,7 +44,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
 
     nItems = Param(Params._dummy(), "nItems",
                    """number of items""",
-                   typeConverter=TypeConverters.toLong)
+                   typeConverter=TypeConverters.toInt)
 
     @keyword_only
     def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt", k=3, saveAll=False):
