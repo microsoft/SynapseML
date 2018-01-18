@@ -3,8 +3,7 @@
 
 package org.apache.spark.ml.param
 
-/**
-  * Represents the parameter values.
+/** Represents the parameter values.
   */
 abstract class ParamSpace {
   def paramMaps: Iterator[ParamMap]
@@ -14,7 +13,7 @@ abstract class ParamSpace {
   * types but not ParamSpace.
   */
 class ParamSpaceParam(parent: Params, name: String, doc: String, isValid: ParamSpace => Boolean)
-  extends ComplexParam[ParamSpace](parent, name, doc, isValid) {
+    extends ComplexParam[ParamSpace](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)

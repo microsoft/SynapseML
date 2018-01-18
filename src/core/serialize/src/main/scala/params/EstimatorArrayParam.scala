@@ -8,7 +8,7 @@ import scala.collection.JavaConverters._
 
 /** Param for Array of Models. */
 class EstimatorArrayParam(parent: Params, name: String, doc: String, isValid: Array[Estimator[_]] => Boolean)
-  extends ComplexParam[Array[Estimator[_]]](parent, name, doc, isValid) {
+    extends ComplexParam[Array[Estimator[_]]](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
