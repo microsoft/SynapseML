@@ -36,11 +36,14 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
                              typeConverter=TypeConverters.toString)
 
     k = Param(Params._dummy(), "k",
-                             """k""",
-                             typeConverter=TypeConverters.toInt)
+              """k""",
+              typeConverter=TypeConverters.toInt)
+    saveAll = Param(Params._dummy(), "saveAll",
+                    """saveAll""",
+                    typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
-    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt", k=3):
+    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt", k=3, saveAll=False):
         """
         __init__(self, rawPredictionCol="rawPrediction", labelCol="label", \
                  metricName="ndcgAt")
@@ -50,6 +53,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
             "com.microsoft.ml.spark.MsftRecommendationEvaluator", self.uid)
         self._setDefault(metricName="ndcgAt")
         self._setDefault(k=3)
+        self._setDefault(saveAll=False)
         kwargs = self._input_kwargs
         self._set(**kwargs)
 
@@ -88,6 +92,19 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         Gets the value of metricName or its default value.
         """
         return self.getOrDefault(self.k)
+
+    def setSaveAll(self, value):
+        """
+        Sets the value of :py:attr:`saveAll`.
+        """
+
+        return self._set(saveAll=value)
+
+    def getSaveAll(self):
+        """
+        Gets the value of metricName or its default value.
+        """
+        return self.getOrDefault(self.saveAll)
 
     @keyword_only
     def setParams(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):

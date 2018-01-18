@@ -11,8 +11,9 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.Random
@@ -102,10 +103,10 @@ class MsftRecommendation(override val uid: String) extends Estimator[MsftRecomme
       .setItemCol(getItemCol)
       .setRatingCol(getRatingCol)
       .setSeed(getSeed)
-    val model2: ALSModel = als.fit(dataset)
+    val alsModel: ALSModel = als.fit(dataset)
 
     val model =
-      new MsftRecommendationModel(uid, $(rank), model2.userFactors, model2.itemFactors, model2).setParent(this)
+      new MsftRecommendationModel(uid, $(rank), alsModel.userFactors, alsModel.itemFactors, alsModel).setParent(this)
     copyValues(model)
   }
 
@@ -144,8 +145,7 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .fit(ratingsIndexed1).transform(ratingsIndexed1)
       .drop("customerID").withColumnRenamed("customerIDindex", "customerID")
       .drop("itemID").withColumnRenamed("itemIDindex", "itemID")
-
-    ratings.cache()
+      .cache()
 
     import dfRaw.sqlContext.implicits._
     import org.apache.spark.sql.functions._
@@ -164,18 +164,20 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .drop("ncustomers")
       .join(tmpDF, "customerID")
       .drop("nitems")
+      .cache()
 
-    inputDF.cache()
-
-    val nusers_by_item = inputDF.groupBy("itemID")
-      .agg('itemID, count("customerID"))
-      .withColumnRenamed("count(customerID)", "nusers")
-      .rdd
-
-    val perm_indices = nusers_by_item.map(r => (r(0), Random.shuffle(List(r(1))), List(r(1))))
-    perm_indices.cache()
-
-    val tr_idx = perm_indices.map(r => (r._1, r._2.slice(0, math.round(r._3.size.toDouble * RATIO).toInt)))
+    val (tr_idx: RDD[(Any, List[Any])], testIndex: RDD[(Any, List[Any])]) = {
+      val perm_indices = inputDF
+        .groupBy("itemID")
+        .agg('itemID, count("customerID"))
+        .withColumnRenamed("count(customerID)", "nusers").rdd
+        .map(r => (r(0), Random.shuffle(List(r(1))), List(r(1))))
+        .cache()
+      val tr_idx = perm_indices.map(r => (r._1, r._2.slice(0, math.round(r._3.size.toDouble * RATIO).toInt)))
+      val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
+      perm_indices.unpersist()
+      (tr_idx, testIndex)
+    }
 
     val train = inputDF.rdd
       .groupBy(r => r(1))
@@ -184,13 +186,12 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
       .map(r => (r.getDouble(0), r.getDouble(1), r.getInt(2)))
       .toDF("customerID", "itemID", "rating")
 
-    val testIndex = perm_indices.map(r => (r._1, r._2.drop(math.round(r._3.size.toDouble * RATIO).toInt)))
-
     val test = inputDF.rdd
       .groupBy(r => r(1))
       .join(testIndex)
       .flatMap(r => r._2._1.drop(r._2._2.size))
-      .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2))).toDF("customerID", "itemID", "rating")
+      .map(r => (r.getDouble(0).toInt, r.getDouble(1).toInt, r.getInt(2)))
+      .toDF("customerID", "itemID", "rating")
 
     train.withColumn("train", typedLit(1))
       .union(test.withColumn("train", typedLit(0)))
