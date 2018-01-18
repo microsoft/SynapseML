@@ -89,8 +89,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     }
   }
 
-  /**
-    * Private function taken from spark - waits for the task to complete
+  /** Private function taken from spark - waits for the task to complete
     */
   private def awaitResult[T](awaitable: Awaitable[T], atMost: Duration): T = {
     try {
@@ -211,6 +210,7 @@ class TuneHyperparametersModel(val uid: String,
   def getBestModel: Transformer = model
 
   def getBestModelInfo: String = EvaluationUtils.modelParamsToString(model)
+
 }
 
 object TuneHyperparametersModel extends ConstructorReadable[TuneHyperparametersModel]

@@ -10,6 +10,7 @@ import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.regression._
 
 trait HasEvaluationMetric extends Wrappable {
+
   /** Metric to evaluate the models with. Default is "all"
     *
     * The metrics that can be chosen are:
@@ -45,8 +46,10 @@ trait HasEvaluationMetric extends Wrappable {
   def getEvaluationMetric: String = $(evaluationMetric)
   /** @group setParam */
   def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
+
   // Set default evaluation metric to accuracy
   setDefault(evaluationMetric -> ComputeModelStatistics.AccuracySparkMetric)
+
 }
 
 object EvaluationUtils {
@@ -107,11 +110,11 @@ object EvaluationUtils {
     }
   }
 
-  /**
-    * Returns a string representation of the model.
+  /** Returns a string representation of the model.
     * @param model The model output by TrainClassifier or TrainRegressor
     * @return A comma delimited representation of the model parameter names and values
     */
   def modelParamsToString(model: Transformer): String =
     getModelParams(model).toSeq.map(pv => s"${pv.param.name}: ${pv.value}").sorted.mkString(", ")
+
 }
