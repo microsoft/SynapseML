@@ -106,6 +106,12 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         """
         return self.getOrDefault(self.saveAll)
 
+    def setNumberItems(self, value):
+        """
+        Sets the value of :py:attr:`nItems`.
+        """
+        return self._set(nItems=value)
+
     @keyword_only
     def setParams(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):
         """

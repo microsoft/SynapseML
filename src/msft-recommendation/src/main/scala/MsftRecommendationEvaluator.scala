@@ -16,7 +16,7 @@ import scala.collection.mutable.ListBuffer
 @InternalWrapper
 final class MsftRecommendationEvaluator(override val uid: String)
   extends Evaluator with MsftRecEvaluatorParams {
-  var nItems: Long = -1
+  var nItems: LongParam = new LongParam(this, "nItems", "number of items")
 
   val metricsList = new ListBuffer[Map[String, Double]]()
 
@@ -28,10 +28,9 @@ final class MsftRecommendationEvaluator(override val uid: String)
 
   def getMetricsList: ListBuffer[Map[String, Double]] = metricsList
 
-  def setNumberItems(value: Long): this.type = {
-    this.nItems = value
-    this
-  }
+  def setNItems(value: Long): this.type = set(nItems, value)
+
+  setDefault(nItems -> -1)
 
   def this() = this(Identifiable.randomUID("recEval"))
 
@@ -95,7 +94,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
       def diversityAtK(): Double = {
         val uniqueItemsRecommended = predictionAndLabels.map(row => row._1)
           .reduce((x, y) => x.toSet.union(y.toSet).toArray)
-        uniqueItemsRecommended.length.toDouble / nItems
+        uniqueItemsRecommended.length.toDouble / $(nItems)
       }
 
       def maxDiversity(): Double = {
@@ -104,7 +103,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
         val uniqueItemsSeen = predictionAndLabels.map(row => row._2)
           .reduce((x, y) => x.toSet.union(y.toSet).toArray)
         val items = uniqueItemsSeen.union(uniqueItemsRecommended).length
-        items.toDouble / nItems
+        items.toDouble / $(nItems)
       }
 
       def matchMetric(metricName: String): Double = metricName match {

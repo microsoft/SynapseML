@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALS, ALSModel, MsftRecommendationParams, TrainValidRecommendSplitParams}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, count}
@@ -73,7 +73,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val models = est.fit(trainingDataset, epm).asInstanceOf[Seq[Model[_]]]
     trainingDataset.unpersist()
 
-    eval.setNumberItems(validationDataset.rdd.map(r => r(1)).distinct().count())
+    eval.setNItems(validationDataset.rdd.map(r => r(1)).distinct().count())
     //noinspection ScalaStyle
     def calculateMetrics(model: Transformer): Double = model match {
       case p: PipelineModel => {
