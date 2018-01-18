@@ -73,7 +73,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
         val uniqueItemsSeen = predictionAndLabels.map(row => row._2)
           .reduce((x, y) => x.toSet.union(y.toSet).toArray)
         val nItems = uniqueItemsSeen.union(uniqueItemsRecommended).length
-        uniqueItemsRecommended.length / nItems
+        uniqueItemsRecommended.length.toDouble / nItems.toDouble
       }
       case "maxDiversity" => {
         val uniqueItemsRecommended = predictionAndLabels.map(row => row._1)
@@ -81,7 +81,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
         val uniqueItemsSeen = predictionAndLabels.map(row => row._2)
           .reduce((x, y) => x.toSet.union(y.toSet).toArray)
         val nItems = uniqueItemsSeen.union(uniqueItemsRecommended).length
-        uniqueItemsSeen.length / nItems
+        uniqueItemsSeen.length.toDouble / nItems.toDouble
       }
     }
     metric

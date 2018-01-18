@@ -37,10 +37,10 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
 
     k = Param(Params._dummy(), "k",
                              """k""",
-                             typeConverter=TypeConverters.toString)
+                             typeConverter=TypeConverters.toInt)
 
     @keyword_only
-    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt"):
+    def __init__(self, rawPredictionCol="rawPrediction", labelCol="label", metricName="ndcgAt", k=3):
         """
         __init__(self, rawPredictionCol="rawPrediction", labelCol="label", \
                  metricName="ndcgAt")
@@ -49,6 +49,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
         self._java_obj = self._new_java_obj(
             "com.microsoft.ml.spark.MsftRecommendationEvaluator", self.uid)
         self._setDefault(metricName="ndcgAt")
+        self._setDefault(k=3)
         kwargs = self._input_kwargs
         self._set(**kwargs)
 
