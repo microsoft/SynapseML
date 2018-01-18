@@ -595,7 +595,7 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
         [train, validation] = split_df(filtered_dataset)
         train.cache()
         validation.cache()
-
+        eva.setNumberItems(validation.rdd.map(lambda r: r[1]).distinct().count())
         models = est.fit(train, epm)
         train.unpersist()
 
