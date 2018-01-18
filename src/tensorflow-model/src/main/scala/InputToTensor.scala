@@ -23,7 +23,7 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
   //Constructor
   var itype: String = input_type
 
-  //TODO: generalize this to handle any picture or input of any shape and form
+   //TODO: generalize this to handle any picture or input of any shape and form
   //Probably input.shape().size is what you need to play with
   def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte]): Tensor[java.lang.Float] = {
 
@@ -53,10 +53,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
       val W: Int  = expectedDim(1).asInstanceOf[Int]
       val mean = expectedDim(2)
       val scale = expectedDim(3)
-//      val H: Int = 224
-//      val W: Int = 224
-//      val mean: Float = 117f
-//      val scale: Float = 1f
 
       // Since the graph is being constructed once per execution here, we can use a constant for the
       // input image. If the graph were to be re-used for multiple input images, a placeholder would
