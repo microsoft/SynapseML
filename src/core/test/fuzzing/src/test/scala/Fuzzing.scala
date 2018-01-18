@@ -129,8 +129,14 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends FuzzingMe
         case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
       }
       ()
+    } catch {
+      case e: Exception => throw e
     } finally {
-      FileUtils.forceDelete(new File(path))
+      try{
+        FileUtils.forceDelete(new File(path))
+      }catch{
+        case _: Exception =>
+      }
       ()
     }
   }
