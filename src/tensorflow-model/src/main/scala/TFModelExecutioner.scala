@@ -18,7 +18,7 @@ import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
 //import com.microsoft.ml.spark.InputToTensor
 
-class TFModelExecutioner {
+class TFModelExecutioner extends Serializable {
 
   //TODO: Modify the main to be able to evaluate multiple inputs - would save on loading model every time.
 
@@ -49,6 +49,13 @@ class TFModelExecutioner {
     val labels = readAllLinesOrExit(Paths.get(modelDir, args(3)))
     val imageBytes = readAllBytesOrExit(Paths.get(imageFile))
 
+    evaluate(graphDef, labels, imageBytes, expectedShape, inputTensorName, outputTensorName)
+  }
+
+  def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte], height: Int , width: Int,
+               expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
+               inputTensorName: String = "input",
+               outputTensorName: String = "output"): Unit = {
     //Check if graph contains info on expected shape of input
     val g = new Graph
     g.importGraphDef(graphDef)
@@ -67,14 +74,22 @@ class TFModelExecutioner {
     }
 
     val transformer = new InputToTensor("image_inception", shapeToUse)
-    val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes)
+    val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width)
     try {
       val labelProbabilities = executeInceptionGraph(graphDef, image, inputTensorName, outputTensorName)
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
       val bestPredictedLabel = labels.get(bestLabelIdx)
       val highestProb = labelProbabilities(bestLabelIdx) * 100f
       System.out.println(s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)")
+//      bestPredictedLabel
     } finally if (image != null) image.close()
+  }
+
+  def evaluate(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
+               expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
+               inputTensorName: String = "input",
+               outputTensorName: String = "output"): Unit = {
+    this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, expectedShape, inputTensorName, outputTensorName)
   }
 
   private def executeInceptionGraph(graphDef: Array[Byte],
@@ -100,7 +115,7 @@ class TFModelExecutioner {
   }
 
 
-  private def readAllBytesOrExit(path: Path): Array[Byte] = {
+  def readAllBytesOrExit(path: Path): Array[Byte] = {
     try
       return Files.readAllBytes(path)
     catch {
@@ -111,7 +126,7 @@ class TFModelExecutioner {
     null
   }
 
-  private def readAllLinesOrExit(path: Path): util.List[String] = {
+  def readAllLinesOrExit(path: Path): util.List[String] = {
     try
       return Files.readAllLines(path, Charset.forName("UTF-8"))
     catch {

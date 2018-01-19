@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import org.opencv.core.{Mat, MatOfByte}
+import org.opencv.imgcodecs.Imgcodecs
 import org.tensorflow.DataType
 import org.tensorflow.Graph
 import org.tensorflow.Output
@@ -10,6 +12,7 @@ import org.tensorflow.Session
 import org.tensorflow.Tensor
 import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
+
 import collection.JavaConverters._
 
 
@@ -25,7 +28,7 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
    //TODO: generalize this to handle any picture or input of any shape and form
   //Probably input.shape().size is what you need to play with
-  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte]): Tensor[java.lang.Float] = {
+  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte], height: Int = -1, width: Int = -1): Tensor[java.lang.Float] = {
 
     if(itype == "image_inception")
     {
@@ -57,7 +60,23 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
       // Since the graph is being constructed once per execution here, we can use a constant for the
       // input image. If the graph were to be re-used for multiple input images, a placeholder would
       // have been more appropriate.
-      val input: Output[String] = b.constant("input", imageBytes)
+
+      //Check if we are being passed width and height --> change opencv bytes into image bytes
+
+      val imageToPass: Array[Byte] = if (width != -1 && height != -1){
+        val mat = new MatOfByte()
+        val xmat = new Mat(height, width, 16)
+        xmat.put(0,0,imageBytes)
+        Imgcodecs.imencode(".jpeg",xmat, mat)
+        mat.toArray
+      }
+      else{
+        imageBytes
+      }
+
+
+      //
+      val input: Output[String] = b.constant("input", imageToPass)
 //      val test = b.constant("size", Array[Int](H, W)).shape().numDimensions()
 //      println("What's going on? --> " + test)
       val output: Output[java.lang.Float] = b.div(

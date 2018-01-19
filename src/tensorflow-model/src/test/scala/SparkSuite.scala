@@ -3,10 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import java.nio.file.Paths
+
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql._
 import org.apache.spark.ml.linalg.DenseVector
 import com.microsoft.ml.spark.Readers.implicits._
@@ -55,6 +58,7 @@ class SparkSuite extends TestBase{
 
     val processed_images = unroll.transform(images).select(inputCol)
     processed_images.show()
+    processed_images.printSchema()
     //End of setup
 
     val processed_images_tf = processed_images.mapPartitions { it =>
@@ -70,14 +74,54 @@ class SparkSuite extends TestBase{
     }(enc)
 
     processed_images_tf.show()
-
+    processed_images_tf.printSchema()
   }
-//    val df = processed_images.mapPartitions { it =>
-//      println("Only once")
-//      it.map {r =>
-//        r.size
-//      }
-//    }(enc)
+
+  test("Test 3: Load images to DF, load TF model, make predictions and output predictions"){
+    //Start of setup - code repeated in tests
+    val enc = RowEncoder(new StructType().add(StructField("new col", BinaryType)))
+    val inputCol = "images"
+    val outputCol = "out"
+
+    val filesRoot = s"${sys.env("DATASETS_HOME")}/"
+    val imagePath = s"$filesRoot/Images/Grocery/negative"
+    val images = session.readImages(imagePath, true)
+//    val unroll = new UnrollImage().setInputCol("iamage").setOutputCol(inputCol)
+//
+//    val processed_images = unroll.transform(images).select(inputCol)
+//    processed_images.printSchema()
+    val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
+//    imagesInBytes.show()
+
+    //Start of Set-up for evaluation code
+    val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h"
+    val graphFile = "tensorflow_inception_graph.pb"
+    val labelFile = "imagenet_comp_graph_label_strings.txt"
+    val executer = new TFModelExecutioner()
+    val labels = executer.readAllLinesOrExit(Paths.get(modelPath,labelFile))
+    val graph = executer.readAllBytesOrExit(Paths.get(modelPath,graphFile))
+    val expectedDims = Array[Float](224f,224f,117f,1f)
+    //End of set-up for evaluation code
+
+    val processedImages = imagesInBytes.mapPartitions{ it =>
+      it.map { r =>
+        val rawData = r.toSeq.toArray
+        val rawDataDouble = rawData(0).asInstanceOf[Array[Byte]]
+        val height = rawData(1).asInstanceOf[Int]
+        val width = rawData(2).asInstanceOf[Int]
+//        println(rawData(3))
+//        println(r.toSeq.toList.mkString("[",",","]"))
+        executer.evaluateForSpark(graph,labels,rawDataDouble, height, width,  expectedDims)
+        println(rawDataDouble)
+        r
+      }
+    }(enc)
+
+    processedImages.show()
+
+
+    //End of setup
+  }
 
 
 //  test("foo"){
