@@ -79,7 +79,7 @@ class SparkSuite extends TestBase{
 
   test("Test 3: Load images to DF, load TF model, make predictions and output predictions"){
     //Start of setup - code repeated in tests
-    val enc = RowEncoder(new StructType().add(StructField("new col", BinaryType)))
+    val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
     val inputCol = "images"
     val outputCol = "out"
 
@@ -91,7 +91,7 @@ class SparkSuite extends TestBase{
 //    val processed_images = unroll.transform(images).select(inputCol)
 //    processed_images.printSchema()
     val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
-//    imagesInBytes.show()
+    imagesInBytes.show()
 
     //Start of Set-up for evaluation code
     val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h"
@@ -111,9 +111,10 @@ class SparkSuite extends TestBase{
         val width = rawData(2).asInstanceOf[Int]
 //        println(rawData(3))
 //        println(r.toSeq.toList.mkString("[",",","]"))
-        executer.evaluateForSpark(graph,labels,rawDataDouble, height, width,  expectedDims)
-        println(rawDataDouble)
-        r
+        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width,  expectedDims)
+//        println(prediction)
+        Row.fromSeq(Array(prediction).toSeq)
+//        r
       }
     }(enc)
 

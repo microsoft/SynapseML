@@ -49,13 +49,14 @@ class TFModelExecutioner extends Serializable {
     val labels = readAllLinesOrExit(Paths.get(modelDir, args(3)))
     val imageBytes = readAllBytesOrExit(Paths.get(imageFile))
 
-    evaluate(graphDef, labels, imageBytes, expectedShape, inputTensorName, outputTensorName)
+    val prediction = evaluate(graphDef, labels, imageBytes, expectedShape, inputTensorName, outputTensorName)
+    println(prediction)
   }
 
   def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte], height: Int , width: Int,
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
-               outputTensorName: String = "output"): Unit = {
+               outputTensorName: String = "output"): String = {
     //Check if graph contains info on expected shape of input
     val g = new Graph
     g.importGraphDef(graphDef)
@@ -80,15 +81,16 @@ class TFModelExecutioner extends Serializable {
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
       val bestPredictedLabel = labels.get(bestLabelIdx)
       val highestProb = labelProbabilities(bestLabelIdx) * 100f
-      System.out.println(s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)")
-//      bestPredictedLabel
+      val prediction = s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)"
+      System.out.println(prediction)
+      prediction
     } finally if (image != null) image.close()
   }
 
   def evaluate(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
-               outputTensorName: String = "output"): Unit = {
+               outputTensorName: String = "output"): String = {
     this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, expectedShape, inputTensorName, outputTensorName)
   }
 
