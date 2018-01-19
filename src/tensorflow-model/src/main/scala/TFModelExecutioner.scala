@@ -53,7 +53,8 @@ class TFModelExecutioner extends Serializable {
     println(prediction)
   }
 
-  def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte], height: Int , width: Int,
+  def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
+                       height: Int , width: Int, typeForEncode: Int,
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
@@ -75,7 +76,7 @@ class TFModelExecutioner extends Serializable {
     }
 
     val transformer = new InputToTensor("image_inception", shapeToUse)
-    val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width)
+    val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width, typeForEncode)
     try {
       val labelProbabilities = executeInceptionGraph(graphDef, image, inputTensorName, outputTensorName)
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
@@ -91,7 +92,7 @@ class TFModelExecutioner extends Serializable {
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
-    this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, expectedShape, inputTensorName, outputTensorName)
+    this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, -1, expectedShape, inputTensorName, outputTensorName)
   }
 
   private def executeInceptionGraph(graphDef: Array[Byte],

@@ -28,7 +28,7 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
    //TODO: generalize this to handle any picture or input of any shape and form
   //Probably input.shape().size is what you need to play with
-  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte], height: Int = -1, width: Int = -1): Tensor[java.lang.Float] = {
+  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte], height: Int = -1, width: Int = -1, typeForEncode: Int = -1): Tensor[java.lang.Float] = {
 
     if(itype == "image_inception")
     {
@@ -63,9 +63,9 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
       //Check if we are being passed width and height --> change opencv bytes into image bytes
 
-      val imageToPass: Array[Byte] = if (width != -1 && height != -1){
+      val imageToPass: Array[Byte] = if (width != -1 && height != -1 && typeForEncode != -1){
         val mat = new MatOfByte()
-        val xmat = new Mat(height, width, 16)
+        val xmat = new Mat(height, width, typeForEncode)
         xmat.put(0,0,imageBytes)
         Imgcodecs.imencode(".jpeg",xmat, mat)
         mat.toArray

@@ -109,9 +109,10 @@ class SparkSuite extends TestBase{
         val rawDataDouble = rawData(0).asInstanceOf[Array[Byte]]
         val height = rawData(1).asInstanceOf[Int]
         val width = rawData(2).asInstanceOf[Int]
+        val typeForEncode = rawData(3).asInstanceOf[Int]
 //        println(rawData(3))
 //        println(r.toSeq.toList.mkString("[",",","]"))
-        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width,  expectedDims)
+        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width, typeForEncode, expectedDims)
 //        println(prediction)
         Row.fromSeq(Array(prediction).toSeq)
 //        r
