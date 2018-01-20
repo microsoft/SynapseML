@@ -557,6 +557,7 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
 
             return input_df
 
+        print("filter dataset")
         filtered_dataset = filter_ratings(dataset.dropDuplicates())
 
         def split_df(input_df):
@@ -592,10 +593,13 @@ class TrainValidRecommendSplit(ComplexParamsMixin, JavaMLReadable, JavaMLWritabl
 
             return [train_temp, test_temp]
 
-        [train, validation] = split_df(filtered_dataset)
+        print("split dataset")
+        [train, validation] = self._call_java("splitDF", filtered_dataset)
+        # [train, validation] = split_df(filtered_dataset)
         train.cache()
         validation.cache()
         eva.setNumberItems(validation.rdd.map(lambda r: r[1]).distinct().count())
+        print("fit starting")
         models = est.fit(train, epm)
         train.unpersist()
 

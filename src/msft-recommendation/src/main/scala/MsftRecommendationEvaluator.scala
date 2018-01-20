@@ -84,35 +84,42 @@ final class MsftRecommendationEvaluator(override val uid: String)
     val predictionAndLabels = dataset
       .select(col($(predictionCol)).cast(predictionType), col($(labelCol)).cast(labelType)).rdd
       .map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
-
+    predictionAndLabels.cache()
     val metrics = new RankingMetrics[Any](predictionAndLabels)
 
     class AdvancedRankingMetrics(rankingMetrics: RankingMetrics[Any]) {
-      def recallAtK(): Double = predictionAndLabels.map(r =>
-        r._1.toSet.intersect(r._2.toSet).size.toDouble / r._1.size.toDouble).mean()
+      lazy val uniqueItemsRecommended = predictionAndLabels
+        .map(row => row._1)
+        .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
-      def diversityAtK(): Double = {
-        val uniqueItemsRecommended = predictionAndLabels.map(row => row._1)
-          .reduce((x, y) => x.toSet.union(y.toSet).toArray)
+      lazy val map: Double = metrics.meanAveragePrecision
+      lazy val ndcg: Double = metrics.ndcgAt($(k))
+      lazy val mapk: Double = metrics.precisionAt($(k))
+      lazy val recallAtK: Double = predictionAndLabels.map(r =>
+        r._1.toSet.intersect(r._2.toSet).size.toDouble / r._1.size.toDouble).mean()
+      lazy val diversityAtK: Double = {
         uniqueItemsRecommended.length.toDouble / $(nItems)
       }
-
-      def maxDiversity(): Double = {
-        val uniqueItemsRecommended = predictionAndLabels.map(row => row._1)
+      lazy val maxDiversity: Double = {
+        val itemCount = predictionAndLabels
+          .map(row => row._2)
           .reduce((x, y) => x.toSet.union(y.toSet).toArray)
-        val uniqueItemsSeen = predictionAndLabels.map(row => row._2)
-          .reduce((x, y) => x.toSet.union(y.toSet).toArray)
-        val items = uniqueItemsSeen.union(uniqueItemsRecommended).length
-        items.toDouble / $(nItems)
+          .union(uniqueItemsRecommended).length
+        itemCount.toDouble / $(nItems)
       }
 
       def matchMetric(metricName: String): Double = metricName match {
-        case "map" => metrics.meanAveragePrecision
-        case "ndcgAt" => metrics.ndcgAt($(k))
-        case "mapk" => metrics.precisionAt($(k))
-        case "recallAtK" => metrics.recallAtK()
-        case "diversityAtK" => metrics.diversityAtK()
-        case "maxDiversity" => metrics.maxDiversity()
+        case "map" => metrics.map
+        case "ndcgAt" => metrics.ndcg
+        case "mapk" => metrics.mapk
+        case "recallAtK" => metrics.recallAtK
+        case "diversityAtK" => metrics.diversityAtK
+        case "maxDiversity" => metrics.maxDiversity
+      }
+
+      def getAllMetrics(): Map[String, Double] = {
+        Map("map" -> map, "ndcgAt" -> ndcg, "mapk" -> mapk, "recallAtK" -> recallAtK,
+          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity)
       }
     }
 
@@ -120,17 +127,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
     implicit def aRankingMetricsToRankingMetrics(rankingMetrics: RankingMetrics[Any]): AdvancedRankingMetrics =
       new AdvancedRankingMetrics(rankingMetrics)
 
-    if (getSaveAll) {
-      val map = metrics.meanAveragePrecision
-      val ndcgAt = metrics.ndcgAt($(k))
-      val mapk = metrics.precisionAt($(k))
-      val recallAtK = metrics.recallAtK()
-      val diversityAtK = metrics.diversityAtK()
-      val maxDiversity = metrics.maxDiversity()
-      val allMetrics = Map("map" -> map, "ndcgAt" -> ndcgAt, "mapk" -> mapk, "recallAtK" -> recallAtK,
-        "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity)
-      metricsList += allMetrics
-    }
+    if (getSaveAll) metricsList += metrics.getAllMetrics()
 
     metrics.matchMetric($(metricName))
   }

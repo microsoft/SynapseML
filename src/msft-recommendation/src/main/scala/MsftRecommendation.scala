@@ -6,16 +6,15 @@ package com.microsoft.ml.spark
 import java.{util => ju}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
+import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.feature.StringIndexer
-import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.recommendation.{MsftRecHelper, MsftRecommendationModelParams, _}
+import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.recommendation._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.Random
 
 /** Featurize text.
@@ -24,6 +23,22 @@ import scala.util.Random
   */
 class MsftRecommendation(override val uid: String) extends Estimator[MsftRecommendationModel]
   with MsftRecommendationParams with MsftHasPredictionCol with DefaultParamsWritable {
+
+  val items: Param[DataFrame] = new Param[DataFrame](this, "items", "item features")
+
+  /** @group setParam */
+  def setItems(value: DataFrame): this.type = set(items, value)
+
+  /** @group getParam */
+  def getItems(): DataFrame = $(items)
+
+  val users: Param[DataFrame] = new Param[DataFrame](this, "users", "users features")
+
+  /** @group setParam */
+  def setUsers(value: DataFrame): this.type = set(users, value)
+
+  /** @group getParam */
+  def getUsers(): DataFrame = $(users)
 
   def this() = this(Identifiable.randomUID("msftRecommendation"))
 
@@ -196,65 +211,4 @@ object MsftRecommendation extends DefaultParamsReadable[MsftRecommendation] {
     train.withColumn("train", typedLit(1))
       .union(test.withColumn("train", typedLit(0)))
   }
-}
-
-/**
-  * Model fitted by ALS.
-  *
-  * @param rank        rank of the matrix factorization model
-  * @param userFactors a DataFrame that stores user factors in two columns: `id` and `features`
-  * @param itemFactors a DataFrame that stores item factors in two columns: `id` and `features`
-  * @param alsModel    a trained ALS model
-  */
-class MsftRecommendationModel(
-                               override val uid: String,
-                               val rank: Int,
-                               val userFactors: DataFrame,
-                               val itemFactors: DataFrame,
-                               val alsModel: ALSModel)
-  extends Model[MsftRecommendationModel] with MsftRecommendationModelParams
-    with ConstructorWritable[MsftRecommendationModel] {
-
-  /**
-    * Returns top `numItems` items recommended for each user, for all users.
-    *
-    * @param numItems max number of recommendations for each user
-    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
-    *         stored as an array of (itemCol: Int, rating: Float) Rows.
-    */
-  def recommendForAllUsers(numItems: Int): DataFrame = {
-    MsftRecHelper.recommendForAllUsers(alsModel, numItems)
-  }
-
-  /**
-    * Returns top `numUsers` users recommended for each item, for all items.
-    *
-    * @param numUsers max number of recommendations for each item
-    * @return a DataFrame of (itemCol: Int, recommendations), where recommendations are
-    *         stored as an array of (userCol: Int, rating: Float) Rows.
-    */
-  def recommendForAllItems(numUsers: Int): DataFrame = {
-    MsftRecHelper.recommendForAllItems(alsModel, numUsers)
-  }
-
-  override def copy(extra: ParamMap): MsftRecommendationModel = {
-    val copied = new MsftRecommendationModel(uid, rank, userFactors, itemFactors, alsModel)
-    copyValues(copied, extra).setParent(parent)
-  }
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    alsModel.transform(dataset)
-  }
-
-  override def transformSchema(schema: StructType): StructType =
-    alsModel.transformSchema(schema)
-
-  override val ttag: TypeTag[MsftRecommendationModel] = typeTag[MsftRecommendationModel]
-
-  override def objectsToSave: List[AnyRef] = List(uid, Int.box(rank), userFactors, itemFactors, alsModel)
-}
-
-object MsftRecommendationModel extends ConstructorReadable[MsftRecommendationModel] {
-  private val NaN = "nan"
-  private val Drop = "drop"
 }
