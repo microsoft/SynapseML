@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import java.nio.file.Paths
+
 import org.tensorflow.Graph
 import org.tensorflow.Session
 import org.tensorflow.Tensor
@@ -52,8 +54,41 @@ class TensorflowSuite extends TestBase {
                   Array[Float](0f,0f,128f,255f),
                   outputTensorName = "InceptionV3/Predictions/Reshape_1")
     executer.main(Array[String](inceptionv3, jackfruit, graphv3, labelsv3),
-      Array[Float](0f,0f,128f,255f),
-      outputTensorName = "InceptionV3/Predictions/Reshape_1")
+                  Array[Float](0f,0f,128f,255f),
+                  outputTensorName = "InceptionV3/Predictions/Reshape_1")
+  }
+
+  test("Street view model test, trained by Abishkar"){
+    val multiDigitModelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/streetview"
+    val graphName = "meter_reading_new.pb"
+    val labelsDigits = "labels.txt"
+    val imageTestPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/streetview/695.jpeg"
+    val executer = new TFModelExecutioner()
+
+    executer.main(Array[String](multiDigitModelPath, imageTestPath, graphName, labelsDigits),
+                  Array[Float](32f,32f,0f,255f),
+                  outputTensorName = "output_node0",
+                  inputTensorName = "input_1")
+//    val graphDef = executer.readAllBytesOrExit(Paths.get(multiDigitModelPath, graphName))
+//    val g = new Graph
+//    g.importGraphDef(graphDef)
+//
+//    println("successful so far")
+//
+//    val shapeToUse : Array[Float] = expectedShape
+//
+//    //for now, will need to change this later to make it more flexible
+//    val inputShape = g.operation("input").output(0).shape()
+//    if(inputShape.numDimensions() != -1){
+//      var i = 0
+//      for (i <- 1 to 2){
+//        //second and third indices only because we only want H and W!!
+//
+//        shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
+//      }
+//    }
+
+
   }
 
 }

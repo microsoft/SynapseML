@@ -77,6 +77,7 @@ class TFModelExecutioner extends Serializable {
 
     val transformer = new InputToTensor("image_inception", shapeToUse)
     val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width, typeForEncode)
+
     try {
       val labelProbabilities = executeInceptionGraph(g, image, inputTensorName, outputTensorName)
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
