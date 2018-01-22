@@ -86,12 +86,8 @@ class SparkSuite extends TestBase{
     val filesRoot = s"${sys.env("DATASETS_HOME")}/"
     val imagePath = s"$filesRoot/Images/Grocery/negative"
     val images = session.readImages(imagePath, true)
-//    val unroll = new UnrollImage().setInputCol("iamage").setOutputCol(inputCol)
-//
-//    val processed_images = unroll.transform(images).select(inputCol)
-//    processed_images.printSchema()
     val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
-    imagesInBytes.show()
+//    imagesInBytes.show(5)
 
     //Start of Set-up for evaluation code
     val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h"
@@ -110,12 +106,8 @@ class SparkSuite extends TestBase{
         val height = rawData(1).asInstanceOf[Int]
         val width = rawData(2).asInstanceOf[Int]
         val typeForEncode = rawData(3).asInstanceOf[Int]
-//        println(rawData(3))
-//        println(r.toSeq.toList.mkString("[",",","]"))
         val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width, typeForEncode, expectedDims)
-//        println(prediction)
         Row.fromSeq(Array(prediction).toSeq)
-//        r
       }
     }(enc)
 
@@ -123,6 +115,43 @@ class SparkSuite extends TestBase{
 
 
     //End of setup
+  }
+
+  test("Test 4: Test 3 with a different model"){
+    //Start of setup - code repeated in tests
+    val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
+    val inputCol = "images"
+    val outputCol = "out"
+
+    val filesRoot = s"${sys.env("DATASETS_HOME")}/"
+    val imagePath = s"$filesRoot/Images/Grocery/negative"
+    val images = session.readImages(imagePath, true)
+    val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
+//    imagesInBytes.show(5)
+
+    //Start of Set-up for evaluation code
+    val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3"
+    val graphFile = "inception_v3_2016_08_28_frozen.pb"
+    val labelFile = "imagenet_slim_labels.txt"
+    val executer = new TFModelExecutioner()
+    val labels = executer.readAllLinesOrExit(Paths.get(modelPath,labelFile))
+    val graph = executer.readAllBytesOrExit(Paths.get(modelPath,graphFile))
+    val expectedDims = Array[Float](0f,0f,128f,255f)
+    //End of set-up for evaluation code
+
+    val processedImages = imagesInBytes.mapPartitions{ it =>
+      it.map { r =>
+        val rawData = r.toSeq.toArray
+        val rawDataDouble = rawData(0).asInstanceOf[Array[Byte]]
+        val height = rawData(1).asInstanceOf[Int]
+        val width = rawData(2).asInstanceOf[Int]
+        val typeForEncode = rawData(3).asInstanceOf[Int]
+        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width, typeForEncode, expectedDims, outputTensorName = "InceptionV3/Predictions/Reshape_1")
+        Row.fromSeq(Array(prediction).toSeq)
+      }
+    }(enc)
+
+    processedImages.show()
   }
 
 

@@ -69,7 +69,7 @@ class TFModelExecutioner extends Serializable {
     if(inputShape.numDimensions() != -1){
       var i = 0
       for (i <- 1 to 2){
-        //second and third indeces only because we only want H and W!!
+        //second and third indices only because we only want H and W!!
 
         shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
       }
@@ -78,7 +78,7 @@ class TFModelExecutioner extends Serializable {
     val transformer = new InputToTensor("image_inception", shapeToUse)
     val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width, typeForEncode)
     try {
-      val labelProbabilities = executeInceptionGraph(graphDef, image, inputTensorName, outputTensorName)
+      val labelProbabilities = executeInceptionGraph(g, image, inputTensorName, outputTensorName)
       val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
       val bestPredictedLabel = labels.get(bestLabelIdx)
       val highestProb = labelProbabilities(bestLabelIdx) * 100f
@@ -95,13 +95,13 @@ class TFModelExecutioner extends Serializable {
     this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, -1, expectedShape, inputTensorName, outputTensorName)
   }
 
-  private def executeInceptionGraph(graphDef: Array[Byte],
+  private def executeInceptionGraph(g: Graph,
                                     image: Tensor[java.lang.Float],
                                     inputTensorName: String = "input",
                                     outputTensorName: String = "output"): Array[Float] = {
-    val g = new Graph
+//    val g = new Graph
     try {
-      g.importGraphDef(graphDef)
+//      g.importGraphDef(graphDef)
       val s = new Session(g)
 
       val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
