@@ -131,7 +131,8 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
   def splitDF(dataset: DataFrame): Array[DataFrame] = {
     val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
-    val sliceudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+    val sliceudf = udf(
+      (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
     val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
     val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
     val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
