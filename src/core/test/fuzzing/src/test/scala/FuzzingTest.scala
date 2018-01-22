@@ -48,7 +48,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.ImageSetAugmenter",
       "com.microsoft.ml.spark.EnsembleByKey",
       "com.microsoft.ml.spark.ClassBalancer",
-      "com.microsoft.ml.spark.Timer")
+      "com.microsoft.ml.spark.Timer",
+      "com.microsoft.ml.spark.TrainValidRecommendSplit"
+    )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], ExperimentFuzzing[_ <: PipelineStage]] =
@@ -93,7 +95,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.EnsembleByKey",
       "com.microsoft.ml.spark.Timer",
       "com.microsoft.ml.spark.ValueIndexer",
-      "com.microsoft.ml.spark.ClassBalancer"
+      "com.microsoft.ml.spark.ClassBalancer",
+      "com.microsoft.ml.spark.TrainValidRecommendSplit"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
