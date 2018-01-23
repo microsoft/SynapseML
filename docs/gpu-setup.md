@@ -3,13 +3,13 @@
 ## Requirements
 
 CNTK training using MMLSpark in Azure requires an HDInsight Spark
-cluster and a GPU virtual machine (VM).  The GPU VM should be reachable
-via SSH from the cluster, but no public SSH access (or even a public IP
-address) is required, and the cluster's NameNode should be accessible
-from the GPU machine via the HDFS RPC.  As an example, it can be on a
-private Azure virtual network (VNet), and within this VNet, it can be
-addressed directly by its name and access the Spark clsuter nodes (e.g.,
-use the active NameNode RPC endpoint).
+cluster and at least one GPU virtual machine (VM).  The GPU VM(s) should
+be reachable via SSH from the cluster, but no public SSH access (or even
+a public IP address) is required, and the cluster's NameNode should be
+accessible from the GPU machines via the HDFS RPC.  As an example, the
+GPU VMs can be on a private Azure virtual network (VNet), and within
+this VNet, they can be addressed directly by their names and access the
+Spark clsuter nodes (e.g., use the active NameNode RPC endpoint).
 
 (See the original [copyright and license
 notices](third-party-notices.txt) of third party software used by
@@ -21,11 +21,11 @@ Currently, not all data centers have GPU VMs available.  See [the Linux VMs
 page](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/)
 to check availability in your data center.
 
-## Connect an HDI cluster and a GPU VM via the ARM template
+## Connect an HDI cluster and GPU VMs via the ARM template
 
-MMLSpark provides an Azure Resource Manager (ARM) template to create a setup
-that includes an HDInsight cluster and/or a GPU machine for training.  The
-template can be found here:
+MMLSpark provides an Azure Resource Manager (ARM) template to create a
+default setup that includes an HDInsight cluster and a GPU machine for
+training.  The template can be found here:
 <https://mmlspark.azureedge.net/buildartifacts/0.10/deploy-main-template.json>.
 
 It has the following parameters that configure the HDI Spark cluster and
@@ -58,14 +58,17 @@ There are actually two additional templates that are used from this main templat
   CNTK and other dependencies that MMLSpark needs for GPU training.
   (This is done via a script action that runs
   [`gpu-setup.sh`](https://mmlspark.azureedge.net/buildartifacts/0.10/gpu-setup.sh).)
+
 Note that these child templates can also be deployed independently, if
-you don't need both parts of the installation.
+you don't need both parts of the installation.  Particularly, to scale
+out an existing environment, a new GPU VM can be added to it using the
+GPU VM setup template at experimentation time.
 
 ## Deploying an ARM template
 
 ### 1. Deploy an ARM template within the [Azure Portal](https://ms.portal.azure.com/)
 
-[Click here to open the above
+[Click here to open the above main
 template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.10%2Fdeploy-main-template.json)
 in the Azure portal.
 
@@ -131,16 +134,17 @@ Guide](https://docs.microsoft.com/powershell/azureps-cmdlets-docs/).
 ## Set up passwordless SSH login to the GPU VM
 
 CNTK training using MMLSpark requires passwordless SSH access from the
-HDInsight Spark cluster to the GPU VM.  The setup of this connection can
-be done by a [helper shell script](../tools/hdi/setup-ssh-access.sh)
-which you need to run once.  This script takes two parameters:
+HDInsight Spark cluster to the GPU VM(s).  The setup of this connection
+can be done by a [helper shell script](../tools/hdi/setup-ssh-access.sh)
+which you need to run once for each GPU VM.  This script takes two
+parameters:
 
     ./setup-ssh-access.sh <vm-name> [<username>]
 
 The `<username>` parameter is optional, defaulting to the cluster's username
 (if they share the same ssh user name).
 
-## Shutdown the GPU VM to save money
+## Shutdown GPU VMs to save money
 
 Azure will stop billing if a VM is in a "Stopped (**Deallocated**)" state,
 which is different from the "Stopped" state.  So make sure it is *Deallocated*

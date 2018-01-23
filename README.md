@@ -46,7 +46,7 @@ Python 3.5+.  See the API documentation
 * Pre-process image data using transforms from OpenCV ([example:302])
 * Featurize images using pre-trained deep neural nets using CNTK ([example:301])
 * Use pre-trained bidirectional LSTMs from Keras for medical entity extraction ([example:304])
-* Train DNN-based image classification models on N-Series GPU VMs on Azure
+* Train DNN-based image classification models on N-Series GPU VMs on Azure ([example:401])
 * Featurize free-form text data using convenient APIs on top of primitives in
   SparkML via a single transformer ([example:201])
 * Train classification and regression models easily via implicit featurization
@@ -68,7 +68,8 @@ See our [notebooks](notebooks/samples/) for all examples.
   "Pipeline Image Transformations"
 [example:304]: notebooks/samples/304%20-%20Medical%20Entity%20Extraction.ipynb
   "Medical Entity Extraction"
-
+[example:401]: notebooks/gpu/401%20-%20CNTK%20train%20on%20HDFS.ipynb
+  "CIFAR10 CNTK CNN Training"
 
 ## A short example
 
@@ -112,7 +113,7 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 ### GPU VM Setup
 
-MMLSpark can be used to train deep learning models on a GPU node from a Spark
+MMLSpark can be used to train deep learning models on GPU nodes from a Spark
 application.  See the instructions for [setting up an Azure GPU
 VM](docs/gpu-setup.md).
 
