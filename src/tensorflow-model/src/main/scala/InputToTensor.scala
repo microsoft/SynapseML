@@ -28,18 +28,23 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
    //TODO: generalize this to handle any picture or input of any shape and form
   //Probably input.shape().size is what you need to play with
+  //TODO: Figure out if this encoding back to jpeg format from openCV format is the right way of doing this - seems convoluted
+  /**
+    * Method for preprocessing images. Returns a Tensor object representing the preprocessing image
+    * (decoding the bytes + substracting the mean + the dividing by the scale
+    * @param imageBytes image to preprocess in Array of bytes
+    * @param height [For Spark purposes] height of image, to use to encode to jpeg from openCV bytecode
+    * @param width [For Spark purposes] width of image, to use to encode to jpeg from openCV bytecode
+    * @param typeForEncode [For Spark purposes] type of image, to use to encode to jpeg from openCV bytecode
+    * @return Input Tensor to feed to the computational graph
+    */
   def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte], height: Int = -1, width: Int = -1, typeForEncode: Int = -1): Tensor[java.lang.Float] = {
-
+    //This if statement has been added to generalize this method to all types of inputs later - might be easier to give
+    //the preprocessing responsibility to the MMLSpark User
     if(itype == "image_inception")
     {
       val g = new Graph
       val b = new TensorflowGraphBuilder(g)
-      // Some constants specific to the pre-trained model at:
-      // https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip
-      //
-      // - The model was trained with images scaled to 224x224 pixels.
-      // - The colors, represented as R, G, B in 1-byte each were converted to
-      //   float using (value - Mean)/Scale.
 
       //Now we are shifting these constants to variables that are either provided or using general default values
       var expectedDim: Array[Float] = Array()
@@ -59,7 +64,8 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
       // Since the graph is being constructed once per execution here, we can use a constant for the
       // input image. If the graph were to be re-used for multiple input images, a placeholder would
-      // have been more appropriate.
+      // have been more appropriate. TODO: to make this more efficient on partitions
+
 
       //Check if we are being passed width and height --> change opencv bytes into image bytes
 

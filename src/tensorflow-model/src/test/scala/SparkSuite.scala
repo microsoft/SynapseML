@@ -93,7 +93,7 @@ class SparkSuite extends TestBase{
     val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h"
     val graphFile = "tensorflow_inception_graph.pb"
     val labelFile = "imagenet_comp_graph_label_strings.txt"
-    val executer = new TFModelExecutioner()
+    val executer = new TFModelExecutor()
     val labels = executer.readAllLinesOrExit(Paths.get(modelPath,labelFile))
     val graph = executer.readAllBytesOrExit(Paths.get(modelPath,graphFile))
     val expectedDims = Array[Float](224f,224f,117f,1f)
@@ -133,7 +133,7 @@ class SparkSuite extends TestBase{
     val modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3"
     val graphFile = "inception_v3_2016_08_28_frozen.pb"
     val labelFile = "imagenet_slim_labels.txt"
-    val executer = new TFModelExecutioner()
+    val executer = new TFModelExecutor()
     val labels = executer.readAllLinesOrExit(Paths.get(modelPath,labelFile))
     val graph = executer.readAllBytesOrExit(Paths.get(modelPath,graphFile))
     val expectedDims = Array[Float](0f,0f,128f,255f)

@@ -11,7 +11,11 @@ import org.tensorflow.Tensor
 import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
 
-
+/**
+  * Helper class to build a graph for preprocessing images and other inputs. Heavily inspired by the example code
+  * for the java API for tensorflow.
+  * @param graph Graph object to build upon
+  */
 class TensorflowGraphBuilder(graph: Graph) {
 
     var g: Graph = graph

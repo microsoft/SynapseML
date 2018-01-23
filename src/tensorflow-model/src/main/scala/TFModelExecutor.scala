@@ -18,7 +18,10 @@ import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
 //import com.microsoft.ml.spark.InputToTensor
 
-class TFModelExecutioner extends Serializable {
+/**
+  * Master Class responsible for loading tensorflow .pb graphs and doing inference on inputs
+  */
+class TFModelExecutor extends Serializable {
 
   //TODO: Modify the main to be able to evaluate multiple inputs - would save on loading model every time.
 
@@ -38,6 +41,7 @@ class TFModelExecutioner extends Serializable {
            inputTensorName: String = "input",
            outputTensorName: String = "output"): Unit = {
 
+    //Magic number explanation --> proxy test that user provided all arguments needed
     if (args.length != 4) {
       System.out.println(System.err)
       System.exit(1)
@@ -53,6 +57,25 @@ class TFModelExecutioner extends Serializable {
     println(prediction)
   }
 
+  /**
+    * Method used for classifying an input (image for now) using a TF graph [for Spark]
+    * @param graphDef bytes from the protobuf file describing the model
+    * @param labels lists of labels/classes
+    * @param imageBytes bytes from the image file
+    * @param height [for openCV encoding back to image format] height of input image
+    * @param width  [for openCV encoding back to image format] width of input image
+    * @param typeForEncode [for openCV encoding back to image format] type
+    * @param expectedShape contains preprocessing info: expected width, height of input to graph
+    *                      AND normalization info (mean to substract from values - 0 if none- and scale to divide by -
+    *                      1 if none)
+    * @param inputTensorName Name of input node from graph. If unknown and default "input" does not work,
+    *                        visualize graph using tensorboard to find answer. If model is provided by MMLSpark,
+    *                        "input" should work.
+    * @param outputTensorName Name of output node from graph. If unknown and default "output" does not work,
+    *                        visualize graph using tensorboard to find answer. If model is provided by MMLSpark,
+    *                        "output" should work.
+    * @return String of the best fitting label with confidence
+    */
   def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
                        height: Int , width: Int, typeForEncode: Int,
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
@@ -89,6 +112,22 @@ class TFModelExecutioner extends Serializable {
     } finally if (image != null) image.close()
   }
 
+  /**
+    * Method used for classifying an input (image for now) using a TF graph [when not in Spark]
+    * @param graphDef bytes from the protobuf file describing the model
+    * @param labels lists of labels/classes
+    * @param imageBytes bytes from the image file
+    * @param expectedShape contains preprocessing info: expected width, height of input to graph
+    *                      AND normalization info (mean to substract from values - 0 if none- and scale to divide by -
+    *                      1 if none)
+    * @param inputTensorName Name of input node from graph. If unknown and default "input" does not work,
+    *                        visualize graph using tensorboard to find answer. If model is provided by MMLSpark,
+    *                        "input" should work.
+    * @param outputTensorName Name of output node from graph. If unknown and default "output" does not work,
+    *                        visualize graph using tensorboard to find answer. If model is provided by MMLSpark,
+    *                        "output" should work.
+    * @return String of the best fitting label with confidence
+    */
   def evaluate(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
@@ -96,6 +135,15 @@ class TFModelExecutioner extends Serializable {
     this.evaluateForSpark(graphDef, labels, imageBytes, -1,-1, -1, expectedShape, inputTensorName, outputTensorName)
   }
 
+  /**
+    * Inputs tensor to TF graph and outputs probabilities. Private for now but will probably change to public for
+    * generalization to other types of inputs than images
+    * @param g Graph object holding the graph definition and info
+    * @param image input Tensor
+    * @param inputTensorName
+    * @param outputTensorName
+    * @return Array of probabilities of match between input and classes/labels
+    */
   private def executeInceptionGraph(g: Graph,
                                     image: Tensor[java.lang.Float],
                                     inputTensorName: String = "input",
