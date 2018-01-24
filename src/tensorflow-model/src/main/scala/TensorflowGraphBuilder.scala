@@ -50,6 +50,8 @@ class TensorflowGraphBuilder(graph: Graph) {
 
     def constant(name: String, value: Array[Int]): Output[Integer] = this.constant(name, value, classOf[Integer])
 
+    def constant(name: String, value: Array[Float]): Output[java.lang.Float] = this.constant(name, value, classOf[java.lang.Float])
+
     def constant(name: String, value: Float): Output[java.lang.Float] = this.constant(name, value, classOf[java.lang.Float])
 
     private def binaryOp[T](`type`: String, in1: Output[T], in2: Output[T]): Output[T] = g.opBuilder(`type`, `type`).addInput(in1).addInput(in2).build.output[T](0)

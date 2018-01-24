@@ -154,6 +154,49 @@ class SparkSuite extends TestBase{
     processedImages.show()
   }
 
+  test("5: Full spark mode - testing on CNTK pictures"){
+    val model = new TFModel().setLabelFile("imagenet_comp_graph_label_strings.txt")
+      .setGraphFile("tensorflow_inception_graph.pb")
+      .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h")
+      .setExpectedDims(Array[Float](224f,224f,117f,1f))
+
+    val filesRoot = s"${sys.env("DATASETS_HOME")}/"
+    val imagePath = s"$filesRoot/Images/Grocery/negative"
+    val images = session.readImages(imagePath, true)
+    val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
+
+    val result = model.transform(imagesInBytes)
+
+    result.show(5)
+  }
+
+  test("6: Full spark mode - testing on CNTK pictures with another model"){
+    val model = new TFModel().setLabelFile("imagenet_slim_labels.txt")
+      .setGraphFile("inception_v3_2016_08_28_frozen.pb")
+      .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3")
+      .setExpectedDims(Array[Float](224f,224f,128f,255f))
+      .setOutputTensorName("InceptionV3/Predictions/Reshape_1")
+
+    val filesRoot = s"${sys.env("DATASETS_HOME")}/"
+    val imagePath = s"$filesRoot/Images/Grocery/negative"
+    val images = session.readImages(imagePath, true)
+    val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
+
+    val result = model.transform(imagesInBytes)
+
+    result.show(5)
+  }
+
+  test("Param object playing"){
+    val model = new TFModel().setLabelFile("test label").getLabelFile
+    println(model)
+  }
+
+  test("Test default expected dims"){
+    val dims = new TFModel().getExpectedDims
+    println(dims.mkString("[",", ","]") )
+  }
+
 
 //  test("foo"){
 //    val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))

@@ -16,7 +16,6 @@ import org.tensorflow.Session
 import org.tensorflow.Tensor
 import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
-//import com.microsoft.ml.spark.InputToTensor
 
 /**
   * Master Class responsible for loading tensorflow .pb graphs and doing inference on inputs
