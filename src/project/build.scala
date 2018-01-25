@@ -32,6 +32,9 @@ object Extras {
     "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
     "org.apache.spark"   %% "spark-mllib"  % sparkVer % "provided",
     "org.scalatest"      %% "scalatest"    % "3.0.0"  % "provided",
+    // needed for Spark 2.1.0
+    "org.apache.httpcomponents" % "httpcore"   % "4.3.3",
+    "org.apache.httpcomponents" % "httpclient" % "4.3.6",
     // should include these things in the distributed jar
     "io.spray"           %% "spray-json"   % "1.3.2",
     "com.microsoft.cntk"  % "cntk"         % cntkVer,

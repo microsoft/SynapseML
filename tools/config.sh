@@ -76,9 +76,9 @@ INSTALLATIONS=(
   vers:   "sbt -no-colors sbtVersion|?info? <{ver}>"
   where:  "devel build"
 
-  Spark ver: "2.2.0"
+  Spark ver: "2.1.1"
   url:    "https://archive.apache.org/dist/spark/spark-<{ver}>/spark-<{ver}>-bin-hadoop2.7.tgz"
-  sha256: "97fd2cc58e08975d9c4e4ffa8d7f8012c0ac2792bcd9945ce2a561cf937aebcc"
+  sha256: "372ac4f73221c07696793101007a4f19e31566d1f0d9bd0e5205b6fb5b45bfc2"
   exes:   "spark-shell spark-sql spark-submit spark-class pyspark sparkR"
   vers:   "spark-shell --version|* version <{ver}>"
   where:  "devel runtime build"

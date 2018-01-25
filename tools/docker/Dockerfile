@@ -23,7 +23,7 @@ USER $USER:$USER
 # add the premade runtime environment
 ADD mmlspark.tgz ..
 
-#BUILD# -t "${MML_DOCKER_TARGET_TAG:-mmlspark}:keep-for-cache"
+#BUILD# -t "${MML_DOCKER_TARGET_TAG:-mmlspark}:old-spark-keep-for-cache"
 #META# rm -f "mmlspark.tgz" # avoid re-hashing a big file
 
 #META# H="/home/mmlspark"; echo ENV \

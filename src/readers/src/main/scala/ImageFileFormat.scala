@@ -127,9 +127,9 @@ class ImageOutputWriter(val path: String,
 
   private val fs = new Path(path).getFileSystem(hconf)
 
-  override def write(row: InternalRow): Unit = {
+  override def write(row: Row): Unit = {
     ImageReader.OpenCVLoader
-    val rowInternals = row.getStruct(0, ImageSchema.columnSchema.fields.length)
+    val rowInternals = row.getStruct(0)
     val bytes = ImageWriter.encode(rowInternals, extension)
     val outputPath = new Path(path, row.getString(1))
     val os = fs.create(outputPath)
