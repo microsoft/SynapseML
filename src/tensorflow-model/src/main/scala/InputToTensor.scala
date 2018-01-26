@@ -102,7 +102,10 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
                                     b.constant("scale", scale))
 
       val s = new Session(g)
-      s.runner.fetch(output.op.name).run.get(0).expect(classOf[java.lang.Float])
+      val toReturn = s.runner.fetch(output.op.name).run.get(0).expect(classOf[java.lang.Float])
+      s.close()
+      g.close()
+      toReturn
     }
     else
     {
@@ -116,7 +119,7 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
     * requiring preprocessing beyond simple normalization (substraction + division). Transforms the preprocessed
     * array of float to an input Tensor ready to be fed to the TF graph
     * @param input Array[Float] representing the preprocessed input
-    * @return Tensor to input
+    * @return
     */
   def arrayToTensor(input: Array[Float]): Tensor[java.lang.Float] = {
     val g = new Graph
@@ -126,6 +129,9 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
     val outputHandler: Output[java.lang.Float] = b.cast(inputHandler, classOf[java.lang.Float])
 
     val s = new Session(g)
-    s.runner.fetch(outputHandler.op.name).run.get(0).expect(classOf[java.lang.Float])
+    val toReturn = s.runner.fetch(outputHandler.op.name).run.get(0).expect(classOf[java.lang.Float])
+    s.close()
+    g.close()
+    toReturn
   }
 }

@@ -66,7 +66,7 @@ class TensorflowSuite extends TestBase {
     val executer = new TFModelExecutor()
 
     executer.main(Array[String](multiDigitModelPath, imageTestPath, graphName, labelsDigits),
-                  Array[Float](32f,32f,0f,255f),
+                  Array[Float](1f,1f,0f,255f),
                   outputTensorName = "output_node0",
                   inputTensorName = "input_1")
 //    val graphDef = executer.readAllBytesOrExit(Paths.get(multiDigitModelPath, graphName))

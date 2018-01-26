@@ -16,6 +16,7 @@ import org.tensorflow.Session
 import org.tensorflow.Tensor
 import org.tensorflow.TensorFlow
 import org.tensorflow.types.UInt8
+import StreamUtilities.using
 
 /**
   * Master Class responsible for loading tensorflow .pb graphs and doing inference on inputs
@@ -81,35 +82,50 @@ class TFModelExecutor extends Serializable {
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
     //Check if graph contains info on expected shape of input
-    val g = new Graph
-    g.importGraphDef(graphDef)
+    using(new Graph) { g =>
+      g.importGraphDef(graphDef)
 
-    val shapeToUse : Array[Float] = expectedShape
+      val shapeToUse : Array[Float] = expectedShape
 
-    //for now, will need to change this later to make it more flexible
-    val inputShape = g.operation(inputTensorName).output(0).shape()
-    if(inputShape.numDimensions() != -1){
-      var i = 0
-      for (i <- 1 to 2){
-        //second and third indices only because we only want H and W!!
+      //for now, will need to change this later to make it more flexible
+      val inputShape = g.operation(inputTensorName).output(0).shape()
+      if(inputShape.numDimensions() != -1){
+        var i = 0
+        for (i <- 1 to 2){
+          //second and third indices only because we only want H and W!!
 
-        shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
+          shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
+        }
       }
-    }
 
-    val transformer = new InputToTensor("image_inception", shapeToUse)
-    val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width, typeForEncode)
+      val transformer = new InputToTensor("image_inception", shapeToUse)
+      val image = transformer.constructAndExecuteGraphToNormalizeImage(imageBytes, height, width, typeForEncode)
 
-    try {
-      val labelProbabilities = executeInceptionGraph(g, image, inputTensorName, outputTensorName)
-      val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
-      val bestPredictedLabel = labels.get(bestLabelIdx)
-      val highestProb = labelProbabilities(bestLabelIdx) * 100f
-      val prediction = s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)"
-      System.out.println(prediction)
-      prediction
-    } finally if (image != null) image.close()
+      try {
+        val labelProbabilities = executeInceptionGraph(g, image, inputTensorName, outputTensorName)
+        val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
+        val bestPredictedLabel = labels.get(bestLabelIdx)
+        val highestProb = labelProbabilities(bestLabelIdx) * 100f
+        val prediction = s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)"
+        System.out.println(prediction)
+        prediction
+      } finally if (image != null) image.close()
+    }.get
   }
+
+  def evaluateForSparkAny(graphDef: Array[Byte], inputArray: Array[Float],
+                       expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
+                       inputTensorName: String = "input",
+                       outputTensorName: String = "output"): Array[Float] = {
+    using(new Graph) { g =>
+      g.importGraphDef(graphDef)
+      val transformer = new InputToTensor("image_inception", Array[Float](0))
+      val inputTensor = transformer.arrayToTensor(inputArray)
+      executeInceptionGraph(g, inputTensor, inputTensorName, outputTensorName)
+    }.get
+  }
+
+
 
   /**
     * Method used for classifying an input (image for now) using a TF graph [when not in Spark]
@@ -147,22 +163,19 @@ class TFModelExecutor extends Serializable {
                                     image: Tensor[java.lang.Float],
                                     inputTensorName: String = "input",
                                     outputTensorName: String = "output"): Array[Float] = {
-//    val g = new Graph
-    try {
-//      g.importGraphDef(graphDef)
-      val s = new Session(g)
 
-      val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
-      try {
-        val rshape = result.shape
-        if (result.numDimensions != 2 || rshape(0) != 1) throw new RuntimeException(String.format("Expected model to produce a [1 N] shaped tensor where N is the number of labels, instead it produced one with shape %s", util.Arrays.toString(rshape)))
-        val nlabels = rshape(1).toInt
-        result.copyTo(Array.ofDim[Float](1, nlabels))(0)
-      } finally {
-        if (s != null) s.close()
-        if (result != null) result.close()
-      }
-    } finally if (g != null) g.close()
+    val s = new Session(g)
+    val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
+    try {
+      val rshape = result.shape
+      if (result.numDimensions != 2 || rshape(0) != 1) throw new RuntimeException(String.format("Expected model to produce a [1 N] shaped tensor where N is the number of labels, instead it produced one with shape %s", util.Arrays.toString(rshape)))
+      val nlabels = rshape(1).toInt
+      result.copyTo(Array.ofDim[Float](1, nlabels))(0)
+    } finally {
+      if (s != null) s.//      g.importGraphDef(graphDef)
+close()
+      if (result != null) result.close()
+    }
   }
 
 
@@ -177,7 +190,7 @@ class TFModelExecutor extends Serializable {
     null
   }
 
-  def readAllLinesOrExit(path: Path): util.List[String] = {
+  def readAllLinesOrExit(path: Path): List[String] = {
     try
       return Files.readAllLines(path, Charset.forName("UTF-8"))
     catch {

@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class SparkSuite extends TestBase{
 
-  test("Test 1: Loading images to Spark DF and performing a basic operation") {
+  test("1: Loading images to Spark DF and performing a basic operation") {
     //Start of setup - code repeated in tests
     val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
     val inputCol = "images"
@@ -45,7 +45,7 @@ class SparkSuite extends TestBase{
     processed_images_tf.show()
   }
 
-  test("Test 2: Loading image to DF and changing the numerical values"){
+  test("2: Loading image to DF and changing the numerical values"){
     //Start of setup - code repeated in tests
     val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
     val inputCol = "cntk_images"
@@ -77,7 +77,7 @@ class SparkSuite extends TestBase{
     processed_images_tf.printSchema()
   }
 
-  test("Test 3: Load images to DF, load TF model, make predictions and output predictions"){
+  test("3: Load images to DF, load TF model, make predictions and output predictions"){
     //Start of setup - code repeated in tests
     val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
     val inputCol = "images"
@@ -117,7 +117,7 @@ class SparkSuite extends TestBase{
     //End of setup
   }
 
-  test("Test 4: Test 3 with a different model"){
+  test("4: Test 3 with a different model"){
     //Start of setup - code repeated in tests
     val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
     val inputCol = "images"
@@ -196,6 +196,36 @@ class SparkSuite extends TestBase{
     val dims = new TFModel().getExpectedDims
     println(dims.mkString("[",", ","]") )
   }
+
+  def makeFakeData(spark: SparkSession, rows: Int, size: Int, outputDouble: Boolean = false): DataFrame = {
+    import spark.implicits._
+    if (outputDouble) {
+      List
+        .fill(rows)(List.fill(size)(0.0).toArray)
+        .zip(List.fill(rows)(0.0))
+        .toDF("input", "labels")
+    } else {
+      List
+        .fill(rows)(List.fill(size)(0.0.toFloat).toArray)
+        .zip(List.fill(rows)(0.0))
+        .toDF("input", "labels")
+    }
+  }
+
+  test("7: Testing a non-image based model. No preprocessing nor postprocessing"){
+    val model = new TFModel().setTransformationType("other")
+      .setGraphFile("sentiment_analysis.pb")
+      .setModelPath("/home/houssam/Documents/tf_experiments/CharLSTM")
+      .setInputTensorName("X")
+      .setOutputTensorName("Softmax")
+
+    val data = makeFakeData(session, 70, 16)
+
+    val result = model.transform(data)
+
+    result.show(5)
+  }
+
 
 
 //  test("foo"){

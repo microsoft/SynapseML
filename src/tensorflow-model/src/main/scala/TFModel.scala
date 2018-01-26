@@ -13,6 +13,10 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
+import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConversions._
+import scala.collection.mutable
+
 object TFModel extends ComplexParamsReadable[TFModel]
 
 @InternalWrapper
@@ -93,9 +97,28 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
   /** @group getParam */
   def getOutputTensorName: String                   = $(outputTensorName)
 
-  setDefault(expectedDims -> Array[Float](224f,224f,128f,255f))
+  /** Type of the transformation. 2 options: image OR other:
+    *   - image provides preprocessing and postprocessing methods increasing the productivity of the user
+    *   - other is more general, expects a DF of arrays of floats and returns a VectorType
+    * @group param
+    */
+  val transformationType: Param[String] = new Param(this, "transformationType", "Type of the transformation the model " +
+                                                                                "is going to perform")
+  //  set(outputTensorName, "output")
+
+
+  /** @group setParam */
+  def setTransformationType(value: String): this.type = set(transformationType, value)
+
+  /** @group getParam */
+  def getTransformationType: String                   = $(transformationType)
+
+
+  //Set default values for some Params that don't have to be specified.
+  setDefault(expectedDims -> Array[Float](224f,224f,128f,255f)) //for image type transformation only
   setDefault(inputTensorName -> "input")
   setDefault(outputTensorName -> "output")
+  setDefault(transformationType -> "image")
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
@@ -106,17 +129,18 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
     * @return featurized dataset - StringType
     */
   def transform(dataset: Dataset[_]): DataFrame = {
+    val toReturn: DataFrame = if (getTransformationType == "image") {
 
-    //Start of Set-up for evaluation code
-    val executer = new TFModelExecutor()
-    val labels = executer.readAllLinesOrExit(Paths.get(getModelPath,getLabelFile))
-    val graph = executer.readAllBytesOrExit(Paths.get(getModelPath,getGraphFile))
-    //End of set-up for evaluation code
+      //Start of Set-up for evaluation code
+      val executer = new TFModelExecutor()
+      val labels = executer.readAllLinesOrExit(Paths.get(getModelPath, getLabelFile))
+      val graph = executer.readAllBytesOrExit(Paths.get(getModelPath, getGraphFile))
+      //End of set-up for evaluation code
 
-    val df = dataset.toDF()
+      val df = dataset.toDF()
 
-    val encoder = RowEncoder(new StructType().add(StructField("Output labels", StringType)))
-    val output = df.mapPartitions{ it =>
+      val encoder = RowEncoder(new StructType().add(StructField("Output labels", StringType)))
+      val output = df.mapPartitions { it =>
         it.map { r =>
           val rawData = r.toSeq.toArray
           val rawDataDouble = rawData(0).asInstanceOf[Array[Byte]]
@@ -127,8 +151,31 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
             typeForEncode, getExpectedDims, getInputTensorName, getOutputTensorName)
           Row.fromSeq(Array(prediction).toSeq)
         }
-    }(encoder)
-    output
-  }
+      }(encoder)
+      output
+      }
+      else {
+        //Start of Set-up for evaluation code
+        val executer = new TFModelExecutor()
+        val graph = executer.readAllBytesOrExit(Paths.get(getModelPath, getGraphFile))
+        //End of set-up for evaluation code
+        val df = dataset.toDF()
+        val encoder = RowEncoder(new StructType().add(StructField("Output vector", VectorType)))
+//        df.select("input").rdd.map(row => row.get(0).asInstanceOf[mutable.WrappedArray[Float]].array)
+        val output = df.mapPartitions { it =>
+          it.map { r =>
+            val rawData = r.toSeq.toArray
+            val rawDataDouble = rawData(0) //.asInstanceOf[mutable.WrappedArray[Float]].array
+            val a = rawDataDouble.asInstanceOf[mutable.WrappedArray[Float]]
+            val b = a.toSeq.toArray
 
+            val prediction: Array[Float] = executer.evaluateForSparkAny(graph, b,
+              getExpectedDims, getInputTensorName, getOutputTensorName)
+            Row.fromSeq(Array(prediction).toSeq)
+          }
+        }(encoder)
+        output
+      }
+    toReturn
+  }
 }
