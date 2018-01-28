@@ -22,7 +22,28 @@ import org.apache.spark.util.BoundedPriorityQueue
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.json4s.{DefaultFormats, JObject}
 
-trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol
+trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol {
+
+  def recommendForAllItems(k: Int): DataFrame = ???
+
+  def recommendForAllUsers(k: Int): DataFrame = ???
+
+  def recommendForAllItems(userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
+    MsftRecHelper
+      .getALSModel(uid, 1, userDataFrame, itemDataFrame)
+      .setUserCol($(userCol))
+      .setItemCol($(itemCol))
+      .recommendForAllItems(k)
+  }
+
+  def recommendForAllUsers(userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
+    MsftRecHelper
+      .getALSModel(uid, 1, userDataFrame, itemDataFrame)
+      .setUserCol($(userCol))
+      .setItemCol($(itemCol))
+      .recommendForAllUsers(k)
+  }
+}
 
 trait MsftRecommendationParams extends Wrappable with MsftRecommendationModelParams with ALSParams
 
@@ -206,6 +227,14 @@ trait MsftRecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with ComplexParamsWritable
 
 object MsftRecHelper {
+
+  def getALSModel(uid: String,
+                  rank: Int,
+                  userFactors: DataFrame,
+                  itemFactors: DataFrame) = {
+    new ALSModel(uid, rank, userFactors, itemFactors)
+  }
+
   def popRow(r: Row): Any = r.getDouble(1)
 
   private def blockify(
@@ -249,3 +278,4 @@ object MsftRecHelper {
     new ALSModel(Identifiable.randomUID("als"), rank, userFactors, itemFactors).transform(dataset)
 
 }
+

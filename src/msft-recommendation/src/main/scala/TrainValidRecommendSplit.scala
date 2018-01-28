@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.spark.ml.recommendations.{SAR, SARModel}
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
@@ -14,6 +15,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.mutable
+import scala.util.Random
 
 @InternalWrapper
 class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
@@ -86,6 +88,11 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
         eval.evaluate(preparedTest)
       }
+      case s: SARModel => {
+        val recs = model.asInstanceOf[SARModel].recommendForAllUsers(5 * eval.getK)
+        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
+        eval.evaluate(preparedTest)
+      }
     }
 
     var i = 0
@@ -133,6 +140,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
     val sliceudf = udf(
       (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+    val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) => Random.shuffle(r))
     val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
     val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
     val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
@@ -141,9 +149,12 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .withColumn("itemIDRating", wrapColumn(col($(itemCol)), col($(ratingCol))))
       .groupBy(col($(userCol)))
       .agg(collect_list(col("itemIDRating")))
-      .withColumn("train", sliceudf(col("collect_list(itemIDRating)")))
-      .withColumn("test", dropudf(col("collect_list(itemIDRating)")))
-      .drop(col("collect_list(itemIDRating)"))
+      .withColumn("shuffle", shuffle(col("collect_list(itemIDRating)")))
+      .withColumn("train", sliceudf(col("shuffle")))
+      .withColumn("test", dropudf(col("shuffle")))
+      //      .withColumn("train", sliceudf(col("collect_list(itemIDRating)")))
+      //      .withColumn("test", dropudf(col("collect_list(itemIDRating)")))
+      .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
       .cache()
 
     val train = testds.select("customerID", "train")
@@ -177,6 +188,9 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
           case a: ALS => {
             pipe.asInstanceOf[ALS]
           }
+          case s: SAR => {
+            pipe.asInstanceOf[SAR]
+          }
         }
       }
       case m: MsftRecommendation => {
@@ -184,6 +198,9 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       }
       case a: ALS => {
         $(estimator).asInstanceOf[ALS]
+      }
+      case s: SAR => {
+        $(estimator).asInstanceOf[SAR]
       }
     }
 

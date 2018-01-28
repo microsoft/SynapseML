@@ -103,6 +103,8 @@ class TrainValidRecommendSplitRec
     alsWReg: MsftRecommendation,
     evaluator: MsftRecommendationEvaluator,
     helper: TrainValidRecommendSplit) = {
+      session.conf.set("spark.driver.extraClassPath", "$SPARK_HOME/jars/hadoop-azure-2.7.4.jar,azure-storage-2.0.0.jar")
+
       val dfRaw2: DataFrame = session
         .createDataFrame(Seq(
           ("11", "Movie 01", 4),
@@ -139,7 +141,23 @@ class TrainValidRecommendSplitRec
           ("44", "Movie 10", 3)))
         .toDF("customerIDOrg", "itemIDOrg", "rating")
 
-      val ratings = dfRaw2.dropDuplicates()
+      //      val ratings = dfRaw2.dropDuplicates()
+
+      val store_name = "bigdatadevlogs"
+      val key = "crrAYB78uELIP/JsyGAA0eFf9WEp5iO1pyblOVVT4w+Ql5h8pTduzg4/n0iiMxT4B+s4wO0x+MgyLLHbv4IWJQ=="
+      val container = "ms-sampledata"
+
+      session.sparkContext.hadoopConfiguration.set(
+        "fs.azure.account.key.bigdatadevlogs.blob.core.windows.net", key)
+      session.conf.set(
+        "fs.azure.account.key.bigdatadevlogs.blob.core.windows.net", key)
+
+      val data_rating = "iwanttv/day1_sample/percentilerating_videoseen_20170901_20170228_tiny.csv"
+      val wasb = "wasb://" + container + "@" + store_name + ".blob.core.windows.net/" + data_rating
+      val ratings = session.read
+        .option("header", "true") //reading the headers
+        .option("inferSchema", "true")
+        .csv(wasb).dropDuplicates()
 
       val customerIndex = new StringIndexer()
         .setInputCol("customerIDOrg")
@@ -559,91 +577,91 @@ class TrainValidRecommendSplitRec
   //    val bestModel = findBestModel.fit(dfRaw2)
   //    bestModel.transform(dfRaw2)
   //  }
-//  test("testSplitWData") {
-//    val defaultWarehouseDirName = "spark-warehouse"
-//    lazy val localWarehousePath =
-//      "file:" +
-//        customNormalize(new File(currentDir, defaultWarehouseDirName)
-//          .getAbsolutePath())
-//
-//    val conf = new SparkConf()
-//      .setAppName("Testing Custom Model")
-//      .setMaster("local[*]")
-//      .set("spark.driver.memory", "8es0G")
-//      .set("spark.logConf", "true")
-//      .set("spark.sql.warehouse.dir", localWarehousePath)
-//      .set("spark.executor.extraJavaOptions", "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+UseG1GC
+  //  test("testSplitWData") {
+  //    val defaultWarehouseDirName = "spark-warehouse"
+  //    lazy val localWarehousePath =
+  //      "file:" +
+  //        customNormalize(new File(currentDir, defaultWarehouseDirName)
+  //          .getAbsolutePath())
+  //
+  //    val conf = new SparkConf()
+  //      .setAppName("Testing Custom Model")
+  //      .setMaster("local[*]")
+  //      .set("spark.driver.memory", "8es0G")
+  //      .set("spark.logConf", "true")
+  //      .set("spark.sql.warehouse.dir", localWarehousePath)
+  //      .set("spark.executor.extraJavaOptions", "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+UseG1GC
   // -XX:InitiatingHeapOccupancyPercent=35 -XX:ConcGCThread=20")
-//    val sess = SparkSession.builder()
-//      .config(conf)
-//      .getOrCreate()
-//    sess.sparkContext.setLogLevel("WARN")
-//
-//    //Implicit Map(map -> 0.020415022341847663, mapk -> 0.013762790449597308, maxDiversity
+  //    val sess = SparkSession.builder()
+  //      .config(conf)
+  //      .getOrCreate()
+  //    sess.sparkContext.setLogLevel("WARN")
+  //
+  //    //Implicit Map(map -> 0.020415022341847663, mapk -> 0.013762790449597308, maxDiversity
   // -> 0.6402010050251257, diversityAtK -> 0.16532663316582916, recallAtK -> 0.013762790449597311,
   // ndcgAt -> 0.04521755862022604)
-//    //Map(map -> 0.025498697400195208, mapk -> 0.014721797157235497, maxDiversity -> 0.9623115577889447,
+  //    //Map(map -> 0.025498697400195208, mapk -> 0.014721797157235497, maxDiversity -> 0.9623115577889447,
   // diversityAtK -> 0.48743718592964824, recallAtK -> 0.014721797157235495,
   // ndcgAt -> 0.04688129124679781)Alert ProvidedAL - Suite TrainValidRecommendSplitRec took 2415.748s
-//    //40min
-//    val k = 10
-//
-//    val (transformedDf: DataFrame,
-//    alsWReg: MsftRecommendation,
-//    evaluator: MsftRecommendationEvaluator,
-//    helper: TrainValidRecommendSplit) = {
-//
-//      val dfRaw2: DataFrame = sess.read
-//        .option("header", "true") //reading the headers
-//        .option("inferSchema", "true") //reading the headers
-//        .csv("/mnt/rating.csv").na.drop
-//
-//      val ratings = dfRaw2.dropDuplicates()
-//
-//      val rating = "rating_total"
-//
-//      val customerIndex = new StringIndexer()
-//        .setInputCol("originalCustomerID")
-//        .setOutputCol("customerID")
-//
-//      val ratingsIndex = new StringIndexer()
-//        .setInputCol("newCategoryID")
-//        .setOutputCol("itemID")
-//
-//      val pipeline = new Pipeline()
-//        .setStages(Array(customerIndex, ratingsIndex))
-//
-//      val transformedDf = pipeline.fit(ratings).transform(ratings)
-//
-//      val alsWReg = new MsftRecommendation()
-//        .setUserCol(customerIndex.getOutputCol)
-//        .setRatingCol(rating)
-//        .setItemCol(ratingsIndex.getOutputCol)
-//        .setImplicitPrefs(true)
-//        .setRank(80)
-//        .setMaxIter(20)
-//
-//      val paramGrid = new ParamGridBuilder()
-//        .addGrid(alsWReg.regParam, Array(0.1))
-//        .build()
-//
-//      val evaluator = new MsftRecommendationEvaluator()
-//        .setK(k)
-//        .setSaveAll(true)
-//
-//      val helper = new TrainValidRecommendSplit()
-//        .setEstimator(alsWReg)
-//        .setEvaluator(evaluator)
-//        .setEstimatorParamMaps(paramGrid)
-//        .setTrainRatio(0.75)
-//        .setUserCol(customerIndex.getOutputCol)
-//        .setRatingCol(rating)
-//        .setItemCol(ratingsIndex.getOutputCol)
-//      (transformedDf, alsWReg, evaluator, helper)
-//    }
-//    transformedDf.cache()
-//    val tvModel = helper.fit(transformedDf)
-//    evaluator.printMetrics()
-//    tvModel.save("./model")
-//  }
+  //    //40min
+  //    val k = 10
+  //
+  //    val (transformedDf: DataFrame,
+  //    alsWReg: MsftRecommendation,
+  //    evaluator: MsftRecommendationEvaluator,
+  //    helper: TrainValidRecommendSplit) = {
+  //
+  //      val dfRaw2: DataFrame = sess.read
+  //        .option("header", "true") //reading the headers
+  //        .option("inferSchema", "true") //reading the headers
+  //        .csv("/mnt/rating.csv").na.drop
+  //
+  //      val ratings = dfRaw2.dropDuplicates()
+  //
+  //      val rating = "rating_total"
+  //
+  //      val customerIndex = new StringIndexer()
+  //        .setInputCol("originalCustomerID")
+  //        .setOutputCol("customerID")
+  //
+  //      val ratingsIndex = new StringIndexer()
+  //        .setInputCol("newCategoryID")
+  //        .setOutputCol("itemID")
+  //
+  //      val pipeline = new Pipeline()
+  //        .setStages(Array(customerIndex, ratingsIndex))
+  //
+  //      val transformedDf = pipeline.fit(ratings).transform(ratings)
+  //
+  //      val alsWReg = new MsftRecommendation()
+  //        .setUserCol(customerIndex.getOutputCol)
+  //        .setRatingCol(rating)
+  //        .setItemCol(ratingsIndex.getOutputCol)
+  //        .setImplicitPrefs(true)
+  //        .setRank(80)
+  //        .setMaxIter(20)
+  //
+  //      val paramGrid = new ParamGridBuilder()
+  //        .addGrid(alsWReg.regParam, Array(0.1))
+  //        .build()
+  //
+  //      val evaluator = new MsftRecommendationEvaluator()
+  //        .setK(k)
+  //        .setSaveAll(true)
+  //
+  //      val helper = new TrainValidRecommendSplit()
+  //        .setEstimator(alsWReg)
+  //        .setEvaluator(evaluator)
+  //        .setEstimatorParamMaps(paramGrid)
+  //        .setTrainRatio(0.75)
+  //        .setUserCol(customerIndex.getOutputCol)
+  //        .setRatingCol(rating)
+  //        .setItemCol(ratingsIndex.getOutputCol)
+  //      (transformedDf, alsWReg, evaluator, helper)
+  //    }
+  //    transformedDf.cache()
+  //    val tvModel = helper.fit(transformedDf)
+  //    evaluator.printMetrics()
+  //    tvModel.save("./model")
+  //  }
 }

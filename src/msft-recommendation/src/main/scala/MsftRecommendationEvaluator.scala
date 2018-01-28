@@ -38,7 +38,7 @@ final class MsftRecommendationEvaluator(override val uid: String)
     val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
       "maxDiversity"))
     new Param(this, "metricName", "metric name in evaluation " +
-      "(ndcgAt|map|mapk|recallAtK|diversityAtK|maxDiversity)", allowedParams)
+      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity)", allowedParams)
   }
 
   val saveAll: BooleanParam = new BooleanParam(this, "saveAll", "save all metrics")
@@ -96,29 +96,28 @@ final class MsftRecommendationEvaluator(override val uid: String)
       lazy val ndcg: Double = metrics.ndcgAt($(k))
       lazy val mapk: Double = metrics.precisionAt($(k))
       lazy val recallAtK: Double = predictionAndLabels.map(r =>
-        r._1.toSet.intersect(r._2.toSet).size.toDouble / r._1.size.toDouble).mean()
+        r._1.distinct.intersect(r._2.distinct).size.toDouble / r._1.size.toDouble).mean()
       lazy val diversityAtK: Double = {
         uniqueItemsRecommended.length.toDouble / $(nItems)
       }
       lazy val maxDiversity: Double = {
         val itemCount = predictionAndLabels
           .map(row => row._2)
-          .reduce((x, y) => x.toSet.union(y.toSet).toArray)
-          .union(uniqueItemsRecommended).length
+          .reduce((x, y) => x.toSet.union(y.toSet).toArray).length
         itemCount.toDouble / $(nItems)
       }
 
       def matchMetric(metricName: String): Double = metricName match {
         case "map" => metrics.map
         case "ndcgAt" => metrics.ndcg
-        case "mapk" => metrics.mapk
+        case "precisionAtk" => metrics.mapk
         case "recallAtK" => metrics.recallAtK
         case "diversityAtK" => metrics.diversityAtK
         case "maxDiversity" => metrics.maxDiversity
       }
 
       def getAllMetrics(): Map[String, Double] = {
-        Map("map" -> map, "ndcgAt" -> ndcg, "mapk" -> mapk, "recallAtK" -> recallAtK,
+        Map("map" -> map, "ndcgAt" -> ndcg, "precisionAtk" -> mapk, "recallAtK" -> recallAtK,
           "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity)
       }
     }

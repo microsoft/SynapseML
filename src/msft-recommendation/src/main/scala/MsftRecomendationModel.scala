@@ -36,7 +36,7 @@ class MsftRecommendationModel(
     * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
     *         stored as an array of (itemCol: Int, rating: Float) Rows.
     */
-  def recommendForAllUsers(numItems: Int): DataFrame = {
+  override def recommendForAllUsers(numItems: Int): DataFrame = {
     MsftRecHelper.recommendForAllUsers(alsModel, numItems)
   }
 
@@ -47,7 +47,7 @@ class MsftRecommendationModel(
     * @return a DataFrame of (itemCol: Int, recommendations), where recommendations are
     *         stored as an array of (userCol: Int, rating: Float) Rows.
     */
-  def recommendForAllItems(numUsers: Int): DataFrame = {
+  override def recommendForAllItems(numUsers: Int): DataFrame = {
     MsftRecHelper.recommendForAllItems(alsModel, numUsers)
   }
 
