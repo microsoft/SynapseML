@@ -16,7 +16,7 @@ import org.apache.spark.sql.{DataFrame, Encoder, Row, SparkSession}
 
 import scala.collection.mutable
 
-class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase {
+class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzing[CNTKModel]{
 
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
 
@@ -145,12 +145,8 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with RoundTripTestBase
     }
   }
 
-  val dfRoundTrip: DataFrame = images
   val reader: MLReadable[_] = CNTKModel
-  val modelReader: MLReadable[_] = CNTKModel
-  val stageRoundTrip: PipelineStage with MLWritable = testModel()
+  override def testObjects(): Seq[TestObject[CNTKModel]] =
+    Seq(new TestObject[CNTKModel](testModel(), images))
 
-  test(" should roundtrip") {
-    testRoundTrip()
-  }
 }

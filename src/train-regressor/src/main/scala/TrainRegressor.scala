@@ -6,7 +6,6 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
-import org.apache.hadoop.fs.Path
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._
@@ -19,7 +18,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
-  with HasLabelCol with MMLParams {
+  with HasLabelCol with MMLParams with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
@@ -125,14 +124,17 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
     new TrainedRegressorModel(uid, labelColumn, pipelineModel, featuresColumn)
   }
 
-  override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = {
+    setModel(getModel.copy(extra))
+    defaultCopy(extra)
+  }
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = TrainRegressor.validateTransformSchema(schema)
 
 }
 
-object TrainRegressor extends DefaultParamsReadable[TrainRegressor] {
+object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   def validateTransformSchema(schema: StructType): StructType = {
     StructType(schema.fields :+ StructField(SchemaConstants.ScoresColumn, DoubleType))
   }

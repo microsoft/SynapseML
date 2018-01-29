@@ -29,7 +29,11 @@ if [[ "$BUILDPR" = "" ]]; then
   exit
 fi
 
-text="The build has ${AGENT_JOBSTATUS,,}."; more_text=""
+get_pr_info
+
+if [[ "$BUILDPR" = "0" ]]; then exit; fi
+
+text="The build has ${AGENT_JOBSTATUS,,}.  (${SHA1:0:8})"; more_text=""
 post_status "$state" "$text"
 delete_comment
 if [[ "$state" = "success" && -r "$BUILD_ARTIFACTS/Build.md" ]]; then

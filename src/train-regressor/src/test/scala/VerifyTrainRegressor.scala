@@ -15,7 +15,7 @@ import org.apache.commons.io.FileUtils
 import scala.collection.immutable.Seq
 
 /** Tests to validate the functionality of Train Regressor module. */
-class VerifyTrainRegressor extends RoundTripTestBase {
+class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
 
   val regressionTrainFilesDirectory = "/Regression/Train/"
 
@@ -43,10 +43,6 @@ class VerifyTrainRegressor extends RoundTripTestBase {
   val modelReader: MLReadable[_] = TrainedRegressorModel
   val stageRoundTrip: PipelineStage with MLWritable =
     TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
-
-  test("should roundtrip serialize") {
-    testRoundTrip(ignoreEstimators = true)
-  }
 
   test("Smoke test for training on a regressor") {
     val dataset = createMockDataset
@@ -141,6 +137,10 @@ class VerifyTrainRegressor extends RoundTripTestBase {
 
     TrainRegressorTestUtilities.trainScoreDataset(labelColumn, dataset, parameters)
   }
+
+  override def testObjects(): Seq[TestObject[TrainRegressor]] = Seq(
+    new TestObject(TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn),
+                   createMockDataset))
 
 }
 

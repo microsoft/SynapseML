@@ -6,25 +6,21 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalUtilities, SparkSchema}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
-import org.apache.spark.ml.{Estimator, Transformer}
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
+
 import scala.collection.immutable.Seq
 
-/** Tests to validate the functionality of Train Classifier module. */
-class VerifyValueIndexer extends TestBase with EstimatorFuzzing[ValueIndexer] {
-
+trait ValueIndexerUtilities extends TestBase {
   import session.implicits._
 
   /** sample dataframe */
-  private val DF = Seq[(Int, Long, Double, Boolean, String)](
+  protected val DF = Seq[(Int, Long, Double, Boolean, String)](
     (-3, 24L, 0.32534, true, "piano"),
     (1, 5L, 5.67, false, "piano"),
     (-3, 5L, 0.32534, false, "guitar"))
     .toDF("int", "long", "double", "bool", "string")
 
   /** sample dataframe with Null values*/
-  private val nullDF = Seq[(String, java.lang.Integer, java.lang.Double)](
+  protected val nullDF = Seq[(String, java.lang.Integer, java.lang.Double)](
     ("Alice", null, 44.3),
     (null, 60, null),
     ("Josh", 25, Double.NaN),
@@ -32,6 +28,31 @@ class VerifyValueIndexer extends TestBase with EstimatorFuzzing[ValueIndexer] {
     ("Fred", 55, Double.NaN),
     ("Josh", 21, 33.3))
     .toDF("string", "int", "double")
+}
+
+/** Tests to validate the functionality of Train Classifier module. */
+class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[IndexToValue] {
+  val col = "string"
+  private val newName = col + "_cat"
+  private val df = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(DF).transform(DF)
+  private val testName = col + "_noncat"
+
+  test("Test: Going to Categorical and Back") {
+    for (mmlStyle <- List(false, true)) {
+      val df1 = new IndexToValue().setInputCol(newName).setOutputCol(testName).transform(df)
+      df1.select(col, testName).collect.foreach(row => assert(row(0) == row(1), "two columns should be the same"))
+    }
+  }
+
+  override def testObjects(): scala.Seq[TestObject[IndexToValue]] = Seq(new TestObject(
+    new IndexToValue().setInputCol(newName).setOutputCol(testName), df
+  ))
+
+  override def reader: MLReadable[_] = IndexToValue
+}
+
+/** Tests to validate the functionality of Train Classifier module. */
+class VerifyValueIndexer extends ValueIndexerUtilities with EstimatorFuzzing[ValueIndexer] {
 
   /** test CategoricalMap for different undelying types */
   test("Test: Convert the regular column into categorical") {
@@ -66,18 +87,6 @@ class VerifyValueIndexer extends TestBase with EstimatorFuzzing[ValueIndexer] {
       (true_levels zip levels).foreach {
         case (a, b) => assert(a == b, "categorical levels are not the same")
       }
-    }
-  }
-
-  test("Test: Going to Categorical and Back") {
-    val col = "string"
-    for (mmlStyle <- List(false, true)) {
-      val newName = col + "_cat"
-      val df = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(DF).transform(DF)
-
-      val testName = col + "_noncat"
-      val df1 = new IndexToValue().setInputCol(newName).setOutputCol(testName).transform(df)
-      df1.select(col, testName).collect.foreach(row => assert(row(0) == row(1), "two columns should be the same"))
     }
   }
 

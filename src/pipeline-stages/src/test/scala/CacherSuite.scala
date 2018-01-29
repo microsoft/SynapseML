@@ -2,11 +2,9 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
+import org.apache.spark.ml.util.MLReadable
 
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.param.ParamMap
-
-class CacherSuite extends TestBase {
+class CacherSuite extends TransformerFuzzing[Cacher] {
 
   import session.implicits._
 
@@ -28,5 +26,9 @@ class CacherSuite extends TestBase {
     val df2 = new Cacher().transform(df)
     assert(df2.collect() === df.collect())
   }
+
+  override def testObjects(): Seq[TestObject[Cacher]] = Seq(new TestObject(new Cacher(), df))
+
+  override def reader: MLReadable[_] = Cacher
 
 }

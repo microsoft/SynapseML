@@ -3,14 +3,17 @@
 
 package com.microsoft.ml.spark
 
+import java.io.FileNotFoundException
 import java.nio.file.Files
 
 import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.ml._
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.ParamPair
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.scalactic.{Equality, TolerantNumerics}
 
 case class TestObject[S <: PipelineStage](stage: S,
                                           fitDF: DataFrame,
@@ -26,10 +29,53 @@ case class TestObject[S <: PipelineStage](stage: S,
 
 }
 
-trait FuzzingMethods {
-  def compareDFs(df1: DataFrame, df2: DataFrame): Boolean = {
-    df1.collect().toSet == df2.collect().toSet
+trait FuzzingMethods extends TestBase {
+  val epsilon = 1e-4
+  implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
+  implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
+    def areEqual(a: DenseVector, b: Any): Boolean = b match {
+      case bArr:DenseVector =>
+        a.values.zip(bArr.values).forall {case (x, y) => doubleEq.areEqual(x, y)}
+    }
   }
+
+  implicit lazy val rowEq: Equality[Row] = new Equality[Row]{
+    def areEqual(a: Row, bAny: Any): Boolean = bAny match {
+      case b:Row =>
+        if (a.length != b.length) { return false }
+        (0 until a.length).forall(j =>{
+          a(j) match {
+            case lhs: DenseVector =>
+              lhs === b(j)
+            case lhs: Double if lhs.isNaN =>
+              b(j).asInstanceOf[Double].isNaN
+            case lhs: Double =>
+              b(j).asInstanceOf[Double] === lhs
+            case lhs =>
+              lhs === b(j)
+          }
+        })
+    }
+  }
+
+  implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame]{
+    def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
+      case ds:Dataset[_] =>
+        val b = ds.toDF()
+        if(a.columns !== b.columns){
+          return false
+        }
+        val aSort = a.sort().collect()
+        val bSort = b.sort().collect()
+        if (aSort.length != bSort.length){
+          return false
+        }
+        aSort.zip(bSort).forall {case (rowA, rowB) =>
+          rowA === rowB
+        }
+    }
+  }
+
 }
 
 trait PyTestFuzzing[S <: PipelineStage] extends FuzzingMethods {
@@ -91,14 +137,18 @@ trait ExperimentFuzzing[S <: PipelineStage] extends FuzzingMethods {
     }
   }
 
-  def validateExperiments(): Unit = {
+  def testExperiments(): Unit = {
     experimentTestObjects().foreach { req =>
       val res = runExperiment(req.stage, req.fitDF, req.transDF)
       req.validateDF match {
-        case Some(vdf) => compareDFs(res, vdf)
+        case Some(vdf) => assert(res === vdf)
         case None => ()
       }
     }
+  }
+
+  test("Experiment Fuzzing"){
+    testExperiments()
   }
 
 }
@@ -114,53 +164,56 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends FuzzingMe
 
   val ignoreEstimators: Boolean = false
 
-  private def testRoundTripHelper(path: String,
+  private def testSerializationHelper(path: String,
                                   stage: PipelineStage with MLWritable,
                                   reader: MLReadable[_],
                                   fitDF: DataFrame, transDF: DataFrame): Unit = {
     try {
       stage.write.overwrite().save(path)
+      assert(new File(path).exists())
       val loadedStage = reader.load(path)
       (stage, loadedStage) match {
         case (e1: Estimator[_], e2: Estimator[_]) =>
-          assert(compareDFs(e1.fit(fitDF).transform(transDF), e2.fit(fitDF).transform(transDF)))
+          assert(e1.fit(fitDF).transform(transDF) === e2.fit(fitDF).transform(transDF))
         case (t1: Transformer, t2: Transformer) =>
-          assert(compareDFs(t1.transform(transDF), t2.transform(transDF)))
+          assert(t1.transform(transDF) === t2.transform(transDF))
         case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
       }
       ()
-    } catch {
-      case e: Exception => throw e
     } finally {
-      try{
+      try {
         FileUtils.forceDelete(new File(path))
-      }catch{
-        case _: Exception =>
+      } catch {
+        case _: FileNotFoundException =>
       }
       ()
     }
   }
 
-  def testRoundTrip(): Unit = {
+  def testSerialization(): Unit = {
     serializationTestObjects().foreach { req =>
       val fitStage = req.stage match {
         case stage: Estimator[_] =>
           if (!ignoreEstimators) {
-            testRoundTripHelper(savePath + "/stage", stage, reader, req.fitDF, req.transDF)
+            testSerializationHelper(savePath + "/stage", stage, reader, req.fitDF, req.transDF)
           }
           stage.fit(req.fitDF).asInstanceOf[PipelineStage with MLWritable]
         case stage: Transformer => stage
         case s => throw new IllegalArgumentException(s"$s does not have correct type")
       }
-      testRoundTripHelper(savePath + "/fitStage", fitStage, modelReader, req.transDF, req.transDF)
+      testSerializationHelper(savePath + "/fitStage", fitStage, modelReader, req.transDF, req.transDF)
 
       val pipe = new Pipeline().setStages(Array(req.stage.asInstanceOf[PipelineStage]))
       if (!ignoreEstimators) {
-        testRoundTripHelper(savePath + "/pipe", pipe, Pipeline, req.fitDF, req.transDF)
+        testSerializationHelper(savePath + "/pipe", pipe, Pipeline, req.fitDF, req.transDF)
       }
       val fitPipe = pipe.fit(req.fitDF)
-      testRoundTripHelper(savePath + "/fitPipe", fitPipe, PipelineModel, req.transDF, req.transDF)
+      testSerializationHelper(savePath + "/fitPipe", fitPipe, PipelineModel, req.transDF, req.transDF)
     }
+  }
+
+  test("Serialization Fuzzing"){
+    testSerialization()
   }
 
 }
@@ -178,7 +231,7 @@ trait Fuzzing[S <: PipelineStage with MLWritable] extends PyTestFuzzing[S]
 
 }
 
-trait TransformerFuzzing[S <: PipelineStage with MLWritable] extends Fuzzing[S] {
+trait TransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] {
 
   override val ignoreEstimators: Boolean = true
 
@@ -186,4 +239,4 @@ trait TransformerFuzzing[S <: PipelineStage with MLWritable] extends Fuzzing[S] 
 
 }
 
-trait EstimatorFuzzing[S <: PipelineStage with MLWritable] extends Fuzzing[S]
+trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S]

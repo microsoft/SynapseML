@@ -8,18 +8,34 @@ import com.microsoft.ml.spark.TrainClassifierTestUtilities._
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.feature.FastVectorAssembler
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
 /** Tests to validate the functionality of Evaluate Model module. */
-class VerifyComputeModelStatistics extends TestBase {
+class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
+  val labelColumn = "Label"
+  val dataset = session.createDataFrame(Seq(
+    (0, 2, 0.50, 0.60, 0),
+    (1, 3, 0.40, 0.50, 1),
+    (0, 4, 0.78, 0.99, 2),
+    (1, 5, 0.12, 0.34, 3),
+    (0, 1, 0.50, 0.60, 0),
+    (1, 3, 0.40, 0.50, 1),
+    (0, 3, 0.78, 0.99, 2),
+    (1, 4, 0.12, 0.34, 3),
+    (0, 0, 0.50, 0.60, 0),
+    (1, 2, 0.40, 0.50, 1),
+    (0, 3, 0.78, 0.99, 2),
+    (1, 4, 0.12, 0.34, 3)
+  )).toDF(labelColumn, "col1", "col2", "col3", "col4")
 
   test("Smoke test for evaluating a dataset") {
-
-    val labelColumn = "label"
     val predictionColumn = SchemaConstants.SparkPredictionColumn
+    val scoreModelName = SchemaConstants.ScoreModelPrefix + "_test model"
     val dataset = session.createDataFrame(Seq(
       (0.0, 2, 0.50, 0.60, 0.0),
       (1.0, 3, 0.40, 0.50, 1.0),
@@ -35,8 +51,6 @@ class VerifyComputeModelStatistics extends TestBase {
       (3.0, 4, 0.12, 0.34, 3.0)))
       .toDF(labelColumn, "col1", "col2", "col3", predictionColumn)
 
-    val scoreModelName = SchemaConstants.ScoreModelPrefix + "_test model"
-
     val datasetWithLabel =
       SparkSchema.setLabelColumnName(dataset, scoreModelName, labelColumn, SchemaConstants.RegressionKind)
     val datasetWithScores =
@@ -47,17 +61,15 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScores)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0) == 0.0)
-    assert(firstRow.get(1) == 0.0)
-    assert(firstRow.get(2) == 1.0)
-    assert(firstRow.get(3) == 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2) === 1.0)
+    assert(firstRow.getDouble(3) === 0.0)
 
     assert(evaluatedSchema == StructType(ComputeModelStatistics.regressionColumns.map(StructField(_, DoubleType))))
   }
 
   test("Evaluate a dataset with missing values") {
-
-    val labelColumn = "label"
     val predictionColumn = SchemaConstants.SparkPredictionColumn
     val dataset = session.createDataFrame(sc.parallelize(Seq(
       (0.0, 0.0),
@@ -81,10 +93,10 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScores)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0) == 0.0)
-    assert(firstRow.get(1) == 0.0)
-    assert(firstRow.get(2) == 1.0)
-    assert(firstRow.get(3) == 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2) === 1.0)
+    assert(firstRow.getDouble(3) === 0.0)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
@@ -101,47 +113,62 @@ class VerifyComputeModelStatistics extends TestBase {
       (1, 2, 0.40, 0.50, 1),
       (2, 3, 0.78, 0.99, 2),
       (3, 4, 0.12, 0.34, 3)
-    )).toDF("labelColumn", "col1", "col2", "col3", "col4")
+    )).toDF(labelColumn, "col1", "col2", "col3", "col4")
 
-    val labelColumn = "someOtherColumn"
+    val otherLabelColumn = "someOtherColumn"
 
-    val datasetWithAddedColumn = dataset.withColumn(labelColumn, org.apache.spark.sql.functions.lit(0.0))
+    val datasetWithAddedColumn = dataset.withColumn(otherLabelColumn, org.apache.spark.sql.functions.lit(0.0))
 
-    val linearRegressor = createLinearRegressor(labelColumn)
+    val linearRegressor = createLinearRegressor(otherLabelColumn)
     val scoredDataset =
-      TrainRegressorTestUtilities.trainScoreDataset(labelColumn, datasetWithAddedColumn, linearRegressor)
+      TrainRegressorTestUtilities.trainScoreDataset(otherLabelColumn, datasetWithAddedColumn, linearRegressor)
 
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
     val firstRow = evaluatedData.first()
-    assert(firstRow.get(0) == 0.0)
-    assert(firstRow.get(1) == 0.0)
-    assert(firstRow.get(2).asInstanceOf[Double].isNaN)
-    assert(firstRow.get(3) == 0.0)
+    assert(firstRow.getDouble(0) === 0.0)
+    assert(firstRow.getDouble(1) === 0.0)
+    assert(firstRow.getDouble(2).isNaN)
+    assert(firstRow.getDouble(3) === 0.0)
   }
 
+  val logisticRegressor = createLogisticRegressor(labelColumn)
+  val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
-    val labelColumn = "Label"
-    val dataset = session.createDataFrame(Seq(
-      (0, 2, 0.50, 0.60, 0),
-      (1, 3, 0.40, 0.50, 1),
-      (0, 4, 0.78, 0.99, 2),
-      (1, 5, 0.12, 0.34, 3),
-      (0, 1, 0.50, 0.60, 0),
-      (1, 3, 0.40, 0.50, 1),
-      (0, 3, 0.78, 0.99, 2),
-      (1, 4, 0.12, 0.34, 3),
-      (0, 0, 0.50, 0.60, 0),
-      (1, 2, 0.40, 0.50, 1),
-      (0, 3, 0.78, 0.99, 2),
-      (1, 4, 0.12, 0.34, 3)
-    )).toDF(labelColumn, "col1", "col2", "col3", "col4")
-
-    val logisticRegressor = createLogisticRegressor(labelColumn)
-    val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
     assert(evaluatedSchema == StructType(ComputeModelStatistics.classificationColumns.map(StructField(_, DoubleType))))
+  }
+
+  test("Verify computing statistics on generic spark ML estimators is supported") {
+    val scoredLabelsCol = "LogRegScoredLabelsCol"
+    val scoresCol = "LogRegScoresCol"
+    val featuresCol = "features"
+    val logisticRegression = new LogisticRegression()
+      .setRegParam(0.3)
+      .setElasticNetParam(0.8)
+      .setMaxIter(10)
+      .setLabelCol(labelColumn)
+      .setPredictionCol(scoredLabelsCol)
+      .setRawPredictionCol(scoresCol)
+      .setFeaturesCol(featuresCol)
+    val assembler = new FastVectorAssembler()
+      .setInputCols(Array("col1", "col2", "col3", "col4"))
+      .setOutputCol(featuresCol)
+    val assembledDataset = assembler.transform(dataset)
+    val model = logisticRegression.fit(assembledDataset)
+    val scoredData = model.transform(assembledDataset)
+    val cms = new ComputeModelStatistics()
+      .setLabelCol(labelColumn)
+      .setScoredLabelsCol(scoredLabelsCol)
+      .setScoresCol(scoresCol)
+      .setEvaluationMetric(ComputeModelStatistics.ClassificationMetrics)
+    val evaluatedData = cms.transform(scoredData)
+    val firstRow = evaluatedData.select(col("accuracy"), col("precision"), col("recall"), col("AUC")).first()
+    assert(firstRow.get(0).asInstanceOf[Double] === 1.0)
+    assert(firstRow.get(1).asInstanceOf[Double] === 1.0)
+    assert(firstRow.get(2).asInstanceOf[Double] === 1.0)
+    assert(firstRow.get(3).asInstanceOf[Double] === 1.0)
   }
 
   test("Verify results of multiclass metrics") {
@@ -188,15 +215,15 @@ class VerifyComputeModelStatistics extends TestBase {
 
     val overallAccuracy = (tp0 + tp1 + tp2) / total
     val evalRow = evaluatedData.first()
-    assert(evalRow.getAs[Double](ComputeModelStatistics.AccuracyColumnName) == overallAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.PrecisionColumnName) == overallAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.RecallColumnName) == overallAccuracy)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.AccuracyColumnName) === overallAccuracy)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.PrecisionColumnName) === overallAccuracy)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.RecallColumnName) === overallAccuracy)
     val avgAccuracy = ((tp0 + tn0) / total + (tp1 + tn1) / total + (tp2 + tn2) / total) / numLabels
     val macroPrecision = (precision0 + precision1 + precision2) / numLabels
     val macroRecall = (recall0 + recall1 + recall2) / numLabels
-    assert(evalRow.getAs[Double](ComputeModelStatistics.AverageAccuracy) == avgAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedPrecision) == macroPrecision)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedRecall) == macroRecall)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.AverageAccuracy) === avgAccuracy)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedPrecision) === macroPrecision)
+    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedRecall) === macroRecall)
   }
 
   test("validate AUC from compute model statistic and binary classification evaluator gives the same result") {
@@ -240,4 +267,8 @@ class VerifyComputeModelStatistics extends TestBase {
     assert(auc === cmsAUC)
   }
 
+  override def testObjects(): Seq[TestObject[ComputeModelStatistics]] = Seq(new TestObject(
+    new ComputeModelStatistics(), scoredDataset))
+
+  override def reader: MLReadable[_] = ComputeModelStatistics
 }

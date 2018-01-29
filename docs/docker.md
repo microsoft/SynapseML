@@ -29,7 +29,7 @@ You can now select one of the sample notebooks and run it, or create your own.
 In the above, `microsoft/mmlspark` specifies the project and image name that you
 want to run.  There is another component implicit here which is the *tag* (=
 version) that you want to use — specifying it explicitly looks like
-`microsoft/mmlspark:0.10` for using the `0.10` tag.
+`microsoft/mmlspark:0.11` for the `0.11` tag.
 
 Leaving `microsoft/mmlspark` by itself has an implicit `latest` tag, so it is
 equivalent to `microsoft/mmlspark:latest`.  The `latest` tag is identical to the
@@ -47,7 +47,7 @@ that you will probably want to use can look as follows:
               -e ACCEPT_EULA=y \
               -p 127.0.0.1:80:8888 \
               -v ~/myfiles:/notebooks/myfiles \
-              microsoft/mmlspark:0.10
+              microsoft/mmlspark:0.11
    ```
 
 In this example, backslashes are used to break things up for readability; you
@@ -59,7 +59,7 @@ path and line breaks looks a little different:
               -e ACCEPT_EULA=y `
               -p 127.0.0.1:80:8888 `
               -v C:\myfiles:/notebooks/myfiles `
-              microsoft/mmlspark:0.10
+              microsoft/mmlspark:0.11
    ```
 
 Let's break this command and go over the meaning of each part:
@@ -143,7 +143,7 @@ Let's break this command and go over the meaning of each part:
      model.write().overwrite().save('myfiles/myTrainedModel.mml')
      ```
 
-* **`microsoft/mmlspark:0.10`**
+* **`microsoft/mmlspark:0.11`**
 
   Finally, this specifies an explicit version tag for the image that we want to
   run.

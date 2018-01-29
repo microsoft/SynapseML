@@ -187,7 +187,7 @@ show-all-oneline() {
   printf "\n"
   for v in "${all[@]}"; do
     if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
-    printf '  %-22s' "$v"
+    printf '  %-24s' "$v"
     get-ver-info "$v"
     times="$(jq -r '"\(.mintime):\(.maxtime)"' < "$cachedir/$v")"
     printf ' %-16s' "$(show-time-range "${times%:*}" "${times#*:}")"

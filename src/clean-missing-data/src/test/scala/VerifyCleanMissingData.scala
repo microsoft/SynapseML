@@ -3,21 +3,15 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.Estimator
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.StructType
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt}
 
 import org.apache.spark.ml.util.MLReadable
-import org.scalactic.TolerantNumerics
+import org.apache.spark.sql.DataFrame
 
 /** Tests to validate the functionality of Clean Missing Data estimator. */
 class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissingData] {
 
-  val tolerance = 0.01
-  implicit val doubleEq = TolerantNumerics.tolerantDoubleEquality(tolerance)
-  val tolEq = TolerantNumerics.tolerantDoubleEquality(tolerance)
-
+  override val epsilon: Double = 0.01
   import session.implicits._
   def createMockDataset: DataFrame = {
     Seq[(JInt, JInt, JDouble, JDouble, JInt)](
@@ -175,7 +169,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
           }
         if (rowValue == null) {
           val expectedValue = expectedValues(i)
-          assert(tolEq.areEquivalent(expectedValue, actualValue),
+          assert(expectedValue === actualValue,
             s"Values do not match, expected: $expectedValue, result: $actualValue")
         }
       }
