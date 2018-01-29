@@ -103,7 +103,9 @@ final class MsftRecommendationEvaluator(override val uid: String)
       lazy val maxDiversity: Double = {
         val itemCount = predictionAndLabels
           .map(row => row._2)
-          .reduce((x, y) => x.toSet.union(y.toSet).toArray).length
+          .reduce((x, y) => x.toSet.union(y.toSet).toArray)
+          .union(uniqueItemsRecommended).toSet
+          .size
         itemCount.toDouble / $(nItems)
       }
 

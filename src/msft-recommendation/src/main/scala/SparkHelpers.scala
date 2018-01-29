@@ -28,20 +28,28 @@ trait MsftRecommendationModelParams extends Params with ALSModelParams with HasP
 
   def recommendForAllUsers(k: Int): DataFrame = ???
 
-  def recommendForAllItems(userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
+  def recommendForAllItems(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
     MsftRecHelper
-      .getALSModel(uid, 1, userDataFrame, itemDataFrame)
+      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
       .setUserCol($(userCol))
       .setItemCol($(itemCol))
       .recommendForAllItems(k)
   }
 
-  def recommendForAllUsers(userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
+  def recommendForAllUsers(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
     MsftRecHelper
-      .getALSModel(uid, 1, userDataFrame, itemDataFrame)
+      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
       .setUserCol($(userCol))
       .setItemCol($(itemCol))
       .recommendForAllUsers(k)
+  }
+
+  def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]) = {
+    MsftRecHelper
+      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
+      .setUserCol($(userCol))
+      .setItemCol($(itemCol))
+      .transform(dataset)
   }
 }
 

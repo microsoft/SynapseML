@@ -3,20 +3,25 @@
 
 package com.microsoft.spark.ml.recommendations
 
-import com.microsoft.ml.spark.{MsftRecommendationEvaluator, TrainValidRecommendSplit}
-import com.microsoft.spark.ml.recommendations.SAR.processRow
-import org.apache.spark.SparkConf
-import org.apache.spark.ml.feature.{IndexToString, StringIndexer, StringIndexerModel}
+import java.util.Random
+
+import com.github.fommil.netlib.BLAS.{getInstance => blas}
+import com.microsoft.ml.spark.{MsftRecommendation, MsftRecommendationEvaluator, TrainValidRecommendSplit}
+import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{Vectors => mlVectors}
+import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
-import org.apache.spark.sql.functions._
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.FunSuite
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.language.existentials
 
 class SARSPec extends FunSuite {
   val conf = new SparkConf()
@@ -29,90 +34,7 @@ class SARSPec extends FunSuite {
     .config(conf)
     .getOrCreate()
 
-  test("testSARMatrix") {
-    val df: DataFrame = session
-      .createDataFrame(Seq(
-        ("11", "Movie 01", 4, 4),
-        ("11", "Movie 03", 1, 1),
-        ("11", "Movie 04", 5, 5),
-        ("11", "Movie 05", 3, 3),
-        ("11", "Movie 07", 3, 3),
-        ("11", "Movie 09", 3, 3),
-        ("11", "Movie 10", 3, 3),
-        ("22", "Movie 01", 4, 4),
-        ("22", "Movie 02", 5, 5),
-        ("22", "Movie 03", 1, 1),
-        ("22", "Movie 06", 4, 4),
-        ("22", "Movie 07", 5, 5),
-        ("22", "Movie 08", 1, 1),
-        ("22", "Movie 10", 3, 3),
-        ("33", "Movie 01", 4, 4),
-        ("33", "Movie 02", 1, 1),
-        ("33", "Movie 03", 1, 1),
-        ("33", "Movie 04", 5, 5),
-        ("33", "Movie 05", 3, 3),
-        ("33", "Movie 06", 4, 4),
-        ("33", "Movie 08", 1, 1),
-        ("33", "Movie 09", 5, 5),
-        ("33", "Movie 10", 3, 3),
-        ("44", "Movie 02", 5, 5),
-        ("44", "Movie 03", 1, 1),
-        ("44", "Movie 04", 5, 5),
-        ("44", "Movie 05", 3, 3),
-        ("44", "Movie 06", 4, 4),
-        ("44", "Movie 07", 5, 5),
-        ("44", "Movie 08", 1, 1),
-        ("44", "Movie 09", 5, 5),
-        ("44", "Movie 10", 3, 3)))
-      .toDF("customerIDOrg", "itemIDOrg", "rating", "time")
-    val customerIndex = new StringIndexer()
-      .setInputCol("customerIDOrg")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("itemIDOrg")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val model1: PipelineModel = pipeline.fit(df)
-
-    val transformedDf = model1.transform(df)
-    import org.apache.spark.sql.functions._
-    val rdd = transformedDf
-      .select(col(customerIndex.getOutputCol).cast(LongType)).rdd
-      .map(r => MatrixEntry(r.getLong(0), r.getLong(0), 1.0))
-    val matrix = new CoordinateMatrix(rdd).toBlockMatrix().cache()
-    val ata = matrix.transpose.multiply(matrix)
-
-    print(ata.toString)
-    print("Done")
-  }
-
-  test("testSARMatrix_tiny") {
-    testNewMatrixMutiply(tinydf)
-  }
-
-  test("testSARMatrix_tiny_old") {
-    oldMatrixMadeByMap(tinydf)
-  }
-
-  test("testSARMatrix_big") {
-    testNewMatrixMutiply(bigdf)
-  }
-
-  test("testSARMatrix_big_old") {
-    oldMatrixMadeByMap(bigdf)
-  }
-
-  test("testSARMatrix_all") {
-    testNewMatrixMutiply(alldf)
-  }
-
-  test("testSARMatrix_all_old") {
-    oldMatrixMadeByMap(alldf)
-  }
+  private lazy val sc: SparkContext = session.sparkContext
 
   private lazy val alldf: DataFrame = session.read
     .option("header", "true") //reading the headers
@@ -128,38 +50,6 @@ class SARSPec extends FunSuite {
     .option("header", "true") //reading the headers
     .option("inferSchema", "true") //reading the headers
     .csv("/mnt/rating_tiny.csv").na.drop
-
-  private def oldMatrixMadeByMap(df: DataFrame) = {
-    val customerIndex = new StringIndexer()
-      .setInputCol("originalCustomerID")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("newCategoryID")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val model1: PipelineModel = pipeline.fit(df)
-    val transformedDf = model1.transform(df)
-
-    val userColumn = customerIndex.getOutputCol
-    val itemColumn = ratingsIndex.getOutputCol
-
-    import org.apache.spark.sql.functions._
-    val userToItemsList = transformedDf.groupBy(userColumn)
-      .agg(collect_list(col(itemColumn)))
-    userToItemsList.cache
-
-    val countedItems = userToItemsList.withColumn("counted", processRow(col("collect_list(" + itemColumn + ")")))
-
-    val func = new CountTableUDAF
-    val itemMatrix = countedItems.agg(func(col("counted")))
-
-    print(itemMatrix.count)
-    print("Done")
-  }
 
   private def testNewMatrixMutiply(df: DataFrame) = {
     val customerIndex = new StringIndexer()
@@ -256,140 +146,12 @@ class SARSPec extends FunSuite {
         ("44", "Movie 09", 5, 5),
         ("44", "Movie 10", 3, 3)))
       .toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
-    //    val customerIndex = new StringIndexer()
-    //      .setInputCol("customerIDOrg")
-    //      .setOutputCol("customerID")
-    //
-    //    val ratingsIndex = new StringIndexer()
-    //      .setInputCol("itemIDOrg")
-    //      .setOutputCol("itemID")
-    //
-    //    val pipeline = new Pipeline()
-    //      .setStages(Array(customerIndex, ratingsIndex))
-    //
-    //    val model1: PipelineModel = pipeline.fit(df)
-    //
-    //    val transformedDf = model1.transform(df)
-    //
-    //    val sar = new SAR()
-    //      .setUserCol(customerIndex.getOutputCol)
-    //      .setItemCol(ratingsIndex.getOutputCol)
-    //      .setRatingCol("rating")
-    //
-    //    val tvModel = sar.fit(transformedDf)
-    //
-    //    val model = tvModel.asInstanceOf[SARModel]
-    //
-    //    val k = 3
-    //    var items = model.recommendForAllUsers(k)
-    //    println(items.count)
-    //    val labelsbc = session.sparkContext.broadcast(model1.stages(1).asInstanceOf[StringIndexerModel].labels)
-    //    val labelItem = udf((itemId: Double) => labelsbc.value(itemId.toInt))
-    //    (0 until k).map(i => items = items.withColumn("item_" + (i + 1), labelItem(col("recommendations.itemID")(i))))
-    //
-    //    val converter = new IndexToString()
-    //      .setInputCol("customerID")
-    //      .setOutputCol("customerIDrestored")
 
     evalTest(df, "customerIDOrg", "itemIDOrg", "rating")
-
 
     //    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
 
     //    converted.take(4).foreach(println(_))
-  }
-
-  test("testSAR_movies_tiny") {
-    val df: DataFrame = session.read
-      .option("header", "true") //reading the headers
-      .option("inferSchema", "true") //reading the headers
-      .csv("/mnt/rating_tiny.csv").na.drop
-
-    val customerIndex = new StringIndexer()
-      .setInputCol("originalCustomerID")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("newCategoryID")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val model1: PipelineModel = pipeline.fit(df)
-
-    val transformedDf = model1.transform(df)
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating_total")
-      .setTimeCol("session_startdt")
-
-    val tvModel = sar.fit(transformedDf)
-
-    val model = tvModel.asInstanceOf[SARModel]
-
-    val k = 3
-    var items = model.recommendForAllUsers(k)
-
-    val labelsbc = session.sparkContext.broadcast(model1.stages(1).asInstanceOf[StringIndexerModel].labels)
-    val labelItem = udf((itemId: Double) => labelsbc.value(itemId.toInt))
-    (0 until k).map(i => items = items.withColumn("item_" + (i + 1), labelItem(col("recommended")(i))))
-
-    val converter = new IndexToString()
-      .setInputCol("customerID")
-      .setOutputCol("customerIDrestored")
-
-    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
-
-    converted.take(4).foreach(println(_))
-  }
-
-  test("testSAR_movies_big") {
-    val df: DataFrame = session.read
-      .option("header", "true") //reading the headers
-      .option("inferSchema", "true") //reading the headers
-      .csv("/mnt/rating_big.csv").na.drop
-
-    val customerIndex = new StringIndexer()
-      .setInputCol("originalCustomerID")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("newCategoryID")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val model1: PipelineModel = pipeline.fit(df)
-
-    val transformedDf = model1.transform(df)
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating_total")
-
-    val tvModel = sar.fit(transformedDf)
-
-    val model = tvModel.asInstanceOf[SARModel]
-
-    val k = 3
-    var items = model.recommendForAllUsers(k)
-
-    val labelsbc = session.sparkContext.broadcast(model1.stages(1).asInstanceOf[StringIndexerModel].labels)
-    val labelItem = udf((itemId: Double) => labelsbc.value(itemId.toInt))
-    (0 until k).map(i => items = items.withColumn("item_" + (i + 1), labelItem(col("recommended")(i))))
-
-    val converter = new IndexToString()
-      .setInputCol("customerID")
-      .setOutputCol("customerIDrestored")
-
-    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
-
-    converted.take(4).foreach(println(_))
   }
 
   test("testSAR_movie_lens_tiny_eval") {
@@ -450,7 +212,9 @@ class SARSPec extends FunSuite {
     //3.53
   }
 
-  test("testSAR_movie_lens_all_eval") {
+  ignore("testSAR_movie_lens_all_eval") {
+    //Map(map -> 0.0, maxDiversity -> 0.7083964327780582, diversityAtK -> 0.005216220763923944, recallAtK -> 0.0,
+    // ndcgAt -> 0.0, precisionAtk -> 0.0)
 
     //    val customerIndex = new StringIndexer()
     //      .setInputCol("originalCustomerID")
@@ -508,6 +272,10 @@ class SARSPec extends FunSuite {
   }
 
   private def evalTest(ratings: DataFrame, customerId: String, itemId: String, rating: String) = {
+    session.sparkContext.setLogLevel("WARN")
+
+    val k = 10
+
     ratings.cache()
     val customerIndex = new StringIndexer()
       .setInputCol(customerId)
@@ -522,17 +290,22 @@ class SARSPec extends FunSuite {
 
     val transformedDf = pipeline.fit(ratings).transform(ratings)
     transformedDf.cache().count
-    ratings.unpersist()
+    //    ratings.unpersist()
     val sar = new SAR()
       .setUserCol(customerIndex.getOutputCol)
       .setItemCol(ratingsIndex.getOutputCol)
       .setRatingCol("rating")
 
+    val alsWReg = new MsftRecommendation()
+      .setUserCol(customerIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getOutputCol)
+
     val paramGrid = new ParamGridBuilder()
       .build()
 
     val evaluator = new MsftRecommendationEvaluator()
-      .setK(10)
+      .setK(k)
       .setSaveAll(true)
 
     val helper = new TrainValidRecommendSplit()
@@ -546,24 +319,24 @@ class SARSPec extends FunSuite {
 
     val filtered = helper.filterRatings(transformedDf)
     filtered.cache().count()
-    transformedDf.unpersist()
+    //    transformedDf.unpersist()
     val Array(train, test) = helper.splitDF(filtered)
     train.cache().count
     test.cache().count
-    filtered.unpersist()
+    //    filtered.unpersist()
 
     val model = sar.fit(train)
 
-    val users = model.recommendForAllUsers(10)
+    val users = model.recommendForAllUsers(k)
     users.cache.count
-    train.unpersist
+    //    train.unpersist
 
-    val testData = helper.prepareTestData(test, users, 10)
+    val testData = helper.prepareTestData(test, users, k)
     testData.cache.count
-    test.unpersist
-    users.unpersist
+    //    test.unpersist
+    //    users.unpersist
 
-    evaluator.setNItems(test.rdd.map(r => r(1)).distinct().count())
+    evaluator.setNItems(transformedDf.rdd.map(r => r(5)).distinct().count())
     evaluator.evaluate(testData)
     evaluator.printMetrics()
     val metrics = "ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity"
@@ -574,371 +347,13 @@ class SARSPec extends FunSuite {
     assert(evaluator.getMetricsList(0).getOrElse("recallAtK", 0.0) > 0)
     assert(evaluator.getMetricsList(0).getOrElse("diversityAtK", 0.0) > 0)
     assert(evaluator.getMetricsList(0).getOrElse("maxDiversity", 0.0) > 0)
-  }
+    assert(evaluator.getMetricsList(0).getOrElse("map", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("ndcgAt", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("precisionAtk", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("recallAtK", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("diversityAtK", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("maxDiversity", 0.0) <= 1.0)
 
-  test("testSAR_movies_big_eval") {
-
-    //    val customerIndex = new StringIndexer()
-    //      .setInputCol("originalCustomerID")
-    //      .setOutputCol("customerID")
-    //
-    //    val ratingsIndex = new StringIndexer()
-    //      .setInputCol("newCategoryID")
-    //      .setOutputCol("itemID")
-    //
-    //    val pipeline = new Pipeline()
-    //      .setStages(Array(customerIndex, ratingsIndex))
-    //
-    //    val model1: PipelineModel = pipeline.fit(df)
-    //
-    //    val transformedDf = model1.transform(df)
-    //
-    //    val sar = new SAR()
-    //      .setUserCol(customerIndex.getOutputCol)
-    //      .setItemCol(ratingsIndex.getOutputCol)
-    //      .setRatingCol("rating_total")
-    //
-    //    val tvModel = sar.fit(transformedDf)
-    //
-    //    val model = tvModel.asInstanceOf[SARModel]
-    //
-    //    val k = 3
-    //    var items = model.recommendForAllUsers(k)
-    //
-    //    val labelsbc = session.sparkContext.broadcast(model1.stages(1).asInstanceOf[StringIndexerModel].labels)
-    //    val labelItem = udf((itemId: Double) => labelsbc.value(itemId.toInt))
-    //    (0 until k).map(i => items = items.withColumn("item_" + (i + 1), labelItem(col("recommended")(i))))
-    //
-    //    val converter = new IndexToString()
-    //      .setInputCol("customerID")
-    //      .setOutputCol("customerIDrestored")
-    //
-    //
-    //    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
-    //
-    //    converted.take(4).foreach(println(_))
-    //
-    //    val (transformedDf: DataFrame,
-    //    alsWReg: MsftRecommendation,
-    //    evaluator: MsftRecommendationEvaluator,
-    //    helper: TrainValidRecommendSplit) = {
-    //      (transformedDf, alsWReg, evaluator, helper)
-    //    }
-
-    val conf = new SparkConf()
-      //      .setAppName("Testing Custom Model")
-      .setMaster("local[*]")
-      .set("spark.driver.memory", "80g")
-      .set("spark.driver.maxResultSize", "5g")
-    //      .set("spark.logConf", "true")
-    //      .set("spark.sql.warehouse.dir", localWarehousePath)
-    //      .set("spark.executor.extraJavaOptions", "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+UseG1GC
-    // -XX:InitiatingHeapOccupancyPercent=35 -XX:ConcGCThread=20")
-    val sess = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
-
-    val ratings: DataFrame = sess.read
-      .option("header", "true") //reading the headers
-      .option("inferSchema", "true") //reading the headers
-      .csv("/mnt/rating_big.csv").na.drop.cache()
-
-    val customerIndex = new StringIndexer()
-      .setInputCol("originalCustomerID")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("newCategoryID")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val transformedDf = pipeline.fit(ratings).transform(ratings).cache()
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating_total")
-
-    val paramGrid = new ParamGridBuilder()
-      .build()
-
-    val evaluator = new MsftRecommendationEvaluator()
-      .setK(3)
-      .setSaveAll(true)
-
-    val helper = new TrainValidRecommendSplit()
-      .setEstimator(sar)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(paramGrid)
-      .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getOutputCol)
-      .setRatingCol("rating_total")
-      .setItemCol(ratingsIndex.getOutputCol)
-
-    val filtered = helper.filterRatings(transformedDf).cache()
-    val Array(train, test) = helper.splitDF(filtered)
-    train.cache()
-    test.cache()
-    val model = sar.fit(train)
-
-    val users = model.recommendForAllUsers(3).cache()
-    users.count() //force users
-
-    val testData = helper.prepareTestData(test, users, 3).cache()
-    evaluator.setNItems(test.rdd.map(r => r(1)).distinct().count())
-    evaluator.evaluate(testData)
-    evaluator.printMetrics()
-  }
-
-  test("testSAR_movies_all_eval") {
-
-    //    val customerIndex = new StringIndexer()
-    //      .setInputCol("originalCustomerID")
-    //      .setOutputCol("customerID")
-    //
-    //    val ratingsIndex = new StringIndexer()
-    //      .setInputCol("newCategoryID")
-    //      .setOutputCol("itemID")
-    //
-    //    val pipeline = new Pipeline()
-    //      .setStages(Array(customerIndex, ratingsIndex))
-    //
-    //    val model1: PipelineModel = pipeline.fit(df)
-    //
-    //    val transformedDf = model1.transform(df)
-    //
-    //    val sar = new SAR()
-    //      .setUserCol(customerIndex.getOutputCol)
-    //      .setItemCol(ratingsIndex.getOutputCol)
-    //      .setRatingCol("rating_total")
-    //
-    //    val tvModel = sar.fit(transformedDf)
-    //
-    //    val model = tvModel.asInstanceOf[SARModel]
-    //
-    //    val k = 3
-    //    var items = model.recommendForAllUsers(k)
-    //
-    //    val labelsbc = session.sparkContext.broadcast(model1.stages(1).asInstanceOf[StringIndexerModel].labels)
-    //    val labelItem = udf((itemId: Double) => labelsbc.value(itemId.toInt))
-    //    (0 until k).map(i => items = items.withColumn("item_" + (i + 1), labelItem(col("recommended")(i))))
-    //
-    //    val converter = new IndexToString()
-    //      .setInputCol("customerID")
-    //      .setOutputCol("customerIDrestored")
-    //
-    //
-    //    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
-    //
-    //    converted.take(4).foreach(println(_))
-    //
-    //    val (transformedDf: DataFrame,
-    //    alsWReg: MsftRecommendation,
-    //    evaluator: MsftRecommendationEvaluator,
-    //    helper: TrainValidRecommendSplit) = {
-    //      (transformedDf, alsWReg, evaluator, helper)
-    //    }
-
-    val conf = new SparkConf()
-      //      .setAppName("Testing Custom Model")
-      .setMaster("local[*]")
-      .set("spark.driver.memory", "60G")
-    //      .set("spark.logConf", "true")
-    //      .set("spark.sql.warehouse.dir", localWarehousePath)
-    //      .set("spark.executor.extraJavaOptions", "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+UseG1GC
-    // -XX:InitiatingHeapOccupancyPercent=35 -XX:ConcGCThread=20")
-    val sess = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
-
-    val ratings: DataFrame = sess.read
-      .option("header", "true") //reading the headers
-      .option("inferSchema", "true") //reading the headers
-      .csv("/mnt/rating.csv").na.drop.cache()
-
-    val customerIndex = new StringIndexer()
-      .setInputCol("originalCustomerID")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("newCategoryID")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val transformedDf = pipeline.fit(ratings).transform(ratings).cache()
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating_total")
-
-    val paramGrid = new ParamGridBuilder()
-      .build()
-
-    val evaluator = new MsftRecommendationEvaluator()
-      .setK(10)
-      .setSaveAll(true)
-
-    val helper = new TrainValidRecommendSplit()
-      .setEstimator(sar)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(paramGrid)
-      .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getOutputCol)
-      .setRatingCol("rating_total")
-      .setItemCol(ratingsIndex.getOutputCol)
-
-    val filtered = helper.filterRatings(transformedDf).cache()
-    filtered.count
-    val Array(train, test) = helper.splitDF(filtered)
-    train.count
-    test.count
-    train.cache()
-    test.cache()
-    val model = sar.fit(train)
-
-    val users = model.recommendForAllUsers(10).cache()
-    users.count
-    users.write.csv("/mnt/recommendations.csv")
-    train.unpersist()
-
-    val testData = helper.prepareTestData(test, users, 3).cache()
-    test.unpersist()
-    testData.count
-    evaluator.setNItems(test.rdd.map(r => r(1)).distinct().count())
-    evaluator.evaluate(testData)
-    evaluator.printMetrics()
-  }
-
-  test("testJaccard") {
-    val df: DataFrame = session
-      .createDataFrame(Seq(
-        ("11", "Movie 01", 4),
-        ("11", "Movie 03", 1),
-        ("11", "Movie 04", 5),
-        ("11", "Movie 05", 3),
-        ("11", "Movie 06", 4),
-        ("11", "Movie 07", 1),
-        ("11", "Movie 08", 5),
-        ("11", "Movie 09", 3),
-        ("22", "Movie 01", 4),
-        ("22", "Movie 02", 5),
-        ("22", "Movie 03", 1),
-        ("22", "Movie 05", 3),
-        ("22", "Movie 06", 4),
-        ("22", "Movie 07", 5),
-        ("22", "Movie 08", 1),
-        ("22", "Movie 10", 3),
-        ("33", "Movie 01", 4),
-        ("33", "Movie 03", 1),
-        ("33", "Movie 04", 5),
-        ("33", "Movie 05", 3),
-        ("33", "Movie 06", 4),
-        ("33", "Movie 08", 1),
-        ("33", "Movie 09", 5),
-        ("33", "Movie 10", 3),
-        ("44", "Movie 01", 4),
-        ("44", "Movie 02", 5),
-        ("44", "Movie 03", 1),
-        ("44", "Movie 05", 3),
-        ("44", "Movie 06", 4),
-        ("44", "Movie 07", 5),
-        ("44", "Movie 08", 1),
-        ("44", "Movie 10", 3)))
-      .toDF("customerIDOrg", "itemIDOrg", "rating")
-    val customerIndex = new StringIndexer()
-      .setInputCol("customerIDOrg")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("itemIDOrg")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val transformedDf = pipeline.fit(df).transform(df)
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating")
-
-    val (itemMatrix, itemMatrixDF) = sar.itemFactorize(transformedDf)
-    val itemMap = itemMatrix.take(1)(0)(0).asInstanceOf[Map[Double, Map[Double, Double]]]
-
-    type MapType = Map[Double, Map[Double, Double]]
-    val liftMap = sar.calcJaccard(itemMap)
-
-    print(liftMap.toString)
-  }
-
-  test("testLift") {
-    val df: DataFrame = session
-      .createDataFrame(Seq(
-        ("11", "Movie 01", 4),
-        ("11", "Movie 03", 1),
-        ("11", "Movie 04", 5),
-        ("11", "Movie 05", 3),
-        ("11", "Movie 06", 4),
-        ("11", "Movie 07", 1),
-        ("11", "Movie 08", 5),
-        ("11", "Movie 09", 3),
-        ("22", "Movie 01", 4),
-        ("22", "Movie 02", 5),
-        ("22", "Movie 03", 1),
-        ("22", "Movie 05", 3),
-        ("22", "Movie 06", 4),
-        ("22", "Movie 07", 5),
-        ("22", "Movie 08", 1),
-        ("22", "Movie 10", 3),
-        ("33", "Movie 01", 4),
-        ("33", "Movie 03", 1),
-        ("33", "Movie 04", 5),
-        ("33", "Movie 05", 3),
-        ("33", "Movie 06", 4),
-        ("33", "Movie 08", 1),
-        ("33", "Movie 09", 5),
-        ("33", "Movie 10", 3),
-        ("44", "Movie 01", 4),
-        ("44", "Movie 02", 5),
-        ("44", "Movie 03", 1),
-        ("44", "Movie 05", 3),
-        ("44", "Movie 06", 4),
-        ("44", "Movie 07", 5),
-        ("44", "Movie 08", 1),
-        ("44", "Movie 10", 3)))
-      .toDF("customerIDOrg", "itemIDOrg", "rating")
-    val customerIndex = new StringIndexer()
-      .setInputCol("customerIDOrg")
-      .setOutputCol("customerID")
-
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("itemIDOrg")
-      .setOutputCol("itemID")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
-
-    val transformedDf = pipeline.fit(df).transform(df)
-
-    val sar = new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating")
-      .setSupportThreshold(4)
-
-    val (itemMatrix, itemMatrixDF) = sar.itemFactorize(transformedDf)
-    val itemMap = itemMatrix.take(1)(0)(0).asInstanceOf[Map[Double, Map[Double, Double]]]
-
-    type MapType = Map[Double, Map[Double, Double]]
-    val liftMap = sar.calcLift(itemMap)
-
-    print(liftMap.toString)
   }
 
   test("testItemFactorize") {
@@ -997,7 +412,7 @@ class SARSPec extends FunSuite {
 
     type MapType = Map[Double, Map[Double, Double]]
 
-    val (itemMatrix, itemMatrixDF) = sar.itemFactorize(transformedDf)
+    val itemMatrixDF = sar.itemFeatures(transformedDf)
 
     val lists = itemMatrixDF.collect()
     //    val itemMap: MapType = itemMatrix.take(1)(0)(0).asInstanceOf[Map[Double, Map[Double, Double]]]
@@ -1098,6 +513,147 @@ class SARSPec extends FunSuite {
     def indentLine(line: String): String = {
       "\t" + line
     }
+  }
+
+  val recommender = new SAR()
+
+  test("exact rank-1 matrix") {
+    val (training, test) = genExplicitTestData(numUsers = 20, numItems = 40, rank = 1)
+
+    testRecommender(training, test, maxIter = 1, rank = 1, regParam = 1e-5, targetRMSE = 0.001, recommender =
+      recommender)
+    testRecommender(training, test, maxIter = 1, rank = 2, regParam = 1e-5, targetRMSE = 0.001, recommender =
+      recommender)
+  }
+
+  test("approximate rank-1 matrix") {
+    val (training, test) =
+      genExplicitTestData(numUsers = 20, numItems = 40, rank = 1, noiseStd = 0.01)
+    testRecommender(training, test, maxIter = 2, rank = 1, regParam = 0.01, targetRMSE = 0.02, recommender =
+      recommender)
+    testRecommender(training, test, maxIter = 2, rank = 2, regParam = 0.01, targetRMSE = 0.02, recommender =
+      recommender)
+  }
+
+  test("approximate rank-2 matrix") {
+    val (training, test) =
+      genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
+    testRecommender(training, test, maxIter = 4, rank = 2, regParam = 0.01, targetRMSE = 0.03, recommender =
+      recommender)
+    testRecommender(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03, recommender =
+      recommender)
+  }
+
+  test("different block settings") {
+    val (training, test) =
+      genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
+    for ((numUserBlocks, numItemBlocks) <- Seq((1, 1), (1, 2), (2, 1), (2, 2))) {
+      testRecommender(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03,
+        numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks, recommender = recommender)
+    }
+  }
+
+  test("more blocks than ratings") {
+    val (training, test) =
+      genExplicitTestData(numUsers = 4, numItems = 4, rank = 1)
+    testRecommender(training, test, maxIter = 2, rank = 1, regParam = 1e-4, targetRMSE = 0.002,
+      numItemBlocks = 5, numUserBlocks = 5, recommender = recommender)
+  }
+
+  def testRecommender(
+                       training: RDD[Rating[Int]],
+                       test: RDD[Rating[Int]],
+                       rank: Int,
+                       maxIter: Int,
+                       regParam: Double,
+                       implicitPrefs: Boolean = false,
+                       numUserBlocks: Int = 2,
+                       numItemBlocks: Int = 3,
+                       targetRMSE: Double = 0.05,
+                       recommender: SAR): Unit = {
+    val spark = this.session
+    import spark.implicits._
+    val als = recommender
+      .setRank(rank)
+      .setUserCol("user")
+      .setItemCol("item")
+      .setRatingCol("rating")
+
+    val alpha = als.getAlpha
+    val model = als.fit(training.toDF())
+    val predictions = model.transform(test.toDF()).select("rating", "prediction").rdd.map {
+      case Row(rating: Float, prediction: Float) =>
+        (rating.toDouble, prediction.toDouble)
+    }
+    val rmse =
+      if (implicitPrefs) {
+        // TODO: Use a better (rank-based?) evaluation metric for implicit feedback.
+        // We limit the ratings and the predictions to interval [0, 1] and compute the weighted RMSE
+        // with the confidence scores as weights.
+        val (totalWeight, weightedSumSq) = predictions.map { case (rating, prediction) =>
+          val confidence = 1.0 + alpha * math.abs(rating)
+          val rating01 = math.max(math.min(rating, 1.0), 0.0)
+          val prediction01 = math.max(math.min(prediction, 1.0), 0.0)
+          val err = prediction01 - rating01
+          (confidence, confidence * err * err)
+        }.reduce { case ((c0, e0), (c1, e1)) =>
+          (c0 + c1, e0 + e1)
+        }
+        math.sqrt(weightedSumSq / totalWeight)
+      } else {
+        val mse = predictions.map { case (rating, prediction) =>
+          val err = rating - prediction
+          err * err
+        }.mean()
+        math.sqrt(mse)
+      }
+    assert(rmse < targetRMSE)
+    ()
+  }
+
+  def genExplicitTestData(
+                           numUsers: Int,
+                           numItems: Int,
+                           rank: Int,
+                           noiseStd: Double = 0.0,
+                           seed: Long = 11L): (RDD[Rating[Int]], RDD[Rating[Int]]) = {
+    val trainingFraction = 0.6
+    val testFraction = 0.3
+    val totalFraction = trainingFraction + testFraction
+    val random = new Random(seed)
+    val userFactors = genFactors(numUsers, rank, random)
+    val itemFactors = genFactors(numItems, rank, random)
+    val training = ArrayBuffer.empty[Rating[Int]]
+    val test = ArrayBuffer.empty[Rating[Int]]
+    for ((userId, userFactor) <- userFactors; (itemId, itemFactor) <- itemFactors) {
+      val x = random.nextDouble()
+      if (x < totalFraction) {
+        val rating = blas.sdot(rank, userFactor, 1, itemFactor, 1)
+        if (x < trainingFraction) {
+          val noise = noiseStd * random.nextGaussian()
+          training += Rating(userId, itemId, rating + noise.toFloat)
+        } else {
+          test += Rating(userId, itemId, rating)
+        }
+      }
+    }
+    (sc.parallelize(training, 2), sc.parallelize(test, 2))
+  }
+
+  private def genFactors(
+                          size: Int,
+                          rank: Int,
+                          random: Random,
+                          a: Float = -1.0f,
+                          b: Float = 1.0f): Seq[(Int, Array[Float])] = {
+    require(size > 0 && size < Int.MaxValue / 3)
+    require(b > a)
+    val ids = mutable.Set.empty[Int]
+    while (ids.size < size) {
+      ids += random.nextInt()
+    }
+    val width = b - a
+    ids.toSeq.sorted.map(id => (id, Array.fill(rank)(a + random.nextFloat() * width)))
   }
 
 }

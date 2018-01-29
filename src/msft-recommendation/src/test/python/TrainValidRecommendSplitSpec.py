@@ -19,7 +19,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         os.environ["PYSPARK_PYTHON"] = "/home/dciborow/bin/python3"
 
         store_name = "bigdatadevlogs"
-        key = "s3JDdUC4E7iYIOR0G6kSCPogZvnv46zk53VupX4xyKaJIPyUPVEt7ekqOWxzjUIctQlk9moHP14cTCdeqCRKfw==="
+        key = ""
         container = "ms-sampledata"
 
         block_blob_service = BlockBlobService(account_name=store_name, account_key=key)
