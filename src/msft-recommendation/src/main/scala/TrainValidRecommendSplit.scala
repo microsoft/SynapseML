@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.spark.ml.recommendations.{SAR, SARModel}
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
@@ -185,14 +184,14 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     //      col($(ratingCol) + "test2").as($(ratingCol))
     //    )
 
-    val train = testds.select("customerID", "train")
+    val train = testds.select($(userCol), "train")
       .withColumn("itemIdRating", explode(col("train")))
       .drop("train")
       .withColumn($(itemCol), popLeft(col("itemIdRating")))
       .withColumn($(ratingCol), popRight(col("itemIdRating")))
       .drop("itemIdRating")
 
-    val test = testds.select("customerID", "test")
+    val test = testds.select($(userCol), "test")
       .withColumn("itemIdRating", explode(col("test")))
       .drop("test")
       .withColumn($(itemCol), popLeft(col("itemIdRating")))

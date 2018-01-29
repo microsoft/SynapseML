@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.spark.ml.recommendations
+package com.microsoft.ml.spark
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
@@ -23,35 +23,10 @@ import scala.collection.mutable
 import scala.collection.mutable.Set
 import scala.language.existentials
 
-trait SARParams extends MsftRecommendationParams {
-
-  /** @group setParam */
-  def setRank(value: Int): this.type = set(rank, value)
-
-  /** @group setParam */
-  def setUserCol(value: String): this.type = set(userCol, value)
-
-  /** @group setParam */
-  def setItemCol(value: String): this.type = set(itemCol, value)
-
-  /** @group setParam */
-  def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
-
-  val supportThreshold = new Param[Int](this, "supportThreshold", "Warm Cold Item Threshold")
-
-  /** @group getParam */
-  def getSupportThreshold: Int = $(supportThreshold)
-
-  setDefault(supportThreshold -> 4)
-
-  setDefault(ratingCol -> "rating")
-  setDefault(userCol -> "user")
-  setDefault(itemCol -> "item")
-
-}
-
+/** SAR
+  *
+  * @param uid The id of the module
+  */
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams {
 
   def setTimeCol(value: String): this.type = set(timeCol, value)
@@ -155,6 +130,35 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams {
 
 }
 
+trait SARParams extends MsftRecommendationParams {
+
+  /** @group setParam */
+  def setRank(value: Int): this.type = set(rank, value)
+
+  /** @group setParam */
+  def setUserCol(value: String): this.type = set(userCol, value)
+
+  /** @group setParam */
+  def setItemCol(value: String): this.type = set(itemCol, value)
+
+  /** @group setParam */
+  def setRatingCol(value: String): this.type = set(ratingCol, value)
+
+  def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
+
+  val supportThreshold = new Param[Int](this, "supportThreshold", "Warm Cold Item Threshold")
+
+  /** @group getParam */
+  def getSupportThreshold: Int = $(supportThreshold)
+
+  setDefault(supportThreshold -> 4)
+
+  setDefault(ratingCol -> "rating")
+  setDefault(userCol -> "user")
+  setDefault(itemCol -> "item")
+
+}
+
 object SAR {
 
   def calcJaccard(map: Map[Double, Map[Double, Double]], supportThreshold: Int): mutable.Map[(Double, Double),
@@ -214,14 +218,25 @@ object SAR {
 
     val itemCountsBC = sc.sparkContext.broadcast(itemCounts)
 
-    val jaccardColumn2 = udf((itemID: Int, features: linalg.Vector) => {
+    val calculateFeature = udf((itemID: Int, features: linalg.Vector) => {
+      val jaccardFlag = true
+      val liftFlag = true
+
+      def lift(countI: Double, countJ: Long, cooco: Double) = (cooco / (countI * countJ)).toFloat
+
+      def jaccard(countI: Double, countJ: Long, cooco: Double) = (cooco / (countI + countJ - cooco)).toFloat
+
       val countI = features.apply(itemID)
       features.toArray.indices.map(i => {
         val countJ: Long = itemCountsBC.value.getOrElse(i, 0)
         if (countI < supportThreshold || countJ < supportThreshold) {
           val cooco = features.apply(i)
-          val out = cooco / (countI + countJ - cooco)
-          out.toFloat
+          if (jaccardFlag)
+            jaccard(countI, countJ, cooco)
+          else if (liftFlag)
+            lift(countI, countJ, cooco)
+          else
+            cooco.toFloat
         }
         else -1
       })
@@ -242,7 +257,7 @@ object SAR {
 
     sc.createDataFrame(rowMatrix)
       .toDF(itemColumn, "features")
-      .withColumn("jaccardList", jaccardColumn2(col(itemColumn), col("features")))
+      .withColumn("jaccardList", calculateFeature(col(itemColumn), col("features")))
       .select(
         col(itemColumn).cast(IntegerType),
         col("jaccardList")

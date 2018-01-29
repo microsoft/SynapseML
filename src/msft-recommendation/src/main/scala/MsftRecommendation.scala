@@ -17,7 +17,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.util.Random
 
-/** Featurize text.
+/** MsftRecommendation
   *
   * @param uid The id of the module
   */

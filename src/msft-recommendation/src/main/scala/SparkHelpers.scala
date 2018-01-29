@@ -44,11 +44,14 @@ trait MsftRecommendationModelParams extends Params with ALSModelParams with HasP
       .recommendForAllUsers(k)
   }
 
-  def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]) = {
+  def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]): DataFrame = {
     MsftRecHelper
-      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
+      .getALSModel(uid, rank,
+        userDataFrame.withColumnRenamed($(userCol), "id").withColumnRenamed("flatList", "features"),
+        itemDataFrame.withColumnRenamed($(itemCol), "id").withColumnRenamed("jaccardList", "features"))
       .setUserCol($(userCol))
       .setItemCol($(itemCol))
+      .setColdStartStrategy("drop")
       .transform(dataset)
   }
 }
@@ -207,7 +210,7 @@ private[ml] object TrainValidRecommendSplitParams {
 
     val metadata = DefaultParamsReader.loadMetadata(path, sc, expectedClassName)
 
-    implicit val format = DefaultFormats
+    implicit val format: DefaultFormats.type = DefaultFormats
     val evaluatorPath = new Path(path, "evaluator").toString
     val evaluator = DefaultParamsReader.loadParamsInstance[Evaluator](evaluatorPath, sc)
     val estimatorPath = new Path(path, "estimator").toString
@@ -239,7 +242,7 @@ object MsftRecHelper {
   def getALSModel(uid: String,
                   rank: Int,
                   userFactors: DataFrame,
-                  itemFactors: DataFrame) = {
+                  itemFactors: DataFrame): ALSModel = {
     new ALSModel(uid, rank, userFactors, itemFactors)
   }
 

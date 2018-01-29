@@ -233,26 +233,22 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
 
   test("exact rank-1 matrix") {
     val (training, test) = genExplicitTestData(numUsers = 20, numItems = 40, rank = 1)
-    testRecommender(training, test, maxIter = 1, rank = 1, regParam = 1e-5, targetRMSE = 0.001, recommender =
-      recommender)
-    testRecommender(training, test, maxIter = 1, rank = 2, regParam = 1e-5, targetRMSE = 0.001, recommender =
-      recommender)
+    testRecommender(training, test, maxIter = 1, rank = 1, regParam = 1e-5, targetRMSE = 0.001)
+    testRecommender(training, test, maxIter = 1, rank = 2, regParam = 1e-5, targetRMSE = 0.001)
   }
 
   test("approximate rank-1 matrix") {
     val (training, test) =
       genExplicitTestData(numUsers = 20, numItems = 40, rank = 1, noiseStd = 0.01)
-    testRecommender(training, test, maxIter = 2, rank = 1, regParam = 0.01, targetRMSE = 0.02, recommender =
-      recommender)
-    testRecommender(training, test, maxIter = 2, rank = 2, regParam = 0.01, targetRMSE = 0.02, recommender = recommender)
+    testRecommender(training, test, maxIter = 2, rank = 1, regParam = 0.01, targetRMSE = 0.02)
+    testRecommender(training, test, maxIter = 2, rank = 2, regParam = 0.01, targetRMSE = 0.02)
   }
 
   test("approximate rank-2 matrix") {
     val (training, test) =
       genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
-    testRecommender(training, test, maxIter = 4, rank = 2, regParam = 0.01, targetRMSE = 0.03, recommender =
-      recommender)
-    testRecommender(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03, recommender = recommender)
+    testRecommender(training, test, maxIter = 4, rank = 2, regParam = 0.01, targetRMSE = 0.03)
+    testRecommender(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03)
   }
 
   test("different block settings") {
@@ -260,7 +256,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
       genExplicitTestData(numUsers = 20, numItems = 40, rank = 2, noiseStd = 0.01)
     for ((numUserBlocks, numItemBlocks) <- Seq((1, 1), (1, 2), (2, 1), (2, 2))) {
       testRecommender(training, test, maxIter = 4, rank = 3, regParam = 0.01, targetRMSE = 0.03,
-        numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks, recommender = recommender)
+        numUserBlocks = numUserBlocks, numItemBlocks = numItemBlocks)
     }
   }
 
@@ -268,7 +264,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
     val (training, test) =
       genExplicitTestData(numUsers = 4, numItems = 4, rank = 1)
     testRecommender(training, test, maxIter = 2, rank = 1, regParam = 1e-4, targetRMSE = 0.002,
-      numItemBlocks = 5, numUserBlocks = 5, recommender = recommender)
+      numItemBlocks = 5, numUserBlocks = 5)
   }
 
   override def testObjects(): Seq[TestObject[MsftRecommendation]] = {
@@ -310,8 +306,7 @@ class MsftRecommendationSpec extends TestBase with EstimatorFuzzing[MsftRecommen
                        implicitPrefs: Boolean = false,
                        numUserBlocks: Int = 2,
                        numItemBlocks: Int = 3,
-                       targetRMSE: Double = 0.05,
-                       recommender: MsftRecommendation): Unit = {
+                       targetRMSE: Double = 0.05): Unit = {
     val spark = this.session
     import spark.implicits._
     val als = recommender
