@@ -12,8 +12,7 @@ privatebuildrx+="/([a-zA-Z0-9+-]+)/([a-zA-Z0-9/+-]+)"
 if [[ "$BUILDPR" = "" ]]; then :
 elif [[ "$BUILDPR" =~ $privatebuildrx ]]; then :
 elif [[ "$BUILDPR" = *[^0-9]* ]]; then
-  echo "ERROR: \$BUILDPR should be a number, got: \"$BUILDPR\"" 1>&2
-  exit 1
+  failwith "\$BUILDPR should be a number, got: \"$BUILDPR\""
 fi
 
 T=""
@@ -24,25 +23,32 @@ _get_T() {
   fi
 }
 
-declare -A api_cache
+declare -gA api_cache
 api() {
-  local repo="Azure/mmlspark"
-  if [[ "$1" = "-r" ]]; then repo="$2"; shift 2; fi
+  local repo="Azure/mmlspark" outvar=""
+  while [[ "x$1" = x-* ]]; do case "x$1" in
+    ( "x-v" ) outvar="$2"; shift 2 ;;
+    ( "x-r" ) repo="$2"  ; shift 2 ;;
+    ( * ) failwith "Internal error" ;;
+  esac; done
   local call="$1"; shift
-  local curlargs=() x use_cache=1 json=""
+  local curlargs=() x use_cache=1 json="" out=""
   while (($# > 0)); do
     x="$1"; shift
     if [[ "$x" = "-" ]]; then break; else use_cache=0; curlargs+=("$x"); fi;
   done
-  if ((use_cache)); then json="${api_cache["${repo} ${call} ${curlargs[*]}"]}"; fi
+  local key="${repo} ${call} ${curlargs[*]}"
+  if ((use_cache)); then json="${api_cache["$key"]}"; fi
   if [[ -z "$json" ]]; then
     _get_T
     json="$(curl --silent --show-error -H "AUTHORIZATION: bearer ${T#*:}" \
                  "https://api.github.com/repos/$repo/$call" \
                  "${curlargs[@]}")"
-    if ((use_cache)); then api_cache["${call} ${curlargs[*]}"]="$json"; fi
+    if ((use_cache)); then api_cache["$key"]="$json"; fi
   fi
-  if (($# == 0)); then echo "$json"; else jq -r "$@" <<<"$json"; fi
+  if (($# == 0)); then out="$json"; else out="$(jq -r "$@" <<<"$json")"; fi
+  if [[ -z "$outvar" ]]; then echo "$out"
+  else printf -v "$outvar" "%s" "$out"; fi
 }
 
 jsonq() { # text...; quotes the text as a json string
@@ -59,17 +65,16 @@ get_pr_info() {
     REPO="${BUILDPR%%/*}"; BUILDPR="${BUILDPR#*/}"; REPO="$REPO/${BUILDPR%%/*}"
     REF="${BUILDPR#*/}"; BUILDPR="0"
     GURL="https://github.com/$REPO/tree/$REF"
-    SHA1="$(api -r "$REPO" "git/refs/heads/$REF" - '.object.sha // empty')"
+    api -v SHA1 -r "$REPO" "git/refs/heads/$REF" - '.object.sha // empty'
     if [[ -z "$SHA1" ]]; then failwith "no such repo/ref: $REPO/$REF"; fi
   else # plain pr builds
-    if [[ "$(api "pulls/$BUILDPR" - '.state')" != "open" ]]; then
-      failwith "PR#$BUILDPR is not open"
-    fi
-    SHA1="$(api "pulls/$BUILDPR" - '.head.sha // empty')"
+    local STATE; api -v STATE "pulls/$BUILDPR" - '.state'
+    if [[ "$STATE" != "open" ]]; then failwith "PR#$BUILDPR is not open"; fi
+    api -v SHA1 "pulls/$BUILDPR" - '.head.sha // empty'
     if [[ -z "$SHA1" ]]; then failwith "no such PR: $BUILDPR"; fi
-    REPO="$(api "pulls/$BUILDPR" - '.head.repo.full_name // empty')"
-    REF="$( api "pulls/$BUILDPR" - '.head.ref // empty')"
-    GURL="$(api "pulls/$BUILDPR" - '.html_url // empty')"
+    api -v REPO "pulls/$BUILDPR" - '.head.repo.full_name // empty'
+    api -v REF  "pulls/$BUILDPR" - '.head.ref // empty'
+    api -v GURL "pulls/$BUILDPR" - '.html_url // empty'
   fi
 }
 
