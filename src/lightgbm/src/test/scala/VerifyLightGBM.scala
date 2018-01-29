@@ -14,12 +14,16 @@ import scala.util.Random
 class VerifyLightGBM extends Benchmarks {
   val mockLabelColumn = "Label"
 
-  verifyLearnerOnBinaryCsvFile("PimaIndian.csv", "Diabetes mellitus", 2, true)
+  verifyLearnerOnBinaryCsvFile("PimaIndian.csv", "Diabetes mellitus", 2)
+  verifyLearnerOnBinaryCsvFile("data_banknote_authentication.csv", "class", 2)
+  verifyLearnerOnBinaryCsvFile("task.train.csv",                   "TaskFailed10", 2)
+  verifyLearnerOnBinaryCsvFile("breast-cancer.train.csv",          "Label", 2)
+  verifyLearnerOnBinaryCsvFile("random.forest.train.csv",          "#Malignant", 2)
+  verifyLearnerOnBinaryCsvFile("transfusion.csv",                  "Donated", 2)
 
   def verifyLearnerOnBinaryCsvFile(fileName: String,
                                    labelColumnName: String,
-                                   decimals: Int,
-                                   includeNaiveBayes: Boolean): Unit = {
+                                   decimals: Int): Unit = {
     test("Verify LightGBM can be trained and scored on " + fileName, TestBase.Extended) {
       val fileLocation = ClassifierTestUtils.classificationTrainFile(fileName).toString
       val dataset: DataFrame =
@@ -28,14 +32,16 @@ class VerifyLightGBM extends Benchmarks {
           .option("treatEmptyValuesAsNulls", "false")
           .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
           .load(fileLocation)
-      val model = new LightGBM().setLabelCol(labelColumnName).fit(dataset)
+      val model = new LightGBM().setLabelCol(labelColumnName).fit(dataset.repartition(2))
     }
   }
 
   test("Verify call to LGBM_DatasetCreateFromMat") {
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
     val nodesKeys = session.sparkContext.getExecutorMemoryStatus.keys
-    val nodes = nodesKeys.mkString(",")
+    val nodes = nodesKeys.zipWithIndex
+      .map(node => node._1.split(":")(0) + ":" + LightGBM.defaultLocalListenPort + node._2).mkString(",")
     val numNodes = nodesKeys.count((node: String) => true)
     LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, LightGBM.defaultListenTimeout,
       LightGBM.defaultLocalListenPort, numNodes), "Network Init")
@@ -64,8 +70,20 @@ class VerifyLightGBM extends Benchmarks {
     lightgbmlib.intp_assign(numColsIntPtr, numCols)
     val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr)
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(dataAsVoidPtr, lightgbmlibConstants.C_API_DTYPE_FLOAT64,
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(dataAsVoidPtr, data64bitType,
       numRows_int32_tPtr, numCols_int32_tPtr, 1, "max_bin=15 min_data=1", null, datasetOutPtr), "Dataset create")
+
+    // Generate the label column and add to dataset
+    val labelColArray = lightgbmlib.new_floatArray(numRows)
+    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
+      lightgbmlib.floatArray_setitem(labelColArray, ri._2, (ri._2 % 2).toFloat))
+    val labelAsVoidPtr = lightgbmlib.float_to_voidp_ptr(labelColArray)
+    val datasetPtr = lightgbmlib.voidpp_value(datasetOutPtr)
+    val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_DatasetSetField(datasetPtr, "label", labelAsVoidPtr, numRows, data32bitType), "DatasetSetField")
+    LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
   }
   override val moduleName: String = "LightGBM"
 }
