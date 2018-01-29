@@ -403,10 +403,10 @@ class TrainValidRecommendSplitRec
     print(users.count)
   }
 
-  test("fuzzing") {
-    validateExperiments()
-    testRoundTrip()
-  }
+  //  test("fuzzing") {
+  //    validateExperiments()
+  //    testRoundTrip()
+  //  }
   //  test("Smoke test to verify that evaluate can be run for recommendations pipelines") {
   //    val dfRaw2: DataFrame = session
   //      .createDataFrame(Seq(
