@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.io.IOException
+import java.nio.{DoubleBuffer, FloatBuffer}
 import java.nio.charset.Charset
 import java.nio.file.{Files, Path, Paths}
 import java.util
@@ -82,7 +83,8 @@ class TFModelExecutor extends Serializable {
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
     //Check if graph contains info on expected shape of input
-    using(new Graph) { g =>
+//    using(new Graph) { g =>
+      val g = new Graph
       g.importGraphDef(graphDef)
 
       val shapeToUse : Array[Float] = expectedShape
@@ -93,7 +95,6 @@ class TFModelExecutor extends Serializable {
         var i = 0
         for (i <- 1 to 2){
           //second and third indices only because we only want H and W!!
-
           shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
         }
       }
@@ -110,19 +111,24 @@ class TFModelExecutor extends Serializable {
         System.out.println(prediction)
         prediction
       } finally if (image != null) image.close()
-    }.get
+//    }.get
   }
 
-  def evaluateForSparkAny(graphDef: Array[Byte], inputArray: Array[Float],
-                       expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
+  def evaluateForSparkAny(graphDef: Array[Byte], inputArray: FloatBuffer,
+                       expectedShape: Array[Float] = Array[Float](1,224,224,3),
                        inputTensorName: String = "input",
                        outputTensorName: String = "output"): Array[Float] = {
-    using(new Graph) { g =>
+//    using(new Graph) { g =>
+      val g = new Graph
       g.importGraphDef(graphDef)
-      val transformer = new InputToTensor("image_inception", Array[Float](0))
-      val inputTensor = transformer.arrayToTensor(inputArray)
+//      val transformer = new InputToTensor("image_inception", Array[Float](0))
+//      val inputTensor = transformer.arrayToTensor(inputArray)
+      val shape: Array[Long] = expectedShape.map(e => e.toLong)
+      val inputTensor = Tensor.create(shape, inputArray)
+
+
       executeInceptionGraph(g, inputTensor, inputTensorName, outputTensorName)
-    }.get
+//    }.get
   }
 
 
@@ -163,7 +169,6 @@ class TFModelExecutor extends Serializable {
                                     image: Tensor[java.lang.Float],
                                     inputTensorName: String = "input",
                                     outputTensorName: String = "output"): Array[Float] = {
-
     val s = new Session(g)
     val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
     try {

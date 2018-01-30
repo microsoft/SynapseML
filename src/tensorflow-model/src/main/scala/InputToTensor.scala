@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.StreamUtilities.using
 import org.opencv.core.{Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 import org.tensorflow.DataType
@@ -43,69 +44,69 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
     //the preprocessing responsibility to the MMLSpark User
     if(itype == "image_inception")
     {
-      val g = new Graph
-      val b = new TensorflowGraphBuilder(g)
+      using(new Graph) { g =>
+        val b = new TensorflowGraphBuilder(g)
 
-      //Now we are shifting these constants to variables that are either provided or using general default values
-      var expectedDim: Array[Float] = Array()
+        //Now we are shifting these constants to variables that are either provided or using general default values
+        var expectedDim: Array[Float] = Array()
 
-      expectedShape.length match {
-        case x if x == 0 => expectedDim = expectedShape ++ Array(128f, 128f, 128f, 1f)
-        case x if x == 1 => expectedDim = expectedShape ++ Array(128f, 128f, 1f)
-        case x if x == 2 => expectedDim = expectedShape ++ Array(128f, 1f)
-        case x if x == 3 => expectedDim = expectedShape ++ Array(1f)
-        case _ => expectedDim = expectedShape
-      }
+        expectedShape.length match {
+          case x if x == 0 => expectedDim = expectedShape ++ Array(128f, 128f, 128f, 1f)
+          case x if x == 1 => expectedDim = expectedShape ++ Array(128f, 128f, 1f)
+          case x if x == 2 => expectedDim = expectedShape ++ Array(128f, 1f)
+          case x if x == 3 => expectedDim = expectedShape ++ Array(1f)
+          case _ => expectedDim = expectedShape
+        }
 
-      val H : Int = expectedDim(0).asInstanceOf[Int]
-      val W: Int  = expectedDim(1).asInstanceOf[Int]
-      val mean = expectedDim(2)
-      val scale = expectedDim(3)
+        val H: Int = expectedDim(0).asInstanceOf[Int]
+        val W: Int = expectedDim(1).asInstanceOf[Int]
+        val mean = expectedDim(2)
+        val scale = expectedDim(3)
 
-      // Since the graph is being constructed once per execution here, we can use a constant for the
-      // input image. If the graph were to be re-used for multiple input images, a placeholder would
-      // have been more appropriate. TODO: to make this more efficient on partitions
-
-
-      //Check if we are being passed width and height --> change opencv bytes into image bytes
-
-      val imageToPass: Array[Byte] = if (width != -1 && height != -1 && typeForEncode != -1){
-        val mat = new MatOfByte()
-        val xmat = new Mat(height, width, typeForEncode)
-        xmat.put(0,0,imageBytes)
-        Imgcodecs.imencode(".jpeg",xmat, mat)
-        mat.toArray
-      }
-      else{
-        imageBytes
-      }
+        // Since the graph is being constructed once per execution here, we can use a constant for the
+        // input image. If the graph were to be re-used for multiple input images, a placeholder would
+        // have been more appropriate. TODO: to make this more efficient on partitions
 
 
-      //
-      val input: Output[String] = b.constant("input", imageToPass)
-//      val test = b.constant("size", Array[Int](H, W)).shape().numDimensions()
-//      println("What's going on? --> " + test)
-      val output: Output[java.lang.Float] = b.div(
-                                    b.sub(
-                                      b.resizeBilinear(
-                                        b.expandDims(
-                                          b.cast(
-                                            b.decodeJpeg(input, 3),
-                                            classOf[java.lang.Float]
-                                          ),
-                                          b.constant("make_batch", 0)
-                                        ),
-                                        b.constant("size", Array[Int](H, W))
-                                      ),
-                                      b.constant("mean", mean)
-                                    ),
-                                    b.constant("scale", scale))
+        //Check if we are being passed width and height --> change opencv bytes into image bytes
 
-      val s = new Session(g)
-      val toReturn = s.runner.fetch(output.op.name).run.get(0).expect(classOf[java.lang.Float])
-      s.close()
-      g.close()
-      toReturn
+        val imageToPass: Array[Byte] = if (width != -1 && height != -1 && typeForEncode != -1) {
+          val mat = new MatOfByte()
+          val xmat = new Mat(height, width, typeForEncode)
+          xmat.put(0, 0, imageBytes)
+          Imgcodecs.imencode(".jpeg", xmat, mat)
+          mat.toArray
+        }
+        else {
+          imageBytes
+        }
+
+
+        //
+        val input: Output[String] = b.constant("input", imageToPass)
+        //      val test = b.constant("size", Array[Int](H, W)).shape().numDimensions()
+        //      println("What's going on? --> " + test)
+        val output: Output[java.lang.Float] = b.div(
+          b.sub(
+            b.resizeBilinear(
+              b.expandDims(
+                b.cast(
+                  b.decodeJpeg(input, 3),
+                  classOf[java.lang.Float]
+                ),
+                b.constant("make_batch", 0)
+              ),
+              b.constant("size", Array[Int](H, W))
+            ),
+            b.constant("mean", mean)
+          ),
+          b.constant("scale", scale))
+
+        using(new Session(g)) { s =>
+          s.runner.fetch(output.op.name).run.get(0).expect(classOf[java.lang.Float])
+        }.get
+      }.get
+//      toReturn
     }
     else
     {
@@ -119,19 +120,19 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
     * requiring preprocessing beyond simple normalization (substraction + division). Transforms the preprocessed
     * array of float to an input Tensor ready to be fed to the TF graph
     * @param input Array[Float] representing the preprocessed input
-    * @return
+    * @return outputTensor
     */
   def arrayToTensor(input: Array[Float]): Tensor[java.lang.Float] = {
-    val g = new Graph
-    val b = new TensorflowGraphBuilder(g)
+    using(new Graph) { g =>
+      val b = new TensorflowGraphBuilder(g)
 
-    val inputHandler: Output[java.lang.Float] = b.constant("input", input)
-    val outputHandler: Output[java.lang.Float] = b.cast(inputHandler, classOf[java.lang.Float])
+      val inputHandler: Output[java.lang.Float] = b.constant("input", input)
+      val outputHandler: Output[java.lang.Float] = b.cast(inputHandler, classOf[java.lang.Float])
 
-    val s = new Session(g)
-    val toReturn = s.runner.fetch(outputHandler.op.name).run.get(0).expect(classOf[java.lang.Float])
-    s.close()
-    g.close()
-    toReturn
+      using(new Session(g)) { s =>
+        s.runner.fetch(outputHandler.op.name).run.get(0).expect(classOf[java.lang.Float])
+      }.get
+    }.get
+//    toReturn
   }
 }

@@ -212,14 +212,30 @@ class SparkSuite extends TestBase{
     }
   }
 
+  def flatten[A](arr: Array[A]): Array[Float] =
+    arr.flatMap {
+      case s: Float => Array(s)
+      case a: Array[_] => flatten(a)
+    }
+
   test("7: Testing a non-image based model. No preprocessing nor postprocessing"){
     val model = new TFModel().setTransformationType("other")
-      .setGraphFile("sentiment_analysis.pb")
-      .setModelPath("/home/houssam/Documents/tf_experiments/CharLSTM")
-      .setInputTensorName("X")
-      .setOutputTensorName("Softmax")
+      .setGraphFile("inception_v3_2016_08_28_frozen.pb")
+      .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3")
+      .setInputTensorName("input")
+      .setOutputTensorName("InceptionV3/Predictions/Reshape_1")
+      .setExpectedDims(Array(1,299,299,3))
 
-    val data = makeFakeData(session, 70, 16)
+
+    val fourDimInput = Array.ofDim[Float](1,299,299,3)
+    val inputArr: Array[Float] = flatten(fourDimInput)
+    import session.implicits._
+    val data = sc.parallelize(Array(inputArr).toSeq.map(Tuple1(_))).toDF()
+    data.printSchema()
+    /*val seqTuples = sc.makeRDD(fourDimInput.toSeq.map(one => one.map(two => two.map(three => three.map(f => Tuple1(f))))))
+    seqTuples .toDF()
+
+    val data = makeFakeData(session, 70, 16)*/
 
     val result = model.transform(data)
 
