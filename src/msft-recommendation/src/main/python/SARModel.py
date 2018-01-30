@@ -10,14 +10,13 @@ if sys.version >= '3':
 from pyspark.ml.param.shared import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.Utils import *
-from mmlspark._SAR import _SAR as sar
-from mmlspark.SARModel import _SARModel as sarm
+from mmlspark._SAR import SARModel as sarModel
 
 
 @inherit_doc
-class SAR(sar):
-    def _create_model(self, java_model):
-        model = sarm()
-        model._java_obj = java_model
-        model._transfer_params_from_java()
-        return model
+class _SARModel(sarModel):
+    def recommendForAllUsers(self, numItems):
+        return self._call_java("recommendForAllUsers", numItems)
+
+    def recommendForAllItems(self, numItems):
+        return self._call_java("recommendForAllItems", numItems)
