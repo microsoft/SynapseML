@@ -30,7 +30,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion"
+      "com.microsoft.ml.spark.DataConversion",
+      "com.microsoft.ml.spark.LightGBMClassifier"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -53,7 +54,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.TuneHyperparameters"
+      "com.microsoft.ml.spark.TuneHyperparameters",
+      "com.microsoft.ml.spark.LightGBMClassifier"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -75,7 +77,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.TuneHyperparameters"
+      "com.microsoft.ml.spark.TuneHyperparameters",
+      "com.microsoft.ml.spark.LightGBMClassifier"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -140,6 +143,7 @@ class FuzzingTest extends TestBase {
 
     val exemptions = Set[String](
       "org.apache.spark.ml.feature.FastVectorAssembler", // In Spark namespace
+      "com.microsoft.ml.spark.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.ml.spark.TextFeaturizer" // needs to hide setters from model
     )
     pipelineStages.foreach { stage =>

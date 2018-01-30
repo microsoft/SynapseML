@@ -32,8 +32,12 @@ class VerifyLightGBM extends Benchmarks {
           .option("treatEmptyValuesAsNulls", "false")
           .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
           .load(fileLocation)
-      val model = new LightGBM().setLabelCol(labelColumnName).fit(dataset.repartition(2))
-      val scoredResult = model.transform(dataset)
+      val lgbm = new LightGBMClassifier()
+      val featuresColumn = lgbm.uid + "_features"
+      val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+      val model = lgbm.setLabelCol(labelColumnName).setFeaturesCol(featuresColumn)
+        .fit(featurizer.transform(dataset))
+      val scoredResult = model.transform(featurizer.transform(dataset)).drop(featuresColumn)
       scoredResult.show()
     }
   }
@@ -42,10 +46,10 @@ class VerifyLightGBM extends Benchmarks {
     LightGBMUtils.initializeNativeLibrary()
     val nodesKeys = session.sparkContext.getExecutorMemoryStatus.keys
     val nodes = nodesKeys.zipWithIndex
-      .map(node => node._1.split(":")(0) + ":" + LightGBM.defaultLocalListenPort + node._2).mkString(",")
+      .map(node => node._1.split(":")(0) + ":" + LightGBMClassifier.defaultLocalListenPort + node._2).mkString(",")
     val numNodes = nodesKeys.count((node: String) => true)
-    LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, LightGBM.defaultListenTimeout,
-      LightGBM.defaultLocalListenPort, numNodes), "Network Init")
+    LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, LightGBMClassifier.defaultListenTimeout,
+      LightGBMClassifier.defaultLocalListenPort, numNodes), "Network Init")
     val random = new Random(0)
     val rows = (0 to 10).toArray
       .map(_ => Row(new DenseVector(Array(random.nextDouble(), random.nextDouble(), random.nextDouble(),
