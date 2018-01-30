@@ -15,7 +15,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 class SARModel(override val uid: String,
                userDataFrame: DataFrame,
                itemDataFrame: DataFrame) extends Model[SARModel]
-  with MsftRecommendationModelParams with SARParams with ConstructorWritable[SARModel] {
+  with MsftRecommendationModelParams with Wrappable with SARParams with ConstructorWritable[SARModel] {
 
   override def recommendForAllItems(k: Int): DataFrame = {
     recommendForAllItems($(rank), userDataFrame, itemDataFrame, k)
