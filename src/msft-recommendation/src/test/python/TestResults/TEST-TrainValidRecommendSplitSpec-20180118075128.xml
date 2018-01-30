@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="TrainValidRecommendSplitSpec-20180118075128" tests="1" time="175.392">
+	<testcase classname="TrainValidRecommendSplitSpec" name="test_all" time="175.392">
+		<error message="'Field &quot;rating_total&quot; does not exist.'" type="IllegalArgumentException">
+<![CDATA[Traceback (most recent call last):
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/sql/utils.py", line 63, in deco
+    return f(*a, **kw)
+  File "/home/dciborow/lib/spark/python/lib/py4j-0.10.4-src.zip/py4j/protocol.py", line 319, in get_return_value
+    format(target_id, ".", name), value)
+py4j.protocol.Py4JJavaError: An error occurred while calling o63.fit.
+: java.lang.IllegalArgumentException: Field "rating_total" does not exist.
+	at org.apache.spark.sql.types.StructType$$anonfun$apply$1.apply(StructType.scala:266)
+	at org.apache.spark.sql.types.StructType$$anonfun$apply$1.apply(StructType.scala:266)
+	at scala.collection.MapLike$class.getOrElse(MapLike.scala:128)
+	at scala.collection.AbstractMap.getOrElse(Map.scala:59)
+	at org.apache.spark.sql.types.StructType.apply(StructType.scala:265)
+	at org.apache.spark.ml.util.SchemaUtils$.checkNumericType(SchemaUtils.scala:71)
+	at org.apache.spark.ml.recommendation.ALSParams$class.validateAndTransformSchema(ALS.scala:254)
+	at org.apache.spark.ml.recommendation.ALS.validateAndTransformSchema(ALS.scala:516)
+	at org.apache.spark.ml.recommendation.ALS.transformSchema(ALS.scala:638)
+	at org.apache.spark.ml.recommendation.ALS.fit(ALS.scala:606)
+	at com.microsoft.ml.spark.MsftRecommendation.fit(MsftRecommendation.scala:106)
+	at com.microsoft.ml.spark.MsftRecommendation.fit(MsftRecommendation.scala:25)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)
+	at py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:357)
+	at py4j.Gateway.invoke(Gateway.java:280)
+	at py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)
+	at py4j.commands.CallCommand.execute(CallCommand.java:79)
+	at py4j.GatewayConnection.run(GatewayConnection.java:214)
+	at java.lang.Thread.run(Thread.java:748)
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dciborow/mmlspark2/src/msft-recommendation/src/test/python/TrainValidRecommendSplitSpec.py", line 59, in test_all
+    alsModel = alsWReg.fit(transformedDf)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/ml/base.py", line 64, in fit
+    return self._fit(dataset)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/ml/wrapper.py", line 265, in _fit
+    java_model = self._fit_java(dataset)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/ml/wrapper.py", line 262, in _fit_java
+    return self._java_obj.fit(dataset._jdf)
+  File "/home/dciborow/lib/spark/python/lib/py4j-0.10.4-src.zip/py4j/java_gateway.py", line 1133, in __call__
+    answer, self.gateway_client, self.target_id, self.name)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/sql/utils.py", line 79, in deco
+    raise IllegalArgumentException(s.split(': ', 1)[1], stackTrace)
+pyspark.sql.utils.IllegalArgumentException: 'Field "rating_total" does not exist.'
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>

@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="TrainValidRecommendSplitSpec-20180118012605" tests="1" time="20.502">
+	<testcase classname="TrainValidRecommendSplitSpec" name="test_all" time="20.502">
+		<error message="'MsftRecommendationModel' object has no attribute 'recommendForAllUsers'" type="AttributeError">
+<![CDATA[Traceback (most recent call last):
+  File "/home/dciborow/mmlspark2/src/msft-recommendation/src/test/python/TrainValidRecommendSplitSpec.py", line 60, in test_all
+    usersRecs = alsModel.recommendForAllUsers(3)
+AttributeError: 'MsftRecommendationModel' object has no attribute 'recommendForAllUsers'
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>

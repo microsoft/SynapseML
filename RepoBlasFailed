@@ -1,0 +1,8 @@
+import java.util.Random
+import breeze.linalg.{CSCMatrix, Matrix => BM}
+import scala.collection.mutable.{Map => MutableMap}
+import breeze.linalg.{CSCMatrix => BSM, DenseMatrix => BDM}
+import org.apache.spark.ml.linalg._
+
+val dA = new DenseMatrix(4, 3, Array(0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 3.0))
+dA.transpose.multiply(dA)

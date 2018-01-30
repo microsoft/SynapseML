@@ -10,7 +10,7 @@ import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.recommendation.{MsftRecommendationModelParams, MsftRecommendationParams}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{Estimator, Model, Pipeline}
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
@@ -22,12 +22,20 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import scala.collection.mutable
 import scala.collection.mutable.Set
 import scala.language.existentials
+import org.apache.spark.ml.Model
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
+import org.apache.spark.sql.types.{NumericType, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** SAR
   *
   * @param uid The id of the module
   */
-class SAR(override val uid: String) extends Estimator[SARModel] with SARParams {
+@InternalWrapper
+class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
 
   def setTimeCol(value: String): this.type = set(timeCol, value)
 
@@ -58,6 +66,8 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams {
   override def fit(dataset: Dataset[_]): SARModel = {
 
     val itemSimMatrixdf = itemFeatures(dataset)
+    //      .union(coldItemFeatures(dataset, itemFeatures))
+
     val userAffinityMatrix = userFeatures(dataset)
 
     new SARModel(uid, userAffinityMatrix, itemSimMatrixdf)
@@ -130,7 +140,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams {
 
 }
 
-trait SARParams extends MsftRecommendationParams {
+trait SARParams extends Wrappable with MsftRecommendationParams {
 
   /** @group setParam */
   def setRank(value: Int): this.type = set(rank, value)
@@ -159,7 +169,7 @@ trait SARParams extends MsftRecommendationParams {
 
 }
 
-object SAR {
+object SAR extends DefaultParamsReadable[SAR] {
 
   def calcJaccard(map: Map[Double, Map[Double, Double]], supportThreshold: Int): mutable.Map[(Double, Double),
     Double] = {
@@ -335,10 +345,11 @@ object SAR {
   })
 }
 
+@InternalWrapper
 class SARModel(override val uid: String,
                userDataFrame: DataFrame,
                itemDataFrame: DataFrame) extends Model[SARModel]
-  with MsftRecommendationModelParams with SARParams {
+  with MsftRecommendationModelParams with SARParams with ConstructorWritable[SARModel] {
 
   override def recommendForAllItems(k: Int): DataFrame = {
     recommendForAllItems($(rank), userDataFrame, itemDataFrame, k)
@@ -378,4 +389,9 @@ class SARModel(override val uid: String,
       s"NumericType but was actually of type $actualDataType.$message")
   }
 
+  override val ttag: TypeTag[SARModel] = typeTag[SARModel]
+
+  override def objectsToSave: List[AnyRef] = List(uid, userDataFrame, itemDataFrame)
 }
+
+object SARModel extends ConstructorReadable[SARModel]

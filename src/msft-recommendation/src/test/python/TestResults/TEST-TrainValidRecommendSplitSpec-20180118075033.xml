@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="TrainValidRecommendSplitSpec-20180118075033" tests="1" time="0.002">
+	<testcase classname="TrainValidRecommendSplitSpec" name="test_all" time="0.002">
+		<error message="[Errno 13] Permission denied: '/mnt/rating.csv'" type="PermissionError">
+<![CDATA[Traceback (most recent call last):
+  File "/home/dciborow/mmlspark2/src/msft-recommendation/src/test/python/TrainValidRecommendSplitSpec.py", line 33, in test_all
+    block_blob_service.get_blob_to_path(container, data_rating, file_rating)
+  File "/home/dciborow/lib/conda/lib/python3.6/site-packages/azure/storage/blob/baseblobservice.py", line 1765, in get_blob_to_path
+    with open(file_path, open_mode) as stream:
+PermissionError: [Errno 13] Permission denied: '/mnt/rating.csv'
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>

@@ -20,55 +20,53 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.{immutable, mutable}
 import scala.language.existentials
 
-class SARSPec extends FunSuite {
+class SARSPec extends TestBase with EstimatorFuzzing[SAR]{
   val conf: SparkConf = new SparkConf()
     //      .setAppName("Testing Custom Model")
     .setMaster("local[*]")
     .set("spark.driver.memory", "60g")
     .set("spark.driver.maxResultSize", "0")
 
-  private val session = SparkSession.builder()
+  override lazy val session = SparkSession.builder()
     .config(conf)
     .getOrCreate()
 
-  private lazy val sc: SparkContext = session.sparkContext
+  override lazy val sc: SparkContext = session.sparkContext
 
   test("testSAR") {
-    val df: DataFrame = session
-      .createDataFrame(Seq(
-        ("11", "Movie 01", 4, 4),
-        ("11", "Movie 03", 1, 1),
-        ("11", "Movie 04", 5, 5),
-        ("11", "Movie 05", 3, 3),
-        ("11", "Movie 07", 3, 3),
-        ("11", "Movie 09", 3, 3),
-        ("11", "Movie 10", 3, 3),
-        ("22", "Movie 01", 4, 4),
-        ("22", "Movie 02", 5, 5),
-        ("22", "Movie 03", 1, 1),
-        ("22", "Movie 06", 4, 4),
-        ("22", "Movie 07", 5, 5),
-        ("22", "Movie 08", 1, 1),
-        ("22", "Movie 10", 3, 3),
-        ("33", "Movie 01", 4, 4),
-        ("33", "Movie 02", 1, 1),
-        ("33", "Movie 03", 1, 1),
-        ("33", "Movie 04", 5, 5),
-        ("33", "Movie 05", 3, 3),
-        ("33", "Movie 06", 4, 4),
-        ("33", "Movie 08", 1, 1),
-        ("33", "Movie 09", 5, 5),
-        ("33", "Movie 10", 3, 3),
-        ("44", "Movie 02", 5, 5),
-        ("44", "Movie 03", 1, 1),
-        ("44", "Movie 04", 5, 5),
-        ("44", "Movie 05", 3, 3),
-        ("44", "Movie 06", 4, 4),
-        ("44", "Movie 07", 5, 5),
-        ("44", "Movie 08", 1, 1),
-        ("44", "Movie 09", 5, 5),
-        ("44", "Movie 10", 3, 3)))
-      .toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
+    val df: DataFrame = session.createDataFrame(Seq(
+      ("11", "Movie 01", 4, 4),
+      ("11", "Movie 03", 1, 1),
+      ("11", "Movie 04", 5, 5),
+      ("11", "Movie 05", 3, 3),
+      ("11", "Movie 07", 3, 3),
+      ("11", "Movie 09", 3, 3),
+      ("11", "Movie 10", 3, 3),
+      ("22", "Movie 01", 4, 4),
+      ("22", "Movie 02", 5, 5),
+      ("22", "Movie 03", 1, 1),
+      ("22", "Movie 06", 4, 4),
+      ("22", "Movie 07", 5, 5),
+      ("22", "Movie 08", 1, 1),
+      ("22", "Movie 10", 3, 3),
+      ("33", "Movie 01", 4, 4),
+      ("33", "Movie 02", 1, 1),
+      ("33", "Movie 03", 1, 1),
+      ("33", "Movie 04", 5, 5),
+      ("33", "Movie 05", 3, 3),
+      ("33", "Movie 06", 4, 4),
+      ("33", "Movie 08", 1, 1),
+      ("33", "Movie 09", 5, 5),
+      ("33", "Movie 10", 3, 3),
+      ("44", "Movie 02", 5, 5),
+      ("44", "Movie 03", 1, 1),
+      ("44", "Movie 04", 5, 5),
+      ("44", "Movie 05", 3, 3),
+      ("44", "Movie 06", 4, 4),
+      ("44", "Movie 07", 5, 5),
+      ("44", "Movie 08", 1, 1),
+      ("44", "Movie 09", 5, 5),
+      ("44", "Movie 10", 3, 3))).toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
 
     evalTest(df, "customerIDOrg", "itemIDOrg", "rating")
     //    evalTest2(df, "customerIDOrg", "itemIDOrg", "rating")
@@ -126,13 +124,14 @@ class SARSPec extends FunSuite {
     //    helper: TrainValidRecommendSplit) = {
     //      (transformedDf, alsWReg, evaluator, helper)
     //    }
+    {
+      val ratings: DataFrame = session.read
+        .option("header", "true") //reading the headers
+        .option("inferSchema", "true") //reading the headers
+        .csv("/mnt/ml-latest-small/ratings.csv").na.drop
 
-    val ratings: DataFrame = session.read
-      .option("header", "true") //reading the headers
-      .option("inferSchema", "true") //reading the headers
-      .csv("/mnt/ml-latest-small/ratings.csv").na.drop
-
-    evalTest(ratings, "userId", "movieId", "rating")
+      evalTest(ratings, "userId", "movieId", "rating")
+    }
     //3.53
   }
 
@@ -515,4 +514,65 @@ class SARSPec extends FunSuite {
     ids.toSeq.sorted.map(id => (id, Array.fill(rank)(a + random.nextFloat() * width)))
   }
 
+  override def testObjects(): List[TestObject[SAR]] = {
+    val df: DataFrame = session.createDataFrame(Seq(
+      ("11", "Movie 01", 4, 4),
+      ("11", "Movie 03", 1, 1),
+      ("11", "Movie 04", 5, 5),
+      ("11", "Movie 05", 3, 3),
+      ("11", "Movie 07", 3, 3),
+      ("11", "Movie 09", 3, 3),
+      ("11", "Movie 10", 3, 3),
+      ("22", "Movie 01", 4, 4),
+      ("22", "Movie 02", 5, 5),
+      ("22", "Movie 03", 1, 1),
+      ("22", "Movie 06", 4, 4),
+      ("22", "Movie 07", 5, 5),
+      ("22", "Movie 08", 1, 1),
+      ("22", "Movie 10", 3, 3),
+      ("33", "Movie 01", 4, 4),
+      ("33", "Movie 02", 1, 1),
+      ("33", "Movie 03", 1, 1),
+      ("33", "Movie 04", 5, 5),
+      ("33", "Movie 05", 3, 3),
+      ("33", "Movie 06", 4, 4),
+      ("33", "Movie 08", 1, 1),
+      ("33", "Movie 09", 5, 5),
+      ("33", "Movie 10", 3, 3),
+      ("44", "Movie 02", 5, 5),
+      ("44", "Movie 03", 1, 1),
+      ("44", "Movie 04", 5, 5),
+      ("44", "Movie 05", 3, 3),
+      ("44", "Movie 06", 4, 4),
+      ("44", "Movie 07", 5, 5),
+      ("44", "Movie 08", 1, 1),
+      ("44", "Movie 09", 5, 5),
+      ("44", "Movie 10", 3, 3))).toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
+
+    evalTest(df, "customerIDOrg", "itemIDOrg", "rating")
+
+    val customerIndex = new StringIndexer()
+      .setInputCol("customerIDOrg")
+      .setOutputCol("customerID")
+
+    val ratingsIndex = new StringIndexer()
+      .setInputCol("itemIDOrg")
+      .setOutputCol("itemID")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(customerIndex, ratingsIndex))
+
+    val transformedDf = pipeline.fit(df).transform(df)
+
+    List(
+      new TestObject(new SAR()
+      .setUserCol(customerIndex.getOutputCol)
+      .setItemCol(ratingsIndex.getOutputCol)
+      .setRatingCol("rating"), transformedDf)
+    )
+  }
+
+  override def reader: SAR.type = SAR
+
+  override def modelReader: SARModel.type = SARModel
 }

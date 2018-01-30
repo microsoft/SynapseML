@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="TrainValidRecommendSplitSpec-20180118074509" tests="1" time="42.106">
+	<testcase classname="TrainValidRecommendSplitSpec" name="test_all" time="42.106">
+		<error message="'DataFrame' object has no attribute 'setSaveAll'" type="AttributeError">
+<![CDATA[Traceback (most recent call last):
+  File "/home/dciborow/mmlspark2/src/msft-recommendation/src/test/python/TrainValidRecommendSplitSpec.py", line 80, in test_all
+    usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3).setSaveAll(True)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/sql/dataframe.py", line 1020, in __getattr__
+    "'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
+AttributeError: 'DataFrame' object has no attribute 'setSaveAll'
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[[Row(customerID=12, recommendations=[Row(itemID=1, rating=4.902277946472168), Row(itemID=10, rating=4.886264801025391), Row(itemID=19, rating=4.272840976715088)])]
+]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>

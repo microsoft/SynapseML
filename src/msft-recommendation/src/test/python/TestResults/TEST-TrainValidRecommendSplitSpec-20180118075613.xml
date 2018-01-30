@@ -1,0 +1,95 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="TrainValidRecommendSplitSpec-20180118075613" tests="1" time="5.195">
+	<testcase classname="TrainValidRecommendSplitSpec" name="test_all_tiny" time="5.195">
+		<error message="An error occurred while calling o34.csv.
+: org.apache.hadoop.fs.azure.AzureException: org.apache.hadoop.fs.azure.AzureException: Container ms-sampledata in account bigdatadevlogs.blob.core.windows.net not found, and we can't create  it using anoynomous credentials.
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.createAzureStorageSession(AzureNativeFileSystemStore.java:938)
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.initialize(AzureNativeFileSystemStore.java:438)
+	at org.apache.hadoop.fs.azure.NativeAzureFileSystem.initialize(NativeAzureFileSystem.java:1048)
+	at org.apache.hadoop.fs.FileSystem.createFileSystem(FileSystem.java:2669)
+	at org.apache.hadoop.fs.FileSystem.access$200(FileSystem.java:94)
+	at org.apache.hadoop.fs.FileSystem$Cache.getInternal(FileSystem.java:2703)
+	at org.apache.hadoop.fs.FileSystem$Cache.get(FileSystem.java:2685)
+	at org.apache.hadoop.fs.FileSystem.get(FileSystem.java:373)
+	at org.apache.hadoop.fs.Path.getFileSystem(Path.java:295)
+	at org.apache.spark.sql.execution.datasources.DataSource$$anonfun$14.apply(DataSource.scala:350)
+	at org.apache.spark.sql.execution.datasources.DataSource$$anonfun$14.apply(DataSource.scala:348)
+	at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)
+	at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)
+	at scala.collection.immutable.List.foreach(List.scala:381)
+	at scala.collection.TraversableLike$class.flatMap(TraversableLike.scala:241)
+	at scala.collection.immutable.List.flatMap(List.scala:344)
+	at org.apache.spark.sql.execution.datasources.DataSource.resolveRelation(DataSource.scala:348)
+	at org.apache.spark.sql.DataFrameReader.load(DataFrameReader.scala:178)
+	at org.apache.spark.sql.DataFrameReader.csv(DataFrameReader.scala:533)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)
+	at py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:357)
+	at py4j.Gateway.invoke(Gateway.java:280)
+	at py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)
+	at py4j.commands.CallCommand.execute(CallCommand.java:79)
+	at py4j.GatewayConnection.run(GatewayConnection.java:214)
+	at java.lang.Thread.run(Thread.java:748)
+Caused by: org.apache.hadoop.fs.azure.AzureException: Container ms-sampledata in account bigdatadevlogs.blob.core.windows.net not found, and we can't create  it using anoynomous credentials.
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.connectUsingAnonymousCredentials(AzureNativeFileSystemStore.java:730)
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.createAzureStorageSession(AzureNativeFileSystemStore.java:933)
+	... 29 more
+" type="Py4JJavaError">
+<![CDATA[Traceback (most recent call last):
+  File "/home/dciborow/mmlspark2/src/msft-recommendation/src/test/python/TrainValidRecommendSplitSpec.py", line 118, in test_all_tiny
+    ratings = spark.read.csv(wasb, header='true', inferSchema='true').drop_duplicates()
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/sql/readwriter.py", line 410, in csv
+    return self._df(self._jreader.csv(self._spark._sc._jvm.PythonUtils.toSeq(path)))
+  File "/home/dciborow/lib/spark/python/lib/py4j-0.10.4-src.zip/py4j/java_gateway.py", line 1133, in __call__
+    answer, self.gateway_client, self.target_id, self.name)
+  File "/home/dciborow/lib/spark/python/lib/pyspark.zip/pyspark/sql/utils.py", line 63, in deco
+    return f(*a, **kw)
+  File "/home/dciborow/lib/spark/python/lib/py4j-0.10.4-src.zip/py4j/protocol.py", line 319, in get_return_value
+    format(target_id, ".", name), value)
+py4j.protocol.Py4JJavaError: An error occurred while calling o34.csv.
+: org.apache.hadoop.fs.azure.AzureException: org.apache.hadoop.fs.azure.AzureException: Container ms-sampledata in account bigdatadevlogs.blob.core.windows.net not found, and we can't create  it using anoynomous credentials.
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.createAzureStorageSession(AzureNativeFileSystemStore.java:938)
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.initialize(AzureNativeFileSystemStore.java:438)
+	at org.apache.hadoop.fs.azure.NativeAzureFileSystem.initialize(NativeAzureFileSystem.java:1048)
+	at org.apache.hadoop.fs.FileSystem.createFileSystem(FileSystem.java:2669)
+	at org.apache.hadoop.fs.FileSystem.access$200(FileSystem.java:94)
+	at org.apache.hadoop.fs.FileSystem$Cache.getInternal(FileSystem.java:2703)
+	at org.apache.hadoop.fs.FileSystem$Cache.get(FileSystem.java:2685)
+	at org.apache.hadoop.fs.FileSystem.get(FileSystem.java:373)
+	at org.apache.hadoop.fs.Path.getFileSystem(Path.java:295)
+	at org.apache.spark.sql.execution.datasources.DataSource$$anonfun$14.apply(DataSource.scala:350)
+	at org.apache.spark.sql.execution.datasources.DataSource$$anonfun$14.apply(DataSource.scala:348)
+	at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)
+	at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)
+	at scala.collection.immutable.List.foreach(List.scala:381)
+	at scala.collection.TraversableLike$class.flatMap(TraversableLike.scala:241)
+	at scala.collection.immutable.List.flatMap(List.scala:344)
+	at org.apache.spark.sql.execution.datasources.DataSource.resolveRelation(DataSource.scala:348)
+	at org.apache.spark.sql.DataFrameReader.load(DataFrameReader.scala:178)
+	at org.apache.spark.sql.DataFrameReader.csv(DataFrameReader.scala:533)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)
+	at py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:357)
+	at py4j.Gateway.invoke(Gateway.java:280)
+	at py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)
+	at py4j.commands.CallCommand.execute(CallCommand.java:79)
+	at py4j.GatewayConnection.run(GatewayConnection.java:214)
+	at java.lang.Thread.run(Thread.java:748)
+Caused by: org.apache.hadoop.fs.azure.AzureException: Container ms-sampledata in account bigdatadevlogs.blob.core.windows.net not found, and we can't create  it using anoynomous credentials.
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.connectUsingAnonymousCredentials(AzureNativeFileSystemStore.java:730)
+	at org.apache.hadoop.fs.azure.AzureNativeFileSystemStore.createAzureStorageSession(AzureNativeFileSystemStore.java:933)
+	... 29 more
+
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>
