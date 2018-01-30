@@ -5,13 +5,8 @@ set -e
 
 cd "$BASEDIR"
 
-# For private builds: <user>/<repo>/<branch>
-privatebuildrx="([^a-zA-Z0-9][^a-zA-Z0-9-]*)"
-privatebuildrx+="/([a-zA-Z0-9+-]+)/([a-zA-Z0-9/+-]+)"
-
-if [[ "$BUILDPR" = "" ]]; then :
-elif [[ "$BUILDPR" =~ $privatebuildrx ]]; then :
-elif [[ "$BUILDPR" = *[^0-9]* ]]; then
+# BUILDPR can be empty, a PR number, or "<user>/<repo>/<branch>"
+if [[ "$BUILDPR" != */*/* && "$BUILDPR" = *[^0-9]* ]]; then
   failwith "\$BUILDPR should be a number, got: \"$BUILDPR\""
 fi
 
