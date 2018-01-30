@@ -14,13 +14,12 @@ import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.scalatest.FunSuite
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{immutable, mutable}
 import scala.language.existentials
 
-class SARSPec extends TestBase with EstimatorFuzzing[SAR]{
+class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
   val conf: SparkConf = new SparkConf()
     //      .setAppName("Testing Custom Model")
     .setMaster("local[*]")
@@ -566,9 +565,9 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR]{
 
     List(
       new TestObject(new SAR()
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(ratingsIndex.getOutputCol)
-      .setRatingCol("rating"), transformedDf)
+        .setUserCol(customerIndex.getOutputCol)
+        .setItemCol(ratingsIndex.getOutputCol)
+        .setRatingCol("rating"), transformedDf)
     )
   }
 

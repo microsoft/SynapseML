@@ -16,18 +16,12 @@ import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StructType, _}
+import org.apache.spark.sql.types.{NumericType, StructType, _}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.collection.mutable
 import scala.collection.mutable.Set
 import scala.language.existentials
-import org.apache.spark.ml.Model
-import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
-import org.apache.spark.sql.types.{NumericType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
-
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** SAR
