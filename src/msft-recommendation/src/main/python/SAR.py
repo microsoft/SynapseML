@@ -20,6 +20,23 @@ class SAR(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaEstimator):
     """
 
 
+import sys
+
+if sys.version >= '3':
+    basestring = str
+
+from pyspark.ml.param.shared import *
+from mmlspark.Utils import *
+from mmlspark._MsftRecommendation import MsftRecommendationModel as model
+
+
+class MsftRecommendationModel(model):
+    def recommendForAllUsers(self, numItems):
+        return self._call_java("recommendForAllUsers", numItems)
+
+    def recommendForAllItems(self, numItems):
+        return self._call_java("recommendForAllItems", numItems)
+
     Args:
 
         alpha (double): alpha for implicit preference (default: 1.0)
