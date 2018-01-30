@@ -33,12 +33,13 @@ class VerifyLightGBM extends Benchmarks {
           .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
           .load(fileLocation)
       val model = new LightGBM().setLabelCol(labelColumnName).fit(dataset.repartition(2))
+      val scoredResult = model.transform(dataset)
+      scoredResult.show()
     }
   }
 
   test("Verify call to LGBM_DatasetCreateFromMat") {
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
+    LightGBMUtils.initializeNativeLibrary()
     val nodesKeys = session.sparkContext.getExecutorMemoryStatus.keys
     val nodes = nodesKeys.zipWithIndex
       .map(node => node._1.split(":")(0) + ":" + LightGBM.defaultLocalListenPort + node._2).mkString(",")

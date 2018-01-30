@@ -11,7 +11,8 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.types._
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
@@ -98,13 +99,14 @@ class LightGBM(override val uid: String) extends Estimator[LightGBMModel]
     val lightGBMBooster = processedData
       .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, featuresColumn, getParallelism))(encoder)
       .first()
-    new LightGBMModel(uid, featurizedModel, lightGBMBooster)
+    new LightGBMModel(uid, featuresColumn, featurizedModel, lightGBMBooster)
   }
 
   override def copy(extra: ParamMap): Estimator[LightGBMModel] = defaultCopy(extra)
 
   @DeveloperApi
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transformSchema(schema: StructType): StructType =
+    StructType(schema.fields :+ StructField("Score", DataTypes.DoubleType))
 }
 
 object LightGBMUtils {
@@ -113,27 +115,26 @@ object LightGBMUtils {
       throw new Exception(component + " call failed in LightGBM with error: " + lightgbmlib.LGBM_GetLastError())
     }
   }
-}
 
-private object TrainUtils extends java.io.Serializable {
-  def translate(labelColumn: String, featuresColumn: String, parallelism: String, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    if (!inputRows.hasNext)
-      List[LightGBMBooster]().toIterator
-    val rows = inputRows.toArray
-    val numRows = rows.length
+  def initializeNativeLibrary(): Unit = {
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
+  }
+
+  def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]) = {
+    val numCols = rowsAsDoubleArray.head.length
+    val data = lightgbmlib.new_doubleArray(numCols * numRows)
+    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
+      ri._1.zipWithIndex.foreach(value =>
+        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
+    lightgbmlib.double_to_voidp_ptr(data)
+  }
+
+  def generateDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]) = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
     val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
-    val rowsAsDoubleArray = rows.map(row => (row.get(row.fieldIndex(featuresColumn)) match {
-      case dense: DenseVector => dense.toArray
-      case sparse: SparseVector => sparse.toDense.toArray
-    }, row.getInt(row.fieldIndex(labelColumn))))
-    val numCols = rowsAsDoubleArray.head._1.length
-    val data = lightgbmlib.new_doubleArray(numCols * numRows)
-    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
-      ri._1._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
-    val dataAsVoidPtr = lightgbmlib.double_to_voidp_ptr(data)
+    val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
     val numColsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numColsIntPtr, numCols)
@@ -141,27 +142,30 @@ private object TrainUtils extends java.io.Serializable {
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    val dataAsVoidPtr = generateData(numRows, rowsAsDoubleArray)
 
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(dataAsVoidPtr, data64bitType,
       numRows_int32_tPtr, numCols_int32_tPtr, isRowMajor, datasetParams, null, datasetOutPtr), "Dataset create")
-    val datasetPtr = lightgbmlib.voidpp_value(datasetOutPtr)
+    lightgbmlib.voidpp_value(datasetOutPtr)
+  }
+}
 
-    // Validate num rows
-    val numDataPtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
-    val numData = lightgbmlib.intp_value(numDataPtr)
-    if (numData <= 0) {
-      throw new Exception("Unexpected num data: " + numData)
-    }
+private object TrainUtils extends java.io.Serializable {
+  def translate(labelColumn: String, featuresColumn: String, parallelism: String, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    if (!inputRows.hasNext)
+      List[LightGBMBooster]().toIterator
 
-    // Validate num cols
-    val numFeaturePtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumFeature(datasetPtr, numFeaturePtr), "DatasetGetNumFeature")
-    val numFeature = lightgbmlib.intp_value(numFeature)
-    if (numFeature <= 0) {
-      throw new Exception("Unexpected num feature: " + numFeature)
-    }
+    val rows = inputRows.toArray
+    val numRows = rows.length
+    val rowsAsDoubleArray = rows.map(row => (row.get(row.fieldIndex(featuresColumn)) match {
+      case dense: DenseVector => dense.toArray
+      case sparse: SparseVector => sparse.toDense.toArray
+    }, row.getInt(row.fieldIndex(labelColumn))))
+
+    val datasetPtr = LightGBMUtils.generateDataset(numRows, rowsAsDoubleArray.map(_._1))
+    // Validate generated dataset has the correct number of rows and cols
+    validateDataset(datasetPtr)
 
     // Generate the label column and add to dataset
     val labelColArray = lightgbmlib.new_floatArray(numRows)
@@ -200,40 +204,107 @@ private object TrainUtils extends java.io.Serializable {
     List[LightGBMBooster](new LightGBMBooster(model)).toIterator
   }
 
+  private def validateDataset(datasetPtr: SWIGTYPE_p_void) = {
+    // Validate num rows
+    val numDataPtr = lightgbmlib.new_intp()
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
+    val numData = lightgbmlib.intp_value(numDataPtr)
+    if (numData <= 0) {
+      throw new Exception("Unexpected num data: " + numData)
+    }
+
+    // Validate num cols
+    val numFeaturePtr = lightgbmlib.new_intp()
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumFeature(datasetPtr, numFeaturePtr), "DatasetGetNumFeature")
+    val numFeature = lightgbmlib.intp_value(numFeaturePtr)
+    if (numFeature <= 0) {
+      throw new Exception("Unexpected num feature: " + numFeature)
+    }
+  }
+
   def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String, parallelism: String)
-    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+                   (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Initialize the native library
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
+    LightGBMUtils.initializeNativeLibrary()
     // Initialize the network communication
     val partitionId = TaskContext.getPartitionId()
     val localListenPort = LightGBM.defaultLocalListenPort + partitionId
-    val result = lightgbmlib.LGBM_NetworkInit(nodes, localListenPort, LightGBM.defaultListenTimeout,
-      numNodes)
-    if (result != 0) {
-      throw new Exception("Network initialization of LightGBM failed")
-    }
+    LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort, LightGBM.defaultListenTimeout,
+      numNodes), "Network init")
     translate(labelColumn, featuresColumn, parallelism, inputRows)
   }
 }
 
 /** Model produced by [[LightGBM]]. */
-class LightGBMModel(val uid: String, featurizer: PipelineModel, model: LightGBMBooster)
+class LightGBMModel(val uid: String, featuresColumn: String, featurizer: PipelineModel, model: LightGBMBooster)
     extends Model[LightGBMModel] with ConstructorWritable[LightGBMModel] {
 
   val ttag: TypeTag[LightGBMModel] = typeTag[LightGBMModel]
   val objectsToSave: List[AnyRef] = List(uid, featurizer, model)
 
   override def copy(extra: ParamMap): LightGBMModel =
-    new LightGBMModel(uid, featurizer, model)
+    new LightGBMModel(uid, featuresColumn, featurizer, model)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // lightgbmlib.LGBM_BoosterLoadModelFromString()
-    dataset.toDF()
+    val processedData = featurizer.transform(dataset)
+    val encoder = RowEncoder(processedData.schema.add(StructField("Score", DataTypes.DoubleType)))
+    processedData
+      .mapPartitions(ScoreUtils.scoreLightGBM(featuresColumn, model))(encoder).drop(featuresColumn)
   }
 
   @DeveloperApi
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transformSchema(schema: StructType): StructType =
+    StructType(schema.fields :+ StructField("Score", DataTypes.DoubleType))
+}
+
+private object ScoreUtils extends java.io.Serializable {
+  def score(featuresColumn: String, inputRows: Iterator[Row],
+            model: LightGBMBooster): Iterator[Row] = {
+    if (!inputRows.hasNext)
+      List[Row]().toIterator
+
+    val numItersOut = lightgbmlib.new_intp()
+    val boosterOutPtr = lightgbmlib.voidpp_handle()
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterLoadModelFromString(model.model, numItersOut, boosterOutPtr),
+      "Booster LoadFromString")
+    val rows = inputRows.toArray
+    val numRows = rows.length
+    val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+      case dense: DenseVector => dense.toArray
+      case sparse: SparseVector => sparse.toDense.toArray
+    })
+    val dataPtr = LightGBMUtils.generateData(numRows, rowsAsDoubleArray)
+    val boosterPtr = lightgbmlib.voidpp_value(boosterOutPtr)
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+
+    val numRowsIntPtr = lightgbmlib.new_intp()
+    lightgbmlib.intp_assign(numRowsIntPtr, numRows)
+    val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
+    val scoredDataLengthLongPtr = lightgbmlib.new_longp()
+    lightgbmlib.longp_assign(scoredDataLengthLongPtr, numRows)
+    val scoredDataLength_int64_tPtr = lightgbmlib.long_to_int64_t_ptr(scoredDataLengthLongPtr)
+
+    val numCols = rowsAsDoubleArray.head.length
+    val isRowMajor = 1
+    val numColsIntPtr = lightgbmlib.new_intp()
+    lightgbmlib.intp_assign(numColsIntPtr, numCols)
+    val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr)
+    val scoredDataOutPtr = lightgbmlib.new_doubleArray(numRows)
+    val datasetParams = "max_bin=255"
+    lightgbmlib.LGBM_BoosterPredictForMat(boosterPtr, dataPtr, data64bitType,
+      numRows_int32_tPtr, numCols_int32_tPtr, isRowMajor, lightgbmlibConstants.C_API_PREDICT_NORMAL,
+      -1, datasetParams, scoredDataLength_int64_tPtr, scoredDataOutPtr)
+    rows.zipWithIndex.map {
+      case (row, index) => Row.merge(row, Row(lightgbmlib.doubleArray_getitem(scoredDataOutPtr, index)))
+    }.toIterator
+  }
+
+  def scoreLightGBM(featuresColumn: String, model: LightGBMBooster)
+                   (inputRows: Iterator[Row]): Iterator[Row] = {
+    // Initialize the native library
+    LightGBMUtils.initializeNativeLibrary()
+    score(featuresColumn, inputRows, model)
+  }
 }
 
 object LightGBMModel extends ConstructorReadable[LightGBMModel]
