@@ -28,7 +28,6 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   *
   * @param uid The id of the module
   */
-@InternalWrapper
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
 
   def setTimeCol(value: String): this.type = set(timeCol, value)
@@ -339,7 +338,6 @@ object SAR extends DefaultParamsReadable[SAR] {
   })
 }
 
-@InternalWrapper
 class SARModel(override val uid: String,
                userDataFrame: DataFrame,
                itemDataFrame: DataFrame) extends Model[SARModel]
