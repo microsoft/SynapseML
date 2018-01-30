@@ -32,7 +32,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
   def setTimeCol(value: String): this.type = set(timeCol, value)
 
-  val timeCol = new Param[String](this, "time", "Time of activity")
+  val timeCol = new Param[String](this, "timeCol", "Time of activity")
 
   /** @group getParam */
   def getTimeCol: String = $(timeCol)

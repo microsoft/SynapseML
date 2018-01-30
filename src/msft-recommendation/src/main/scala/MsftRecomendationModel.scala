@@ -19,7 +19,6 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * @param itemFactors a DataFrame that stores item factors in two columns: `id` and `features`
   * @param alsModel    a trained ALS model
   */
-@InternalWrapper
 class MsftRecommendationModel(
                                override val uid: String,
                                val rank: Int,
