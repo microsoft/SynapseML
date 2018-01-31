@@ -11,7 +11,6 @@ import org.tensorflow.Tensor
 import org.tensorflow.{TensorFlow => tf}
 //import com.microsoft.ml.spark.TFModelExecutioner
 
-
 class TensorflowSuite extends TestBase {
 //
 //  test("foo"){
@@ -34,7 +33,8 @@ class TensorflowSuite extends TestBase {
     val graphFile = "tensorflow_inception_graph.pb"
     val labelFile = "imagenet_comp_graph_label_strings.txt"
     val applePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/RedApple.jpg"
-    val pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/olpineapple.jpeg"
+    val pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+      "src/test/LabelImage_data/olpineapple.jpeg"
     //Only the first arg is required if the input shape is provided by the graph protobuf file
     // and the input placeholder is called "input"
     executer.main(Array[String](modelPath, applePath, graphFile, labelFile), Array[Float](224f,224f,117f,1f))
@@ -46,7 +46,8 @@ class TensorflowSuite extends TestBase {
     val inceptionv3 = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3"
     val graphv3 = "inception_v3_2016_08_28_frozen.pb"
     val labelsv3 = "imagenet_slim_labels.txt"
-    val pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/olpineapple.jpeg"
+    val pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+      "src/test/LabelImage_data/olpineapple.jpeg"
     val jackfruit = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/jackfruit.jpg"
     val executer = new TFModelExecutor()
 
@@ -59,10 +60,12 @@ class TensorflowSuite extends TestBase {
   }
 
   test("Street view model test, trained by Abishkar"){
-    val multiDigitModelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/streetview"
+    val multiDigitModelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+      "src/test/LabelImage_data/streetview"
     val graphName = "meter_reading_new.pb"
     val labelsDigits = "labels.txt"
-    val imageTestPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/streetview/695.jpeg"
+    val imageTestPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+      "src/test/LabelImage_data/streetview/695.jpeg"
     val executer = new TFModelExecutor()
 
     executer.main(Array[String](multiDigitModelPath, imageTestPath, graphName, labelsDigits),
@@ -87,7 +90,6 @@ class TensorflowSuite extends TestBase {
 //        shapeToUse(i-1) = inputShape.size(i).asInstanceOf[Float] //returns size of ith dimension
 //      }
 //    }
-
 
   }
 

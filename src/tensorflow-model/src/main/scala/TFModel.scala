@@ -61,7 +61,6 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
   /** @group getParam */
   def getLabelFile: String                   = $(labelFile)
 
-
   /** preprocessing info: width, height, mean and scale
     * @group param
     */
@@ -77,8 +76,6 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
     * @group param
     */
   val inputTensorName: Param[String] = new Param(this, "inputTensorName", "Name of input node in TF graph")
-  //  set(inputTensorName, "input")
-
 
   /** @group setParam */
   def setInputTensorName(value: String): this.type = set(inputTensorName, value)
@@ -90,8 +87,6 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
     * @group param
     */
   val outputTensorName: Param[String] = new Param(this, "outputTensorName", "Name of output node in TF graph")
-  //  set(outputTensorName, "output")
-
 
   /** @group setParam */
   def setOutputTensorName(value: String): this.type = set(outputTensorName, value)
@@ -104,17 +99,14 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
     *   - other is more general, expects a DF of arrays of floats and returns a VectorType
     * @group param
     */
-  val transformationType: Param[String] = new Param(this, "transformationType", "Type of the transformation the model " +
-                                                                                "is going to perform")
-  //  set(outputTensorName, "output")
-
+  val transformationType: Param[String] = new Param(this, "transformationType",
+                                                    "Type of the transformation the model is going to perform")
 
   /** @group setParam */
   def setTransformationType(value: String): this.type = set(transformationType, value)
 
   /** @group getParam */
   def getTransformationType: String                   = $(transformationType)
-
 
   //Set default values for some Params that don't have to be specified.
   setDefault(expectedDims -> Array[Float](224f,224f,128f,255f)) //for image type transformation only

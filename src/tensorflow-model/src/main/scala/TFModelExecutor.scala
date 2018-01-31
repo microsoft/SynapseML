@@ -29,7 +29,8 @@ class TFModelExecutor extends Serializable {
   /**
     * Evaluates a tensorflow graph on the provided input and prints the best matched label with confidence
     * TODO: change that to inputs
-    *       @param args: array containing the path to the protobuf file (first arg), and the paths to the inputs to be eval
+    *       @param args: array containing the path to the protobuf file (first arg),
+    *                  and the paths to the inputs to be eval
     *       @param expectedShape:the expected shape of the images (Height, Width, Mean, Scale)
     *       Height and Width will try to be deduced from graph definition, mean and scale default value are
     *       128f and 1f (i.e no scaling and simple substraction of half max rgb value as normalization)
@@ -78,7 +79,7 @@ class TFModelExecutor extends Serializable {
     * @return String of the best fitting label with confidence
     */
   def evaluateForSpark(graphDef: Array[Byte], labels: List[String], imageBytes: Array[Byte],
-                       height: Int , width: Int, typeForEncode: Int,
+                       height: Int, width: Int, typeForEncode: Int,
                expectedShape: Array[Float] = Array[Float](128,128,128f,1f),
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
@@ -87,7 +88,7 @@ class TFModelExecutor extends Serializable {
       val g = new Graph
       g.importGraphDef(graphDef)
 
-      val shapeToUse : Array[Float] = expectedShape
+      val shapeToUse: Array[Float] = expectedShape
 
       //for now, will need to change this later to make it more flexible
       val inputShape = g.operation(inputTensorName).output(0).shape()
@@ -125,13 +126,9 @@ class TFModelExecutor extends Serializable {
 //      val inputTensor = transformer.arrayToTensor(inputArray)
       val shape: Array[Long] = expectedShape.map(e => e.toLong)
       val inputTensor = Tensor.create(shape, inputArray)
-
-
       executeInceptionGraph(g, inputTensor, inputTensorName, outputTensorName)
 //    }.get
   }
-
-
 
   /**
     * Method used for classifying an input (image for now) using a TF graph [when not in Spark]
@@ -170,10 +167,13 @@ class TFModelExecutor extends Serializable {
                                     inputTensorName: String = "input",
                                     outputTensorName: String = "output"): Array[Float] = {
     val s = new Session(g)
-    val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).run.get(0).expect(classOf[java.lang.Float])
+    val result = s.runner.feed(inputTensorName, image).fetch(outputTensorName).
+      run.get(0).expect(classOf[java.lang.Float])
     try {
       val rshape = result.shape
-      if (result.numDimensions != 2 || rshape(0) != 1) throw new RuntimeException(String.format("Expected model to produce a [1 N] shaped tensor where N is the number of labels, instead it produced one with shape %s", util.Arrays.toString(rshape)))
+      if (result.numDimensions != 2 || rshape(0) != 1)
+        throw new RuntimeException(String.format("Expected model to produce a [1 N] shaped tensor where N is " +
+          "the number of labels, instead it produced one with shape %s", util.Arrays.toString(rshape)))
       val nlabels = rshape(1).toInt
       result.copyTo(Array.ofDim[Float](1, nlabels))(0)
     } finally {
@@ -182,7 +182,6 @@ close()
       if (result != null) result.close()
     }
   }
-
 
   def readAllBytesOrExit(path: Path): Array[Byte] = {
     try

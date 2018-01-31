@@ -32,6 +32,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion"
     )
+
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], ExperimentFuzzing[_ <: PipelineStage]] =

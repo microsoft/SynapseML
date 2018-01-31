@@ -16,12 +16,10 @@ import org.tensorflow.types.UInt8
 
 import collection.JavaConverters._
 
-
 /**
   * Class responsible for turning inputs (text, images, etc.) to Tensor objects
   * For now, it is going to support images only (based on the tensorflow example for the inception model)
   */
-
 
 class InputToTensor(input_type: String, expectedShape: Array[Float]) {
   //Constructor
@@ -29,7 +27,8 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
    //TODO: generalize this to handle any picture or input of any shape and form
   //Probably input.shape().size is what you need to play with
-  //TODO: Figure out if this encoding back to jpeg format from openCV format is the right way of doing this - seems convoluted
+  //TODO: Figure out if this encoding back to jpeg format from openCV format is the right way of doing this
+  // - seems convoluted
   /**
     * Method for preprocessing images. Returns a Tensor object representing the preprocessing image
     * (decoding the bytes + substracting the mean + the dividing by the scale
@@ -39,7 +38,9 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
     * @param typeForEncode [For Spark purposes] type of image, to use to encode to jpeg from openCV bytecode
     * @return Input Tensor to feed to the computational graph
     */
-  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte], height: Int = -1, width: Int = -1, typeForEncode: Int = -1): Tensor[java.lang.Float] = {
+  def constructAndExecuteGraphToNormalizeImage(imageBytes: Array[Byte],
+                                               height: Int = -1, width: Int = -1,
+                                               typeForEncode: Int = -1): Tensor[java.lang.Float] = {
     //This if statement has been added to generalize this method to all types of inputs later - might be easier to give
     //the preprocessing responsibility to the MMLSpark User
     if(itype == "image_inception")
@@ -67,7 +68,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
         // input image. If the graph were to be re-used for multiple input images, a placeholder would
         // have been more appropriate. TODO: to make this more efficient on partitions
 
-
         //Check if we are being passed width and height --> change opencv bytes into image bytes
 
         val imageToPass: Array[Byte] = if (width != -1 && height != -1 && typeForEncode != -1) {
@@ -81,8 +81,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
           imageBytes
         }
 
-
-        //
         val input: Output[String] = b.constant("input", imageToPass)
         //      val test = b.constant("size", Array[Int](H, W)).shape().numDimensions()
         //      println("What's going on? --> " + test)

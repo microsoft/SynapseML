@@ -116,7 +116,8 @@ public class LabelImage {
                 if (result.numDimensions() != 2 || rshape[0] != 1) {
                     throw new RuntimeException(
                             String.format(
-                                    "Expected model to produce a [1 N] shaped tensor where N is the number of labels, instead it produced one with shape %s",
+                                    "Expected model to produce a [1 N] shaped tensor where N is " +
+                                            "the number of labels, instead it produced one with shape %s",
                                     Arrays.toString(rshape)));
                 }
                 int nlabels = (int) rshape[1];
@@ -176,6 +177,7 @@ public class LabelImage {
         }
 
         <T> Output<T> expandDims(Output<T> input, Output<Integer> dim) {
+
             return binaryOp3("ExpandDims", input, dim);
         }
 

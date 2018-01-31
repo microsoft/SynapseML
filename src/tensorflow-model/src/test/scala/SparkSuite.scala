@@ -17,7 +17,6 @@ import org.apache.spark
 
 import scala.collection.mutable.ArrayBuffer
 
-
 class SparkSuite extends TestBase{
 
   test("1: Loading images to Spark DF and performing a basic operation") {
@@ -106,14 +105,13 @@ class SparkSuite extends TestBase{
         val height = rawData(1).asInstanceOf[Int]
         val width = rawData(2).asInstanceOf[Int]
         val typeForEncode = rawData(3).asInstanceOf[Int]
-        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width, typeForEncode, expectedDims)
+        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width,
+                                                          typeForEncode, expectedDims)
         Row.fromSeq(Array(prediction).toSeq)
       }
     }(enc)
 
     processedImages.show()
-
-
     //End of setup
   }
 
@@ -146,7 +144,8 @@ class SparkSuite extends TestBase{
         val height = rawData(1).asInstanceOf[Int]
         val width = rawData(2).asInstanceOf[Int]
         val typeForEncode = rawData(3).asInstanceOf[Int]
-        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble, height, width, typeForEncode, expectedDims, outputTensorName = "InceptionV3/Predictions/Reshape_1")
+        val prediction: String = executer.evaluateForSpark(graph,labels,rawDataDouble,
+          height, width, typeForEncode, expectedDims, outputTensorName = "InceptionV3/Predictions/Reshape_1")
         Row.fromSeq(Array(prediction).toSeq)
       }
     }(enc)
@@ -194,7 +193,7 @@ class SparkSuite extends TestBase{
 
   test("Test default expected dims"){
     val dims = new TFModel().getExpectedDims
-    println(dims.mkString("[",", ","]") )
+    println(dims.mkString("[",", ","]"))
   }
 
   def makeFakeData(spark: SparkSession, rows: Int, size: Int, outputDouble: Boolean = false): DataFrame = {
@@ -218,7 +217,7 @@ class SparkSuite extends TestBase{
       case a: Array[_] => flatten(a)
     }
 
-  test("7: Testing a non-image based model. No preprocessing nor postprocessing"){
+  test("7: Testing an image based model with No preprocessing nor postprocessing"){
     val model = new TFModel().setTransformationType("other")
       .setGraphFile("inception_v3_2016_08_28_frozen.pb")
       .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3")
@@ -226,23 +225,44 @@ class SparkSuite extends TestBase{
       .setOutputTensorName("InceptionV3/Predictions/Reshape_1")
       .setExpectedDims(Array(1,299,299,3))
 
-
     val fourDimInput = Array.ofDim[Float](1,299,299,3)
     val inputArr: Array[Float] = flatten(fourDimInput)
     import session.implicits._
     val data = sc.parallelize(Array(inputArr).toSeq.map(Tuple1(_))).toDF()
     data.printSchema()
-    /*val seqTuples = sc.makeRDD(fourDimInput.toSeq.map(one => one.map(two => two.map(three => three.map(f => Tuple1(f))))))
-    seqTuples .toDF()
-
-    val data = makeFakeData(session, 70, 16)*/
-
     val result = model.transform(data)
 
     result.show(5)
   }
 
-
+//  test("8: Testing non-image based model with the general transform - Sentiment analysis"){
+//    val model = new TFModel().setTransformationType("other")
+//      .setGraphFile("saved_model.pb")
+//      .setModelPath("/home/houssam/Documents/tf_experiments/CharLSTM")
+//      .setInputTensorName("X")
+//      .setOutputTensorName("Softmax")
+//      .setExpectedDims(Array(1,1,16,70))
+//
+//    val nrows = 16
+//    val ncols = 70
+//    val rows = Array.ofDim[Float](nrows, ncols)
+//    val bufferedSource = scala.io.Source.fromFile("/home/houssam/Documents/tf_experiments/CharLSTM/df.csv")
+//    var count = 0
+//    for (line <- bufferedSource.getLines.drop(1)) {
+//      rows(count) = line.split(",").map(_.trim).map(e => e.toFloat)
+//      count += 1
+//    }
+//    bufferedSource.close
+//    println(rows(2)(1))
+//
+//    val inputArr: Array[Float] = flatten(Array(Array(rows)))
+//    import session.implicits._
+//    val data = sc.parallelize(Array(inputArr).toSeq.map(Tuple1(_))).toDF()
+//    data.printSchema()
+//    val result = model.transform(data)
+//
+//    result.show(5)
+//  }
 
 //  test("foo"){
 //    val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))

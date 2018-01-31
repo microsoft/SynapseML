@@ -9,9 +9,12 @@ import org.tensorflow.TensorFlow;
 
 public class TensorflowTest {
     public static void main(String[] args) throws Exception {
-          String modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h";
-          String applePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/RedApple.jpg";
-          String pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/olpineapple.jpeg";
+          String modelPath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+                  "src/test/LabelImage_data/inception5h";
+          String applePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+                  "src/test/LabelImage_data/RedApple.jpg";
+          String pineapplePath = "/home/houssam/externship/mmlspark/src/tensorflow-model/" +
+                  "src/test/LabelImage_data/olpineapple.jpeg";
 
           LabelImage.main(new String[] {modelPath,applePath});
           LabelImage.main(new String[] {modelPath,pineapplePath});
