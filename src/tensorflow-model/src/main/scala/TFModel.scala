@@ -71,7 +71,7 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
   def setExpectedDims(value: Array[Float]): this.type = set(expectedDims, value)
 
   /** @group setParam */
-  def getExpectedDims(value: util.ArrayList[Float]): this.type = set(expectedDims, value.toArray().
+  def setExpectedDims(value: util.ArrayList[Float]): this.type = set(expectedDims, value.toArray().
                                                                     asInstanceOf[Array[Float]])
 
   /** @group getParam */
