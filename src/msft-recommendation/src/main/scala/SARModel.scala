@@ -14,8 +14,8 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 @InternalWrapper
 class SARModel(override val uid: String
-//               , userDataFrame: DataFrame
-//               , itemDataFrame: DataFrame
+               //               , userDataFrame: DataFrame
+               //               , itemDataFrame: DataFrame
               ) extends Model[SARModel]
   with MsftRecommendationModelParams with Wrappable with SARParams with ConstructorWritable[SARModel] {
 
@@ -30,6 +30,7 @@ class SARModel(override val uid: String
     lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
     df
   })
+
   def setItemDataFrame(value: DataFrame): this.type = set(itemDataFrame, value)
 
   val itemDataFrame = new DataFrameParam2(this, "itemFeatures", "Time of activity")
@@ -47,8 +48,8 @@ class SARModel(override val uid: String
     .getOrCreate()
 
   def this() = this(Identifiable.randomUID("SARModel")
-//    , SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame,
-//    SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
+    //    , SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame,
+    //    SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
   )
 
   override def recommendForAllItems(k: Int): DataFrame = {
@@ -61,7 +62,7 @@ class SARModel(override val uid: String
 
   override def copy(extra: ParamMap): SARModel = {
     val copied = new SARModel(uid
-//      , userDataFrame, itemDataFrame
+      //      , userDataFrame, itemDataFrame
     )
     copyValues(copied, extra).setParent(parent)
   }
@@ -94,7 +95,7 @@ class SARModel(override val uid: String
   override val ttag: TypeTag[SARModel] = typeTag[SARModel]
 
   override def objectsToSave: List[AnyRef] = List(uid
-    , userDataFrame, itemDataFrame
+//    , userDataFrame, itemDataFrame
   )
 }
 
