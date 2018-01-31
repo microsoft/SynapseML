@@ -30,8 +30,6 @@ class TensorflowGraphBuilder(graph: Graph) {
     def expandDims[T](input: Output[T], dim: Output[Integer]): Output[T] = binaryOp3("ExpandDims", input, dim)
 
     def cast[T, U](value: Output[T], `type`: Class[U]): Output[U] = {
-//      println(`type`)
-//      println(value.getClass)
       val dtype: DataType = DataType.fromClass(`type`)
       g.opBuilder("Cast", "Cast").addInput(value).setAttr("DstT", dtype).build.output[U](0)
     }

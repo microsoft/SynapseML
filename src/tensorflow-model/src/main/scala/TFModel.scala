@@ -124,12 +124,6 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
       case a: Array[_] => flatten(a)
     }
 
-//  def wrappedToArray[A](arr: mutable.WrappedArray[A]): Array[Any] =
-//    arr.map{
-//      case s: mutable.WrappedArray[Float] =>  s.array
-//      case a: mutable.WrappedArray[_] => a.map(e => wrappedToArray[Any](e).array)
-//    }
-
   /** Evaluate the model (on images)
     * @param dataset the dataset to featurize
     * @return featurized dataset - StringType
@@ -170,20 +164,11 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
 //        df.select("input").rdd.map(row => row.get(0).asInstanceOf[mutable.WrappedArray[Float]].array)
         val output = df.mapPartitions { it =>
           it.map { r =>
+
             val rawData: mutable.WrappedArray[Float] = r.toSeq.get(0).asInstanceOf[mutable.WrappedArray[Float]]
             val y  = rawData.toArray
             val x = y.map(x => x.asInstanceOf[Float])
-//            val flattened = rawData.asInstanceOf[Array[java.lang.Float]]
-//            val x: Array[Float] = flattened.map(n => n.floatValue())
-//            val data = rawData.asInstanceOf[Array[mutable.WrappedArray[mutable.WrappedArray[Float]]]]
-//            val rawDataArr = data.map(e => e.toArray.map(s => s.toArray))
-//            val flattened: Array[Float] = flatten(rawDataArr).asInstanceOf[Array[Float]]
             val buffered_data: FloatBuffer = FloatBuffer.wrap(x)
-
-//            val rawDataDouble = rawData(0) //.asInstanceOf[mutable.WrappedArray[Float]].array
-//            val a = rawDataDouble.asInstanceOf[mutable.WrappedArray[Float]]
-//            val b = a.toSeq
-//            val c = b.toArray
 
             val prediction: Array[Float] = executer.evaluateForSparkAny(graph, buffered_data,
               getExpectedDims, getInputTensorName, getOutputTensorName)

@@ -24,8 +24,6 @@ import StreamUtilities.using
   */
 class TFModelExecutor extends Serializable {
 
-  //TODO: Modify the main to be able to evaluate multiple inputs - would save on loading model every time.
-
   /**
     * Evaluates a tensorflow graph on the provided input and prints the best matched label with confidence
     * TODO: change that to inputs
@@ -84,10 +82,8 @@ class TFModelExecutor extends Serializable {
                inputTensorName: String = "input",
                outputTensorName: String = "output"): String = {
     //Check if graph contains info on expected shape of input
-//    using(new Graph) { g =>
       val g = new Graph
       g.importGraphDef(graphDef)
-
       val shapeToUse: Array[Float] = expectedShape
 
       //for now, will need to change this later to make it more flexible
@@ -112,22 +108,17 @@ class TFModelExecutor extends Serializable {
         System.out.println(prediction)
         prediction
       } finally if (image != null) image.close()
-//    }.get
   }
 
   def evaluateForSparkAny(graphDef: Array[Byte], inputArray: FloatBuffer,
                        expectedShape: Array[Float] = Array[Float](1,224,224,3),
                        inputTensorName: String = "input",
                        outputTensorName: String = "output"): Array[Float] = {
-//    using(new Graph) { g =>
       val g = new Graph
       g.importGraphDef(graphDef)
-//      val transformer = new InputToTensor("image_inception", Array[Float](0))
-//      val inputTensor = transformer.arrayToTensor(inputArray)
       val shape: Array[Long] = expectedShape.map(e => e.toLong)
       val inputTensor = Tensor.create(shape, inputArray)
       executeInceptionGraph(g, inputTensor, inputTensorName, outputTensorName)
-//    }.get
   }
 
   /**

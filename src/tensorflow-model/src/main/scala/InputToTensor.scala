@@ -25,9 +25,8 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
   //Constructor
   var itype: String = input_type
 
-   //TODO: generalize this to handle any picture or input of any shape and form
-  //Probably input.shape().size is what you need to play with
-  //TODO: Figure out if this encoding back to jpeg format from openCV format is the right way of doing this
+  // Probably input.shape().size is what you need to play with
+  // TODO: Figure out if this encoding back to jpeg format from openCV format is the right way of doing this
   // - seems convoluted
   /**
     * Method for preprocessing images. Returns a Tensor object representing the preprocessing image
@@ -50,7 +49,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
 
         //Now we are shifting these constants to variables that are either provided or using general default values
         var expectedDim: Array[Float] = Array()
-
         expectedShape.length match {
           case x if x == 0 => expectedDim = expectedShape ++ Array(128f, 128f, 128f, 1f)
           case x if x == 1 => expectedDim = expectedShape ++ Array(128f, 128f, 1f)
@@ -69,7 +67,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
         // have been more appropriate. TODO: to make this more efficient on partitions
 
         //Check if we are being passed width and height --> change opencv bytes into image bytes
-
         val imageToPass: Array[Byte] = if (width != -1 && height != -1 && typeForEncode != -1) {
           val mat = new MatOfByte()
           val xmat = new Mat(height, width, typeForEncode)
@@ -82,8 +79,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
         }
 
         val input: Output[String] = b.constant("input", imageToPass)
-        //      val test = b.constant("size", Array[Int](H, W)).shape().numDimensions()
-        //      println("What's going on? --> " + test)
         val output: Output[java.lang.Float] = b.div(
           b.sub(
             b.resizeBilinear(
@@ -104,7 +99,6 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
           s.runner.fetch(output.op.name).run.get(0).expect(classOf[java.lang.Float])
         }.get
       }.get
-//      toReturn
     }
     else
     {
@@ -131,6 +125,5 @@ class InputToTensor(input_type: String, expectedShape: Array[Float]) {
         s.runner.fetch(outputHandler.op.name).run.get(0).expect(classOf[java.lang.Float])
       }.get
     }.get
-//    toReturn
   }
 }
