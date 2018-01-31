@@ -30,9 +30,8 @@ class DataFrameParam2(parent: Params, name: String, doc: String, isValid: DataFr
 
 object DataFrameParam2 {
   private lazy val emptydf: DataFrame = {
-    val spark = SparkSession.builder().master("local[1]").getOrCreate()
+    lazy val spark = SparkSession.builder().master("local[*]").getOrCreate()
     lazy val df = spark.sqlContext.emptyDataFrame
-    spark.close
     df
   }
 
