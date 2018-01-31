@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALSModel, MsftRecHelper, MsftRecommendationModelParams}
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -27,6 +28,8 @@ class MsftRecommendationModel(
                                val alsModel: ALSModel)
   extends Model[MsftRecommendationModel] with MsftRecommendationModelParams
     with ConstructorWritable[MsftRecommendationModel] {
+
+  def this() = this(Identifiable.randomUID("SARModel"), 1, null, null, null)
 
   /**
     * Returns top `numItems` items recommended for each user, for all users.

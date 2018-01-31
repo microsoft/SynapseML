@@ -9,7 +9,8 @@ import java.util.{Calendar, Date}
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.ml
 import org.apache.spark.ml.feature.StringIndexer
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.recommendation.MsftRecommendationParams
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{Estimator, Pipeline}
@@ -18,7 +19,7 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, _}
 import org.apache.spark.sql.types.{StructType, _}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import scala.collection.mutable
 import scala.collection.mutable.Set
@@ -31,6 +32,27 @@ import scala.language.existentials
 @InternalWrapper
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with
   DefaultParamsWritable {
+
+  def setTimeCol(value: String): this.type = set(timeCol, value)
+
+  val timeCol = new Param[String](this, "timeCol", "Time of activity")
+
+  /** @group getParam */
+  def getTimeCol: String = $(timeCol)
+
+  setDefault(timeCol -> "time")
+
+  def setItemFeatures(value: DataFrame): this.type = set(itemFeatures, value)
+
+  val itemFeatures = new DataFrameParam2(this, "itemFeatures", "Time of activity")
+
+  /** @group getParam */
+  def getItemFeatures: DataFrame = $(itemFeatures)
+
+  setDefault(itemFeatures -> {
+    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
+    df
+  })
 
   private def hash(dataset: Dataset[_]) = {
     val customerIndex = new StringIndexer()
@@ -51,17 +73,19 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
   override def fit(dataset: Dataset[_]): SARModel = {
 
-    val itemSimMatrixdf = itemFeatures(dataset, $(itemFeatures))
+    val itemSimMatrixdf = itemFeatures(dataset)
     //          .union(coldItemFeatures(dataset, itemFeatures))
 
     val userAffinityMatrix = userFeatures(dataset)
 
-    new SARModel(uid, userAffinityMatrix, itemSimMatrixdf)
+    new SARModel(uid
+      //      , userAffinityMatrix, itemSimMatrixdf
+    )
       .setParent(this)
       .setSupportThreshold(getSupportThreshold)
       .setItemCol(getItemCol)
       .setUserCol(getUserCol)
-      .setRank(1)
+      .setRank(1).setUserDataFrame(userAffinityMatrix).setItemDataFrame(itemSimMatrixdf)
   }
 
   override def copy(extra: ParamMap): SAR = defaultCopy(extra)
@@ -72,8 +96,8 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
   def this() = this(Identifiable.randomUID("SAR"))
 
-  def itemFeatures(df: Dataset[_], itemFeaturesDF: Dataset[_] = null): DataFrame = {
-    SAR.itemFeatures(getUserCol, getItemCol, $(supportThreshold), df, itemFeaturesDF)
+  def itemFeatures(df: Dataset[_]): DataFrame = {
+    SAR.itemFeatures(getUserCol, getItemCol, getSupportThreshold, df, getItemFeatures)
   }
 
   def userFeatures(dataset: Dataset[_]): DataFrame = {
@@ -126,43 +150,26 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
 }
 
-trait SARParams extends SARModelParams {
-  def setTimeCol(value: String): this.type = set(timeCol, value)
+trait SARParams extends Wrappable with MsftRecommendationParams {
 
-  val timeCol = new Param[String](this, "timeCol", "Time of activity")
+  /** @group setParam */
+  def setRank(value: Int): this.type = set(rank, value)
+
+  /** @group setParam */
+  def setUserCol(value: String): this.type = set(userCol, value)
+
+  /** @group setParam */
+  def setItemCol(value: String): this.type = set(itemCol, value)
+
+  /** @group setParam */
+  def setRatingCol(value: String): this.type = set(ratingCol, value)
+
+  def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
+
+  val supportThreshold = new IntParam(this, "supportThreshold", "Warm Cold Item Threshold")
 
   /** @group getParam */
-  def getTimeCol: String = $(timeCol)
-
-  setDefault(timeCol -> "time")
-
-  def setItemFeatures(value: DataFrame): this.type = set(itemFeatures, value)
-
-  val itemFeatures = new Param[DataFrame](this, "itemFeatures", "Time of activity")
-
-  /** @group getParam */
-  def getItemFeatures: DataFrame = $(itemFeatures)
-
-  setDefault(itemFeatures -> null)
-
-  /** @group setParam */
-  override def setRank(value: Int): this.type = set(rank, value)
-
-  /** @group setParam */
-  override def setUserCol(value: String): this.type = set(userCol, value)
-
-  /** @group setParam */
-  override def setItemCol(value: String): this.type = set(itemCol, value)
-
-  /** @group setParam */
-  override def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  override def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
-
-  override val supportThreshold = new Param[Int](this, "supportThreshold", "Warm Cold Item Threshold")
-
-  /** @group getParam */
-  override def getSupportThreshold: Int = $(supportThreshold)
+  def getSupportThreshold: Int = $(supportThreshold)
 
   setDefault(supportThreshold -> 4)
 
@@ -220,11 +227,11 @@ object SAR extends DefaultParamsReadable[SAR] {
   }
 
   def itemFeatures(userColumn: String, itemColumn: String, supportThreshold: Int, transformedDf: Dataset[_],
-                   itemFeaturesDF: Dataset[_] = null): DataFrame = {
+                   itemFeaturesDF: Dataset[_]): DataFrame = {
 
     val jaccard: DataFrame = weightWarmItems(userColumn, itemColumn, supportThreshold, transformedDf).cache
 
-    if (itemFeaturesDF != null) weightColdItems(itemColumn, itemFeaturesDF, jaccard)
+    if (itemFeaturesDF.count != 0) weightColdItems(itemColumn, itemFeaturesDF, jaccard)
     else jaccard
   }
 

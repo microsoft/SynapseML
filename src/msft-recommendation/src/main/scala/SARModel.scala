@@ -4,37 +4,70 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Model
-import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.recommendation.{MsftRecommendationModelParams, MsftRecommendationParams}
+import org.apache.spark.ml.param.{DataFrameParam2, ParamMap}
+import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.{NumericType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 @InternalWrapper
-class SARModel(override val uid: String,
-               userDataFrame: DataFrame,
-               itemDataFrame: DataFrame) extends Model[SARModel]
-  with MsftRecommendationModelParams with Wrappable with SARModelParams with ConstructorWritable[SARModel] {
+class SARModel(override val uid: String
+//               , userDataFrame: DataFrame
+//               , itemDataFrame: DataFrame
+              ) extends Model[SARModel]
+  with MsftRecommendationModelParams with Wrappable with SARParams with ConstructorWritable[SARModel] {
 
-  def this() = this(Identifiable.randomUID("SARModel"), null, null)
+  def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
+
+  val userDataFrame = new DataFrameParam2(this, "userDataFrame", "Time of activity")
+
+  /** @group getParam */
+  def getUserDataFrame: DataFrame = $(userDataFrame)
+
+  setDefault(userDataFrame -> {
+    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
+    df
+  })
+  def setItemDataFrame(value: DataFrame): this.type = set(itemDataFrame, value)
+
+  val itemDataFrame = new DataFrameParam2(this, "itemFeatures", "Time of activity")
+
+  /** @group getParam */
+  def setItemDataFrame: DataFrame = $(itemDataFrame)
+
+  setDefault(itemDataFrame -> {
+    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
+    df
+  })
+
+  lazy private val spark = SparkSession
+    .builder()
+    .getOrCreate()
+
+  def this() = this(Identifiable.randomUID("SARModel")
+//    , SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame,
+//    SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
+  )
 
   override def recommendForAllItems(k: Int): DataFrame = {
-    recommendForAllItems($(rank), userDataFrame, itemDataFrame, k)
+    recommendForAllItems($(rank), $(userDataFrame), $(itemDataFrame), k)
   }
 
   override def recommendForAllUsers(k: Int): DataFrame = {
-    recommendForAllUsers($(rank), userDataFrame, itemDataFrame, k)
+    recommendForAllUsers($(rank), $(userDataFrame), $(itemDataFrame), k)
   }
 
   override def copy(extra: ParamMap): SARModel = {
-    val copied = new SARModel(uid, userDataFrame, itemDataFrame)
+    val copied = new SARModel(uid
+//      , userDataFrame, itemDataFrame
+    )
     copyValues(copied, extra).setParent(parent)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transform($(rank), userDataFrame, itemDataFrame, dataset)
+    transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -60,36 +93,9 @@ class SARModel(override val uid: String,
 
   override val ttag: TypeTag[SARModel] = typeTag[SARModel]
 
-  override def objectsToSave: List[AnyRef] = List(uid, userDataFrame, itemDataFrame)
-}
-
-trait SARModelParams extends Wrappable with MsftRecommendationParams {
-
-  /** @group setParam */
-  def setRank(value: Int): this.type = set(rank, value)
-
-  /** @group setParam */
-  def setUserCol(value: String): this.type = set(userCol, value)
-
-  /** @group setParam */
-  def setItemCol(value: String): this.type = set(itemCol, value)
-
-  /** @group setParam */
-  def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
-
-  val supportThreshold = new Param[Int](this, "supportThreshold", "Warm Cold Item Threshold")
-
-  /** @group getParam */
-  def getSupportThreshold: Int = $(supportThreshold)
-
-  setDefault(supportThreshold -> 4)
-
-  setDefault(ratingCol -> "rating")
-  setDefault(userCol -> "user")
-  setDefault(itemCol -> "item")
-
+  override def objectsToSave: List[AnyRef] = List(uid
+    , userDataFrame, itemDataFrame
+  )
 }
 
 object SARModel extends ConstructorReadable[SARModel]
