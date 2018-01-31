@@ -30,6 +30,8 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
     .config(conf)
     .getOrCreate()
 
+  val sc2 = session.sqlContext
+
   override lazy val sc: SparkContext = session.sparkContext
 
   test("testSAR_COLD") {

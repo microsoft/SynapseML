@@ -6,18 +6,16 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.{DataFrameParam2, ParamMap}
 import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types.{NumericType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 @InternalWrapper
 class SARModel(override val uid: String
                //               , userDataFrame: DataFrame
                //               , itemDataFrame: DataFrame
               ) extends Model[SARModel]
-  with MsftRecommendationModelParams with Wrappable with SARParams with ConstructorWritable[SARModel] {
+  with MsftRecommendationModelParams with Wrappable with SARParams with ComplexParamsWritable {
 
   def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
 
@@ -92,11 +90,11 @@ class SARModel(override val uid: String
       s"NumericType but was actually of type $actualDataType.$message")
   }
 
-  override val ttag: TypeTag[SARModel] = typeTag[SARModel]
-
-  override def objectsToSave: List[AnyRef] = List(uid
-//    , userDataFrame, itemDataFrame
-  )
+//  override val ttag: TypeTag[SARModel] = typeTag[SARModel]
+//
+//  override def objectsToSave: List[AnyRef] = List(uid
+////    , userDataFrame, itemDataFrame
+//  )
 }
 
-object SARModel extends ConstructorReadable[SARModel]
+object SARModel extends ComplexParamsReadable[SARModel]
