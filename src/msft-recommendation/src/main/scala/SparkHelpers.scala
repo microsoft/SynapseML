@@ -24,29 +24,43 @@ import org.json4s.{DefaultFormats, JObject}
 
 trait MsftRecommendationModelParams extends Params with ALSModelParams with HasPredictionCol {
 
+  def getALSModel(uid: String,
+                          rank: Int,
+                          userFactors: DataFrame,
+                          itemFactors: DataFrame): ALSModel = {
+    new ALSModel(uid, rank, userFactors, itemFactors)
+  }
+
   def recommendForAllItems(k: Int): DataFrame = ???
 
   def recommendForAllUsers(k: Int): DataFrame = ???
 
   def recommendForAllItems(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
-    MsftRecHelper
-      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
+    getALSModel(uid, rank, userDataFrame, itemDataFrame)
       .setUserCol($(userCol))
       .setItemCol($(itemCol))
       .recommendForAllItems(k)
   }
 
+  def recommendForAllUsers(
+                            alsModel: ALSModel,
+                            num: Int): DataFrame =
+    alsModel.recommendForAllUsers(num)
+
+  def recommendForAllItems(
+                            alsModel: ALSModel,
+                            num: Int): DataFrame =
+    alsModel.recommendForAllItems(num)
+
   def recommendForAllUsers(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, k: Int): DataFrame = {
-    MsftRecHelper
-      .getALSModel(uid, rank, userDataFrame, itemDataFrame)
+    getALSModel(uid, rank, userDataFrame, itemDataFrame)
       .setUserCol($(userCol))
       .setItemCol($(itemCol))
       .recommendForAllUsers(k)
   }
 
   def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]): DataFrame = {
-    MsftRecHelper
-      .getALSModel(uid, rank,
+    getALSModel(uid, rank,
         userDataFrame.withColumnRenamed($(userCol), "id").withColumnRenamed("flatList", "features"),
         itemDataFrame.withColumnRenamed($(itemCol), "id").withColumnRenamed("jaccardList", "features"))
       .setUserCol($(userCol))
@@ -237,7 +251,7 @@ private[ml] object TrainValidRecommendSplitParams {
 trait MsftRecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with ComplexParamsWritable
 
-object MsftRecHelper {
+object SparkHelpers {
 
   def getALSModel(uid: String,
                   rank: Int,
@@ -270,16 +284,6 @@ object MsftRecHelper {
     new BoundedPriorityQueue[(Int, Float)](maxSize)(Ordering.by(_._2))
 
   def getRow(row: Row): Rating[Int] = Rating.apply(row.getInt(0), row.getInt(1), row.getFloat(2))
-
-  def recommendForAllUsers(
-                            alsModel: ALSModel,
-                            num: Int): DataFrame =
-    alsModel.recommendForAllUsers(num)
-
-  def recommendForAllItems(
-                            alsModel: ALSModel,
-                            num: Int): DataFrame =
-    alsModel.recommendForAllItems(num)
 
   def transform(
                  rank: Int,
