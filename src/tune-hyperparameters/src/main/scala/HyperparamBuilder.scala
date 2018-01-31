@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 
-import scala.collection.mutable
+import scala.collection.{JavaConversions, mutable}
 import scala.util.Random
 
 abstract class RangeHyperParam[T](val min: T, val max: T, val seed: Long) extends Dist[T] {
@@ -54,7 +54,36 @@ class DoubleRangeHyperParam(min: Double, max: Double, seed: Long = 0)
 
 }
 
-class DiscreteHyperParam[T](values: Array[T], seed: Long = 0) extends Dist[T] {
+object HyperParamUtils {
+  /** Returns a range hyper param by matching to the given input type.
+    * @param min The min value of the range
+    * @param max The max value of the range
+    * @param seed The random number seed.
+    * @return A RangeHyperParam matched to the given type for min and max values.
+    */
+  def getRangeHyperParam(min: Any, max: Any, seed: Long = 0): RangeHyperParam[_] = {
+    (min, max) match {
+      case (minD: Double, maxD: Double) => new DoubleRangeHyperParam(minD, maxD, seed)
+      case (minF: Float, maxF: Float) => new FloatRangeHyperParam(minF, maxF, seed)
+      case (minL: Long, maxL: Long) => new LongRangeHyperParam(minL, maxL, seed)
+      case (minI: Int, maxI: Int) => new IntRangeHyperParam(minI, maxI, seed)
+      case default =>
+        throw new Exception("Could not match RangeHyperParam constructor to the given type")
+    }
+  }
+
+  /** Returns a discrete hyper param given a Java ArrayList through JavaConversions.
+    * @param values The list of values from Java.
+    * @param seed The random number seed.
+    * @return A RangeHyperParam matched to the given type for min and max values.
+    */
+  def getDiscreteHyperParam(values: java.util.ArrayList[_], seed: Long = 0): DiscreteHyperParam[_] = {
+    val valuesList = JavaConversions.asScalaBuffer(values).toList
+    new DiscreteHyperParam(valuesList, seed)
+  }
+}
+
+class DiscreteHyperParam[T](values: List[T], seed: Long = 0) extends Dist[T] {
 
   val random = new Random(seed)
 
