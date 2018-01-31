@@ -17,6 +17,13 @@ class SARModel(override val uid: String
               ) extends Model[SARModel]
   with MsftRecommendationModelParams with Wrappable with SARParams with ComplexParamsWritable {
 
+  lazy val emptydf: DataFrame = {
+    val spark = SparkSession.builder().master("local[1]").getOrCreate()
+    lazy val df = spark.sqlContext.emptyDataFrame
+    spark.close
+    df
+  }
+
   def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
 
   val userDataFrame = new DataFrameParam2(this, "userDataFrame", "Time of activity")
@@ -24,10 +31,7 @@ class SARModel(override val uid: String
   /** @group getParam */
   def getUserDataFrame: DataFrame = $(userDataFrame)
 
-  setDefault(userDataFrame -> {
-    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
-    df
-  })
+  setDefault(userDataFrame -> emptydf)
 
   def setItemDataFrame(value: DataFrame): this.type = set(itemDataFrame, value)
 
@@ -36,10 +40,7 @@ class SARModel(override val uid: String
   /** @group getParam */
   def setItemDataFrame: DataFrame = $(itemDataFrame)
 
-  setDefault(itemDataFrame -> {
-    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
-    df
-  })
+  setDefault(itemDataFrame -> emptydf)
 
   lazy private val spark = SparkSession
     .builder()

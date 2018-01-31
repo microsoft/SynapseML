@@ -33,6 +33,13 @@ import scala.language.existentials
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with
   DefaultParamsWritable {
 
+  lazy val emptydf: DataFrame = {
+    val spark = SparkSession.builder().master("local[1]").getOrCreate()
+    lazy val df = spark.sqlContext.emptyDataFrame
+    spark.close
+    df
+  }
+
   def setTimeCol(value: String): this.type = set(timeCol, value)
 
   val timeCol = new Param[String](this, "timeCol", "Time of activity")
@@ -49,10 +56,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   /** @group getParam */
   def getItemFeatures: DataFrame = $(itemFeatures)
 
-  setDefault(itemFeatures -> {
-    lazy val df = SparkSession.builder().getOrCreate().sqlContext.emptyDataFrame
-    df
-  })
+  setDefault(itemFeatures -> emptydf)
 
   private def hash(dataset: Dataset[_]) = {
     val customerIndex = new StringIndexer()
