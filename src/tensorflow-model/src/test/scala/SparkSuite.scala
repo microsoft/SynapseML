@@ -247,7 +247,8 @@ class SparkSuite extends TestBase{
 //    val nrows = 10662
 //    val ncols = 57
 //    val rows = Array.ofDim[Float](nrows, ncols)
-//    val bufferedSource = scala.io.Source.fromFile("/home/houssam/Documents/tf_experiments/cnn-text-classification-tf/input_x.csv")
+//    val bufferedSource = scala.io.Source.fromFile("/home/houssam/Documents/tf_experiments/" +
+//  "cnn-text-classification-tf/input_x.csv")
 //    var count = 0
 //    for (line <- bufferedSource.getLines.drop(1)) {
 //      rows(count) = line.split(",").map(_.trim).map(e => e.toFloat)
