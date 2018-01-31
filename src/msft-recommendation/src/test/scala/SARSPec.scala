@@ -32,6 +32,72 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
 
   override lazy val sc: SparkContext = session.sparkContext
 
+  test("testSAR_COLD") {
+    val df: DataFrame = session.createDataFrame(Seq(
+      ("11", "Movie 09", 3, 3),
+      ("11", "Movie 07", 3, 3),
+      ("11", "Movie 01", 4, 4),
+      ("11", "Movie 03", 1, 1),
+      ("11", "Movie 04", 5, 5),
+      ("11", "Movie 05", 3, 3),
+      ("11", "Movie 10", 3, 3),
+      ("22", "Movie 01", 4, 4),
+      ("22", "Movie 02", 5, 5),
+      ("22", "Movie 03", 1, 1),
+      ("22", "Movie 06", 4, 4),
+      ("22", "Movie 07", 5, 5),
+      ("22", "Movie 08", 1, 1),
+      ("22", "Movie 10", 3, 3),
+      ("33", "Movie 10", 3, 3),
+      ("33", "Movie 09", 5, 5),
+      ("33", "Movie 08", 1, 1),
+      ("33", "Movie 04", 5, 5),
+      ("33", "Movie 05", 3, 3),
+      ("33", "Movie 06", 4, 4),
+      ("33", "Movie 03", 1, 1),
+      ("33", "Movie 02", 1, 1),
+      ("33", "Movie 01", 4, 4),
+      ("44", "Movie 07", 5, 5),
+      ("44", "Movie 10", 3, 3),
+      ("44", "Movie 03", 1, 1),
+      ("44", "Movie 09", 5, 5),
+      ("44", "Movie 08", 1, 1),
+      ("44", "Movie 06", 4, 4),
+      ("44", "Movie 05", 3, 3),
+      ("44", "Movie 04", 5, 5),
+      ("44", "Movie 02", 5, 5)
+    )).toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
+
+    val itemFeaturesDF: DataFrame = session.createDataFrame(Seq(
+      ("Movie 01", 1, .25),
+      ("Movie 01", 0, .50),
+      ("Movie 02", 1, .25),
+      ("Movie 02", 0, .50),
+      ("Movie 03", 1, .25),
+      ("Movie 03", 0, .50),
+      ("Movie 04", 1, .25),
+      ("Movie 04", 0, .50),
+      ("Movie 05", 1, .25),
+      ("Movie 05", 0, .50),
+      ("Movie 06", 1, .25),
+      ("Movie 06", 0, .50),
+      ("Movie 07", 1, .25),
+      ("Movie 07", 0, .50),
+      ("Movie 08", 1, .25),
+      ("Movie 08", 0, .50),
+      ("Movie 09", 1, .25),
+      ("Movie 09", 0, .50),
+      ("Movie 10", 1, .25),
+      ("Movie 10", 0, .50))).toDF("itemIDOrg", "tagID", "relevance")
+
+    evalTestCold(df, itemFeaturesDF, "customerIDOrg", "itemIDOrg", "rating")
+    //    evalTest2(df, "customerIDOrg", "itemIDOrg", "rating")
+
+    //    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
+
+    //    converted.take(4).foreach(println(_))
+  }
+
   test("testSAR") {
     val df: DataFrame = session.createDataFrame(Seq(
       ("11", "Movie 01", 4, 4),
@@ -191,6 +257,98 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
       .csv("/mnt/ml-20m/parts/part*.csv").na.drop
 
     evalTest(ratings, "userId", "movieId", "rating")
+  }
+
+  private def evalTestCold(ratings: DataFrame, itemRatings: DataFrame, customerId: String, itemId: String,
+                           rating: String) = {
+    session.sparkContext.setLogLevel("WARN")
+
+    val k = 10
+
+    ratings.cache()
+    val customerIndex = new StringIndexer()
+      .setInputCol(customerId)
+      .setOutputCol("customerID")
+
+    val ratingsIndex = new StringIndexer()
+      .setInputCol(itemId)
+      .setOutputCol("itemID")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(customerIndex, ratingsIndex))
+
+    val hashModel = pipeline.fit(ratings)
+    val transformedDf = hashModel.transform(ratings)
+    val itemTransformedDF = hashModel.transform(itemRatings)
+    transformedDf.cache().count
+    //    ratings.unpersist()
+    val sar = new SAR()
+      .setUserCol(customerIndex.getOutputCol)
+      .setItemCol(ratingsIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemFeatures(itemTransformedDF)
+      .setSupportThreshold(2)
+
+    val alsWReg = new MsftRecommendation()
+      .setUserCol(customerIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getOutputCol)
+
+    val paramGrid = new ParamGridBuilder()
+      .build()
+
+    val evaluator = new MsftRecommendationEvaluator()
+      .setK(k)
+      .setSaveAll(true)
+
+    val helper = new TrainValidRecommendSplit()
+      .setEstimator(sar)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setTrainRatio(0.8)
+      .setUserCol(customerIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getOutputCol)
+      .setMinRatingsI(0)
+      .setMinRatingsU(0)
+
+    val filtered = helper.filterRatings(transformedDf)
+    filtered.cache().count()
+    //    transformedDf.unpersist()
+    val Array(train, test) = helper.splitDF(filtered)
+    train.cache().count
+    test.cache().count
+    //    filtered.unpersist()
+
+    val model = sar.fit(train)
+
+    val users = model.recommendForAllUsers(k)
+    users.cache.count
+    //    train.unpersist
+
+    val testData = helper.prepareTestData(test, users, k)
+    testData.cache.count
+    //    test.unpersist
+    //    users.unpersist
+
+    evaluator.setNItems(transformedDf.rdd.map(r => r(5)).distinct().count())
+    evaluator.evaluate(testData)
+    evaluator.printMetrics()
+    val metrics = "ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity"
+
+    assert(evaluator.getMetricsList(0).getOrElse("map", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("ndcgAt", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("precisionAtk", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("recallAtK", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("diversityAtK", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("maxDiversity", 0.0) > 0)
+    assert(evaluator.getMetricsList(0).getOrElse("map", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("ndcgAt", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("precisionAtk", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("recallAtK", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("diversityAtK", 0.0) <= 1.0)
+    assert(evaluator.getMetricsList(0).getOrElse("maxDiversity", 0.0) <= 1.0)
+
   }
 
   private def evalTest(ratings: DataFrame, customerId: String, itemId: String, rating: String) = {

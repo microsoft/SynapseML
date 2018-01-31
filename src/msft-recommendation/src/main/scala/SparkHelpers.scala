@@ -68,10 +68,10 @@ trait TrainValidRecommendSplitParams extends Wrappable with HasSeed with Params 
     * @group param
     */
   val minRatingsU: IntParam = new IntParam(this, "minRatingsU",
-    "min ratings for users > 0", ParamValidators.inRange(1, Integer.MAX_VALUE))
+    "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   val minRatingsI: IntParam = new IntParam(this, "minRatingsI",
-    "min ratings for items > 0", ParamValidators.inRange(1, Integer.MAX_VALUE))
+    "min ratings for items > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   val trainRatio: DoubleParam = new DoubleParam(this, "trainRatio",
     "ratio between training set and validation set (>= 0 && <= 1)", ParamValidators.inRange(0, 1))

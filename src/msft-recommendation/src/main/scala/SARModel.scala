@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.{NumericType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -16,6 +17,8 @@ class SARModel(override val uid: String,
                userDataFrame: DataFrame,
                itemDataFrame: DataFrame) extends Model[SARModel]
   with MsftRecommendationModelParams with Wrappable with SARParams with ConstructorWritable[SARModel] {
+
+  def this() = this(Identifiable.randomUID("SARModel"), null, null)
 
   override def recommendForAllItems(k: Int): DataFrame = {
     recommendForAllItems($(rank), userDataFrame, itemDataFrame, k)

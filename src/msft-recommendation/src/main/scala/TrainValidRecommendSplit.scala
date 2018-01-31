@@ -141,14 +141,14 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     .join(filterByItemCount(dataset), $(userCol))
 
   def splitDF(dataset: DataFrame): Array[DataFrame] = {
-    val shuffleFlag = false
+    val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
     val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
     val sliceudf = udf(
       (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
     val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-      if (shuffleBC.value) Random.shuffle(r)
+      if (shuffleBC.value) Random.shuffle(r.toSeq)
       else r
     )
     val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))

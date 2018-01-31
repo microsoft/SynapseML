@@ -7,16 +7,18 @@ import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
+import org.apache.spark.ml
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.recommendation.{MsftRecommendationModelParams, MsftRecommendationParams}
+import org.apache.spark.ml.recommendation.MsftRecommendationParams
+import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.ml.{Estimator, Model, Pipeline}
+import org.apache.spark.ml.{Estimator, Pipeline}
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{NumericType, StructType, _}
+import org.apache.spark.sql.functions.{col, _}
+import org.apache.spark.sql.types.{StructType, _}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.collection.mutable
@@ -28,7 +30,17 @@ import scala.language.existentials
   * @param uid The id of the module
   */
 @InternalWrapper
-class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
+class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with
+  DefaultParamsWritable {
+
+  def setItemFeatures(value: DataFrame): this.type = set(itemFeatures, value)
+
+  val itemFeatures = new Param[DataFrame](this, "itemFeatures", "Time of activity")
+
+  /** @group getParam */
+  def getItemFeatures: DataFrame = $(itemFeatures)
+
+  setDefault(itemFeatures -> null)
 
   def setTimeCol(value: String): this.type = set(timeCol, value)
 
@@ -58,8 +70,8 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
   override def fit(dataset: Dataset[_]): SARModel = {
 
-    val itemSimMatrixdf = itemFeatures(dataset)
-    //      .union(coldItemFeatures(dataset, itemFeatures))
+    val itemSimMatrixdf = itemFeatures(dataset, $(itemFeatures))
+    //          .union(coldItemFeatures(dataset, itemFeatures))
 
     val userAffinityMatrix = userFeatures(dataset)
 
@@ -79,8 +91,8 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
   def this() = this(Identifiable.randomUID("SAR"))
 
-  def itemFeatures(df: Dataset[_]): DataFrame = {
-    SAR.itemFeatures(getUserCol, getItemCol, $(supportThreshold), df)
+  def itemFeatures(df: Dataset[_], itemFeaturesDF: Dataset[_] = null): DataFrame = {
+    SAR.itemFeatures(getUserCol, getItemCol, $(supportThreshold), df, itemFeaturesDF)
   }
 
   def userFeatures(dataset: Dataset[_]): DataFrame = {
@@ -119,7 +131,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
 
     val flatlist = udf((r: mutable.WrappedArray[mutable.WrappedArray[Double]]) => {
       val map = r.map(r => r(0).toInt -> r(1)).toMap
-      (1 to numItems.value.toInt).map(i => map.getOrElse(i, 0.0).toFloat).toArray
+      (0 to numItems.value.toInt).map(i => map.getOrElse(i, 0.0).toFloat).toArray
     })
 
     val userFeaturesDF = ds
@@ -209,8 +221,8 @@ object SAR extends DefaultParamsReadable[SAR] {
       cooCcur / (occA * occB)
   }
 
-  def itemFeatures(userColumn: String, itemColumn: String, supportThreshold: Int, transformedDf: Dataset[_]):
-  DataFrame = {
+  def itemFeatures(userColumn: String, itemColumn: String, supportThreshold: Int, transformedDf: Dataset[_],
+                   itemFeaturesDF: Dataset[_] = null): DataFrame = {
 
     val sc = transformedDf.sparkSession
 
@@ -232,7 +244,7 @@ object SAR extends DefaultParamsReadable[SAR] {
       val countI = features.apply(itemID)
       features.toArray.indices.map(i => {
         val countJ: Long = itemCountsBC.value.getOrElse(i, 0)
-        if (countI < supportThreshold || countJ < supportThreshold) {
+        if (!(countI < supportThreshold || countJ < supportThreshold)) {
           val cooco = features.apply(i)
           if (jaccardFlag)
             jaccard(countI, countJ, cooco)
@@ -249,7 +261,10 @@ object SAR extends DefaultParamsReadable[SAR] {
       .select(
         col(userColumn).cast(LongType),
         col(itemColumn).cast(LongType)
-      ).rdd.map(r => MatrixEntry(r.getLong(0), r.getLong(1), 1.0))
+      ).rdd
+      //      .filter(r => itemCountsBC.value.getOrElse(r.getLong(0), 0.0) >= supportThreshold)
+      //      .filter(r => itemCountsBC.value.getOrElse(r.getLong(1), 0.0) >= supportThreshold)
+      .map(r => MatrixEntry(r.getLong(0), r.getLong(1), 1.0))
 
     val matrix = new CoordinateMatrix(rdd).toBlockMatrix().cache()
 
@@ -258,13 +273,78 @@ object SAR extends DefaultParamsReadable[SAR] {
       .toIndexedRowMatrix()
       .rows.map(index => (index.index.toInt, index.vector))
 
-    sc.createDataFrame(rowMatrix)
+    val jaccard = sc.createDataFrame(rowMatrix)
       .toDF(itemColumn, "features")
       .withColumn("jaccardList", calculateFeature(col(itemColumn), col("features")))
       .select(
         col(itemColumn).cast(IntegerType),
         col("jaccardList")
       )
+
+    if (itemFeaturesDF != null) {
+      val itemFeatureVectors = itemFeaturesDF.select(
+        col(itemColumn).cast(LongType),
+        col("tagId").cast(LongType),
+        col("relevance")
+      )
+        .rdd.map(r => MatrixEntry(r.getLong(0), r.getLong(1), 1.0))
+
+      val itemFeatureMatrix = new CoordinateMatrix(itemFeatureVectors)
+        .toBlockMatrix()
+        .toIndexedRowMatrix()
+        .rows.map(index => (index.index.toInt, index.vector))
+
+      val pairs =
+        itemFeatureMatrix.cartesian(itemFeatureMatrix)
+          .map(row => {
+            val vec1: linalg.Vector = row._1._2
+            val vec2 = row._2._2
+
+            val productArray = (0 to vec1.argmax + 1).map(i => vec1.apply(i) * vec2.apply(i)).toArray
+            (row._1._1, row._2._1, new ml.linalg.DenseVector(productArray))
+          })
+
+      val selectScore = udf((itemID: Integer, wrappedList: mutable.WrappedArray[Double]) => wrappedList(itemID))
+
+      val itempairsDF = sc.createDataFrame(pairs)
+        .toDF(itemColumn + "1", itemColumn + "2", "features")
+        .join(jaccard, col(itemColumn) === col(itemColumn + "1"))
+        .withColumn("label", selectScore(col(itemColumn + "2"), col("jaccardList")))
+        .select(itemColumn + "1", itemColumn + "2", "features", "label")
+
+      val training = itempairsDF.where(col("label") >= 0)
+      val test = itempairsDF.where(col("label") < 0)
+
+      val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
+
+      val coldData = new LinearRegression()
+        .setMaxIter(10)
+        .setRegParam(1.0)
+        .setElasticNetParam(1.0)
+        .fit(itempairsDF)
+        .transform(test)
+        .withColumn("wrappedPrediction", wrapColumn(col(itemColumn + "2"), col("prediction")))
+        .groupBy(itemColumn + "1")
+        .agg(collect_list(col("wrappedPrediction")))
+        .select(col(itemColumn + "1"), col("collect_list(wrappedPrediction)").as("wrappedPrediction"))
+
+      val mergeScore = udf((jaccard: mutable.WrappedArray[Float], cold: mutable.WrappedArray[mutable
+      .WrappedArray[Double]]) => {
+        cold.foreach(coldItem => {
+          jaccard.update(coldItem(0).toInt, coldItem(1).toFloat)
+        })
+        jaccard
+      })
+
+      val coldJaccard = jaccard
+        .join(coldData, col(itemColumn) === col(itemColumn + "1"))
+        .withColumn("output", mergeScore(col("jaccardList"), col("wrappedPrediction")))
+        .select(col("itemID"), col("output").as("jaccardList"))
+
+      coldJaccard
+    }
+    else
+      jaccard
 
     //    val localMatrix = ata.toLocalMatrix().asML.compressed
     //    val broadcastMatrix = transformedDf.sparkSession.sparkContext.broadcast(localMatrix)

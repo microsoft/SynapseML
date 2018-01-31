@@ -72,8 +72,8 @@ class SARSpec(unittest.TestCase):
             .setSupportThreshold(4)
 
         sarModel = sar.fit(ratings)
-        # usersRecs = sarModel._call_java("recommendForAllUsers", 3)
-        usersRecs = sarModel.recommendForAllUsers(3)
+        usersRecs = sarModel._call_java("recommendForAllUsers", 3)
+        # usersRecs = sarModel.recommendForAllUsers(3)
         print(usersRecs.take(4))
         #
         # paramGrid = ParamGridBuilder() \
