@@ -162,6 +162,7 @@ class SparkSuite extends TestBase{
     val filesRoot = s"${sys.env("DATASETS_HOME")}/"
     val imagePath = s"$filesRoot/Images/Grocery/negative"
     val images = session.readImages(imagePath, true)
+    images.printSchema()
     val imagesInBytes = images.select("image.bytes", "image.height", "image.width", "image.type")
 
     val result = model.transform(imagesInBytes)
@@ -237,16 +238,16 @@ class SparkSuite extends TestBase{
 
 //  test("8: Testing non-image based model with the general transform - Sentiment analysis"){
 //    val model = new TFModel().setTransformationType("other")
-//      .setGraphFile("saved_model.pb")
-//      .setModelPath("/home/houssam/Documents/tf_experiments/CharLSTM")
-//      .setInputTensorName("X")
-//      .setOutputTensorName("Softmax")
-//      .setExpectedDims(Array(1,1,16,70))
+//      .setGraphFile("sentiment3.pb")
+//      .setModelPath("/home/houssam/Documents/tf_experiments/cnn-text-classification-tf/model")
+//      .setInputTensorName("input_x")
+//      .setOutputTensorName("accuracy/accuracy")
+//      .setExpectedDims(Array(1,1,10662,57))
 //
-//    val nrows = 16
-//    val ncols = 70
+//    val nrows = 10662
+//    val ncols = 57
 //    val rows = Array.ofDim[Float](nrows, ncols)
-//    val bufferedSource = scala.io.Source.fromFile("/home/houssam/Documents/tf_experiments/CharLSTM/df.csv")
+//    val bufferedSource = scala.io.Source.fromFile("/home/houssam/Documents/tf_experiments/cnn-text-classification-tf/input_x.csv")
 //    var count = 0
 //    for (line <- bufferedSource.getLines.drop(1)) {
 //      rows(count) = line.split(",").map(_.trim).map(e => e.toFloat)
@@ -262,31 +263,6 @@ class SparkSuite extends TestBase{
 //    val result = model.transform(data)
 //
 //    result.show(5)
-//  }
-
-//  test("foo"){
-//    val enc = RowEncoder(new StructType().add(StructField("new col", StringType)))
-//    val df = session
-//      .createDataFrame(Seq((1,2),(2,3),(4,3)))
-//      .withColumn("foo",col("_2")+2)
-//      .mapPartitions { it =>
-//        println("i only run once")
-//        val model = ??? //loadme!
-//        it.map {r =>
-//          val rawData = r.getAs[Array[Double]](???)
-//          val tfData = toTFData(rawData)
-//          val tfResults = model.eval(tfData)
-//          val sparkResults = fromTFData(tfResults)
-//        }
-//      }(enc)
-//    df.show()
-//    df.printSchema()
-//  }
-//
-//  test("bar"){
-//    import session.implicits._
-//
-//    sc.parallelize((1 to 10).map(Tuple1(_))).toDF("foo").rdd.mapPartitions()
 //  }
 
 }

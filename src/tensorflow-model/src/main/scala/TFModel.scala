@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import java.nio.file.Paths
 import java.nio.FloatBuffer
+import java.util
 
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -68,6 +69,10 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
 
   /** @group setParam */
   def setExpectedDims(value: Array[Float]): this.type = set(expectedDims, value)
+
+  /** @group setParam */
+  def getExpectedDims(value: util.ArrayList[Float]): this.type = set(expectedDims, value.toArray().
+                                                                    asInstanceOf[Array[Float]])
 
   /** @group getParam */
   def getExpectedDims: Array[Float]                   = $(expectedDims)
