@@ -24,16 +24,12 @@ class SARModel(override val uid: String
   /** @group getParam */
   def getUserDataFrame: DataFrame = $(userDataFrame)
 
-  setDefault(userDataFrame -> DataFrameParam2.getEmptyDF)
-
   def setItemDataFrame(value: DataFrame): this.type = set(itemDataFrame, value)
 
   val itemDataFrame = new DataFrameParam2(this, "itemFeatures", "Time of activity")
 
   /** @group getParam */
   def setItemDataFrame: DataFrame = $(itemDataFrame)
-
-  setDefault(itemDataFrame -> DataFrameParam2.getEmptyDF)
 
   lazy private val spark = SparkSession
     .builder()
@@ -84,11 +80,11 @@ class SARModel(override val uid: String
       s"NumericType but was actually of type $actualDataType.$message")
   }
 
-//  override val ttag: TypeTag[SARModel] = typeTag[SARModel]
-//
-//  override def objectsToSave: List[AnyRef] = List(uid
-////    , userDataFrame, itemDataFrame
-//  )
+  //  override val ttag: TypeTag[SARModel] = typeTag[SARModel]
+  //
+  //  override def objectsToSave: List[AnyRef] = List(uid
+  ////    , userDataFrame, itemDataFrame
+  //  )
 }
 
 object SARModel extends ComplexParamsReadable[SARModel]

@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
-import org.apache.spark.ml
+import org.apache.spark.{SparkContext, ml}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.MsftRecommendationParams
@@ -49,7 +49,21 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   /** @group getParam */
   def getItemFeatures: DataFrame = $(itemFeatures)
 
-  setDefault(itemFeatures -> DataFrameParam2.getEmptyDF())
+//  private lazy val emptydf: DataFrame = {
+////    val sparkContext = SparkContext.getOrCreate()
+////    sparkContext.emptyRDD
+////
+////
+////    lazy val spark = SparkSession
+////      .builder()
+////       .master("local[*]")
+////      .getOrCreate()
+////    lazy val df = spark.sqlContext.emptyDataFrame
+////    df
+//    SparkSession.getActiveSession.get.emptyDataFrame
+//  }
+
+//  setDefault(itemFeatures -> emptydf)
 
   private def hash(dataset: Dataset[_]) = {
     val customerIndex = new StringIndexer()
@@ -94,7 +108,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   def this() = this(Identifiable.randomUID("SAR"))
 
   def itemFeatures(df: Dataset[_]): DataFrame = {
-    SAR.itemFeatures(getUserCol, getItemCol, getSupportThreshold, df, getItemFeatures)
+    SAR.itemFeatures(getUserCol, getItemCol, getSupportThreshold, df, get(itemFeatures))
   }
 
   def userFeatures(dataset: Dataset[_]): DataFrame = {
@@ -224,12 +238,10 @@ object SAR extends DefaultParamsReadable[SAR] {
   }
 
   def itemFeatures(userColumn: String, itemColumn: String, supportThreshold: Int, transformedDf: Dataset[_],
-                   itemFeaturesDF: Dataset[_]): DataFrame = {
+                   itemFeaturesDF: Option[DataFrame]): DataFrame = {
 
     val jaccard: DataFrame = weightWarmItems(userColumn, itemColumn, supportThreshold, transformedDf).cache
-
-    if (itemFeaturesDF.count != 0) weightColdItems(itemColumn, itemFeaturesDF, jaccard)
-    else jaccard
+    itemFeaturesDF.map(weightColdItems(itemColumn, _, jaccard)).getOrElse(jaccard)
   }
 
   def weightWarmItems(userColumn: String, itemColumn: String, supportThreshold: Int, transformedDf: Dataset[_])
