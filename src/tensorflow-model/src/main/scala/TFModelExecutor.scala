@@ -118,7 +118,7 @@ class TFModelExecutor extends Serializable {
       g.importGraphDef(graphDef)
       val shape: Array[Long] = expectedShape.map(e => e.toLong)
       val inputTensor = Tensor.create(shape, inputArray)
-      val inputTensorInt = inputTensor.
+//      val inputTensorInt = inputTensor.
       executeInceptionGraph(g, inputTensor, inputTensorName, outputTensorName)
   }
 
