@@ -72,7 +72,7 @@ object DefaultHyperparams {
       .addHyperparam(learner.blockSize, new IntRangeHyperParam(10, 200))
       .addHyperparam(learner.maxIter, new IntRangeHyperParam(1, 5))
       .addHyperparam(learner.tol, new DoubleRangeHyperParam(1e-6, 1e-3))
-      .addHyperparam(learner.layers, new DiscreteHyperParam[Array[Int]](Array(layers)))
+      .addHyperparam(learner.layers, new DiscreteHyperParam[Array[Int]](List(layers)))
       .build()
   }
 
