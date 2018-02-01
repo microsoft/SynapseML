@@ -4,8 +4,12 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import org.apache.commons.codec.StringEncoder
+import org.apache.spark.TaskContext
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+
+import scala.collection.immutable.BitSet
 
 /**
   * Helper utilities for LightGBM learners
@@ -17,6 +21,8 @@ object LightGBMUtils {
     }
   }
 
+  /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
+    */
   def initializeNativeLibrary(): Unit = {
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
@@ -34,24 +40,40 @@ object LightGBMUtils {
     featurizer.fit(dataset)
   }
 
-  def getNodes(processedData: Dataset[_]): (String, Int) = {
-    val spark = processedData.sparkSession.sparkContext
-    val nodesKeys = spark.getExecutorMemoryStatus.keys.map(key => key.split(":")(0))
-    val numNodes = processedData.rdd.getNumPartitions
-    val driverHost = spark.getConf.get("spark.driver.host")
-    println("driver host: " + driverHost)
-    val keysWithoutDriver = nodesKeys.filter(key => key != driverHost)
-    println("keys without driver: " + keysWithoutDriver.mkString(","))
-    val executors =
-      if (keysWithoutDriver.isEmpty) {
-        // Running in local mode
-        List.fill(numNodes)(driverHost)
-      } else {
-        keysWithoutDriver
-      }
-    val nodes = executors.zipWithIndex
-      .map(node => (node._1 + ":" + (LightGBMClassifier.defaultLocalListenPort + node._2))).mkString(",")
-    (nodes, numNodes)
+  def getNodes(processedData: DataFrame, defaultListenPort: Int): (String, Int) = {
+    val spark = processedData.sparkSession
+    val nodesKeys2 = spark.sparkContext.getExecutorMemoryStatus.keys.map(key => key.split(":")(0))
+    import spark.implicits._
+    val nodes = processedData.mapPartitions((iter: Iterator[Row]) => {
+      val ctx = TaskContext.get
+      // The logic below is to get it to run in local[*] spark context
+      val localHostAddr = java.net.InetAddress.getLocalHost().getHostAddress()
+      val badAddr = Array("127.0.", "192.168.")
+      val ipAddressPattern = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})"""
+      val hostaddr =
+        if (!badAddr.filter(localHostAddr.toString.startsWith(_)).isEmpty) {
+          import java.net.NetworkInterface
+          val interfaces = NetworkInterface.getNetworkInterfaces
+          var done = false
+          var goodAddr: String = null
+          while (interfaces.hasMoreElements && !done) {
+            val interface = interfaces.nextElement()
+            val inetAddresses = interface.getInetAddresses
+            while (inetAddresses.hasMoreElements && !done) {
+              val inetaddress = inetAddresses.nextElement()
+              goodAddr = inetaddress.getHostAddress
+              if (badAddr.filter(goodAddr.startsWith(_)).isEmpty &&
+                goodAddr.matches(ipAddressPattern)) {
+                done = true
+              }
+            }
+          }
+          goodAddr
+        } else localHostAddr
+      val partId = ctx.partitionId()
+      Array(hostaddr + ":" + (defaultListenPort + partId)).toIterator
+    }).reduce((val1, val2) => val1 + "," + val2)
+    (nodes, nodes.split(",").length)
   }
 
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]): SWIGTYPE_p_void = {

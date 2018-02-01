@@ -7,10 +7,15 @@ import com.microsoft.ml.lightgbm.{SWIGTYPE_p_void, lightgbmlib, lightgbmlibConst
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
+import org.slf4j.Logger
+
+case class TrainParams(numIterations: Int, learningRate: Double, numLeaves: Int)
 
 private object TrainUtils extends java.io.Serializable {
-  def translate(labelColumn: String, featuresColumn: String, parallelism: String,
-                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+  private val DefaultBufferLength: Int = 10000
+
+  def translate(labelColumn: String, featuresColumn: String, parallelism: String, log: Logger,
+                trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext)
       List[LightGBMBooster]().toIterator
 
@@ -36,29 +41,36 @@ private object TrainUtils extends java.io.Serializable {
 
     // Create the booster
     val boosterOutPtr = lightgbmlib.voidpp_handle()
-    val parameters = "is_pre_partition=True tree_learner=" + parallelism + " boosting_type=gbdt " +
-      "objective=binary metric=binary_logloss,auc num_trees=10 learning_rate=0.1 num_leaves=5"
+    val parameters = s"is_pre_partition=True tree_learner=$parallelism boosting_type=gbdt " +
+      s"objective=binary metric=binary_logloss,auc num_iterations=${trainParams.numIterations} " +
+      s"learning_rate=${trainParams.learningRate} num_leaves=${trainParams.numLeaves}"
     LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr, parameters, boosterOutPtr), "Booster")
     val boosterPtr = lightgbmlib.voidpp_value(boosterOutPtr)
     val isFinishedPtr = lightgbmlib.new_intp()
     var isFinised = 0
     var iters = 0
-    while (isFinised == 0 && iters < 10) {
+    while (isFinised == 0 && iters < trainParams.numIterations) {
       val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr, isFinishedPtr)
       LightGBMUtils.validate(result, "Booster Update One Iter")
       isFinised = lightgbmlib.intp_value(isFinishedPtr)
-      println("Running iteration: " + iters + " with result: " + result + " and is finished: " + isFinised)
+      log.info("LightGBM running iteration: " + iters + " with result: " + result + " and is finished: " + isFinised)
       iters = iters + 1
     }
-    val bufferLength = 10000
+    val bufferLength = DefaultBufferLength
     val bufferLengthPtr = lightgbmlib.new_longp()
     lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
     val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
     val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-    val model = lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr, -1, bufferLengthPtrInt64, bufferOutLengthPtr)
+    val tempM = lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr, -1, bufferLengthPtrInt64, bufferOutLengthPtr)
+    val bufferOutLength = lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr))
+    // TODO: Move the reallocation logic inside the SWIG wrapper
+    val model =
+      if (bufferOutLength > bufferLength) {
+        lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr, -1, bufferOutLengthPtr, bufferOutLengthPtr)
+      } else tempM
+    log.info("Buffer output length: " + bufferOutLength)
     // Finalize network when done
     LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
-    println("Buffer length:" + lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr)))
     List[LightGBMBooster](new LightGBMBooster(model)).toIterator
   }
 
@@ -80,15 +92,17 @@ private object TrainUtils extends java.io.Serializable {
     }
   }
 
-  def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String, parallelism: String)
+  def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String, parallelism: String,
+                    defaultListenPort: Int, log: Logger, trainParams: TrainParams)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Initialize the native library
     LightGBMUtils.initializeNativeLibrary()
     // Initialize the network communication
     val partitionId = TaskContext.getPartitionId()
-    val localListenPort = LightGBMClassifier.defaultLocalListenPort + partitionId
+    val localListenPort = defaultListenPort + partitionId
+    log.info("LightGBM worker listening on: " + localListenPort)
     LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort, LightGBMClassifier.defaultListenTimeout,
       numNodes), "Network init")
-    translate(labelColumn, featuresColumn, parallelism, inputRows)
+    translate(labelColumn, featuresColumn, parallelism, log, trainParams, inputRows)
   }
 }
