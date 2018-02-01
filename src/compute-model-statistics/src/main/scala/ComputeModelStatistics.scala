@@ -4,12 +4,13 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.contracts.MetricData
+import com.microsoft.ml.spark.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.ml.spark.schema.SchemaConstants._
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix}
 import org.apache.spark.rdd.RDD
@@ -18,83 +19,11 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.log4j.Logger
 
-/** Contains constants used by Compute Model Statistics. */
-object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics] {
-  // Regression metrics
-  val MseSparkMetric  = "mse"
-  val RmseSparkMetric = "rmse"
-  val R2SparkMetric   = "r2"
-  val MaeSparkMetric  = "mae"
-  val RegressionMetrics = "regression"
+object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
-  val regressionMetrics = Set(MseSparkMetric, RmseSparkMetric, R2SparkMetric,
-                              MaeSparkMetric, RegressionMetrics)
-
-  // Binary Classification metrics
-  val AreaUnderROCMetric   = "areaUnderROC"
-  val AucSparkMetric       = "AUC"
-  val AccuracySparkMetric  = "accuracy"
-  val PrecisionSparkMetric = "precision"
-  val RecallSparkMetric    = "recall"
-  val ClassificationMetrics = "classification"
-
-  val classificationMetrics = Set(AreaUnderROCMetric, AucSparkMetric, AccuracySparkMetric,
-                                  PrecisionSparkMetric, RecallSparkMetric, ClassificationMetrics)
-
-  val AllSparkMetrics      = "all"
-
-  // Regression column names
-  val MseColumnName  = "mean_squared_error"
-  val RmseColumnName = "root_mean_squared_error"
-  val R2ColumnName   = "R^2"
-  val MaeColumnName  = "mean_absolute_error"
-
-  // Binary Classification column names
-  val AucColumnName = "AUC"
-
-  // Binary and Multiclass (micro-averaged) column names
-  val PrecisionColumnName = "precision"
-  val RecallColumnName    = "recall"
-  val AccuracyColumnName  = "accuracy"
-
-  // Multiclass Classification column names
-  val AverageAccuracy        = "average_accuracy"
-  val MacroAveragedRecall    = "macro_averaged_recall"
-  val MacroAveragedPrecision = "macro_averaged_precision"
-
-  // Metric to column name
-  val metricToColumnName = Map(AccuracySparkMetric -> AccuracyColumnName,
-    PrecisionSparkMetric -> PrecisionColumnName,
-    RecallSparkMetric    -> RecallColumnName,
-    MseSparkMetric       -> MseColumnName,
-    RmseSparkMetric      -> RmseColumnName,
-    R2SparkMetric        -> R2ColumnName,
-    MaeSparkMetric       -> MaeColumnName)
-
-  val classificationColumns = List(AccuracyColumnName, PrecisionColumnName, RecallColumnName)
-
-  val regressionColumns = List(MseColumnName, RmseColumnName, R2ColumnName, MaeColumnName)
-
-  val ClassificationEvaluationType = "Classification"
-  val EvaluationType = "evaluation_type"
-
-  val FpRateROCColumnName = "false_positive_rate"
-  val TpRateROCColumnName = "true_positive_rate"
-
-  val FpRateROCLog = "fpr"
-  val TpRateROCLog = "tpr"
-
-  val BinningThreshold = 1000
-
-  def isClassificationMetric(metric: String): Boolean = {
-    if (regressionMetrics.contains(metric)) false
-    else if (classificationMetrics.contains(metric)) true
-    else throw new Exception("Invalid metric specified")
-  }
-}
-
-trait ComputeModelStatisticsParams extends MMLParams {
-  /** Metric to evaluate the models with. Default is "all"
+trait ComputeModelStatisticsParams extends MMLParams
+  with HasLabelCol with HasScoresCol with HasScoredLabelsCol with HasEvaluationMetric {
+  /** Param "evaluationMetric" is the metric to evaluate the models with. Default is "all"
     *
     * The metrics that can be chosen are:
     *
@@ -120,35 +49,11 @@ trait ComputeModelStatisticsParams extends MMLParams {
     *
     * @group param
     */
-  val evaluationMetric: Param[String] =
-    StringParam(this, "evaluationMetric", "Metric to evaluate models with",
-                ComputeModelStatistics.AllSparkMetrics)
-
-  /** @group getParam */
-  def getEvaluationMetric: String = $(evaluationMetric)
-
-  /** @group setParam */
-  def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
-
-  val scoredLabelsCol =
-    StringParam(this, "scoredLabelsCol", "Scored labels column name, only required if using SparkML estimators")
-
-  def getScoredLabelsCol: String = $(scoredLabelsCol)
-
-  def setScoredLabelsCol(value: String): this.type = set(scoredLabelsCol, value)
-
-  val scoresCol =
-    StringParam(this, "scoresCol", "Scores or raw prediction column name, only required if using SparkML estimators")
-
-  def getScoresCol: String = $(scoresCol)
-
-  def setScoresCol(value: String): this.type = set(scoresCol, value)
+  setDefault(evaluationMetric -> MetricConstants.AllSparkMetrics)
 }
 
 /** Evaluates the given scored dataset. */
-class ComputeModelStatistics(override val uid: String) extends Transformer with ComputeModelStatisticsParams
-  with HasLabelCol {
-
+class ComputeModelStatistics(override val uid: String) extends Transformer with ComputeModelStatisticsParams {
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
   /** The ROC curve evaluated for a binary classifier. */
@@ -161,7 +66,11 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
     * @return DataFrame whose columns contain the calculated metrics
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val (modelName, labelColumnName, scoreValueKind) = getSchemaInfo(dataset.schema)
+    val (modelName, labelColumnName, scoreValueKind) =
+      MetricUtils.getSchemaInfo(
+        dataset.schema,
+        if (isDefined(labelCol)) Some(getLabelCol) else None,
+        getEvaluationMetric)
 
     // For creating the result dataframe in classification or regression case
     val spark = dataset.sparkSession
@@ -170,8 +79,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
     if (scoreValueKind == SchemaConstants.ClassificationKind) {
 
       var resultDF: DataFrame =
-        Seq(ComputeModelStatistics.ClassificationEvaluationType)
-          .toDF(ComputeModelStatistics.EvaluationType)
+        Seq(MetricConstants.ClassificationEvaluationType)
+          .toDF(MetricConstants.EvaluationType)
       val scoredLabelsColumnName =
         if (isDefined(scoredLabelsCol)) getScoredLabelsCol
         else SparkSchema.getScoredLabelsColumnName(dataset.schema, modelName)
@@ -202,25 +111,25 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
       // If levels exist, use the extra information they give to get better performance
       getEvaluationMetric match {
-        case allMetrics if allMetrics == ComputeModelStatistics.AllSparkMetrics ||
-                           allMetrics == ComputeModelStatistics.ClassificationMetrics => {
+        case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
+                           allMetrics == MetricConstants.ClassificationMetrics => {
           resultDF = addConfusionMatrixToResult(labels, confusionMatrix, resultDF)
           resultDF = addAllClassificationMetrics(
               modelName, dataset, labelColumnName, predictionAndLabels,
               confusionMatrix, scoresAndLabels, resultDF)
         }
-        case simpleMetric if simpleMetric == ComputeModelStatistics.AccuracySparkMetric ||
-                             simpleMetric == ComputeModelStatistics.PrecisionSparkMetric ||
-                             simpleMetric == ComputeModelStatistics.RecallSparkMetric => {
+        case simpleMetric if simpleMetric == MetricConstants.AccuracySparkMetric ||
+                             simpleMetric == MetricConstants.PrecisionSparkMetric ||
+                             simpleMetric == MetricConstants.RecallSparkMetric => {
           resultDF = addSimpleMetric(simpleMetric, predictionAndLabels, resultDF)
         }
-        case ComputeModelStatistics.AucSparkMetric => {
+        case MetricConstants.AucSparkMetric => {
           val numLevels = if (levelsExist) levels.get.length
           else confusionMatrix.numRows
           if (numLevels <= 2) {
             // Add the AUC
             val auc: Double = getAUC(modelName, dataset, labelColumnName, scoresAndLabels)
-            resultDF = resultDF.withColumn(ComputeModelStatistics.AucColumnName, lit(auc))
+            resultDF = resultDF.withColumn(MetricConstants.AucColumnName, lit(auc))
           } else {
             throw new Exception("Error: AUC is not available for multiclass case")
           }
@@ -247,45 +156,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
       metricsLogger.logRegressionMetrics(mse, rmse, r2, mae)
 
-      Seq((mse, rmse, r2, mae)).toDF(ComputeModelStatistics.MseColumnName,
-                                     ComputeModelStatistics.RmseColumnName,
-                                     ComputeModelStatistics.R2ColumnName,
-                                     ComputeModelStatistics.MaeColumnName)
+      Seq((mse, rmse, r2, mae)).toDF(MetricConstants.MseColumnName,
+                                     MetricConstants.RmseColumnName,
+                                     MetricConstants.R2ColumnName,
+                                     MetricConstants.MaeColumnName)
     } else {
       throwOnInvalidScoringKind(scoreValueKind)
-    }
-  }
-
-  private def getSchemaInfo(schema: StructType): (String, String, String) = {
-    val schemaInfo = tryGetSchemaInfo(schema)
-    if (schemaInfo.isDefined) {
-      schemaInfo.get
-    } else {
-      if (!isDefined(labelCol) || getEvaluationMetric == ComputeModelStatistics.AllSparkMetrics) {
-        throw new Exception("Please score the model prior to evaluating")
-      }
-      ("custom model", getLabelCol,
-       if (ComputeModelStatistics.isClassificationMetric(getEvaluationMetric))
-         SchemaConstants.ClassificationKind
-       else SchemaConstants.RegressionKind)
-    }
-  }
-
-  private def tryGetSchemaInfo(schema: StructType): Option[(String, String, String)] = {
-    // TODO: evaluate all models; for now, get first model name found
-    val firstModelName = schema.collectFirst {
-      case StructField(c, t, _, m)
-          if (getFirstModelName(m) != null && !getFirstModelName(m).isEmpty) => {
-        getFirstModelName(m).get
-      }
-    }
-    if (!firstModelName.isEmpty) {
-      val modelName = firstModelName.get
-      val labelColumnName = SparkSchema.getLabelColumnName(schema, modelName)
-      val scoreValueKind = SparkSchema.getScoreValueKind(schema, modelName, labelColumnName)
-      Option((modelName, labelColumnName, scoreValueKind))
-    } else {
-      None
     }
   }
 
@@ -300,12 +176,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       metricsLogger.logClassificationMetrics(accuracy, precision, recall)
       // Add the metrics to the DF
       simpleMetric match {
-        case ComputeModelStatistics.AccuracySparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.AccuracyColumnName, lit(accuracy))
-        case ComputeModelStatistics.PrecisionSparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.PrecisionColumnName, lit(precision))
-        case ComputeModelStatistics.RecallSparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.RecallColumnName, lit(recall))
+        case MetricConstants.AccuracySparkMetric =>
+          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(accuracy))
+        case MetricConstants.PrecisionSparkMetric =>
+          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(precision))
+        case MetricConstants.RecallSparkMetric =>
+          resultDF.withColumn(MetricConstants.RecallColumnName, lit(recall))
         case default => resultDF
       }
     } else {
@@ -314,12 +190,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       metricsLogger.logClassificationMetrics(microAvgAccuracy, microAvgPrecision, microAvgRecall)
       // Add the metrics to the DF
       simpleMetric match {
-        case ComputeModelStatistics.AccuracySparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.AccuracyColumnName, lit(microAvgAccuracy))
-        case ComputeModelStatistics.PrecisionSparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.PrecisionColumnName, lit(microAvgPrecision))
-        case ComputeModelStatistics.RecallSparkMetric =>
-          resultDF.withColumn(ComputeModelStatistics.RecallColumnName, lit(microAvgRecall))
+        case MetricConstants.AccuracySparkMetric =>
+          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(microAvgAccuracy))
+        case MetricConstants.PrecisionSparkMetric =>
+          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(microAvgPrecision))
+        case MetricConstants.RecallSparkMetric =>
+          resultDF.withColumn(MetricConstants.RecallColumnName, lit(microAvgRecall))
         case default => resultDF
       }
     }
@@ -342,10 +218,10 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       metricsLogger.logAUC(auc)
       // Add the metrics to the DF
       resultDF
-        .withColumn(ComputeModelStatistics.AccuracyColumnName, lit(accuracy))
-        .withColumn(ComputeModelStatistics.PrecisionColumnName, lit(precision))
-        .withColumn(ComputeModelStatistics.RecallColumnName, lit(recall))
-        .withColumn(ComputeModelStatistics.AucColumnName, lit(auc))
+        .withColumn(MetricConstants.AccuracyColumnName, lit(accuracy))
+        .withColumn(MetricConstants.PrecisionColumnName, lit(precision))
+        .withColumn(MetricConstants.RecallColumnName, lit(recall))
+        .withColumn(MetricConstants.AucColumnName, lit(auc))
     } else {
       val (microAvgAccuracy: Double,
            microAvgPrecision: Double,
@@ -356,12 +232,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
           = getMulticlassMetrics(predictionAndLabels, confusionMatrix)
       metricsLogger.logClassificationMetrics(microAvgAccuracy, microAvgPrecision, microAvgRecall)
       resultDF
-        .withColumn(ComputeModelStatistics.AccuracyColumnName, lit(microAvgAccuracy))
-        .withColumn(ComputeModelStatistics.PrecisionColumnName, lit(microAvgPrecision))
-        .withColumn(ComputeModelStatistics.RecallColumnName, lit(microAvgRecall))
-        .withColumn(ComputeModelStatistics.AverageAccuracy, lit(averageAccuracy))
-        .withColumn(ComputeModelStatistics.MacroAveragedPrecision, lit(macroAveragedPrecision))
-        .withColumn(ComputeModelStatistics.MacroAveragedRecall, lit(macroAveragedRecall))
+        .withColumn(MetricConstants.AccuracyColumnName, lit(microAvgAccuracy))
+        .withColumn(MetricConstants.PrecisionColumnName, lit(microAvgPrecision))
+        .withColumn(MetricConstants.RecallColumnName, lit(microAvgRecall))
+        .withColumn(MetricConstants.AverageAccuracy, lit(averageAccuracy))
+        .withColumn(MetricConstants.MacroAveragedPrecision, lit(macroAveragedPrecision))
+        .withColumn(MetricConstants.MacroAveragedRecall, lit(macroAveragedRecall))
     }
   }
 
@@ -498,13 +374,13 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
              labelColumnName: String,
              scoresAndLabels: RDD[(Double, Double)]): Double = {
     val binaryMetrics = new BinaryClassificationMetrics(scoresAndLabels,
-      ComputeModelStatistics.BinningThreshold)
+      MetricConstants.BinningThreshold)
 
     val spark = dataset.sparkSession
     import spark.implicits._
 
     rocCurve = binaryMetrics.roc()
-      .toDF(ComputeModelStatistics.FpRateROCColumnName, ComputeModelStatistics.TpRateROCColumnName)
+      .toDF(MetricConstants.FpRateROCColumnName, MetricConstants.TpRateROCColumnName)
     metricsLogger.logROC(rocCurve)
     val auc = binaryMetrics.areaUnderROC()
     metricsLogger.logAUC(auc)
@@ -548,22 +424,17 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
     (labels, confusionMatrix)
   }
 
-  private def getFirstModelName(colMetadata: Metadata): Option[String] = {
-    if (!colMetadata.contains(MMLTag)) null
-    else {
-      val mlTagMetadata = colMetadata.getMetadata(MMLTag)
-      val metadataKeys = MetadataUtilities.getMetadataKeys(mlTagMetadata)
-      metadataKeys.find(key => key.startsWith(SchemaConstants.ScoreModelPrefix))
-    }
-  }
-
   override def copy(extra: ParamMap): Transformer = new ComputeModelStatistics()
 
   override def transformSchema(schema: StructType): StructType = {
-    val (_, _, scoreValueKind) = getSchemaInfo(schema)
+    val (_, _, scoreValueKind) =
+      MetricUtils.getSchemaInfo(
+        schema,
+        if (isDefined(labelCol)) Some(getLabelCol) else None,
+        getEvaluationMetric)
     val columns =
-      if (scoreValueKind == SchemaConstants.ClassificationKind) ComputeModelStatistics.classificationColumns
-      else if (scoreValueKind == SchemaConstants.RegressionKind) ComputeModelStatistics.regressionColumns
+      if (scoreValueKind == SchemaConstants.ClassificationKind) MetricConstants.classificationColumns
+      else if (scoreValueKind == SchemaConstants.RegressionKind) MetricConstants.regressionColumns
       else throwOnInvalidScoringKind(scoreValueKind)
     getTransformedSchema(columns, scoreValueKind)
 
@@ -575,13 +446,13 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
   private def getTransformedSchema(columns: List[String], metricType: String) = {
     getEvaluationMetric match {
-      case allMetrics if allMetrics == ComputeModelStatistics.AllSparkMetrics ||
-                         allMetrics == ComputeModelStatistics.ClassificationMetrics ||
-                         allMetrics == ComputeModelStatistics.RegressionMetrics =>
+      case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
+                         allMetrics == MetricConstants.ClassificationMetrics ||
+                         allMetrics == MetricConstants.RegressionMetrics =>
         StructType(columns.map(StructField(_, DoubleType)))
-      case metric: String if (ComputeModelStatistics.metricToColumnName.contains(metric)) &&
-                             columns.contains(ComputeModelStatistics.metricToColumnName(metric)) =>
-        StructType(Array(StructField(ComputeModelStatistics.metricToColumnName(metric), DoubleType)))
+      case metric: String if MetricConstants.metricToColumnName.contains(metric) &&
+                             columns.contains(MetricConstants.metricToColumnName(metric)) =>
+        StructType(Array(StructField(MetricConstants.metricToColumnName(metric), DoubleType)))
       case default =>
         throw new Exception(s"Error: $default is not a $metricType metric")
     }
@@ -596,39 +467,42 @@ class MetricsLogger(uid: String) {
   lazy val logger = Logger.getLogger(this.getClass.getName)
 
   def logClassificationMetrics(accuracy: Double, precision: Double, recall: Double): Unit = {
-    val metrics = MetricData.create(Map(ComputeModelStatistics.AccuracyColumnName -> accuracy,
-      ComputeModelStatistics.PrecisionColumnName -> precision,
-      ComputeModelStatistics.RecallColumnName -> recall), "Classification Metrics", uid)
+    val metrics = MetricData.create(
+        Map(MetricConstants.AccuracyColumnName -> accuracy,
+            MetricConstants.PrecisionColumnName -> precision,
+            MetricConstants.RecallColumnName -> recall),
+        "Classification Metrics", uid)
     logger.info(metrics)
   }
 
   def logRegressionMetrics(mse: Double, rmse: Double, r2: Double, mae: Double): Unit = {
-    val metrics = MetricData.create(Map(ComputeModelStatistics.MseColumnName -> mse,
-      ComputeModelStatistics.RmseColumnName -> rmse,
-      ComputeModelStatistics.R2ColumnName -> r2,
-      ComputeModelStatistics.MaeColumnName -> mae), "Regression Metrics", uid)
+    val metrics = MetricData.create(
+        Map(MetricConstants.MseColumnName -> mse,
+            MetricConstants.RmseColumnName -> rmse,
+            MetricConstants.R2ColumnName -> r2,
+            MetricConstants.MaeColumnName -> mae),
+        "Regression Metrics", uid)
     logger.info(metrics)
   }
 
   def logAUC(auc: Double): Unit = {
-    val metrics = MetricData.create(Map(ComputeModelStatistics.AucColumnName -> auc), "AUC Metric", uid)
+    val metrics = MetricData.create(Map(MetricConstants.AucColumnName -> auc), "AUC Metric", uid)
     logger.info(metrics)
   }
 
   def logROC(roc: DataFrame): Unit = {
     val metrics = MetricData.createTable(
-      Map(
-        ComputeModelStatistics.TpRateROCLog ->
-          roc.select(ComputeModelStatistics.TpRateROCColumnName)
-            .collect()
-            .map(row => row(0).asInstanceOf[Double]).toSeq,
-        ComputeModelStatistics.FpRateROCLog ->
-          roc.select(ComputeModelStatistics.FpRateROCColumnName)
-            .collect()
-            .map(row => row(0).asInstanceOf[Double]).toSeq
-      ),
-      "ROC Metric",
-      uid)
+      Map(MetricConstants.TpRateROCLog ->
+            roc.select(MetricConstants.TpRateROCColumnName)
+               .collect()
+               .map(row => row(0).asInstanceOf[Double])
+               .toSeq,
+          MetricConstants.FpRateROCLog ->
+            roc.select(MetricConstants.FpRateROCColumnName)
+               .collect()
+               .map(row => row(0).asInstanceOf[Double])
+               .toSeq),
+      "ROC Metric", uid)
     logger.info(metrics)
   }
 

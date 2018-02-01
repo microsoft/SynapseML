@@ -5,34 +5,33 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.TrainRegressorTestUtilities._
 import com.microsoft.ml.spark.TrainClassifierTestUtilities._
+import com.microsoft.ml.spark.metrics.MetricConstants
 import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.feature.FastVectorAssembler
 import org.apache.spark.sql._
-
-import scala.tools.nsc.transform.patmat.Lit
 
 /** Tests to validate the functionality of Compute Per Instance Statistics module. */
 class VerifyComputePerInstanceStatistics extends TestBase {
 
+  val labelColumn = "label"
+  val predictionColumn = SchemaConstants.SparkPredictionColumn
+  val dataset = session.createDataFrame(Seq(
+    (0.0, 2, 0.50, 0.60, 0.0),
+    (1.0, 3, 0.40, 0.50, 1.0),
+    (2.0, 4, 0.78, 0.99, 2.0),
+    (3.0, 5, 0.12, 0.34, 3.0),
+    (0.0, 1, 0.50, 0.60, 0.0),
+    (1.0, 3, 0.40, 0.50, 1.0),
+    (2.0, 3, 0.78, 0.99, 2.0),
+    (3.0, 4, 0.12, 0.34, 3.0),
+    (0.0, 0, 0.50, 0.60, 0.0),
+    (1.0, 2, 0.40, 0.50, 1.0),
+    (2.0, 3, 0.78, 0.99, 2.0),
+    (3.0, 4, 0.12, 0.34, 3.0)))
+    .toDF(labelColumn, "col1", "col2", "col3", predictionColumn)
+
   test("Smoke test for evaluating a dataset") {
-
-    val labelColumn = "label"
-    val predictionColumn = SchemaConstants.SparkPredictionColumn
-    val dataset = session.createDataFrame(Seq(
-      (0.0, 2, 0.50, 0.60, 0.0),
-      (1.0, 3, 0.40, 0.50, 1.0),
-      (2.0, 4, 0.78, 0.99, 2.0),
-      (3.0, 5, 0.12, 0.34, 3.0),
-      (0.0, 1, 0.50, 0.60, 0.0),
-      (1.0, 3, 0.40, 0.50, 1.0),
-      (2.0, 3, 0.78, 0.99, 2.0),
-      (3.0, 4, 0.12, 0.34, 3.0),
-      (0.0, 0, 0.50, 0.60, 0.0),
-      (1.0, 2, 0.40, 0.50, 1.0),
-      (2.0, 3, 0.78, 0.99, 2.0),
-      (3.0, 4, 0.12, 0.34, 3.0)))
-      .toDF(labelColumn, "col1", "col2", "col3", predictionColumn)
-
     val scoreModelName = SchemaConstants.ScoreModelPrefix + "_test model"
 
     val datasetWithLabel =
@@ -45,8 +44,37 @@ class VerifyComputePerInstanceStatistics extends TestBase {
     validatePerInstanceRegressionStatistics(evaluatedData)
   }
 
+  test("Verify computing per instance statistics on generic spark ML estimators is supported") {
+    val scoredLabelsCol = "LogRegScoredLabelsCol"
+    val scoresCol = "LogRegScoresCol"
+    val probCol = "LogRegProbCol"
+    val featuresCol = "features"
+    val logisticRegression = new LogisticRegression()
+      .setRegParam(0.3)
+      .setElasticNetParam(0.8)
+      .setMaxIter(10)
+      .setLabelCol(labelColumn)
+      .setPredictionCol(scoredLabelsCol)
+      .setRawPredictionCol(scoresCol)
+      .setProbabilityCol(probCol)
+      .setFeaturesCol(featuresCol)
+    val assembler = new FastVectorAssembler()
+      .setInputCols(Array("col1", "col2", "col3"))
+      .setOutputCol(featuresCol)
+    val assembledDataset = assembler.transform(dataset)
+    val model = logisticRegression.fit(assembledDataset)
+    val scoredData = model.transform(assembledDataset)
+    val cms = new ComputePerInstanceStatistics()
+      .setLabelCol(labelColumn)
+      .setScoredLabelsCol(scoredLabelsCol)
+      .setScoresCol(scoresCol)
+      .setScoredProbabilitiesCol(probCol)
+      .setEvaluationMetric(MetricConstants.ClassificationMetrics)
+    val evaluatedData = cms.transform(scoredData)
+    validatePerInstanceClassificationStatistics(evaluatedData)
+  }
+
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
-    val label = "label"
     val dataset = session.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
@@ -60,18 +88,17 @@ class VerifyComputePerInstanceStatistics extends TestBase {
       (1, 2, 0.40, 0.50, 1),
       (2, 3, 0.78, 0.99, 2),
       (3, 4, 0.12, 0.34, 3)
-    )).toDF(label, "col1", "col2", "col3", "col4")
+    )).toDF(labelColumn, "col1", "col2", "col3", "col4")
 
-    val linearRegressor = createLinearRegressor(label)
+    val linearRegressor = createLinearRegressor(labelColumn)
     val scoredDataset =
-      TrainRegressorTestUtilities.trainScoreDataset(label, dataset, linearRegressor)
+      TrainRegressorTestUtilities.trainScoreDataset(labelColumn, dataset, linearRegressor)
 
     val evaluatedData = new ComputePerInstanceStatistics().transform(scoredDataset)
     validatePerInstanceRegressionStatistics(evaluatedData)
   }
 
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
-    val labelColumn = "Label"
     val dataset = session.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),

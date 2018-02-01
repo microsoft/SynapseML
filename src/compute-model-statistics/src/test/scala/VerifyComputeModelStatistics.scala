@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.TrainRegressorTestUtilities._
 import com.microsoft.ml.spark.TrainClassifierTestUtilities._
+import com.microsoft.ml.spark.metrics.MetricConstants
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
@@ -66,7 +67,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(2) === 1.0)
     assert(firstRow.getDouble(3) === 0.0)
 
-    assert(evaluatedSchema == StructType(ComputeModelStatistics.regressionColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema == StructType(MetricConstants.regressionColumns.map(StructField(_, DoubleType))))
   }
 
   test("Evaluate a dataset with missing values") {
@@ -137,7 +138,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
-    assert(evaluatedSchema == StructType(ComputeModelStatistics.classificationColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema == StructType(MetricConstants.classificationColumns.map(StructField(_, DoubleType))))
   }
 
   test("Verify computing statistics on generic spark ML estimators is supported") {
@@ -162,7 +163,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setLabelCol(labelColumn)
       .setScoredLabelsCol(scoredLabelsCol)
       .setScoresCol(scoresCol)
-      .setEvaluationMetric(ComputeModelStatistics.ClassificationMetrics)
+      .setEvaluationMetric(MetricConstants.ClassificationMetrics)
     val evaluatedData = cms.transform(scoredData)
     val firstRow = evaluatedData.select(col("accuracy"), col("precision"), col("recall"), col("AUC")).first()
     assert(firstRow.get(0).asInstanceOf[Double] === 1.0)
@@ -215,15 +216,15 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
 
     val overallAccuracy = (tp0 + tp1 + tp2) / total
     val evalRow = evaluatedData.first()
-    assert(evalRow.getAs[Double](ComputeModelStatistics.AccuracyColumnName) === overallAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.PrecisionColumnName) === overallAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.RecallColumnName) === overallAccuracy)
+    assert(evalRow.getAs[Double](MetricConstants.AccuracyColumnName) === overallAccuracy)
+    assert(evalRow.getAs[Double](MetricConstants.PrecisionColumnName) === overallAccuracy)
+    assert(evalRow.getAs[Double](MetricConstants.RecallColumnName) === overallAccuracy)
     val avgAccuracy = ((tp0 + tn0) / total + (tp1 + tn1) / total + (tp2 + tn2) / total) / numLabels
     val macroPrecision = (precision0 + precision1 + precision2) / numLabels
     val macroRecall = (recall0 + recall1 + recall2) / numLabels
-    assert(evalRow.getAs[Double](ComputeModelStatistics.AverageAccuracy) === avgAccuracy)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedPrecision) === macroPrecision)
-    assert(evalRow.getAs[Double](ComputeModelStatistics.MacroAveragedRecall) === macroRecall)
+    assert(evalRow.getAs[Double](MetricConstants.AverageAccuracy) === avgAccuracy)
+    assert(evalRow.getAs[Double](MetricConstants.MacroAveragedPrecision) === macroPrecision)
+    assert(evalRow.getAs[Double](MetricConstants.MacroAveragedRecall) === macroRecall)
   }
 
   test("validate AUC from compute model statistic and binary classification evaluator gives the same result") {

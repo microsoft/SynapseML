@@ -174,3 +174,53 @@ trait HasFeaturesCol extends Wrappable {
   /** @group getParam */
   def getFeaturesCol: String = $(featuresCol)
 }
+
+trait HasScoredLabelsCol extends Wrappable {
+  /** The name of the scored labels column
+    * @group param
+    */
+  val scoredLabelsCol =
+    StringParam(this, "scoredLabelsCol",
+                "Scored labels column name, only required if using SparkML estimators")
+  /** @group setParam */
+  def setScoredLabelsCol(value: String): this.type = set(scoredLabelsCol, value)
+  /** @group getParam */
+  def getScoredLabelsCol: String = $(scoredLabelsCol)
+}
+
+trait HasScoresCol extends Wrappable {
+  /** The name of the scores column
+    * @group param
+    */
+  val scoresCol =
+    StringParam(this, "scoresCol",
+                "Scores or raw prediction column name, only required if using SparkML estimators")
+  /** @group setParam */
+  def setScoresCol(value: String): this.type = set(scoresCol, value)
+  /** @group getParam */
+  def getScoresCol: String = $(scoresCol)
+}
+
+trait HasScoredProbabilitiesCol extends Wrappable {
+  /** The name of the scored probabilities column
+    * @group param
+    */
+  val scoredProbabilitiesCol =
+    StringParam(this, "scoredProbabilitiesCol",
+                "Scored probabilities, usually calibrated from raw scores, only required if using SparkML estimators")
+  /** @group setParam */
+  def setScoredProbabilitiesCol(value: String): this.type = set(scoredProbabilitiesCol, value)
+  /** @group getParam */
+  def getScoredProbabilitiesCol: String = $(scoredProbabilitiesCol)
+}
+
+trait HasEvaluationMetric extends Wrappable {
+  val evaluationMetric: Param[String] =
+    StringParam(this, "evaluationMetric", "Metric to evaluate models with")
+
+  /** @group getParam */
+  def getEvaluationMetric: String = $(evaluationMetric)
+
+  /** @group setParam */
+  def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
+}

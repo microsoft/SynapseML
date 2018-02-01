@@ -3,11 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.{PipelineStage, Transformer}
+import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.apache.commons.io.FileUtils
+
+import com.microsoft.ml.spark.metrics.MetricConstants
 
 class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
@@ -36,7 +38,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val model = randomForestClassifier.fit(dataset)
     val findBestModel = new FindBestModel()
       .setModels(Array(model.asInstanceOf[Transformer], model.asInstanceOf[Transformer]))
-      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
     val bestModel = findBestModel.fit(dataset)
     bestModel.transform(dataset)
   }
@@ -48,7 +50,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
     val findBestModel = new FindBestModel()
       .setModels(Array(model.asInstanceOf[Transformer], model.asInstanceOf[Transformer]))
-      .setEvaluationMetric(ComputeModelStatistics.AucSparkMetric)
+      .setEvaluationMetric(MetricConstants.AucSparkMetric)
     val bestModel = findBestModel.fit(dataset)
 
     val myModelName = "testEvalModel"
@@ -72,7 +74,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
     val findBestModel = new FindBestModel()
       .setModels(Array(model1.asInstanceOf[Transformer], model2, model3, model4, model5))
-      .setEvaluationMetric(ComputeModelStatistics.AucSparkMetric)
+      .setEvaluationMetric(MetricConstants.AucSparkMetric)
     val bestModel = findBestModel.fit(dataset)
     // validate schema is as expected
     assert(bestModel.getAllModelMetrics.schema ==
@@ -96,5 +98,5 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val model = randomForestClassifier.fit(createMockDataset)
     new FindBestModel()
       .setModels(Array(model, model))
-      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)}, createMockDataset))
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)}, createMockDataset))
 }
