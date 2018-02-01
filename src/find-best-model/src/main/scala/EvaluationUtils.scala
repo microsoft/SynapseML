@@ -3,54 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.metrics.MetricConstants
 import com.microsoft.ml.spark.schema.SchemaConstants
-import org.apache.spark.ml.classification.{ClassificationModel, Classifier, ProbabilisticClassificationModel}
-import org.apache.spark.ml.{Estimator, PipelineStage, RegressionUtils, Transformer}
+import org.apache.spark.ml.classification.{ClassificationModel, Classifier}
+import org.apache.spark.ml.{PipelineStage, RegressionUtils, Transformer}
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.regression._
-
-trait HasEvaluationMetric extends Wrappable {
-
-  /** Metric to evaluate the models with. Default is "all"
-    *
-    * The metrics that can be chosen are:
-    *
-    *   For Binary Classifiers:
-    *     - AreaUnderROC
-    *     - AUC
-    *     - accuracy
-    *     - precision
-    *     - recall
-    *
-    *   For Regression Classifiers:
-    *     - mse
-    *     - rmse
-    *     - r2
-    *     - mae
-    *
-    *   Or, for either type of classifier:
-    *     - all - This will report all the relevant metrics
-    *
-    * @group param
-    */
-  val evaluationMetric: Param[String] = StringParam(this, "evaluationMetric", "Metric to evaluate models with",
-    (s: String) => Set(ComputeModelStatistics.MseSparkMetric,
-      ComputeModelStatistics.RmseSparkMetric,
-      ComputeModelStatistics.R2SparkMetric,
-      ComputeModelStatistics.MaeSparkMetric,
-      ComputeModelStatistics.AccuracySparkMetric,
-      ComputeModelStatistics.PrecisionSparkMetric,
-      ComputeModelStatistics.RecallSparkMetric,
-      ComputeModelStatistics.AucSparkMetric) contains s)
-  /** @group getParam */
-  def getEvaluationMetric: String = $(evaluationMetric)
-  /** @group setParam */
-  def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
-
-  // Set default evaluation metric to accuracy
-  setDefault(evaluationMetric -> ComputeModelStatistics.AccuracySparkMetric)
-
-}
 
 object EvaluationUtils {
   val modelTypeUnsupportedErr = "Model type not supported for evaluation"
@@ -83,17 +41,17 @@ object EvaluationUtils {
     val chooseLowest = Ordering.Double.reverse
     val (evaluationMetricColumnName, operator): (String, Ordering[Double]) = modelType match {
       case SchemaConstants.RegressionKind => evaluationMetric match {
-        case ComputeModelStatistics.MseSparkMetric  => (ComputeModelStatistics.MseColumnName,  chooseLowest)
-        case ComputeModelStatistics.RmseSparkMetric => (ComputeModelStatistics.RmseColumnName, chooseLowest)
-        case ComputeModelStatistics.R2SparkMetric   => (ComputeModelStatistics.R2ColumnName,   chooseHighest)
-        case ComputeModelStatistics.MaeSparkMetric  => (ComputeModelStatistics.MaeColumnName,  chooseLowest)
+        case MetricConstants.MseSparkMetric  => (MetricConstants.MseColumnName,  chooseLowest)
+        case MetricConstants.RmseSparkMetric => (MetricConstants.RmseColumnName, chooseLowest)
+        case MetricConstants.R2SparkMetric   => (MetricConstants.R2ColumnName,   chooseHighest)
+        case MetricConstants.MaeSparkMetric  => (MetricConstants.MaeColumnName,  chooseLowest)
         case _ => throw new Exception("Metric is not supported for regressors")
       }
       case SchemaConstants.ClassificationKind => evaluationMetric match {
-        case ComputeModelStatistics.AucSparkMetric       => (ComputeModelStatistics.AucColumnName, chooseHighest)
-        case ComputeModelStatistics.PrecisionSparkMetric => (ComputeModelStatistics.PrecisionColumnName, chooseHighest)
-        case ComputeModelStatistics.RecallSparkMetric    => (ComputeModelStatistics.RecallColumnName, chooseHighest)
-        case ComputeModelStatistics.AccuracySparkMetric  => (ComputeModelStatistics.AccuracyColumnName, chooseHighest)
+        case MetricConstants.AucSparkMetric       => (MetricConstants.AucColumnName, chooseHighest)
+        case MetricConstants.PrecisionSparkMetric => (MetricConstants.PrecisionColumnName, chooseHighest)
+        case MetricConstants.RecallSparkMetric    => (MetricConstants.RecallColumnName, chooseHighest)
+        case MetricConstants.AccuracySparkMetric  => (MetricConstants.AccuracyColumnName, chooseHighest)
         case _ => throw new Exception("Metric is not supported for classifiers")
       }
       case _ => throw new Exception("Model type not supported for evaluation")

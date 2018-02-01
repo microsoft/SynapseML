@@ -11,6 +11,8 @@ import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable.ListBuffer
 
+import com.microsoft.ml.spark.metrics.MetricConstants
+
 /** Tests to validate the functionality of Tune Hyperparameters module. */
 class VerifyTuneHyperparameters extends Benchmarks {
 
@@ -140,7 +142,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
 
     new TuneHyperparameters()
       .setModels(models.toArray)
-      .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
       .setNumFolds(4)
       .setNumRuns(models.length * 3)
       .setParallelism(1)
@@ -168,7 +170,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
       val randomSpace = new RandomSpace(hyperParams.toArray)
       new TuneHyperparameters()
         .setModels(models.toArray)
-        .setEvaluationMetric(ComputeModelStatistics.AccuracySparkMetric)
+        .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
         .setNumFolds(2)
         .setNumRuns(2)
         .setParallelism(1)

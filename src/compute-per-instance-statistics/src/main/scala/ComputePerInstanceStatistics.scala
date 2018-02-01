@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.ml.spark.schema.SchemaConstants._
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.Transformer
@@ -12,16 +13,21 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-/** Contains constants used by Compute Per Instance Statistics. */
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
-  // Regression metrics
-  val L1LossMetric  = "L1_loss"
-  val L2LossMetric  = "L2_loss"
-
-  // Classification metrics
-  val LogLossMetric = "log_loss"
-
   val epsilon = 1e-15
+}
+
+trait ComputePerInstanceStatisticsParams extends MMLParams
+  with HasLabelCol with HasScoresCol with HasScoredLabelsCol with HasScoredProbabilitiesCol with HasEvaluationMetric {
+  /** Param "evaluationMetric" is the metric to evaluate the models with. Default is "all"
+    *
+    *   If using a native Spark ML model, you will need to specify either "classifier" or "regressor"
+    *     - classifier
+    *     - regressor
+    *
+    * @group param
+    */
+  setDefault(evaluationMetric -> MetricConstants.AllSparkMetrics)
 }
 
 /** Evaluates the given scored dataset with per instance metrics.
@@ -33,27 +39,25 @@ object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInst
   * The Classification metrics are:
   * - log_loss
   */
-class ComputePerInstanceStatistics(override val uid: String) extends Transformer with MMLParams {
+class ComputePerInstanceStatistics(override val uid: String) extends Transformer
+  with ComputePerInstanceStatisticsParams {
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // TODO: evaluate all models; for now, get first model name found
-    val firstModelName = dataset.schema.collectFirst {
-      case StructField(c, t, _, m) if (getFirstModelName(m) != null && !getFirstModelName(m).isEmpty) => {
-        getFirstModelName(m).get
-      }
-    }
-    val modelName = if (!firstModelName.isEmpty) firstModelName.get
-                    else throw new Exception("Please score the model prior to evaluating")
-    val dataframe = dataset.toDF()
-    val labelColumnName = SparkSchema.getLabelColumnName(dataframe, modelName)
+    val (modelName, labelColumnName, scoreValueKind) =
+      MetricUtils.getSchemaInfo(
+        dataset.schema,
+        if (isDefined(labelCol)) Some(getLabelCol) else None,
+        getEvaluationMetric)
 
-    val scoreValueKind = SparkSchema.getScoreValueKind(dataframe, modelName, labelColumnName)
+    val dataframe = dataset.toDF()
 
     if (scoreValueKind == SchemaConstants.ClassificationKind) {
       // Compute the LogLoss for classification case
-      val scoredLabelsColumnName = SparkSchema.getScoredLabelsColumnName(dataframe, modelName)
+      val scoredLabelsColumnName =
+        if (isDefined(scoredLabelsCol)) getScoredLabelsCol
+        else SparkSchema.getScoredLabelsColumnName(dataframe, modelName)
 
       // Get levels if categorical
       val levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumnName)
@@ -72,11 +76,15 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
           // penalize if no label seen in training
           -Math.log(ComputePerInstanceStatistics.epsilon)
         })
-      val probabilitiesColumnName = SparkSchema.getScoredProbabilitiesColumnName(dataframe, modelName)
-      dataframe.withColumn(ComputePerInstanceStatistics.LogLossMetric,
+      val probabilitiesColumnName =
+        if (isDefined(scoredProbabilitiesCol)) getScoredProbabilitiesCol
+        else SparkSchema.getScoredProbabilitiesColumnName(dataframe, modelName)
+      dataframe.withColumn(MetricConstants.LogLossMetric,
         logLossFunc(dataset(scoredLabelsColumnName), dataset(probabilitiesColumnName)))
     } else {
-      val scoresColumnName = SparkSchema.getScoresColumnName(dataframe, modelName)
+      val scoresColumnName =
+        if (isDefined(scoresCol)) getScoresCol
+        else SparkSchema.getScoresColumnName(dataframe, modelName)
       // Compute the L1 and L2 loss for regression case
       val scoresAndLabels =
         dataset.select(col(scoresColumnName), col(labelColumnName).cast(DoubleType)).rdd.map {
@@ -88,9 +96,9 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
           val loss = math.abs(trueLabel - scoredLabel)
           loss * loss
         })
-      dataframe.withColumn(ComputePerInstanceStatistics.L1LossMetric,
+      dataframe.withColumn(MetricConstants.L1LossMetric,
         l1LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
-        .withColumn(ComputePerInstanceStatistics.L2LossMetric,
+        .withColumn(MetricConstants.L2LossMetric,
           l2LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
     }
   }
@@ -108,7 +116,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
 
   // TODO: This should be based on the retrieved score value kind
   override def transformSchema(schema: StructType): StructType =
-    schema.add(new StructField(ComputePerInstanceStatistics.L1LossMetric, DoubleType))
-      .add(new StructField(ComputePerInstanceStatistics.L2LossMetric, DoubleType))
+    schema.add(new StructField(MetricConstants.L1LossMetric, DoubleType))
+          .add(new StructField(MetricConstants.L2LossMetric, DoubleType))
 
 }

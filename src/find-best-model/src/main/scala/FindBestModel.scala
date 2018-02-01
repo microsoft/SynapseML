@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.metrics.MetricConstants
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{ParamMap, TransformerArrayParam}
@@ -19,9 +20,34 @@ object FindBestModel extends ComplexParamsReadable[FindBestModel] {
   val paramsCol = "parameters"
 }
 
+trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasEvaluationMetric {
+  /** Metric to evaluate the models with. Default is "accuracy"
+    *
+    * The metrics that can be chosen are:
+    *
+    *   For Binary Classifiers:
+    *     - AreaUnderROC
+    *     - AUC
+    *     - accuracy
+    *     - precision
+    *     - recall
+    *
+    *   For Regression Classifiers:
+    *     - mse
+    *     - rmse
+    *     - r2
+    *     - mae
+    *
+    *   Or, for either type of classifier:
+    *     - all - This will report all the relevant metrics
+    *
+    * @group param
+    */
+  setDefault(evaluationMetric -> MetricConstants.AccuracySparkMetric)
+}
+
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel]
-  with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
+class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
   /** List of models to be evaluated. The list is an Array of models
@@ -51,6 +77,9 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel]
     val trainedModels = getModels
     if (trainedModels.isEmpty) {
       throw new Exception("No trained models to evaluate.")
+    }
+    if (!(MetricConstants.findBestModelMetrics contains getEvaluationMetric)) {
+      throw new Exception("Invalid evaluation metric")
     }
     val evaluator = new ComputeModelStatistics()
     evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
@@ -89,7 +118,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel]
     }
 
     // compute ROC curve
-    evaluator.set(evaluator.evaluationMetric, ComputeModelStatistics.AllSparkMetrics)
+    evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
     selectedBestModelMetrics = evaluator.transform(selectedScoredDataset)
     selectedROCCurve = evaluator.rocCurve
 

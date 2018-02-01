@@ -6,12 +6,13 @@ package com.microsoft.ml.spark
 import java.util.concurrent._
 
 import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
+import com.microsoft.ml.spark.metrics.MetricConstants
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml._
-import org.apache.spark.ml.classification.{ClassificationModel}
+import org.apache.spark.ml.classification.ClassificationModel
 import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
@@ -101,7 +102,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     }
   }
 
-  /** Finds the best model
+  /** Tunes model hyperparameters for given number of runs and returns the best model
+    * found based on evaluation metric.
     *
     * @param dataset The input dataset to train.
     * @return The trained classification model.
@@ -149,16 +151,16 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
                   .setLabelCol(classificationModel.getLabelCol)
                   .setScoredLabelsCol(classificationModel.getPredictionCol)
                   .setScoresCol(classificationModel.getRawPredictionCol)
-                if (getEvaluationMetric == ComputeModelStatistics.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(ComputeModelStatistics.ClassificationMetrics)
+                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.ClassificationMetrics)
               }
               case regressionModel: RegressionModel[_, _] => {
                 logDebug(s"Evaluating SparkML ${model.uid} regression model.")
                 evaluator
                   .setLabelCol(regressionModel.getLabelCol)
                   .setScoredLabelsCol(regressionModel.getPredictionCol)
-                if (getEvaluationMetric == ComputeModelStatistics.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(ComputeModelStatistics.RegressionMetrics)
+                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.RegressionMetrics)
               }
             }
             val metrics = evaluator.transform(scoredDataset)
