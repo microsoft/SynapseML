@@ -9,7 +9,7 @@ import java.util
 
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.{ArrayParam, Param, ParamMap}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -65,17 +65,19 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
   /** preprocessing info: width, height, mean and scale
     * @group param
     */
-  val expectedDims: Param[Array[Float]] = new Param(this, "expectedDims", "Preprocessing info in array")
+  val expectedDims: ArrayParam = new ArrayParam(this, "expectedDims", "Preprocessing info in array")
 
   /** @group setParam */
-  def setExpectedDims(value: Array[Float]): this.type = set(expectedDims, value)
-
-  /** @group setParam */
-  def setExpectedDims(value: util.ArrayList[Float]): this.type = set(expectedDims, value.toArray().
-                                                                    asInstanceOf[Array[Float]])
+  def setExpectedDims(value: Array[Double]): this.type = set(expectedDims, value)
 
   /** @group getParam */
-  def getExpectedDims: Array[Float]                   = $(expectedDims)
+  def getExpectedDims: Array[Double]                   = {
+    /*$(expectedDims) match {
+      case arr:Array[Double] => arr
+      case arr => throw new IllegalArgumentException(s"HERE ${arr.getClass}")
+    }*/
+    Array(224,224,117,1)
+  }
 
   /** Name of input node in TF graph - set to 'input' by default
     * @group param
@@ -114,7 +116,7 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
   def getTransformationType: String                   = $(transformationType)
 
   //Set default values for some Params that don't have to be specified.
-  setDefault(expectedDims -> Array[Float](224f,224f,128f,255f)) //for image type transformation only
+//  setDefault(expectedDims -> Array[F(224f,224f,128f,255f)) //for image type transformation only
   setDefault(inputTensorName -> "input")
   setDefault(outputTensorName -> "output")
   setDefault(transformationType -> "image")
@@ -153,7 +155,7 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
           val width = rawData(2).asInstanceOf[Int]
           val typeForEncode = rawData(3).asInstanceOf[Int]
           val prediction: String = executer.evaluateForSpark(graph, labels, rawDataDouble, height, width,
-            typeForEncode, getExpectedDims, getInputTensorName, getOutputTensorName)
+            typeForEncode, getExpectedDims.map(_.toFloat), getInputTensorName, getOutputTensorName)
           Row.fromSeq(Array(prediction).toSeq)
         }
       }(encoder)
@@ -176,7 +178,7 @@ class TFModel(override val uid: String) extends Model[TFModel] with ComplexParam
             val buffered_data: FloatBuffer = FloatBuffer.wrap(x)
 
             val prediction: Array[Float] = executer.evaluateForSparkAny(graph, buffered_data,
-              getExpectedDims, getInputTensorName, getOutputTensorName)
+              getExpectedDims.map(_.toFloat), getInputTensorName, getOutputTensorName)
             Row(Vectors.dense(prediction.map(i => i.toDouble)))
           }
         }(encoder)

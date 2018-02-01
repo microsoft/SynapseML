@@ -104,7 +104,7 @@ class TFModelExecutor extends Serializable {
         val bestLabelIdx = labelProbabilities.indexOf(labelProbabilities.max)
         val bestPredictedLabel = labels.get(bestLabelIdx)
         val highestProb = labelProbabilities(bestLabelIdx) * 100f
-        val prediction = s"BEST MATCH: ${bestPredictedLabel} (${highestProb}% likely)"
+        val prediction = s"${bestPredictedLabel} (${highestProb}% likely)"
         System.out.println(prediction)
         prediction
       } finally if (image != null) image.close()

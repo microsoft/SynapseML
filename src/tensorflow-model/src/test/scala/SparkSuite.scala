@@ -157,7 +157,7 @@ class SparkSuite extends TestBase{
     val model = new TFModel().setLabelFile("imagenet_comp_graph_label_strings.txt")
       .setGraphFile("tensorflow_inception_graph.pb")
       .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inception5h")
-      .setExpectedDims(Array[Float](224f,224f,117f,1f))
+      .setExpectedDims(Array(224,224,117,1))
 
     val filesRoot = s"${sys.env("DATASETS_HOME")}/"
     val imagePath = s"$filesRoot/Images/Grocery/negative"
@@ -174,7 +174,7 @@ class SparkSuite extends TestBase{
     val model = new TFModel().setLabelFile("imagenet_slim_labels.txt")
       .setGraphFile("inception_v3_2016_08_28_frozen.pb")
       .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3")
-      .setExpectedDims(Array[Float](224f,224f,128f,255f))
+      .setExpectedDims(Array(224,224,128,255))
       .setOutputTensorName("InceptionV3/Predictions/Reshape_1")
 
     val filesRoot = s"${sys.env("DATASETS_HOME")}/"
@@ -224,7 +224,7 @@ class SparkSuite extends TestBase{
       .setModelPath("/home/houssam/externship/mmlspark/src/tensorflow-model/src/test/LabelImage_data/inceptionv3")
       .setInputTensorName("input")
       .setOutputTensorName("InceptionV3/Predictions/Reshape_1")
-      .setExpectedDims(Array(1,299,299,3))
+      .setExpectedDims(Array(1f,299f,299f,3f))
 
     val fourDimInput = Array.ofDim[Float](1,299,299,3)
     val inputArr: Array[Float] = flatten(fourDimInput)
