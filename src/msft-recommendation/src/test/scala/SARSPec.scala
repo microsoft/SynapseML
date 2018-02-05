@@ -372,11 +372,13 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
 
     val transformedDf = pipeline.fit(ratings).transform(ratings)
     transformedDf.cache().count
+
     //    ratings.unpersist()
     val sar = new SAR()
       .setUserCol(customerIndex.getOutputCol)
       .setItemCol(ratingsIndex.getOutputCol)
       .setRatingCol("rating")
+      .setSupportThreshold(2)
 
     val alsWReg = new MsftRecommendation()
       .setUserCol(customerIndex.getOutputCol)

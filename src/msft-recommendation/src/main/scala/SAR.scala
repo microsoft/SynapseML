@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
 
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
-import org.apache.spark.{SparkContext, ml}
+import org.apache.spark.ml
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.MsftRecommendationParams
@@ -19,7 +19,7 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, _}
 import org.apache.spark.sql.types.{StructType, _}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.collection.mutable
 import scala.collection.mutable.Set
@@ -49,21 +49,21 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   /** @group getParam */
   def getItemFeatures: DataFrame = $(itemFeatures)
 
-//  private lazy val emptydf: DataFrame = {
-////    val sparkContext = SparkContext.getOrCreate()
-////    sparkContext.emptyRDD
-////
-////
-////    lazy val spark = SparkSession
-////      .builder()
-////       .master("local[*]")
-////      .getOrCreate()
-////    lazy val df = spark.sqlContext.emptyDataFrame
-////    df
-//    SparkSession.getActiveSession.get.emptyDataFrame
-//  }
+  //  private lazy val emptydf: DataFrame = {
+  ////    val sparkContext = SparkContext.getOrCreate()
+  ////    sparkContext.emptyRDD
+  ////
+  ////
+  ////    lazy val spark = SparkSession
+  ////      .builder()
+  ////       .master("local[*]")
+  ////      .getOrCreate()
+  ////    lazy val df = spark.sqlContext.emptyDataFrame
+  ////    df
+  //    SparkSession.getActiveSession.get.emptyDataFrame
+  //  }
 
-//  setDefault(itemFeatures -> emptydf)
+  //  setDefault(itemFeatures -> emptydf)
 
   private def hash(dataset: Dataset[_]) = {
     val customerIndex = new StringIndexer()
@@ -85,13 +85,9 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   override def fit(dataset: Dataset[_]): SARModel = {
 
     val itemSimMatrixdf = itemFeatures(dataset)
-    //          .union(coldItemFeatures(dataset, itemFeatures))
-
     val userAffinityMatrix = userFeatures(dataset)
 
-    new SARModel(uid
-      //      , userAffinityMatrix, itemSimMatrixdf
-    )
+    new SARModel(uid)
       .setParent(this)
       .setSupportThreshold(getSupportThreshold)
       .setItemCol(getItemCol)
@@ -119,11 +115,14 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
     val blendIntercept = 0
     val timeDecay = udf((time: String) => {
       val activityDate = new SimpleDateFormat("yyyy-MM-dd h:mm:ss").parse(time)
-      timeDecayCoeff / (currentDate.getTime - activityDate.getTime)
+      timeDecayCoeff / (currentDate.getTime - activityDate.getTime) //todo: replace with 30 day half-life
     })
     val ratingBoost = udf((rating: Double) => rating * ratingBoostCoeff)
     val blendWeights = udf((theta: Double, roe: Double) => theta * roe * blendCoeff + blendIntercept)
+    //todo: probably dont need blendIntercept
     val blendWeightsRoe = udf((roe: Double) => roe * blendCoeff + blendIntercept)
+
+    //todo: add event types
 
     val ds = if (dataset.columns.contains($(timeCol))) {
       dataset
@@ -276,7 +275,7 @@ object SAR extends DefaultParamsReadable[SAR] {
           else
             cooco.toFloat
         }
-        else -1
+        else -1 //todo: try None
       })
     })
 
@@ -325,7 +324,7 @@ object SAR extends DefaultParamsReadable[SAR] {
         .map(row => {
           val vec1: linalg.Vector = row._1._2
           val vec2 = row._2._2
-
+          //consider if not equal 0
           val productArray = (0 to vec1.argmax + 1).map(i => vec1.apply(i) * vec2.apply(i)).toArray
           (row._1._1, row._2._1, new ml.linalg.DenseVector(productArray))
         })
@@ -339,7 +338,7 @@ object SAR extends DefaultParamsReadable[SAR] {
       .select(itemColumn + "1", itemColumn + "2", "features", "label")
 
     val training = itempairsDF.where(col("label") >= 0)
-    val test = itempairsDF.where(col("label") < 0)
+    val cold = itempairsDF.where(col("label") < 0)
 
     val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
@@ -348,7 +347,7 @@ object SAR extends DefaultParamsReadable[SAR] {
       .setRegParam(1.0)
       .setElasticNetParam(1.0)
       .fit(itempairsDF)
-      .transform(test)
+      .transform(cold)
       .withColumn("wrappedPrediction", wrapColumn(col(itemColumn + "2"), col("prediction")))
       .groupBy(itemColumn + "1")
       .agg(collect_list(col("wrappedPrediction")))

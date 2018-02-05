@@ -56,10 +56,6 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         transformedDf = pipeline.fit(ratings).transform(ratings)
 
-        alsWReg = MsftRecommendation() \
-            .setUserCol(customerIndex.getOutputCol()) \
-            .setRatingCol('rating_total') \
-            .setItemCol(ratingsIndex.getOutputCol())
 
         alsModel = alsWReg.fit(transformedDf)
         usersRecs = alsModel._call_java("recommendForAllUsers", 3)
