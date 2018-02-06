@@ -7,6 +7,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation._
+import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -18,7 +19,9 @@ import scala.util.Random
 
 @InternalWrapper
 class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
-  with TrainValidRecommendSplitParams with ComplexParamsWritable with MsftRecommendationParams {
+  with TrainValidRecommendSplitParams with MMLParams with ComplexParamsWritable with MsftRecommendationParams {
+
+  def this() = this(Identifiable.randomUID("TrainValidRecommendSplit"))
 
   /** @group setParam */
   def setUserCol(value: String): this.type = set(userCol, value)
@@ -28,8 +31,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
   /** @group setParam */
   def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  def this() = this(Identifiable.randomUID("TrainValidRecommendSplit"))
 
   /** @group setParam */
   def setEstimator(value: Estimator[_ <: Model[_]]): this.type = set(estimator, value)
@@ -113,7 +114,10 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       else metrics.zipWithIndex.minBy(_._1)
 
     val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
-    copyValues(new TrainValidRecommendSplitModel(uid, bestModel, metrics).setParent(this))
+    copyValues(new TrainValidRecommendSplitModel(uid)
+      .setBestModel(bestModel)
+      .setValidationMetrics(metrics)
+      .setParent(this))
   }
 
   override def copy(extra: ParamMap): TrainValidRecommendSplit = defaultCopy(extra)

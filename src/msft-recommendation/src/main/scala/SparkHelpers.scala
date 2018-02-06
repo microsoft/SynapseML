@@ -12,7 +12,7 @@ import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
 import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.tuning.{CrossValidatorParams, TrainValidationSplitParams}
+import org.apache.spark.ml.tuning.{CrossValidatorParams, TrainValidationSplit, TrainValidationSplitParams}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
@@ -74,7 +74,7 @@ trait MsftRecommendationParams extends Wrappable with MsftRecommendationModelPar
 
 trait MsftHasPredictionCol extends Params with HasPredictionCol
 
-trait TrainValidRecommendSplitParams extends Wrappable with HasSeed with Params {
+trait TrainValidRecommendSplitParams extends Wrappable with HasSeed {
   /**
     * Param for ratio between train and validation data. Must be between 0 and 1.
     * Default: 0.75
@@ -112,9 +112,9 @@ trait TrainValidRecommendSplitParams extends Wrappable with HasSeed with Params 
     "evaluator used to select hyper-parameters that maximize the validated metric")
 
   /** @group getParam */
-  def getEstimator: Estimator[_] = $(estimator)
+  def getEstimator: Estimator[_ <: Model[_]] = $(estimator)
 
-  val estimator = new EstimatorBarParam(this, "estimator", "estimator for selection")
+  val estimator = new EstimatorParam(this, "estimator", "estimator for selection")
 
   setDefault(trainRatio -> 0.75)
   setDefault(minRatingsU -> 1)

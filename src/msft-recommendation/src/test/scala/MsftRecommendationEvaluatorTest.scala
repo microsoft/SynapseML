@@ -90,4 +90,21 @@ class MsftRecommendationEvaluatorTest extends TestBase {
     assert(map.get("precisionAtk").get == 0.5)
   }
 
+//  override def serializationTestObjects(): Seq[TestObject[MsftRecommendationEvaluator]] = {
+//    val seq = Seq((Array(1, 2, 3, 4, 5, 6), Array(1, 2, 3)))
+//    import session.implicits._
+//    val df = session.createDataset(seq).toDF("prediction", "label")
+//
+//    val evaluator = new MsftRecommendationEvaluator()
+//      .setK(6)
+//      .setSaveAll(true)
+//
+//    evaluator.setNItems(6)
+//
+//    List(new TestObject(evaluator, df))
+//  }
+
+//  override def reader: MLReadable[_] = MsftRecommendationEvaluator
+
+//  override def modelReader: MLReadable[_] = MsftRecommendationEvaluator
 }

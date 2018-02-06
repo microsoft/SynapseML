@@ -17,7 +17,7 @@
 # USE OF THE SAMPLE CODE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-import pandas as pd
+
 
 # Methods for train-test split.
 
@@ -25,25 +25,25 @@ class TrainTestSplit:
     '''
     Methods in this class split an input Spark DataFrame of rating tuples into train and test DataFrames for different testing purposes.
     '''
-    def __init__(self, rating, by_customer=True):
+
+    def __init__(self, rating, by_customer=True, customerCol="customer", itemCol="item", ratingCol="rating"):
         '''
         Initialize a splitter for training and testing.
         :param rating: input Spark DataFrame for rating data.
         :param by_customer: splitting is performed by customer, otherwise by item (if False).
         '''
         self.rating = rating
+        self.customerCol = customerCol
+        self.itemCol = itemCol
+        self.ratingCol = ratingCol
         self.by_customer = by_customer
 
         if by_customer:
-            self.by = "customer"
-            self.with_ = "item"
-            self.split_by_column = self.by + "ID"
-            self.split_with_column = "item" + "ID"
+            self.split_by_column = customerCol
+            self.split_with_column = itemCol
         else:
-            self.by = "item"
-            self.with_ = "customer"
-            self.split_by_column = self.by + "ID"
-            self.split_with_column = "customer" + "ID"
+            self.split_by_column = itemCol
+            self.split_with_column = customerCol
 
     def min_rating_filter(self, min_rating):
         '''
@@ -51,16 +51,17 @@ class TrainTestSplit:
         :param min_rating: minimum number of rating for filtering.
         :param by: by which variable (customer or item) to filter the rating.
         '''
-        from pyspark.sql.functions import col 
+        from pyspark.sql.functions import col
 
-        rating_filtered = self.rating.groupBy(self.split_by_column) \
+        rating_filtered = self.rating\
+            .groupBy(self.split_by_column) \
             .agg({self.split_with_column: "count"}) \
             .withColumnRenamed('count(' + self.split_with_column + ')', "n" + self.split_with_column) \
             .where(col("n" + self.split_with_column) >= min_rating) \
             .join(self.rating, self.split_by_column) \
-            .drop("n" + self.split_with_column) 
+            .drop("n" + self.split_with_column)
 
-        return(rating_filtered)
+        return (rating_filtered)
 
     def stratified_split(self, min_rating, ratio=0.3, fixed_test_sample=False, sample=3):
         '''
@@ -69,14 +70,14 @@ class TrainTestSplit:
         :param ratio: splitting ratio for train and test.
         :param by: by which variable (customer or item) to filter the rating.
         '''
-        from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType
+        from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType
         from pyspark.sql import SparkSession
 
         rating_joined = self.min_rating_filter(min_rating)
 
         rating_stratified_rdd = rating_joined.groupBy(self.split_by_column) \
             .agg({self.split_with_column: "count"}) \
-            .withColumnRenamed('count(' + self.split_with_column + ')', 'n' + self.with_) \
+            .withColumnRenamed('count(' + self.split_with_column + ')', 'n' + self.split_with_column) \
             .rdd
 
         perm_indices = rating_stratified_rdd.map(lambda r: (r[0], np.random.permutation(r[1]), r[1]))
@@ -90,11 +91,15 @@ class TrainTestSplit:
             test_idx = perm_indices.map(lambda r: (r[0], r[1][int(r[2] - sample):]))
 
         if self.by_customer:
-            tr_by = rating_joined.rdd.groupBy(lambda r: r[0]).join(tr_idx).flatMap( lambda r: np.array([x for x in r[1][0]]) [r[1][1]] )
-            test_by = rating_joined.rdd.groupBy(lambda r: r[0]).join(test_idx).flatMap( lambda r: np.array([x for x in r[1][0]]) [r[1][1]] )
+            tr_by = rating_joined.rdd.groupBy(lambda r: r[0]).join(tr_idx).flatMap(
+                lambda r: np.array([x for x in r[1][0]])[r[1][1]])
+            test_by = rating_joined.rdd.groupBy(lambda r: r[0]).join(test_idx).flatMap(
+                lambda r: np.array([x for x in r[1][0]])[r[1][1]])
         else:
-            tr_by = rating_joined.rdd.groupBy(lambda r: r[1]).join(tr_idx).flatMap( lambda r: np.array([x for x in r[1][0]]) [r[1][1]] )
-            test_by = rating_joined.rdd.groupBy(lambda r: r[1]).join(test_idx).flatMap( lambda r: np.array([x for x in r[1][0]]) [r[1][1]] )
+            tr_by = rating_joined.rdd.groupBy(lambda r: r[1]).join(tr_idx).flatMap(
+                lambda r: np.array([x for x in r[1][0]])[r[1][1]])
+            test_by = rating_joined.rdd.groupBy(lambda r: r[1]).join(test_idx).flatMap(
+                lambda r: np.array([x for x in r[1][0]])[r[1][1]])
 
         rating_train = tr_by.map(lambda r: (int(r[0]), int(r[1]), float(r[2])))
         rating_test = test_by.map(lambda r: (int(r[0]), int(r[1]), float(r[2])))
@@ -102,9 +107,9 @@ class TrainTestSplit:
         # Return DataFrame instead of RDD. NOTE this will affect rating_training of model (depending on mllib or ml being used).
 
         schema = StructType([
-            StructField('customerID', IntegerType(), True),
-            StructField('itemID', IntegerType(), True),
-            StructField('rating', DoubleType(), True)
+            StructField(self.customerCol, IntegerType(), True),
+            StructField(self.itemCol, IntegerType(), True),
+            StructField(self.ratingCol, DoubleType(), True)
         ])
 
         rating_train = SparkSession.builder.getOrCreate().createDataFrame(rating_train, schema)
@@ -125,17 +130,17 @@ class TrainTestSplit:
 
         # Check if there is timestamp availabe in the columns.
 
-        rating_joined = self.min_rating_filter(min_rating) 
+        rating_joined = self.min_rating_filter(min_rating)
 
         rating_grouped = rating_joined \
             .groupBy(self.split_by_column) \
             .agg({'timeStamp': 'count'}) \
-            .withColumnRenamed('count(timeStamp)', 'count') 
+            .withColumnRenamed('count(timeStamp)', 'count')
 
         window_spec = Window.partitionBy(self.split_by_column).orderBy(col('timeStamp').desc())
 
         if fixed_test_sample == False:
-            rating_all = rating_joined.join(rating_grouped, on = self.split_by_column, how="outer") \
+            rating_all = rating_joined.join(rating_grouped, on=self.split_by_column, how="outer") \
                 .withColumn('splitPoint', bround(col('count') * ratio))
 
             rating_train = rating_all \
@@ -143,7 +148,7 @@ class TrainTestSplit:
                 .filter(col('rank') > col('splitPoint'))
             rating_test = rating_all \
                 .select('*', row_number().over(window_spec).alias('rank')) \
-                .filter(col('rank') <= col('splitPoint')) 
+                .filter(col('rank') <= col('splitPoint'))
         else:
             rating_train = rating_joined \
                 .select('*', row_number().over(window_spec).alias('rank')) \
@@ -154,7 +159,7 @@ class TrainTestSplit:
 
         rating_train = rating_train.select(self.split_by_column, self.split_with_column, "timeStamp")
         rating_test = rating_test.select(self.split_by_column, self.split_with_column, "timeStamp")
-        
+
         return rating_train, rating_test
 
     def non_overlapping_split(self, min_rating, ratio=0.7, fixed_test_sample=False, sample=3):
@@ -173,15 +178,15 @@ class TrainTestSplit:
 
         rating_exclusive = rating_joined.groupBy(self.split_by_column) \
             .agg({self.split_with_column: "count"}) \
-            .withColumnRenamed("count(" + self.split_with_column + ")", "n" + self.with_) \
-            .drop("n" + self.with_)
+            .withColumnRenamed("count(" + self.split_with_column + ")", "n" + self.split_with_column) \
+            .drop("n" + self.split_with_column)
 
         if not fixed_test_sample:
             rating_split = rating_exclusive.randomSplit([ratio, 1 - ratio])
         else:
             count = rating_exclusive.count()
 
-            window_spec = Window.orderBy(rand())            
+            window_spec = Window.orderBy(rand())
             rating_tmp = rating_exclusive.select(col("*"), row_number().over(window_spec).alias("rowNumber"))
 
             rating_split = \
@@ -211,7 +216,7 @@ class TrainTestSplit:
         else:
             count = rating_joined.count()
 
-            window_spec = Window.orderBy(rand())            
+            window_spec = Window.orderBy(rand())
             rating_tmp = rating_joined.select(col("*"), row_number().over(window_spec).alias("rowNumber"))
 
             rating_split = \
@@ -222,6 +227,7 @@ class TrainTestSplit:
         rating_test = rating_split[1]
 
         return rating_train, rating_test
+
 
 def _test():
     """
@@ -254,11 +260,11 @@ def _test():
 
     # Stratified split.
 
-    train, test = splitter.stratified_split(3, fixed_test_sample=False, ratio=0.5) 
+    train, test = splitter.stratified_split(3, fixed_test_sample=False, ratio=0.5)
     train.show()
     test.show()
 
-    train, test = splitter.stratified_split(3, fixed_test_sample=True, sample=2) 
+    train, test = splitter.stratified_split(3, fixed_test_sample=True, sample=2)
     train.show()
     test.show()
 
@@ -291,6 +297,7 @@ def _test():
     # train, test = splitter.random_split(3, fixed_test_sample=True, sample=3)
     # train.show()
     # test.show()
+
 
 if __name__ == "__main__":
     _test()
