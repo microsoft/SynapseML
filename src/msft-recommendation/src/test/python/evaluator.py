@@ -28,6 +28,8 @@ from pyspark.sql.types import *
 
 
 class EvaluationSpec(unittest.TestCase):
+    k = 5
+
     def test_ranking_metrics(self):
         '''
         Test ranking evaluation methods
@@ -36,9 +38,7 @@ class EvaluationSpec(unittest.TestCase):
 
         # Evaluate ranking metrics.
 
-        k = 5
-
-        evaluator_ranking = RankingEvaluation(k, dfs_true, dfs_pred)
+        evaluator_ranking = RankingEvaluation(self.k, dfs_true, dfs_pred)
 
         recall = evaluator_ranking.recall_at_k()
         precision = evaluator_ranking.precision_at_k()
@@ -56,11 +56,9 @@ class EvaluationSpec(unittest.TestCase):
         '''
         dfs_pred, dfs_true, rating_pred, spark = self.create_sample_data()
 
-        k = 5
-
         # Evaluate distribution metrics.
 
-        evaluator_distribution = DistributionMetrics(k, dfs_true, dfs_pred)
+        evaluator_distribution = DistributionMetrics(self.k, dfs_true, dfs_pred)
 
         self.assertTrue(bool(evaluator_distribution.popularity_at_k().head(1)))
 
@@ -68,16 +66,14 @@ class EvaluationSpec(unittest.TestCase):
         max_diversity = evaluator_distribution.max_diversity()
 
         self.assertTrue(diversity <= max_diversity)
-        self.assertTrue(isinstance(diversity, float) & (diversity <= 1))
-        self.assertTrue(isinstance(max_diversity, float) & (max_diversity <= 1))
+        self.assertTrue((diversity <= 1))  # isinstance(diversity, float) &
+        self.assertTrue((max_diversity <= 1))  # isinstance(max_diversity, float) &
 
     def test_rating_metrics(self):
         '''
         Test ranking evaluation methods
         '''
         dfs_pred, dfs_true, rating_pred, spark = self.create_sample_data()
-
-        k = 5
 
         # Evaluate rating metrics.
 

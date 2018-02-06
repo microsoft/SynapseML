@@ -77,7 +77,7 @@ class RankingEvaluation(TopK):
         '''
         precision = self._metrics.precisionAt(self.k)
 
-        return (precision)
+        return precision
 
     def ndcg_at_k(self):
         '''
@@ -86,7 +86,7 @@ class RankingEvaluation(TopK):
         '''
         ndcg = self._metrics.ndcgAt(self.k)
 
-        return (ndcg)
+        return ndcg
 
     def map_at_k(self):
         '''
@@ -95,7 +95,7 @@ class RankingEvaluation(TopK):
         '''
         maprecision = self._metrics.meanAveragePrecision
 
-        return (maprecision)
+        return maprecision
 
     def recall_at_k(self):
         '''
@@ -104,7 +104,7 @@ class RankingEvaluation(TopK):
         '''
         recall = self._items_for_user_all.rdd.map(lambda x: len(set(x[0]).intersection(set(x[1]))) / len(x[1])).mean()
 
-        return (recall)
+        return recall
 
     def rank(self):
         '''
@@ -130,7 +130,17 @@ class RankingEvaluation(TopK):
             .agg({'ranking': 'avg'}) \
             .head()[0]
 
-        return (average_ranking)
+        return average_ranking
+
+    def get_metrics(self):
+        pd.DataFrame(data={
+            "RankingEvaluation @ " + str(self.k): {
+                "Recall": self.recall_at_k(),
+                "precision": self.precision_at_k(),
+                "ndcg": self.ndcg_at_k(),
+                "map": self.map_at_k()
+            }
+        })
 
 
 class DistributionMetrics(TopK):
@@ -154,7 +164,7 @@ class DistributionMetrics(TopK):
             .reduce(lambda x, y: set(x).union(set(y)))
         diversity = len(unique_items_recommended) / unique_rating_true
 
-        return (diversity)
+        return diversity
 
     def max_diversity(self):
         unique_rating_true = self.rating_true.select('itemID').distinct().count()
@@ -162,7 +172,7 @@ class DistributionMetrics(TopK):
             lambda x, y: set(x).union(set(y)))
         max_diversity = len(unique_items_actual) / unique_rating_true
 
-        return (max_diversity)
+        return max_diversity
 
     def diversity_aggregated(self):
         '''
@@ -192,9 +202,9 @@ class DistributionMetrics(TopK):
 
         n_bin = 3
 
-        if (rating_item_count.count() < n_bin):
+        if rating_item_count.count() < n_bin:
             print("Total number of items should be at least 10.")
-            return (-1)
+            return -1
 
         # Quantitize count into bins. 
 
@@ -214,7 +224,7 @@ class DistributionMetrics(TopK):
             .agg({"itemID": "count"}) \
             .withColumnRenamed('count(itemID)', 'itemCounts') \
  \
-        rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
+                rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
 
         rating_item_percentage = rating_item_joined \
             .orderBy('binNumber') \
@@ -223,7 +233,7 @@ class DistributionMetrics(TopK):
             .withColumn('upper', bround(((col('binNumber') + 1) / n_bin) * 100, 2).cast('string')) \
             .drop("customerID", "rating")
 
-        return (rating_item_percentage)
+        return rating_item_percentage
 
     def preference_at_k(self, filter_option):
         '''
@@ -231,6 +241,14 @@ class DistributionMetrics(TopK):
         It's called "precision-at-k" in SAR solution, whose implementation is detailed at
         https://github.com/Microsoft/Product-Recommendations/blob/master/doc/model-evaluation.md#diversity.  
         '''
+
+    def get_metrics(self):
+        pd.DataFrame(data={
+            "DistributionMetrics": {
+                "diversity": self.diversity_at_k(),
+                "max_diversity": self.max_diversity()
+            }
+        })
 
 
 class RatingEvaluation:
@@ -273,6 +291,16 @@ class RatingEvaluation:
         self.exp_var = metrics.explainedVariance
         self.mae = metrics.meanAbsoluteError
         self.rmse = metrics.rootMeanSquaredError
+
+    def get_metrics(self):
+        pd.DataFrame(data={
+            "RatingEvaluation": {
+                "rsquared": self.rsquared,
+                "exp_var": self.exp_var,
+                "mae": self.mae,
+                "rmse": self.rmse
+            }
+        })
 
 
 if __name__ == "__main__":
