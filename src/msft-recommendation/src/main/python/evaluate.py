@@ -222,9 +222,9 @@ class DistributionMetrics(TopK):
         rating_item_joined = self.rating_pred.join(rating_item_bin, "itemID", 'right_outer') \
             .groupBy('binNumber') \
             .agg({"itemID": "count"}) \
-            .withColumnRenamed('count(itemID)', 'itemCounts') \
- \
-                rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
+            .withColumnRenamed('count(itemID)', 'itemCounts')
+
+        rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
 
         rating_item_percentage = rating_item_joined \
             .orderBy('binNumber') \
@@ -292,6 +292,7 @@ class RatingEvaluation:
         self.mae = metrics.meanAbsoluteError
         self.rmse = metrics.rootMeanSquaredError
 
+
     def get_metrics(self):
         pd.DataFrame(data={
             "RatingEvaluation": {
@@ -301,7 +302,6 @@ class RatingEvaluation:
                 "rmse": self.rmse
             }
         })
-
 
 if __name__ == "__main__":
     print("Evaluation")
