@@ -18,7 +18,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.util.BoundedPriorityQueue
+import org.apache.spark.util.{BoundedPriorityQueue, ThreadUtils}
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.json4s.{DefaultFormats, JObject}
 
@@ -252,6 +252,10 @@ trait MsftRecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with ComplexParamsWritable
 
 object SparkHelpers {
+
+  def getThreadUtils(): ThreadUtils.type = {
+    ThreadUtils
+  }
 
   def getALSModel(uid: String,
                   rank: Int,

@@ -39,7 +39,6 @@ class EvaluationSpec(unittest.TestCase):
         # Evaluate ranking metrics.
 
         evaluator_ranking = RankingEvaluation(self.k, dfs_true, dfs_pred)
-
         recall = evaluator_ranking.recall_at_k()
         precision = evaluator_ranking.precision_at_k()
         ndcg = evaluator_ranking.ndcg_at_k()

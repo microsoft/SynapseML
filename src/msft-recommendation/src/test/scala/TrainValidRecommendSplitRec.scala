@@ -75,7 +75,7 @@ class TrainValidRecommendSplitRec
       .setItemCol(ratingsIndex.getOutputCol)
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(alsWReg.regParam, Array(1.0))
+      .addGrid(alsWReg.regParam, Array(0.01, 0.1, 1.0))
       .build()
 
     val evaluator = new MsftRecommendationEvaluator()

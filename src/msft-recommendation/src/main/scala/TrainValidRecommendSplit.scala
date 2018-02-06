@@ -5,9 +5,8 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators}
 import org.apache.spark.ml.recommendation._
-import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -15,11 +14,14 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 @InternalWrapper
 class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
-  with TrainValidRecommendSplitParams with MMLParams with ComplexParamsWritable with MsftRecommendationParams {
+  with TrainValidRecommendSplitParams with MMLParams
+  with ComplexParamsWritable with MsftRecommendationParams {
 
   def this() = this(Identifiable.randomUID("TrainValidRecommendSplit"))
 
@@ -55,6 +57,34 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
   override def transformSchema(schema: StructType): StructType = transformSchemaImpl(schema)
 
+  /**
+    * The number of threads to use when running parallel algorithms.
+    * Default is 1 for serial execution
+    *
+    * @group expertParam
+    */
+  val parallelism = new IntParam(this, "parallelism",
+    "the number of threads to use when running parallel algorithms", ParamValidators.gtEq(1))
+
+  setDefault(parallelism -> 1)
+
+  /** @group expertGetParam */
+  def getParallelism: Int = $(parallelism)
+
+  /** @group expertSetParam */
+  def setParallelism(value: Int): this.type = set(parallelism, value)
+
+  private[ml] def getExecutionContext: ExecutionContext = {
+
+    getParallelism match {
+      case 1 =>
+        SparkHelpers.getThreadUtils().sameThread
+      case n =>
+        ExecutionContext.fromExecutorService(SparkHelpers.getThreadUtils()
+          .newDaemonCachedThreadPool(s"${this.getClass.getSimpleName}-thread-pool", n))
+    }
+  }
+
   override def fit(dataset: Dataset[_]): TrainValidRecommendSplitModel = {
     val schema = dataset.schema
     transformSchema(schema, logging = true)
@@ -62,7 +92,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator]
     val epm = $(estimatorParamMaps)
     val numModels = epm.length
-    val metrics = new Array[Double](epm.length)
+
     dataset.cache()
     eval.setNItems(dataset.agg(countDistinct(col($(itemCol)))).take(1)(0).getLong(0))
     val filteredDataset = filterRatings(dataset.dropDuplicates())
@@ -70,7 +100,8 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
     trainingDataset.cache()
     validationDataset.cache()
-    val models = est.fit(trainingDataset, epm).asInstanceOf[Seq[Model[_]]]
+
+    val executionContext = getExecutionContext
 
     def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
       case p: PipelineModel => {
@@ -100,14 +131,17 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       //      }
     }
 
-    var i = 0
-    while (i < numModels) {
-      // TODO: duplicate evaluator to take extra params from input
-      val metric = calculateMetrics(models(i), validationDataset)
-      logDebug(s"Got metric $metric for model trained with ${epm(i)}.")
-      metrics(i) += metric
-      i += 1
+    val metricFutures = epm.zipWithIndex.map { case (paramMap, paramIndex) =>
+      Future[Double] {
+        val model = est.fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
+        calculateMetrics(model, validationDataset)
+      }(executionContext)
     }
+
+    val metrics = metricFutures.map(SparkHelpers.getThreadUtils().awaitResult(_, Duration.Inf))
+
+    trainingDataset.unpersist()
+    validationDataset.unpersist()
 
     val (bestMetric, bestIndex) =
       if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
