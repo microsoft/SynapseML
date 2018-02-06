@@ -1,28 +1,11 @@
-# Copyright (C) Microsoft Corporation.
-#
-# Microsoft Corporation ("Microsoft") grants you a nonexclusive, perpetual, royalty-free right to use, 
-# copy, and modify the software code provided by us ("Software Code"). You may not sublicense the 
-# Software Code or any use of it (except to your affiliates and to vendors to perform work on your behalf)
-# through distribution, network access, service agreement, lease, rental, or otherwise. This license does
-# not purport to express any claim of ownership over data you may have shared with Microsoft in the creation
-# of the Software Code. Unless applicable law gives you more rights, Microsoft reserves all other rights not 
-# expressly granted herein, whether by implication, estoppel or otherwise. 
-#
-# THE SOFTWARE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-# LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO 
-# EVENT SHALL MICROSOFT OR ITS LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-# OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS 
-# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE 
-# USE OF THE SAMPLE CODE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-import numpy as np
-import pandas as pd
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for information.
 
 class TopK:
     '''
     Evaluation methods for top-k evaluation.
     '''
+
     def __init__(self, k, rating_true, rating_pred):
         '''
         :param spark: configured Spark SQL session.
@@ -42,14 +25,15 @@ class TopK:
             .agg(expr('collect_list(itemID)')) \
             .select('customerID', 'collect_list(itemID)') \
             .withColumnRenamed('collect_list(itemID)', 'true')
-            
+
         self._items_for_user_pred = self.top_k_recommendation(k, rating_pred) \
             .groupBy('customerID') \
             .agg(expr('collect_list(itemID)')) \
             .select('customerID', 'collect_list(itemID)') \
             .withColumnRenamed('collect_list(itemID)', 'prediction')
 
-        self._items_for_user_all = self._items_for_user_pred.join(self._items_for_user_true, on='customerID').drop('customerID')
+        self._items_for_user_all = self._items_for_user_pred.join(self._items_for_user_true, on='customerID').drop(
+            'customerID')
 
         self._metrics = RankingMetrics(self._items_for_user_all.rdd)
 
@@ -62,63 +46,65 @@ class TopK:
         Note if it is implicit rating, just append a column of constants.
         '''
         from pyspark.sql import Window
-        from pyspark.sql.functions import col, expr, row_number
+        from pyspark.sql.functions import col, row_number
 
         window_spec = Window.partitionBy('customerID').orderBy(col('rating').desc())
 
         # TODO: this does not work for rating of the same value.
-        
+
         items_for_user = rating \
             .select('customerID', 'itemID', 'rating', row_number().over(window_spec).alias('rank')) \
             .where(col('rank') <= k)
 
         return items_for_user
 
+
 class RankingEvaluation(TopK):
     '''
     Evaluation with ranking metrics on given data sets.
     '''
+
     def __init__(self, k, rating_true, rating_pred):
         '''
         Initialization.
         '''
         TopK.__init__(self, k, rating_true, rating_pred)
-    
+
     def precision_at_k(self):
         '''
         Get precision@k.
         More details can be found at http://spark.apache.org/docs/2.1.1/api/python/pyspark.mllib.html#pyspark.mllib.evaluation.RankingMetrics.precisionAt
         '''
         precision = self._metrics.precisionAt(self.k)
-        
-        return(precision)
-        
+
+        return (precision)
+
     def ndcg_at_k(self):
         '''
         Get Normalized Discounted Cumulative Gain (NDCG)@k.
         More details can be found at http://spark.apache.org/docs/2.1.1/api/python/pyspark.mllib.html#pyspark.mllib.evaluation.RankingMetrics.ndcgAt
         '''
         ndcg = self._metrics.ndcgAt(self.k)
-        
-        return(ndcg)
-    
+
+        return (ndcg)
+
     def map_at_k(self):
         '''
         Get mean average precision at k. 
         More details can be found at http://spark.apache.org/docs/2.1.1/api/python/pyspark.mllib.html#pyspark.mllib.evaluation.RankingMetrics.meanAveragePrecision
         '''
         maprecision = self._metrics.meanAveragePrecision
-        
-        return(maprecision)
-        
+
+        return (maprecision)
+
     def recall_at_k(self):
         '''
         Get mean average precision at k. 
         More details can be found at http://spark.apache.org/docs/2.1.1/api/python/pyspark.mllib.html#pyspark.mllib.evaluation.RankingMetrics.meanAveragePrecision
         '''
         recall = self._items_for_user_all.rdd.map(lambda x: len(set(x[0]).intersection(set(x[1]))) / len(x[1])).mean()
-        
-        return(recall)
+
+        return (recall)
 
     def rank(self):
         '''
@@ -127,29 +113,31 @@ class RankingEvaluation(TopK):
         More details can be found at http://yifanhu.net/PUB/cf.pdf.
         '''
         from pyspark.sql import Window
-        from pyspark.sql.functions import dense_rank, percent_rank, desc, col
-        
+        from pyspark.sql.functions import percent_rank, desc, col
+
         top_k_rec = self.top_k_recommendation(self.k, self.rating_pred)
-        
+
         top_k_rank = top_k_rec \
-            .withColumn('percentile', percent_rank().over(Window.partitionBy("customerID").orderBy(desc("rating")))) 
-            
+            .withColumn('percentile', percent_rank().over(Window.partitionBy("customerID").orderBy(desc("rating"))))
+
         top_k_rank = top_k_rank \
             .withColumn('product', col('rating') * col('percentile').cast('float')) \
             .groupBy('customerID') \
             .agg({'rating': "sum", 'product': "sum"}) \
-            .withColumn('ranking', col("sum(product)") / col("sum(rating)")) 
-        
+            .withColumn('ranking', col("sum(product)") / col("sum(rating)"))
+
         average_ranking = top_k_rank \
             .agg({'ranking': 'avg'}) \
             .head()[0]
-                    
-        return(average_ranking)
-        
+
+        return (average_ranking)
+
+
 class DistributionMetrics(TopK):
     '''
     Evaluation with distribution-related metrics on given data sets.
     '''
+
     def __init__(self, k, rating_true, rating_pred):
         '''
         Initialization.
@@ -163,17 +151,18 @@ class DistributionMetrics(TopK):
     def diversity_at_k(self):
         unique_rating_true = self.rating_true.select('itemID').distinct().count()
         unique_items_recommended = self._items_for_user_all.rdd.map(lambda row: row[0]) \
-            .reduce(lambda x,y: set(x).union(set(y)))
+            .reduce(lambda x, y: set(x).union(set(y)))
         diversity = len(unique_items_recommended) / unique_rating_true
-        
-        return(diversity)
-        
+
+        return (diversity)
+
     def max_diversity(self):
         unique_rating_true = self.rating_true.select('itemID').distinct().count()
-        unique_items_actual = self._items_for_user_true.rdd.map(lambda row: row[1]).reduce(lambda x,y: set(x).union(set(y)))
+        unique_items_actual = self._items_for_user_true.rdd.map(lambda row: row[1]).reduce(
+            lambda x, y: set(x).union(set(y)))
         max_diversity = len(unique_items_actual) / unique_rating_true
-        
-        return(max_diversity)
+
+        return (max_diversity)
 
     def diversity_aggregated(self):
         '''
@@ -201,11 +190,11 @@ class DistributionMetrics(TopK):
 
         # Number of bins. This is set as default. For a large data set, n_bin is set to be 10. 
 
-        n_bin = 3 
+        n_bin = 3
 
         if (rating_item_count.count() < n_bin):
             print("Total number of items should be at least 10.")
-            return(-1)
+            return (-1)
 
         # Quantitize count into bins. 
 
@@ -224,7 +213,7 @@ class DistributionMetrics(TopK):
             .groupBy('binNumber') \
             .agg({"itemID": "count"}) \
             .withColumnRenamed('count(itemID)', 'itemCounts') \
-
+ \
         rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
 
         rating_item_percentage = rating_item_joined \
@@ -232,9 +221,9 @@ class DistributionMetrics(TopK):
             .withColumn('percentage', bround((col('itemCounts') / rating_item_sum[0]) * 100, 2)) \
             .withColumn('lower', bround((col('binNumber') / n_bin) * 100, 2).cast('string')) \
             .withColumn('upper', bround(((col('binNumber') + 1) / n_bin) * 100, 2).cast('string')) \
-            .drop("customerID", "rating") 
+            .drop("customerID", "rating")
 
-        return(rating_item_percentage)
+        return (rating_item_percentage)
 
     def preference_at_k(self, filter_option):
         '''
@@ -242,11 +231,13 @@ class DistributionMetrics(TopK):
         It's called "precision-at-k" in SAR solution, whose implementation is detailed at
         https://github.com/Microsoft/Product-Recommendations/blob/master/doc/model-evaluation.md#diversity.  
         '''
-    
+
+
 class RatingEvaluation:
     '''
     Evaluation with ranking metrics on given data sets.
     '''
+
     def __init__(self, rating_true, rating_pred):
         '''
         Initialization.
@@ -256,32 +247,33 @@ class RatingEvaluation:
         :param rating_pred: Spark DataFrame of customerID-itemID-rating tuple for predicted rating.
         '''
         from pyspark.mllib.evaluation import RegressionMetrics
-        from pyspark.sql.functions import col 
+        from pyspark.sql.functions import col
 
         rating_true = rating_true.select(
-            col("customerID").alias("customerID"), 
-            col("itemID").alias("itemID"), 
+            col("customerID").alias("customerID"),
+            col("itemID").alias("itemID"),
             col("rating").cast('double').alias("label")
         )
-        
+
         rating_pred = rating_pred.select(
-            col("customerID").alias("customerID"), 
-            col("itemID").alias("itemID"), 
+            col("customerID").alias("customerID"),
+            col("itemID").alias("itemID"),
             col("rating").cast('double').alias("prediction")
         )
-        
+
         rating_pred_true = rating_true.join(
-            rating_pred, 
+            rating_pred,
             ['customerID', 'itemID'],
-            "inner" 
+            "inner"
         ).drop('customerID').drop('itemID')
 
         metrics = RegressionMetrics(rating_pred_true.rdd)
-        
+
         self.rsquared = metrics.r2
         self.exp_var = metrics.explainedVariance
         self.mae = metrics.meanAbsoluteError
         self.rmse = metrics.rootMeanSquaredError
+
 
 if __name__ == "__main__":
     print("Evaluation")

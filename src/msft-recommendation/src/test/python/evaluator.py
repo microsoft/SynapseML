@@ -18,43 +18,21 @@
 
 # Prepare training and test data.
 
+import numpy as np
+import pandas as pd
 import pyspark
 import unittest
-import pandas as pd
-import numpy as np
-
 from mmlspark.evaluate import *
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
 
+
 class EvaluationSpec(unittest.TestCase):
-    def test_metrics(self):
+    def test_ranking_metrics(self):
         '''
         Test ranking evaluation methods
         '''
-        spark = pyspark.sql.SparkSession.builder.master("local[*]") \
-            .config('spark.driver.extraClassPath',
-                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
-            .getOrCreate()
-
-        # Synthesize some testing data.
-
-        rating_pred = pd.DataFrame({
-            'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
-            'itemID': [1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5],
-            'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-            'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
-        })
-
-        rating_true = pd.DataFrame({
-            'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
-            'itemID': [3, 4, 5, 6, 7, 1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6],
-            'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-            'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
-        })
-
-        dfs_pred = spark.createDataFrame(rating_pred)
-        dfs_true = spark.createDataFrame(rating_true)
+        dfs_pred, dfs_true, rating_pred, spark = self.create_sample_data()
 
         # Evaluate ranking metrics.
 
@@ -72,6 +50,14 @@ class EvaluationSpec(unittest.TestCase):
         self.assertTrue(isinstance(ndcg, float) & (ndcg <= 1))
         self.assertTrue(isinstance(map, float) & (map <= 1))
 
+    def test_distribution_metrics(self):
+        '''
+        Test ranking evaluation methods
+        '''
+        dfs_pred, dfs_true, rating_pred, spark = self.create_sample_data()
+
+        k = 5
+
         # Evaluate distribution metrics.
 
         evaluator_distribution = DistributionMetrics(k, dfs_true, dfs_pred)
@@ -84,6 +70,14 @@ class EvaluationSpec(unittest.TestCase):
         self.assertTrue(diversity <= max_diversity)
         self.assertTrue(isinstance(diversity, float) & (diversity <= 1))
         self.assertTrue(isinstance(max_diversity, float) & (max_diversity <= 1))
+
+    def test_rating_metrics(self):
+        '''
+        Test ranking evaluation methods
+        '''
+        dfs_pred, dfs_true, rating_pred, spark = self.create_sample_data()
+
+        k = 5
 
         # Evaluate rating metrics.
 
@@ -102,6 +96,30 @@ class EvaluationSpec(unittest.TestCase):
         self.assertTrue(isinstance(exp_var, float))
         self.assertTrue(isinstance(mae, float))
         self.assertTrue(isinstance(rmse, float))
+
+    @staticmethod
+    def create_sample_data():
+        spark = pyspark.sql.SparkSession.builder.master("local[*]") \
+            .config('spark.driver.extraClassPath',
+                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
+            .getOrCreate()
+        # Synthesize some testing data.
+        rating_pred = pd.DataFrame({
+            'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
+            'itemID': [1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5],
+            'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+            'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
+        })
+        rating_true = pd.DataFrame({
+            'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
+            'itemID': [3, 4, 5, 6, 7, 1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6],
+            'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+            'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
+        })
+        dfs_pred = spark.createDataFrame(rating_pred)
+        dfs_true = spark.createDataFrame(rating_true)
+        return dfs_pred, dfs_true, rating_pred, spark
+
 
 if __name__ == '__main__':
     unittest.main(exit=False)
