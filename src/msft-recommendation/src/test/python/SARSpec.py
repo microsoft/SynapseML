@@ -9,10 +9,7 @@ from pyspark.sql.types import *
 
 class SARSpec(unittest.TestCase):
     def test_simple(self):
-        spark = pyspark.sql.SparkSession.builder.master("local[*]") \
-            .config('spark.driver.extraClassPath',
-                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
-            .getOrCreate()
+        spark = RecommendTestHelper.getSpark()
 
         cSchema = StructType([StructField("customerID", IntegerType()),
                               StructField("itemID", IntegerType()),

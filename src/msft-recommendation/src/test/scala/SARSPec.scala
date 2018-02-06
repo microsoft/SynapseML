@@ -12,7 +12,9 @@ import org.apache.spark.ml.linalg.{Vectors => mlVectors}
 import org.apache.spark.ml.recommendation.ALS.Rating
 import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.streaming.StreamingQuery
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -33,6 +35,61 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
   val sc2 = session.sqlContext
 
   override lazy val sc: SparkContext = session.sparkContext
+
+  test("testSAR_streaming") {
+    val df: DataFrame = session.createDataFrame(Seq(
+      ("11", "Movie 01", 4, 4),
+      ("11", "Movie 03", 1, 1),
+      ("11", "Movie 04", 5, 5),
+      ("11", "Movie 05", 3, 3),
+      ("11", "Movie 07", 3, 3),
+      ("11", "Movie 09", 3, 3),
+      ("11", "Movie 10", 3, 3),
+      ("22", "Movie 01", 4, 4),
+      ("22", "Movie 02", 5, 5),
+      ("22", "Movie 03", 1, 1),
+      ("22", "Movie 06", 4, 4),
+      ("22", "Movie 07", 5, 5),
+      ("22", "Movie 08", 1, 1),
+      ("22", "Movie 10", 3, 3),
+      ("33", "Movie 01", 4, 4),
+      ("33", "Movie 02", 1, 1),
+      ("33", "Movie 03", 1, 1),
+      ("33", "Movie 04", 5, 5),
+      ("33", "Movie 05", 3, 3),
+      ("33", "Movie 06", 4, 4),
+      ("33", "Movie 08", 1, 1),
+      ("33", "Movie 09", 5, 5),
+      ("33", "Movie 10", 3, 3),
+      ("44", "Movie 02", 5, 5),
+      ("44", "Movie 03", 1, 1),
+      ("44", "Movie 04", 5, 5),
+      ("44", "Movie 05", 3, 3),
+      ("44", "Movie 06", 4, 4),
+      ("44", "Movie 07", 5, 5),
+      ("44", "Movie 08", 1, 1),
+      ("44", "Movie 09", 5, 5),
+      ("44", "Movie 10", 3, 3))).toDF("customerIDOrg", "itemIDOrg", "rating", "timeOld")
+    df.write.mode(SaveMode.Overwrite).parquet("/mnt/test.parquet")
+
+    val userSchema = new StructType()
+      .add("customerIDOrg", "string")
+      .add("itemIDOrg", "string")
+      .add("rating", "double")
+      .add("timeOld", "double")
+
+    val dfstream: DataFrame = session
+      .readStream
+      .schema(userSchema)
+      .parquet("/mnt/test.parquet")
+
+    evalTest(dfstream, "customerIDOrg", "itemIDOrg", "rating")
+    //    evalTest2(df, "customerIDOrg", "itemIDOrg", "rating")
+
+    //    val converted = converter.transform(items).select("customerIDrestored", "item_1", "item_2", "item_3")
+
+    //    converted.take(4).foreach(println(_))
+  }
 
   test("testSAR_COLD") {
     val df: DataFrame = session.createDataFrame(Seq(
@@ -372,11 +429,13 @@ class SARSPec extends TestBase with EstimatorFuzzing[SAR] {
 
     val transformedDf = pipeline.fit(ratings).transform(ratings)
     transformedDf.cache().count
+
     //    ratings.unpersist()
     val sar = new SAR()
       .setUserCol(customerIndex.getOutputCol)
       .setItemCol(ratingsIndex.getOutputCol)
       .setRatingCol("rating")
+      .setSupportThreshold(2)
 
     val alsWReg = new MsftRecommendation()
       .setUserCol(customerIndex.getOutputCol)
