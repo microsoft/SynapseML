@@ -120,20 +120,6 @@ class RankingEvaluation(TopK):
         
         return(recall)
 
-class DistributionMetrics(TopK):
-    '''
-    Evaluation with distribution-related metrics on given data sets.
-    '''
-    def __init__(self, k, rating_true, rating_pred):
-        '''
-        Initialization.
-        :param spark: configured Spark SQL session.
-        :param k: number of items for each user.
-        :param rating_true: Spark DataFrame of customerID-itemID-rating tuple for true rating.
-        :param rating_pred: Spark DataFrame of customerID-itemID-rating tuple for predicted rating.
-        '''
-        TopK.__init__(self, k, rating_true, rating_pred)
-
     def rank(self):
         '''
         This is the metric used in the paper of "collaborative filtering for implicit feedback datasets".
@@ -160,6 +146,20 @@ class DistributionMetrics(TopK):
                     
         return(average_ranking)
         
+class DistributionMetrics(TopK):
+    '''
+    Evaluation with distribution-related metrics on given data sets.
+    '''
+    def __init__(self, k, rating_true, rating_pred):
+        '''
+        Initialization.
+        :param spark: configured Spark SQL session.
+        :param k: number of items for each user.
+        :param rating_true: Spark DataFrame of customerID-itemID-rating tuple for true rating.
+        :param rating_pred: Spark DataFrame of customerID-itemID-rating tuple for predicted rating.
+        '''
+        TopK.__init__(self, k, rating_true, rating_pred)
+
     def diversity_at_k(self):
         unique_rating_true = self.rating_true.select('itemID').distinct().count()
         unique_items_recommended = self._items_for_user_all.rdd.map(lambda row: row[0]) \
@@ -283,71 +283,5 @@ class RatingEvaluation:
         self.mae = metrics.meanAbsoluteError
         self.rmse = metrics.rootMeanSquaredError
 
-def _test():
-    """
-    Perform testing on the methods.
-    """
-    from pyspark.sql import SparkSession
-    import pandas as pd
-
-    spark = SparkSession.builder \
-        .master("local[*]") \
-        .appName("EvaluationTest") \
-        .getOrCreate()
-
-    # Synthesize some testing data.
-
-    rating_pred = pd.DataFrame({
-        'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
-        'itemID': [1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5],
-        'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-        'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
-    })
-
-    rating_true = pd.DataFrame({
-        'customerID': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
-        'itemID': [3, 4, 5, 6, 7, 1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6],
-        'rating': [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-        'timeStamp': [d.strftime('%Y%m%d') for d in pd.date_range('2018-01-01', '2018-01-21')]
-    })
-
-    dfs_pred = spark.createDataFrame(rating_pred)
-    dfs_true = spark.createDataFrame(rating_true)
-
-    # Test ranking evaluation methods
-
-    k = 5
-
-    evaluator_ranking = RankingEvaluation(k, dfs_true, dfs_pred)
-
-    print("Recall at {0} is {1}".format(k, evaluator_ranking.recall_at_k()))
-    print("Precision at {0} is {1}".format(k, evaluator_ranking.precision_at_k()))
-    print("NDCG at {0} is {1}".format(k, evaluator_ranking.ndcg_at_k()))
-    print("Mean average precision at {0} is {1}".format(k, evaluator_ranking.map_at_k()))
-
-    # Test rating metrics.
-
-    rating_pred['rating'] = rating_pred['rating'] + np.random.normal(0, 1, rating_pred.shape[0])
-
-    dfs_pred = spark.createDataFrame(rating_pred)
-
-    evaluator_rating = RatingEvaluation(dfs_true, dfs_pred)
-
-    print("R2 is {0}".format(evaluator_rating.rsquared))
-    print("Explained variance is {0}".format(evaluator_rating.exp_var))
-    print("Mean average error is {0}".format(evaluator_rating.mae))
-    print("Root mean squared error is {0}".format(evaluator_rating.rmse))
-
-    # Test distribution metrics.
-
-    k = 5
-
-    evaluator_distribution = DistributionMetrics(k, dfs_true, dfs_pred)
-
-    evaluator_distribution.popularity_at_k().show()
-    print("Diversity at k is {0}".format(evaluator_distribution.diversity_at_k()))
-    print("Max diversity at k is {0}".format(evaluator_distribution.max_diversity()))
-    print("Rank at k is {0}".format(evaluator_distribution.rank()))
-
 if __name__ == "__main__":
-    _test()
+    print("Evaluation")
