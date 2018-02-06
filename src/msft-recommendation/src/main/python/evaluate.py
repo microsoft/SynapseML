@@ -1,6 +1,9 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
+import pandas as pd
+
+
 class TopK:
     '''
     Evaluation methods for top-k evaluation.
@@ -292,7 +295,6 @@ class RatingEvaluation:
         self.mae = metrics.meanAbsoluteError
         self.rmse = metrics.rootMeanSquaredError
 
-
     def get_metrics(self):
         pd.DataFrame(data={
             "RatingEvaluation": {
@@ -302,6 +304,7 @@ class RatingEvaluation:
                 "rmse": self.rmse
             }
         })
+
 
 if __name__ == "__main__":
     print("Evaluation")
