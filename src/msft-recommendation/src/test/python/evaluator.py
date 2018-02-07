@@ -6,7 +6,7 @@
 # through distribution, network access, service agreement, lease, rental, or otherwise. This license does
 # not purport to express any claim of ownership over data you may have shared with Microsoft in the creation
 # of the Software Code. Unless applicable law gives you more rights, Microsoft reserves all other rights not 
-# expressly granted herein, whether by implication, estoppel or otherwise.
+# expressly granted herein, whether by implication, estoppel or otherwise. 
 #
 # THE SOFTWARE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
 # LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO 
@@ -23,7 +23,8 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from mmlspark.evaluate import *
+# from mmlspark.evaluate import *
+from uef.evaluate import *
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
 
@@ -74,10 +75,8 @@ class EvaluationSpec(unittest.TestCase):
 
         # Evaluate distribution metrics.
 
-        evaluator_distribution = DistributionMetrics(k, dfs_true, dfs_pred)
-
-        self.assertTrue(bool(evaluator_distribution.popularity_at_k().head(1)))
-
+        evaluator_distribution = DistributionEvaluation(k, dfs_true, dfs_pred)
+        evaluator_distribution.popularity_at_k(n_bin=3)
         diversity = evaluator_distribution.diversity_at_k()
         max_diversity = evaluator_distribution.max_diversity()
 

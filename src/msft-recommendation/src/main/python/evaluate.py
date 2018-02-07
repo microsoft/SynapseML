@@ -146,7 +146,7 @@ class RankingEvaluation(TopK):
                     
         return(average_ranking)
         
-class DistributionMetrics(TopK):
+class DistributionEvaluation(TopK):
     '''
     Evaluation with distribution-related metrics on given data sets.
     '''
@@ -181,60 +181,37 @@ class DistributionMetrics(TopK):
         Check paper titled "novelty and diversity in top-N recommendation - analysis and evaluation" for more info.
         '''
 
-    def popularity_at_k(self):
+    def popularity_at_k(self, n_bin=10):
         '''
         Calculate percentile of items falling in each bin of true items binned by popularity.
         It's called "diversity-at-k" in SAR solution, whose implementation can be found at
         https://github.com/Microsoft/Product-Recommendations/blob/master/doc/model-evaluation.md#diversity.  
-        '''
-        from pyspark.sql.functions import col, bround, row_number
-        from pyspark.sql import Window
 
-        # Get count of items for true trating data and order by count.
-        # NOTE there may be other way to measure popularity of items but here popularity is calculated by aggregated item occurrence.
+        :param n_bin: number of ratings in each bin.
+        '''
+        from pyspark.sql import Window
+        from pyspark.sql.functions import col, bround, row_number, percent_rank
+
+        # TODO: refactor diversity measure for SAR.
 
         rating_item_count = self.rating_true \
             .groupBy('itemID') \
             .agg({"customerID": "count"}) \
-            .withColumnRenamed('count(customerID)', 'count') \
-            .orderBy('count', ascending=False)
-
-        # Number of bins. This is set as default. For a large data set, n_bin is set to be 10. 
-
-        n_bin = 3 
+            .withColumnRenamed('count(customerID)', 'count') 
 
         if (rating_item_count.count() < n_bin):
-            print("Total number of items should be at least 10.")
-            return(-1)
+            print("Total number of items should be at least n_bin.")
+            return -1
 
-        # Quantitize count into bins. 
+        rating_item_percentile = rating_item_count \
+            .withColumn('percentile', percent_rank().over(Window.orderBy("count")))
 
-        w = Window().orderBy("itemID")
-
-        rating_item_bin = rating_item_count \
-            .select(row_number().over(w).alias("id"), col("*")) \
-            .withColumn("binNumber", bround(col("id") / n_bin, 0).cast('int')) \
-            .drop('count')
-
-        print(rating_item_bin.show())
-
-        # Count number of items (in proportion) falling into each of the bins for recommendation data.
-
-        rating_item_joined = self.rating_pred.join(rating_item_bin, "itemID", 'right_outer') \
-            .groupBy('binNumber') \
+        rating_joined = self.rating_pred.join(rating_item_percentile, "itemID") \
+            .groupBy('percentile') \
             .agg({"itemID": "count"}) \
             .withColumnRenamed('count(itemID)', 'itemCounts') \
 
-        rating_item_sum = rating_item_joined.groupBy().sum('itemCounts').rdd.map(lambda r: r[0]).collect()
-
-        rating_item_percentage = rating_item_joined \
-            .orderBy('binNumber') \
-            .withColumn('percentage', bround((col('itemCounts') / rating_item_sum[0]) * 100, 2)) \
-            .withColumn('lower', bround((col('binNumber') / n_bin) * 100, 2).cast('string')) \
-            .withColumn('upper', bround(((col('binNumber') + 1) / n_bin) * 100, 2).cast('string')) \
-            .drop("customerID", "rating") 
-
-        return(rating_item_percentage)
+        return(rating_joined)
 
     def preference_at_k(self, filter_option):
         '''
