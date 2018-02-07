@@ -10,8 +10,8 @@ import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.util.Utils
 import org.json4s.JsonDSL._
-import org.json4s.{JObject, _}
 import org.json4s.jackson.JsonMethods._
+import org.json4s.{JObject, _}
 
 trait ComplexParamsWritable extends MLWritable {
   self: Params =>
@@ -108,7 +108,14 @@ private[ml] object ComplexParamsWriter {
     val params = instance.extractParamMap().toSeq
       .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
     val jsonParams = paramMap.getOrElse(render(params.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
+      try {
+        p.name -> parse(p.jsonEncode(v))
+      }
+      catch {
+        case e: NotImplementedError => {
+          throw new NotImplementedError(p.name + " does not have jsonEncode")
+        }
+      }
     }.toList))
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
@@ -163,7 +170,7 @@ private[ml] object ComplexParamsReader {
       case p: ComplexParam[_] =>
         complexParamLocs.get(p.name) match {
           case Some(loc) =>
-            instance.set(p, p.load(spark,loc))
+            instance.set(p, p.load(spark, loc))
           case None =>
         }
       case _ =>

@@ -23,6 +23,11 @@ import pandas as pd
 import pyspark
 import unittest
 from mmlspark.evaluate import *
+import pandas as pd
+import numpy as np
+
+# from mmlspark.evaluate import *
+from uef.evaluate import *
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
 
@@ -61,6 +66,8 @@ class EvaluationSpec(unittest.TestCase):
 
         self.assertTrue(bool(evaluator_distribution.popularity_at_k().head(1)))
 
+        evaluator_distribution = DistributionEvaluation(k, dfs_true, dfs_pred)
+        evaluator_distribution.popularity_at_k(n_bin=3)
         diversity = evaluator_distribution.diversity_at_k()
         max_diversity = evaluator_distribution.max_diversity()
 

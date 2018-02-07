@@ -27,6 +27,8 @@ class FuzzingTest extends TestBase {
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.SARModel",
+      "com.microsoft.ml.spark.MsftRecommendationModel",
       "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.TrainClassifier",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
@@ -51,6 +53,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.SARModel",
+      "com.microsoft.ml.spark.MsftRecommendationModel",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion",
       "com.microsoft.ml.spark.TuneHyperparameters"
@@ -73,6 +77,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TrainClassifier",
+      "com.microsoft.ml.spark.SARModel",
+      "com.microsoft.ml.spark.MsftRecommendationModel",
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion",
       "com.microsoft.ml.spark.TuneHyperparameters"

@@ -21,7 +21,8 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from mmlspark.evaluate import *
+# from mmlspark.evaluate import *
+from uef.split2 import *
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
 from pyspark.sql import DataFrame
@@ -53,14 +54,16 @@ class SplitSpec(unittest.TestCase):
 
         dfs_rating = spark.createDataFrame(df_rating)
 
-        # Test minimum rating filtering methods.
+        # # Test minimum rating filtering methods.
 
-        self.assertEqual(dfs_rating.min_rating_filter(min_rating=6, by_customer=True).count(), 6)
+        # self.assertEqual(dfs_rating.min_rating_filter(min_rating=6, by_customer=True).count(), 6)
 
         # Stratified split.
 
         dfs_train, dfs_test = dfs_rating.stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5) 
         self.assertTrue(set(dfs_train.select(col('customerID')).distinct().collect()) == set(dfs_test.select(col('customerID')).distinct().collect()))
+        dfs_train.show()
+        dfs_test.show()
 
         dfs_train, dfs_test = dfs_rating.stratified_split(min_rating=3, by_customer=True, fixed_test_sample=True, sample=2) 
         dfs_train.show()
@@ -78,21 +81,13 @@ class SplitSpec(unittest.TestCase):
 
         # non-overlapping splitting
 
-        dfs_train, dfs_test = dfs_rating.non_overlapping_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5)
-        dfs_train.show()
-        dfs_test.show()
-
-        dfs_train, dfs_test = dfs_rating.non_overlapping_split(min_rating=3, by_customer=True, fixed_test_sample=True, sample=3)
+        dfs_train, dfs_test = dfs_rating.non_overlapping_split(min_rating=3, by_customer=True, ratio=0.5)
         dfs_train.show()
         dfs_test.show()
 
         # random splitting
 
-        dfs_train, dfs_test = dfs_rating.random_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5)
-        dfs_train.show()
-        dfs_test.show()
-
-        dfs_train, dfs_test = dfs_rating.random_split(min_rating=3, by_customer=True, fixed_test_sample=True, sample=3)
+        dfs_train, dfs_test = dfs_rating.random_split(min_rating=3, by_customer=True, ratio=0.5)
         dfs_train.show()
         dfs_test.show()
 
