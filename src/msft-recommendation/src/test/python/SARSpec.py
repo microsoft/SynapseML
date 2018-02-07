@@ -7,6 +7,63 @@ from pyspark.ml.tuning import *
 from pyspark.sql.types import *
 
 
+class RecommendTestHelper:
+
+    @staticmethod
+    def getSpark():
+        # os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"
+        # os.environ["PYSPARK_PYTHON"] = "/home/dciborow/bin/python3"
+
+        spark = pyspark.sql.SparkSession.builder.master("local[*]") \
+            .config('spark.driver.extraClassPath',
+                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
+            .getOrCreate()
+
+        return spark
+
+    @staticmethod
+    def getRatings():
+        cSchema = StructType([StructField("user", IntegerType()),
+                              StructField("item", IntegerType()),
+                              StructField("rating", IntegerType()),
+                              StructField("notTime", IntegerType())])
+
+        ratings = RecommendTestHelper.getSpark().createDataFrame([
+            (0, 1, 4, 4),
+            (0, 3, 1, 1),
+            (0, 4, 5, 5),
+            (0, 5, 3, 3),
+            (0, 7, 3, 3),
+            (0, 9, 3, 3),
+            (0, 10, 3, 3),
+            (1, 1, 4, 4),
+            (1, 2, 5, 5),
+            (1, 3, 1, 1),
+            (1, 6, 4, 4),
+            (1, 7, 5, 5),
+            (1, 8, 1, 1),
+            (1, 10, 3, 3),
+            (2, 1, 4, 4),
+            (2, 2, 1, 1),
+            (2, 3, 1, 1),
+            (2, 4, 5, 5),
+            (2, 5, 3, 3),
+            (2, 6, 4, 4),
+            (2, 8, 1, 1),
+            (2, 9, 5, 5),
+            (2, 10, 3, 3),
+            (3, 2, 5, 5),
+            (3, 3, 1, 1),
+            (3, 4, 5, 5),
+            (3, 5, 3, 3),
+            (3, 6, 4, 4),
+            (3, 7, 5, 5),
+            (3, 8, 1, 1),
+            (3, 9, 5, 5),
+            (3, 10, 3, 3)], cSchema)
+        return ratings
+
+
 class SARSpec(unittest.TestCase):
     def test_simple(self):
         spark = RecommendTestHelper.getSpark()

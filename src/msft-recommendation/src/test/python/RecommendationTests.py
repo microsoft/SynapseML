@@ -88,6 +88,7 @@ class SARSpec(unittest.TestCase):
 
         sarModel = sar.fit(ratings)
         usersRecs = sarModel.recommendForAllUsers(3)
+
         print(usersRecs.take(4))
         #
         # paramGrid = ParamGridBuilder() \
@@ -111,70 +112,58 @@ class SARSpec(unittest.TestCase):
 
 
 class TrainValidRecommendSplitSpec(unittest.TestCase):
-    def test_validation(self):
-        ratings = RecommendTestHelper.getRatings()
-
-        # customerIndex = StringIndexer() \
-        #     .setInputCol("originalCustomerID") \
-        #     .setOutputCol("customerID")
-        #
-        # ratingsIndex = StringIndexer() \
-        #     .setInputCol("newCategoryID") \
-        #     .setOutputCol("itemID")
-        #
-        # pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
-        #
-        # transformedDf = pipeline.fit(ratings).transform(ratings)
-
-        sar = SAR() \
-            .setUserCol("user") \
-            .setRatingCol('rating') \
-            .setItemCol("item") \
-            .setSupportThreshold(4)
-
-        paramGrid = ParamGridBuilder() \
-            .addGrid(sar.supportThreshold, [4]) \
-            .build()
-
-        evaluator = MsftRecommendationEvaluator().setSaveAll(True)
-
-        tvRecommendationSplit = TrainValidRecommendSplit() \
-            .setEstimator(sar) \
-            .setEvaluator(evaluator) \
-            .setEstimatorParamMaps(paramGrid) \
-            .setTrainRatio(0.8) \
-            .setUserCol(sar.getUserCol()) \
-            .setRatingCol(sar.getRatingCol()) \
-            .setItemCol(sar.getItemCol())
-
-        filtered = tvRecommendationSplit._call_java("filterRatings", ratings)
-
-        output = tvRecommendationSplit._call_java("splitDF", filtered)
-        train = next(iter(output))
-
-        sarModel = sar.fit(train)
-        usersRecs = sarModel.recommendForAllUsers(3)
-
-        print(usersRecs.take(1))
-
-        metrics = evaluator._call_java("getMetricsList").toString()
-        print(metrics)
+    # def test_validation(self):
+    #     ratings = RecommendTestHelper.getRatings()
+    #
+    #     # customerIndex = StringIndexer() \
+    #     #     .setInputCol("originalCustomerID") \
+    #     #     .setOutputCol("customerID")
+    #     #
+    #     # ratingsIndex = StringIndexer() \
+    #     #     .setInputCol("newCategoryID") \
+    #     #     .setOutputCol("itemID")
+    #     #
+    #     # pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
+    #     #
+    #     # transformedDf = pipeline.fit(ratings).transform(ratings)
+    #
+    #     sar = SAR() \
+    #         .setUserCol("user") \
+    #         .setRatingCol('rating') \
+    #         .setItemCol("item") \
+    #         .setSupportThreshold(4)
+    #
+    #     paramGrid = ParamGridBuilder() \
+    #         .addGrid(sar.supportThreshold, [4]) \
+    #         .build()
+    #
+    #     evaluator = MsftRecommendationEvaluator().setSaveAll(True)
+    #
+    #     tvRecommendationSplit = TrainValidRecommendSplit() \
+    #         .setEstimator(sar) \
+    #         .setEvaluator(evaluator) \
+    #         .setEstimatorParamMaps(paramGrid) \
+    #         .setTrainRatio(0.8) \
+    #         .setUserCol(sar.getUserCol()) \
+    #         .setRatingCol(sar.getRatingCol()) \
+    #         .setItemCol(sar.getItemCol())
+    #
+    #     filtered = tvRecommendationSplit._call_java("filterRatings", ratings)
+    #
+    #     output = tvRecommendationSplit._call_java("splitDF", filtered)
+    #     train = next(iter(output))
+    #
+    #     sarModel = sar.fit(train)
+    #     usersRecs = sarModel.recommendForAllUsers(3)
+    #
+    #     print(usersRecs.take(1))
+    #
+    #     metrics = evaluator._call_java("getMetricsList").toString()
+    #     print(metrics)
 
     def test_parameter_sweep(self):
         ratings = RecommendTestHelper.getRatings()
 
-        # customerIndex = StringIndexer() \
-        #     .setInputCol("originalCustomerID") \
-        #     .setOutputCol("customerID")
-        #
-        # ratingsIndex = StringIndexer() \
-        #     .setInputCol("newCategoryID") \
-        #     .setOutputCol("itemID")
-        #
-        # pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
-        #
-        # transformedDf = pipeline.fit(ratings).transform(ratings)
-
         sar = SAR() \
             .setUserCol("user") \
             .setRatingCol('rating') \
@@ -182,7 +171,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setSupportThreshold(4)
 
         paramGrid = ParamGridBuilder() \
-            .addGrid(sar.supportThreshold, [4]) \
+            .addGrid(sar.supportThreshold, [1, 4]) \
             .build()
 
         evaluator = MsftRecommendationEvaluator().setSaveAll(True)
@@ -195,24 +184,18 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setUserCol(sar.getUserCol()) \
             .setRatingCol(sar.getRatingCol()) \
             .setItemCol(sar.getItemCol())
-        print(tvRecommendationSplit.getEstimatorParamMaps())
-        tvmodel = tvRecommendationSplit._call_java("fit", ratings)
 
-        filtered = tvRecommendationSplit._call_java("filterRatings", ratings)
-        print(str(filtered.count()) + "\n")
+        tvmodel = tvRecommendationSplit.fit(ratings)
 
-        output = tvRecommendationSplit._call_java("splitDF", filtered)
-        train = output(0)
-        print(output)
-        print(train.count())
-        # tvmodel = tvRecommendationSplit.fit(ratings)
+        usersRecs = tvmodel.recommendForAllUsers(3)
 
-        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
-
+        print("User Recs: ")
         print(usersRecs.take(1))
+        print("Validation Metrics: ")
         print(tvmodel.validationMetrics)
 
         metrics = evaluator._call_java("getMetricsList").toString()
+        print("Metrics List: ")
         print(metrics)
 
 

@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.SparkSessionFactory.{currentDir, customNormalize}
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
 import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.ml.util.MLReadable
@@ -74,9 +75,10 @@ class TrainValidRecommendSplitRec
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
 
-    val paramGrid = new ParamGridBuilder()
+    val maps: Array[ParamMap] = new ParamGridBuilder()
       .addGrid(alsWReg.regParam, Array(0.01, 0.1, 1.0))
       .build()
+    val paramGrid = maps
 
     val evaluator = new MsftRecommendationEvaluator()
       .setK(3)
