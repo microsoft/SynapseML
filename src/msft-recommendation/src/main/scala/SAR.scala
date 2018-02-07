@@ -360,21 +360,11 @@ object SAR extends DefaultParamsReadable[SAR] {
       })
       jaccard
     })
-<<<<<<< HEAD
 
     val coldJaccard = jaccard
       .join(coldData, col(itemColumn) === col(itemColumn + "1"))
       .withColumn("output", mergeScore(col("jaccardList"), col("wrappedPrediction")))
       .select(col("itemID"), col("output").as("jaccardList"))
-
-=======
-
-    val coldJaccard = jaccard
-      .join(coldData, col(itemColumn) === col(itemColumn + "1"))
-      .withColumn("output", mergeScore(col("jaccardList"), col("wrappedPrediction")))
-      .select(col("itemID"), col("output").as("jaccardList"))
-
->>>>>>> a1ef9801618dc23c533fbd04c41a7e436ad08b24
     coldJaccard
   }
 
