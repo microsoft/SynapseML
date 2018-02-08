@@ -20,7 +20,7 @@ data_banknote_authentication.csv,LogisticRegression,0.92,0.89
 data_banknote_authentication.csv,DecisionTreeClassification,0.98,0.97
 data_banknote_authentication.csv,GradientBoostedTreesClassification,0.98,0.98
 data_banknote_authentication.csv,RandomForestClassification,1.0,1.0
-data_banknote_authentication.csv,MultilayerPerceptronClassifier,0.5,0.49
+data_banknote_authentication.csv,MultilayerPerceptronClassifier,0.7,0.74
 task.train.csv,LogisticRegression,0.5,0.57
 task.train.csv,DecisionTreeClassification,0.74,0.71
 task.train.csv,GradientBoostedTreesClassification,0.83,0.85
@@ -31,13 +31,13 @@ breast-cancer.train.csv,LogisticRegression,0.99,0.98
 breast-cancer.train.csv,DecisionTreeClassification,0.96,0.96
 breast-cancer.train.csv,GradientBoostedTreesClassification,0.94,0.94
 breast-cancer.train.csv,RandomForestClassification,1.0,0.99
-breast-cancer.train.csv,MultilayerPerceptronClassifier,0.69,0.7
+breast-cancer.train.csv,MultilayerPerceptronClassifier,0.7,0.71
 breast-cancer.train.csv,NaiveBayesClassifier,0.96,0.96
 random.forest.train.csv,LogisticRegression,1.0,0.99
 random.forest.train.csv,DecisionTreeClassification,0.96,0.96
 random.forest.train.csv,GradientBoostedTreesClassification,0.95,0.95
 random.forest.train.csv,RandomForestClassification,0.99,0.99
-random.forest.train.csv,MultilayerPerceptronClassifier,0.46,0.18
+random.forest.train.csv,MultilayerPerceptronClassifier,0.62,0.67
 random.forest.train.csv,NaiveBayesClassifier,0.91,0.91
 transfusion.csv,LogisticRegression,0.5,0.62
 transfusion.csv,DecisionTreeClassification,0.68,0.51
@@ -60,9 +60,9 @@ bank.train.csv,LogisticRegression,0.5,0.56
 bank.train.csv,DecisionTreeClassification,0.53,0.25
 bank.train.csv,GradientBoostedTreesClassification,0.66,0.49
 bank.train.csv,RandomForestClassification,0.88,0.49
-bank.train.csv,MultilayerPerceptronClassifier,0.5,0.56
+bank.train.csv,MultilayerPerceptronClassifier,0.5,0.06
 TelescopeData.csv,LogisticRegression,0.5,0.68
 TelescopeData.csv,DecisionTreeClassification,0.62,0.58
 TelescopeData.csv,GradientBoostedTreesClassification,0.82,0.83
 TelescopeData.csv,RandomForestClassification,0.89,0.86
-TelescopeData.csv,MultilayerPerceptronClassifier,0.56,0.5
+TelescopeData.csv,MultilayerPerceptronClassifier,0.56,0.53
