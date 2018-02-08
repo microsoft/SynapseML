@@ -72,7 +72,7 @@ class TrainTestSplit:
             .agg({split_with_column: "count"}) \
             .withColumnRenamed("count(" + split_with_column + ")", "count")
 
-        if fixed_test_sample == False:
+        if not fixed_test_sample:
             rating_all = rating_joined.join(rating_grouped, on = split_by_column, how="outer") \
                 .withColumn('splitPoint', bround(col('count') * ratio))
 

@@ -168,10 +168,9 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setUserCol("user") \
             .setRatingCol('rating') \
             .setItemCol("item") \
-            .setSupportThreshold(4)
 
         paramGrid = ParamGridBuilder() \
-            .addGrid(sar.supportThreshold, [1, 4]) \
+            .addGrid(sar.supportThreshold, [1, 2, 3, 5, 8]) \
             .build()
 
         evaluator = MsftRecommendationEvaluator().setSaveAll(True)

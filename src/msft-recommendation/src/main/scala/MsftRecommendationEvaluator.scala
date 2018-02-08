@@ -13,7 +13,6 @@ import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.mutable.ListBuffer
 
-@InternalWrapper
 final class MsftRecommendationEvaluator(override val uid: String)
   extends Evaluator with MsftRecEvaluatorParams {
   var nItems: LongParam = new LongParam(this, "nItems", "number of items")
