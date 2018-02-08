@@ -1,0 +1,6 @@
+apply plugin: 'idea'
+//and standard one
+apply plugin: 'java'
+apply plugin: 'scala'
+
+include 'value-indexer'

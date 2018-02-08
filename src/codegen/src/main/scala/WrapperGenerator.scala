@@ -73,6 +73,8 @@ abstract class WrapperGenerator {
             }
 
             val className = wrapperName(myClass)
+            println(className)
+            println(qualifiedClassName)
             (generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
              generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
           case _ => return

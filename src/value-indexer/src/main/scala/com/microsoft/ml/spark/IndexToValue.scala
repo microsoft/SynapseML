@@ -4,17 +4,17 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.SchemaConstants.MMLTag
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalMap, CategoricalUtilities, DatasetExtensions}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalUtilities}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.reflect.ClassTag
-import reflect.runtime.universe.TypeTag
+import scala.reflect.runtime.universe.TypeTag
 
 object IndexToValue extends DefaultParamsReadable[IndexToValue]
 
