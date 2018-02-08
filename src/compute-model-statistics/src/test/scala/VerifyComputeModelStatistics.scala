@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.TrainRegressorTestUtilities._
 import com.microsoft.ml.spark.TrainClassifierTestUtilities._
 import com.microsoft.ml.spark.metrics.MetricConstants
@@ -11,6 +12,7 @@ import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.regression.GeneralizedLinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -98,6 +100,23 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(1) === 0.0)
     assert(firstRow.getDouble(2) === 1.0)
     assert(firstRow.getDouble(3) === 0.0)
+  }
+
+  test("Verify compute model statistics does not get stuck in a loop in catalyst") {
+    val name = "AutomobilePriceRaw.csv"
+    val filePath = new File(s"${sys.env("DATASETS_HOME")}/MissingValuesRegression/Train/", name)
+    val dataset =
+      session.read.option("header", "true").option("inferSchema", "true")
+        .option("nullValue", "?")
+        .option("treatEmptyValuesAsNulls", "true")
+        .option("delimiter", ",")
+        .csv(filePath.toString)
+    val glr = new GeneralizedLinearRegression().setFamily("poisson").setLink("log")
+    val tr = new TrainRegressor().setModel(glr).setLabelCol("price").setNumFeatures(256)
+    val model = tr.fit(dataset)
+    val prediction = model.transform(dataset)
+    val evaluatedData = new ComputeModelStatistics().transform(prediction)
+    assert(evaluatedData.collect()(0)(2).asInstanceOf[Double] === 0.977733)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
