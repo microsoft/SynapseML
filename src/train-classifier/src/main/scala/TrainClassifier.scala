@@ -20,6 +20,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *
   * Note the behavior of the reindex and labels parameters, the parameters interact as:
+  *
   *   reindex -> false
   *   labels -> false (Empty)
   * Assume all double values, don't use metadata, assume natural ordering
@@ -27,13 +28,13 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   *   reindex -> true
   *   labels -> false (Empty)
   * Index, use natural ordering of string indexer
+  *
   *   reindex -> false
   *   labels -> true (Specified)
-  *
   * Assume user knows indexing, apply label values. Currently only string type supported.
+  *
   *   reindex -> true
   *   labels -> true (Specified)
-  *
   * Validate labels matches column type, try to recast to label type, reindex label column
   */
 class TrainClassifier(override val uid: String) extends Estimator[TrainedClassifierModel]
@@ -42,12 +43,13 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
   /** Classifier to run. The currently supported classifiers are:
-    * LogisticRegression
-    * DecisionTreeClassification
-    * RandomforestClassification
-    * GradientBoostedTreesClassification
-    * NaiveBayesClassifier
-    * MultilayerPerceptronClassifier
+    * Logistic Regression Classifier
+    * Decision Tree Classifier
+    * Random Forest Classifier
+    * Gradient Boosted Trees Classifier
+    * Naive Bayes Classifier
+    * Multilayer Perceptron Classifier
+    * In addition to any generic learner that inherits from Predictor.
     * @group param
     */
   val model = new EstimatorParam(this, "model", "Classifier to run")
