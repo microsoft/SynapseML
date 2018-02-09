@@ -14,6 +14,6 @@
 #' @export
 sdf_transform <- function(object, newdata, ...) {
   sdf <- spark_dataframe(newdata)
-  transformed <- invoke(object$.model, "transform", sdf)
+  transformed <- invoke(object$model, "transform", sdf)
   sdf_register(transformed)
 }

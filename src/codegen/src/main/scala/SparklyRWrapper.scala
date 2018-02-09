@@ -170,12 +170,12 @@ class SparklyREstimatorWrapper(entryPoint: Estimator[_],
   s"""|  mod_model_raw <- mod_parameterized %>%
       |    invoke(\"fit\", df)
       |
-      |  mod_model <- ml_model(\"$entryPointName\", mod_model_raw)
+      |  mod_model <- sparklyr:::new_ml_model(mod_parameterized, mod_model_raw, mod_model_raw)
       |
       |  if (only.model)
       |    return(mod_model)
       |""".stripMargin
-  override val moduleAcc = "mod_model$.model"
+  override val moduleAcc = "mod_model$model"
   override val psType = "Estimator"
   override val additionalParams = ", only.model=FALSE"
 
