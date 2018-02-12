@@ -165,10 +165,12 @@ get-ver-info() (
   jq --arg b "$binfo" '. + {buildinfo: $b}' \
      < "$info" > "$info-new"; mv "$info-new" "$info"
   #
-  rx="\n#+ [^\n]* build [^\n]*github PR #([0-9]+)"
-  rx=$'\n'"#+ [^"$'\n'"]* build [^"$'\n'"]*github PR #([0-9]+)"
-  if [[ "$binfo" =~ $rx ]]; then pr="${BASH_REMATCH[1]}"; else pr=""; fi
-  jq --arg pr "$pr" '. + {github_pr: $pr}' \
+  pr_rx=$'\n'"#+ [^"$'\n'"]* build [^"$'\n'"]*[Gg]ithub PR #([0-9]+)"
+  br_rx=$'\n'"#+ [^"$'\n'"]* build [^"$'\n'"]*[Gg]ithub [Bb]ranch ([^][]+)"
+  if   [[ "$binfo" =~ $pr_rx ]]; then pr="${BASH_REMATCH[1]}" br=""
+  elif [[ "$binfo" =~ $br_rx ]]; then br="${BASH_REMATCH[1]}" pr=""
+  else pr="" br=""; fi
+  jq --arg pr "$pr" --arg br "$br" '. + {github_pr: $pr, github_br: $br}' \
      < "$info" > "$info-new"; mv "$info-new" "$info"
   #
   jq --argjson now "$(date +"%s")" --arg labelpath "$v/.label" \
@@ -183,7 +185,7 @@ get-ver-info() (
 )
 
 show-all-oneline() {
-  local v times t1 t2 info pr; now="$(date +"%s")"
+  local v times t1 t2 info pr br; now="$(date +"%s")"
   printf "\n"
   for v in "${all[@]}"; do
     if [[ -r "$cachedir/$v" && ! -s "$cachedir/$v" ]]; then continue; fi
@@ -193,11 +195,13 @@ show-all-oneline() {
     printf ' %-16s' "$(show-time-range "${times%:*}" "${times#*:}")"
     info="$(jq -r '.label' < "$cachedir/$v")"
     pr="$(jq -r '.github_pr' < "$cachedir/$v")"
+    br="$(jq -r '.github_br' < "$cachedir/$v")"
     if [[ -n "$pr" ]]; then
       if [[ "$github_prs" = *" $pr "* ]]
       then pr="PR #$pr"; else pr="Closed PR #$pr"; fi
       info="$pr${info:+"; "}$info"
     fi
+    if [[ -n "$br" ]]; then info="Branch $br${info:+"; "}$info"; fi
     if [[ -z "$info" ]]; then printf '\n'
     else printf ' [%s]\n' "$info"; fi
   done
