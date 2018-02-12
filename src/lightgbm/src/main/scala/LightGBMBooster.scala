@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm.{CSRUtils, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.spark.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 
 /** Represents a LightGBM Booster learner
@@ -32,12 +33,49 @@ class LightGBMBooster(val model: String) extends Serializable {
       LightGBMUtils.initializeNativeLibrary()
       boosterPtr = getModel()
     }
-    val numRows = 1
-    val rowsAsDoubleArray = features match {
-      case dense: DenseVector => dense.toArray
-      case sparse: SparseVector => sparse.toDense.toArray
+    features match {
+      case dense: DenseVector => predictForMat(dense.toArray)
+      case sparse: SparseVector => predictForCSR(sparse)
     }
-    val dataPtr = LightGBMUtils.generateData(numRows, Array(rowsAsDoubleArray))
+  }
+
+  protected def predictForCSR(sparseVector: SparseVector): Double = {
+    val numRows = 1
+    val valuesArray = sparseVector.values
+    val values = newDoubleArray(valuesArray)
+    val indexesArray = sparseVector.indices
+    val indexes = newIntArray(indexesArray)
+    val indptr = new Array[Int](numRows + 1)
+    indptr(1) = sparseVector.numNonzeros
+    val indptrNative = newIntArray(indptr)
+    val numCols = sparseVector.size
+
+    val datasetParams = "max_bin=255 is_pre_partition=True"
+    val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    val scoredDataOutPtr = lightgbmlib.new_doubleArray(numRows)
+
+    val scoredDataLengthLongPtr = lightgbmlib.new_longp()
+    lightgbmlib.longp_assign(scoredDataLengthLongPtr, numRows)
+    val scoredDataLength_int64_tPtr = lightgbmlib.long_to_int64_t_ptr(scoredDataLengthLongPtr)
+
+    LightGBMUtils.validate(CSRUtils.LGBM_BoosterPredictForCSR(boosterPtr, indptrNative._1, dataInt32bitType,
+      indexes._1, values._1, data64bitType, intToPtr(indptr.length), intToPtr(numRows + 1), intToPtr(numCols),
+      lightgbmlibConstants.C_API_PREDICT_RAW_SCORE, -1, datasetParams,
+      scoredDataLength_int64_tPtr, scoredDataOutPtr), "Booster Predict")
+    // Delete the input row
+    lightgbmlib.delete_doubleArray(values._2)
+    lightgbmlib.delete_intArray(indexes._2)
+    lightgbmlib.delete_intArray(indptrNative._2)
+    val rawPrediction = lightgbmlib.doubleArray_getitem(scoredDataOutPtr, 0)
+    // Delete the output scored row
+    lightgbmlib.delete_doubleArray(scoredDataOutPtr)
+    rawPrediction
+  }
+
+  protected def predictForMat(row: Array[Double]): Double = {
+    val numRows = 1
+    val dataPtr = LightGBMUtils.generateData(numRows, Array(row))
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
     val numRowsIntPtr = lightgbmlib.new_intp()
@@ -47,7 +85,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     lightgbmlib.longp_assign(scoredDataLengthLongPtr, numRows)
     val scoredDataLength_int64_tPtr = lightgbmlib.long_to_int64_t_ptr(scoredDataLengthLongPtr)
 
-    val numCols = rowsAsDoubleArray.length
+    val numCols = row.length
     val isRowMajor = 1
     val numColsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numColsIntPtr, numCols)

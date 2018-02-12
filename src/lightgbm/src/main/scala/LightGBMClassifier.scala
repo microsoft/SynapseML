@@ -61,8 +61,10 @@ class LightGBMClassifier(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
-    val df = dataset.toDF()
-    df.cache()
+    val numExecutors = LightGBMUtils.getNumExecutors(dataset, getDefaultListenPort)
+    // Reduce number of partitions to number of executors
+    val df = dataset.toDF().coalesce(numExecutors).cache()
+
     val (nodes, numNodes) = LightGBMUtils.getNodes(df, getDefaultListenPort)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models

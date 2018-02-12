@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
-import org.apache.spark.TaskContext
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
@@ -21,19 +20,30 @@ private object TrainUtils extends java.io.Serializable {
 
     val rows = inputRows.toArray
     val numRows = rows.length
-    val rowsAsDoubleArray = rows.map(row => (row.get(row.fieldIndex(featuresColumn)) match {
-      case dense: DenseVector => dense.toArray
-      case sparse: SparseVector => sparse.toDense.toArray
-    }, row.getDouble(row.fieldIndex(labelColumn))))
+    val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
+    val hrow = rows.head
+    val datasetPtr =
+      if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+        val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+          case dense: DenseVector => dense.toArray
+          case sparse: SparseVector => sparse.toDense.toArray
+        })
+        LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray)
+      } else {
+        val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+          case dense: DenseVector => dense.toSparse
+          case sparse: SparseVector => sparse
+        })
+        LightGBMUtils.generateSparseDataset(rowsAsSparse)
+      }
 
-    val datasetPtr = LightGBMUtils.generateDataset(numRows, rowsAsDoubleArray.map(_._1))
     // Validate generated dataset has the correct number of rows and cols
     validateDataset(datasetPtr)
 
     // Generate the label column and add to dataset
     val labelColArray = lightgbmlib.new_floatArray(numRows)
-    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
-      lightgbmlib.floatArray_setitem(labelColArray, ri._2, ri._1._2.toFloat))
+    labels.zipWithIndex.foreach(ri =>
+      lightgbmlib.floatArray_setitem(labelColArray, ri._2, ri._1.toFloat))
     val labelAsVoidPtr = lightgbmlib.float_to_voidp_ptr(labelColArray)
     val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
     LightGBMUtils.validate(
@@ -70,7 +80,7 @@ private object TrainUtils extends java.io.Serializable {
       if (bufferOutLength > bufferLength) {
         lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr, -1, bufferOutLengthPtr, bufferOutLengthPtr)
       } else tempM
-    log.info("Buffer output length: " + bufferOutLength)
+    log.info("Buffer output length for model: " + bufferOutLength)
     // Free booster
     LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
     // Free dataset
@@ -78,7 +88,7 @@ private object TrainUtils extends java.io.Serializable {
     List[LightGBMBooster](new LightGBMBooster(model)).toIterator
   }
 
-  private def validateDataset(datasetPtr: SWIGTYPE_p_void) = {
+  private def validateDataset(datasetPtr: SWIGTYPE_p_void): Unit = {
     // Validate num rows
     val numDataPtr = lightgbmlib.new_intp()
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
@@ -102,8 +112,7 @@ private object TrainUtils extends java.io.Serializable {
     // Initialize the native library
     LightGBMUtils.initializeNativeLibrary()
     // Initialize the network communication
-    val partitionId = TaskContext.getPartitionId()
-    val localListenPort = defaultListenPort + partitionId
+    val localListenPort = defaultListenPort + LightGBMUtils.getId
     log.info("LightGBM worker listening on: " + localListenPort)
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
