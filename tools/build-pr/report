@@ -22,7 +22,7 @@ case "${AGENT_JOBSTATUS,,}" in
   ( *         ) icon+="1.svg"; box="![$AGENT_JOBSTATUS]($icon) Unknown"; state="error" ;;
 esac
 
-if [[ "$BUILDPR" = "" ]]; then
+if [[ -z "$BUILDPR" ]]; then
   _ az storage blob copy start --account-name "$MAIN_STORAGE" \
        --destination-container "icons" --destination-blob "BuildStatus.png" \
        --source-uri "$icon"
@@ -31,7 +31,7 @@ fi
 
 get_pr_info
 
-if [[ "$BUILDPR" = "0" ]]; then exit; fi
+if [[ "$BUILDPR" = */*/* ]]; then exit; fi
 
 text="The build has ${AGENT_JOBSTATUS,,}.  (${SHA1:0:8})"; more_text=""
 post_status "$state" "$text"

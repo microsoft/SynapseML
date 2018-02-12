@@ -56,9 +56,9 @@ GURL="" SHA1="" REPO="" REF=""
 
 get_pr_info() {
   if [[ "$SHA1" != "" ]]; then return; fi
-  if [[ "$BUILDPR" = */*/* ]]; then # private builds
-    REPO="${BUILDPR%%/*}"; BUILDPR="${BUILDPR#*/}"; REPO="$REPO/${BUILDPR%%/*}"
-    REF="${BUILDPR#*/}"; BUILDPR="0"
+  if [[ "$BUILDPR" = */*/* ]]; then # branch builds
+    local b="$BUILDPR"
+    REPO="${b%%/*}"; b="${b#*/}"; REPO="$REPO/${b%%/*}"; REF="${b#*/}"
     GURL="https://github.com/$REPO/tree/$REF"
     api -v SHA1 -r "$REPO" "git/refs/heads/$REF" - '.object.sha // empty'
     if [[ -z "$SHA1" ]]; then failwith "no such repo/ref: $REPO/$REF"; fi
@@ -73,9 +73,9 @@ get_pr_info() {
   fi
 }
 
-# post a status, only if we're running all tests
+# post a status, only on PR builds and if we're running all tests
 post_status() { # state text
-  if [[ "$BUILDPR" = "0" ]]; then return; fi
+  if [[ "$BUILDPR" = */*/* ]]; then return; fi
   if [[ "$TESTS" != "all" ]]; then return; fi
   local status='"context":"build-pr","state":"'"$1"'","target_url":"'"$VURL"'"'
   api "statuses/$SHA1" -d '{'"$status"',"description":'"$(jsonq "$2")"'}' > /dev/null
@@ -83,7 +83,7 @@ post_status() { # state text
 
 # post a comment with the given text and link to the build; remember its id
 post_comment() { # text [more-text...]
-  if [[ "$BUILDPR" = "0" ]]; then return; fi
+  if [[ "$BUILDPR" = */*/* ]]; then return; fi
   local text="[$1]($VURL)"; shift; local more_text="$*"
   if [[ "$more_text" != "" ]]; then text+=$'\n\n'"$more_text"; fi
   api "issues/$BUILDPR/comments" -d '{"body":'"$(jsonq "$text")"'}' - '.id' \
@@ -92,7 +92,7 @@ post_comment() { # text [more-text...]
 
 # delete the last posted comment
 delete_comment() {
-  if [[ "$BUILDPR" = "0" ]]; then return; fi
+  if [[ "$BUILDPR" = */*/* ]]; then return; fi
   if [[ ! -r "$PRDIR/comment-id" ]]; then return; fi
   api "issues/comments/$(< "$PRDIR/comment-id")" -X DELETE
 }

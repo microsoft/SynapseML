@@ -13,15 +13,18 @@ _ cp -a "$TOOLSDIR/build-pr" "$PRDIR/build-pr"
 
 if [[ "$BUILDPR" = "" ]]; then exit 0; fi
 
-echo "##[section] PR Build for #$BUILDPR"
-
+printf "========================================\n"
+if [[ "$BUILDPR" = */*/* ]]; then
+  echo "##[section] Branch Build for $BUILDPR"
+else
+  echo "##[section] PR Build for #$BUILDPR"
+fi
 get_pr_info
 repourl="https://github.com/$REPO"
+printf '  repo: %s\n  ref: %s\n  sha1: %s\n' "$REPO" "$REF" "$SHA1"
+printf "========================================\n"
 
-printf 'PR BUILD for #%s\n  repo: %s\n  ref: %s\n  sha1: %s\n' \
-       "$BUILDPR" "$REPO" "$REF" "$SHA1"
-
-git checkout "master" > /dev/null 2>&1
+git checkout -f "master" > /dev/null 2>&1
 oldbr="$(git for-each-ref --format="%(refname:short)" "refs/heads/pr-*")"
 if [[ -n "$oldbr" ]]; then git branch -D "$oldbr"; fi
 
@@ -30,12 +33,15 @@ post_status "pending" "$text"
 post_comment "$text"
 
 _get_T
-git fetch "https://$T@github.com/$REPO" "$REF:refs/heads/pr-$BUILDPR"
-git checkout "pr-$BUILDPR"
+bname="pr-$BUILDPR"; bname="${bname//\//-}"
+git fetch "https://$T@github.com/$REPO" "$REF:refs/heads/$bname"
+git checkout "$bname"
 git reset --hard "$SHA1"
 
 # useful info in build
-{ printf '### This is a build for %s, changes:\n\n' "[github PR #$BUILDPR]($GURL)"
+{ if [[ "$BUILDPR" = */*/* ]]; then txt="Github Branch $BUILDPR"
+  else txt="Github PR #$BUILDPR"; fi
+  printf '### This is a build for %s, changes:\n\n' "[$txt]($GURL)"
   git log --format="* [[%h]($repourl/commit/%H)] [%aN](mailto:%aE) %s" \
       "origin/master..$SHA1"
   printf '\n---\n'
