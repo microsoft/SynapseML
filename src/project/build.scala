@@ -5,9 +5,9 @@ import sbt._
 import Keys._
 
 import sys.process.Process
-
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
+import sbtassembly.{MergeStrategy, ShadeRule}
 import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
 
@@ -35,7 +35,8 @@ object Extras {
     // should include these things in the distributed jar
     "io.spray"           %% "spray-json"   % "1.3.2",
     "com.microsoft.cntk"  % "cntk"         % cntkVer,
-    "org.openpnp"         % "opencv"       % "3.2.0-1"
+    "org.openpnp"         % "opencv"       % "3.2.0-1",
+    "com.microsoft.azure" % "azure"        % "1.4.0"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
 
@@ -43,8 +44,8 @@ object Extras {
     )
   def overrideLibs = Seq(
     // spark wants 2.2.6, but we don't use its tests anyway
-    "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
-    )
+    "org.scalatest" %% "scalatest" % "3.0.0" % "provided",
+  )
 
   def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts"))
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))
@@ -145,7 +146,11 @@ object Extras {
     // For convenience, import the main package in a scala console
     initialCommands in (ThisBuild, console) := "import com.microsoft.ml.spark._",
     // Use the above commands
-    commands in ThisBuild ++= newCommands
+    commands in ThisBuild ++= newCommands,
+    assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("com.fasterxml.**" -> "shaded.com.fasterxml.@1")
+        .inLibrary("com.microsoft.azure" % "azure" % "1.4.0")
+    )
     ) ++ testOpts
 
   def rootSettings =
@@ -179,6 +184,7 @@ object Extras {
       assemblyOption in assembly :=
         (assemblyOption in assembly).value.copy(
           includeScala = false, includeDependency = false),
+
       pomPostProcess := { n: scala.xml.Node =>
         import scala.xml._, scala.xml.transform._
         new RuleTransformer(new RewriteRule {
