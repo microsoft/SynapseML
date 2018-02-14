@@ -3,11 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import breeze.stats.distributions.{RandBasis, Uniform}
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.TrainRegressorTestUtilities._
 import com.microsoft.ml.spark.TrainClassifierTestUtilities._
 import com.microsoft.ml.spark.metrics.MetricConstants
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
@@ -17,6 +19,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+
+import scala.util.Random
 
 /** Tests to validate the functionality of Evaluate Model module. */
 class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
@@ -35,6 +39,27 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     (0, 3, 0.78, 0.99, 2),
     (1, 4, 0.12, 0.34, 3)
   )).toDF(labelColumn, "col1", "col2", "col3", "col4")
+
+  test("Verify multiclass evaluation is not slow for large number of labels") {
+    val numRows = 4096
+    import session.implicits._
+    val rand = new Random(1337)
+    val labelCol = "label"
+    val evaluationMetric = MetricConstants.ClassificationMetrics
+    val predCol = SchemaConstants.SparkPredictionColumn
+    val df = Seq.fill(numRows)(rand.nextDouble())
+      .zip(Seq.fill(numRows)(rand.nextDouble()))
+      .toDF(labelCol, predCol)
+    val evaluatedData = new ComputeModelStatistics()
+      .setLabelCol(labelCol)
+      .setScoredLabelsCol(predCol)
+      .setEvaluationMetric(evaluationMetric)
+      .transform(df)
+    val firstRow = evaluatedData.first()
+    (2 to 4).foreach { index =>
+      assert(firstRow.getDouble(index) === 0.0)
+    }
+  }
 
   test("Smoke test for evaluating a dataset") {
     val predictionColumn = SchemaConstants.SparkPredictionColumn
