@@ -5,10 +5,9 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.contracts.MetricData
 import com.microsoft.ml.spark.metrics.{MetricConstants, MetricUtils}
-import com.microsoft.ml.spark.schema.SchemaConstants._
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -18,6 +17,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.log4j.Logger
+import org.apache.spark.mllib.util.MLUtils
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
@@ -244,14 +245,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   private def addConfusionMatrixToResult(labels: Array[Double],
                                          confusionMatrix: Matrix,
                                          resultDF: DataFrame): DataFrame = {
-    var resultDFModified = resultDF
-    for (col: Int <- 0 until confusionMatrix.numCols;
-         row: Int <- 0 until confusionMatrix.numRows) {
-      resultDFModified = resultDFModified
-        .withColumn(s"predicted_class_as_${labels(col).toString}_actual_is_${labels(row).toString}",
-          lit(confusionMatrix(row, col)))
-    }
-    resultDFModified
+    val schema = resultDF.schema.add(MetricConstants.ConfusionMatrix, SQLDataTypes.MatrixType)
+    resultDF.map { row => Row.merge(row, Row(confusionMatrix.asML)) }(RowEncoder(schema))
   }
 
   private def selectAndCastToDF(dataset: Dataset[_],

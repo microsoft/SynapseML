@@ -47,6 +47,8 @@ object MetricConstants {
   val MacroAveragedRecall    = "macro_averaged_recall"
   val MacroAveragedPrecision = "macro_averaged_precision"
 
+  val ConfusionMatrix = "confusion_matrix"
+
   // Metric to column name
   val metricToColumnName = Map(AccuracySparkMetric -> AccuracyColumnName,
     PrecisionSparkMetric -> PrecisionColumnName,
