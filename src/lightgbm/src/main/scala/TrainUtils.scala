@@ -8,13 +8,10 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
 
-case class TrainParams(numIterations: Int, learningRate: Double, numLeaves: Int)
-
 private object TrainUtils extends java.io.Serializable {
-  private val DefaultBufferLength: Int = 10000
 
-  def translate(labelColumn: String, featuresColumn: String, parallelism: String, log: Logger,
-                trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+  def translate(labelColumn: String, featuresColumn: String, log: Logger, trainParams: TrainParams,
+                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext)
       List[LightGBMBooster]().toIterator
 
@@ -64,9 +61,7 @@ private object TrainUtils extends java.io.Serializable {
       try {
         // Create the booster
         val boosterOutPtr = lightgbmlib.voidpp_handle()
-        val parameters = s"is_pre_partition=True tree_learner=$parallelism boosting_type=gbdt " +
-          s"objective=binary metric=binary_logloss,auc num_iterations=${trainParams.numIterations} " +
-          s"learning_rate=${trainParams.learningRate} num_leaves=${trainParams.numLeaves}"
+        val parameters = trainParams.toString()
         LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
         boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
         val isFinishedPtr = lightgbmlib.new_intp()
@@ -80,7 +75,7 @@ private object TrainUtils extends java.io.Serializable {
             result + " and is finished: " + isFinised)
           iters = iters + 1
         }
-        val bufferLength = DefaultBufferLength
+        val bufferLength = LightGBMConstants.defaultBufferLength
         val bufferLengthPtr = lightgbmlib.new_longp()
         lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
         val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
@@ -134,7 +129,7 @@ private object TrainUtils extends java.io.Serializable {
     }
   }
 
-  def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String, parallelism: String,
+  def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String,
                     defaultListenPort: Int, log: Logger, trainParams: TrainParams)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Initialize the native library
@@ -144,8 +139,8 @@ private object TrainUtils extends java.io.Serializable {
     log.info("LightGBM worker listening on: " + localListenPort)
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMClassifier.defaultListenTimeout, numNodes), "Network init")
-      translate(labelColumn, featuresColumn, parallelism, log, trainParams, inputRows)
+        LightGBMConstants.defaultListenTimeout, numNodes), "Network init")
+      translate(labelColumn, featuresColumn, log, trainParams, inputRows)
     } finally {
       // Finalize network when done
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

@@ -70,12 +70,17 @@ object LightGBMUtils {
     */
   def getNumExecutors(dataset: Dataset[_], defaultListenPort: Int): Int = {
     val executors = getExecutors(dataset, defaultListenPort)
-    if (executors.isEmpty) {
-      // Case when run locally in local[*]
-      val blockManager = BlockManagerUtils.getBlockManager(dataset)
-      blockManager.master.getMemoryStatus.size
-    } else {
-      executors.length
+    if (!executors.isEmpty) executors.length
+    else {
+      val master = dataset.sparkSession.sparkContext.master
+      val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
+      master match {
+        case rx(null)  => 1
+        case rx("*")   => Runtime.getRuntime.availableProcessors()
+        case rx(cores) => cores.toInt
+        case _         => BlockManagerUtils.getBlockManager(dataset)
+                            .master.getMemoryStatus.size
+      }
     }
   }
 
