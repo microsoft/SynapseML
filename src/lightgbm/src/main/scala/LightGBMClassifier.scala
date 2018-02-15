@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.lightgbm.lightgbmlibConstants
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
@@ -11,53 +12,18 @@ import org.apache.spark.sql._
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
-object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier] {
-  /** The default port for LightGBM network initialization */
-  val defaultLocalListenPort = 12400
-  /** The default timeout for LightGBM network initialization */
-  val defaultListenTimeout = 120
-}
+object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
+/** Trains a LightGBM Binary Classification model, a fast, distributed, high performance gradient boosting
+  * framework based on decision tree algorithms.
+  * For more information please see here: https://github.com/Microsoft/LightGBM.
+  * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
+  * @param uid The unique ID.
+  */
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with MMLParams {
+  with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
-
-  val parallelism =
-    StringParam(this, "parallelism",
-                "Tree learner parallelism, can be set to data_parallel or voting_parallel",
-                "data_parallel")
-
-  def getParallelism: String = $(parallelism)
-  def setParallelism(value: String): this.type = set(parallelism, value)
-
-  val defaultListenPort =
-    IntParam(this, "defaultListenPort",
-             "The default listen port on executors, used for testing")
-
-  def getDefaultListenPort: Int = $(defaultListenPort)
-  def setDefaultListenPort(value: Int): this.type = set(defaultListenPort, value)
-
-  setDefault(defaultListenPort -> LightGBMClassifier.defaultLocalListenPort)
-
-  val numIterations =
-    IntParam(this, "numIterations",
-             "Number of iterations, LightGBM constructs num_class * num_iterations trees",
-             100)
-
-  def getNumIterations: Int = $(numIterations)
-  def setNumIterations(value: Int): this.type = set(numIterations, value)
-
-  val learningRate =
-    DoubleParam(this, "learningRate", "Learning rate or shrinkage rate", 0.1)
-
-  def getLearningRate: Double = $(learningRate)
-  def setLearningRate(value: Double): this.type = set(learningRate, value)
-
-  val numLeaves = IntParam(this, "numLeaves", "Number of leaves", 31)
-
-  def getNumLeaves: Int = $(numLeaves)
-  def setNumLeaves(value: Int): this.type = set(numLeaves, value)
 
   /** Trains the LightGBM Classification model.
     *
@@ -75,10 +41,10 @@ class LightGBMClassifier(override val uid: String)
      */
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: $nodes")
-    val trainParams = TrainParams(getNumIterations, getLearningRate, getNumLeaves)
+    val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, getFeaturesCol,
-        getParallelism, getDefaultListenPort, log, trainParams))(encoder)
+        getDefaultListenPort, log, trainParams))(encoder)
       .reduce((booster1, booster2) => booster1)
     new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
       getPredictionCol, getProbabilityCol, getRawPredictionCol,
@@ -120,7 +86,7 @@ class LightGBMClassificationModel(
   override def numClasses: Int = model.numClasses()
 
   override protected def predictRaw(features: Vector): Vector = {
-    val prediction = model.scoreRaw(features)
+    val prediction = model.score(features, lightgbmlibConstants.C_API_PREDICT_RAW_SCORE)
     Vectors.dense(Array(-prediction, prediction))
   }
 

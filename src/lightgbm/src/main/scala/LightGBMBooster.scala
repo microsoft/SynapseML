@@ -28,19 +28,19 @@ class LightGBMBooster(val model: String) extends Serializable {
     lightgbmlib.intp_value(numClasses)
   }
 
-  def scoreRaw(features: Vector): Double = {
+  def score(features: Vector, kind: Int): Double = {
     // Reload booster on each node
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
       boosterPtr = getModel()
     }
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray)
-      case sparse: SparseVector => predictForCSR(sparse)
+      case dense: DenseVector => predictForMat(dense.toArray, kind)
+      case sparse: SparseVector => predictForCSR(sparse, kind)
     }
   }
 
-  protected def predictForCSR(sparseVector: SparseVector): Double = {
+  protected def predictForCSR(sparseVector: SparseVector, kind: Int): Double = {
     var values: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     var indexes: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
     var indptrNative: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
@@ -67,7 +67,7 @@ class LightGBMBooster(val model: String) extends Serializable {
 
       LightGBMUtils.validate(CSRUtils.LGBM_BoosterPredictForCSR(boosterPtr, indptrNative.get._1, dataInt32bitType,
         indexes.get._1, values.get._1, data64bitType, intToPtr(indptr.length), intToPtr(numRows + 1), intToPtr(numCols),
-        lightgbmlibConstants.C_API_PREDICT_RAW_SCORE, -1, datasetParams,
+        kind, -1, datasetParams,
         scoredDataLength_int64_tPtr, scoredDataOutPtr.get), "Booster Predict")
       lightgbmlib.doubleArray_getitem(scoredDataOutPtr.get, 0)
     } finally {
@@ -80,7 +80,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     }
   }
 
-  protected def predictForMat(row: Array[Double]): Double = {
+  protected def predictForMat(row: Array[Double], kind: Int): Double = {
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     var scoredDataOutPtr: Option[SWIGTYPE_p_double] = None
     try {
@@ -105,7 +105,7 @@ class LightGBMBooster(val model: String) extends Serializable {
       LightGBMUtils.validate(
         lightgbmlib.LGBM_BoosterPredictForMat(
           boosterPtr, data.get._1, data64bitType, numRows_int32_tPtr,
-          numCols_int32_tPtr, isRowMajor, lightgbmlibConstants.C_API_PREDICT_RAW_SCORE,
+          numCols_int32_tPtr, isRowMajor, kind,
           -1, datasetParams, scoredDataLength_int64_tPtr, scoredDataOutPtr.get),
         "Booster Predict")
       lightgbmlib.doubleArray_getitem(scoredDataOutPtr.get, 0)

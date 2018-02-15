@@ -3,13 +3,15 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 
 /** Tests to validate the functionality of LightGBM module. */
-class VerifyLightGBM extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
+class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
+  override val historicMetricsFile  = new File(thisDirectory, "classificationBenchmarkMetrics.csv")
   lazy val moduleName = "lightgbm"
-  var portIndex = 0
+  var portIndex = 30
   val numPartitions = 2
 
   // TODO: Need to add multiclass param with objective function
@@ -30,7 +32,7 @@ class VerifyLightGBM extends Benchmarks with EstimatorFuzzing[LightGBMClassifier
   def verifyLearnerOnBinaryCsvFile(fileName: String,
                                    labelColumnName: String,
                                    decimals: Int): Unit = {
-    test("Verify LightGBM can be trained and scored on " + fileName, TestBase.Extended) {
+    test("Verify LightGBMClassifier can be trained and scored on " + fileName, TestBase.Extended) {
       // Increment port index
       portIndex += numPartitions
       val fileLocation = ClassifierTestUtils.classificationTrainFile(fileName).toString
@@ -42,7 +44,7 @@ class VerifyLightGBM extends Benchmarks with EstimatorFuzzing[LightGBMClassifier
       val model = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setRawPredictionCol(rawPredCol)
-        .setDefaultListenPort(LightGBMClassifier.defaultLocalListenPort + portIndex)
+        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
         .fit(featurizer.transform(dataset))
@@ -59,7 +61,7 @@ class VerifyLightGBM extends Benchmarks with EstimatorFuzzing[LightGBMClassifier
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        decimals: Int): Unit = {
-    test("Verify classifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
+    test("Verify LightGBMClassifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
       // Increment port index
       portIndex += numPartitions
       val fileLocation = ClassifierTestUtils.multiclassClassificationTrainFile(fileName).toString
@@ -71,7 +73,7 @@ class VerifyLightGBM extends Benchmarks with EstimatorFuzzing[LightGBMClassifier
       val model = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setPredictionCol(predCol)
-        .setDefaultListenPort(LightGBMClassifier.defaultLocalListenPort + portIndex)
+        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
         .fit(featurizer.transform(dataset))

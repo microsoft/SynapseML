@@ -82,6 +82,13 @@ abstract class Benchmarks extends TestBase {
 
 }
 
+object RegressionTestUtils {
+
+  def regressionTrainFile(name: String): File =
+    new File(s"${sys.env("DATASETS_HOME")}/Regression/Train", name)
+
+}
+
 object ClassifierTestUtils {
 
   def classificationTrainFile(name: String): File =
