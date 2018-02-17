@@ -187,6 +187,13 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     (result, t1-t0)
   }
 
+  def getTime[R](n: Int)(block: => R): (Seq[R], Long) = {
+    val t0     = System.nanoTime()
+    val results = (1 to n).map(i => block)
+    val t1     = System.nanoTime()
+    (results, (t1-t0)/n)
+  }
+
   private def logTime(name: String, time: Long, threshold: Long) = {
     val msg = s"$name took ${time / 1000.0}s"
     if (time > threshold) {

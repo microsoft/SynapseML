@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import org.scalatest.Assertion
 
-class ClientSuite extends TestBase {
+class BatchIteratorSuite extends TestBase {
 
   def delayedIterator(n: Int, wait: Int = 5): Iterator[Int] = {
     (1 to n).toIterator.map { x =>
@@ -18,15 +18,16 @@ class ClientSuite extends TestBase {
 
   def comparePerformance[T](iteratorCons: => Iterator[T],
                             ratioRequired: Double = 2.0,
-                            maxBuffer: Int = Integer.MAX_VALUE
-                           ): Assertion = {
-    val (dresults, dtime) = getTime {
+                            maxBuffer: Int = Integer.MAX_VALUE,
+                            numTrials: Int = 5): Assertion = {
+    val (dresults, dtime) = getTime(numTrials) {
       new BatchIterator(iteratorCons, maxBuffer).toList
     }
-    val (results, time) = getTime {
+
+    val (results, time) = getTime(numTrials) {
       iteratorCons.toList.map(x => List(x))
     }
-    assert(dresults.flatten === results.flatten)
+    assert(dresults.head.flatten === results.head.flatten)
     val ratio = dtime/time.toDouble
     println(s"ratio: $ratio, Batched: ${dtime/1000000}ms, normal: ${time/1000000}ms")
     assert(ratio < ratioRequired)
@@ -49,12 +50,10 @@ class ClientSuite extends TestBase {
   }
 
   test("Performance and behavior") {
-    comparePerformance(delayedIterator(30))
-    comparePerformance(delayedIterator(10))
-    comparePerformance(standardIterator(300),4)
-    comparePerformance(standardIterator(3000))
-    comparePerformance(delayedIterator(30), maxBuffer = 10)
-    comparePerformance(delayedIterator(10), maxBuffer = 10)
+    comparePerformance(delayedIterator(30), numTrials = 1)
+    comparePerformance(delayedIterator(10), numTrials = 1)
+    comparePerformance(delayedIterator(30), maxBuffer = 10, numTrials = 1)
+    comparePerformance(delayedIterator(10), maxBuffer = 10, numTrials = 1)
     compareAbsolutePerformance(standardIterator(300), maxBuffer = 10)
     compareAbsolutePerformance(standardIterator(3000), maxBuffer = 10)
   }

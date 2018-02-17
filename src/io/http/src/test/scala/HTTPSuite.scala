@@ -13,7 +13,7 @@ import org.apache.spark.sql.functions.{col, length}
 import scala.util.parsing.json.JSONObject
 
 class HTTPSuite extends TestBase {
-  val port: Int = 8899
+  val port: Int = 8999
 
   test("stream from HTTP", TestBase.Extended) {
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
