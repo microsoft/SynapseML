@@ -3,14 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.ServerUtils.{url}
-import org.apache.commons.io.IOUtils
+import com.microsoft.ml.spark.ServerUtils.url
 import org.apache.http.client.methods.HttpPost
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.ml.{Pipeline, Transformer}
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{udf, col}
 
 trait ParserUtils {
 
@@ -40,13 +39,13 @@ trait ParserUtils {
   def makeTestObject[T <: Transformer](t: T, session: SparkSession): Seq[TestObject[T]] = {
     Seq(new TestObject(t, sampleDf(session)))
   }
+
 }
 
 class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[JSONInputParser]] = makeTestObject(
     new JSONInputParser().setInputCol("data").setOutputCol("out")
       .setUrl("http://localhost:8888"), session)
-
   override def reader: MLReadable[_] = JSONInputParser
 }
 
@@ -54,7 +53,6 @@ class JsonOutputParserSuite extends TransformerFuzzing[JSONOutputParser] with Pa
   override def testObjects(): Seq[TestObject[JSONOutputParser]] = makeTestObject(
     new JSONOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setDataType(new StructType().add("foo", StringType)), session)
-
   override def reader: MLReadable[_] = JSONOutputParser
 }
 
@@ -62,7 +60,6 @@ class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with 
   override def testObjects(): Seq[TestObject[CustomInputParser]] = makeTestObject(
     new CustomInputParser().setInputCol("data").setOutputCol("out")
       .setUDF({ x: Int => new HttpPost(s"http://$x") }), session)
-
   override def reader: MLReadable[_] = CustomInputParser
 }
 
@@ -70,6 +67,5 @@ class CustomOutputParserSuite extends TransformerFuzzing[CustomOutputParser] wit
   override def testObjects(): Seq[TestObject[CustomOutputParser]] = makeTestObject(
     new CustomOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setUDF({ x: HTTPResponseData => x.locale }), session)
-
   override def reader: MLReadable[_] = CustomOutputParser
 }

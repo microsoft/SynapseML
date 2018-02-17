@@ -272,6 +272,9 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
            | "MultiNGram" | "ImageFeaturizer" | "_ImageFeaturizer"
            | "_ImageTransformer" | "UnrollImage" | "HashTransform" | "Timer"
            | "StopWordsRemoverTransform"  | "ImageSetAugmenter" | "PowerBITransformer"
+           | "CustomInputParser" | "CustomOutputParser" | "FlattenBatch"
+           | "HTTPTransformer" | "JSONOutputParser" | "JSONInputParser"
+           | "SimpleHTTPTransformer"
            => ""
         case _ =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
