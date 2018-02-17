@@ -3,40 +3,78 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.{col, from_json, to_json, struct}
-import spire.ClassTag
 
-import DatasetExtensions.findUnusedColumnName
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
-private[ml] abstract class HTTPTransformer[T <: DataFrameClient: ClassTag](val uid: String)
-    extends Transformer with MMLParams with ClientTypeAliases {
-
-  val url: Param[String] = new Param(this, "url", "hostname to call")
+trait HTTPParams extends Wrappable {
+  val concurrency: Param[Int] = new IntParam(
+    this, "concurrency", "max number of concurrent calls")
 
   /** @group getParam */
-  final def getUrl: String = $(url)
+  def getConcurrency: Int = $(concurrency)
+
+  /** @group setParam */
+  def setConcurrency(value: Int): this.type = set(concurrency, value)
+
+  val concurrentTimeout: Param[Double] = new DoubleParam(
+    this, "concurrentTimeout", "max number seconds to wait on futures if concurrency >=1")
+
+  /** @group getParam */
+  def getConcurrentTimeout: Double = $(concurrentTimeout)
+
+  /** @group setParam */
+  def setConcurrentTimeout(value: Double): this.type = set(concurrentTimeout, value)
+
+  val advancedHandling: Param[Boolean] = new BooleanParam(
+    this, "advancedHandling", "whether to be robust to failures")
+
+  /** @group getParam */
+  def getAdvancedHandling: Boolean = $(advancedHandling)
+
+  /** @group setParam */
+  def setAdvancedHandling(value: Boolean): this.type = set(advancedHandling, value)
+
+  setDefault(concurrency -> 1, concurrentTimeout -> 100, advancedHandling -> true)
+}
+
+trait HasURL extends Wrappable {
+  val url: Param[String] = new Param[String](
+    this, "url", "Url of the service")
+
+  /** @group getParam */
+  def getUrl: String = $(url)
 
   /** @group setParam */
   def setUrl(value: String): this.type = set(url, value)
+}
 
-  val method: Param[String] = new Param(this, "method", "hostname to call")
+object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 
-  /** @group getParam */
-  final def getMethod: String = $(method)
-
-  /** @group setParam */
-  def setMethod(value: String): this.type = set(method, value)
-
-  def getClient: T
+class HTTPTransformer(val uid: String)
+  extends Transformer with HTTPParams with HasInputCol with HasOutputCol
+  with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
   val clientHolder = SharedVariable {
-    getClient
+    getConcurrency match {
+      case 1 if getAdvancedHandling => new SingleThreadedHTTPClient with AdvancedHTTPHandling
+      case 1 => new SingleThreadedHTTPClient with BasicHTTPHandling
+      case n if n > 1 =>
+        val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong)
+        val ec = ExecutionContext.global
+        if (getAdvancedHandling) {
+          new AsyncHTTPClient(n, dur)(ec) with AdvancedHTTPHandling
+        } else {
+          new AsyncHTTPClient(n, dur)(ec) with BasicHTTPHandling
+        }
+    }
   }
 
   /** @param dataset - The input dataset, to be transformed
@@ -45,99 +83,23 @@ private[ml] abstract class HTTPTransformer[T <: DataFrameClient: ClassTag](val u
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF()
     val enc = RowEncoder(transformSchema(df.schema))
+    val colIndex = df.schema.fieldNames.indexOf(getInputCol)
     df.mapPartitions { it =>
-      clientHolder.get.send(it)
+      val c = clientHolder.get
+      c.send(it.map(row =>
+        c.ContextIn(HTTPRequestData.fromRow(row.getStruct(colIndex)), Some(row))
+      )).map(cout => Row.merge(
+        cout.context.get.asInstanceOf[Row],
+        Row(cout.out.toRow)
+      ))
     }(enc)
   }
 
-  def copy(extra: ParamMap): HTTPTransformer[T] = defaultCopy(extra)
+  def copy(extra: ParamMap): HTTPTransformer = defaultCopy(extra)
 
-  def transformSchema(schema: StructType): StructType =
-    clientHolder.get.transformSchema(schema)
-
-}
-
-abstract class WrappedHTTPTransformer[In, Out](uid: String)
-    extends HTTPTransformer[UnaryTransformerWrapper[In, Out]](uid)
-    with HasInputCol with HasOutputCol {
-
-  type InnerClient = UnaryTransformerWrapper[In, Out]
-
-  def getBaseClient: BaseClient[In, Out] with ColumnSchema
-
-  override def getClient: InnerClient = ClientTools.toUnaryTransformerClient(getBaseClient)
-
-  def convertToJson: Boolean = getBaseClient match {
-    case _: BaseClient[_, _] with ColumnSchema with JsonInput[_] => true
-    case _ => false
-  }
-
-  def convertFromJson: Boolean = getBaseClient match {
-    case _: BaseClient[_, _] with ColumnSchema with JsonOutput[_] => true
-    case _ => false
-  }
-
-  private def configuredClient(schema: StructType,
-                               inputCol:String,
-                               outputCol: String): InnerClient = {
-    val client = clientHolder.get
-    client.setInputIndex(schema.fields.indexOf(schema(inputCol)))
-    client.setOutputCol(outputCol)
-    client.setUrl(getUrl)
-    client
-  }
-
-  private def getTempColumns(schema: StructType): (String, String) = {
-    val input = if (convertToJson) {
-      findUnusedColumnName("input_json")(schema.fieldNames.toSet)
-    } else {
-      getInputCol
-    }
-    val output = if (convertFromJson) {
-      findUnusedColumnName("output_json")(schema.fieldNames.toSet)
-    } else {
-      getOutputCol
-    }
-    (input, output)
-  }
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    val (tempInputCol, tempOutputCol) = getTempColumns(dataset.schema)
-    val schema = dataset.schema
-    val df = if (convertToJson) {
-      val columnOperation = (ic: String) => schema(ic).dataType match {
-        case _: StructType => to_json(col(ic))
-        case _             => to_json(struct(ic))
-      }
-      dataset.toDF().withColumn(tempInputCol, columnOperation(getInputCol))
-    } else {
-      dataset.toDF()
-    }
-    val modifiedSchema = df.schema
-    val driverClient = configuredClient(modifiedSchema, tempInputCol, tempOutputCol)
-    val enc = RowEncoder(driverClient.transformSchema(modifiedSchema))
-    val outputColumnSchema = transformColumnSchema(schema(getInputCol).dataType)
-    val transformed = df.mapPartitions { it =>
-      val workerClient = configuredClient(modifiedSchema, tempInputCol, tempOutputCol)
-      workerClient.send(it)
-    }(enc)
-    val postprocessed = if (convertFromJson) {
-      transformed.withColumn(getOutputCol,
-                             from_json(col(tempOutputCol), outputColumnSchema))
-    } else {
-      transformed
-    }
-    val pp0 = postprocessed
-    val pp1 = if (convertToJson) pp0.drop(tempInputCol) else pp0
-    if (convertFromJson) pp1.drop(tempOutputCol) else pp1
-  }
-
-  def transformColumnSchema(schema: DataType): DataType
-
-  override def transformSchema(schema: StructType): StructType = {
-    val inputDataType = schema(getInputCol).dataType
-    val outputDataType = transformColumnSchema(inputDataType)
-    schema.add(getOutputCol, outputDataType)
+  def transformSchema(schema: StructType): StructType = {
+    assert(schema(getInputCol).dataType == HTTPSchema.request)
+    schema.add(getOutputCol, HTTPSchema.response)
   }
 
 }

@@ -13,6 +13,7 @@ import org.apache.http.message.BufferedHeader
 import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.catalyst.ScalaReflection
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -73,125 +74,62 @@ class BatchIterator[T](val it: Iterator[T],
 
 private[ml] trait ClientTypeAliases {
 
-  protected type Context = mutable.Map[String, Any]
+  protected type Context = Option[Any]
 
-  case class Response(response: CloseableHttpResponse, context: Context) {
-    def this(response: CloseableHttpResponse) = this(response, mutable.Map())
+  protected type Client
+  protected type ResponseType
+  protected type RequestType
+
+  case class Response(response: ResponseType, context: Context) {
+    def this(response: ResponseType) = this(response, None)
   }
 
-  case class Request(request: HttpUriRequest, context: Context) {
-    def this(request: HttpUriRequest) = this(request, mutable.Map())
+  case class Request(request: RequestType, context: Context) {
+    def this(request: RequestType) = this(request, None)
   }
-
-  protected type Client = CloseableHttpClient
 
 }
 
-private[ml] trait BaseClient[In, Out] extends AutoCloseable with ClientTypeAliases {
+private[ml] trait BaseClient[In, Out] extends ClientTypeAliases {
 
-  protected def sendWithRetries(request: Request,
-                                retriesLeft: Seq[Long]): Response = {
-    val originalResponse = Response(client.execute(request.request), request.context)
-    val response = handle(originalResponse)
-    response.getOrElse({
-      if (retriesLeft.isEmpty) {
-        throw new IllegalArgumentException(
-          s"No longer retrying. " +
-            s"Code: ${originalResponse.response.getStatusLine.getStatusCode}, " +
-            s"Message: $originalResponse")
-      }
-      Thread.sleep(retriesLeft.head)
-      sendWithRetries(request, retriesLeft.tail)
-    })
+  case class ContextIn(in: In, context: Context) {
+    def this(in: In) = this(in, None)
   }
 
-  protected def handle(responseWithContext: Response): Option[Response] = {
-    val response = responseWithContext.response
-    val code = response.getStatusLine.getStatusCode
-    if (code == 429) {
-      val waitTime = response.headerIterator("Retry-After")
-        .nextHeader().asInstanceOf[BufferedHeader]
-        .getBuffer.toString.split(" ").last.toInt
-      logger.warn(s"429 response code, waiting for $waitTime s." +
-        s" Consider tuning batch interval")
-      Thread.sleep(waitTime.toLong * 1000)
-      None
-    } else if (code == 503) {
-      logger.warn(s"503 response code")
-      None
-    } else {
-      assert(response.getStatusLine.getStatusCode == 200, response.toString)
-      Some(responseWithContext)
-    }
+  case class ContextOut(out: Out, context: Context) {
+    def this(out: Out) = this(out, None)
   }
 
-  protected lazy val logger: Logger = LogManager.getLogger("BatchedHTTPClient")
+  protected lazy val logger: Logger = LogManager.getLogger("BaseClient")
 
-  protected lazy val client: Client = HttpClientBuilder.create().build()
+  private[ml] val internalClient: Client
 
   private[ml] def sendRequests(requests: Iterator[Request]): Iterator[Response]
 
-  def send(messages: Iterator[In]): Iterator[Out] = {
+  private[ml] def sendInternalRequest(request: Request): Response
+
+  def send(messages: Iterator[ContextIn]): Iterator[ContextOut] = {
     fromResponses(sendRequests(toRequests(messages)))
   }
 
-  private[ml] def toRequests(inputs: Iterator[In]): Iterator[Request]
+  private[ml] def toRequests(inputs: Iterator[ContextIn]): Iterator[Request]
 
-  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[Out]
-
-  override def close(): Unit = {
-    client.close()
-  }
-
-  private var url: Option[String] = None
-
-  def setUrl(value: String): Unit = {
-    url = Some(value)
-  }
-
-  def getUrl: String = url.get
-
-  private var method: Option[String] = None
-
-  def setMethod(value: String): Unit = {
-    method = Some(value)
-  }
-
-  def getMethod: String = method.get
+  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[ContextOut]
 
 }
 
-private[ml] trait Unbuffered[In, Out] extends ClientTypeAliases {
+private[ml] trait Unbuffered[In, Out] extends BaseClient[In, Out] {
 
-  private[ml] def toRequest(message: In): Request
+  private[ml] def toRequest(message: ContextIn): Request
 
-  private[ml] def fromResponse(response: Response): Out
+  private[ml] def fromResponse(response: Response): ContextOut
 
-  private[ml] def toRequests(messages: Iterator[In]): Iterator[Request] = {
+  private[ml] def toRequests(messages: Iterator[ContextIn]): Iterator[Request] = {
     messages.map(toRequest)
   }
 
-  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[Out] = {
+  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[ContextOut] = {
     responses.map(fromResponse)
-  }
-
-}
-
-private[ml] trait BufferedBatching[In, Out] extends ClientTypeAliases {
-
-  private[ml] def toBatchRequest(messages: Seq[In]): Request
-
-  private[ml] def fromBatchResponse(response: Response): Seq[Out]
-
-  private[ml] def toRequests(messages: Iterator[In]): Iterator[Request] = {
-    val bit = new BatchIterator(messages)
-    bit.start()
-    bit.map(messages => if (messages.isEmpty) None else Some(toBatchRequest(messages)))
-       .flatten
-  }
-
-  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[Out] = {
-    responses.map(r => fromBatchResponse(r)).flatten
   }
 
 }
@@ -222,7 +160,7 @@ private[ml] trait Asynchrony[In, Out] extends BaseClient[In, Out] {
 
   override def sendRequests(requests: Iterator[Request]): Iterator[Response] = {
     val futureResponses = requests.map(r => Future {
-      sendWithRetries(r, Seq(100L, 1000L, 2000L, 4000L))
+      sendInternalRequest(r)
     })
     bufferedAwait(futureResponses, concurrency, timeout)
   }
@@ -232,7 +170,7 @@ private[ml] trait Asynchrony[In, Out] extends BaseClient[In, Out] {
 private[ml] trait SingleThreaded[In, Out] extends BaseClient[In, Out] {
 
   override private[ml] def sendRequests(requests: Iterator[Request]): Iterator[Response] = {
-    requests.map(sendWithRetries(_, Seq(100L, 1000L, 2000L, 4000L)))
+    requests.map(sendInternalRequest)
   }
 
 }
@@ -245,94 +183,10 @@ private[ml] trait ColumnSchema {
 
 }
 
-private[ml] trait JsonInput[Out] extends BaseClient[String, Out] with ColumnSchema {
+abstract class SimpleClient[In, Out] extends
+    SingleThreaded[In, Out] with Unbuffered[In, Out]
 
-  setMethod("POST")
-
-  private[ml] def toRequest(s: String): Request = {
-    val post = getMethod match {
-      case "POST" =>
-        val p = new HttpPost(getUrl)
-        p.setHeader("Content-type", "application/json")
-        p.setEntity(new StringEntity(s))
-        p
-    }
-    new Request(post)
-  }
-
-  private[ml] def toBatchRequest(strings: Seq[String]): Request = {
-    val post = getMethod match {
-      case "POST" =>
-        val json = "[" + strings.mkString(",\n") + "]"
-        val p = new HttpPost(getUrl)
-        p.setHeader("Content-type", "application/json")
-        p.setEntity(new StringEntity(json))
-        p
-    }
-    new Request(post)
-  }
-
-  override def verifyInput(input: DataType): Unit = assert(input == StringType)
-
-}
-
-private[ml] trait JsonOutput[In] extends BaseClient[In, String] with ColumnSchema {
-
-  private[ml] def fromResponse(response: Response): String = {
-    val newString = IOUtils.toString(response.response.getEntity.getContent)
-    newString
-  }
-
-  private[ml] def fromBatchResponse(response: Response): Seq[String] = {
-    val responseString = IOUtils.toString(response.response.getEntity.getContent)
-    responseString.stripPrefix("[").stripSuffix("]").split(",")
-  }
-
-  def transformDataType(input: DataType): DataType = {
-    verifyInput(input)
-    StringType
-  }
-
-}
-
-private[ml] trait BinaryInput[Out] extends BaseClient[Array[Byte], Out] with ColumnSchema {
-
-  override def verifyInput(input: DataType): Unit = assert(input == BinaryType)
-
-  private[ml] def toRequest(message: Array[Byte]) = {
-    val p = new HttpPost(getUrl)
-    p.setEntity(new ByteArrayEntity(message))
-    new Request(p)
-  }
-
-}
-
-private[ml] trait TextOutput[In] extends BaseClient[In, String] with ColumnSchema {
-
-  private[ml] def fromResponse(response: Response): String = {
-    val newString = IOUtils.toString(response.response.getEntity.getContent)
-    newString
-  }
-
-  def transformDataType(input: DataType): DataType = {
-    verifyInput(input)
-    StringType
-  }
-
-}
-
-// Syntactic sugars for simple developer interface
-private[ml] trait JsonClient extends JsonInput[String] with JsonOutput[String]
-
-abstract class SimpleClient[In, Out] extends SingleThreaded[In, Out] with Unbuffered[In, Out]
-
-abstract class BatchedClient[In, Out] extends SingleThreaded[In, Out] with BufferedBatching[In, Out]
-
-abstract class AsyncClient[In, Out](override val concurrency: Int, override val timeout: Duration)
+abstract class AsyncClient[In, Out](override val concurrency: Int,
+                                    override val timeout: Duration)
                                    (override implicit val ec: ExecutionContext)
-  extends Asynchrony[In, Out] with Unbuffered[In, Out]
-
-abstract class BatchedAsyncClient[In, Out](override val concurrency: Int,
-                                           override val timeout: Duration)
-                                          (override implicit val ec: ExecutionContext)
-  extends Asynchrony[In, Out] with BufferedBatching[In, Out]
+    extends Asynchrony[In, Out] with Unbuffered[In, Out]
