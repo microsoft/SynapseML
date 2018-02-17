@@ -58,7 +58,7 @@ trait FuzzingMethods extends TestBase {
     }
   }
 
-  implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame]{
+  val baseDfEq = new Equality[DataFrame]{
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
       case ds:Dataset[_] =>
         val b = ds.toDF()
@@ -75,6 +75,8 @@ trait FuzzingMethods extends TestBase {
         }
     }
   }
+
+  implicit lazy val dfEq: Equality[DataFrame] = baseDfEq
 
 }
 
