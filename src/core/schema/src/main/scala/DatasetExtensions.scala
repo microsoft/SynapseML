@@ -5,6 +5,9 @@ package com.microsoft.ml.spark.schema
 
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.catalyst.ScalaReflection.Schema
+import org.apache.spark.sql.types.StructType
+
 import scala.collection.mutable
 
 /** Contains methods for manipulating spark dataframes and datasets. */
@@ -56,6 +59,14 @@ object DatasetExtensions {
       counter += 1
     }
     unusedColumnName
+  }
+
+  def findUnusedColumnName(prefix: String, schema: StructType): String = {
+    findUnusedColumnName(prefix)(schema.fieldNames.toSet)
+  }
+
+  def findUnusedColumnName(prefix: String, df: DataFrame): String = {
+    findUnusedColumnName(prefix, df.schema)
   }
 
 }
