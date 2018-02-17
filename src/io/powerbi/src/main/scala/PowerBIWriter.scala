@@ -4,34 +4,9 @@
 package com.microsoft.ml.spark
 
 import org.apache.log4j.{LogManager, Logger}
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.streaming.DataStreamWriter
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
-
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
-
-private class PowerBIClient(concurrency: Int, timeout: Duration)
-                           (implicit ec: ExecutionContext)
-  extends BatchedAsyncClient[String, String](concurrency, timeout)(ec)
-  with JsonClient
-
-private object PowerBITransformer extends DefaultParamsReadable[PowerBITransformer]
-
-private class PowerBITransformer(uid: String)
-    extends WrappedHTTPTransformer[String, String](uid)
-    with DefaultParamsWritable {
-
-  def this() = this(Identifiable.randomUID("PowerBITransformer"))
-
-  override def getBaseClient: BaseClient[String, String] with ColumnSchema =
-    new PowerBIClient(2, Duration.Inf)(ExecutionContext.global)
-
-  override def transformColumnSchema(schema: DataType): DataType = new StructType().add("code",StringType)
-
-}
+import org.apache.spark.sql.functions.{struct, col}
 
 private class StreamMaterializer extends ForeachWriter[Row] {
 
@@ -48,12 +23,15 @@ object PowerBIWriter {
   val logger: Logger = LogManager.getRootLogger
 
   private def prepareDF(df: DataFrame, url: String): DataFrame = {
-    val jsonDF = df.select(struct(df.columns.map(col): _*).alias("input"))
-    new PowerBITransformer()
+
+    new SimpleHTTPTransformer()
       .setUrl(url)
+      .setMaxBatchSize(Integer.MAX_VALUE)
+      .setFlattenOutputBatches(false)
+      .setOutputParser(new CustomOutputParser().setUDF({x: HTTPResponseData => x}))
       .setInputCol("input")
       .setOutputCol("output")
-      .transform(jsonDF)
+      .transform(df.select(struct(df.columns.map(col): _*).alias("input")))
   }
 
   def stream(df: DataFrame, url: String): DataStreamWriter[Row] = {
