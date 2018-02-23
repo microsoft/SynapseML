@@ -13,12 +13,14 @@ import org.apache.spark.sql.types.StructType
 object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
 
 class SimpleHTTPTransformer(val uid: String)
-  extends Transformer with HTTPParams with HasMaxBatchSize
+    extends Transformer with HTTPParams with HasMaxBatchSize
     with HasInputCol with HasOutputCol with ComplexParamsWritable {
+
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
 
-  val flattenOutputBatches: Param[Boolean] = BooleanParam(this, "flattenOutputBatches",
-    "whether to flatten the output batches")
+  val flattenOutputBatches: Param[Boolean] = BooleanParam(
+      this, "flattenOutputBatches",
+      "whether to flatten the output batches")
 
   /** @group getParam */
   def getFlattenOutputBatches: Boolean = $(flattenOutputBatches)
@@ -27,10 +29,8 @@ class SimpleHTTPTransformer(val uid: String)
   def setFlattenOutputBatches(value: Boolean): this.type = set(flattenOutputBatches, value)
 
   val inputParser: Param[Transformer] = new TransformerParam(
-    this, "inputParser", "format to parse the column to", {
-      case _: HTTPInputParser => true
-      case _ => false
-    })
+      this, "inputParser", "format to parse the column to",
+      { case _: HTTPInputParser => true; case _ => false })
 
   /** @group getParam */
   def getInputParser: HTTPInputParser = $(inputParser).asInstanceOf[HTTPInputParser]
@@ -48,10 +48,8 @@ class SimpleHTTPTransformer(val uid: String)
   }
 
   val outputParser: Param[Transformer] = new TransformerParam(
-    this, "outputParser", "format to parse the column to", {
-      case _: HTTPOutputParser => true
-      case _ => false
-    })
+    this, "outputParser", "format to parse the column to",
+    { case _: HTTPOutputParser => true; case _ => false })
 
   /** @group getParam */
   def getOutputParser: HTTPOutputParser = $(outputParser).asInstanceOf[HTTPOutputParser]
@@ -69,20 +67,23 @@ class SimpleHTTPTransformer(val uid: String)
       new MiniBatchTransformer().setMaxBatchSize(getMaxBatchSize)
     )
 
-    val inputParser = Some(getInputParser
-      .setInputCol(getInputCol)
-      .setOutputCol(parsedInputCol))
+    val inputParser =
+      Some(getInputParser
+             .setInputCol(getInputCol)
+             .setOutputCol(parsedInputCol))
 
-    val client = Some(new HTTPTransformer()
-      .setAdvancedHandling(getAdvancedHandling)
-      .setConcurrency(getConcurrency)
-      .setConcurrentTimeout(getConcurrentTimeout)
-      .setInputCol(parsedInputCol)
-      .setOutputCol(unparsedOutputCol))
+    val client =
+      Some(new HTTPTransformer()
+             .setHandlingStrategy(getHandlingStrategy)
+             .setConcurrency(getConcurrency)
+             .setConcurrentTimeout(getConcurrentTimeout)
+             .setInputCol(parsedInputCol)
+             .setOutputCol(unparsedOutputCol))
 
-    val outputParser = Some(getOutputParser
-      .setInputCol(unparsedOutputCol)
-      .setOutputCol(getOutputCol))
+    val outputParser =
+      Some(getOutputParser
+             .setInputCol(unparsedOutputCol)
+             .setOutputCol(getOutputCol))
 
     val dropCols = Some(new DropColumns().setCols(Array(parsedInputCol, unparsedOutputCol)))
 
@@ -94,7 +95,8 @@ class SimpleHTTPTransformer(val uid: String)
       }
     )
 
-    NamespaceInjections.pipelineModel(Array(mb, inputParser, client, outputParser, dropCols, flatten).flatten)
+    NamespaceInjections.pipelineModel(Array(mb, inputParser, client, outputParser, dropCols, flatten)
+                                        .flatten)
 
   }
 
@@ -107,4 +109,5 @@ class SimpleHTTPTransformer(val uid: String)
   override def transformSchema(schema: StructType): StructType = {
     makePipeline(schema).transformSchema(schema)
   }
+
 }

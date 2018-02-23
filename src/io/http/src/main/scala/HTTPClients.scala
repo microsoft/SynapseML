@@ -3,20 +3,24 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpUriRequest}
+import com.microsoft.ml.spark.AdvancedHTTPHandling.{retryTimes, sendWithRetries}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase, HttpUriRequest}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.message.BufferedHeader
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
-private[ml] trait HTTPClient extends BaseClient[HTTPRequestData, HTTPResponseData]
-  with AutoCloseable {
+trait HTTPTypeAliases {
   protected type Client = CloseableHttpClient
   protected type ResponseType = CloseableHttpResponse
-  protected type RequestType = HttpUriRequest
+  protected type RequestType = HttpRequestBase
 
   private[ml] val internalClient: Client = HttpClientBuilder.create().build()
+}
+
+private[ml] trait HTTPClient extends BaseClient[HTTPRequestData, HTTPResponseData]
+    with AutoCloseable with Unbuffered[HTTPRequestData, HTTPResponseData] with HTTPTypeAliases {
 
   override def close(): Unit = {
     internalClient.close()
@@ -30,67 +34,58 @@ private[ml] trait HTTPClient extends BaseClient[HTTPRequestData, HTTPResponseDat
     ContextOut(new HTTPResponseData(response.response), response.context)
   }
 
+  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse
+
+  override def sendInternalRequest(request: Request): Response = {
+    Response(handle(internalClient, request.request), request.context)
+  }
+
 }
 
-private[ml] trait AdvancedHTTPHandling extends HTTPClient {
+object AdvancedHTTPHandling {
 
   val retryTimes = Seq(100L, 1000L, 2000L, 4000L)
 
-  protected def sendWithRetries(request: Request,
-                                retriesLeft: Seq[Long]
-                               ): Response = {
-    val originalResponse = Response(internalClient.execute(request.request), request.context)
-    val response = handle(originalResponse)
-    response.getOrElse({
-      if (retriesLeft.isEmpty) {
-        throw new IllegalArgumentException(
-          s"No longer retrying. " +
-            s"Code: ${originalResponse.response.getStatusLine.getStatusCode}, " +
-            s"Message: $originalResponse")
-      }
-      Thread.sleep(retriesLeft.head)
-      sendWithRetries(request, retriesLeft.tail)
-    })
-  }
-
-  private[ml] override def sendInternalRequest(request: Request): Response =
-    sendWithRetries(request, retryTimes)
-
-  protected def handle(responseWithContext: Response): Option[Response] = {
-    val response = responseWithContext.response
+  protected def sendWithRetries(client: CloseableHttpClient,
+                                request: HttpRequestBase,
+                                retriesLeft: Seq[Long]): CloseableHttpResponse = {
+    val response = client.execute(request)
     val code = response.getStatusLine.getStatusCode
-    if (code == 429) {
-      val waitTime = response.headerIterator("Retry-After")
-        .nextHeader().asInstanceOf[BufferedHeader]
-        .getBuffer.toString.split(" ").last.toInt
-      //logger.warn(s"429 response code, waiting for $waitTime s." +
-      //  s" Consider tuning batch interval")
-      Thread.sleep(waitTime.toLong * 1000)
-      None
-    } else if (code == 503) {
-      //logger.warn(s"503 response code")
-      None
-    }else{
-      assert(response.getStatusLine.getStatusCode == 200, response.toString)
-      Some(responseWithContext)
+    val suceeded = code match {
+        case 200 => true
+        case 429 =>
+          val waitTime = response.headerIterator("Retry-After")
+            .nextHeader().asInstanceOf[BufferedHeader]
+            .getBuffer.toString.split(" ").last.toInt
+          Thread.sleep(waitTime.toLong * 1000)
+          false
+        case _ => false
+      }
+    if (suceeded) {
+      response
+    } else {
+      Thread.sleep(retriesLeft.head)
+      sendWithRetries(client, request, retriesLeft.tail)
     }
   }
 
+  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse =
+    sendWithRetries(client, request, retryTimes)
+
 }
 
-private[ml] trait BasicHTTPHandling extends HTTPClient {
-  private[ml] override def sendInternalRequest(request: Request): Response = {
-    Response(internalClient.execute(request.request), request.context)
-  }
+object BasicHTTPHandling {
+
+  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse =
+    client.execute(request)
+
 }
 
 abstract class AsyncHTTPClient(override val concurrency: Int, override val timeout: Duration)
                               (override implicit val ec: ExecutionContext)
-  extends HTTPClient
-  with Unbuffered[HTTPRequestData, HTTPResponseData]
-  with Asynchrony[HTTPRequestData, HTTPResponseData]
+    extends HTTPClient
+    with Asynchrony[HTTPRequestData, HTTPResponseData]
 
 abstract class SingleThreadedHTTPClient
-  extends HTTPClient
-    with Unbuffered[HTTPRequestData, HTTPResponseData]
+    extends HTTPClient
     with SingleThreaded[HTTPRequestData, HTTPResponseData]
