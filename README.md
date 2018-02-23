@@ -160,9 +160,9 @@ The script action url is:
 <https://mmlspark.azureedge.net/buildartifacts/0.11/install-mmlspark.sh>.
 
 If you're using the Azure Portal to run the script action, go to `Script
-actions` → `Submit new` in the `Overview` section of your cluster blade.  In the
-`Bash script URI` field, input the script action URL provided above.  Mark the
-rest of the options as shown on the screenshot to the right.
+actions` → `Submit new` in the `Overview` section of your cluster blade.  In
+the `Bash script URI` field, input the script action URL provided above.  Mark
+the rest of the options as shown on the screenshot to the right.
 
 Submit, and the cluster should finish configuring within 10 minutes or so.
 
@@ -173,9 +173,8 @@ To install MMLSpark on the
 [library from Maven coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark:0.11`.  Then, under
-Advanced Options, use `https://mmlspark.azureedge.net/maven` for the repository.
-Ensure this library is attached to all clusters you create.
+For the coordinates use: `Azure:mmlspark:0.11`.  Ensure this library is
+attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
