@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.serialize.params.{DataTypeParam, MapParam, UDFParam, UDPyFParam}
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -12,8 +14,9 @@ import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
+
 import scala.reflect.runtime.universe.TypeTag
-import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import spray.json.DefaultJsonProtocol._
 
 abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol {

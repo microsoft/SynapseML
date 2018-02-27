@@ -6,11 +6,12 @@ package com.microsoft.ml.spark
 import java.io.{File, FileInputStream}
 
 import com.microsoft.ml.spark.Image.implicits._
-import com.microsoft.ml.spark.schema.ImageSchema
+import com.microsoft.ml.spark.core.schema.ImageSchema
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.spark.image.ImageFileFormat
-import org.apache.spark.sql.functions.{col, udf, to_json}
+import org.apache.spark.sql.functions.{col, to_json, udf}
 import org.apache.spark.sql.types.StringType
 
 class ImageReaderSuite extends TestBase with FileReaderUtils {

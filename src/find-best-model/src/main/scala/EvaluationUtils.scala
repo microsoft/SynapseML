@@ -3,12 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.metrics.MetricConstants
-import com.microsoft.ml.spark.schema.SchemaConstants
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.schema.SchemaConstants
 import org.apache.spark.ml.classification.{ClassificationModel, Classifier}
-import org.apache.spark.ml.{PipelineStage, RegressionUtils, Transformer}
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.regression._
+import org.apache.spark.ml.{PipelineStage, RegressionUtils, Transformer}
 
 object EvaluationUtils {
   val modelTypeUnsupportedErr = "Model type not supported for evaluation"

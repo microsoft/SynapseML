@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import com.microsoft.ml.lightgbm.lightgbmlibConstants
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._

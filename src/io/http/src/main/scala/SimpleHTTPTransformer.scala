@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.serialize.params.TransformerParam
+import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{Param, ParamMap, TransformerParam}
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType

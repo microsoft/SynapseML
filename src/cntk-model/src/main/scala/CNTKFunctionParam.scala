@@ -3,8 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{ComplexParam, ParamValidators, Params}
+import org.apache.spark.ml.param.{ParamValidators, Params}
 import com.microsoft.CNTK.SerializableFunction
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 
 /** Param for ByteArray.  Needed as spark has explicit params for many different
   * types but not ByteArray.

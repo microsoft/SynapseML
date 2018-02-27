@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.Transformer
@@ -14,6 +15,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.udf
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 

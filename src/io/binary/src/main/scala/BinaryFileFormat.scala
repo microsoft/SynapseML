@@ -6,16 +6,15 @@ package org.apache.spark.binary
 import java.io.{Closeable, InputStream}
 import java.net.URI
 
-import com.microsoft.ml.spark.StreamUtilities.ZipIterator
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.env.StreamUtilities.ZipIterator
+import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.io.BytesWritable
 import org.apache.hadoop.mapreduce._
-import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat, FileSplit}
+import org.apache.hadoop.mapreduce.lib.input.FileSplit
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
-import org.apache.log4j.Logger
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow

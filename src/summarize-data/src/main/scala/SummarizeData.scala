@@ -3,11 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{BooleanType, DoubleType, NumericType, StructType, StructField, StringType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, NumericType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.storage.StorageLevel
 

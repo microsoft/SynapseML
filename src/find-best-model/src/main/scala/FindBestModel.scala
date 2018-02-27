@@ -3,10 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.metrics.MetricConstants
+import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.serialize.params.TransformerArrayParam
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{ParamMap, TransformerArrayParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}

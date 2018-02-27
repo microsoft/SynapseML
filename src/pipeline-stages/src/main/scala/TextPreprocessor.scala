@@ -3,8 +3,10 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.serialize.params.MapParam
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
@@ -51,7 +53,7 @@ class Trie(map: Map[Char, Trie] = Map.empty,
     def isAlpha(char: Char): Boolean = {
       char.isLetterOrDigit || char.equals("_".charAt(0))
     }
-    def skipAlphas(rest: Seq[Char]): Unit = (rest) match {
+    def skipAlphas(rest: Seq[Char]): Unit = rest match {
       case _ if rest.isEmpty || !isAlpha(rest.head)=> scan(rest)
       case _  => skipAlphas(rest.tail)
     }
@@ -61,17 +63,16 @@ class Trie(map: Map[Char, Trie] = Map.empty,
                   hasMatch: Boolean,
                   chars: Seq[Char],
                   trie: Option[Trie]): Unit = (rest, matched, hasMatch, chars, trie) match {
-      case (_) if (trie == None || chars.isEmpty) => {
+      case (_) if trie.isEmpty || chars.isEmpty =>
         outputText ++= matched
         if (hasMatch) skipAlphas(rest) else scan(rest)
-      }
-      case (_)  if (trie.get.value.isEmpty) => findMatch(rest, matched, false, chars.tail, trie.get.get(chars.head))
+      case (_)  if trie.get.value.isEmpty => findMatch(rest, matched, false, chars.tail, trie.get.get(chars.head))
 
       case (_) => findMatch(chars, trie.get.value, true, chars.tail, trie.get.get(chars.head))
     }
 
     def scan(chars: Seq[Char]): Unit = {
-      if (!chars.isEmpty) findMatch(chars.tail, Array(chars.head), false, chars.tail, this.get(chars.head))
+      if (chars.nonEmpty) findMatch(chars.tail, Array(chars.head), false, chars.tail, this.get(chars.head))
     }
 
     scan(chars)

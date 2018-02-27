@@ -14,6 +14,8 @@ import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.apache.spark.sql.Row
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.core.test.base.LinuxOnly
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.sql.SaveMode
 import org.apache.commons.io.FileUtils
 

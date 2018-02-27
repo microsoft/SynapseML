@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.ImageSchema
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.schema.ImageSchema
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}

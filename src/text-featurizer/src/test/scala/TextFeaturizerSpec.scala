@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.DatasetExtensions._
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.ml.util.MLReadable
 

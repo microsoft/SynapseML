@@ -8,15 +8,17 @@ import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
-import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.spark.ml.{Estimator, PipelineModel}
+import com.microsoft.ml.spark.core.schema.ImageSchema
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StructField, StructType}
-import org.apache.commons.io.FileUtils
 
 class VerifyAssembleFeatures extends TestBase with EstimatorFuzzing[AssembleFeatures] {
   def testObjects(): Seq[TestObject[AssembleFeatures]] = List(new TestObject(

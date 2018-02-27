@@ -6,7 +6,7 @@ package org.apache.spark.sql.execution.streaming
 import java.net.{InetAddress, InetSocketAddress}
 import javax.annotation.concurrent.GuardedBy
 
-import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging

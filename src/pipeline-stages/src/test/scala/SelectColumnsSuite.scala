@@ -3,10 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.Transformer
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.StructType
 
 class SelectColumnsSuite extends TestBase with TransformerFuzzing[SelectColumns] {
 

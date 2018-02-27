@@ -3,13 +3,8 @@
 
 package com.microsoft.ml.spark.codegen
 
-import java.nio.file.{Files, Paths}
-
-import org.apache.commons.lang3.StringUtils
-import scala.io.Source
-import scala.collection.mutable.ListBuffer
-import com.microsoft.ml.spark.FileUtilities._
-import Config._
+import com.microsoft.ml.spark.codegen.Config._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 
 /** Provide class level python help documentation for generated classes.
   * Lookup the doc string based on the name of the scala class

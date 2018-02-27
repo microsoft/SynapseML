@@ -3,13 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
-import org.apache.commons.io.FileUtils
-
-import com.microsoft.ml.spark.metrics.MetricConstants
 
 class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 

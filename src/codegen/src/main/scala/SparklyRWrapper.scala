@@ -10,8 +10,7 @@ import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.Param
 
-import com.microsoft.ml.spark.FileUtilities._
-import com.microsoft.ml.spark.FileUtilities.StandardOpenOption
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
 
 /** :: DeveloperApi ::
@@ -73,10 +72,12 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
       if (paramDefault.toLowerCase.contains(param.parent.toLowerCase)) "NULL"
       else getRDefault(paramDefault,
                        param.getClass.getSimpleName,
-                       (try {
-                          entryPoint.getParam(param.name).w(paramDefault)
-                          true
-                        } catch { case e: Exception => false }))
+                       try {
+                         entryPoint.getParam(param.name).w(paramDefault)
+                         true
+                       } catch {
+                         case _: Exception => false
+                       })
     }
   }
 

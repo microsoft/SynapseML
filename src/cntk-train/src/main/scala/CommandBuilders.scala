@@ -5,14 +5,14 @@ package com.microsoft.ml.spark
 
 import java.io.FileNotFoundException
 import java.net.URI
-
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.core.env.ProcessUtils
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
-import FileUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
-import StreamUtilities.using
 
 abstract class CNTKCommandBuilderBase(log: Logger) {
   val command: String

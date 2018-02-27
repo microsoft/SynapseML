@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.ServerUtils.url
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpPost
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable

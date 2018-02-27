@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.metrics.{MetricConstants, MetricUtils}
-import com.microsoft.ml.spark.schema.SchemaConstants._
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.contracts._
+import com.microsoft.ml.spark.core.metrics.{MetricConstants, MetricUtils}
+import com.microsoft.ml.spark.core.schema.SchemaConstants._
+import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.schema.CategoricalUtilities
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}

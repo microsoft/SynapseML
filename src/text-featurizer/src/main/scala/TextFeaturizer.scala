@@ -5,6 +5,8 @@ package com.microsoft.ml.spark
 
 import java.util.NoSuchElementException
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.ml.{Pipeline, _}
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._

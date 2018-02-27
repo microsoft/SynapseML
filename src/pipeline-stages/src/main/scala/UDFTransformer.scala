@@ -3,8 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasInputCols, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.serialize.params.{UDFParam, UDPyFParam}
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction

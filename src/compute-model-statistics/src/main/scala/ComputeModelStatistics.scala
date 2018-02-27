@@ -3,21 +3,21 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.contracts.MetricData
-import com.microsoft.ml.spark.metrics.{MetricConstants, MetricUtils}
-import com.microsoft.ml.spark.schema.SchemaConstants._
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.contracts._
+import com.microsoft.ml.spark.core.metrics.{MetricConstants, MetricUtils}
+import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.schema.CategoricalUtilities
+import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.log4j.Logger
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 

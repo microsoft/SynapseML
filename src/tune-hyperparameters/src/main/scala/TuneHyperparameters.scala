@@ -6,21 +6,24 @@ package com.microsoft.ml.spark
 import java.util.concurrent._
 
 import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
-import com.microsoft.ml.spark.metrics.MetricConstants
+import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.serialize.params.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification.ClassificationModel
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
+import org.apache.spark.ml.util._
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.control.NonFatal
 

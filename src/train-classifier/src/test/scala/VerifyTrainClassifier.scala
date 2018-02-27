@@ -3,9 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import FileUtilities._
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants}
-
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.schema.SchemaConstants
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.benchmarks.Benchmarks
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.schema.CategoricalUtilities
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.linalg.{Vector, Vectors}

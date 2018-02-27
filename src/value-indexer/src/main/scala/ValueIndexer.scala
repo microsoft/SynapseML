@@ -5,6 +5,8 @@ package com.microsoft.ml.spark
 
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, MMLParams}
+import com.microsoft.ml.spark.core.serialize.params.ArrayParam
 import com.microsoft.ml.spark.schema._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._

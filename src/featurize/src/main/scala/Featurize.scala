@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
+import com.microsoft.ml.spark.core.serialize.params.MapArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._

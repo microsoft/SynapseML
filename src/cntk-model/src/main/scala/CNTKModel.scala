@@ -5,7 +5,9 @@ package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
-import com.microsoft.ml.spark.schema.DatasetExtensions
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType

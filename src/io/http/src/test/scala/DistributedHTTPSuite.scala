@@ -6,14 +6,15 @@ package com.microsoft.ml.spark
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.execution.streaming.{
-  DistributedHTTPSinkProvider, DistributedHTTPSource, DistributedHTTPSourceProvider, JVMSharedServer}
+import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
 import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types.{IntegerType, StructType}

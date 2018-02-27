@@ -3,11 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
-import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam}
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.serialize.params.PipelineStageParam
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 

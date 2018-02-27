@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, ClassifierTestUtils}
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 

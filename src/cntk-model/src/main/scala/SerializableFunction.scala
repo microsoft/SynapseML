@@ -8,7 +8,7 @@ import java.util.UUID._
 import org.apache.commons.io.FileUtils.{forceDelete, getTempDirectoryPath, writeByteArrayToFile}
 import org.apache.commons.io.IOUtils
 import scala.language.implicitConversions
-import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 
 object CNTKExtensions {
   implicit def toSerializable(in: Function): SerializableFunction = new SerializableFunction(in)

@@ -6,12 +6,13 @@ package com.microsoft.ml.spark
 import java.io.PrintWriter
 import java.net.URI
 
+import com.microsoft.ml.spark.core.env.EnvironmentUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
-import FileUtilities._
-import hadoop.HadoopUtils
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.hadoop.HadoopUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.slf4j.Logger
@@ -22,19 +23,19 @@ object DataTransferUtils {
 
   def toText(form: String)(value: Any): String = {
     value match {
-      case v: Vector => return convertVectorToText(v, form)
-      case d: Double => return d.toString
-      case f: Float => return f.toString
+      case v: Vector => convertVectorToText(v, form)
+      case d: Double => d.toString
+      case f: Float => f.toString
     }
   }
 
   def toVec(value: Any): Vector = {
     value match {
-      case v: Vector => return v
-      case d: Double => return new DenseVector(Array(d))
-      case f: Float => return new DenseVector(Array(f.toDouble))
-      case i: Integer => return new DenseVector(Array(i.toDouble))
-      case l: Long => return new DenseVector(Array(l.toDouble))
+      case v: Vector => v
+      case d: Double => new DenseVector(Array(d))
+      case f: Float => new DenseVector(Array(f.toDouble))
+      case i: Integer => new DenseVector(Array(i.toDouble))
+      case l: Long => new DenseVector(Array(l.toDouble))
     }
   }
 
@@ -42,7 +43,7 @@ object DataTransferUtils {
     val heuristicBloat = 8
     val sb = new StringBuilder(v.numActives * heuristicBloat)
     v match {
-      case sv: SparseVector => {
+      case sv: SparseVector =>
         if (form == CNTKLearner.sparseForm) {
           sv.foreachActive { (idx, value) =>
             sb.append(idx).append(":").append(value).append(" ")
@@ -53,18 +54,16 @@ object DataTransferUtils {
         } else {
           throw new Exception(s"Unknown vector form $form")
         }
-      }
-      case dv: DenseVector => {
+      case dv: DenseVector =>
         if (form == CNTKLearner.denseForm) {
           dv.values.foreach(value => sb.append(value).append(" "))
         } else if (form == CNTKLearner.sparseForm) {
-          for (i <- 0 until dv.values.length) {
+          for (i <- dv.values.indices) {
             sb.append(i).append(":").append(dv.values(i)).append(" ")
           }
         } else {
           throw new Exception(s"Unknown vector form $form")
         }
-      }
     }
     sb.toString
   }

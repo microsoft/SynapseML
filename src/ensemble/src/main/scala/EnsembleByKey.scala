@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
+import com.microsoft.ml.spark.core.serialize.params.MapParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}

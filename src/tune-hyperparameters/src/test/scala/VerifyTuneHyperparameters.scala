@@ -3,6 +3,10 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.benchmarks.Benchmarks
+import com.microsoft.ml.spark.core.test.fuzzing.TestObject
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param.Param
@@ -10,8 +14,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable.ListBuffer
-
-import com.microsoft.ml.spark.metrics.MetricConstants
 
 /** Tests to validate the functionality of Tune Hyperparameters module. */
 class VerifyTuneHyperparameters extends Benchmarks {

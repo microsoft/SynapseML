@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.sql.{DataFrame, SparkSession}

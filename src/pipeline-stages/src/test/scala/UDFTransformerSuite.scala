@@ -3,39 +3,40 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Column}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
+import org.scalatest.Assertion
 
 class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransformer] {
-  val baseDF = makeBasicDF()
-  val baseNullableDF = makeBasicNullableDF()
+  val baseDF: DataFrame = makeBasicDF()
+  val baseNullableDF: DataFrame = makeBasicNullableDF()
   val outCol = "out"
-  val stringToIntegerUDF = udf((_: String) => 1)
+  val stringToIntegerUDF: UserDefinedFunction = udf((_: String) => 1)
 
   def udfTransformerTest(baseDF: DataFrame,
                          testUDF: UserDefinedFunction,
                          inputCol: String,
-                         outputCol: String = outCol): Unit = {
+                         outputCol: String = outCol): Assertion = {
     val result = new UDFTransformer().setUDF(testUDF)
       .setInputCol(inputCol).setOutputCol(outputCol)
       .transform(baseDF)
     val expected = baseDF.withColumn(outputCol, testUDF(baseDF(inputCol)))
     assert(verifyResult(expected, result))
-    return
   }
 
   def udfMultiColTransformerTest(baseDF: DataFrame,
                          testUDF: UserDefinedFunction,
                          inputCols: Array[String],
-                         outputCol: String = outCol): Unit = {
+                         outputCol: String = outCol): Assertion = {
     val result = new UDFTransformer().setUDF(testUDF)
       .setInputCols(inputCols).setOutputCol(outputCol)
       .transform(baseDF)
     val expected = baseDF.withColumn(outputCol, testUDF(inputCols.map(baseDF(_)): _*))
     assert(verifyResult(expected, result))
-    return
   }
 
   test("Apply udf to column in a data frame: String to Integer") {

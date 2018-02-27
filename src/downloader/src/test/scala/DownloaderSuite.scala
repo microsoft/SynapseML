@@ -4,9 +4,12 @@
 package com.microsoft.ml.spark
 
 import java.nio.file.Files
-import com.microsoft.ml.spark.FileUtilities.File
-import scala.collection.JavaConversions._
+
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
+
+import scala.collection.JavaConversions._
 
 class DownloaderSuite extends TestBase {
 

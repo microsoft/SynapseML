@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.env.StreamUtilities
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}

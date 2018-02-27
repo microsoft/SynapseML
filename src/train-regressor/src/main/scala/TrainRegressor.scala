@@ -5,7 +5,10 @@ package com.microsoft.ml.spark
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.contracts.{HasLabelCol, MMLParams}
+import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.core.serialize.params.EstimatorParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._

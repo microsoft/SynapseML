@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._

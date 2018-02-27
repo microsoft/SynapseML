@@ -3,20 +3,19 @@
 
 package com.microsoft.ml.spark.codegen
 
-import collection.JavaConverters._
-import scala.collection.Iterator.iterate
 import java.lang.reflect.{ParameterizedType, Type}
 import java.util.jar._
 
-import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
+import com.microsoft.ml.spark.codegen.Config._
+import com.microsoft.ml.spark.core.env.FileUtilities.{File, writeFile}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.env.StreamUtilities._
 import org.apache.spark.ml.{Estimator, Transformer}
-import com.microsoft.ml.spark.StreamUtilities._
-import Config._
-import com.microsoft.ml.spark.FileUtilities.{File, writeFile}
 
+import scala.collection.Iterator.iterate
+import scala.collection.JavaConverters._
 import scala.language.existentials
-import com.microsoft.ml.spark.InternalWrapper
-
+import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.reflect.runtime.universe._
 
 abstract class WrapperGenerator {

@@ -5,15 +5,15 @@ package com.microsoft.ml.spark
 
 import java.net.URI
 
-import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.Readers.implicits._
-import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
-import org.apache.spark.sql.DataFrame
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.schema.ImageSchema
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.DataFrame
 
 class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
   with TransformerFuzzing[ImageFeaturizer]{

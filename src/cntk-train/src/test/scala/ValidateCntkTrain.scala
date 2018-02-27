@@ -6,13 +6,13 @@ package com.microsoft.ml.spark
 import java.io.File
 import java.net.URI
 
-import org.apache.spark.ml.feature.OneHotEncoder
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexerModel}
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.core.test.base.TestBase
+import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterEach, Suite}
-import org.apache.commons.io.FileUtils
 
 trait TestFileCleanup extends BeforeAndAfterEach {
   this: Suite =>

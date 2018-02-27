@@ -5,7 +5,9 @@ package com.microsoft.ml.spark
 
 import java.net.URI
 
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.contracts.MMLParams
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.env.{EnvironmentUtils, FileUtilities, InternalWrapper}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType

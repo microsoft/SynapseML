@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.serialize.params.PipelineStageParam
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel, PipelineStage}
-import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
+import org.apache.spark.ml.param.{ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types._
 
@@ -108,7 +110,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   private def verifyCols(df: DataFrame,
-                         inputOutputPairs: List[(String, String)]) = {
+                         inputOutputPairs: List[(String, String)]): Unit = {
     inputOutputPairs.foreach {
       case (s1, s2) if !df.columns.contains(s1) =>
         throw new IllegalArgumentException(
