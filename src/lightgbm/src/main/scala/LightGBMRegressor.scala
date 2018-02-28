@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.lightgbm.lightgbmlibConstants
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.Vector

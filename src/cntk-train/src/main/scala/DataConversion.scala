@@ -13,6 +13,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.hadoop.HadoopUtils
+import com.microsoft.ml.spark.stages.featurize.Featurize
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.slf4j.Logger

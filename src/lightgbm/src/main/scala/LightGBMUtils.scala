@@ -4,6 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.lightgbm._
+import com.microsoft.ml.spark.stages.featurize.Featurize
+import com.microsoft.ml.spark.stages.featurize.FeaturizeUtilities
 import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.linalg.SparseVector

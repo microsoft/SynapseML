@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.MMLParams
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends MMLParams {

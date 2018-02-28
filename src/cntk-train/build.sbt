@@ -1,3 +1,3 @@
 //> DependsOn: core
-//> DependsOn: featurize
+//> DependsOn: stages
 //> DependsOn: cntk-model
