@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappab
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.core.serialize.params.TransformerParam
+import com.microsoft.ml.spark.downloader.ModelSchema
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._

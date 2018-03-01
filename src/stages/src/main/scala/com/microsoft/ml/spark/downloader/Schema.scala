@@ -1,15 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.downloader
 
 import java.io.InputStream
 import java.net.URI
+
 import org.apache.commons.codec.digest.DigestUtils
 import spray.json._
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 
 private[spark] object NamingConventions {
 

@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.schema.ImageSchema
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
 import org.apache.spark.image.ImageFileFormat
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable

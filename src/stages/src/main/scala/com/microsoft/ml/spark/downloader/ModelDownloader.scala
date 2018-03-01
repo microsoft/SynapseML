@@ -1,11 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.downloader
 
 import java.io._
 import java.net.{URI, URL}
 import java.util
+
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.{Configuration => HadoopConf}
 import org.apache.hadoop.fs.{FileSystem, LocatedFileStatus, Path}
@@ -13,6 +14,8 @@ import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.log4j.LogManager
 import org.apache.spark.sql.SparkSession
 import spray.json._
+import com.microsoft.ml.spark.downloader.SchemaJsonProtocol._
+
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -110,8 +113,6 @@ private[spark] class DefaultModelRepo(val baseURL: URL) extends Repository[Model
   var connectTimeout = 15000
   var readTimeout = 5000
 
-  import SchemaJsonProtocol._
-
   private def toStream(url: URL) = {
     val urlCon = url.openConnection()
     urlCon.setConnectTimeout(connectTimeout)
@@ -194,8 +195,6 @@ private[spark] object ModelDownloader {
 class ModelDownloader(val spark: SparkSession,
                       val localPath: URI,
                       val serverURL: URL = ModelDownloader.defaultURL) extends Client {
-
-  import SchemaJsonProtocol._
 
   def this(spark: SparkSession, localPath: String, serverURL: String) = {
     this(spark, new URI(localPath), new URL(serverURL))
