@@ -7,6 +7,7 @@ import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, MMLPara
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchema}
 import com.microsoft.ml.spark.core.serialize.params.ArrayMapParam
+import com.microsoft.ml.spark.io.image.ImageReader
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
