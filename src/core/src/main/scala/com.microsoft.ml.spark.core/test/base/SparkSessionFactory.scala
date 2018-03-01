@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.core.test.base
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
@@ -37,17 +38,39 @@ object SparkSessionFactory {
   }
   def currentDir(): String = System.getProperty("user.dir")
 
-  def getSession(name: String, logLevel: String = "WARN"): SparkSession = {
-    val conf = new SparkConf()
-        .setAppName(name)
-        .setMaster("local[*]")
-        .set("spark.logConf", "true")
-        .set("spark.sql.warehouse.dir", SparkSessionFactory.localWarehousePath)
-    val sess = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
-    sess.sparkContext.setLogLevel(logLevel)
-    sess
+  val logLevel: String = "WARN"
+
+  private var activeSessions = 0
+  private var session: Option[SparkSession] = None
+
+  def checkoutSession(): SparkSession = {
+    session.synchronized {
+      activeSessions +=1
+      if (session.isEmpty) {
+        val conf = new SparkConf()
+          .setAppName("MMLSpark")
+          .setMaster("local[*]")
+          .set("spark.logConf", "true")
+          .set("spark.sql.warehouse.dir", SparkSessionFactory.localWarehousePath)
+        val sess = SparkSession.builder()
+          .config(conf)
+          .getOrCreate()
+        sess.sparkContext.setLogLevel(logLevel)
+        session = Some(sess)
+      }
+      session.get
+    }
+  }
+
+  def returnSession(): Unit = {
+    session.synchronized {
+      val spark = session.getOrElse(throw new IllegalArgumentException("No session to return"))
+      activeSessions -= 1
+      if (activeSessions == 0){
+        spark.close()
+        session = None
+      }
+    }
   }
 
 }
