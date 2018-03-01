@@ -28,13 +28,11 @@ class FuzzingTest extends TestBase {
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.ValueIndexerModel",
+      "com.microsoft.ml.spark.stages.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.PowerBITransformer"
+      "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters",
+      "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.stages.DataConversion"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -52,13 +50,11 @@ class FuzzingTest extends TestBase {
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.ValueIndexerModel",
+      "com.microsoft.ml.spark.stages.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.PowerBITransformer"
+      "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.stages.DataConversion",
+      "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -75,15 +71,13 @@ class FuzzingTest extends TestBase {
   ignore("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.ValueIndexerModel",
+      "com.microsoft.ml.spark.stages.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.TuneHyperparameters",
+      "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.stages.DataConversion",
+      "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters",
       "com.microsoft.ml.spark.LightGBMClassifier",
-      "com.microsoft.ml.spark.LightGBMRegressor",
-      "com.microsoft.ml.spark.PowerBITransformer"
+      "com.microsoft.ml.spark.LightGBMRegressor"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -117,7 +111,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all pipeline stage values match their param names") {
     val exemptions: Set[String] = Set[String](
-      "com.microsoft.ml.spark.UDFTransformer") // needs to hide setters from model
+      "com.microsoft.ml.spark.stages.basic.UDFTransformer") // needs to hide setters from model
     pipelineStages.foreach { pipelineStage =>
       if (!exemptions(pipelineStage.getClass.getName)) {
         val paramFields =

@@ -4,8 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.core.env.MMLConfig
-import org.apache.logging.log4j.scala.{Logging => Logging4J}
-import org.apache.logging.log4j._
+import org.apache.log4j.{LogManager, Logger}
 
 // Ilya has the logging functions already in a separate branch, so log APIs here removed.
 // Merge those into a single trait "Logging" here and have MMLParams incorporate it.
