@@ -52,8 +52,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   protected lazy val session: SparkSession = {
     info(s"Creating a spark session for suite $this")
     sessionInitialized = true
-    SparkSessionFactory
-      .getSession(s"$this", logLevel = "WARN")
+    SparkSessionFactory.checkoutSession()
   }
 
   protected lazy val sc: SparkContext = session.sparkContext
@@ -106,7 +105,8 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     }
     if (sessionInitialized) {
       info("Shutting down spark session")
-      session.stop()
+      // Only shut down sessions you yourself created
+      SparkSessionFactory.returnSession()
     }
   }
 
