@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.cntk
 
 import java.io._
 
-import com.microsoft.CNTK.{Function => CNTKFunction, _}
+import com.microsoft.CNTK.{SerializableFunction, _}
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.env.StreamUtilities._
@@ -61,7 +61,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
   test(" A serializable CNTKModel should be serializable") {
     val bytes = IOUtils.toByteArray(new FileInputStream(new File(modelPath)))
 
-    val model = CNTKFunction.load(modelPath, DeviceDescriptor.useDefaultDevice)
+    val model = SerializableFunction.load(modelPath, DeviceDescriptor.useDefaultDevice)
     using(new FileOutputStream(saveFile)) { fileOut =>
       using(new ObjectOutputStream(fileOut)) { out =>
         out.writeObject(model)
@@ -80,13 +80,13 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
   }
 
   test("Evaluate should be able be called twice") {
-    val model = CNTKFunction.load(modelPath, DeviceDescriptor.useDefaultDevice)
+    val model = Function.load(modelPath, DeviceDescriptor.useDefaultDevice)
     evaluateRandomMinibatch(model, 2)
     evaluateRandomMinibatch(model, 2, seed=1)
   }
 
   test("Evaluate should be able to change batch size ") {
-    val model = CNTKFunction.load(modelPath, DeviceDescriptor.useDefaultDevice)
+    val model = Function.load(modelPath, DeviceDescriptor.useDefaultDevice)
     evaluateRandomMinibatch(model, 1)
     evaluateRandomMinibatch(model, 3)
     evaluateRandomMinibatch(model, 2)
