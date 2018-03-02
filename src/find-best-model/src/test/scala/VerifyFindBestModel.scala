@@ -3,15 +3,15 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.metrics.MetricConstants
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
-import org.apache.commons.io.FileUtils
-
-import com.microsoft.ml.spark.metrics.MetricConstants
 
 class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
+  import TrainClassifierTestUtilities._
 
   val mockLabelColumn = "Label"
 
@@ -34,7 +34,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
   test("Smoke test to verify that evaluate can be run") {
     val dataset = createMockDataset
-    val randomForestClassifier = TrainClassifierTestUtilities.createRandomForestClassifier(mockLabelColumn)
+    val randomForestClassifier = createRF.setLabelCol(mockLabelColumn)
     val model = randomForestClassifier.fit(dataset)
     val findBestModel = new FindBestModel()
       .setModels(Array(model.asInstanceOf[Transformer], model.asInstanceOf[Transformer]))
@@ -45,7 +45,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
 
   test("Verify the best model can be saved") {
     val dataset: DataFrame = createMockDataset
-    val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
+    val logisticRegressor = createLR.setLabelCol(mockLabelColumn)
     val model = logisticRegressor.fit(dataset)
 
     val findBestModel = new FindBestModel()
@@ -53,19 +53,18 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
       .setEvaluationMetric(MetricConstants.AucSparkMetric)
     val bestModel = findBestModel.fit(dataset)
 
-    val myModelName = "testEvalModel"
-    bestModel.save(myModelName)
-    // delete the file, errors if it doesn't exist
-    FileUtils.forceDelete(new java.io.File(myModelName))
+    val myModelFile = new File(tmpDir.toFile, "testEvalModel")
+    bestModel.save(myModelFile.toString)
+    assert(myModelFile.exists())
   }
 
   test("Verify the best model metrics can be retrieved and are valid") {
     val dataset: DataFrame = createMockDataset
-    val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
-    val decisionTreeClassifier = TrainClassifierTestUtilities.createDecisionTreeClassifier(mockLabelColumn)
-    val GBTClassifier = TrainClassifierTestUtilities.createGradientBoostedTreesClassifier(mockLabelColumn)
-    val naiveBayesClassifier = TrainClassifierTestUtilities.createNaiveBayesClassifier(mockLabelColumn)
-    val randomForestClassifier = TrainClassifierTestUtilities.createRandomForestClassifier(mockLabelColumn)
+    val logisticRegressor = createLR.setLabelCol(mockLabelColumn)
+    val decisionTreeClassifier = createDT.setLabelCol(mockLabelColumn)
+    val GBTClassifier = createGBT.setLabelCol(mockLabelColumn)
+    val naiveBayesClassifier = createNB.setLabelCol(mockLabelColumn)
+    val randomForestClassifier = createRF.setLabelCol(mockLabelColumn)
     val model1 = logisticRegressor.fit(dataset)
     val model2 = decisionTreeClassifier.fit(dataset)
     val model3 = GBTClassifier.fit(dataset)
@@ -94,7 +93,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
   val modelReader: MLReadable[_] = BestModel
 
   override def testObjects(): Seq[TestObject[FindBestModel]] = Seq(new TestObject({
-    val randomForestClassifier = TrainClassifierTestUtilities.createRandomForestClassifier(mockLabelColumn)
+    val randomForestClassifier = createRF.setLabelCol(mockLabelColumn)
     val model = randomForestClassifier.fit(createMockDataset)
     new FindBestModel()
       .setModels(Array(model, model))

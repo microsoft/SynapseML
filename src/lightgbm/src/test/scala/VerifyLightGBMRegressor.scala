@@ -3,15 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.Column
+import org.apache.spark.sql.{Column, DataFrame}
 
 /** Tests to validate the functionality of LightGBM module.
   */
 class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMRegressor] {
-  override val historicMetricsFile  = new File(thisDirectory, "regressionBenchmarkMetrics.csv")
   lazy val moduleName = "lightgbm"
   var portIndex = 0
   val numPartitions = 2
@@ -26,17 +24,30 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
   verifyLearnerOnRegressionCsvFile("Concrete_Data.train.csv", "Concrete compressive strength(MPa, megapascals)", 0)
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
-    compareBenchmarkFiles()
+    verifyBenchmarks()
+  }
+
+  /** Reads a CSV file given the file name and file location.
+    * @param fileName The name of the csv file.
+    * @param fileLocation The full path to the csv file.
+    * @return A dataframe from read CSV file.
+    */
+  def readCSV(fileName: String, fileLocation: String): DataFrame = {
+    session.read
+      .option("header", "true").option("inferSchema", "true")
+      .option("treatEmptyValuesAsNulls", "false")
+      .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
+      .csv(fileLocation)
   }
 
   def verifyLearnerOnRegressionCsvFile(fileName: String,
-                                       labelColumnName: String,
+                                       labelCol: String,
                                        decimals: Int,
                                        columnsFilter: Option[String] = None): Unit = {
     test("Verify LightGBMRegressor can be trained and scored on " + fileName, TestBase.Extended) {
       // Increment port index
       portIndex += numPartitions
-      val fileLocation = RegressionTestUtils.regressionTrainFile(fileName).toString
+      val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
       val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
       val dataset =
         if (columnsFilter.isDefined) {
@@ -46,9 +57,9 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
         }
       val lgbm = new LightGBMRegressor()
       val featuresColumn = lgbm.uid + "_features"
-      val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+      val featurizer = LightGBMUtils.featurizeData(dataset, labelCol, featuresColumn)
       val predCol = "pred"
-      val model = lgbm.setLabelCol(labelColumnName)
+      val model = lgbm.setLabelCol(labelCol)
         .setFeaturesCol(featuresColumn)
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
@@ -57,12 +68,11 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
         .fit(featurizer.transform(dataset))
       val scoredResult = model.transform(featurizer.transform(dataset)).drop(featuresColumn)
       val eval = new RegressionEvaluator()
-        .setLabelCol(labelColumnName)
+        .setLabelCol(labelCol)
         .setPredictionCol(predCol)
         .setMetricName("rmse")
       val metric = eval.evaluate(scoredResult)
-      addAccuracyResult(fileName, "LightGBMRegressor",
-        round(metric, decimals))
+      addBenchmark(s"LightGBMRegressor_$fileName", metric, decimals)
     }
   }
 
@@ -70,7 +80,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     val fileName = "machine.train.csv"
     val labelCol = "ERP"
     val featuresCol = "feature"
-    val fileLocation = RegressionTestUtils.regressionTrainFile(fileName).toString
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
     val dataset = readCSV(fileName, fileLocation)
     val featurizer = LightGBMUtils.featurizeData(dataset, labelCol, featuresCol)
     val train = featurizer.transform(dataset)

@@ -3,98 +3,123 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.FileUtilities.{File, readFile, writeFile}
-import org.apache.hadoop.fs.FileSystem
-import org.apache.spark.sql.DataFrame
+import java.io.FileOutputStream
 
-import scala.collection.mutable.ArrayBuffer
+import com.microsoft.ml.spark.FileUtilities.File
+import org.apache.spark.sql.Row
+import org.scalatest.Assertion
+
+import scala.collection.mutable.ListBuffer
+import java.io.PrintWriter
+
+case class Benchmark(name: String,
+                     value: Double,
+                     precision: Double,
+                     higherIsBetter: Boolean = true) {
+  def toCSVEntry: String = {
+    s"$name,$value,$precision,$higherIsBetter"
+  }
+}
+
+object Benchmark {
+  def fromRow(r: Row): Benchmark = {
+    Benchmark(r.getString(0), r.getDouble(1), r.getDouble(2), r.getBoolean(3))
+  }
+
+  def csvHeader: String = {
+    "name,value,precision,higherIsBetter"
+  }
+
+}
 
 abstract class Benchmarks extends TestBase {
   val moduleName: String
-  val targetDirectory = new File("target")
-  val thisDirectory = {
-    // intellij runs from a different directory
-    val d = new File("src/test/scala")
-    if (d.isDirectory) d else new File(s"$moduleName/src/test/scala")
-  }
-  val historicMetricsFile  = new File(thisDirectory, "benchmarkMetrics.csv")
-  val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
+  val resourcesDirectory = new File(getClass.getResource("/").toURI)
+  val oldBenchmarkFile = new File(resourcesDirectory, s"benchmarks_${this}.csv")
+  val newBenchmarkFile = new File(resourcesDirectory, s"new_benchmarks_${this}.csv")
+  val newBenchmarks: ListBuffer[Benchmark] = ListBuffer[Benchmark]()
 
-  val accuracyResults = ArrayBuffer.empty[String]
-  def addAccuracyResult(items: Any*): Unit = {
-    val line = items.map(_.toString).mkString(",")
-    println(s"... $line")
-    accuracyResults += line
-    ()
+  def addBenchmark(name: String,
+                   value: Double,
+                   precision: Double,
+                   higherIsBetter: Boolean): Unit = {
+    assert(!newBenchmarks.map(_.name).contains(name), s"Benchmark $name already exists")
+    newBenchmarks.append(Benchmark(name, value, precision, higherIsBetter))
   }
 
-  def getFileSystem(): FileSystem = {
-    val config = sc.hadoopConfiguration
-    import org.apache.hadoop.fs.Path
-    val dfs_cwd = new Path(".")
-    dfs_cwd.getFileSystem(config)
+  def addBenchmark(name: String,
+                   value: Double,
+                   precision: Int,
+                   higherIsBetter: Boolean): Unit = {
+    addBenchmark(name, value, scala.math.pow(10, -precision.toDouble), higherIsBetter)
   }
 
-  /** Reads a CSV file given the file name and file location.
-    * @param fileName The name of the csv file.
-    * @param fileLocation The full path to the csv file.
-    * @return A dataframe from read CSV file.
-    */
-  def readCSV(fileName: String, fileLocation: String): DataFrame = {
-    session.read
-      .option("header", "true").option("inferSchema", "true")
-      .option("treatEmptyValuesAsNulls", "false")
-      .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
-      .csv(fileLocation)
+  def addBenchmark(name: String,
+                   value: Double,
+                   precision: Int): Unit = {
+    addBenchmark(name, value, precision, higherIsBetter = true)
   }
 
-  /** Rounds the given metric to 2 decimals.
-    * @param metric The metric to round.
-    * @return The rounded metric.
-    */
-  def round(metric: Double, decimals: Int): Double = {
-    BigDecimal(metric)
-      .setScale(decimals, BigDecimal.RoundingMode.HALF_UP).toDouble
+  def addBenchmark(name: String,
+                   value: Double,
+                   precision: Double): Unit = {
+    addBenchmark(name, value, precision, higherIsBetter = true)
   }
 
-  def compareBenchmarkFiles(): Unit = {
-    try writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
-    catch {
-      case e: java.io.IOException => throw new Exception("Not able to process benchmarks file")
-    }
-    val historicMetrics = readFile(historicMetricsFile, _.getLines.toList)
-    if (historicMetrics.length != accuracyResults.length)
-      throw new Exception(s"Mis-matching number of lines in new benchmarks file: $benchmarkMetricsFile")
-    for (((hist,acc),i) <- (historicMetrics zip accuracyResults).zipWithIndex) {
-      assert(hist == acc,
-        s"""Lines do not match on file comparison:
-           |  $historicMetricsFile:$i:
-           |    $hist
-           |  $benchmarkMetricsFile:$i:
-           |    $acc
-           |.""".stripMargin)
-    }
+  def compareBenchmark(bmNew: Benchmark, bmOld: Benchmark): Assertion = {
+    assert(bmNew.name == bmOld.name, "Benchmark names do not match")
+    assert(bmNew.higherIsBetter == bmOld.higherIsBetter, "higherIsBetter does not match")
+    assert(bmNew.precision === bmNew.precision, "precision does not match")
+    assert(bmNew.precision >= 0, "precision needs to be positive")
+
+    val diff = bmNew.value - bmOld.value
+    assert(
+      if (bmNew.higherIsBetter) {
+        diff + bmNew.precision > 0
+      } else {
+        -1.0 * diff + bmNew.precision > 0
+      }, s"new benchmark ${bmNew.value} and " +
+        s"old benchmark ${bmOld.value} " +
+        s"are not within ${bmNew.precision}")
   }
 
-  override def afterAll(): Unit = {
-    super.afterAll()
+  def writeCSV(benchmarks: ListBuffer[Benchmark], file: File): Unit = {
+    val lines = Seq(Benchmark.csvHeader) ++ benchmarks.map(_.toCSVEntry)
+    StreamUtilities.using(new PrintWriter(file)) { pw =>
+      pw.write(lines.mkString("\n"))
+    }.get
+  }
+
+  def verifyBenchmarks(): Unit = {
+    import session.implicits._
+    val newBenchmarkDF = newBenchmarks.toDF()
+
+    if (newBenchmarkFile.exists()) newBenchmarkFile.delete()
+    writeCSV(newBenchmarks, newBenchmarkFile)
+
+    val oldBenchmarks = session.read
+      .option("header", true)
+      .option("inferSchema", true)
+      .csv(oldBenchmarkFile.getAbsolutePath)
+      .collect().map(Benchmark.fromRow)
+    val newMap = newBenchmarks.map(bm => (bm.name, bm)).toMap
+    val oldMap = oldBenchmarks.map(bm => (bm.name, bm)).toMap
+
+    assert(Set(newMap.keys) === Set(oldMap.keys))
+    newMap.foreach { case (k, newBM) => compareBenchmark(newBM, oldMap(k)) }
   }
 
 }
 
-object RegressionTestUtils {
+object DatasetUtils {
+
+  def binaryTrainFile(name: String): File =
+    new File(s"${sys.env("DATASETS_HOME")}/Binary/Train", name)
+
+  def multiclassTrainFile(name: String): File =
+    new File(s"${sys.env("DATASETS_HOME")}/Multiclass/Train", name)
 
   def regressionTrainFile(name: String): File =
     new File(s"${sys.env("DATASETS_HOME")}/Regression/Train", name)
-
-}
-
-object ClassifierTestUtils {
-
-  def classificationTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Binary/Train", name)
-
-  def multiclassClassificationTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Multiclass/Train", name)
 
 }

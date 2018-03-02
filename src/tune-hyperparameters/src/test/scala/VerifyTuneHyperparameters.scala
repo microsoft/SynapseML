@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.metrics.MetricConstants
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param.Param
@@ -11,10 +12,9 @@ import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable.ListBuffer
 
-import com.microsoft.ml.spark.metrics.MetricConstants
-
 /** Tests to validate the functionality of Tune Hyperparameters module. */
 class VerifyTuneHyperparameters extends Benchmarks {
+  import TrainClassifierTestUtilities._
 
   lazy val moduleName = "tune-hyperparameters"
 
@@ -41,8 +41,8 @@ class VerifyTuneHyperparameters extends Benchmarks {
   // Has multiple columns with the same name.  Spark doesn't seem to be able to handle that yet.
   // verifyLearnerOnMulticlassCsvFile("arrhythmia.csv",               "Arrhythmia")
   // Getting negative feature values in NaiveBayes, need to look into
-  verifyLearnerOnMulticlassCsvFile("BreastTissue.csv",             "Class", 2, false)
-  verifyLearnerOnMulticlassCsvFile("CarEvaluation.csv",            "Col7", 2, true)
+  verifyMulticlassCsv("BreastTissue.csv",             "Class", 2, false)
+  verifyMulticlassCsv("CarEvaluation.csv",            "Col7", 2, true)
   // Getting "code generation" exceeded max size limit error
   // verifyLearnerOnMulticlassCsvFile("mnist.train.csv",              "Label")
   // This works with 2.0.0, but on 2.1.0 it looks like it loops infinitely while leaking memory
@@ -50,53 +50,51 @@ class VerifyTuneHyperparameters extends Benchmarks {
   // This takes way too long for a gated build.  Need to make it something like a p3 test case.
   // verifyLearnerOnMulticlassCsvFile("Seattle911.train.csv",         "Event Clearance Group")
 
-  verifyLearnerOnBinaryCsvFile("PimaIndian.csv",                   "Diabetes mellitus", 2, true)
-  verifyLearnerOnBinaryCsvFile("data_banknote_authentication.csv", "class", 2, false)
-  verifyLearnerOnBinaryCsvFile("task.train.csv",                   "TaskFailed10", 2, true)
-  verifyLearnerOnBinaryCsvFile("breast-cancer.train.csv",          "Label", 2, true)
-  verifyLearnerOnBinaryCsvFile("random.forest.train.csv",          "#Malignant", 2, true)
-  verifyLearnerOnBinaryCsvFile("transfusion.csv",                  "Donated", 2, true)
+  verifyBinaryCsv("PimaIndian.csv",                   "Diabetes mellitus", 2, true)
+  verifyBinaryCsv("data_banknote_authentication.csv", "class", 2, false)
+  verifyBinaryCsv("task.train.csv",                   "TaskFailed10", 2, true)
+  verifyBinaryCsv("breast-cancer.train.csv",          "Label", 2, true)
+  verifyBinaryCsv("random.forest.train.csv",          "#Malignant", 2, true)
+  verifyBinaryCsv("transfusion.csv",                  "Donated", 2, true)
   // verifyLearnerOnBinaryCsvFile("au2_10000.csv",                    "class", 1)
-  verifyLearnerOnBinaryCsvFile("breast-cancer-wisconsin.csv",      "Class", 2, true)
-  verifyLearnerOnBinaryCsvFile("fertility_Diagnosis.train.csv",    "Diagnosis", 2, false)
-  verifyLearnerOnBinaryCsvFile("bank.train.csv",                   "y", 2, false)
-  verifyLearnerOnBinaryCsvFile("TelescopeData.csv",                " Class", 2, false)
+  verifyBinaryCsv("breast-cancer-wisconsin.csv",      "Class", 2, true)
+  verifyBinaryCsv("fertility_Diagnosis.train.csv",    "Diagnosis", 2, false)
+  verifyBinaryCsv("bank.train.csv",                   "y", 2, false)
+  verifyBinaryCsv("TelescopeData.csv",                " Class", 2, false)
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
-    compareBenchmarkFiles()
+    verifyBenchmarks()
   }
 
-  def verifyLearnerOnBinaryCsvFile(fileName: String,
-                                   labelColumnName: String,
-                                   decimals: Int,
-                                   includeNaiveBayes: Boolean): Unit = {
+  def verifyBinaryCsv(fileName: String,
+                      labelCol: String,
+                      decimals: Int,
+                      includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on " + fileName, TestBase.Extended) {
-      val fileLocation = ClassifierTestUtils.classificationTrainFile(fileName).toString
-      val bestModel = tuneDataset(fileName, labelColumnName, fileLocation, true, includeNaiveBayes)
+      val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+      val bestModel = tuneDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
       val bestMetric = bestModel.bestMetric
-      addAccuracyResult(fileName, bestModel.getBestModelInfo,
-        round(bestMetric, decimals))
+      addBenchmark(s"binary_$fileName", bestMetric, decimals)
     }
   }
 
-  def verifyLearnerOnMulticlassCsvFile(fileName: String,
-                                       labelColumnName: String,
-                                       decimals: Int,
-                                       includeNaiveBayes: Boolean): Unit = {
+  def verifyMulticlassCsv(fileName: String,
+                          labelCol: String,
+                          decimals: Int,
+                          includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
-      val fileLocation = ClassifierTestUtils.multiclassClassificationTrainFile(fileName).toString
-      val bestModel = tuneDataset(fileName, labelColumnName, fileLocation, false, includeNaiveBayes)
+      val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
+      val bestModel = tuneDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
       val bestMetric = bestModel.bestMetric
-      addAccuracyResult(fileName, bestModel.getBestModelInfo,
-        round(bestMetric, decimals))
+      addBenchmark(s"multiclass_$fileName", bestMetric, 10)
     }
   }
 
   def tuneDataset(fileName: String,
-                          labelColumnName: String,
-                          fileLocation: String,
-                          includeNonProb: Boolean,
-                          includeNaiveBayes: Boolean): TuneHyperparametersModel = {
+                  labelCol: String,
+                  fileLocation: String,
+                  includeNonProb: Boolean,
+                  includeNaiveBayes: Boolean): TuneHyperparametersModel = {
     // TODO: Add other file types for testing
     val dataset: DataFrame =
     session.read.format("com.databricks.spark.csv")
@@ -107,9 +105,9 @@ class VerifyTuneHyperparameters extends Benchmarks {
 
     val models = ListBuffer[Estimator[_]]()
     val hyperParams = ListBuffer[(Param[_], Dist[_])]()
-    val logisticRegressor = TrainClassifierTestUtilities.createLogisticRegressor(labelColumnName)
-    val decisionTreeClassifier = TrainClassifierTestUtilities.createDecisionTreeClassifier(labelColumnName)
-    val randomForestClassifier = TrainClassifierTestUtilities.createRandomForestClassifier(labelColumnName)
+    val logisticRegressor = createLR.setLabelCol(labelCol)
+    val decisionTreeClassifier = createDT.setLabelCol(labelCol)
+    val randomForestClassifier = createRF.setLabelCol(labelCol)
     models += logisticRegressor
     hyperParams ++= DefaultHyperparams.defaultRange(
       logisticRegressor.getModel.asInstanceOf[LogisticRegression])
@@ -121,8 +119,8 @@ class VerifyTuneHyperparameters extends Benchmarks {
       randomForestClassifier.getModel.asInstanceOf[RandomForestClassifier])
 
     if (includeNonProb) {
-      val gbtClassifier = TrainClassifierTestUtilities.createGradientBoostedTreesClassifier(labelColumnName)
-      val mlpClassifier = TrainClassifierTestUtilities.createMultilayerPerceptronClassifier(labelColumnName)
+      val gbtClassifier = createGBT.setLabelCol(labelCol)
+      val mlpClassifier = createMLP.setLabelCol(labelCol)
       models += gbtClassifier
       hyperParams ++= DefaultHyperparams.defaultRange(
         gbtClassifier.getModel.asInstanceOf[GBTClassifier])
@@ -132,7 +130,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
     }
 
     if (includeNaiveBayes) {
-      val naiveBayesClassifier = TrainClassifierTestUtilities.createNaiveBayesClassifier(labelColumnName)
+      val naiveBayesClassifier = createNB.setLabelCol(labelCol)
       models += naiveBayesClassifier
       hyperParams ++= DefaultHyperparams.defaultRange(
         naiveBayesClassifier.getModel.asInstanceOf[NaiveBayes])
@@ -143,8 +141,8 @@ class VerifyTuneHyperparameters extends Benchmarks {
     new TuneHyperparameters()
       .setModels(models.toArray)
       .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
-      .setNumFolds(4)
-      .setNumRuns(models.length * 3)
+      .setNumFolds(2)
+      .setNumRuns(2)
       .setParallelism(1)
       .setParamSpace(randomSpace)
       .setSeed(1234L)
@@ -156,10 +154,8 @@ class VerifyTuneHyperparameters extends Benchmarks {
 
   def testObjects(): Seq[TestObject[TuneHyperparameters]] =
     Seq(new TestObject({
-      val logisticRegressor =
-        TrainClassifierTestUtilities.createLogisticRegressor(mockLabelColumn)
-      val decisionTreeClassifier =
-        TrainClassifierTestUtilities.createDecisionTreeClassifier(mockLabelColumn)
+      val logisticRegressor = createLR.setLabelCol(mockLabelColumn)
+      val decisionTreeClassifier = createDT.setLabelCol(mockLabelColumn)
       val models = ListBuffer[Estimator[_]]()
       val hyperParams = ListBuffer[(Param[_], Dist[_])]()
       hyperParams ++= DefaultHyperparams.defaultRange(logisticRegressor.getModel.asInstanceOf[LogisticRegression])

@@ -1,6 +1,0 @@
-PimaIndian.csv,LightGBMClassifier,0.9
-data_banknote_authentication.csv,LightGBMClassifier,1.0
-task.train.csv,LightGBMClassifier,0.9
-breast-cancer.train.csv,LightGBMClassifier,1.0
-random.forest.train.csv,LightGBMClassifier,1.0
-transfusion.csv,LightGBMClassifier,0.8
