@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.lightgbm.lightgbmlibConstants
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
@@ -31,7 +30,7 @@ class LightGBMClassifier(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
-    val numExecutors = LightGBMUtils.getNumExecutors(dataset, getDefaultListenPort)
+    val numExecutors = LightGBMUtils.getNumExecutors(dataset)
     // Reduce number of partitions to number of executors
     val df = dataset.toDF().coalesce(numExecutors).cache()
 
@@ -86,7 +85,7 @@ class LightGBMClassificationModel(
   override def numClasses: Int = model.numClasses()
 
   override protected def predictRaw(features: Vector): Vector = {
-    val prediction = model.score(features, lightgbmlibConstants.C_API_PREDICT_RAW_SCORE)
+    val prediction = model.score(features, true)
     Vectors.dense(Array(-prediction, prediction))
   }
 

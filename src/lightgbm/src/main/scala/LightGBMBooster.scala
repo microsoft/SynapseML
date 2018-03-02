@@ -28,12 +28,15 @@ class LightGBMBooster(val model: String) extends Serializable {
     lightgbmlib.intp_value(numClasses)
   }
 
-  def score(features: Vector, kind: Int): Double = {
+  def score(features: Vector, raw: Boolean): Double = {
     // Reload booster on each node
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
       boosterPtr = getModel()
     }
+    val kind =
+      if (raw) lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
+      else lightgbmlibConstants.C_API_PREDICT_NORMAL
     features match {
       case dense: DenseVector => predictForMat(dense.toArray, kind)
       case sparse: SparseVector => predictForCSR(sparse, kind)
