@@ -85,28 +85,23 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
 
     val model = linearRegressor.fit(dataset)
 
-    val myModelName = "testModel"
-    lazy val dir = new File(myModelName)
-    try {
-      model.write.overwrite().save(myModelName)
-      // write a second time with overwrite flag, verify still works
-      model.write.overwrite().save(myModelName)
-      // assert directory exists
-      assert(dir.exists())
+    val modelFile = new File(tmpDir.toFile, "testModel")
+    model.write.overwrite().save(modelFile.toString)
+    // write a second time with overwrite flag, verify still works
+    model.write.overwrite().save(modelFile.toString)
+    // assert directory exists
+    assert(modelFile.exists())
 
-      // load the model
-      val loadedModel = TrainedRegressorModel.load(myModelName)
+    // load the model
+    val loadedModel = TrainedRegressorModel.load(modelFile.toString)
 
-      // verify model data loaded
-      assert(loadedModel.labelColumn == model.labelColumn)
-      assert(loadedModel.uid == model.uid)
-      val transformedDataset = loadedModel.transform(dataset)
-      val benchmarkDataset = model.transform(dataset)
-      assert(verifyResult(transformedDataset, benchmarkDataset))
-    } finally {
-      // delete the file to cleanup
-      FileUtils.forceDelete(dir)
-    }
+    // verify model data loaded
+    assert(loadedModel.labelColumn == model.labelColumn)
+    assert(loadedModel.uid == model.uid)
+    val transformedDataset = loadedModel.transform(dataset)
+    val benchmarkDataset = model.transform(dataset)
+    assert(verifyResult(transformedDataset, benchmarkDataset))
+
   }
 
   test("Verify regressor can be trained and scored on airfoil_self_noise-train-csv") {

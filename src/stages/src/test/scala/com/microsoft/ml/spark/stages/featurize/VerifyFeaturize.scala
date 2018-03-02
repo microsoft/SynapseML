@@ -33,48 +33,52 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   val mockLabelColumn = "Label"
   val featuresColumn = "testColumn"
-  val thisDirectory = new File("src/test/scala")
   val targetDirectory = new File("target")
+  val resourceDir: File = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
+
+  def getResource(name: String): File ={
+    new File(resourceDir, name)
+  }
 
   val benchmarkBasicDataTypesFile = "benchmarkBasicDataTypes.json"
-  val historicDataTypesFile  = new File(thisDirectory, benchmarkBasicDataTypesFile)
-  val benchmarkBasicDataTypesTempFile = getTempFile(benchmarkBasicDataTypesFile)
+  val historicDataTypesFile: File = getResource(benchmarkBasicDataTypesFile)
+  val benchmarkBasicDataTypesTempFile: File = getTempFile(benchmarkBasicDataTypesFile)
 
   val benchmarkVectorsFile = "benchmarkVectors.json"
-  val historicVectorsFile  = new File(thisDirectory, benchmarkVectorsFile)
-  val benchmarkVectorsTempFile = getTempFile(benchmarkVectorsFile)
+  val historicVectorsFile: File = getResource(benchmarkVectorsFile)
+  val benchmarkVectorsTempFile: File = getTempFile(benchmarkVectorsFile)
 
   val benchmarkStringFile = "benchmarkString.json"
-  val historicStringFile  = new File(thisDirectory, benchmarkStringFile)
-  val benchmarkStringTempFile = getTempFile(benchmarkStringFile)
+  val historicStringFile: File = getResource(benchmarkStringFile)
+  val benchmarkStringTempFile: File = getTempFile(benchmarkStringFile)
 
   val benchmarkStringMissingsFile = "benchmarkStringMissing.json"
-  val historicStringMissingsFile  = new File(thisDirectory, benchmarkStringMissingsFile)
-  val benchmarkStringMissingsTempFile = getTempFile(benchmarkStringMissingsFile)
+  val historicStringMissingsFile: File = getResource(benchmarkStringMissingsFile)
+  val benchmarkStringMissingsTempFile: File = getTempFile(benchmarkStringMissingsFile)
 
   val benchmarkOneHotFile = "benchmarkOneHot.json"
-  val historicOneHotFile  = new File(thisDirectory, benchmarkOneHotFile)
-  val benchmarkOneHotTempFile = getTempFile(benchmarkOneHotFile)
+  val historicOneHotFile: File = getResource(benchmarkOneHotFile)
+  val benchmarkOneHotTempFile: File = getTempFile(benchmarkOneHotFile)
 
   val benchmarkNoOneHotFile = "benchmarkNoOneHot.json"
-  val historicNoOneHotFile  = new File(thisDirectory, benchmarkNoOneHotFile)
-  val benchmarkNoOneHotTempFile = getTempFile(benchmarkNoOneHotFile)
+  val historicNoOneHotFile: File = getResource(benchmarkNoOneHotFile)
+  val benchmarkNoOneHotTempFile: File = getTempFile(benchmarkNoOneHotFile)
 
   val benchmarkOneHotMissingsFile = "benchmarkOneHotMissings.json"
-  val historicOneHotMissingsFile  = new File(thisDirectory, benchmarkOneHotMissingsFile)
-  val benchmarkOneHotMissingsTempFile = getTempFile(benchmarkOneHotMissingsFile)
+  val historicOneHotMissingsFile: File = getResource(benchmarkOneHotMissingsFile)
+  val benchmarkOneHotMissingsTempFile: File = getTempFile(benchmarkOneHotMissingsFile)
 
   val benchmarkNoOneHotMissingsFile = "benchmarkNoOneHotMissings.json"
-  val historicNoOneHotMissingsFile  = new File(thisDirectory, benchmarkNoOneHotMissingsFile)
-  val benchmarkNoOneHotMissingsTempFile = getTempFile(benchmarkNoOneHotMissingsFile)
+  val historicNoOneHotMissingsFile: File = getResource(benchmarkNoOneHotMissingsFile)
+  val benchmarkNoOneHotMissingsTempFile: File = getTempFile(benchmarkNoOneHotMissingsFile)
 
   val benchmarkStringIndexOneHotFile = "benchmarkStringIndexOneHot.json"
-  val historicStringIndexOneHotFile  = new File(thisDirectory, benchmarkStringIndexOneHotFile)
-  val benchmarkStringIndexOneHotTempFile = getTempFile(benchmarkStringIndexOneHotFile)
+  val historicStringIndexOneHotFile: File = getResource(benchmarkStringIndexOneHotFile)
+  val benchmarkStringIndexOneHotTempFile: File = getTempFile(benchmarkStringIndexOneHotFile)
 
   val benchmarkDateFile = "benchmarkDate.json"
-  val historicDateFile  = new File(thisDirectory, benchmarkDateFile)
-  val benchmarkDateTempFile = getTempFile(benchmarkDateFile)
+  val historicDateFile: File = getResource(benchmarkDateFile)
+  val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
 
   private def getTempFile(fileName: String): File = {
     new File(targetDirectory,

@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.stages
 
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.metrics.MetricConstants
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.ml.spark.stages.featurize.TrainClassifierTestUtilities
@@ -54,10 +55,9 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
       .setEvaluationMetric(MetricConstants.AucSparkMetric)
     val bestModel = findBestModel.fit(dataset)
 
-    val myModelName = "testEvalModel"
-    bestModel.save(myModelName)
-    // delete the file, errors if it doesn't exist
-    FileUtils.forceDelete(new java.io.File(myModelName))
+    val myModelFile = new File(tmpDir.toFile, "testEvalModel")
+    bestModel.save(myModelFile.toString)
+    assert(myModelFile.exists())
   }
 
   test("Verify the best model metrics can be retrieved and are valid") {

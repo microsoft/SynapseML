@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.stages.featurize
 
+import java.io.File
+
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.schema.SchemaConstants
 import com.microsoft.ml.spark.core.test.base.TestBase
@@ -33,7 +35,9 @@ object ClassifierTestUtils {
 /** Tests to validate the functionality of Train Classifier module. */
 class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassifier] {
 
-  override val historicMetricsFile  = new File(thisDirectory, "TrainClassifierBenchmarks.csv")
+  val resourceDir: File = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
+
+  override val historicMetricsFile  = new File(resourceDir, "TrainClassifierBenchmarks.csv")
 
   lazy val moduleName = "train-classifier"
 
