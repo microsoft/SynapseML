@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 
 abstract class Benchmarks extends TestBase {
   val moduleName: String
-  val targetDirectory = new File("target")
+  val targetDirectory = new File(new File(getClass.getResource("/").toURI), "../../")
   val resourcesDirectory = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
   val historicMetricsFile  = new File(resourcesDirectory, "benchmarkMetrics.csv")
   val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
