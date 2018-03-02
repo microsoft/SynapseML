@@ -1,2 +1,2 @@
 //> DependsOn: core
-//> DependsOn: stages
+//> DependsOn: lib

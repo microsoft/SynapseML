@@ -2,4 +2,4 @@
 //> DependsOn: io
 //> DependsOn: cntk
 //> DependsOn: image-transformer
-//> DependsOn: stages
+//> DependsOn: lib

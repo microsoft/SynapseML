@@ -1,4 +1,4 @@
 //> DependsOn: core
 //> DependsOn: io
-//> DependsOn: stages
+//> DependsOn: lib
 //> DependsOn: image-transformer

@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.udf
+package com.microsoft.ml.spark.udfs
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
