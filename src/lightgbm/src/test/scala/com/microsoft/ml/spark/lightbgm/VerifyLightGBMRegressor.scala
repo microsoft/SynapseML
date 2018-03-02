@@ -1,12 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.lightbgm
 
 import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, RegressionTestUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMRegressionModel, LightGBMRegressor, LightGBMUtils}
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Column
@@ -14,7 +15,7 @@ import org.apache.spark.sql.Column
 /** Tests to validate the functionality of LightGBM module.
   */
 class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMRegressor] {
-  override val historicMetricsFile  = new File(thisDirectory, "regressionBenchmarkMetrics.csv")
+  override val historicMetricsFile  = new File(resourcesDirectory, "regressionBenchmarkMetrics.csv")
   lazy val moduleName = "lightgbm"
   var portIndex = 0
   val numPartitions = 2

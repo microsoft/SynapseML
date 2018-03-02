@@ -1,15 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.contracts.MMLParams
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import com.microsoft.ml.lightgbm.lightgbmlibConstants
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}

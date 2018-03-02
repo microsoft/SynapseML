@@ -1,10 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 
 /** Represents a LightGBM Booster learner

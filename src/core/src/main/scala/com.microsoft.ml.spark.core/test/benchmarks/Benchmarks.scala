@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.core.test.benchmarks
 
+import java.io.File
+
 import com.microsoft.ml.spark.core.env.FileUtilities.{File, readFile, writeFile}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.hadoop.fs.FileSystem
@@ -13,12 +15,8 @@ import scala.collection.mutable.ArrayBuffer
 abstract class Benchmarks extends TestBase {
   val moduleName: String
   val targetDirectory = new File("target")
-  val thisDirectory = {
-    // intellij runs from a different directory
-    val d = new File("src/test/scala")
-    if (d.isDirectory) d else new File(s"$moduleName/src/test/scala")
-  }
-  val historicMetricsFile  = new File(thisDirectory, "benchmarkMetrics.csv")
+  val resourcesDirectory = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
+  val historicMetricsFile  = new File(resourcesDirectory, "benchmarkMetrics.csv")
   val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
 
   val accuracyResults = ArrayBuffer.empty[String]
@@ -59,10 +57,7 @@ abstract class Benchmarks extends TestBase {
   }
 
   def compareBenchmarkFiles(): Unit = {
-    try writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
-    catch {
-      case e: java.io.IOException => throw new Exception("Not able to process benchmarks file")
-    }
+    writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
     val historicMetrics = readFile(historicMetricsFile, _.getLines.toList)
     if (historicMetrics.length != accuracyResults.length)
       throw new Exception(s"Mis-matching number of lines in new benchmarks file: $benchmarkMetricsFile")

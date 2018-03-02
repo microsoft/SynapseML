@@ -1,15 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.stages.featurize.Featurize
-import com.microsoft.ml.spark.stages.featurize.FeaturizeUtilities
-import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
+import com.microsoft.ml.spark.NativeLoader
+import com.microsoft.ml.spark.stages.featurize.{Featurize, FeaturizeUtilities}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {

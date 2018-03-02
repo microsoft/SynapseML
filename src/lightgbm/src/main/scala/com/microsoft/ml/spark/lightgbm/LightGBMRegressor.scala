@@ -1,14 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.lightgbm.lightgbmlibConstants
 import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
+import org.apache.spark.ml.BaseRegressor
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.regression.{BaseRegressor, RegressionModel}
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.regression.RegressionModel
+import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
