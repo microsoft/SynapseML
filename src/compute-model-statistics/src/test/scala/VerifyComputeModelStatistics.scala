@@ -116,7 +116,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val model = tr.fit(dataset)
     val prediction = model.transform(dataset)
     val evaluatedData = new ComputeModelStatistics().transform(prediction)
-    assert(evaluatedData.collect()(0)(2).asInstanceOf[Double] === 0.977733)
+    assert(evaluatedData.collect()(0).getDouble(2) === 0.977733)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
@@ -151,7 +151,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(3) === 0.0)
   }
 
-  val logisticRegressor = createLogisticRegressor(labelColumn)
+  val logisticRegressor = createLR.setLabelCol(labelColumn)
   val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
@@ -185,10 +185,10 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setEvaluationMetric(MetricConstants.ClassificationMetrics)
     val evaluatedData = cms.transform(scoredData)
     val firstRow = evaluatedData.select(col("accuracy"), col("precision"), col("recall"), col("AUC")).first()
-    assert(firstRow.get(0).asInstanceOf[Double] === 1.0)
-    assert(firstRow.get(1).asInstanceOf[Double] === 1.0)
-    assert(firstRow.get(2).asInstanceOf[Double] === 1.0)
-    assert(firstRow.get(3).asInstanceOf[Double] === 1.0)
+    assert(firstRow.getDouble(0) === 1.0)
+    assert(firstRow.getDouble(1) === 1.0)
+    assert(firstRow.getDouble(2) === 1.0)
+    assert(firstRow.getDouble(3) === 1.0)
   }
 
   test("Verify results of multiclass metrics") {
@@ -247,7 +247,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   }
 
   test("validate AUC from compute model statistic and binary classification evaluator gives the same result") {
-    val fileLocation = ClassifierTestUtils.classificationTrainFile("transfusion.csv").toString
+    val fileLocation = DatasetUtils.binaryTrainFile("transfusion.csv").toString
     val label = "Donated"
     val dataset: DataFrame =
       session.read.format("com.databricks.spark.csv")

@@ -1,0 +1,6 @@
+name,value,precision,higherIsBetter
+LightGBMRegressor_energyefficiency2012_data.train.csv,4.04001976483622,1.0,true
+LightGBMRegressor_airfoil_self_noise.train.csv,5.060751439024563,0.1,true
+LightGBMRegressor_Buzz.TomsHardware.train.csv,12566.059780791977,1000.0,true
+LightGBMRegressor_machine.train.csv,115.31109301319304,100.0,true
+LightGBMRegressor_Concrete_Data.train.csv,10.746073523781343,1.0,true

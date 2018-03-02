@@ -114,7 +114,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
       (1, 4, 0.12, 0.34, 3)
     )).toDF(labelColumn, "col1", "col2", "col3", "col4")
 
-    val logisticRegressor = createLogisticRegressor(labelColumn)
+    val logisticRegressor = createLR.setLabelCol(labelColumn)
     val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
     val evaluatedData = new ComputePerInstanceStatistics().transform(scoredDataset)
     validatePerInstanceClassificationStatistics(evaluatedData)

@@ -1,5 +1,0 @@
-energyefficiency2012_data.train.csv,LightGBMRegressor,4.0
-airfoil_self_noise.train.csv,LightGBMRegressor,5.1
-Buzz.TomsHardware.train.csv,LightGBMRegressor,13000.0
-machine.train.csv,LightGBMRegressor,100.0
-Concrete_Data.train.csv,LightGBMRegressor,11.0

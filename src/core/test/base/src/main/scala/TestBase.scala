@@ -12,6 +12,7 @@ import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.{DataFrame, _}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.sql.functions.col
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.scalactic.{Equality, TolerantNumerics}
 import org.scalactic.source.Position
@@ -202,5 +203,63 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
       info(msg)
     }
   }
+
+}
+
+trait DataFrameEquality extends TestBase {
+  val epsilon = 1e-4
+  implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
+  implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
+    def areEqual(a: DenseVector, b: Any): Boolean = b match {
+      case bArr:DenseVector =>
+        a.values.zip(bArr.values).forall {case (x, y) => doubleEq.areEqual(x, y)}
+    }
+  }
+
+  implicit lazy val rowEq: Equality[Row] = new Equality[Row]{
+    def areEqual(a: Row, bAny: Any): Boolean = bAny match {
+      case b:Row =>
+        if (a.length != b.length) { return false }
+        (0 until a.length).forall(j =>{
+          a(j) match {
+            case lhs: DenseVector =>
+              lhs === b(j)
+            case lhs: Double if lhs.isNaN =>
+              b(j).asInstanceOf[Double].isNaN
+            case lhs: Double =>
+              b(j).asInstanceOf[Double] === lhs
+            case lhs =>
+              lhs === b(j)
+          }
+        })
+    }
+  }
+
+  val sortInDataframeEquality = false
+
+  val baseDfEq = new Equality[DataFrame]{
+    def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
+      case ds:Dataset[_] =>
+        val b = ds.toDF()
+        if (a.columns !== b.columns) {
+          return false
+        }
+        val (aList, bList) = if (sortInDataframeEquality) {
+          (a.sort(a.columns.sorted.map(col):_*).collect(),
+            b.sort(b.columns.sorted.map(col):_*).collect())
+        } else {
+          (a.collect(), b.collect())
+        }
+
+        if (aList.length != bList.length){
+          return false
+        }
+        aList.zip(bList).forall { case (rowA, rowB) =>
+          rowA === rowB
+        }
+    }
+  }
+
+  implicit lazy val dfEq: Equality[DataFrame] = baseDfEq
 
 }
