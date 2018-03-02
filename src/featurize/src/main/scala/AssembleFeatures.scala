@@ -429,7 +429,7 @@ class AssembleFeaturesModel(val uid: String,
     // One-hot encode categoricals
     val oheData =
       if (oneHotEncodeCategoricals && columnNamesToFeaturize.categoricalColumns.nonEmpty) {
-        val ohe = new OneHotEncoder()
+        val ohe = new OneHotEncoderEstimator()
         val inputColsKeys = columnNamesToFeaturize.categoricalColumns.keys
         val outputColsKeys = columnNamesToFeaturize.categoricalColumns.values
         val inputCols = inputColsKeys.toArray
