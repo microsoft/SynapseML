@@ -69,9 +69,9 @@ INSTALLATIONS=(
   vers:   "java -version|openjdk version \"<{ver}>_*\""
   where:  "devel runtime build"
 
-  SBT ver: "1.1.0"
+  SBT ver: "1.1.1"
   url:    "https://github.com/sbt/sbt/releases/download/v<{ver}>/sbt-<{ver}>.tgz"
-  sha256: "9d8cb24b297507ed4c49b476d3050da0abe2c39f7e7d97ba6d48c1b17854e2d7"
+  sha256: "8a9072155578f06c861be406e7f9fe989b3770d8da4069dd3cb5ad6c6d25c03b"
   exes:   "sbt"
   vers:   "sbt -no-colors sbtVersion|?info? <{ver}>"
   where:  "devel build"
@@ -97,9 +97,9 @@ INSTALLATIONS=(
   vers:   "cat version|<{ver}>"
   where:  "devel build"
 
-  CNTK ver: "2.2" dashver: "<{ver//./-}>"
+  CNTK ver: "2.4" dashver: "<{ver//./-}>"
   url:    "$INSTALLER_URL/CNTK-<{dashver}>-Linux-64bit-CPU-Only.tar.gz"
-  sha256: "98236d98259d881d489a13ecf2d6bc5d45df773feddc2db1f302614b6cb02d64"
+  sha256: "2ed7917d426025d7dd722c7d7fda5f55e6bbec7a293a3bfc4cb163c10b4b27f6"
   exes:   "cntk"
   vers:   "cat version.txt|CNTK-<{dashver}>"
   prereq: "has_libs libpng12.so.0 libjasper.so.1|libpng12 and libjasper1 are required"
