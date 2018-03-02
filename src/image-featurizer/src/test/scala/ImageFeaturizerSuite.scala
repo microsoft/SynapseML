@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.net.URI
 
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.cntk.CNTKTestUtils
 import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.schema.ImageSchema
 import com.microsoft.ml.spark.core.test.base.TestBase

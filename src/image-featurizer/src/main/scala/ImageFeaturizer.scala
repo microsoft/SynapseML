@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
+import com.microsoft.ml.spark.cntk.CNTKModel
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
