@@ -15,18 +15,18 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
   import session.implicits._
   def createMockDataset: DataFrame = {
     Seq[(JInt, JInt, JDouble, JDouble, JInt)](
-      (0, 2, 0.50, 0.60, 0),
-      (1, 3, 0.40, null, null),
-      (0, 4, 0.78, 0.99, 2),
-      (1, 5, 0.12, 0.34, 3),
-      (0, 1, 0.50, 0.60, 0),
+      (0,    2,    0.50, 0.60, 0),
+      (1,    3,    0.40, null, null),
+      (0,    4,    0.78, 0.99, 2),
+      (1,    5,    0.12, 0.34, 3),
+      (0,    1,    0.50, 0.60, 0),
       (null, null, null, null, null),
-      (0, 3, 0.78, 0.99, 2),
-      (1, 4, 0.12, 0.34, 3),
-      (0, null, 0.50, 0.60, 0),
-      (1, 2, 0.40, 0.50, null),
-      (0, 3, null, 0.99, 2),
-      (1, 4, 0.12, 0.34, 3))
+      (0,    3,    0.78, 0.99, 2),
+      (1,    4,    0.12, 0.34, 3),
+      (0,    null, 0.50, 0.60, 0),
+      (1,    2,    0.40, 0.50, null),
+      (0,    3,    null, 0.99, 2),
+      (1,    4,    0.12, 0.34, 3))
       .toDF("col1", "col2", "col3", "col4", "col5")
   }
 

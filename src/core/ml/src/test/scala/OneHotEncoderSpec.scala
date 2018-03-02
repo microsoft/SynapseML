@@ -5,8 +5,9 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.DatasetExtensions._
 import org.apache.spark._
-import org.apache.spark.ml.feature.OneHotEncoder
+import org.apache.spark.ml.feature.OneHotEncoderEstimator
 import org.apache.spark.ml.linalg.SparseVector
+import org.apache.spark.sql.DataFrame
 
 class OneHotEncoderSpec extends TestBase {
 
@@ -20,9 +21,9 @@ class OneHotEncoderSpec extends TestBase {
       .toDF("id", "categoryIndex")
 
     val encoded =
-      new OneHotEncoder()
-        .setInputCol("categoryIndex").setOutputCol("categoryVec")
-        .transform(df)
+      new OneHotEncoderEstimator()
+        .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
+        .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
     val trueList = List(new SparseVector(2, Array(0), Array(1.0)),
                         new SparseVector(2, Array(1), Array(1.0)),
@@ -43,7 +44,9 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded= new OneHotEncoder().setInputCol("categoryIndex").setOutputCol("categoryVec").transform(df)
+    val encoded = new OneHotEncoderEstimator()
+      .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
+      .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
     val trueList = List(new SparseVector(2, Array(0), Array(1.0)),
                         new SparseVector(2, Array(1), Array(1.0)),
@@ -64,9 +67,9 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded= new OneHotEncoder().setDropLast(false)
-      .setInputCol("categoryIndex").setOutputCol("categoryVec")
-      .transform(df)
+    val encoded = new OneHotEncoderEstimator().setDropLast(false)
+      .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
+      .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
     val trueList = List(new SparseVector(3, Array(0), Array(1.0)),
                         new SparseVector(3, Array(1), Array(1.0)),
@@ -77,26 +80,19 @@ class OneHotEncoderSpec extends TestBase {
     assert(oneHotList === trueList)
   }
 
-  test("raise an error when applied to a null array") {
-    val df = session.createDataFrame(Seq((0, Some(0.0)),
-                                         (1, Some(1.0)),
-                                         (2, None)))
-      .toDF("id", "categoryIndex")
-    assertSparkException[SparkException](new OneHotEncoder().setInputCol("categoryIndex"), df)
+  private def testOHE(data: DataFrame) = {
+    assertSparkException[SparkException](
+      new OneHotEncoderEstimator()
+        .setInputCols(Array("categoryIndex")).setOutputCols(Array("encodedOutput")),
+      data.toDF("id", "categoryIndex"))
   }
 
+  test("raise an error when applied to a null array") {
+    testOHE(session.createDataFrame(Seq((0, Some(0.0)), (1, Some(1.0)), (2, None))))
+  }
   test("raise an error when it receives a strange float") {
-    val df = session.createDataFrame(Seq((0, 0.0),
-                                         (1, 1.0),
-                                         (2, 0.4)))
-      .toDF("id", "categoryIndex")
-    assertSparkException[SparkException](new OneHotEncoder().setInputCol("categoryIndex"), df)
-
-    val df2 = session.createDataFrame(Seq((0,  0.0),
-                                          (1,  1.0),
-                                          (2, -1.0)))
-      .toDF("id", "categoryIndex")
-    assertSparkException[SparkException](new OneHotEncoder().setInputCol("categoryIndex"), df2)
+    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, 0.4))))
+    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, -1.0))))
   }
 
 }
