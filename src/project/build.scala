@@ -25,8 +25,6 @@ object Extras {
   def defaultOrg = "com.microsoft.ml.spark"
   def scalaVer = env("SCALA_FULL_VERSION", null)
   def sparkVer = env("SPARK_VERSION", null)
-  def cntkVer  = if (env("CNTK_VERSION", null) == "2.2") "2.2.0.1"
-                 else sys.error("Time to remove the CNTK 2.2.0.1 hack!")
 
   def commonLibs = Seq(
     "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
@@ -34,7 +32,7 @@ object Extras {
     "org.scalatest"      %% "scalatest"    % "3.0.0"  % "provided",
     // should include these things in the distributed jar
     "io.spray"           %% "spray-json"   % "1.3.2",
-    "com.microsoft.cntk"  % "cntk"         % cntkVer,
+    "com.microsoft.cntk"  % "cntk"         % "2.4",
     "org.openpnp"         % "opencv"       % "3.2.0-1",
     "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.0.120"
     // needed for wasb access, but it collides with the version that comes with Spark,
