@@ -29,7 +29,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.stages.ValueIndexerModel",
-      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
       "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters",
       "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.stages.DataConversion"
@@ -51,7 +51,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.stages.ValueIndexerModel",
-      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
       "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.stages.DataConversion",
       "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters"
@@ -72,7 +72,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.stages.ValueIndexerModel",
-      "com.microsoft.ml.spark.CNTKLearner",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
       "com.microsoft.ml.spark.stages.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.stages.DataConversion",
       "com.microsoft.ml.spark.stages.hyper.TuneHyperparameters",
@@ -142,9 +142,9 @@ class FuzzingTest extends TestBase {
 
     val exemptions = Set[String](
       "org.apache.spark.ml.feature.FastVectorAssembler", // In Spark namespace
-      "com.microsoft.ml.spark.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.TextFeaturizer" // needs to hide setters from model
+      "com.microsoft.ml.spark.lightgbm.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.lightgbm.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.stages.text.TextFeaturizer" // needs to hide setters from model
     )
     pipelineStages.foreach { stage =>
       if (!exemptions(stage.getClass.getName)) {
