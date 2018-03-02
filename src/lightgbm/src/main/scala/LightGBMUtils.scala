@@ -52,24 +52,22 @@ object LightGBMUtils {
 
   /** Returns the executors.
     * @param dataset The dataset containing the current spark session.
-    * @param defaultListenPort The default port to listen on.
     * @return List of executors in host:port format.
     */
-  def getExecutors(dataset: Dataset[_], defaultListenPort: Int): Array[String] = {
+  def getExecutors(dataset: Dataset[_]): Array[(String, Int)] = {
     val blockManager = BlockManagerUtils.getBlockManager(dataset)
-    blockManager.master.getMemoryStatus.flatMap({ case (blockManagerId, _) =>
+    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") None
-      else Some(blockManagerId.host + ":" + (defaultListenPort + blockManagerId.executorId.toInt))
+      else Some((blockManagerId.host, blockManagerId.executorId.toInt))
     }).toArray
   }
 
   /** Returns the number of executors.
     * @param dataset The dataset containing the current spark session.
-    * @param defaultListenPort The default port to listen on.
     * @return The number of executors.
     */
-  def getNumExecutors(dataset: Dataset[_], defaultListenPort: Int): Int = {
-    val executors = getExecutors(dataset, defaultListenPort)
+  def getNumExecutors(dataset: Dataset[_]): Int = {
+    val executors = getExecutors(dataset)
     if (!executors.isEmpty) executors.length
     else {
       val master = dataset.sparkSession.sparkContext.master
@@ -84,39 +82,79 @@ object LightGBMUtils {
     }
   }
 
+  /** Converts a host,id pair to the lightGBM host:port format.
+    * @param hostAndId The host,id.
+    * @param defaultListenPort The default listen port.
+    * @return The string lightGBM representation of host:port.
+    */
+  def toAddr(hostAndId: (String, Int), defaultListenPort: Int): String =
+    hostAndId._1 + ":" + (defaultListenPort + hostAndId._2)
+
   /** Returns the executor node ips and ports.
     * @param data The input dataframe.
     * @param defaultListenPort The default listen port.
     * @return List of nodes as comma separated string and count.
     */
   def getNodes(data: DataFrame, defaultListenPort: Int): (String, Int) = {
-    val nodes = getExecutors(data, defaultListenPort)
+    val nodes = getExecutors(data)
+    val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length
     if (nodes.isEmpty) {
       // Running in local[*]
-      getNodesFromPartitions(data, defaultListenPort)
+      getNodesFromPartitionsLocal(data, defaultListenPort)
+    } else if (getSubsetExecutors) {
+      // Special case when num partitions < num executors
+      val executorToHost = nodes.map { case (host, id) => (id, host) }.toMap
+      getNodesFromPartitions(data, defaultListenPort, executorToHost)
     } else {
       // Running on cluster, include all workers with driver excluded
-      (nodes.sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2), nodes.size)
+      (nodes.map(toAddr(_, defaultListenPort)).sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2),
+        nodes.size)
     }
   }
 
-  /** Returns the nodes from mapPartitions.  Only run in local[*] case.
+  /** Returns the nodes from mapPartitions.
+    * Only run in case when num partitions < num executors.
+    * @param processedData The input data.
+    * @param defaultListenPort The default listening port.
+    * @param executorToHost Map from executor id to host name.
+    * @return The list of nodes in host:port format.
+    */
+  def getNodesFromPartitions(processedData: DataFrame, defaultListenPort: Int,
+                             executorToHost: Map[Int, String]): (String, Int) = {
+    import processedData.sparkSession.implicits._
+    val nodes = reduceNodesToString(
+      processedData.mapPartitions((_: Iterator[Row]) => {
+        val id = getId()
+        Array(executorToHost(id) + ":" + (defaultListenPort + id)).toIterator
+      })
+    )
+    (nodes, nodes.split(",").length)
+  }
+
+  /** Returns the nodes from mapPartitions.
+    * Only run in local[*] case.
     * @param processedData The input data.
     * @param defaultListenPort The default listening port.
     * @return The list of nodes in host:port format.
     */
-  def getNodesFromPartitions(processedData: DataFrame, defaultListenPort: Int): (String, Int) = {
+  def getNodesFromPartitionsLocal(processedData: DataFrame, defaultListenPort: Int): (String, Int) = {
     import processedData.sparkSession.implicits._
     val blockManager = BlockManagerUtils.getBlockManager(processedData)
     val host = blockManager.master.getMemoryStatus.flatMap({ case (blockManagerId, _) =>
       Some(blockManagerId.host)
     }).head
-    val nodes = processedData.mapPartitions((iter: Iterator[Row]) => {
-      // The logic below is to get it to run in local[*] spark context
-      val id = getId()
-      Array(host + ":" + (defaultListenPort + id)).toIterator
-    }).collect().sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2)
+    val nodes = reduceNodesToString(
+      processedData.mapPartitions((_: Iterator[Row]) => {
+        // The logic below is to get it to run in local[*] spark context
+        val id = getId()
+        Array(host + ":" + (defaultListenPort + id)).toIterator
+      })
+    )
     (nodes, nodes.split(",").length)
+  }
+
+  private def reduceNodesToString(nodes: Dataset[String]): String = {
+    nodes.collect().sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2)
   }
 
   def newDoubleArray(array: Array[Double]): (SWIGTYPE_p_void, SWIGTYPE_p_double) = {

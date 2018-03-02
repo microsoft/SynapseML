@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.lightgbm.lightgbmlibConstants
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.Vector
@@ -37,6 +36,11 @@ class LightGBMRegressor(override val uid: String)
     with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
+  val alpha = DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression", 0.9)
+
+  def getAlpha: Double = $(alpha)
+  def setAlpha(value: Double): this.type = set(alpha, value)
+
   val application = StringParam(this, "application",
     "Regression application, regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie",
     "regression")
@@ -50,7 +54,7 @@ class LightGBMRegressor(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMRegressionModel = {
-    val numExecutors = LightGBMUtils.getNumExecutors(dataset, getDefaultListenPort)
+    val numExecutors = LightGBMUtils.getNumExecutors(dataset)
     // Reduce number of partitions to number of executors
     val df = dataset.toDF().coalesce(numExecutors).cache()
 
@@ -61,7 +65,7 @@ class LightGBMRegressor(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: $nodes")
     val trainParams = new RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getApplication)
+      getApplication, getAlpha)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, getFeaturesCol,
         getDefaultListenPort, log, trainParams))(encoder)
@@ -85,7 +89,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(predictionCol, predictionColName)
 
   override protected def predict(features: Vector): Double = {
-    model.score(features, lightgbmlibConstants.C_API_PREDICT_NORMAL)
+    model.score(features, false)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
