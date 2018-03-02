@@ -3,8 +3,6 @@
 
 package com.microsoft.ml.spark.core.test.benchmarks
 
-import java.io.File
-
 import com.microsoft.ml.spark.core.env.FileUtilities.{File, readFile, writeFile}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.hadoop.fs.FileSystem
@@ -17,7 +15,7 @@ abstract class Benchmarks extends TestBase {
   val targetDirectory = new File(new File(getClass.getResource("/").toURI), "../../")
   val resourcesDirectory = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
   val historicMetricsFile  = new File(resourcesDirectory, "benchmarkMetrics.csv")
-  val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${System.currentTimeMillis}_.csv")
+  val benchmarkMetricsFile = new File(targetDirectory, s"newMetrics_${this}.csv")
 
   val accuracyResults = ArrayBuffer.empty[String]
   def addAccuracyResult(items: Any*): Unit = {
@@ -56,18 +54,24 @@ abstract class Benchmarks extends TestBase {
       .setScale(decimals, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
 
-  def compareBenchmarkFiles(): Unit = {
-    writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
+  def compareBenchmarkFiles(useExistingFile: Boolean = false): Unit = {
+    if (!useExistingFile){
+      if (benchmarkMetricsFile.exists()) benchmarkMetricsFile.delete()
+      writeFile(benchmarkMetricsFile, accuracyResults.mkString("\n") + "\n")
+    }
     val historicMetrics = readFile(historicMetricsFile, _.getLines.toList)
-    if (historicMetrics.length != accuracyResults.length)
+    val currentMetrics = readFile(benchmarkMetricsFile, _.getLines.toList)
+    if (historicMetrics.lengthCompare(currentMetrics.length) != 0)
       throw new Exception(s"Mis-matching number of lines in new benchmarks file: $benchmarkMetricsFile")
-    for (((hist,acc),i) <- (historicMetrics zip accuracyResults).zipWithIndex) {
-      assert(hist == acc,
+    for (((hist,cur),i) <- (historicMetrics zip currentMetrics).zipWithIndex) {
+      println(hist)
+      println(cur)
+      assert(hist == cur,
         s"""Lines do not match on file comparison:
            |  $historicMetricsFile:$i:
            |    $hist
            |  $benchmarkMetricsFile:$i:
-           |    $acc
+           |    $cur
            |.""".stripMargin)
     }
   }
