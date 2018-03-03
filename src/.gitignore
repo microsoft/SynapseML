@@ -8,7 +8,6 @@ target/
 /project/build.properties
 /project/autogen.scala
 /project/dependencies.*
-/project/project-roots.txt
 /scalastyle-config.xml
 
 # More SBT things

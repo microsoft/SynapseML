@@ -11,6 +11,18 @@ import sbtassembly.AssemblyPlugin.autoImport.assembly
 import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
 
+object SubProjects {
+  val all = Seq(
+    "core",
+    "codegen",
+    "lib",
+    "io",
+    "image-transformer",
+    "cntk",
+    "image-featurizer",
+    "lightgbm")
+}
+
 object Extras {
 
   private def env(varName: String, default: String = "") =

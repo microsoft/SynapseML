@@ -19,7 +19,7 @@ object JarLoadingUtils {
 
   private val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
   private val testRelPath = "test-classes"
-  private val projectRoots = "project/project-roots.txt"
+  private val projectRoots = "project/project-roots.txt" //TODO eliminate this dependency
 
   private val outputDirs = {
     val thisFile = new File(getClass.getProtectionDomain.getCodeSource.getLocation.getPath)
