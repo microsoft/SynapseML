@@ -10,32 +10,32 @@ enablePlugins(ScalaUnidocPlugin)
 // Use `in ThisBuild` to provide defaults for all sub-projects
 version in ThisBuild := Extras.mmlVer
 
-val core = project
+lazy val core = project
   .settings(Extras.defaultSettings: _*)
 
-val codegen = project
-  .settings(Extras.defaultSettings: _*)
-  .dependsOn(
-    core % "compile->compile;test->test")
-
-val lib = project
+lazy val codegen = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test")
 
-val io = project
+lazy val lib = project
+  .settings(Extras.defaultSettings: _*)
+  .dependsOn(
+    core % "compile->compile;test->test")
+
+lazy val io = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test",
     lib % "compile->compile;test->test")
 
-val `image-transformer` = project
+lazy val `image-transformer` = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test",
     io % "compile->compile;test->test")
 
-val cntk = project
+lazy val cntk = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test",
@@ -43,7 +43,7 @@ val cntk = project
     lib % "compile->compile;test->test",
     `image-transformer` % "compile->compile;test->test")
 
-val `image-featurizer` = project
+lazy val `image-featurizer` = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test",
@@ -52,13 +52,13 @@ val `image-featurizer` = project
     `image-transformer` % "compile->compile;test->test",
     lib % "compile->compile;test->test")
 
-val lightgbm = project
+lazy val lightgbm = project
   .settings(Extras.defaultSettings: _*)
   .dependsOn(
     core % "compile->compile;test->test",
     lib % "compile->compile;test->test")
 
-val mmlspark = (project in file("."))
+lazy val mmlspark = (project in file("."))
   .settings(Extras.defaultSettings: _*)
   .aggregate(cntk, codegen, core, `image-featurizer`, `image-transformer`, io, lib, lightgbm)
   .dependsOn(
