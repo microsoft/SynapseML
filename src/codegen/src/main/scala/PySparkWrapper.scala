@@ -4,14 +4,13 @@
 package com.microsoft.ml.spark.codegen
 
 import scala.collection.mutable.ListBuffer
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.Param
-
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.

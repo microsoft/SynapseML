@@ -3,9 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, MMLParams}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchema}
+import com.microsoft.ml.spark.core.serialize.params.ArrayMapParam
+import com.microsoft.ml.spark.io.image.ImageReader
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{ParamMap, _}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._

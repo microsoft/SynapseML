@@ -9,7 +9,9 @@ import WrapperClassDoc._
 
 import scala.util.matching.Regex
 import java.util.regex.Pattern
-import com.microsoft.ml.spark.FileUtilities._
+
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import org.apache.commons.io.FilenameUtils._
 import org.apache.commons.io.FileUtils
 
@@ -17,7 +19,7 @@ object CodeGen {
 
   def copyAllFiles(fromDir: File, rx: Regex, toDir: File): Unit = {
     if (!fromDir.isDirectory) { println(s"'$fromDir' is not a directory"); return }
-    allFiles(fromDir, if (rx == null) null else (f => rx.findFirstIn(f.getName) != None))
+    allFiles(fromDir, if (rx == null) null else f => rx.findFirstIn(f.getName).isDefined)
       .foreach{x => copyFile(x, toDir, overwrite=true)}
   }
   def copyAllFiles(fromDir: File, extension: String, toDir: File): Unit =
@@ -77,7 +79,7 @@ object CodeGen {
     genRstFiles()
     // build init file
     val importStrings =
-      allFiles(pyDir, (f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName) != None))
+      allFiles(pyDir, f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName).isDefined)
         .map(f => s"from mmlspark.${getBaseName(f.getName)} import *\n").mkString("")
     writeFile(new File(pyDir, "__init__.py"), packageHelp(importStrings))
     // package python+r zip files

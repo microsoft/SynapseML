@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.ImageSchema._
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, MMLParams}
+import com.microsoft.ml.spark.core.schema.ImageSchema._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType

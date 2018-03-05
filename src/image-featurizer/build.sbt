@@ -1,6 +1,5 @@
 //> DependsOn: core
 //> DependsOn: io
-//> DependsOn: downloader
-//> DependsOn: cntk-model
+//> DependsOn: cntk
 //> DependsOn: image-transformer
-//> DependsOn: pipeline-stages
+//> DependsOn: lib

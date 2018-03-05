@@ -3,8 +3,9 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.FileUtilities._
-import sys.process.Process
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+
+import scala.sys.process.Process
 
 object Config {
 

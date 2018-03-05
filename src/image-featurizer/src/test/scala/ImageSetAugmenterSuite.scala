@@ -4,6 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.core.test.base.LinuxOnly
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
