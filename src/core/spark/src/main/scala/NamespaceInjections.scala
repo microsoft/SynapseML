@@ -7,8 +7,8 @@ import org.apache.spark.ml.util.Identifiable
 
 object NamespaceInjections {
 
-  def pipelineModel(stages: Array[Transformer]): PipelineModel = {
-    new PipelineModel(Identifiable.randomUID("PipelineModel"), stages)
+  def pipelineModel[T <: Transformer](stages: Array[T]): PipelineModel = {
+    new PipelineModel(Identifiable.randomUID("PipelineModel"), stages.asInstanceOf[Array[Transformer]])
   }
 
 }
