@@ -49,6 +49,9 @@ Python 3.5+.  See the API documentation
 * Train DNN-based image classification models on N-Series GPU VMs on Azure ([example:401])
 * Featurize free-form text data using convenient APIs on top of primitives in
   SparkML via a single transformer ([example:201])
+* Fit a lightGBM classification or regression model ([example:106])
+* Perform parallel distributed hyperparameter tuning with randomized grid search on 
+  any spark estimators with a convenient API ([example:203])
 * Train classification and regression models easily via implicit featurization
   of data ([example:101])
 * Compute a rich set of evaluation metrics including per-instance metrics
@@ -60,8 +63,12 @@ See our [notebooks](notebooks/samples/) for all examples.
   "Adult Census Income Training"
 [example:102]: notebooks/samples/102%20-%20Regression%20Example%20with%20Flight%20Delay%20Dataset.ipynb
   "Regression Example with Flight Delay Dataset"
+[example:106]: notebooks/samples/106%20-%20Quantile%20Regression%20with%20LightGBM.ipynb
+  "Quantile Regression with LightGBM"
 [example:201]: notebooks/samples/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb
   "Amazon Book Reviews - TextFeaturizer"
+[example:203]: notebooks/samples/203%20-%20Breast%20Cancer%20-%20Tune%20Hyperparameters.ipynb
+  "Hyperparameter Tuning with MMLSpark"
 [example:301]: notebooks/samples/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb
   "CIFAR10 CNTK CNN Evaluation"
 [example:302]: notebooks/samples/302%20-%20Pipeline%20Image%20Transformations.ipynb
