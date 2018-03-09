@@ -79,9 +79,18 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
   private def isSupportedTypeForImpute(dataType: DataType): Boolean = dataType.isInstanceOf[NumericType]
 
   private def verifyColumnsSupported(dataset: Dataset[_], colsToClean: Array[String]): Unit = {
-    colsToClean.foreach(columnName =>
-      if (!isSupportedTypeForImpute(dataset.schema(columnName).dataType))
-        throw new UnsupportedOperationException("Only numeric types supported for numeric imputation"))
+    if (colsToClean.exists(name => !isSupportedTypeForImpute(dataset.schema(name).dataType)))
+      throw new UnsupportedOperationException("Only numeric types supported for numeric imputation")
+  }
+
+  private def rowToValues(row: Row): Array[Double] = {
+    (0 until row.size).map { i =>
+      row.get(i) match {
+        case n: Double => n
+        case n: Int => n.toDouble
+        case _ => throw new UnsupportedOperationException("Unknown type in row")
+      }
+    }.toArray
   }
 
   private def getReplacementValues(dataset: Dataset[_],
@@ -100,7 +109,10 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
       case CleanMissingData.medianOpt => {
         // Verify columns are supported for imputation
         verifyColumnsSupported(dataset, colsToClean)
-        val row = dataset.select(columns.map(column => callUDF("percentile_approx", column, lit(0.5))): _*).collect()(0)
+        val row =
+          dataset.select(columns.map(column => callUDF("percentile_approx",
+                                                       column, lit(0.5))): _*)
+          .collect()(0)
         rowToValues(row)
       }
       case CleanMissingData.customOpt => {
@@ -111,13 +123,6 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     outputCols.zip(metrics).toMap
   }
 
-  private def rowToValues(row: Row): Array[Double] = {
-    val avgs = ListBuffer[Double]()
-    for (i <- 0 until row.size) {
-      avgs += row.getDouble(i)
-    }
-    avgs.toArray
-  }
 }
 
 /** Model produced by [[CleanMissingData]]. */
