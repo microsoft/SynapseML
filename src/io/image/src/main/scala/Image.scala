@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import java.io.ByteArrayInputStream
+import java.awt.image.BufferedImage
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import javax.imageio.ImageIO
 
 import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
@@ -41,6 +43,13 @@ object ImageReader {
   private[spark] def loadOpenCV(df: DataFrame): DataFrame = {
     val encoder = RowEncoder(df.schema)
     df.mapPartitions(loadOpenCVFunc)(encoder)
+  }
+
+  def decode(img: BufferedImage): Option[Row] = {
+    val baos = new ByteArrayOutputStream()
+    ImageIO.write(img, "jpeg", baos)
+    val barr = baos.toByteArray
+    decode(None, barr)
   }
 
   def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
