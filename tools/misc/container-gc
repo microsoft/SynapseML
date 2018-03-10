@@ -159,7 +159,7 @@ get-ver-info() (
   jq --arg l "$label" '. + {label: $l}' \
      < "$info" > "$info-new"; mv "$info-new" "$info"
   #
-  az storage blob download -c "${S[container]}" -n "$v/Build.md" -f "$tmp.md" > /dev/null
+  az storage blob download -c "${S[container]}" -n "$v/Build.md" -f "$tmp.md" > /dev/null 2>&1
   binfo="$(< "$tmp.md")"; rm -f "$tmp.md"
   if [[ -z "$binfo" ]]; then binfo="(No info: \"Build.md\" file not found)"; fi
   jq --arg b "$binfo" '. + {buildinfo: $b}' \

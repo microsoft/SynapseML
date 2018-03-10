@@ -4,6 +4,23 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
+# In the future, hopefully the following will work:
+#
+# az storage blob delete-batch -s "deleted" \
+#    --if-unmodified-since "$(date -ud "2 months ago" +"%FT%RZ")"
+# az storage blob delete-batch -s "deleted" --pattern "*.dev[0-9]*" \
+#    --if-unmodified-since "$(date -ud "1 month ago" +"%FT%RZ")"
+#
+# Except that:
+# * These command spit HTTP errors when they shouldn't
+#   (https://github.com/Azure/azure-cli/issues/5286)
+# * The pattern specified in the second one is bad, should restrict it
+#   to match the regexp below, but there is no regexp option (#5576)
+# * There's some other weirdness with the unmodified condition, which I
+#   cannot test with --dryrun (#5575)
+#
+# (When all of these are sorted out, container-gc can be improved too.)
+
 rm -f "/tmp/expunge-paths"
 
 numlines() { local n="$(wc -l "$@")"; echo "${n%% *}"; }
