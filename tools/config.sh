@@ -212,7 +212,7 @@ Conda.setup() {
     collect_log=2 _ ./bin/conda clean -y --all
     _rm "pkgs"
     show command "rm lib/libmkl_....so"
-    rm -f lib/libmkl_{,vml_}{def,rt,sequential,cmpt,mc{,2,3},avx512{,_mic}}.so
+    rm -f lib/libmkl_{,vml_}{def,sequential,cmpt,mc{,2,3},avx512{,_mic}}.so
     show command "rm **/*.pyc"
     rm -rf **/__pycache__/
     rm -f **/*.pyc
