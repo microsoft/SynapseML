@@ -18,7 +18,7 @@ def confusionMatrix(df, y_col, y_hat_col, labels):
     from sklearn.metrics import confusion_matrix
     import matplotlib.pyplot as plt
 
-    if isinstance(sdf, pyspark.sql.dataframe.DataFrame):
+    if isinstance(df, pyspark.sql.dataframe.DataFrame):
         df = df.select([y_col, y_hat_col]).toPandas()
 
     y, y_hat = df[y_col], df[y_hat_col]
@@ -46,7 +46,7 @@ def roc(df, y_col, y_hat_col, thresh=.5):
     from sklearn.metrics import roc_curve
     import matplotlib.pyplot as plt
 
-    if isinstance(sdf, pyspark.sql.dataframe.DataFrame):
+    if isinstance(df, pyspark.sql.dataframe.DataFrame):
         df = df.select([y_col, y_hat_col]).toPandas()
 
     def f2i(X):
