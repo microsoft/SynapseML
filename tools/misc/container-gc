@@ -152,7 +152,7 @@ get-ver-info() (
                  < "$info")"
   if [[ "$label" = *$'\n'* ]]; then failwith "found multiple .label blobs"; fi
   if [[ -n "$label" ]]; then
-    az storage blob download -c "${S[container]}" -n "$label" -f "$tmp" > /dev/null
+    az storage blob download -c "${S[container]}" -n "$label" -f "$tmp" > /dev/null 2>&1
     label="$(< "$tmp")"
     rm -f "$tmp"
   fi
