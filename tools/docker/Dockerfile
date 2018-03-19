@@ -13,9 +13,13 @@ RUN : '==== create a user (and also hide the random hostname in the prompt)' \
  && useradd -c "Microsoft ML for Apache Spark" -U -G root -d "$HOME" -m "$USER" \
  && : '==== install needed packages' \
  && apt-get update --fix-missing \
- && apt-get install -y curl unzip bzip2 libopenmpi1.10 libgomp1 libunwind8 \
+ && apt-get install -y curl unzip bzip2 locales \
+                       libopenmpi1.10 libgomp1 libunwind8 \
                        libtiff5 libpng12-0 libjasper1 \
+ && locale-gen en_US.UTF-8 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV LANG="en_US.UTF-8"
 
 WORKDIR $HOME
 USER $USER:$USER
