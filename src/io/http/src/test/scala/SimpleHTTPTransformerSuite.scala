@@ -9,20 +9,19 @@ import org.apache.spark.sql.types.{StringType, StructType}
 
 class SimpleHTTPTransformerSuite extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
 
-  import ServerUtils._
   import session.implicits._
   val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
 
   val simpleTransformer: SimpleHTTPTransformer = new SimpleHTTPTransformer()
     .setInputCol("data")
     .setOutputParser(new JSONOutputParser().setDataType(new StructType().add("foo", StringType)))
-    .setUrl(url)
+    .setUrl(getUrl)
     .setOutputCol("results")
 
   test("HttpTransformerTest") {
     val results = simpleTransformer.transform(df).collect
     assert(results.length==10)
-    assert(results.forall(_.getStruct(1).getString(0)=="here"))
+    assert(results.forall(_.getStruct(1).getString(0) == "more blah"))
     assert(results(0).schema.fields.length==2)
   }
 
@@ -30,13 +29,13 @@ class SimpleHTTPTransformerSuite extends TransformerFuzzing[SimpleHTTPTransforme
     val results =  new SimpleHTTPTransformer()
       .setInputCol("data")
       .setOutputParser(new JSONOutputParser().setDataType(new StructType().add("foo", StringType)))
-      .setUrl(url)
+      .setUrl(getUrl)
       .setOutputCol("results")
       .setConcurrency(3)
       .transform(df)
       .collect
     assert(results.length==10)
-    assert(results.forall(_.getStruct(1).getString(0)=="here"))
+    assert(results.forall(_.getStruct(1).getString(0) == "more blah"))
     assert(results(0).schema.fields.length==2)
   }
 
