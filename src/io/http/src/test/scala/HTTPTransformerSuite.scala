@@ -6,7 +6,6 @@ package com.microsoft.ml.spark
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.Executors
 
-import com.microsoft.ml.spark.ServerUtils.createServer
 import com.microsoft.ml.spark.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.ml.util.MLReadable
@@ -14,10 +13,8 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 
 object ServerUtils {
-  val port: Int = 8899
   val host      = "localhost"
   val apiName   = "foo"
-  val url       = s"http://$host:$port/$apiName"
 
   private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
     val bytes = response.getBytes("UTF-8")
@@ -34,12 +31,13 @@ object ServerUtils {
 
   private class RequestHandler extends HttpHandler {
     override def handle(request: HttpExchange): Unit = synchronized {
-      respond(request, 200, "{\"foo\": \"here\"}")
+      respond(request, 200, "{\"blah\": \"more blah\"}")
     }
   }
 
   def createServer(): HttpServer = {
-    val server: HttpServer = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), port), 100)
+    val sAddr  = new InetSocketAddress(InetAddress.getByName(host), 0)
+    val server = HttpServer.create(sAddr, 100)
     server.createContext(s"/$apiName", new RequestHandler)
     server.setExecutor(Executors.newFixedThreadPool(100))
     server.start()
@@ -50,8 +48,13 @@ object ServerUtils {
 trait WithServer extends TestBase {
   var server: Option[HttpServer] = None
 
+  def getHost(): String   = ServerUtils.host
+  def getPort(): Int      = server.get.getAddress.getPort // get the actual port that was allocated
+  def getAPIName():String = ServerUtils.apiName
+  def getUrl():String     = s"http://$getHost:$getPort/$getAPIName"
+
   override def beforeAll(): Unit = {
-    server = Some(createServer())
+    server = Some(ServerUtils.createServer())
     super.beforeAll()
   }
 

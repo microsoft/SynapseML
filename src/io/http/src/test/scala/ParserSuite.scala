@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.ServerUtils.url
 import org.apache.http.client.methods.HttpPost
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
@@ -17,7 +16,7 @@ trait ParserUtils {
     val df = spark.createDataFrame((1 to 10).map(Tuple1(_)))
       .toDF("data")
     val df2 = new JSONInputParser().setInputCol("data")
-      .setOutputCol("parsedInput").setUrl(url)
+      .setOutputCol("parsedInput").setUrl("http://localhost:12345/foo")
       .transform(df)
       .withColumn("unparsedOutput", udf({x: Int =>
         HTTPResponseData(
