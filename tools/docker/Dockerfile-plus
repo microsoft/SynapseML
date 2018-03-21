@@ -7,8 +7,9 @@ USER root:root
 
 RUN apt-get update --fix-missing \
  && apt-get install -y \
-      libc6 libcurl3 libgcc1 gcc libgssapi-krb5-2 libicu55 liblttng-ust0 \
-      libssl1.0.0 libstdc++6 libuuid1 zlib1g liblldb-3.6 libxml++2.6-2v5 \
+      libc6 libcurl3 libgcc1 gcc libopenmpi1.10 libgomp1 libunwind8 \
+      libssl1.0.0 libgssapi-krb5-2 libicu55 liblttng-ust0 \
+      libstdc++6 libuuid1 zlib1g liblldb-3.6 libxml++2.6-2v5 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 USER $USER:$USER

@@ -41,7 +41,9 @@ get_primary_headnode() {
 # Run on all nodes
 
 # Install prerequisites
-apt-get install -y openmpi-bin libunwind8 libpng12-0 libjasper1
+# (The following are no longer needed, leaving a comment in case
+# something similar will be needed in the future.)
+# apt-get install -y openmpi-bin libunwind8 libpng12-0 libjasper1
 
 # Install CNTK in all environments
 for env in "${CONDA_ENVS[@]}"; do

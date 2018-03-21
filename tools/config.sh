@@ -102,7 +102,6 @@ INSTALLATIONS=(
   sha256: "2ed7917d426025d7dd722c7d7fda5f55e6bbec7a293a3bfc4cb163c10b4b27f6"
   exes:   "cntk"
   vers:   "cat version.txt|CNTK-<{dashver}>"
-  prereq: "has_libs libpng12.so.0 libjasper.so.1|libpng12 and libjasper1 are required"
   bindir: "cntk/bin"
   where:  "devel build"
 
