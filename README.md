@@ -22,6 +22,7 @@ Python 3.5+.  See the API documentation
 
 * [Notable features](#notable-features)
 * [A short example](#a-short-example)
+* [Blogs and Publications](#blogs-and-publications)
 * [Setup and installation](#setup-and-installation)
   - [Docker](#docker)
   - [GPU VM Setup](#gpu-vm-setup)
@@ -42,20 +43,20 @@ Python 3.5+.  See the API documentation
 [<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
   />](https://github.com/Azure/mmlspark/releases)
 
+* Create an deep image classifier with transfer learning ([example:305])
+* Fit a lightGBM classification or regression model on a biochemical dataset([example:106])
+* Deploy a deep network as a distributed web service with [MMLSpark Serving](docs/mmlspark-serving.md)
+* Use web services in Spark with [HTTP on Apache Spark](docs/http.md)
+* Train a deep image classifier on Azure N-Series GPU VMs ([example:401])
+* Use Bi-directional LSTMs from Keras for medical entity extraction ([example:304])
+* Create a text analytics system on Amazon book reviews ([example:201])
+* Perform distributed hyperparameter tuning to identify Breast Cancer ([example:203])
 * Easily ingest images from HDFS into Spark `DataFrame` ([example:301])
-* Pre-process image data using transforms from OpenCV ([example:302])
-* Featurize images using pre-trained deep neural nets using CNTK ([example:301])
-* Use pre-trained bidirectional LSTMs from Keras for medical entity extraction ([example:304])
-* Train DNN-based image classification models on N-Series GPU VMs on Azure ([example:401])
-* Featurize free-form text data using convenient APIs on top of primitives in
-  SparkML via a single transformer ([example:201])
-* Fit a lightGBM classification or regression model ([example:106])
-* Perform parallel distributed hyperparameter tuning with randomized grid search on 
-  any spark estimators with a convenient API ([example:203])
+* Use OpenCV on Spark to manipulate images ([example:302])
 * Train classification and regression models easily via implicit featurization
   of data ([example:101])
-* Compute a rich set of evaluation metrics including per-instance metrics
-  ([example:102])
+* Train and evaluate a flight delay prediction system ([example:102])
+
 
 See our [notebooks](notebooks/samples/) for all examples.
 
@@ -75,6 +76,8 @@ See our [notebooks](notebooks/samples/) for all examples.
   "Pipeline Image Transformations"
 [example:304]: notebooks/samples/304%20-%20Medical%20Entity%20Extraction.ipynb
   "Medical Entity Extraction"
+[example:305]: notebooks/samples/305%20-%20Flowers%20ImageFeaturizer.ipynb
+  "Deep Flower Classification"
 [example:401]: notebooks/gpu/401%20-%20CNTK%20train%20on%20HDFS.ipynb
   "CIFAR10 CNTK CNN Training"
 
@@ -100,6 +103,14 @@ See [other sample notebooks](notebooks/samples/) as well as the MMLSpark
 documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/)
 and [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
+## Blogs and Publications
+
+ * See our [paper](https://arxiv.org/abs/1804.04031) for a deep dive on MMLSpark. 
+ * See how MMLSpark is used to help endangered species on the [Microsoft Customer Blog](https://customers.microsoft.com/en-us/story/snow-leopard-trust-nonprofit-azure)
+ * Explore [our collaboration with Apache Spark](https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/) on Image Analysis.
+ * Use [MMLSpark in Azure Machine Learning](https://docs.microsoft.com/en-us/azure/machine-learning/preview/how-to-use-mmlspark)
+ * Watch [MMLSpark at the Spark Summit](https://databricks.com/session/mmlspark-lessons-from-building-a-sparkml-compatible-machine-learning-library-for-apache-spark)
+ 
 
 ## Setup and installation
 
@@ -145,7 +156,7 @@ To try out MMLSpark on a Python (or Conda) installation you can get
 Spark installed via pip with `pip install pyspark`.  You can then use
 `pyspark` as in the above example, or from python:
 
-   ```
+   ```python
    import pyspark
    sp = pyspark.sql.SparkSession.builder.appName("MyApp") \
                .config("spark.jars.packages", "Azure:mmlspark:0.11") \
