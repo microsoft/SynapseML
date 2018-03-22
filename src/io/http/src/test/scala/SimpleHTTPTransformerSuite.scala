@@ -7,16 +7,19 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructType}
 
-class SimpleHTTPTransformerSuite extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
+class SimpleHTTPTransformerSuite
+    extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
 
   import session.implicits._
   val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
 
-  val simpleTransformer: SimpleHTTPTransformer = new SimpleHTTPTransformer()
-    .setInputCol("data")
-    .setOutputParser(new JSONOutputParser().setDataType(new StructType().add("foo", StringType)))
-    .setUrl(getUrl)
-    .setOutputCol("results")
+  def simpleTransformer: SimpleHTTPTransformer =
+    new SimpleHTTPTransformer()
+      .setInputCol("data")
+      .setOutputParser(new JSONOutputParser()
+                         .setDataType(new StructType().add("foo", StringType)))
+      .setUrl(getUrl)
+      .setOutputCol("results")
 
   test("HttpTransformerTest") {
     val results = simpleTransformer.transform(df).collect
@@ -26,14 +29,16 @@ class SimpleHTTPTransformerSuite extends TransformerFuzzing[SimpleHTTPTransforme
   }
 
   test("Concurrent HttpTransformerTest") {
-    val results =  new SimpleHTTPTransformer()
-      .setInputCol("data")
-      .setOutputParser(new JSONOutputParser().setDataType(new StructType().add("foo", StringType)))
-      .setUrl(getUrl)
-      .setOutputCol("results")
-      .setConcurrency(3)
-      .transform(df)
-      .collect
+    val results =
+      new SimpleHTTPTransformer()
+        .setInputCol("data")
+        .setOutputParser(new JSONOutputParser()
+                           .setDataType(new StructType().add("foo", StringType)))
+        .setUrl(getUrl)
+        .setOutputCol("results")
+        .setConcurrency(3)
+        .transform(df)
+        .collect
     assert(results.length==10)
     assert(results.forall(_.getStruct(1).getString(0) == "more blah"))
     assert(results(0).schema.fields.length==2)
