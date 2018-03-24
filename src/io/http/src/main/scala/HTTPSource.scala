@@ -11,10 +11,12 @@ import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.{col, struct, to_json}
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.types.UTF8String
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -22,7 +24,7 @@ import scala.collection.mutable.ListBuffer
 object HTTPSource {
 
   val SCHEMA = StructType(
-    StructField("id", StringType) ::
+    StructField("id", LongType) ::
       StructField("value", StringType) :: Nil)
 
   def respond(request: HttpExchange, code: Int, response: String): Unit = {
@@ -42,8 +44,6 @@ object HTTPSource {
   */
 class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     extends Source with Logging {
-
-  import sqlContext.implicits._
 
   class QueueHandler extends HttpHandler {
 
@@ -105,10 +105,16 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     val rawList = synchronized {
       val sliceStart = startOrdinal - lastOffsetCommitted.offset.toInt - 1
       val sliceEnd = endOrdinal - lastOffsetCommitted.offset.toInt - 1
-      requests.slice(sliceStart, sliceEnd).map(t => (t._1, t._2))
+      requests.slice(sliceStart, sliceEnd).map{t =>
+        val row = new GenericInternalRow(2)
+        row.update(0, t._1)
+        row.update(1, UTF8String.fromString(t._2))
+        row.asInstanceOf[InternalRow]
+      }
     }
-    val rawBatch = sqlContext.createDataset(rawList)
-    rawBatch.toDF("id", "value")
+    val rawBatch = sqlContext.sparkContext.parallelize(rawList)
+    sqlContext.sparkSession
+      .internalCreateDataFrame(rawBatch, schema, isStreaming = true)
   }
 
   def reply(replies: Iterable[(Long, String)]): Unit = {
@@ -190,10 +196,13 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
     val valueCol = options.getOrElse("replyCol", "value")
-    val replies = data
-      .select(col(options.getOrElse("idCol", "id")),
-              to_json(struct(valueCol)).alias(valueCol))
-      .collect().map { row => (row.getLong(0), row.getString(1))}
+    val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
+    val valueColIndex = data.schema.fieldIndex(valueCol)
+
+    val replies = data.queryExecution.toRdd.map { ir =>
+      (ir.getLong(idColIndex), ir.getString(valueColIndex))
+    }.collect()
+
     HTTPSource.replyCallbacks(options("name"))(replies)
   }
 

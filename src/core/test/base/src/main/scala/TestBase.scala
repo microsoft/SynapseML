@@ -132,11 +132,11 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     try e finally sc.setLogLevel("WARN")
   }
 
-  def interceptWithoutLogging[E <: Exception: ClassTag](e: => Any): Unit = {
+  def interceptWithoutLogging[E <: Throwable: ClassTag](e: => Any): Unit = {
     withoutLogging { intercept[E] { e }; () }
   }
 
-  def assertSparkException[E <: Exception: ClassTag](stage: PipelineStage, data: DataFrame): Unit = {
+  def assertSparkException[E <: Throwable: ClassTag](stage: PipelineStage, data: DataFrame): Unit = {
     withoutLogging {
       intercept[E] {
         val transformer = stage match {
@@ -144,8 +144,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
             case t: Transformer  => t
             case _ => sys.error(s"Unknown PipelineStage value: $stage")
           }
-        // use .length to force the pipeline (.count might work, but maybe it's sometimes optimized)
-        transformer.transform(data).foreach { r => r.length; () }
+        transformer.transform(data).foreachPartition {it => it.toList; ()}
       }
       ()
     }
