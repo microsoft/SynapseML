@@ -10,11 +10,10 @@ import com.microsoft.ml.spark.FileUtilities.File
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.execution.streaming.{
-  DistributedHTTPSinkProvider, DistributedHTTPSource, DistributedHTTPSourceProvider, JVMSharedServer}
-import org.apache.spark.sql.functions.{col, length}
+import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
+import org.apache.spark.sql.functions.{col, length, struct, to_json}
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
@@ -39,6 +38,7 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
       .option("maxPartitions", 5)
       .load()
       .withColumn("newCol", length(col("value")))
+      .withColumn("newCol", to_json(struct("newCol")))
       .writeStream
       .format(classOf[DistributedHTTPSinkProvider].getName)
       .option("name", "foo")
