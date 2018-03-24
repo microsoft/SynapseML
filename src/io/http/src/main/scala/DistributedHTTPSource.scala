@@ -290,9 +290,8 @@ class DistributedHTTPSource(name: String,
       .add("machine", StringType)
       .add("ip", StringType)
       .add("id", StringType))
-    val serverInfo = sqlContext.sparkContext
-      .parallelize(Seq(Tuple1("placeholder")),
-        maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
+    val serverInfo = sqlContext.createDataset(Seq(Tuple1("placeholder")))
+      .repartition(maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
       .toDF("placeholder")
       .mapPartitions { _ =>
         val s = server.get
