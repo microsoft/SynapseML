@@ -173,7 +173,7 @@ _e2e_tests() {
   _e2e_ssh -t -t "$shost" \
            ". /usr/bin/anaconda/bin/activate; \
             cd \"$sdir\"; rm -rf \"../local\"; \
-            ./parallel_run.sh 2 \"TestNotebooksOnHdi.py\""
+            ./parallel_run.sh $E2E_PARALLEL_RUNS \"TestNotebooksOnHdi.py\""
   local ret="$?"
   _e2e_ssh scp "$shost:$sdir/TestResults/*" "$TEST_RESULTS"
   if ((ret != 0)); then failwith "E2E test failures"; fi

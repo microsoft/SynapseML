@@ -1,8 +1,8 @@
 name,value,precision,higherIsBetter
-multiclass_BreastTissue.csv,0.5386680988184747,1.0E-10,true
-multiclass_CarEvaluation.csv,0.7003019010520307,1.0E-10,true
+multiclass_BreastTissue.csv,0.5488721804511278,0.01,true
+multiclass_CarEvaluation.csv,0.7003019010520307,0.01,true
 binary_PimaIndian.csv,0.6507273122014763,0.01,true
-binary_data_banknote_authentication.csv,0.8850849821023186,0.01,true
+binary_data_banknote_authentication.csv,0.8858013144805421,0.01,true
 binary_task.train.csv,0.8649093725620371,0.01,true
 binary_breast-cancer.train.csv,0.9171211004667157,0.01,true
 binary_random.forest.train.csv,0.9179945455481038,0.01,true

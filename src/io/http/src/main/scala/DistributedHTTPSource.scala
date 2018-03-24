@@ -8,14 +8,13 @@ import java.util.UUID
 import java.util.concurrent.Executors
 import javax.annotation.concurrent.GuardedBy
 
-import com.microsoft.ml.spark.StreamUtilities.using
 import com.microsoft.ml.spark.SharedSingleton
+import com.microsoft.ml.spark.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions.{col, struct, to_json}
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
@@ -282,29 +281,30 @@ class DistributedHTTPSource(name: String,
     new JVMSharedServer(name, host, port, maxPortAttempts, handleResponseErrors)
   }
 
+  private[spark] val infoSchema = new StructType()
+    .add("machine", StringType).add("ip", StringType).add("id", StringType)
+
+  private[spark] val infoEnc = RowEncoder(infoSchema)
+
   // Access point to run code on nodes through mapPartitions
   // TODO do this by hooking deeper into spark,
   // TODO allow for dynamic allocation
   private[spark] val serverInfoDF: DataFrame = {
-    val enc = RowEncoder(new StructType()
-      .add("machine", StringType)
-      .add("ip", StringType)
-      .add("id", StringType))
     val serverInfo = sqlContext.sparkContext
       .parallelize(Seq(Tuple1("placeholder")),
         maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
-      .toDF("placeholder")
+      .toDF("empty")
       .mapPartitions { _ =>
         val s = server.get
         Iterator(Row(s.machine, s.address, s.serverIdentity))
-      }(enc).cache()
+      }(infoEnc)
 
     val serverToNumPartitions = serverInfo
       .select("id").groupBy("id").count().collect().map(r => (r.getString(0), r.getLong(1).toInt)).toMap
     val serverInfoConfigured = serverInfo.mapPartitions { it =>
       server.get.updateNPartitions(serverToNumPartitions(server.get.serverIdentity))
       it
-    }(enc).cache()
+    }(infoEnc).cache()
     serverInfoConfigured.collect() // materialize to trigger setup
 
     logInfo("Got or Created services: "
@@ -312,6 +312,12 @@ class DistributedHTTPSource(name: String,
         s"machine: ${r.getString(0)}, address: ${r.getString(1)}, guid: ${r.getString(2)}"
       }.toList.mkString(", "))
     serverInfoConfigured
+  }
+
+  private[spark] val serverInfoDFStreaming = {
+    val serverInforConfRDD = serverInfoDF.rdd.map(infoEnc.toRow)
+    sqlContext.sparkSession.internalCreateDataFrame(
+      serverInforConfRDD, schema, isStreaming = true)
   }
 
   @GuardedBy("this")
@@ -335,7 +341,7 @@ class DistributedHTTPSource(name: String,
       start.flatMap(LongOffset.convert).getOrElse(LongOffset(-1)).offset
     val endOrdinal = LongOffset.convert(end).getOrElse(LongOffset(-1)).offset
 
-    serverInfoDF.mapPartitions { _ =>
+    serverInfoDFStreaming.mapPartitions { _ =>
       val s = server.get
       s.updateCurrentBatch(currentOffset.offset)
       s.getRequests(startOrdinal, endOrdinal)
@@ -439,11 +445,13 @@ class DistributedHTTPSink(val options: Map[String, String])
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
     val valueCol = options.getOrElse("replyCol", "value")
-    data.select(
-      col(options.getOrElse("idCol", "id")),
-      to_json(struct(valueCol)).alias(valueCol)
-    ).foreach { row =>
-      server.get.respond(batchId, row.getAs[String](0), 200, row.getString(1))
+    val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
+    val valueColIndex = data.schema.fieldIndex(valueCol)
+
+    data.queryExecution.toRdd.map { ir =>
+      (ir.getString(idColIndex), ir.getString(valueColIndex))
+    }.foreach { case (id, value) =>
+      server.get.respond(batchId, id, 200, value)
     }
   }
 

@@ -8,7 +8,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.execution.streaming.{HTTPSinkProvider, HTTPSourceProvider}
-import org.apache.spark.sql.functions.{col, length}
+import org.apache.spark.sql.functions.{col, length, to_json, struct}
 
 import scala.util.parsing.json.JSONObject
 
@@ -21,6 +21,7 @@ class HTTPSuite extends TestBase with WithFreeUrl {
       .option("name", apiName)
       .load()
       .withColumn("newCol", length(col("value")))
+      .withColumn("newCol", to_json(struct("newCol")))
       .writeStream
       .format(classOf[HTTPSinkProvider].getName)
       .option("name", "foo")

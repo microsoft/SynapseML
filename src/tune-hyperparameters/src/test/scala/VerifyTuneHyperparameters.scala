@@ -86,7 +86,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
       val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
       val bestModel = tuneDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
       val bestMetric = bestModel.bestMetric
-      addBenchmark(s"multiclass_$fileName", bestMetric, 10)
+      addBenchmark(s"multiclass_$fileName", bestMetric, decimals)
     }
   }
 

@@ -72,16 +72,15 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
 
   /** @group setParam */
   def setBaseStage(value: PipelineStage): this.type = {
-    try {
-      //Test to see whether the class has the appropriate getters and setters
-      value.getParam("inputCol")
-      value.getParam("outputCol")
+    if (value.hasParam("inputCol") & value.hasParam("outputCol")){
       setParamInternal(value, "inputCol", this.uid + "_in")
       setParamInternal(value, "outputCol", this.uid + "_out")
-    } catch {
-      case e: Exception =>
-        throw new IllegalArgumentException(
-          "Need to pass a pipeline stage with inputCol and outputCol params")
+    } else if (value.hasParam("inputCols") & value.hasParam("outputCols")){
+      setParamInternal(value, "inputCols", Array(this.uid + "_in"))
+      setParamInternal(value, "outputCols", Array(this.uid + "_out"))
+    } else {
+      throw new IllegalArgumentException(
+        "Need to pass a pipeline stage with inputCol and outputCol params")
     }
     set(baseStage, value)
   }

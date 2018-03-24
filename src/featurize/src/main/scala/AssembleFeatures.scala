@@ -429,16 +429,15 @@ class AssembleFeaturesModel(val uid: String,
     // One-hot encode categoricals
     val oheData =
       if (oneHotEncodeCategoricals && columnNamesToFeaturize.categoricalColumns.nonEmpty) {
-        val ohe = new OneHotEncoderEstimator()
         val inputColsKeys = columnNamesToFeaturize.categoricalColumns.keys
         val outputColsKeys = columnNamesToFeaturize.categoricalColumns.values
         val inputCols = inputColsKeys.toArray
         val outputCols = outputColsKeys.toArray
-        val oheAdapter =
-          new MultiColumnAdapter().setBaseStage(ohe).setInputCols(inputCols).setOutputCols(outputCols)
-        val oheAdapterModel = oheAdapter.fit(stringFeaturizedData)
+        val ohe = new OneHotEncoderEstimator()
+          .setInputCols(inputCols).setOutputCols(outputCols)
+          .fit(stringFeaturizedData)
         columnsToDrop = columnsToDrop.union(columnNamesToFeaturize.categoricalColumns.keys.toSeq)
-        oheAdapterModel.transform(stringFeaturizedData)
+        ohe.transform(stringFeaturizedData)
       } else {
         stringFeaturizedData
       }
