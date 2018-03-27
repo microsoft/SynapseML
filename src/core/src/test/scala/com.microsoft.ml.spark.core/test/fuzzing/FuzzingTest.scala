@@ -88,8 +88,8 @@ class FuzzingTest extends TestBase {
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
 
     applicableClasses.foreach { clazz =>
-      classToFuzzer(clazz).saveDatasets()
-      classToFuzzer(clazz).getPyTests()
+      //classToFuzzer(clazz).saveDatasets()
+      //classToFuzzer(clazz).getPyTests()
       // TODO implement logic for creating and running pytests
       // TODO maybe move to codegen
 
