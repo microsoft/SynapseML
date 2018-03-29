@@ -3,8 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.AdvancedHTTPHandling.{retryTimes, sendWithRetries}
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase, HttpUriRequest}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.message.BufferedHeader
 
@@ -31,7 +30,9 @@ private[ml] trait HTTPClient extends BaseClient[HTTPRequestData, HTTPResponseDat
   }
 
   private[ml] def fromResponse(response: Response): ContextOut  = {
-    ContextOut(new HTTPResponseData(response.response), response.context)
+    val out = ContextOut(new HTTPResponseData(response.response), response.context)
+    response.response.close()
+    out
   }
 
   def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse
@@ -64,8 +65,13 @@ object AdvancedHTTPHandling {
     if (suceeded) {
       response
     } else {
-      Thread.sleep(retriesLeft.head)
-      sendWithRetries(client, request, retriesLeft.tail)
+      if (retriesLeft.isEmpty){
+        response
+      }else{
+        response.close()
+        Thread.sleep(retriesLeft.head)
+        sendWithRetries(client, request, retriesLeft.tail)
+      }
     }
   }
 

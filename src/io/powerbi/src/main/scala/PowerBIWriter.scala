@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.commons.io.IOUtils
+import org.apache.http.client.HttpResponseException
 import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
-import org.apache.spark.sql.functions.{struct, col}
+import org.apache.spark.sql.functions.{col, struct}
 
 private class StreamMaterializer extends ForeachWriter[Row] {
 
@@ -28,7 +30,18 @@ object PowerBIWriter {
       .setUrl(url)
       .setMaxBatchSize(Integer.MAX_VALUE)
       .setFlattenOutputBatches(false)
-      .setOutputParser(new CustomOutputParser().setUDF({x: HTTPResponseData => x}))
+      .setOutputParser(new CustomOutputParser().setUDF({response: HTTPResponseData =>
+        val status = response.statusLine
+        val code = status.statusCode
+        if (code != 200){
+          val content = new String(response.entity.content)
+          throw new HttpResponseException(code, s"Request failed with \n " +
+            s"code: ${code}, \n" +
+            s"reason:${status.reasonPhrase}, \n" +
+            s"content: $content")
+        }
+        response
+      }))
       .setInputCol("input")
       .setOutputCol("output")
       .transform(df.select(struct(df.columns.map(col): _*).alias("input")))
