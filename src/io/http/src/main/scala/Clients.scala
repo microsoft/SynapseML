@@ -183,6 +183,7 @@ private[ml] trait ColumnSchema {
 
 }
 
+
 abstract class SimpleClient[In, Out] extends
     SingleThreaded[In, Out] with Unbuffered[In, Out]
 
