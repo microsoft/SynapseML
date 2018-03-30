@@ -13,16 +13,16 @@ from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
 
-def streamToPowerBI(df, url, batchInterval=1000):
+def streamToPowerBI(df, url, options=dict()):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.ml.spark.PowerBIWriter
-    return writer.stream(df.drop("label")._jdf, url, batchInterval)
+    return writer.stream(df.drop("label")._jdf, url, options)
 
 setattr(pyspark.sql.DataFrame, 'streamToPowerBI', streamToPowerBI)
 
-def writeToPowerBI(df, url):
+def writeToPowerBI(df, url, options=dict()):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.ml.spark.PowerBIWriter
-    writer.write(df._jdf, url)
+    writer.write(df._jdf, url, options)
 
 setattr(pyspark.sql.DataFrame, 'writeToPowerBI', writeToPowerBI)

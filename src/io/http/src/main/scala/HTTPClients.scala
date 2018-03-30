@@ -56,7 +56,6 @@ object AdvancedHTTPHandling extends Handler {
           .foreach{h =>
             println(s"waiting ${h.getValue}")
             Thread.sleep(h.getValue.toLong * 1000)}
-        response.close()
         false
       case _ => false
     }
@@ -70,7 +69,13 @@ object AdvancedHTTPHandling extends Handler {
   }
 
   def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
-    sendWithRetries(client, request.toHTTPCore, retryTimes)
+    val id = scala.util.Random.nextInt(200)
+    println(s"sending $id")
+    val req = request.toHTTPCore
+    val resp = sendWithRetries(client, req, retryTimes)
+    req.releaseConnection()
+    println(s"sending finished $id")
+    resp
   }
 }
 
