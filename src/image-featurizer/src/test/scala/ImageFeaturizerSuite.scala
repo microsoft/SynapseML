@@ -14,6 +14,8 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.image.ImageFileFormat
+import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.functions.{col, udf}
 
 class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
   with TransformerFuzzing[ImageFeaturizer]{
@@ -88,6 +90,20 @@ class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
     val result = resNetModel().transform(images)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
+  }
+
+  test("Image featurizer should work with ResNet50 and powerBI", TestBase.Extended) {
+    val groceriesDirectory = "/Images/Grocery/"
+    val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
+
+    val images = session.readImages(fileLocation, true).coalesce(1)
+    println(images.count())
+
+    val result = resNetModel().setInputCol("image").transform(images)
+      .withColumn("foo", udf({x: DenseVector => x(0).toString}, StringType)(col("out")))
+      .select("foo")
+
+    PowerBIWriter.write(result, sys.env("MML_POWERBI_URL"), Map("concurrency"->"1"))
   }
 
   test("test layers of network", TestBase.Extended) {
