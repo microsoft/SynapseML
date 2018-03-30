@@ -21,7 +21,7 @@ class BatchIteratorSuite extends TestBase {
                             maxBuffer: Int = Integer.MAX_VALUE,
                             numTrials: Int = 5): Assertion = {
     val (dresults, dtime) = getTime(numTrials) {
-      new BatchIterator(iteratorCons, maxBuffer).toList
+      new DynamicBufferedBatcher(iteratorCons, maxBuffer).toList
     }
 
     val (results, time) = getTime(numTrials) {
@@ -38,7 +38,7 @@ class BatchIteratorSuite extends TestBase {
                                     maxBuffer: Int = Integer.MAX_VALUE
                                    ): Assertion = {
     val (dresults, dtime) = getTime {
-      new BatchIterator(iteratorCons, maxBuffer).toList
+      new DynamicBufferedBatcher(iteratorCons, maxBuffer).toList
     }
     val (results, time) = getTime {
       iteratorCons.toList.map(x => List(x))
@@ -60,7 +60,7 @@ class BatchIteratorSuite extends TestBase {
 
   test("no deadlocks") {
     (1 to 1000).foreach {_ =>
-      val l = new BatchIterator((1 to 100).toIterator, 10).toList
+      val l = new DynamicBufferedBatcher((1 to 100).toIterator, 10).toList
       assert(l.flatten === (1 to 100))
     }
   }
