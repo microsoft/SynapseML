@@ -25,3 +25,7 @@ class CNTKModel(_CNTKModel):
     def rebroadcastCNTKModel(self, sparkSession):
         jSpark = sparkSession._jsparkSession
         self._java_obj = self._java_obj.rebroadcastCNTKModel(jSpark)
+
+    def setMiniBatchSize(self, n):
+        self._java_obj = self._java_obj.setMiniBatchSize(n)
+        return self

@@ -8,17 +8,17 @@ import com.microsoft.CNTK.{DataType => CNTKDataType, SerializableFunction => CNT
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.Model
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{DenseVector, Vectors}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
 private object CNTKModelUtils extends java.io.Serializable {
 
@@ -50,58 +50,8 @@ private object CNTKModelUtils extends java.io.Serializable {
     fvv.delete()
   }
 
-  /** This defines and instantiates an iterator, hasNext and next are the abstract methods that
-    * define the interface and inputBuffer and outputBuffer hold the input and output rows so that
-    * they can be joined and returned.
-    * The logic inside next checks to see if the buffer is empty, and if so sends a new batch off
-    * to be evaluated.
-    */
-  def minibatchIterator(model: CNTKFunction,
-                    inputVar: Variable,
-                    device: DeviceDescriptor,
-                    inputRows: Iterator[Row],
-                    minibatchSize: Int,
-                    inputIndex: Int): Iterator[Row] ={
-    new Iterator[Row] {
-      val inputBuffer    = new ListBuffer[Row]()
-      val outputBuffer   = new ListBuffer[Row]()
-      val inputSize: Int = inputVar.getShape.getTotalSize().toInt
-
-      def hasNext: Boolean = inputRows.hasNext || outputBuffer.nonEmpty
-
-      def next(): Row = {
-        if (outputBuffer.isEmpty) {
-          inputBuffer ++= inputRows.take(minibatchSize)
-          val inputFVV = new FloatVectorVector(inputBuffer.length.toLong)
-          inputBuffer.zipWithIndex.foreach { case (row, i) =>
-            val fv = new FloatVector(inputSize.toLong)
-            row.getSeq[Float](inputIndex).view.zipWithIndex.foreach { case (x, j) =>
-              fv.set(j, x)
-            }
-            inputFVV.set(i, fv)
-            fv
-          }
-
-          val outputFVV = applyCNTKFunction(model,inputFVV, inputVar, device)
-          assert(outputBuffer.isEmpty,
-                 "The output row buffer should be empty before new elements are added.")
-          outputBuffer ++= toSeqSeq(outputFVV)
-            .map(fs => Row(Vectors.dense(fs.map(_.toDouble).toArray)))
-
-          deleteFVV(inputFVV)
-          deleteFVV(outputFVV)
-        }
-        val ret = Row.merge(inputBuffer.head, outputBuffer.head)
-        inputBuffer.remove(0)
-        outputBuffer.remove(0)
-        ret
-      }
-    }
-  }
-
   def applyModel(inputIndex: Int,
                  broadcastedModel: Broadcast[CNTKFunction],
-                 minibatchSize: Int,
                  inputNode: Int,
                  outputNodeName: Option[String],
                  outputNodeIndex: Option[Int])(inputRows: Iterator[Row]): Iterator[Row] = {
@@ -124,15 +74,40 @@ private object CNTKModelUtils extends java.io.Serializable {
       val model = outputNode.map(CNTKLib.AsComposite(_)).getOrElse(m)
 
       val inputVar = model.getArguments.get(inputNode)
-      require(inputVar.getDataType() == CNTKDataType.Float,
+      require(inputVar.getDataType == CNTKDataType.Float,
         "input variable type is not Float input type")
-      minibatchIterator(model, inputVar, device, inputRows, minibatchSize, inputIndex)
+
+      inputRows.map { row =>
+        val arr = row.getSeq[mutable.WrappedArray[Float]](inputIndex)
+        val inFVV = toFVV(arr)
+        val outFVV = applyCNTKFunction(model, inFVV, inputVar, device)
+        val outArr = toArrVect(outFVV)
+        deleteFVV(inFVV)
+        deleteFVV(outFVV)
+        Row.merge(row, Row(outArr))
+      }
     }
   }
 
-  private def toSeqSeq(fvv: FloatVectorVector): Seq[Seq[Float]] = {
-    (0 until fvv.size.toInt)
-      .map(i => (0 until fvv.get(i).size.toInt).map(j => fvv.get(i).get(j)))
+  private def toArrVect(fvv: FloatVectorVector): Seq[DenseVector] = {
+    (0 until fvv.size.toInt).map { i =>
+      val fv = fvv.get(i)
+      new DenseVector((0 until fvv.get(i).size.toInt).map { j =>
+        fv.get(j).toDouble
+      }.toArray)
+    }
+  }
+
+  private def toFVV(arr: Seq[mutable.WrappedArray[Float]]): FloatVectorVector = {
+    val inputFVV = new FloatVectorVector(arr.length.toLong)
+    arr.zipWithIndex.foreach { case (vect, i) =>
+      val fv = new FloatVector(vect.length.toLong)
+      vect.zipWithIndex.foreach { case (x, j) =>
+        fv.set(j, x)
+      }
+      inputFVV.set(i, fv)
+    }
+    inputFVV
   }
 }
 
@@ -140,7 +115,7 @@ object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 @InternalWrapper
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
-  with HasInputCol with HasOutputCol with Wrappable{
+  with HasInputCol with HasOutputCol with HasMiniBatcher with Wrappable {
 
   def this() = this(Identifiable.randomUID("CNTKModel"))
 
@@ -208,25 +183,36 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   /** @group getParam */
   def getOutputNodeName: String                   = $(outputNodeName)
 
-  /** Size of minibatches. Must be greater than 0; default is 10
-    * @group param
-    */
-  val miniBatchSize: IntParam =
-    new IntParam(this, "miniBatchSize", "Size of minibatches", ParamValidators.gt(0))
+  setDefault(miniBatcher-> new FixedMiniBatchTransformer().setBatchSize(10))
 
-  /** @group setParam */
-  def setMiniBatchSize(value: Int): this.type = set(miniBatchSize, value)
-
-  /** @group getParam */
-  def getMiniBatchSize: Int                   = $(miniBatchSize)
-  setDefault(miniBatchSize -> 10)
-
-  def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, VectorType)
+  def transformSchema(schema: StructType): StructType = {
+    schema(getInputCol).dataType match {
+      case t if t == VectorType =>
+      case ArrayType(DoubleType, _) =>
+      case ArrayType(FloatType, _) =>
+      case _ => throw new IllegalArgumentException("Need to pass a vector or Array[Float | Double] column")
+    }
+    schema.add(getOutputCol, VectorType)
+  }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   def rebroadcastCNTKModel(spark: SparkSession): Unit = {
     broadcastedModelOption = Some(spark.sparkContext.broadcast(getModel))
+  }
+
+  private def toArrayFloatUDF(df: DataFrame): Option[UserDefinedFunction] = {
+    val funcOpt = df.schema(getInputCol).dataType match {
+      case ArrayType(tp, _) =>
+        tp match {
+          case DoubleType => Some((x: mutable.WrappedArray[Double]) => x.map(_.toFloat))
+          case FloatType  => None
+        }
+      case VectorType => Some((x: DenseVector) =>
+        x.toArray.map(_.toFloat))
+
+    }
+    funcOpt.map(f => udf(f, ArrayType(FloatType)))
   }
 
   /** Evaluate the model
@@ -236,6 +222,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   def transform(dataset: Dataset[_]): DataFrame = {
     val spark      = dataset.sparkSession
     val inputIndex = dataset.columns.indexOf(getInputCol)
+    val df = dataset.toDF()
+
+    transformSchema(df.schema) // Ccheck if the schema is correct
 
     if (inputIndex == -1)
       throw new IllegalArgumentException(s"Input column $getInputCol does not exist")
@@ -246,40 +235,31 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
           (setByName.isEmpty && setByIndex.isEmpty))
       throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
 
-    val coersionOptionUDF = dataset.schema.fields(inputIndex).dataType match {
-      case ArrayType(tp, _) =>
-        tp match {
-          case DoubleType => Some(udf((x: mutable.WrappedArray[Double]) => x.map(_.toFloat)))
-          case FloatType  => None
-          case _ =>
-            throw new IllegalArgumentException(s"improper column type: $tp, need Array[Float]")
-        }
-      case VectorType => Some(udf((x: DenseVector) => x.toArray.map(_.toFloat)))
-    }
-
     val coercedCol = DatasetExtensions.findUnusedColumnName("coerced")(dataset.columns.toSet)
-    val (df, selectedIndex) = coersionOptionUDF match {
-      case Some(coersionUDF) =>
-        val coercedDF = dataset.toDF().withColumn(coercedCol, coersionUDF(col(getInputCol)))
-        (coercedDF, coercedDF.columns.indexOf(coercedCol))
-      case None => (dataset.toDF(), inputIndex)
-    }
+    val (coercedDf, selectedIndex) = toArrayFloatUDF(df).map {f =>
+        val d = df.withColumn(coercedCol, f(col(getInputCol)))
+        (d, d.columns.indexOf(coercedCol))
+    }.getOrElse((df, inputIndex))
 
-    val inputType = df.schema($(inputCol)).dataType
     if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
     val broadcastedModel = broadcastedModelOption.get
-    val encoder = RowEncoder(df.schema.add(StructField(getOutputCol, VectorType)))
-    val output = df.mapPartitions(
+    val batchedDF = getMiniBatcher.transform(coercedDf)
+
+    val encoder = RowEncoder(batchedDF.schema
+      .add(StructField(getOutputCol, ArrayType(VectorType))))
+
+    val output = batchedDF.mapPartitions(
       CNTKModelUtils.applyModel(selectedIndex,
                                 broadcastedModel,
-                                getMiniBatchSize,
                                 getInputNode,
                                 get(outputNodeName),
                                 get(outputNodeIndex)))(encoder)
 
-    coersionOptionUDF match {
-      case Some(_) => output.drop(coercedCol)
-      case None    => output
+    val unbatchedOutput = new FlattenBatch().transform(output)
+
+    toArrayFloatUDF(df) match {
+      case Some(_) => unbatchedOutput.drop(coercedCol)
+      case None    => unbatchedOutput
     }
   }
 

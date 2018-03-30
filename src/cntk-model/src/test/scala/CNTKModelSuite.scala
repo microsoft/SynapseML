@@ -136,12 +136,8 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   }
 
   test("useful error message if invalid column name is given") {
-    val model  = testModel().setInputCol("images")
-    val pipe   = new Pipeline().setStages(Array(model)).fit(images)
-    pipe.write.overwrite().save(saveFile)
-    val pipeLoaded = PipelineModel.load(saveFile)
     assertThrows[IllegalArgumentException] {
-      pipeLoaded.transform(images)
+      testModel().setInputCol("images").transform(images)
     }
   }
 
