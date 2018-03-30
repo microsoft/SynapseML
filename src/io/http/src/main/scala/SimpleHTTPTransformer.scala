@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.StructType
 object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
 
 class SimpleHTTPTransformer(val uid: String)
-    extends Transformer with HTTPParams with HasMaxBatchSize
+    extends Transformer with HTTPParams with HasMiniBatcher
     with HasInputCol with HasOutputCol with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
@@ -63,9 +63,7 @@ class SimpleHTTPTransformer(val uid: String)
     val parsedInputCol = newCol("parsedInput")(colsToAvoid)
     val unparsedOutputCol = newCol("unparsedOutput")(colsToAvoid)
 
-    val mb = get(maxBatchSize).map(n =>
-      new MiniBatchTransformer().setMaxBatchSize(getMaxBatchSize)
-    )
+    val mb = get(miniBatcher)
 
     val inputParser =
       Some(getInputParser
@@ -87,7 +85,7 @@ class SimpleHTTPTransformer(val uid: String)
 
     val dropCols = Some(new DropColumns().setCols(Array(parsedInputCol, unparsedOutputCol)))
 
-    val flatten = get(maxBatchSize).flatMap(_ =>
+    val flatten = mb.flatMap(_ =>
       get(flattenOutputBatches) match {
         case None => Some(new FlattenBatch())
         case Some(true) => Some(new FlattenBatch())
