@@ -119,10 +119,25 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** The size of the Ngrams
     * @group param
     */
-  val nGramLength = IntParam(this, "nGramLength", "The size of the Ngrams")
+  val nGramLengths = new ArrayParam(this, "nGramLengths", "The size of the Ngrams")
 
   /** @group getParam */
-  final def getNGramLength: Int = $(nGramLength)
+  final def getNGramLengths: Array[Int] = $(nGramLengths).asInstanceOf[Array[Int]]
+
+  /** @group getParam */
+  final def getNGramLength: Int = {
+    val lengths = getNGramLengths
+    assert(lengths.lengthCompare(1) == 0, "more than 1 ngram length is provided")
+    lengths.head
+  }
+
+  /** @group getParam */
+  final def getNGramRange: (Int, Int) = {
+    val lengths = getNGramLengths.sorted
+    assert(lengths.last - lengths.head +1 == lengths.length,
+      s"Ngram Lengths: $getNGramLengths do not conform to a range pattern")
+    (lengths.head, lengths.last)
+  }
 
   /** All nonnegative word counts are set to 1 when set to true
     * @group param
@@ -176,6 +191,7 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
   *
   * @param uid The id of the module
   */
+@InternalWrapper
 class TextFeaturizer(override val uid: String)
   extends Estimator[TextFeaturizerModel]
     with TextFeaturizerParams with HasInputCol with HasOutputCol {
@@ -233,9 +249,18 @@ class TextFeaturizer(override val uid: String)
   def setUseNGram(value: Boolean): this.type = set(useNGram, value)
 
   /** @group setParam */
-  def setNGramLength(value: Int): this.type = set(nGramLength, value)
+  def setNGramLength(value: Int): this.type = set(nGramLengths, Array(value))
 
-  setDefault(useNGram -> false, nGramLength -> 2)
+  /** @group setParam */
+  def setNGramLengths(values: Array[Int]): this.type = set(nGramLengths, values)
+
+  /** @group setParam */
+  def setNGramRange(min: Int, max: Int): this.type = set(nGramLengths, (min to max).toArray)
+
+  /** @group setParam */
+  def setNGramRange(range: (Int, Int)): this.type = set(nGramLengths, (range._1 to range._2).toArray)
+
+  setDefault(useNGram -> false, nGramLengths -> Array(2))
 
   /** @group setParam */
   def setBinary(value: Boolean): this.type = set(binary, value)
@@ -289,7 +314,7 @@ class TextFeaturizer(override val uid: String)
       }
     }
     if (getUseNGram)
-      models ::= new NGram().setN(getNGramLength)
+      models ::= new MultiNGram().setLengths(getNGramLengths)
     models ::= new HashingTF()
       .setBinary(getBinary)
       .setNumFeatures(getNumFeatures)

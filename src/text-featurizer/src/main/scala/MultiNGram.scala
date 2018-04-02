@@ -20,6 +20,7 @@ object MultiNGram extends DefaultParamsReadable[MultiNGram]
   *
   * @param uid The id of the module
   */
+@InternalWrapper
 class MultiNGram(override val uid: String)
     extends Transformer with HasInputCol with HasOutputCol with MMLParams {
 
@@ -29,7 +30,14 @@ class MultiNGram(override val uid: String)
 
   val lengths =
     new ArrayParam(this, "lengths",
-                   "the collection of lengths to use for ngram extraction")
+                   "the collection of lengths to use for ngram extraction",
+      {arr =>
+        arr.forall {
+          case l: Int => l > 0
+          case l: BigInt => l > 0
+          case l: Integer => l > 0
+        }
+      })
 
   def getLengths:Array[Int] = $(lengths)
     .toArray.map {
@@ -38,6 +46,18 @@ class MultiNGram(override val uid: String)
     }
 
   def setLengths(v: Array[Int]): this.type = set(lengths, v)
+
+  def setRange(min: Int, max: Int): this.type = {
+    assert(min >= 0 & min <= max)
+    setLengths((min to max).toArray)
+  }
+
+  def getRange: (Int, Int) = {
+    val lengths = getLengths.sorted
+    assert(lengths.last - lengths.head +1 == lengths.length,
+      s"Ngram Lengths: $getLengths do not conform to a range pattern")
+    (lengths.head, lengths.last)
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF()

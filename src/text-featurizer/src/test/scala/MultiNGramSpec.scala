@@ -36,6 +36,21 @@ class MultiNGramSpec extends TransformerFuzzing[MultiNGram] {
     assert(grams.size == 25)
   }
 
+  test("Range based setters and getters"){
+    val tRange = new MultiNGram()
+      .setRange(1,4).setInputCol("tokens").setOutputCol("ngrams")
+    val tArray = new MultiNGram()
+      .setLengths(Array(1,2,3,4)).setInputCol("tokens").setOutputCol("ngrams")
+
+    assert(tRange.getRange._1 === 1)
+    assert(tRange.getRange._2 === 4)
+
+    val dfNgramRange = tRange.transform(dfTok)
+    val dfNgramArray = tArray.transform(dfTok)
+
+    assert(dfNgramArray === dfNgramRange)
+  }
+
   override def testObjects(): Seq[TestObject[MultiNGram]] =
     List(new TestObject(t, dfTok))
 

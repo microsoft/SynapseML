@@ -55,6 +55,18 @@ class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
     assert(linesNgram(3)(1) == 0.0)
   }
 
+  test("Set NGram range syntactic sugar") {
+    val tfRaw = new TextFeaturizer()
+      .setInputCol("sentence")
+      .setOutputCol("features")
+      .setNumFeatures(20)
+      .setNGramRange((1, 3))
+    val dfRaw2 = tfRaw.fit(dfRaw).transform(dfRaw)
+    val linesRaw = dfRaw2.getSVCol("features")
+    assert(linesRaw.length == 4)
+    assert(linesRaw(0)(0) == 0.9162907318741551)
+  }
+
   test("throw errors if the schema is incorrect") {
     val tfRaw = new TextFeaturizer()
       .setUseTokenizer(true)
