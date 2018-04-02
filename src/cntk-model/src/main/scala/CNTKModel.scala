@@ -93,24 +93,28 @@ private object CNTKModelUtils extends java.io.Serializable {
                  inputNode: Int,
                  outputNodeName: Option[String],
                  outputNodeIndex: Option[Int])(inputRows: Iterator[Row]): Iterator[Row] = {
-    val device = DeviceDescriptor.useDefaultDevice
-    val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
-    val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
-      case (Some(name), None) =>
+    if (!inputRows.hasNext) {
+      Iterator() // Quickly skip empty partitions
+    } else {
+      val device = DeviceDescriptor.useDefaultDevice
+      val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
+      val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
+        case (Some(name), None) =>
           Some(Option(m.findByName(name)).getOrElse(
-                 throw new IllegalArgumentException(s"Node $name does not exist")))
-      case (None, Some(index)) => Some(m.getOutputs.get(index).getOwner)
-      case (Some(_), Some(_)) =>
-        throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
-      case _ => None
+            throw new IllegalArgumentException(s"Node $name does not exist")))
+        case (None, Some(index)) => Some(m.getOutputs.get(index).getOwner)
+        case (Some(_), Some(_)) =>
+          throw new Exception("Must specify one and only one of outputNodeName or outputNodeIndex")
+        case _ => None
+      }
+
+      val model = outputNode.map(CNTKLib.AsComposite(_)).getOrElse(m)
+
+      val inputVar = model.getArguments.get(inputNode)
+      require(inputVar.getDataType() == CNTKDataType.Float,
+        "input variable type is not Float input type")
+      minibatchIterator(model, inputVar, device, inputRows, minibatchSize, inputIndex)
     }
-
-    val model = outputNode.map(CNTKLib.AsComposite(_)).getOrElse(m)
-
-    val inputVar = model.getArguments.get(inputNode)
-    require(inputVar.getDataType() == CNTKDataType.Float,
-            "input variable type is not Float input type")
-    minibatchIterator(model, inputVar, device, inputRows, minibatchSize, inputIndex)
   }
 
   private def toSeqSeq(fvv: FloatVectorVector): Seq[Seq[Float]] = {
