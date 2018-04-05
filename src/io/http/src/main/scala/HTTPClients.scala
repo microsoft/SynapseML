@@ -5,93 +5,84 @@ package com.microsoft.ml.spark
 
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
-import org.apache.http.message.BufferedHeader
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
-trait HTTPTypeAliases {
-  protected type Client = CloseableHttpClient
-  protected type ResponseType = CloseableHttpResponse
-  protected type RequestType = HttpRequestBase
+trait Handler {
 
-  private[ml] val internalClient: Client = HttpClientBuilder.create().build()
+  def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData
+
+  protected def convertAndClose(response: CloseableHttpResponse): HTTPResponseData = {
+    val rData = new HTTPResponseData(response)
+    response.close()
+    rData
+  }
+
 }
 
-private[ml] trait HTTPClient extends BaseClient[HTTPRequestData, HTTPResponseData]
-    with AutoCloseable with Unbuffered[HTTPRequestData, HTTPResponseData] with HTTPTypeAliases {
+private[ml] trait HTTPClient extends BaseClient
+  with AutoCloseable with Handler {
+
+  override protected type Client = CloseableHttpClient
+  override type ResponseType = HTTPResponseData
+  override type RequestType = HTTPRequestData
+
+  protected val internalClient: Client = HttpClientBuilder.create().build()
 
   override def close(): Unit = {
     internalClient.close()
   }
 
-  private[ml] def toRequest(s: ContextIn): Request = {
-    Request(s.in.toRequest, s.context)
-  }
-
-  private[ml] def fromResponse(response: Response): ContextOut  = {
-    val out = ContextOut(new HTTPResponseData(response.response), response.context)
-    response.response.close()
-    out
-  }
-
-  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse
-
-  override def sendInternalRequest(request: Request): Response = {
-    Response(handle(internalClient, request.request), request.context)
+  protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext = {
+    ResponseWithContext(handle(internalClient, request.request), request.context)
   }
 
 }
 
-object AdvancedHTTPHandling {
+object AdvancedHTTPHandling extends Handler {
 
   val retryTimes = Seq(100L, 1000L, 2000L, 4000L)
 
-  protected def sendWithRetries(client: CloseableHttpClient,
-                                request: HttpRequestBase,
-                                retriesLeft: Seq[Long]): CloseableHttpResponse = {
+  private def sendWithRetries(client: CloseableHttpClient,
+                              request: HttpRequestBase,
+                              retriesLeft: Seq[Long]): HTTPResponseData = {
     val response = client.execute(request)
     val code = response.getStatusLine.getStatusCode
     val suceeded = code match {
-        case 200 => true
-        case 429 =>
-          val waitTime = response.headerIterator("Retry-After")
-            .nextHeader().asInstanceOf[BufferedHeader]
-            .getBuffer.toString.split(" ").last.toInt
-          Thread.sleep(waitTime.toLong * 1000)
-          false
-        case _ => false
-      }
-    if (suceeded) {
-      response
-    } else {
-      if (retriesLeft.isEmpty){
-        response
-      }else{
+      case 200 => true
+      case 429 =>
+        Option(response.getFirstHeader("Retry-After"))
+          .foreach{h =>
+            println(s"waiting ${h.getValue}")
+            Thread.sleep(h.getValue.toLong * 1000)}
         response.close()
-        Thread.sleep(retriesLeft.head)
-        sendWithRetries(client, request, retriesLeft.tail)
-      }
+        false
+      case _ => false
+    }
+    if (suceeded || retriesLeft.isEmpty) {
+      convertAndClose(response)
+    } else {
+      response.close()
+      Thread.sleep(retriesLeft.head)
+      sendWithRetries(client, request, retriesLeft.tail)
     }
   }
 
-  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse =
-    sendWithRetries(client, request, retryTimes)
-
+  def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
+    sendWithRetries(client, request.toHTTPCore, retryTimes)
+  }
 }
 
-object BasicHTTPHandling {
+object BasicHTTPHandling extends Handler {
 
-  def handle(client: CloseableHttpClient, request: HttpRequestBase): CloseableHttpResponse =
-    client.execute(request)
+  def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData =
+    convertAndClose(client.execute(request.toHTTPCore))
 
 }
 
 abstract class AsyncHTTPClient(override val concurrency: Int, override val timeout: Duration)
                               (override implicit val ec: ExecutionContext)
-    extends HTTPClient
-    with Asynchrony[HTTPRequestData, HTTPResponseData]
+  extends AsyncClient(concurrency, timeout)(ec) with HTTPClient
 
-abstract class SingleThreadedHTTPClient
-    extends HTTPClient
-    with SingleThreaded[HTTPRequestData, HTTPResponseData]
+abstract class SingleThreadedHTTPClient extends HTTPClient with SingleThreadedClient

@@ -206,30 +206,30 @@ class JVMSharedServer(name: String, host: String,
     override def handle(request: HttpExchange): Unit = synchronized {
       requestsSeen += 1
       if (request.getRequestMethod == "OPTIONS") {
-        return respond(request, 200, "")
+        respond(request, 200, "")
       } else if (request.getRequestMethod != "POST") {
-        return respond(request, 405, "Only POSTs accepted")
-      }
-
-      val headers = request.getRequestHeaders
-      if (headers.containsKey("Content-type")) {
-        headers.get("Content-type").get(0) match {
-          case "application/json" =>
-            val body = getBody(request)
-            val uuid = UUID.randomUUID().toString
-            requestsAccepted += 1
-            val cb = currentBatch.longValue()
-            batchesToRequests.get(cb) match {
-              case None =>
-                val mcm = new MultiChannelMap[ID, Request](nPartitions)
-                mcm.addToNextList(uuid, (body, request))
-                batchesToRequests.update(cb, mcm)
-              case Some(mcm) => mcm.addToNextList(uuid, (body, request))
-            }
-            logDebug(s"handling $body batch: $currentBatch ip: $address")
-            ()
-          case _ =>
-            respond(request, 400, "Content-type needs to be application/json")
+        respond(request, 405, "Only POSTs accepted")
+      } else {
+        val headers = request.getRequestHeaders
+        if (headers.containsKey("Content-type")) {
+          headers.get("Content-type").get(0) match {
+            case "application/json" =>
+              val body = getBody(request)
+              val uuid = UUID.randomUUID().toString
+              requestsAccepted += 1
+              val cb = currentBatch.longValue()
+              batchesToRequests.get(cb) match {
+                case None =>
+                  val mcm = new MultiChannelMap[ID, Request](nPartitions)
+                  mcm.addToNextList(uuid, (body, request))
+                  batchesToRequests.update(cb, mcm)
+                case Some(mcm) => mcm.addToNextList(uuid, (body, request))
+              }
+              logDebug(s"handling $body batch: $currentBatch ip: $address")
+              ()
+            case _ =>
+              respond(request, 400, "Content-type needs to be application/json")
+          }
         }
       }
     }
@@ -242,7 +242,7 @@ class JVMSharedServer(name: String, host: String,
     }
     try {
       val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
-      return (server, startingPort)
+      (server, startingPort)
     } catch {
       case _: java.net.BindException =>
         tryCreateServer(host, startingPort + 1, triesLeft - 1)
