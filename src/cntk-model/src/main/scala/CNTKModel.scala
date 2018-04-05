@@ -42,6 +42,14 @@ private object CNTKModelUtils extends java.io.Serializable {
     outputFVV
   }
 
+  private def deleteFVV(fvv: FloatVectorVector): Unit = {
+    val size = fvv.size().toInt
+    (0 until size).foreach{i =>
+      fvv.get(i).delete()
+    }
+    fvv.delete()
+  }
+
   /** This defines and instantiates an iterator, hasNext and next are the abstract methods that
     * define the interface and inputBuffer and outputBuffer hold the input and output rows so that
     * they can be joined and returned.
@@ -71,6 +79,7 @@ private object CNTKModelUtils extends java.io.Serializable {
               fv.set(j, x)
             }
             inputFVV.set(i, fv)
+            fv
           }
 
           val outputFVV = applyCNTKFunction(model,inputFVV, inputVar, device)
@@ -78,6 +87,9 @@ private object CNTKModelUtils extends java.io.Serializable {
                  "The output row buffer should be empty before new elements are added.")
           outputBuffer ++= toSeqSeq(outputFVV)
             .map(fs => Row(Vectors.dense(fs.map(_.toDouble).toArray)))
+
+          deleteFVV(inputFVV)
+          deleteFVV(outputFVV)
         }
         val ret = Row.merge(inputBuffer.head, outputBuffer.head)
         inputBuffer.remove(0)
@@ -97,6 +109,7 @@ private object CNTKModelUtils extends java.io.Serializable {
       Iterator() // Quickly skip empty partitions
     } else {
       val device = DeviceDescriptor.useDefaultDevice
+      //CNTKLib.SetMaxNumCPUThreads(1)
       val m = fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
       val outputNode: Option[CNTKFunction] = (outputNodeName, outputNodeIndex) match {
         case (Some(name), None) =>
