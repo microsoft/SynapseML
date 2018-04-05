@@ -3,17 +3,14 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.udf
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
@@ -38,7 +35,7 @@ trait HTTPParams extends Wrappable {
 
   val handlingStrategy: Param[String] = new Param[String](
     this, "handlingStrategy", "Which strategy to use when handling requests",
-    {x: String => Set("basic","advanced")(x.toLowerCase)})
+    { x: String => Set("basic", "advanced")(x.toLowerCase) })
 
   /** @group getParam */
   def getHandlingStrategy: String = $(handlingStrategy)
@@ -65,14 +62,14 @@ trait HasURL extends Wrappable {
 object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 
 class HTTPTransformer(val uid: String)
-    extends Transformer with HTTPParams with HasInputCol
+  extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol
     with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
   val clientHolder = SharedVariable {
-    val strategy: (CloseableHttpClient, HttpRequestBase) => CloseableHttpResponse =
+    val strategy: (CloseableHttpClient, HTTPRequestData) => HTTPResponseData =
       getHandlingStrategy match {
         case "basic" => BasicHTTPHandling.handle
         case "advanced" => AdvancedHTTPHandling.handle
@@ -85,7 +82,7 @@ class HTTPTransformer(val uid: String)
       case n if n > 1 =>
         val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(n, dur)(ec)  {
+        new AsyncHTTPClient(n, dur)(ec) {
           override def handle(client: Client, request: RequestType) = strategy(client, request)
         }
     }
@@ -99,11 +96,17 @@ class HTTPTransformer(val uid: String)
     val enc = RowEncoder(transformSchema(df.schema))
     val colIndex = df.schema.fieldNames.indexOf(getInputCol)
     df.mapPartitions { it =>
-      val c = clientHolder.get
-      c.send(it.map(row => c.ContextIn(HTTPRequestData.fromRow(row.getStruct(colIndex)),
-                                       Some(row))))
-        .map(cout => Row.merge(cout.context.get.asInstanceOf[Row],
-                               Row(cout.out.toRow)))
+      if (!it.hasNext) {
+        Iterator()
+      }else{
+        val c = clientHolder.get
+        val responsesWithContext = c.sendRequestsWithContext(it.map(row =>
+          c.RequestWithContext(
+            HTTPRequestData.fromRow(row.getStruct(colIndex)),
+            Some(row))))
+        responsesWithContext.map(rwc =>
+          Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.toRow)))
+      }
     }(enc)
   }
 

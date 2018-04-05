@@ -5,18 +5,9 @@ package com.microsoft.ml.spark
 
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
 
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpUriRequest}
-import org.apache.http.entity.{ByteArrayEntity, StringEntity}
-import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
-import org.apache.http.message.BufferedHeader
 import org.apache.log4j.{LogManager, Logger}
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.catalyst.ScalaReflection
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -72,7 +63,7 @@ class BatchIterator[T](val it: Iterator[T],
 
 }
 
-private[ml] trait ClientTypeAliases {
+private[ml] trait BaseClient {
 
   protected type Context = Option[Any]
 
@@ -80,61 +71,38 @@ private[ml] trait ClientTypeAliases {
   protected type ResponseType
   protected type RequestType
 
-  case class Response(response: ResponseType, context: Context) {
+  case class ResponseWithContext(response: ResponseType, context: Context) {
     def this(response: ResponseType) = this(response, None)
   }
 
-  case class Request(request: RequestType, context: Context) {
+  case class RequestWithContext(request: RequestType, context: Context) {
     def this(request: RequestType) = this(request, None)
-  }
-
-}
-
-private[ml] trait BaseClient[In, Out] extends ClientTypeAliases {
-
-  case class ContextIn(in: In, context: Context) {
-    def this(in: In) = this(in, None)
-  }
-
-  case class ContextOut(out: Out, context: Context) {
-    def this(out: Out) = this(out, None)
   }
 
   protected lazy val logger: Logger = LogManager.getLogger("BaseClient")
 
-  private[ml] val internalClient: Client
+  protected val internalClient: Client
 
-  private[ml] def sendRequests(requests: Iterator[Request]): Iterator[Response]
-
-  private[ml] def sendInternalRequest(request: Request): Response
-
-  def send(messages: Iterator[ContextIn]): Iterator[ContextOut] = {
-    fromResponses(sendRequests(toRequests(messages)))
-  }
-
-  private[ml] def toRequests(inputs: Iterator[ContextIn]): Iterator[Request]
-
-  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[ContextOut]
+  def sendRequestsWithContext
+  (requests: Iterator[RequestWithContext]): Iterator[ResponseWithContext]
 
 }
 
-private[ml] trait Unbuffered[In, Out] extends BaseClient[In, Out] {
+private[ml] trait SingleThreadedClient extends BaseClient {
 
-  private[ml] def toRequest(message: ContextIn): Request
+  protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext
 
-  private[ml] def fromResponse(response: Response): ContextOut
-
-  private[ml] def toRequests(messages: Iterator[ContextIn]): Iterator[Request] = {
-    messages.map(toRequest)
-  }
-
-  private[ml] def fromResponses(responses: Iterator[Response]): Iterator[ContextOut] = {
-    responses.map(fromResponse)
+  override def sendRequestsWithContext
+  (requests: Iterator[RequestWithContext]): Iterator[ResponseWithContext] = {
+    requests.map(sendRequestWithContext)
   }
 
 }
 
-private[ml] trait Asynchrony[In, Out] extends BaseClient[In, Out] {
+abstract class AsyncClient(val concurrency: Int,
+                           val timeout: Duration)
+                          (implicit val ec: ExecutionContext)
+  extends BaseClient {
 
   protected def bufferedAwait[T](it: Iterator[Future[T]],
                                  concurrency: Int,
@@ -154,40 +122,13 @@ private[ml] trait Asynchrony[In, Out] extends BaseClient[In, Out] {
     }
   }
 
-  val concurrency: Int
-  val timeout: Duration
-  implicit val ec: ExecutionContext
+  protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext
 
-  override def sendRequests(requests: Iterator[Request]): Iterator[Response] = {
+  override def sendRequestsWithContext
+  (requests: Iterator[RequestWithContext]): Iterator[ResponseWithContext] = {
     val futureResponses = requests.map(r => Future {
-      sendInternalRequest(r)
+      sendRequestWithContext(r)
     })
     bufferedAwait(futureResponses, concurrency, timeout)
   }
-
 }
-
-private[ml] trait SingleThreaded[In, Out] extends BaseClient[In, Out] {
-
-  override private[ml] def sendRequests(requests: Iterator[Request]): Iterator[Response] = {
-    requests.map(sendInternalRequest)
-  }
-
-}
-
-private[ml] trait ColumnSchema {
-
-  def verifyInput(input: DataType): Unit
-
-  def transformDataType(input: DataType): DataType
-
-}
-
-
-abstract class SimpleClient[In, Out] extends
-    SingleThreaded[In, Out] with Unbuffered[In, Out]
-
-abstract class AsyncClient[In, Out](override val concurrency: Int,
-                                    override val timeout: Duration)
-                                   (override implicit val ec: ExecutionContext)
-    extends Asynchrony[In, Out] with Unbuffered[In, Out]

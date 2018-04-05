@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import java.net.URI
+import java.net.{SocketException, URI}
 
 import org.apache.commons.io.IOUtils
 import org.apache.http._
@@ -22,7 +22,7 @@ case class HeaderData(name: String, value: String) {
     this(h.getName, h.getValue)
   }
 
-  def toHeader: Header = new BasicHeader(name, value)
+  def toHTTPCore: Header = new BasicHeader(name, value)
 
   def toRow: Row = {
     Row(name, value)
@@ -47,7 +47,12 @@ case class EntityData(content: Array[Byte],
                       isStreaming: Boolean) {
 
   def this(e: HttpEntity) = {
-    this(IOUtils.toByteArray(e.getContent),
+    this(
+         try {
+           IOUtils.toByteArray(e.getContent)
+         } catch {
+           case _: SocketException => Array() //TODO investigate why sockets fail sometimes
+         },
          Option(e.getContentEncoding).map(new HeaderData(_)),
          e.getContentLength,
          Option(e.getContentType).map(new HeaderData(_)),
@@ -56,11 +61,11 @@ case class EntityData(content: Array[Byte],
          e.isStreaming)
   }
 
-  def toHttpEntity: HttpEntity = {
+  def toHttpCore: HttpEntity = {
     val e = new ByteArrayEntity(content)
-    contentEncoding.foreach { ce => e.setContentEncoding(ce.toHeader) }
+    contentEncoding.foreach { ce => e.setContentEncoding(ce.toHTTPCore) }
     assert(e.getContentLength == contentLenth)
-    contentType.foreach(h => e.setContentType(h.toHeader))
+    contentType.foreach(h => e.setContentType(h.toHTTPCore))
     e.setChunked(isChunked)
     assert(e.isRepeatable == isRepeatable)
     assert(e.isStreaming == isStreaming)
@@ -153,7 +158,7 @@ case class ProtocolVersionData(protocol: String, major: Int, minor: Int) {
     this(v.getProtocol, v.getMajor, v.getMinor)
   }
 
-  def toProtocolVersion: ProtocolVersion = {
+  def toHTTPCore: ProtocolVersion = {
     new ProtocolVersion(protocol, major, minor)
   }
 
@@ -207,7 +212,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
          })
   }
 
-  def toRequest: HttpRequestBase = {
+  def toHTTPCore: HttpRequestBase = {
     val request = requestLine.method.toUpperCase match {
       case "GET"     => new HttpGet()
       case "HEAD"    => new HttpHead()
@@ -220,15 +225,15 @@ case class HTTPRequestData(requestLine: RequestLineData,
     }
     request match {
       case re: HttpEntityEnclosingRequestBase =>
-        entity.foreach(e => re.setEntity(e.toHttpEntity))
+        entity.foreach(e => re.setEntity(e.toHttpCore))
       case _ if entity.isDefined =>
         throw new IllegalArgumentException(s"Entity is defined but method is ${requestLine.method}")
       case _ =>
     }
     request.setURI(new URI(requestLine.uri))
     requestLine.protoclVersion.foreach(pv =>
-      request.setProtocolVersion(pv.toProtocolVersion))
-    request.setHeaders(headers.map(_.toHeader))
+      request.setProtocolVersion(pv.toHTTPCore))
+    request.setHeaders(headers.map(_.toHTTPCore))
     request
   }
 

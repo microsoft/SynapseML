@@ -52,11 +52,11 @@ class DistributedHTTPSuite extends TestBase {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
   }
 
-  def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 10000, checkEvery: Int = 100): Unit = {
+  def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
     while (waited < maxTimeWaited) {
       if (!server.isActive) throw server.exception.get
-      if (server.recentProgress.length > 0) return
+      if (server.recentProgress.length > 1) return
       Thread.sleep(checkEvery.toLong)
       waited += checkEvery
     }
@@ -120,7 +120,7 @@ class DistributedHTTPSuite extends TestBase {
          |        r = s.post("http://localhost:${DistributedHTTPSuite.port}/foo",
          |                          data={"number": 12524, "type": "issue", "action": "show"},
          |                          headers = {"content-type": "application/json"},
-         |                          timeout=5)
+         |                          timeout=15)
          |
          |        assert r.status_code==200
          |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
