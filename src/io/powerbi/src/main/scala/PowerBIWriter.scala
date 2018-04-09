@@ -5,9 +5,11 @@ package com.microsoft.ml.spark
 
 import org.apache.http.client.HttpResponseException
 import org.apache.log4j.{LogManager, Logger}
+import org.apache.spark.ml.NamespaceInjections
 import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
+
 import scala.collection.JavaConverters._
 
 private class StreamMaterializer extends ForeachWriter[Row] {
@@ -25,6 +27,15 @@ object PowerBIWriter {
   val logger: Logger = LogManager.getRootLogger
 
   private def prepareDF(df: DataFrame, url: String, options: Map[String, String] = Map()): DataFrame = {
+    val applicableOptions = Set(
+      "consolidate", "concurrency", "concurrentTimeout", "minibatcher",
+      "maxBatchSize", "batchSize", "buffered", "maxBufferSize", "millisToWait"
+    )
+
+    options.keys.foreach(k =>
+      assert(applicableOptions(k), s"$k not an applicable option ${applicableOptions.toList}"))
+
+    val consolidate = options.get("consolidate").map(_.toBoolean).getOrElse(false)
 
     val concurrency = options.get("concurrency").map(_.toInt).getOrElse(1)
     val concurrentTimeout = options.get("concurrentTimeout").map(_.toDouble).getOrElse(30.0)
@@ -51,6 +62,12 @@ object PowerBIWriter {
           .setMaxBatchSize(maxBatchSize)
     }
 
+    val df2 = if (consolidate){
+      new PartitionConsolidator().transform(df)
+    }else{
+      df
+    }
+
     new SimpleHTTPTransformer()
       .setUrl(url)
       .setMiniBatcher(mb)
@@ -71,7 +88,7 @@ object PowerBIWriter {
       .setConcurrentTimeout(concurrentTimeout)
       .setInputCol("input")
       .setOutputCol("output")
-      .transform(df.select(struct(df.columns.map(col): _*).alias("input")))
+      .transform(df2.select(struct(df2.columns.map(col): _*).alias("input")))
   }
 
   def stream(df: DataFrame, url: String, options: Map[String, String] = Map()): DataStreamWriter[Row] = {

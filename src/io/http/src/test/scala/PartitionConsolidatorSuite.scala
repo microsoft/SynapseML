@@ -15,6 +15,8 @@ class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidato
 
   lazy val df: DataFrame = (1 to 1000).toDF("values")
 
+  override val sortInDataframeEquality: Boolean = true
+
   override def testObjects(): Seq[TestObject[PartitionConsolidator]] = Seq(
     new TestObject(new PartitionConsolidator(), df))
 
