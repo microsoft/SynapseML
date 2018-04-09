@@ -49,11 +49,17 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
   }
 
   test("using dynamic minibatching"){
-    PowerBIWriter.write(delayDF, url, Map("minibatcher"->"dynamic"))
+    PowerBIWriter.write(delayDF, url, Map("minibatcher"->"dynamic", "maxBatchSize"->"50"))
   }
 
-  test("using times minibatching"){
+  test("using timed minibatching"){
     PowerBIWriter.write(delayDF, url, Map("minibatcher"->"timed"))
+  }
+
+  test("using consolidated timed minibatching"){
+    PowerBIWriter.write(delayDF, url, Map(
+      "minibatcher"->"timed",
+      "consolidate"->"true"))
   }
 
   test("using buffered batching"){
