@@ -13,6 +13,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.ParamPair
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions.col
 import org.scalactic.{Equality, TolerantNumerics}
 
 case class TestObject[S <: PipelineStage](stage: S,
@@ -58,6 +59,8 @@ trait FuzzingMethods extends TestBase {
     }
   }
 
+  val sortInDataframeEquality = false
+
   val baseDfEq = new Equality[DataFrame]{
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
       case ds:Dataset[_] =>
@@ -65,12 +68,17 @@ trait FuzzingMethods extends TestBase {
         if(a.columns !== b.columns){
           return false
         }
-        val aSort = a.sort().collect()
-        val bSort = b.sort().collect()
-        if (aSort.length != bSort.length){
+        val (aList, bList) = if (sortInDataframeEquality){
+          (a.sort(a.columns.sorted.map(col):_*).collect(),
+            b.sort(b.columns.sorted.map(col):_*).collect())
+        } else {
+          (a.collect(), b.collect())
+        }
+
+        if (aList.length != bList.length){
           return false
         }
-        aSort.zip(bSort).forall {case (rowA, rowB) =>
+        aList.zip(bList).forall {case (rowA, rowB) =>
           rowA === rowB
         }
     }
