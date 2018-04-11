@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.{InetAddress, InetSocketAddress, ServerSocket}
 import java.util.concurrent.Executors
 
 import com.microsoft.ml.spark.StreamUtilities.using
@@ -13,9 +13,6 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 
 object ServerUtils {
-  val host      = "localhost"
-  val apiName   = "foo"
-
   private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
     val bytes = response.getBytes("UTF-8")
     request.synchronized {
@@ -35,9 +32,8 @@ object ServerUtils {
     }
   }
 
-  def createServer(): HttpServer = {
-    val sAddr  = new InetSocketAddress(InetAddress.getByName(host), 0)
-    val server = HttpServer.create(sAddr, 100)
+  def createServer(host: String, port:Int, apiName: String): HttpServer = {
+    val server = HttpServer.create(new InetSocketAddress(host,port), 100)
     server.createContext(s"/$apiName", new RequestHandler)
     server.setExecutor(Executors.newFixedThreadPool(100))
     server.start()
@@ -45,16 +41,22 @@ object ServerUtils {
   }
 }
 
-trait WithServer extends TestBase {
+trait WithFreeUrl {
+  val host              = "localhost"
+  val apiName           = "foo"
+  //Note this port should be used immediately to avoid race conditions
+  lazy val port: Int    =
+    StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
+  lazy val url:String   = {
+    s"http://$host:$port/$apiName"
+  }
+}
+
+trait WithServer extends TestBase with WithFreeUrl {
   var server: Option[HttpServer] = None
 
-  def getHost(): String   = ServerUtils.host
-  def getPort(): Int      = server.get.getAddress.getPort // get the actual port that was allocated
-  def getAPIName():String = ServerUtils.apiName
-  def getUrl():String     = s"http://$getHost:$getPort/$getAPIName"
-
   override def beforeAll(): Unit = {
-    server = Some(ServerUtils.createServer())
+    server = Some(ServerUtils.createServer(host, port, apiName))
     super.beforeAll()
   }
 
