@@ -12,14 +12,13 @@ import org.apache.spark.sql.functions.{col, length}
 
 import scala.util.parsing.json.JSONObject
 
-class HTTPSuite extends TestBase {
-  val port: Int = 8999
+class HTTPSuite extends TestBase with WithFreeUrl {
 
   test("stream from HTTP", TestBase.Extended) {
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
-      .option("host", "localhost")
+      .option("host", host)
       .option("port", port.toString)
-      .option("name", "foo")
+      .option("name", apiName)
       .load()
       .withColumn("newCol", length(col("value")))
       .writeStream
@@ -31,7 +30,7 @@ class HTTPSuite extends TestBase {
       .start()
 
     def sendRequest(map: Map[String, Any]): HttpPost = {
-      val post = new HttpPost(s"http://localhost:$port/foo")
+      val post = new HttpPost(url)
       val params = new StringEntity(JSONObject(map).toString())
       post.addHeader("content-type", "application/json")
       post.setEntity(params)

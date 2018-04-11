@@ -23,12 +23,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.parsing.json.JSONObject
 
-object DistributedHTTPSuite extends Serializable {
-  val port: Int = 8889
-}
-
 // TODO add tests for shuffles
-class DistributedHTTPSuite extends TestBase {
+class DistributedHTTPSuite extends TestBase with WithFreeUrl {
 
   // Logger.getRootLogger.setLevel(Level.WARN)
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
@@ -37,8 +33,8 @@ class DistributedHTTPSuite extends TestBase {
   def createServer(): DataStreamWriter[Row] = {
     println(classOf[DistributedHTTPSourceProvider].getName)
     session.readStream.format(classOf[DistributedHTTPSourceProvider].getName)
-      .option("host", "localhost")
-      .option("port", DistributedHTTPSuite.port.toString)
+      .option("host", host)
+      .option("port", port.toLong)
       .option("name", "foo")
       .option("maxPartitions", 5)
       .load()
@@ -68,7 +64,7 @@ class DistributedHTTPSuite extends TestBase {
     val client = HttpClientBuilder.create().build()
 
     def sendRequest(map: Map[String, Any]): String = {
-      val post = new HttpPost(s"http://localhost:${DistributedHTTPSuite.port}/foo")
+      val post = new HttpPost(url)
       val params = new StringEntity(JSONObject(map).toString())
       post.addHeader("content-type", "application/json")
       post.setEntity(params)
@@ -117,7 +113,7 @@ class DistributedHTTPSuite extends TestBase {
          |
          |    def run(self):
          |        print("Starting " + str(self.threadID))
-         |        r = s.post("http://localhost:${DistributedHTTPSuite.port}/foo",
+         |        r = s.post("$url",
          |                          data={"number": 12524, "type": "issue", "action": "show"},
          |                          headers = {"content-type": "application/json"},
          |                          timeout=15)
@@ -161,7 +157,7 @@ class DistributedHTTPSuite extends TestBase {
 
     def sendRequest(map: Map[String, Any]): Future[String] = {
       Future {
-        val post = new HttpPost(s"http://localhost:${DistributedHTTPSuite.port}/foo")
+        val post = new HttpPost(url)
         val params = new StringEntity(JSONObject(map).toString())
         post.addHeader("content-type", "application/json")
         post.setEntity(params)

@@ -10,13 +10,13 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-trait ParserUtils {
+trait ParserUtils extends WithServer {
 
   def sampleDf(spark: SparkSession): DataFrame = {
     val df = spark.createDataFrame((1 to 10).map(Tuple1(_)))
       .toDF("data")
     val df2 = new JSONInputParser().setInputCol("data")
-      .setOutputCol("parsedInput").setUrl("http://localhost:12345/foo")
+      .setOutputCol("parsedInput").setUrl(url)
       .transform(df)
       .withColumn("unparsedOutput", udf({x: Int =>
         HTTPResponseData(
@@ -44,7 +44,7 @@ trait ParserUtils {
 class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[JSONInputParser]] = makeTestObject(
     new JSONInputParser().setInputCol("data").setOutputCol("out")
-      .setUrl("http://localhost:8888"), session)
+      .setUrl(url), session)
   override def reader: MLReadable[_] = JSONInputParser
 }
 
