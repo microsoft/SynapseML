@@ -27,7 +27,7 @@ def _setup_kernel_local(notebook):
             "name": "python",
             "nbconvert_exporter": "python",
             "pygments_lexer": "ipython3",
-            "version": "3.5.2"}
+            "version": "3.6.3"}
     return notebook
 NOTEBOOK_POSTPROC["local"] = _setup_kernel_local
 

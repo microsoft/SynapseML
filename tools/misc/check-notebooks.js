@@ -118,7 +118,7 @@ let _language_info = {
   name: "python",
   nbconvert_exporter: "python",
   pygments_lexer: "ipython3",
-  version: "3.5.2"
+  version: "3.6.3"
 }
 
 let getNotebooks = () => {
@@ -149,4 +149,4 @@ checkAll(
                            name: "python3"},
               language_info: _language_info},
    nbformat: 4,
-   nbformat_minor: 0});
+   nbformat_minor: 2});
