@@ -65,7 +65,8 @@ class LightGBMRegressor(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: $nodes")
     val trainParams = new RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getApplication, getAlpha)
+      getApplication, getAlpha, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
+      getMaxDepth, getMinSumHessianInLeaf)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, getFeaturesCol,
         getDefaultListenPort, log, trainParams))(encoder)
