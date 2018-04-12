@@ -36,7 +36,7 @@ trait LightGBMParams extends MMLParams {
   def getNumLeaves: Int = $(numLeaves)
   def setNumLeaves(value: Int): this.type = set(numLeaves, value)
 
-  val maxBin = IntParam(this, "maxBin", "Max bin", 256)
+  val maxBin = IntParam(this, "maxBin", "Max bin", 255)
 
   def getMaxBin: Int = $(maxBin)
   def setMaxBin(value: Int): this.type = set(maxBin, value)
@@ -46,12 +46,12 @@ trait LightGBMParams extends MMLParams {
   def getBaggingFraction: Double = $(baggingFraction)
   def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
 
-  val baggingFreq = IntParam(this, "baggingFreq", "Bagging frequence", 1)
+  val baggingFreq = IntParam(this, "baggingFreq", "Bagging frequence", 0)
 
   def getBaggingFreq: Int = $(baggingFreq)
   def setBaggingFreq(value: Int): this.type = set(baggingFreq, value)
 
-  val baggingSeed = IntParam(this, "baggingSeed", "Bagging seed", 1)
+  val baggingSeed = IntParam(this, "baggingSeed", "Bagging seed", 3)
 
   def getBaggingSeed: Int = $(baggingSeed)
   def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
@@ -61,13 +61,13 @@ trait LightGBMParams extends MMLParams {
   def getFeatureFraction: Double = $(featureFraction)
   def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 
-  val maxDepth = IntParam(this, "maxDepth", "Max depth", 1)
+  val maxDepth = IntParam(this, "maxDepth", "Max depth", -1)
 
   def getMaxDepth: Int = $(maxDepth)
   def setMaxDepth(value: Int): this.type = set(maxDepth, value)
 
-  val minSumHessianInLeaf = IntParam(this, "minSumHessianInLeaf", "minimal sum hessian in one leaf", 1)
+  val minSumHessianInLeaf = DoubleParam(this, "minSumHessianInLeaf", "minimal sum hessian in one leaf", 1e-3)
 
-  def getMinSumHessianInLeaf: Int = $(minSumHessianInLeaf)
-  def setMinSumHessianInLeaf(value: Int): this.type = set(minSumHessianInLeaf, value)
+  def getMinSumHessianInLeaf: Double = $(minSumHessianInLeaf)
+  def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 }
