@@ -45,23 +45,23 @@ The Simple HTTP transformer provides options for batching request bodies
 and asynchronous request sending.  For simplicity and easier debugging,
 these options are not enabled by default.
 
-- `MaxBatchSize`: Parameter that enables buffered minibatching.  If this
+- `maxBatchSize`: Parameter that enables buffered minibatching.  If this
   parameter is set, a background thread will fetch up to at most
-  `MaxBatchSize` requests.  These requests's are combined by creating an
+  `maxBatchSize` requests.  These requests's are combined by creating an
   array of their entity data.  The method sends *up to* `maxBatchSize`
   requests, rapid iterator materialization will result in smaller
   batches as the background thread does not have enough time to
   materialize a full batch.  In other words, each new request sends all
   of the new data that has accumulated at this stage of the pipeline.
 
-- `Concurrency`: This parameter allows one to send up to `Concurrency`
+- `concurrency`: This parameter allows one to send up to `concurrency`
   requests simultaneously using Scala futures under the hood.  If this
   parameter is set to 1 (default), then no Scala futures are used.
 
-- `ConcurrentTimeout`: If `Concurrency`>1, requests will fail if they do
-  not receive a response within `ConcurrentTimeout` seconds.
+- `concurrentTimeout`: If `concurrency`>1, requests will fail if they do
+  not receive a response within `concurrentTimeout` seconds.
 
-- `HandlingStrategy`: (`"basic"`, or `"advanced"`) advanced handling
+- `handlingStrategy`: (`"basic"`, or `"advanced"`) advanced handling
   uses exponential backoff on the retires and can handle responses that
   instruct clients to throttle or retry again.
 
@@ -89,7 +89,7 @@ In HTTP on Spark, each partition manages a running web client that sends
 requests.  A schematic representation can be seen below:
 
 <p align="center">
-  <img src="https://mmlspark.blob.core.windows.net/graphics/HTTPOnSparkArchitecture.png?sanitize=true" width="600">
+  <img src="https://mmlspark.blob.core.windows.net/graphics/HTTPOnSparkArchitecture.png" width="600">
 </p>
 
 ## Schema
@@ -102,60 +102,58 @@ of case classes.
 The schema for a complete HTTP request looks like:
 
    ```
-   root
-    +-- request: struct (nullable = true)
-         +-- requestLine: struct (nullable = true)
-         |    +-- method: string (nullable = true)
-         |    +-- uri: string (nullable = true)
-         |    +-- protoclVersion: struct (nullable = true)
-         |         +-- protocol: string (nullable = true)
-         |         +-- major: integer (nullable = false)
-         |         +-- minor: integer (nullable = false)
-         +-- headers: array (nullable = true)
-         |    +-- element: struct (containsNull = true)
-         |         +-- name: string (nullable = true)
-         |         +-- value: string (nullable = true)
-         +-- entity: struct (nullable = true)
-              +-- content: binary (nullable = true)
-              +-- contentEncoding: struct (nullable = true)
-              |    +-- name: string (nullable = true)
-              |    +-- value: string (nullable = true)
-              +-- contentLenth: long (nullable = false)
-              +-- contentType: struct (nullable = true)
-              |    +-- name: string (nullable = true)
-              |    +-- value: string (nullable = true)
-              +-- isChunked: boolean (nullable = false)
-              +-- isRepeatable: boolean (nullable = false)
-              +-- isStreaming: boolean (nullable = false)
+   request: struct (nullable = true)
+    +-- requestLine: struct (nullable = true)
+    |    +-- method: string (nullable = true)
+    |    +-- uri: string (nullable = true)
+    |    +-- protoclVersion: struct (nullable = true)
+    |         +-- protocol: string (nullable = true)
+    |         +-- major: integer (nullable = false)
+    |         +-- minor: integer (nullable = false)
+    +-- headers: array (nullable = true)
+    |    +-- element: struct (containsNull = true)
+    |         +-- name: string (nullable = true)
+    |         +-- value: string (nullable = true)
+    +-- entity: struct (nullable = true)
+         +-- content: binary (nullable = true)
+         +-- contentEncoding: struct (nullable = true)
+         |    +-- name: string (nullable = true)
+         |    +-- value: string (nullable = true)
+         +-- contentLenth: long (nullable = false)
+         +-- contentType: struct (nullable = true)
+         |    +-- name: string (nullable = true)
+         |    +-- value: string (nullable = true)
+         +-- isChunked: boolean (nullable = false)
+         +-- isRepeatable: boolean (nullable = false)
+         +-- isStreaming: boolean (nullable = false)
    ```
 
 And the schema for a complete response looks like:
 
    ```
-   root
-    +-- response: struct (nullable = true)
-         +-- headers: array (nullable = true)
-         |    +-- element: struct (containsNull = true)
-         |         +-- name: string (nullable = true)
-         |         +-- value: string (nullable = true)
-         +-- entity: struct (nullable = true)
-         |    +-- content: binary (nullable = true)
-         |    +-- contentEncoding: struct (nullable = true)
-         |    |    +-- name: string (nullable = true)
-         |    |    +-- value: string (nullable = true)
-         |    +-- contentLenth: long (nullable = false)
-         |    +-- contentType: struct (nullable = true)
-         |    |    +-- name: string (nullable = true)
-         |    |    +-- value: string (nullable = true)
-         |    +-- isChunked: boolean (nullable = false)
-         |    +-- isRepeatable: boolean (nullable = false)
-         |    +-- isStreaming: boolean (nullable = false)
-         +-- statusLine: struct (nullable = true)
-         |    +-- protocolVersion: struct (nullable = true)
-         |    |    +-- protocol: string (nullable = true)
-         |    |    +-- major: integer (nullable = false)
-         |    |    +-- minor: integer (nullable = false)
-         |    +-- statusCode: integer (nullable = false)
-         |    +-- reasonPhrase: string (nullable = true)
-         +-- locale: string (nullable = true)
+   response: struct (nullable = true)
+    +-- headers: array (nullable = true)
+    |    +-- element: struct (containsNull = true)
+    |         +-- name: string (nullable = true)
+    |         +-- value: string (nullable = true)
+    +-- entity: struct (nullable = true)
+    |    +-- content: binary (nullable = true)
+    |    +-- contentEncoding: struct (nullable = true)
+    |    |    +-- name: string (nullable = true)
+    |    |    +-- value: string (nullable = true)
+    |    +-- contentLenth: long (nullable = false)
+    |    +-- contentType: struct (nullable = true)
+    |    |    +-- name: string (nullable = true)
+    |    |    +-- value: string (nullable = true)
+    |    +-- isChunked: boolean (nullable = false)
+    |    +-- isRepeatable: boolean (nullable = false)
+    |    +-- isStreaming: boolean (nullable = false)
+    +-- statusLine: struct (nullable = true)
+    |    +-- protocolVersion: struct (nullable = true)
+    |    |    +-- protocol: string (nullable = true)
+    |    |    +-- major: integer (nullable = false)
+    |    |    +-- minor: integer (nullable = false)
+    |    +-- statusCode: integer (nullable = false)
+    |    +-- reasonPhrase: string (nullable = true)
+    +-- locale: string (nullable = true)
    ```
