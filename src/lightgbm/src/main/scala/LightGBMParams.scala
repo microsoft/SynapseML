@@ -35,4 +35,39 @@ trait LightGBMParams extends MMLParams {
 
   def getNumLeaves: Int = $(numLeaves)
   def setNumLeaves(value: Int): this.type = set(numLeaves, value)
+
+  val maxBin = IntParam(this, "maxBin", "Max bin", 256)
+
+  def getMaxBin: Int = $(maxBin)
+  def setMaxBin(value: Int): this.type = set(maxBin, value)
+
+  val baggingFraction = DoubleParam(this, "baggingFraction", "Bagging fraction", 1)
+
+  def getBaggingFraction: Double = $(baggingFraction)
+  def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
+
+  val baggingFreq = IntParam(this, "baggingFreq", "Bagging frequence", 1)
+
+  def getBaggingFreq: Int = $(baggingFreq)
+  def setBaggingFreq(value: Int): this.type = set(baggingFreq, value)
+
+  val baggingSeed = IntParam(this, "baggingSeed", "Bagging seed", 1)
+
+  def getBaggingSeed: Int = $(baggingSeed)
+  def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
+
+  val featureFraction = DoubleParam(this, "featureFraction", "Feature fraction", 1)
+
+  def getFeatureFraction: Double = $(featureFraction)
+  def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
+
+  val maxDepth = IntParam(this, "maxDepth", "Max depth", 1)
+
+  def getMaxDepth: Int = $(maxDepth)
+  def setMaxDepth(value: Int): this.type = set(maxDepth, value)
+
+  val minSumHessianInLeaf = IntParam(this, "minSumHessianInLeaf", "minimal sum hessian in one leaf", 1)
+
+  def getMinSumHessianInLeaf: Int = $(minSumHessianInLeaf)
+  def setMinSumHessianInLeaf(value: Int): this.type = set(minSumHessianInLeaf, value)
 }
