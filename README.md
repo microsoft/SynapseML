@@ -6,23 +6,23 @@ Microsoft Machine Learning for Apache Spark
      src="https://mmlspark.azureedge.net/icons/BuildStatus.svg" />
 
 MMLSpark provides a number of deep learning and data science tools for [Apache
-Spark](https://github.com/apache/spark), including seamless integration of Spark
-Machine Learning pipelines with [Microsoft Cognitive Toolkit
-(CNTK)](https://github.com/Microsoft/CNTK) and [OpenCV](http://www.opencv.org/),
-enabling you to quickly create powerful, highly-scalable predictive and
-analytical models for large image and text datasets.
+Spark](https://github.com/apache/spark), including seamless integration of
+Spark Machine Learning pipelines with [Microsoft Cognitive Toolkit
+(CNTK)](https://github.com/Microsoft/CNTK) and
+[OpenCV](http://www.opencv.org/), enabling you to quickly create powerful,
+highly-scalable predictive and analytical models for large image and text
+datasets.
 
-MMLSpark requires Scala 2.11, Spark 2.1+, and either Python 2.7 or
-Python 3.5+.  See the API documentation
-[for Scala](http://mmlspark.azureedge.net/docs/scala/) and
-[for PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
+MMLSpark requires Scala 2.11, Spark 2.1+, and either Python 2.7 or Python 3.5+.
+See the API documentation [for
+Scala](http://mmlspark.azureedge.net/docs/scala/) and [for
+PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
 * [Notable features](#notable-features)
 * [A short example](#a-short-example)
-* [Blogs and Publications](#blogs-and-publications)
 * [Setup and installation](#setup-and-installation)
   - [Docker](#docker)
   - [GPU VM Setup](#gpu-vm-setup)
@@ -32,6 +32,7 @@ Python 3.5+.  See the API documentation
   - [Databricks cloud](#databricks-cloud)
   - [SBT](#sbt)
   - [Building from source](#building-from-source)
+* [Blogs and Publications](#blogs-and-publications)
 * [Contributing & feedback](#contributing--feedback)
 * [Other relevant projects](#other-relevant-projects)
 
@@ -44,19 +45,23 @@ Python 3.5+.  See the API documentation
   />](https://github.com/Azure/mmlspark/releases)
 
 * Create an deep image classifier with transfer learning ([example:305])
-* Fit a lightGBM classification or regression model on a biochemical dataset([example:106])
-* Deploy a deep network as a distributed web service with [MMLSpark Serving](docs/mmlspark-serving.md)
+* Fit a LightGBM classification or regression model on a biochemical dataset
+  ([example:106]), to learn more check out the [LightGBM documentation
+  page](docs/lightgbm.md).
+* Deploy a deep network as a distributed web service with [MMLSpark
+  Serving](docs/mmlspark-serving.md)
 * Use web services in Spark with [HTTP on Apache Spark](docs/http.md)
 * Train a deep image classifier on Azure N-Series GPU VMs ([example:401])
-* Use Bi-directional LSTMs from Keras for medical entity extraction ([example:304])
+* Use Bi-directional LSTMs from Keras for medical entity extraction
+  ([example:304])
 * Create a text analytics system on Amazon book reviews ([example:201])
-* Perform distributed hyperparameter tuning to identify Breast Cancer ([example:203])
+* Perform distributed hyperparameter tuning to identify Breast Cancer
+  ([example:203])
 * Easily ingest images from HDFS into Spark `DataFrame` ([example:301])
 * Use OpenCV on Spark to manipulate images ([example:302])
 * Train classification and regression models easily via implicit featurization
   of data ([example:101])
 * Train and evaluate a flight delay prediction system ([example:102])
-
 
 See our [notebooks](notebooks/samples/) for all examples.
 
@@ -83,9 +88,9 @@ See our [notebooks](notebooks/samples/) for all examples.
 
 ## A short example
 
-Below is an excerpt from a simple example of using a pre-trained CNN to classify
-images in the CIFAR-10 dataset.  View the whole source code as [an example
-notebook][example:301].
+Below is an excerpt from a simple example of using a pre-trained CNN to
+classify images in the CIFAR-10 dataset.  View the whole source code as [an
+example notebook][example:301].
 
    ```python
    ...
@@ -100,17 +105,8 @@ notebook][example:301].
    ```
 
 See [other sample notebooks](notebooks/samples/) as well as the MMLSpark
-documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/)
-and [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
-
-## Blogs and Publications
-
- * See our [paper](https://arxiv.org/abs/1804.04031) for a deep dive on MMLSpark. 
- * See how MMLSpark is used to help endangered species on the [Microsoft Customer Blog](https://customers.microsoft.com/en-us/story/snow-leopard-trust-nonprofit-azure)
- * Explore [our collaboration with Apache Spark](https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/) on Image Analysis.
- * Use [MMLSpark in Azure Machine Learning](https://docs.microsoft.com/en-us/azure/machine-learning/preview/how-to-use-mmlspark)
- * Watch [MMLSpark at the Spark Summit](https://databricks.com/session/mmlspark-lessons-from-building-a-sparkml-compatible-machine-learning-library-for-apache-spark)
- 
+documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
+[PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 ## Setup and installation
 
@@ -123,7 +119,7 @@ do so, run the following command:
    docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
    ```
 
-Navigate to <http://localhost:8888> in your web browser to run the sample
+Navigate to <http://localhost:8888/> in your web browser to run the sample
 notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 > To read the EULA for using the docker image, run \
@@ -146,15 +142,16 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
    spark-submit --packages Azure:mmlspark:0.11 MyApp.jar
    ```
 
-This can be used in other Spark contexts too, for example, you can use
-MMLSpark in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
-`.aztk/spark-defaults.conf` file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
+This can be used in other Spark contexts too, for example, you can use MMLSpark
+in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
+`.aztk/spark-defaults.conf`
+file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
 
 ### Python
 
-To try out MMLSpark on a Python (or Conda) installation you can get
-Spark installed via pip with `pip install pyspark`.  You can then use
-`pyspark` as in the above example, or from python:
+To try out MMLSpark on a Python (or Conda) installation you can get Spark
+installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
+the above example, or from python:
 
    ```python
    import pyspark
@@ -170,8 +167,8 @@ Spark installed via pip with `pip install pyspark`.  You can then use
 
 To install MMLSpark on an existing [HDInsight Spark
 Cluster](https://docs.microsoft.com/en-us/azure/hdinsight/), you can execute a
-script action on the cluster head and worker nodes.  For instructions on running
-script actions, see [this
+script action on the cluster head and worker nodes.  For instructions on
+running script actions, see [this
 guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
 
 The script action url is:
@@ -186,9 +183,9 @@ Submit, and the cluster should finish configuring within 10 minutes or so.
 
 ### Databricks cloud
 
-To install MMLSpark on the
-[Databricks cloud](http://community.cloud.databricks.com), create a new
-[library from Maven coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
+To install MMLSpark on the [Databricks
+cloud](http://community.cloud.databricks.com), create a new [library from Maven
+coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
 For the coordinates use: `Azure:mmlspark:0.11`.  Ensure this library is
@@ -221,14 +218,38 @@ To try out MMLSpark using the R autogenerated wrappers [see our
 instructions](docs/R-setup.md).  Note: This feature is still under development
 and some necessary custom wrappers may be missing.
 
+## Blogs and Publications
+
+* Read [our paper] for a deep dive on MMLSpark.
+
+* See how MMLSpark is used to [help endangered species].
+
+* Explore [our collaboration with Apache Spark] on image analysis.
+
+* Use [MMLSpark in Azure Machine Learning].
+
+* Watch [MMLSpark at the Spark Summit].
+
+[our paper]: https://arxiv.org/abs/1804.04031
+  "Flexible and Scalable Deep Learning with MMLSpark"
+[help endangered species]: https://customers.microsoft.com/en-us/story/snow-leopard-trust-nonprofit-azure
+  "Saving snow leopards with deep learning and computer vision on Spark"
+[our collaboration with Apache Spark]: https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/
+  "Image Data Support in Apache Spark"
+[MMLSpark in Azure Machine Learning]: https://docs.microsoft.com/en-us/azure/machine-learning/preview/how-to-use-mmlspark
+  "How to Use Microsoft Machine Learning Library for Apache Spark"
+[MMLSpark at the Spark Summit]: https://databricks.com/session/mmlspark-lessons-from-building-a-sparkml-compatible-machine-learning-library-for-apache-spark
+  "MMLSpark: Lessons from Building a SparkML-Compatible Machine Learning Library for Apache Spark"
+
 ## Contributing & feedback
 
-This project has adopted the [Microsoft Open Source Code of
-Conduct](https://opensource.microsoft.com/codeofconduct/).  For more information
-see the [Code of Conduct
-FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
+This project has adopted the [Microsoft Open Source Code of Conduct].  For more
+information see the [Code of Conduct FAQ] or contact
 [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional
 questions or comments.
+
+[Microsoft Open Source Code of Conduct]: https://opensource.microsoft.com/codeofconduct/
+[Code of Conduct FAQ]: https://opensource.microsoft.com/codeofconduct/faq/
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
