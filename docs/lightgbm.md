@@ -1,22 +1,19 @@
 # LightGBM on Apache Spark
 
-### Bringing LightGBM open-source library to spark
+### LightGBM
 
-LightGBM is an open-source library on [github](https://github.com/Microsoft/LightGBM).
-
-LightGBM is a fast, distributed, high performance gradient boosting (GBDT, GBRT, GBM or MART) framework based on decision tree algorithms, used for ranking, classification and many other machine learning tasks. It is under the umbrella of the [DMTK](http://github.com/microsoft/dmtk) project of Microsoft.
+[LightGBM](https://github.com/Microsoft/LightGBM) is an open-source, distributed, high-performance gradient boosting (GBDT, GBRT, GBM, or MART) framework. This framework specializes in creating high-quality and GPU enabled decision tree algorithms for ranking, classification, and many other machine learning tasks. Light GBM is part of Microsoft's [DMTK](http://github.com/microsoft/dmtk) project.
 
 ### Advantages of LightGBM
 
-- **Performance**: LightGBMClassifier was faster than GBTClassifier on the Higgs dataset by 10-30%.  [Parallel experiments](https://github.com/Microsoft/LightGBM/blob/master/docs/Experiments.rst#parallel-experiment) have verified that LightGBM can achieve a linear speed-up by using multiple machines for training in specific settings.
-- **Metrics**: LightGBMClassifier had 15% better AUC on Higgs dataset than GBTClassifier
-- **Functionality**: LightGBM offers many parameters that can be tuned for better performance - see [here](https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst).  Also, with LightGBM you can do quantile regression.
+- **Composability**: LightGBM models can be incorporated into existing SparkML Pipelines, and used for batch, streaming, and serving workloads.
+- **Performance**: LightGBM on Spark is 10-30% faster than SparkML on the Higgs dataset, and achieves a 15% increase in AUC.  [Parallel experiments](https://github.com/Microsoft/LightGBM/blob/master/docs/Experiments.rst#parallel-experiment) have verified that LightGBM can achieve a linear speed-up by using multiple machines for training in specific settings.
+- **Functionality**: LightGBM offers a wide array of [tunable parameters](https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst), that one can use to customize their decision tree system. LightGBM on Spark also supports new types of problems such as quantile regression.
+- **Cross platform** LightGBM on Spark is available on Spark, PySpark, and SparklyR
 
 ### Usage
 
-You can use the learner in either pyspark, scala or sparklyR.
-
-In pyspark, you can run the LightGBMClassifier via:
+In PySpark, you can run the `LightGBMClassifier` via:
 
    ```python
    from mmlspark import LightGBMClassifer
@@ -25,7 +22,7 @@ In pyspark, you can run the LightGBMClassifier via:
                               numLeaves=31).fit(train)
    ```
 
-Similarly, you can run the LightGBMRegressor, for example you can run Quantile Regression by setting application and giving an alpha parameter for the quantile:
+Similarly, you can run the `LightGBMRegressor` by setting the `application` and `alpha` parameters:
 
    ```python
    from mmlspark import LightGBMRegressor
@@ -36,12 +33,12 @@ Similarly, you can run the LightGBMRegressor, for example you can run Quantile R
                              numLeaves=31).fit(train)
    ```
 
-There is also a notebook example [here](https://github.com/Azure/mmlspark/blob/master/notebooks/samples/106%20-%20Quantile%20Regression%20with%20LightGBM.ipynb)
+For an end to end application, check out the LightGBM [notebook example].(https://github.com/Azure/mmlspark/blob/master/notebooks/samples/106%20-%20Quantile%20Regression%20with%20LightGBM.ipynb)
 
 ### Architecture
 
-We added SWIG wrappers to LightGBM to add a Java API to be able to call into the [distributed C++ API](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h).
+LightGBM on Spark uses the Simple Wrapper and Interface Generator (SWIG) to add Java support for LightGBM. These Java Binding use the Java Native Interface call into the [distributed C++ API](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h).
 
-We initialize LightGBM by calling [NetworkInit](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h#L749) with the spark executors within a MapPartitions call, and then directly pass the partition on each worker node into LightGBM to create the in-memory distributed dataset for LightGBM.  We then train LightGBM to produce a model which can then be used for inference.
+We initialize LightGBM by calling [NetworkInit](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h#L749) with the Spark executors within a MapPartitions call. We then pass each workers partitions into LightGBM to create the in-memory distributed dataset for LightGBM.  We can then train LightGBM to produce a model that can then be used for inference.
 
-The LightGBMClassifier and LightGBMRegressor have an API that is very similar to other Spark ML learners, inherit from the same base classes and can be easily used with other Spark ML APIs for [model tuning](https://spark.apache.org/docs/latest/ml-tuning.html).
+The `LightGBMClassifier` and `LightGBMRegressor` use the SparkML API, inherit from the same base classes, integrate with SparkML pipelines, and can be tuned with [SparkML's cross validators](https://spark.apache.org/docs/latest/ml-tuning.html).
