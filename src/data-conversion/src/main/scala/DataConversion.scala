@@ -69,7 +69,7 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
     val colsList = $(col).split(",").map(_.trim)
     val errorList = verifyCols(dataset.toDF(), colsList)
-    if (!errorList.isEmpty) {
+    if (errorList.nonEmpty) {
       throw new NoSuchElementException
     }
     var df = dataset.toDF
@@ -85,10 +85,9 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
           case "float" => numericTransform(df, FloatType, convCol)
           case "double" => numericTransform(df, DoubleType, convCol)
           case "string" => numericTransform(df, StringType, convCol)
-          case "toCategorical" => {
+          case "toCategorical" =>
             val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
             model.transform(df)
-          }
           case "clearCategorical" =>
             new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
           case "date" => toDateConversion(df, convCol)
@@ -143,15 +142,13 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
   private def fromDateConversion(df: DataFrame, outType: DataType, columnName: String): DataFrame = {
     require(outType == StringType || outType == LongType, "Date only converts to string or long")
     val res = outType match {
-      case LongType => {
-        val getTime = udf((t:java.sql.Timestamp)=>t.getTime())
+      case LongType =>
+        val getTime = udf((t:java.sql.Timestamp)=>t.getTime)
         df.withColumn(columnName, getTime(df(columnName)))
-      }
-      case StringType => {
+      case StringType =>
         val parseTimeString = udf((t:java.sql.Timestamp)=>{
           val f:java.text.SimpleDateFormat = new java.text.SimpleDateFormat($(dateTimeFormat));f.format(t)})
         df.withColumn(columnName, parseTimeString(df(columnName)))
-      }
     }
     res
   }
@@ -160,15 +157,13 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     val inType = df.schema(columnName).dataType
     require(inType == StringType || inType == LongType, "Can only convert string or long to Date")
     val res = inType match {
-      case StringType => {
+      case StringType =>
         val f = new java.text.SimpleDateFormat($(dateTimeFormat))
         val parseTimeFromString = udf((t:String)=>{new Timestamp(f.parse(t).getTime)})
         df.withColumn(columnName, parseTimeFromString(df(columnName)).cast("timestamp")).as(columnName)
-      }
-      case LongType => {
+      case LongType =>
         val longToTimestamp = udf((t:Long)=>{new java.sql.Timestamp(t)})
         df.withColumn(columnName, longToTimestamp(df(columnName)))
-      }
     }
     res
   }

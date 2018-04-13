@@ -151,8 +151,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(3) === 0.0)
   }
 
-  val logisticRegressor = createLR.setLabelCol(labelColumn)
-  val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
+  val logisticRegressor: TrainClassifier = createLR.setLabelCol(labelColumn)
+  val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 

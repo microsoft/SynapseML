@@ -48,14 +48,14 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
-  val cleaningMode = StringParam(this, "cleaningMode", "Cleaning mode", CleanMissingData.meanOpt)
+  val cleaningMode: Param[String] = StringParam(this, "cleaningMode", "Cleaning mode", CleanMissingData.meanOpt)
   def setCleaningMode(value: String): this.type = set(cleaningMode, value)
   def getCleaningMode: String = $(cleaningMode)
 
   /** Custom value for imputation, supports numeric, string and boolean types.
     * Date and Timestamp currently not supported.
     */
-  val customValue = StringParam(this, "customValue", "Custom value for replacement")
+  val customValue: Param[String] = StringParam(this, "customValue", "Custom value for replacement")
   def setCustomValue(value: String): this.type = set(customValue, value)
   def getCustomValue: String = $(customValue)
 
@@ -91,22 +91,19 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     import org.apache.spark.sql.functions._
     val columns = colsToClean.map(col => dataset(col))
     val metrics = getCleaningMode match {
-      case CleanMissingData.meanOpt => {
+      case CleanMissingData.meanOpt =>
         // Verify columns are supported for imputation
         verifyColumnsSupported(dataset, colsToClean)
         val row = dataset.select(columns.map(column => avg(column)): _*).collect()(0)
         rowToValues(row)
-      }
-      case CleanMissingData.medianOpt => {
+      case CleanMissingData.medianOpt =>
         // Verify columns are supported for imputation
         verifyColumnsSupported(dataset, colsToClean)
         val row = dataset.select(columns.map(column => callUDF("percentile_approx", column, lit(0.5))): _*).collect()(0)
         rowToValues(row)
-      }
-      case CleanMissingData.customOpt => {
+      case CleanMissingData.customOpt =>
         // Note: All column types supported for custom value
         colsToClean.map(col => getCustomValue)
-      }
     }
     outputCols.zip(metrics).toMap
   }
@@ -142,7 +139,7 @@ class CleanMissingDataModel(val uid: String,
         } else {
           Some(dataset(io._1).as(io._2))
         }).toList
-    val addedCols = dataset.select((datasetCols ::: datasetInputCols):_*)
+    val addedCols = dataset.select(datasetCols ::: datasetInputCols:_*)
     addedCols.na.fill(replacementValues)
   }
 

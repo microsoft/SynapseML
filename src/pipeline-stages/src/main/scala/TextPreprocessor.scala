@@ -31,7 +31,7 @@ class Trie(map: Map[Char, Trie] = Map.empty,
       val normalizedKey = if (isNormalized) k else k.map(this.normFunc)
       val newLeaf = new Trie(textValue = getNodeValue(normalizedKey, v.toCharArray), normFunction = this.normFunc)
       val next = this.trieMap.getOrElse(normalizedKey.head, newLeaf).put(normalizedKey.tail, v, true)
-      val newMap = this.trieMap + (normalizedKey(0) -> next)
+      val newMap = this.trieMap + (normalizedKey.head -> next)
       new Trie(newMap, this.value, this.normFunc)
   }
 
@@ -51,7 +51,7 @@ class Trie(map: Map[Char, Trie] = Map.empty,
     def isAlpha(char: Char): Boolean = {
       char.isLetterOrDigit || char.equals("_".charAt(0))
     }
-    def skipAlphas(rest: Seq[Char]): Unit = (rest) match {
+    def skipAlphas(rest: Seq[Char]): Unit = rest match {
       case _ if rest.isEmpty || !isAlpha(rest.head)=> scan(rest)
       case _  => skipAlphas(rest.tail)
     }
@@ -61,17 +61,15 @@ class Trie(map: Map[Char, Trie] = Map.empty,
                   hasMatch: Boolean,
                   chars: Seq[Char],
                   trie: Option[Trie]): Unit = (rest, matched, hasMatch, chars, trie) match {
-      case (_) if (trie == None || chars.isEmpty) => {
+      case _ if trie.isEmpty || chars.isEmpty =>
         outputText ++= matched
         if (hasMatch) skipAlphas(rest) else scan(rest)
-      }
-      case (_)  if (trie.get.value.isEmpty) => findMatch(rest, matched, false, chars.tail, trie.get.get(chars.head))
-
-      case (_) => findMatch(chars, trie.get.value, true, chars.tail, trie.get.get(chars.head))
+      case _ if trie.get.value.isEmpty => findMatch(rest, matched, false, chars.tail, trie.get.get(chars.head))
+      case _ => findMatch(chars, trie.get.value, true, chars.tail, trie.get.get(chars.head))
     }
 
     def scan(chars: Seq[Char]): Unit = {
-      if (!chars.isEmpty) findMatch(chars.tail, Array(chars.head), false, chars.tail, this.get(chars.head))
+      if (chars.nonEmpty) findMatch(chars.tail, Array(chars.head), false, chars.tail, this.get(chars.head))
     }
 
     scan(chars)
@@ -115,7 +113,7 @@ class TextPreprocessor(val uid: String) extends Transformer
 
   def isValidNormFunc(normFuncName: String): Boolean = normFuncs.contains(normFuncName)
 
-  val normFunc = new Param[String](this, "normFunc", "Name of normalization function to apply", isValidNormFunc(_))
+  val normFunc = new Param[String](this, "normFunc", "Name of normalization function to apply", isValidNormFunc _)
 
   /** @group getParam */
   def getNormFunc: String = get(normFunc).getOrElse("identity")
