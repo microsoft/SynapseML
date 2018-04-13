@@ -108,7 +108,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   private def verifyCols(df: DataFrame,
-                         inputOutputPairs: List[(String, String)]) = {
+                         inputOutputPairs: List[(String, String)]): Unit = {
     inputOutputPairs.foreach {
       case (s1, s2) if !df.columns.contains(s1) =>
         throw new IllegalArgumentException(

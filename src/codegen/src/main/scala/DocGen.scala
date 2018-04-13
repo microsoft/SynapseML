@@ -27,7 +27,7 @@ object DocGen {
         |""".stripMargin
   }
 
-  protected def contentsString(name: String)=
+  protected def contentsString(name: String): String =
     s"""|$name
         |${"=" * name.length ()}
         |
@@ -41,12 +41,12 @@ object DocGen {
     // Generate a modules.rst file that lists all the .py files to be included in API documentation
     // Find the files to use: Must start with upper case letter, end in .py
     val pattern = "^[A-Z]\\w*[.]py$".r
-    val moduleString = allFiles(pyDir, (f => pattern.findFirstIn(f.getName) != None))
+    val moduleString = allFiles(pyDir, f => pattern.findFirstIn(f.getName).isDefined)
           .map(f => s"   ${getBaseName(f.getName)}\n").mkString("")
     writeFile(new File(pyDocDir, "modules.rst"), rstFileLines(moduleString))
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
-    allFiles(pyDir, (f => pattern.findFirstIn(f.getName) != None))
+    allFiles(pyDir, f => pattern.findFirstIn(f.getName).isDefined)
         .foreach{x => writeFile(new File(pyDocDir, getBaseName(x.getName) + ".rst"),
           contentsString(getBaseName(x.getName)))
         }

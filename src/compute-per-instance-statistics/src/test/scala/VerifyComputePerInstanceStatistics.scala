@@ -125,8 +125,10 @@ class VerifyComputePerInstanceStatistics extends TestBase {
     evaluatedData.collect().foreach(row => {
       val labelUncast = row(0)
       val label =
-        if (labelUncast.isInstanceOf[Int]) labelUncast.asInstanceOf[Int].toDouble
-        else labelUncast.asInstanceOf[Double]
+        labelUncast match {
+          case i: Int => i.toDouble
+          case _ => labelUncast.asInstanceOf[Double]
+        }
       val score = row.getDouble(row.length - 3)
       val l1Loss = row.getDouble(row.length - 2)
       val l2Loss = row.getDouble(row.length - 1)
@@ -141,8 +143,10 @@ class VerifyComputePerInstanceStatistics extends TestBase {
     evaluatedData.collect().foreach(row => {
       val labelUncast = row(0)
       val label =
-        if (labelUncast.isInstanceOf[Int]) labelUncast.asInstanceOf[Int].toDouble
-        else labelUncast.asInstanceOf[Double]
+        labelUncast match {
+          case i: Int => i.toDouble
+          case _ => labelUncast.asInstanceOf[Double]
+        }
       val probabilities = row.get(row.length - 3).asInstanceOf[org.apache.spark.ml.linalg.Vector]
       val scoredLabel = row.getDouble(row.length - 2).toInt
       val logLoss = row.getDouble(row.length - 1)

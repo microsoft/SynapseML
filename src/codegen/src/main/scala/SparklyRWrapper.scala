@@ -46,7 +46,7 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
         |}""".stripMargin
   }
 
-  protected def header(simpleClassName: String) = WrapperClassDoc.GenerateWrapperClassDoc(simpleClassName)
+  protected def header(simpleClassName: String): String = WrapperClassDoc.GenerateWrapperClassDoc(simpleClassName)
   protected def classDocTemplate(simpleClassName: String) = s"""${header(simpleClassName)}"""
   val modelStr: String
   val moduleAcc: String
@@ -73,10 +73,12 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
       if (paramDefault.toLowerCase.contains(param.parent.toLowerCase)) "NULL"
       else getRDefault(paramDefault,
                        param.getClass.getSimpleName,
-                       (try {
-                          entryPoint.getParam(param.name).w(paramDefault)
-                          true
-                        } catch { case e: Exception => false }))
+                       try {
+                         entryPoint.getParam(param.name).w(paramDefault)
+                         true
+                       } catch {
+                         case _: Exception => false
+                       })
     }
   }
 
@@ -166,7 +168,7 @@ class SparklyREstimatorWrapper(entryPoint: Estimator[_],
                                companionModelQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
-  override val modelStr =
+  override val modelStr: String =
   s"""|  mod_model_raw <- mod_parameterized %>%
       |    invoke(\"fit\", df)
       |

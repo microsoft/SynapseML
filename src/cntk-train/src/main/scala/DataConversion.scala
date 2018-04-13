@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
 import FileUtilities._
 import hadoop.HadoopUtils
+import org.apache.hadoop.conf
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.slf4j.Logger
@@ -22,19 +23,19 @@ object DataTransferUtils {
 
   def toText(form: String)(value: Any): String = {
     value match {
-      case v: Vector => return convertVectorToText(v, form)
-      case d: Double => return d.toString
-      case f: Float => return f.toString
+      case v: Vector => convertVectorToText(v, form)
+      case d: Double => d.toString
+      case f: Float => f.toString
     }
   }
 
   def toVec(value: Any): Vector = {
     value match {
-      case v: Vector => return v
-      case d: Double => return new DenseVector(Array(d))
-      case f: Float => return new DenseVector(Array(f.toDouble))
-      case i: Integer => return new DenseVector(Array(i.toDouble))
-      case l: Long => return new DenseVector(Array(l.toDouble))
+      case v: Vector => v
+      case d: Double => new DenseVector(Array(d))
+      case f: Float => new DenseVector(Array(f.toDouble))
+      case i: Integer => new DenseVector(Array(i.toDouble))
+      case l: Long => new DenseVector(Array(l.toDouble))
     }
   }
 
@@ -42,7 +43,7 @@ object DataTransferUtils {
     val heuristicBloat = 8
     val sb = new StringBuilder(v.numActives * heuristicBloat)
     v match {
-      case sv: SparseVector => {
+      case sv: SparseVector =>
         if (form == CNTKLearner.sparseForm) {
           sv.foreachActive { (idx, value) =>
             sb.append(idx).append(":").append(value).append(" ")
@@ -53,18 +54,16 @@ object DataTransferUtils {
         } else {
           throw new Exception(s"Unknown vector form $form")
         }
-      }
-      case dv: DenseVector => {
+      case dv: DenseVector =>
         if (form == CNTKLearner.denseForm) {
           dv.values.foreach(value => sb.append(value).append(" "))
         } else if (form == CNTKLearner.sparseForm) {
-          for (i <- 0 until dv.values.length) {
+          for (i <- dv.values.indices) {
             sb.append(i).append(":").append(dv.values(i)).append(" ")
           }
         } else {
           throw new Exception(s"Unknown vector form $form")
         }
-      }
     }
     sb.toString
   }
@@ -164,7 +163,7 @@ object DataTransferUtils {
 
 abstract class DataWriter(log: Logger, destPath: String) {
   protected val destUri = new URI(destPath)
-  protected val relativeDest = destUri.getPath
+  protected val relativeDest: String = destUri.getPath
 
   protected val partitions: Int
 
@@ -218,11 +217,11 @@ abstract class SingleFileResolver(log: Logger, path: String) extends DataWriter(
 
 class LocalWriter(log: Logger, path: String) extends SingleFileResolver(log, path) {
   val partitions = 1
-  val constructedPath = new URI("file", null, relativeDest, null, null).normalize.toString
+  val constructedPath: String = new URI("file", null, relativeDest, null, null).normalize.toString
 
   // TODO: Move this logic to Apache commons lang helper that already exists
   // And then provide a helper function in FileUtilities. Why doesn't URI normalize properly for new File()?
-  val remappedRoot = {
+  val remappedRoot: String = {
     val root = if (EnvironmentUtils.IsWindows) "C:" else ""
     root + relativeDest
   }
@@ -230,12 +229,12 @@ class LocalWriter(log: Logger, path: String) extends SingleFileResolver(log, pat
 
 class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: SparkContext)
   extends SingleFileResolver(log, path) {
-  val partitions = parts
-  val hConf = sc.hadoopConfiguration
-  val namenode = new HadoopUtils(log, hConf).getActiveNameNode
-  val constructedPath = new URI("hdfs", namenode, relativeDest, null, null).toString
-  val mountPoint = if (localMnt.startsWith("/")) localMnt else "/" + localMnt
-  val remappedRoot = mountPoint + relativeDest
+  val partitions: Int = parts
+  val hConf: conf.Configuration = sc.hadoopConfiguration
+  val nameNode: String = new HadoopUtils(log, hConf).getActiveNameNode
+  val constructedPath: String = new URI("hdfs", nameNode, relativeDest, null, null).toString
+  val mountPoint: String = if (localMnt.startsWith("/")) localMnt else "/" + localMnt
+  val remappedRoot: String = mountPoint + relativeDest
 
   override protected def remapPath(extension: String): String = {
     log.info(s"Wrote $extension files to hdfs path: $constructedPath")
@@ -252,12 +251,12 @@ class HdfsWriter(log: Logger, localMnt: String, parts: Int, path: String, sc: Sp
   }
 
   // The HDFS URL to mount on the edge node
-  def getHdfsToMount: String = new URI("hdfs", namenode, "/", null, null).toString
+  def getHdfsToMount: String = new URI("hdfs", nameNode, "/", null, null).toString
   // The directory containing the input data in HDFS
   def getHdfsInputDataDir: String = constructedPath
   // The root directory
   def getRootDir: String = remappedRoot
   // The active name node, with port removed at the end
-  def getNameNode: String = namenode.replace(":8020", "")
+  def getNameNode: String = nameNode.replace(":8020", "")
 
 }
