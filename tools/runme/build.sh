@@ -219,7 +219,7 @@ _publish_to_dockerhub() {
   # mmlspark       -> microsoft/mmlspark:X.Y,       microsoft/mmlspark:latest
   # mmlspark-$mode -> microsoft/mmlspark:$mode-X.Y, microsoft/mmlspark:$mode
   local mode
-  for mode in "" "plus" "gpu" "plus-gpu"; do
+  for mode in "" "gpu"; do
     local itag="mmlspark${mode:+-}${mode}:latest" otag otags
     otag="microsoft/mmlspark:${mode}${mode:+-}$MML_VERSION"
     otag="${otag//+/_}"; otags=("$otag")
