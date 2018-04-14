@@ -44,17 +44,11 @@ _ cp -al "$envtgz" "mmlspark.tgz"
 _ MML_DOCKER_BASE_IMAGE="ubuntu:16.04" \
   MML_DOCKER_TARGET_TAG="mmlspark" \
   docker-buildx -t mmlspark .
-# extended image
-_ MML_DOCKER_BASE_IMAGE="mmlspark" \
-  docker-buildx -f Dockerfile-plus -t mmlspark-plus .
 # gpu image
 _ cp -al "$envtgz" "mmlspark.tgz" # (again since the Dockerfile deletes it)
 _ MML_DOCKER_BASE_IMAGE="nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04" \
   MML_DOCKER_TARGET_TAG="mmlspark-gpu" \
   docker-buildx -t mmlspark-gpu .
-# extended gpu image
-_ MML_DOCKER_BASE_IMAGE="mmlspark-gpu" \
-  docker-buildx -f Dockerfile-plus -t mmlspark-plus-gpu .
 
 _ cd "$BASEDIR"
 _rm "$BUILD_ARTIFACTS/docker-work"
