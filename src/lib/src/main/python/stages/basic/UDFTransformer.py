@@ -6,7 +6,7 @@ if sys.version >= '3':
     basestring = str
 
 from pyspark.ml.param.shared import *
-from mmlspark._UDFTransformer import _UDFTransformer
+from mmlspark.stages.basic._UDFTransformer import _UDFTransformer
 from pyspark import keyword_only
 
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
