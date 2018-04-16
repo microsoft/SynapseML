@@ -27,11 +27,22 @@ object CodeGen {
                  else (Pattern.quote("." + extension) + "$").r,
                  toDir)
 
+  def copyPythonDirFromRoots(fromDir: File, roots: List[String], relPath: String, toDir: File): Unit = {
+    roots.foreach { root =>
+      val dir = new File(new File(fromDir, root), relPath)
+      if (dir.exists && dir.isDirectory) {
+        FileUtils.copyDirectory(dir, toDir)
+      }
+    }
+  }
+
   def copyAllFilesFromRoots(fromDir: File, roots: List[String], relPath: String,
                             extension: String, toDir: File): Unit = {
     roots.foreach { root =>
       val dir = new File(new File(fromDir, root), relPath)
-      if (dir.exists && dir.isDirectory) copyAllFiles(dir, extension, toDir)
+      if (dir.exists && dir.isDirectory) {
+        copyAllFiles(dir, extension, toDir)
+      }
     }
   }
   def copyAllFilesFromRoots(fromDir: File, roots: List[String], relPath: String,
@@ -65,7 +76,7 @@ object CodeGen {
                           (Pattern.quote("-" + mmlVer + ".jar") + "$").r,
                           outputDir)
     println("Copying source python files")
-    copyAllFilesFromRoots(srcDir, roots, pyRelPath, "py", pyDir)
+    copyPythonDirFromRoots(srcDir, roots, pyRelPath, pyDir)
     println("Copying source R files")
     copyAllFilesFromRoots(srcDir, roots, rRelPath, "R", rSrcDir)
     println("Copying python class doc files")
@@ -77,10 +88,7 @@ object CodeGen {
     println("Generating .rst files for the Python APIs documentation")
     genRstFiles()
     // build init file
-    val importStrings =
-      allFiles(pyDir, f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName).isDefined)
-        .map(f => s"from mmlspark.${getBaseName(f.getName)} import *\n").mkString("")
-    writeFile(new File(pyDir, "__init__.py"), packageHelp(importStrings))
+    makeInitFiles()
     // package python+r zip files
     zipFolder(pyDir, pyZipFile)
     zipFolder(rDir,  rZipFile)
@@ -89,6 +97,18 @@ object CodeGen {
     // FileUtils.forceDelete(pyDir)
     // delete the text files with the Python Class descriptions - truly temporary
     FileUtils.forceDelete(tmpDocDir)
+  }
+
+  def makeInitFiles(packageFolder: String = ""): Unit = {
+    val dir = new File(pyDir, packageFolder)
+    val packageString = if (packageFolder != "") packageFolder.replace("/",".") else ""
+    val importStrings =
+      allTopLevelFiles(dir, f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName).isDefined)
+        .map(f => s"from mmlspark$packageString.${getBaseName(f.getName)} import *\n").mkString("")
+    writeFile(new File(dir, "__init__.py"), packageHelp(importStrings))
+    dir.listFiles().filter(_.isDirectory).foreach(f =>
+      makeInitFiles(packageFolder +"/" + f.getName)
+    )
   }
 
   def main(args: Array[String]): Unit = {

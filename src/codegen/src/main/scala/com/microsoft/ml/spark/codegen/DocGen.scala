@@ -26,11 +26,11 @@ object DocGen {
         |""".stripMargin
   }
 
-  protected def contentsString(name: String): String =
+  protected def contentsString(name: String, packageName: String): String =
     s"""|$name
         |${"=" * name.length ()}
         |
-        |.. automodule:: $name
+        |.. automodule:: ${if(packageName == "") "" else packageName + "."}$name
         |    :members:
         |    :undoc-members:
         |    :show-inheritance:
@@ -46,8 +46,12 @@ object DocGen {
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
     allFiles(pyDir, f => pattern.findFirstIn(f.getName).isDefined)
-      .foreach{x => writeFile(new File(pyDocDir, getBaseName(x.getName) + ".rst"),
-        contentsString(getBaseName(x.getName)))
+      .foreach { x =>
+        val packageName = Option(pyDir.toPath.relativize(x.toPath).getParent)
+          .map(_.toString.replace("/", "."))
+          .getOrElse("")
+        writeFile(new File(pyDocDir, getBaseName(x.getName) + ".rst"),
+          contentsString(getBaseName(x.getName), packageName))
       }
   }
 

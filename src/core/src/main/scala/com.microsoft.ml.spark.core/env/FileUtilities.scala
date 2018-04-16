@@ -28,6 +28,14 @@ object FileUtilities {
     loop(dir)
   }
 
+  def allTopLevelFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
+    def loop(dir: File): Array[File] = {
+      val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
+      if (pred == null) files else files.filter(pred)
+    }
+    loop(dir)
+  }
+
   // readFile takes a file name or a File, and function to extract a value from
   // BufferedSource which defaults to _.mkString; performs the read, closes the
   // source, and returns the result

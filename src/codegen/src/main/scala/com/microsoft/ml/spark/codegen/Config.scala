@@ -8,13 +8,13 @@ import com.microsoft.ml.spark.core.env.FileUtilities.File
 import scala.sys.process.Process
 
 object Config {
-
-  val mmlVer     = sys.env.getOrElse("MML_VERSION",
-                                     Process("../tools/runme/show-version").!!.trim)
+  val codegenDir = new File(new File(getClass.getResource("/").toURI), "../../../")
+  private val showVersionScript = new File(codegenDir, "../../tools/runme/show-version")
+  val mmlVer     = sys.env.getOrElse("MML_VERSION", Process(showVersionScript.toString).!!.trim)
   val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
 
-  val srcDir     = new File(".").getCanonicalFile()
-  val topDir     = new File("..").getCanonicalFile()
+  val srcDir     = new File(codegenDir, "../").getCanonicalFile()
+  val topDir     = new File(srcDir, "../").getCanonicalFile()
   val rootsFile  = new File(srcDir, "project/project-roots.txt")
   val artifactsDir = new File(topDir, "BuildArtifacts")
   val outputDir  = new File(artifactsDir, "sdk")

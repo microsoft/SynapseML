@@ -32,7 +32,8 @@ abstract class WrapperGenerator {
                                    entryPointName: String,
                                    entryPointQualifiedName: String,
                                    companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper]
+                                   companionModelQualifiedName: String,
+                                   packageName: String): Option[WritableWrapper]
 
   def generateTransformerWrapper(entryPoint: Transformer,
                                  entryPointName: String,
@@ -40,7 +41,8 @@ abstract class WrapperGenerator {
 
   def generateTransformerTestWrapper(entryPoint: Transformer,
                                      entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper]
+                                     entryPointQualifiedName: String,
+                                     packageName: String): Option[WritableWrapper]
 
   def wrapperDir: File
 
@@ -55,7 +57,8 @@ abstract class WrapperGenerator {
           case t: Transformer =>
             val className = wrapperName(myClass)
             (generateTransformerWrapper(t, className, qualifiedClassName),
-             generateTransformerTestWrapper(t, className, qualifiedClassName))
+             generateTransformerTestWrapper(
+               t, className, qualifiedClassName, t.getClass.getPackage.getName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
                      .find(c => Seq("Estimator", "Predictor").contains(c.getSuperclass.getSimpleName))
@@ -73,10 +76,22 @@ abstract class WrapperGenerator {
 
             val className = wrapperName(myClass)
             (generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
-             generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
+             generateEstimatorTestWrapper(
+               e, className, qualifiedClassName, modelClass, modelQualifiedClass, e.getClass.getPackage.getName))
           case _ => return
         }
-      wrapper.writeWrapperToFile(wrapperDir)
+      val packageFolders =
+        if (myClass.getPackage.getName.startsWith("com.microsoft.ml.spark")){
+          myClass.getPackage.getName
+            .replace("com.microsoft.ml.spark.","")
+            .replace(".","/")
+        }else{
+          ""
+        }
+
+      val destDir= new File(wrapperDir, packageFolders)
+      if (!destDir.exists()) destDir.mkdirs()
+      wrapper.writeWrapperToFile(destDir)
       if (wrapperTests.isDefined) wrapperTests.get.writeWrapperToFile(wrapperTestDir)
       if (debugMode) println(s"Generated wrapper for class ${myClass.getSimpleName}")
     } catch {
@@ -164,12 +179,14 @@ class PySparkWrapperGenerator extends WrapperGenerator {
                                    entryPointName: String,
                                    entryPointQualifiedName: String,
                                    companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper] = {
+                                   companionModelQualifiedName: String,
+                                   packageName: String): Option[WritableWrapper] = {
     Some(new PySparkEstimatorWrapperTest(entryPoint,
                                          entryPointName,
                                          entryPointQualifiedName,
                                          companionModelName,
-                                         companionModelQualifiedName))
+                                         companionModelQualifiedName,
+                                         packageName))
   }
 
   def generateTransformerWrapper(entryPoint: Transformer,
@@ -180,8 +197,9 @@ class PySparkWrapperGenerator extends WrapperGenerator {
 
   def generateTransformerTestWrapper(entryPoint: Transformer,
                                      entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper] = {
-    Some(new PySparkTransformerWrapperTest(entryPoint, entryPointName, entryPointQualifiedName))
+                                     entryPointQualifiedName: String,
+                                     packageName: String): Option[WritableWrapper] = {
+    Some(new PySparkTransformerWrapperTest(entryPoint, entryPointName, entryPointQualifiedName, packageName))
   }
 }
 
@@ -252,7 +270,8 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
                                    entryPointName: String,
                                    entryPointQualifiedName: String,
                                    companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper] = {
+                                   companionModelQualifiedName: String,
+                                   packageName: String): Option[WritableWrapper] = {
     None
   }
 
@@ -264,7 +283,8 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
 
   def generateTransformerTestWrapper(entryPoint: Transformer,
                                      entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper] = {
+                                     entryPointQualifiedName: String,
+                                     packageName: String): Option[WritableWrapper] = {
     None
   }
 

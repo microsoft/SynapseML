@@ -14,13 +14,23 @@ import org.apache.spark.ml.{Estimator, PipelineStage, Transformer}
   */
 abstract class PySparkWrapperTest(entryPoint: PipelineStage,
                                   entryPointName: String,
-                                  entryPointQualifiedName: String) extends WritableWrapper {
+                                  entryPointQualifiedName: String,
+                                  packageName: String) extends WritableWrapper {
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
   private def importClass(entryPointName:String):String = {
-    if (entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
-    else s"from mmlspark import $entryPointName"
+    val packageString = {
+      if (packageName.startsWith("com.microsoft.ml.spark")){
+        packageName
+          .drop("com.microsoft.ml.spark".length)
+      } else {
+        ""
+      }
+    }
+
+    if (entryPointName startsWith internalPrefix) s"from mmlspark$packageString.$entryPointName import $entryPointName"
+    else s"from mmlspark$packageString import $entryPointName"
   }
 
   protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
@@ -34,8 +44,8 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |from pyspark.ml.regression import LinearRegression
         |${importClass(entryPointName)}
         |from pyspark.ml.feature import Tokenizer
-        |from mmlspark import TrainClassifier
-        |from mmlspark import ValueIndexer
+        |from mmlspark.stages.featurize import TrainClassifier
+        |from mmlspark.stages import ValueIndexer
         |
         |sc = SparkContext()
         |
@@ -253,10 +263,12 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
 
 class PySparkTransformerWrapperTest(entryPoint: Transformer,
                                     entryPointName: String,
-                                    entryPointQualifiedName: String)
+                                    entryPointQualifiedName: String,
+                                    packageName: String)
   extends PySparkWrapperTest(entryPoint,
     entryPointName,
-    entryPointQualifiedName) {
+    entryPointQualifiedName,
+    packageName) {
 
   // The transformer tests for FastVectorAssembler ... UnrollImage are disabled for the moment.
   override def pysparkWrapperTestBuilder(): String = {
@@ -286,8 +298,9 @@ class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
                                   entryPointName: String,
                                   entryPointQualifiedName: String,
                                   companionModelName: String,
-                                  companionModelQualifiedName: String)
-    extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
+                                  companionModelQualifiedName: String,
+                                  packageName:String)
+    extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName, packageName) {
 
   private val modelName = entryPointName + "Model"
 
