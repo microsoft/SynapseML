@@ -26,7 +26,7 @@ to check availability in your data center.
 MMLSpark provides an Azure Resource Manager (ARM) template to create a
 default setup that includes an HDInsight cluster and a GPU machine for
 training.  The template can be found here:
-<https://mmlspark.azureedge.net/buildartifacts/0.11/deploy-main-template.json>.
+<https://mmlspark.azureedge.net/buildartifacts/0.12/deploy-main-template.json>.
 
 It has the following parameters that configure the HDI Spark cluster and
 the associated GPU VM:
@@ -48,16 +48,16 @@ the associated GPU VM:
 - `gpuVirtualMachineSize`: The size of the GPU virtual machine to create
 
 There are actually two additional templates that are used from this main template:
-- [`spark-cluster-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.11/spark-cluster-template.json):
+- [`spark-cluster-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.12/spark-cluster-template.json):
   A template for creating an HDI Spark cluster within a VNet, including
   MMLSpark and its dependencies.  (This template installs MMLSpark using
   the HDI script action:
-  [`install-mmlspark.sh`](https://mmlspark.azureedge.net/buildartifacts/0.11/install-mmlspark.sh).)
-- [`gpu-vm-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.11/gpu-vm-template.json):
+  [`install-mmlspark.sh`](https://mmlspark.azureedge.net/buildartifacts/0.12/install-mmlspark.sh).)
+- [`gpu-vm-template.json`](https://mmlspark.azureedge.net/buildartifacts/0.12/gpu-vm-template.json):
   A template for creating a GPU VM within an existing VNet, including
   CNTK and other dependencies that MMLSpark needs for GPU training.
   (This is done via a script action that runs
-  [`gpu-setup.sh`](https://mmlspark.azureedge.net/buildartifacts/0.11/gpu-setup.sh).)
+  [`gpu-setup.sh`](https://mmlspark.azureedge.net/buildartifacts/0.12/gpu-setup.sh).)
 
 Note that these child templates can also be deployed independently, if
 you don't need both parts of the installation.  Particularly, to scale
@@ -69,7 +69,7 @@ GPU VM setup template at experimentation time.
 ### 1. Deploy an ARM template within the [Azure Portal](https://ms.portal.azure.com/)
 
 [Click here to open the above main
-template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.11%2Fdeploy-main-template.json)
+template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.12%2Fdeploy-main-template.json)
 in the Azure portal.
 
 (If needed, you click the **Edit template** button to view and edit the
@@ -87,11 +87,11 @@ We also provide a convenient shell script to create a deployment on the
 command line:
 
 * Download the [shell
-  script](https://mmlspark.azureedge.net/buildartifacts/0.11/deploy-arm.sh)
+  script](https://mmlspark.azureedge.net/buildartifacts/0.12/deploy-arm.sh)
   and make a local copy of it
 
 * Create a JSON parameter file by downloading [this template
-  file](https://mmlspark.azureedge.net/buildartifacts/0.11/deploy-parameters.template)
+  file](https://mmlspark.azureedge.net/buildartifacts/0.12/deploy-parameters.template)
   and modify it according to your specification.
 
 You can now run the script — it takes the following arguments:
@@ -124,7 +124,7 @@ you for all needed values.
 ### 3. Deploy an ARM template with the MMLSpark Azure PowerShell
 
 MMLSpark also provides a [PowerShell
-script](https://mmlspark.azureedge.net/buildartifacts/0.11/deploy-arm.ps1)
+script](https://mmlspark.azureedge.net/buildartifacts/0.12/deploy-arm.ps1)
 to deploy ARM templates, similar to the above bash script.  Run it with
 `-?` to see the usage instructions (or use `get-help`).  If needed,
 install the Azure PowerShell cmdlets using the instructions in the
