@@ -201,7 +201,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
     }
   }
 
-  val dataset: DataFrame = createMockDataset
+  lazy val dataset: DataFrame = createMockDataset
   override def testObjects(): Seq[TestObject[CleanMissingData]] = List(new TestObject(
     new CleanMissingData().setInputCols(dataset.columns).setOutputCols(dataset.columns), dataset))
 

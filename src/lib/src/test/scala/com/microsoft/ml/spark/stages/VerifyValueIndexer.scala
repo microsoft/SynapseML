@@ -16,14 +16,14 @@ trait ValueIndexerUtilities extends TestBase {
   import session.implicits._
 
   /** sample dataframe */
-  protected val DF = Seq[(Int, Long, Double, Boolean, String)](
+  protected lazy val DF = Seq[(Int, Long, Double, Boolean, String)](
     (-3, 24L, 0.32534, true, "piano"),
     (1, 5L, 5.67, false, "piano"),
     (-3, 5L, 0.32534, false, "guitar"))
     .toDF("int", "long", "double", "bool", "string")
 
   /** sample dataframe with Null values*/
-  protected val nullDF = Seq[(String, java.lang.Integer, java.lang.Double)](
+  protected lazy val nullDF = Seq[(String, java.lang.Integer, java.lang.Double)](
     ("Alice", null, 44.3),
     (null, 60, null),
     ("Josh", 25, Double.NaN),
@@ -37,7 +37,7 @@ trait ValueIndexerUtilities extends TestBase {
 class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[IndexToValue] {
   val col = "string"
   private val newName = col + "_cat"
-  private val df = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(DF).transform(DF)
+  private lazy val df = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(DF).transform(DF)
   private val testName = col + "_noncat"
 
   test("Test: Going to Categorical and Back") {

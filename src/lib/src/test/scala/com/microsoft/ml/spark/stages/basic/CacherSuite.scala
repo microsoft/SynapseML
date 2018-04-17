@@ -10,7 +10,7 @@ class CacherSuite extends TransformerFuzzing[Cacher] {
 
   import session.implicits._
 
-  val df = Seq((0, "guitars", "drums"),
+  lazy val df = Seq((0, "guitars", "drums"),
                (1, "piano", "trumpet"),
                (2, "bass", "cymbals"),
                (3, "guitars", "drums"),

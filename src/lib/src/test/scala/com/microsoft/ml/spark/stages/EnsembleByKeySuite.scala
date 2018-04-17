@@ -53,7 +53,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
     df1.show()
   }
 
-  val testDF: DataFrame = {
+  lazy val testDF: DataFrame = {
     val initialTestDF = session.createDataFrame(
       Seq((0, "foo", 1.0, .1),
         (1, "bar", 4.0, -2.0),
@@ -64,7 +64,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
       .setOutputCol("v1").transform(initialTestDF)
   }
 
-  val testModel: EnsembleByKey = new EnsembleByKey().setKey("label1").setCol("score1")
+  lazy val testModel: EnsembleByKey = new EnsembleByKey().setKey("label1").setCol("score1")
       .setCollapseGroup(false).setVectorDims(Map("v1"->2))
 
   test("should support passing the vector dims to avoid maerialization") {
