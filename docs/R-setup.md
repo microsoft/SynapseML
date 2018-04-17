@@ -10,7 +10,7 @@ To install the current MMLSpark package for R use:
 
    ```R
    ...
-   devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-0.11.zip")
+   devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-0.12.zip")
    ...
    ```
 
@@ -23,7 +23,7 @@ It will take some time to install all dependencies.  Then, run:
    library(sparklyr)
    library(dplyr)
    config <- spark_config()
-   config$sparklyr.defaultPackages <- "Azure:mmlspark:0.11"
+   config$sparklyr.defaultPackages <- "Azure:mmlspark:0.12"
    sc <- spark_connect(master = "local", config = config)
    ...
    ```
