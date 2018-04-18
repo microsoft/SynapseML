@@ -189,7 +189,7 @@ coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-fro
 in your workspace.
 
 For the coordinates use: `Azure:mmlspark:0.12`.  Ensure this library is
-attached to all clusters you create.
+attached to all clusters you create  (Make sure you specify the repository URL as https://mmlspark.azureedge.net/maven in the advanced options).
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
