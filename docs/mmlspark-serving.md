@@ -26,7 +26,7 @@
    ```python
    import mmlspark
    import pyspark
-   from pyspark.sql.functions import udf, col
+   from pyspark.sql.functions import udf, col, length
 
    serving_source = "org.apache.spark.sql.execution.streaming.HTTPSourceProvider"
    serving_sink = "org.apache.spark.sql.execution.streaming.HTTPSinkProvider"
