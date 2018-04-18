@@ -6,8 +6,7 @@ package com.microsoft.ml.spark
 import java.io.File
 import java.net.URI
 
-import org.apache.spark.ml.feature.OneHotEncoder
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexerModel}
+import org.apache.spark.ml.feature.{OneHotEncoderEstimator, StringIndexerModel}
 import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.DataFrame
@@ -268,8 +267,9 @@ TrainNetwork = {
     val unrolled = unroller.transform(labeledData).select(inputCol, tmpLabel)
 
     // Prepare Spark-like DF with known labels
-    val ohe = new OneHotEncoder().setInputCol(tmpLabel).setOutputCol(labelCol).setDropLast(false)
-    val dataset = ohe.transform(unrolled).select(inputCol, labelCol)
+    val dataset = new OneHotEncoderEstimator()
+      .setInputCols(Array(tmpLabel)).setOutputCols(Array(labelCol)).setDropLast(false)
+      .fit(unrolled).transform(unrolled).select(inputCol, labelCol)
     val learner = new CNTKLearner()
       .setBrainScriptText(cifarScript)
       // Build machine doesn't have GPUs
