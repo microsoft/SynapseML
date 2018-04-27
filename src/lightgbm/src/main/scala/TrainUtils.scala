@@ -3,10 +3,16 @@
 
 package com.microsoft.ml.spark
 
+import java.io._
+import java.net._
+
+import com.microsoft.ml.spark.StreamUtilities.using
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
+
+case class NetworkParams(executorIdToHost: Map[Int, String], defaultListenPort: Int, addr: String, port: Int)
 
 private object TrainUtils extends java.io.Serializable {
 
@@ -129,17 +135,71 @@ private object TrainUtils extends java.io.Serializable {
     }
   }
 
-  def trainLightGBM(nodes: String, numNodes: Int, labelColumn: String, featuresColumn: String,
-                    defaultListenPort: Int, log: Logger, trainParams: TrainParams)
+  private def findOpenPort(defaultListenPort: Int, numCoresPerExec: Int, log: Logger): Socket = {
+    val basePort = defaultListenPort + (LightGBMUtils.getId() * numCoresPerExec)
+    var localListenPort = basePort
+    var foundPort = false
+    var workerServerSocket: Socket = null
+    while (!foundPort) {
+      try {
+        workerServerSocket = new Socket()
+        workerServerSocket.bind(new InetSocketAddress(localListenPort))
+        foundPort = true
+      } catch {
+        case ex: IOException => {
+          log.info(s"Could not bind to port $localListenPort...")
+          localListenPort += 1
+          if (localListenPort - basePort > 1000) {
+            throw new Exception("Error: Could not find open port after 1k tries")
+          }
+        }
+      }
+    }
+    log.info(s"Successfully bound to port $localListenPort")
+    workerServerSocket
+  }
+
+  def getNodes(networkParams: NetworkParams, workerHost: String,
+               localListenPort: Int, log: Logger): String = {
+    using(new Socket(networkParams.addr, networkParams.port)) {
+      driverSocket =>
+        using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream())),
+          new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream())))) {
+          io =>
+            val driverInput = io(0).asInstanceOf[BufferedReader]
+            val driverOutput = io(1).asInstanceOf[BufferedWriter]
+            // Send the current host:port to the driver
+            driverOutput.write(s"$workerHost:$localListenPort\n")
+            driverOutput.flush()
+            // Wait to get the list of nodes from the driver
+            val nodes = driverInput.readLine()
+            log.info(s"LightGBM worker got nodes for network init: $nodes")
+            nodes
+        }.get
+    }.get
+  }
+
+  def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
+                    log: Logger, trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    // Initialize the native library
-    LightGBMUtils.initializeNativeLibrary()
+    // Ideally we would start the socket connections in the C layer, this opens us up for
+    // race conditions in case other applications open sockets on cluster, but usually this
+    // should not be a problem
+    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
+      openPort =>
+        val localListenPort = openPort.getLocalPort
+        // Initialize the native library
+        LightGBMUtils.initializeNativeLibrary()
+        val executorId = LightGBMUtils.getId()
+        log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
+        (getNodes(networkParams, networkParams.executorIdToHost(executorId), localListenPort, log), localListenPort)
+    }.get
+
     // Initialize the network communication
-    val localListenPort = defaultListenPort + LightGBMUtils.getId
-    log.info("LightGBM worker listening on: " + localListenPort)
+    log.info(s"LightGBM worker listening on: $localListenPort")
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMConstants.defaultListenTimeout, numNodes), "Network init")
+        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
       translate(labelColumn, featuresColumn, log, trainParams, inputRows)
     } finally {
       // Finalize network when done

@@ -66,8 +66,13 @@ trait LightGBMParams extends MMLParams {
   def getMaxDepth: Int = $(maxDepth)
   def setMaxDepth(value: Int): this.type = set(maxDepth, value)
 
-  val minSumHessianInLeaf = DoubleParam(this, "minSumHessianInLeaf", "minimal sum hessian in one leaf", 1e-3)
+  val minSumHessianInLeaf = DoubleParam(this, "minSumHessianInLeaf", "Minimal sum hessian in one leaf", 1e-3)
 
   def getMinSumHessianInLeaf: Double = $(minSumHessianInLeaf)
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
+
+  val timeout = DoubleParam(this, "timeout", "Timeout in seconds", 30)
+
+  def getTimeout: Double = $(timeout)
+  def setTimeout(value: Double): this.type = set(timeout, value)
 }

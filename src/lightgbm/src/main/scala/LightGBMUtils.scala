@@ -3,11 +3,20 @@
 
 package com.microsoft.ml.spark
 
+import java.io._
+import java.net.{ServerSocket, Socket}
+import java.util.concurrent.Executors
+
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.slf4j.Logger
+
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -37,6 +46,56 @@ object LightGBMUtils {
     featurizer.fit(dataset)
   }
 
+  /**
+    * Opens a socket communications channel on the driver, starts a thread that
+    * waits for the host:port from the executors, and then sends back the
+    * information to the executors.
+    * @param numExecutorCores The total number of executors * cores to wait for.
+    * @return The address and port of the driver socket.
+    */
+  def createDriverNodesThread(numExecutorCores: Int, df: DataFrame,
+                              log: Logger, timeout: Double): (String, Int, Future[Unit]) = {
+    val numPartitions = df.rdd.getNumPartitions
+    val numWorkers = math.min(numExecutorCores, numPartitions)
+    // Start a thread and open port to listen on
+    implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    val driverServerSocket = new ServerSocket(0)
+    // Set timeout on socket
+    val duration = Duration(timeout, SECONDS)
+    if (duration.isFinite()) {
+      driverServerSocket.setSoTimeout(duration.toMillis.toInt)
+    }
+    val f = Future {
+      val hostAndPorts = ListBuffer[(Socket, String)]()
+      log.info(s"driver expecting $numWorkers connections...")
+      while (hostAndPorts.size < numWorkers) {
+        log.info("driver accepting a new connection...")
+        val driverSocket = driverServerSocket.accept()
+        val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
+        val comm = reader.readLine()
+        log.info(s"driver received socket from worker: $comm")
+        val socketAndComm = (driverSocket, comm)
+        hostAndPorts += socketAndComm
+      }
+      // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
+      val allConnections = hostAndPorts.map(_._2).mkString(",")
+      log.info(s"driver writing back to all connections: $allConnections")
+      // Send data back to all threads on executors
+      hostAndPorts.foreach(hostAndPort => {
+        val writer = new BufferedWriter(new OutputStreamWriter(hostAndPort._1.getOutputStream))
+        writer.write(allConnections + "\n")
+        writer.flush()
+      })
+      log.info("driver closing all sockets and server socket")
+      hostAndPorts.foreach(_._1.close())
+      driverServerSocket.close()
+    }
+    val host = getDriverHost(df)
+    val port = driverServerSocket.getLocalPort
+    log.info(s"driver waiting for connections on host: ${host} and port: $port")
+    (host, port, f)
+  }
+
   /** Returns an integer ID for the current node.
     * @return In cluster, returns the executor id.  In local case, returns the worker id.
     */
@@ -50,26 +109,49 @@ object LightGBMUtils {
     idAsInt
   }
 
-  /** Returns the executors.
+  /** Get number of cores from dummy dataset for 1 executor.
+    * Note: all executors have same number of cores,
+    * and this is more reliable than getting value from conf.
     * @param dataset The dataset containing the current spark session.
-    * @return List of executors in host:port format.
+    * @return The number of cores per executor.
     */
-  def getExecutors(dataset: Dataset[_]): Array[(String, Int)] = {
+  def getNumCoresPerExecutor(dataset: Dataset[_]): Int = {
+    val spark = dataset.sparkSession
+    import spark.implicits._
+    spark.range(0, 1).map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+  }
+
+  private def getDriverHost(dataset: Dataset[_]): String = {
+    val blockManager = BlockManagerUtils.getBlockManager(dataset)
+    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
+      if (blockManagerId.executorId == "driver") Some(blockManagerId.host)
+      else None
+    }).head
+  }
+
+  /** Returns a list of executor id and host.
+    * @param dataset The dataset containing the current spark session.
+    * @param numCoresPerExec The number of cores per executor.
+    * @return List of executors as an array of (id,host).
+    */
+  def getExecutors(dataset: Dataset[_], numCoresPerExec: Int): Array[(Int, String)] = {
     val blockManager = BlockManagerUtils.getBlockManager(dataset)
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") None
-      else Some((blockManagerId.host, blockManagerId.executorId.toInt))
+      else Some((blockManagerId.executorId.toInt, blockManagerId.host))
     }).toArray
   }
 
-  /** Returns the number of executors.
+  /** Returns the number of executors * number of cores.
     * @param dataset The dataset containing the current spark session.
-    * @return The number of executors.
+    * @param numCoresPerExec The number of cores per executor.
+    * @return The number of executors * number of cores.
     */
-  def getNumExecutors(dataset: Dataset[_]): Int = {
-    val executors = getExecutors(dataset)
-    if (!executors.isEmpty) executors.length
-    else {
+  def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int): Int = {
+    val executors = getExecutors(dataset, numCoresPerExec)
+    if (!executors.isEmpty) {
+      executors.length * numCoresPerExec
+    } else {
       val master = dataset.sparkSession.sparkContext.master
       val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
       master match {
@@ -93,22 +175,21 @@ object LightGBMUtils {
   /** Returns the executor node ips and ports.
     * @param data The input dataframe.
     * @param defaultListenPort The default listen port.
+    * @param numCoresPerExec The number of cores per executor.
     * @return List of nodes as comma separated string and count.
     */
-  def getNodes(data: DataFrame, defaultListenPort: Int): (String, Int) = {
-    val nodes = getExecutors(data)
+  def getNodes(data: DataFrame, defaultListenPort: Int, numCoresPerExec: Int): Array[(Int, String)] = {
+    val nodes = getExecutors(data, numCoresPerExec)
     val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length
     if (nodes.isEmpty) {
       // Running in local[*]
       getNodesFromPartitionsLocal(data, defaultListenPort)
     } else if (getSubsetExecutors) {
       // Special case when num partitions < num executors
-      val executorToHost = nodes.map { case (host, id) => (id, host) }.toMap
-      getNodesFromPartitions(data, defaultListenPort, executorToHost)
+      getNodesFromPartitions(data, defaultListenPort, nodes.toMap)
     } else {
       // Running on cluster, include all workers with driver excluded
-      (nodes.map(toAddr(_, defaultListenPort)).sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2),
-        nodes.size)
+      nodes
     }
   }
 
@@ -120,15 +201,14 @@ object LightGBMUtils {
     * @return The list of nodes in host:port format.
     */
   def getNodesFromPartitions(processedData: DataFrame, defaultListenPort: Int,
-                             executorToHost: Map[Int, String]): (String, Int) = {
+                             executorToHost: Map[Int, String]): Array[(Int, String)] = {
     import processedData.sparkSession.implicits._
-    val nodes = reduceNodesToString(
+    val nodes =
       processedData.mapPartitions((_: Iterator[Row]) => {
         val id = getId()
-        Array(executorToHost(id) + ":" + (defaultListenPort + id)).toIterator
-      })
-    )
-    (nodes, nodes.split(",").length)
+        Array((id, executorToHost(id))).toIterator
+      }).collect()
+    nodes
   }
 
   /** Returns the nodes from mapPartitions.
@@ -137,24 +217,20 @@ object LightGBMUtils {
     * @param defaultListenPort The default listening port.
     * @return The list of nodes in host:port format.
     */
-  def getNodesFromPartitionsLocal(processedData: DataFrame, defaultListenPort: Int): (String, Int) = {
+  def getNodesFromPartitionsLocal(processedData: DataFrame,
+                                  defaultListenPort: Int): Array[(Int, String)] = {
     import processedData.sparkSession.implicits._
     val blockManager = BlockManagerUtils.getBlockManager(processedData)
     val host = blockManager.master.getMemoryStatus.flatMap({ case (blockManagerId, _) =>
       Some(blockManagerId.host)
     }).head
-    val nodes = reduceNodesToString(
+    val nodes =
       processedData.mapPartitions((_: Iterator[Row]) => {
         // The logic below is to get it to run in local[*] spark context
         val id = getId()
-        Array(host + ":" + (defaultListenPort + id)).toIterator
-      })
-    )
-    (nodes, nodes.split(",").length)
-  }
-
-  private def reduceNodesToString(nodes: Dataset[String]): String = {
-    nodes.collect().sorted.distinct.reduceLeft((val1, val2) => val1 + "," + val2)
+        Array((id, host)).toIterator
+      }).collect()
+    nodes
   }
 
   def newDoubleArray(array: Array[Double]): (SWIGTYPE_p_void, SWIGTYPE_p_double) = {

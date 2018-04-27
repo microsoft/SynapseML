@@ -9,6 +9,8 @@ import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, Pro
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.sql._
 
+import scala.concurrent.Await
+import scala.concurrent.duration.{Duration, SECONDS}
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
@@ -31,23 +33,29 @@ class LightGBMClassifier(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
-    val numExecutors = LightGBMUtils.getNumExecutors(dataset)
-    // Reduce number of partitions to number of executors
-    val df = dataset.toDF().coalesce(numExecutors).cache()
+    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
+    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    // Reduce number of partitions to number of executor cores
+    val df = dataset.toDF().coalesce(numExecutorCores).cache()
+    val (inetAddress, port, future) =
+      LightGBMUtils.createDriverNodesThread(numExecutorCores, df, log, getTimeout)
 
-    val (nodes, numNodes) = LightGBMUtils.getNodes(df, getDefaultListenPort)
+    val nodes = LightGBMUtils.getNodes(df, getDefaultListenPort, numCoresPerExec)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
-    log.info(s"Nodes used for LightGBM: $nodes")
+    log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
       getMaxDepth, getMinSumHessianInLeaf)
+    val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, getFeaturesCol,
-        getDefaultListenPort, log, trainParams))(encoder)
+      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
+        log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, booster2) => booster1)
+    // Wait for future to complete (should be done by now)
+    Await.result(future, Duration(getTimeout, SECONDS))
     new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
       getPredictionCol, getProbabilityCol, getRawPredictionCol,
       if (isDefined(thresholds)) Some(getThresholds) else None)

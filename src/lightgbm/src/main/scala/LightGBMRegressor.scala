@@ -9,6 +9,8 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.regression.{BaseRegressor, RegressionModel}
 import org.apache.spark.sql._
 
+import scala.concurrent.Await
+import scala.concurrent.duration.{Duration, SECONDS}
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
@@ -54,23 +56,29 @@ class LightGBMRegressor(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMRegressionModel = {
-    val numExecutors = LightGBMUtils.getNumExecutors(dataset)
-    // Reduce number of partitions to number of executors
-    val df = dataset.toDF().coalesce(numExecutors).cache()
+    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
+    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    // Reduce number of partitions to number of executor cores
+    val df = dataset.toDF().coalesce(numExecutorCores).cache()
+    val (inetAddress, port, future) =
+      LightGBMUtils.createDriverNodesThread(numExecutorCores, df, log, getTimeout)
 
-    val (nodes, numNodes) = LightGBMUtils.getNodes(df, getDefaultListenPort)
+    val nodes = LightGBMUtils.getNodes(df, getDefaultListenPort, numCoresPerExec)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
-    log.info(s"Nodes used for LightGBM: $nodes")
-    val trainParams = new RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
+    log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
+    val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getApplication, getAlpha, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
       getMaxDepth, getMinSumHessianInLeaf)
+    val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(nodes, numNodes, getLabelCol, getFeaturesCol,
-        getDefaultListenPort, log, trainParams))(encoder)
+      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
+        log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, booster2) => booster1)
+    // Wait for future to complete (should be done by now)
+    Await.result(future, Duration(getTimeout, SECONDS))
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
   }
 
