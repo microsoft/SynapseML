@@ -19,6 +19,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */
+@InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMParams {
@@ -56,6 +57,7 @@ class LightGBMClassifier(override val uid: String)
 }
 
 /** Model produced by [[LightGBMClassifier]]. */
+@InternalWrapper
 class LightGBMClassificationModel(
   override val uid: String, model: LightGBMBooster, labelColName: String,
   featuresColName: String, predictionColName: String, probColName: String,
@@ -100,6 +102,10 @@ class LightGBMClassificationModel(
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
          getProbabilityCol, getRawPredictionCol, thresholdValues)
+
+  def saveNativeModel(session: SparkSession, filename: String): Unit = {
+    model.saveNativeModel(session, filename)
+  }
 }
 
 object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel]

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.sql.SparkSession
 
 /** Represents a LightGBM Booster learner
   * @param model The string serialized representation of the learner
@@ -137,5 +138,14 @@ class LightGBMBooster(val model: String) extends Serializable {
         "Booster merge")
     }
     new LightGBMBooster(model)
+  }
+
+  def saveNativeModel(session: SparkSession, filename: String): Unit = {
+    if (filename == null || filename.isEmpty()) {
+      throw new IllegalArgumentException("filename should not be empty or null.")
+    }
+
+    val rdd = session.sparkContext.parallelize(Seq(model))
+    rdd.coalesce(1).saveAsTextFile(filename)
   }
 }

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import java.nio.file.{Files, Path, Paths}
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
@@ -23,6 +24,11 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   verifyLearnerOnBinaryCsvFile("breast-cancer.train.csv",          "Label", 1)
   verifyLearnerOnBinaryCsvFile("random.forest.train.csv",          "#Malignant", 1)
   verifyLearnerOnBinaryCsvFile("transfusion.csv",                  "Donated", 1)
+
+  verifySaveBooster(
+    fileName = "PimaIndian.csv",
+    labelColumnName = "Diabetes mellitus",
+    outputFileName = "model.txt")
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
     verifyBenchmarks()
@@ -113,6 +119,32 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setFeaturesCol(featuresCol)
         .setNumLeaves(5),
       train))
+  }
+
+  def verifySaveBooster(fileName: String,
+                       outputFileName: String,
+                       labelColumnName: String): Unit = {
+    test("Verify LightGBMClassifier save booster to " + fileName) {
+      // Increment port index
+      portIndex += numPartitions
+      val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+      val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+      val lgbm = new LightGBMClassifier()
+      val featuresColumn = lgbm.uid + "_features"
+      val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+      val rawPredCol = "rawPred"
+      val model = lgbm.setLabelCol(labelColumnName)
+        .setFeaturesCol(featuresColumn)
+        .setRawPredictionCol(rawPredCol)
+        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+        .setNumLeaves(5)
+        .setNumIterations(10)
+        .fit(featurizer.transform(dataset))
+
+      val targetDir: Path = Paths.get(getClass.getResource("/").toURI)
+      model.saveNativeModel(session, targetDir.toString() + "/" + outputFileName)
+      assert(Files.exists(Paths.get(targetDir.toString() + "/" + outputFileName)), true)
+    }
   }
 
   override def reader: MLReadable[_] = LightGBMClassifier
