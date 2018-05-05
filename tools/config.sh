@@ -259,7 +259,7 @@ defvar -dX R_PACKAGE     "mmlspark-<{MML_VERSION}>.zip"
 
 # E2E test cluster information
 defvar E2E_CLUSTER_NAME   "mmlspark23"
-defvar E2E_RESOURCE_GROUP "mmlspark-rg"
+defvar E2E_RESOURCE_GROUP "mmlspark"
 defvar E2E_CLUSTER_SSH    "sshuser@${E2E_CLUSTER_NAME}-ssh.azurehdinsight.net"
 defvar E2E_PARALLEL_RUNS  "3"
 defvar -X CLUSTER_SDK_DIR "/mml-sdk" # this is for all clusters
