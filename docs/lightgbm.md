@@ -30,7 +30,7 @@ many other machine learning tasks. Light GBM is part of Microsoft's
 In PySpark, you can run the `LightGBMClassifier` via:
 
    ```python
-   from mmlspark import LightGBMClassifer
+   from mmlspark import LightGBMClassifier
    model = LightGBMClassifier(learningRate=0.3,
                               numIterations=100,
                               numLeaves=31).fit(train)
