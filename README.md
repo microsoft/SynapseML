@@ -155,7 +155,7 @@ the above example, or from python:
 
    ```python
    import pyspark
-   sp = pyspark.sql.SparkSession.builder.appName("MyApp") \
+   spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
                .config("spark.jars.packages", "Azure:mmlspark:0.12") \
                .getOrCreate()
    import mmlspark
