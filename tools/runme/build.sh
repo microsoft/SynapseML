@@ -111,6 +111,20 @@ _sbt_build() {
   cd "$owd"
 }
 
+_sbt_adb_notebooks() {
+  show section "Running ADB Notebooks"
+  if [[ "$BUILDMODE" = "server" ]]; then
+    local token="$(__ az keyvault secret show --vault-name mmlspark-keys --name adb-token)"
+    token="${token##*\"value\": \"}"; token="${token%%\"*}"
+    export MML_ADB_TOKEN="$token"
+  fi
+
+  local owd="$PWD"
+  cd "$SRCDIR"
+  _sbt_run "core-test-fuzzing/it:test"
+  cd "$owd"
+}
+
 _upload_package_to_storage() { # name, pkgdir, container
   show section "Publishing $1 Package"
   _ azblob upload-batch --source "$BUILD_ARTIFACTS/packages/$2" --destination "$3"
@@ -128,61 +142,6 @@ _upload_package_to_storage() { # name, pkgdir, container
                         "$R_URL" "$R_PACKAGE"
     ;;
   esac
-}
-
-_e2e_script_action() { # config-name script-name file-name
-  declare -n cluster="$1_CLUSTER_NAME" group="$1_RESOURCE_GROUP"; shift
-  local script_name="$1" file="$2"; shift 2
-  local url="$STORAGE_URL/$MML_VERSION/$file"
-  collect_log=1 \
-    _ azure hdinsight script-action create "$cluster" -g "$group" \
-            -n "$script_name" -u "$url" -t "headnode;workernode"
-  echo "$collected_log"
-  if [[ ! "$collected_log" =~ "Operation state: "+"Succeeded" ]]; then
-    failwith "script action failed"
-  fi
-}
-e2ekey=""
-_e2e_ssh() {
-  local cmd keyfile rm_pid ret
-  cmd=("ssh"); if [[ "$1" = "scp" ]]; then cmd=("$1"); shift; fi
-  if [[ "$_e2e_key" = "" ]]; then
-    e2ekey="$(__ az keyvault secret show --vault-name mmlspark-keys --name testcluster-ssh-key)"
-    e2ekey="${e2ekey##*\"value\": \"}"; e2ekey="${e2ekey%%\"*}"; e2ekey="${e2ekey//\\n/$'\n'}"
-  fi
-  keyfile="/dev/shm/k$$"; touch "$keyfile"; chmod 600 "$keyfile"; echo "$e2ekey" > "$keyfile"
-  cmd+=(-o "StrictHostKeyChecking=no" -i "$keyfile")
-  if [[ "${cmd[0]}" = "ssh" ]]; then
-    { sleep 30; rm -f "$keyfile"; } &
-    rm_pid="$!"
-    _ -a "${cmd[@]}" "$@"; ret="$?"
-    kill -9 "$rm_pid" > /dev/null 2>&1; rm -f "$keyfile"
-  elif [[ "${cmd[0]}" = "scp" ]]; then
-    _ -a "${cmd[@]}" "$@"; ret="$?"
-    rm -f "$keyfile"
-  fi
-  return $ret
-}
-_e2e_tests() {
-  show section "Running E2E Tests"
-  _e2e_script_action "E2E" "Install MML to E2E Cluster" "install-mmlspark.sh"
-  _e2e_script_action "E2E" "Setup authorized-keys for E2E" "setup-test-authkey.sh"
-  local shost="$E2E_CLUSTER_SSH" sdir="$CLUSTER_SDK_DIR/notebooks/hdinsight"
-  _e2e_ssh scp -p "$TEST_RESULTS/notebook_tests/hdinsight/"* "$shost:$sdir"
-  _e2e_ssh scp -p "$BASEDIR/tools/notebook/tester/"* "$shost:$sdir"
-  _e2e_ssh -t -t "$shost" \
-           ". /usr/bin/anaconda/bin/activate; \
-            cd \"$sdir\"; rm -rf \"../local\"; \
-            ./parallel_run.sh $E2E_PARALLEL_RUNS \"TestNotebooksOnHdi.py\""
-  local ret="$?"
-  _e2e_ssh scp "$shost:$sdir/TestResults/*" "$TEST_RESULTS"
-  if ((ret != 0)); then failwith "E2E test failures"; fi
-}
-
-_publish_to_demo_cluster() {
-  show section "Installing Demo Cluster"
-  _e2e_script_action "DEMO" "Install MML to Demo Cluster" "install-mmlspark.sh"
-  _add_to_description '* Demo cluster updated.\n'
 }
 
 _publish_docs() {
@@ -326,10 +285,9 @@ _full_build() {
   # tests
   should test python     && @ "../pytests/auto-tests"
   should test python     && @ "../pytests/notebook-tests"
-  should test e2e        && _e2e_tests
+  should test e2e        && _sbt_adb_notebooks
   # publish steps that should happen only for successful tests
   should publish docs    && _publish_docs
-  should publish demo    && _publish_to_demo_cluster
   should publish docker  && _publish_to_dockerhub
   _upload_artifacts_to_VSTS
   # upload updated Build.md after all of the additions were made

@@ -65,6 +65,7 @@ val _ = {
     }
     (s"""val `$proj` = (project in ${("topDir" +: proj.dirs.map("\""+_+"\""))
                                      .mkString(" / ")})"""
+       + "\n  .configs(IntegrationTest)"
        + "\n  .settings(Extras.defaultSettings: _*)"
        + showList(proj.children, "aggregate", "")
        // for the root project, use "optional" -- I don't know what it should
