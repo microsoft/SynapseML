@@ -1,11 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-import sbt._
+import sbt.{Def, _}
 import Keys._
+import sbt.util.Level
 
 import sys.process.Process
-
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
 import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
@@ -111,7 +111,7 @@ object Extras {
                         "com.microsoft.ml.spark.test.tags." +
                           spec.substring(1)) })
 
-  def defaultSettings = Seq(
+  def defaultSettings: Seq[Def.Setting[_]] = Seq(
     // Common stuff: defaults for all subprojects
     scalaVersion in ThisBuild := scalaVer,
     organization in ThisBuild := defaultOrg,
@@ -146,7 +146,7 @@ object Extras {
     initialCommands in (ThisBuild, console) := "import com.microsoft.ml.spark._",
     // Use the above commands
     commands in ThisBuild ++= newCommands
-    ) ++ testOpts
+    ) ++ testOpts ++ Defaults.itSettings
 
   def rootSettings =
     defaultSettings ++
