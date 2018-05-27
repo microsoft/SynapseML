@@ -49,7 +49,7 @@ final object ScalaStyleExtras {
     r("SE", "ParameterNumberChecker", ("maxParameters", 9)),
     r("SW", "MethodLengthChecker", ("maxLength", 50)),
     r("SE", "NumberOfTypesChecker", ("maxTypes", 30)),
-    r("SE", "NumberOfMethodsInTypeChecker", ("maxMethods", 30)),
+    r("SE", "NumberOfMethodsInTypeChecker", ("maxMethods", 40)),
     r("SE", "NumberOfTypesChecker"),
     r("SW", "CyclomaticComplexityChecker", ("maximum", 10)),
     r("SE", "PublicMethodsHaveTypeChecker"),
