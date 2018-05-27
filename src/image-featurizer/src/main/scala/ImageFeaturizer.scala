@@ -60,10 +60,10 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   def getMiniBatchSize: Int = getCntkModel.getMiniBatchSize
 
   /** @group setParam */
-  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNode(value))
+  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNodeIndex(value))
 
   /** @group getParam */
-  def getInputNode: Int = getCntkModel.getInputNode
+  def getInputNode: Int = getCntkModel.getInputNodeIndex
 
   def setModelLocation(spark: SparkSession, path: String): this.type = {
     set(cntkModel, getCntkModel.setModelLocation(spark, path))
@@ -121,7 +121,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel
-      .setOutputNodeName(getLayerNames.apply(getCutOutputLayers))
+      .setOutputNode(getLayerNames.apply(getCutOutputLayers))
       .setInputCol(resizedCol)
       .setOutputCol(getOutputCol)
 

@@ -3,13 +3,10 @@
 
 package com.microsoft.ml.spark
 
-import java.util.Date
-
 import com.microsoft.ml.spark.FileUtilities.File
-import org.apache.spark.sql._
-import org.apache.spark.ml.linalg.DenseVector
 import com.microsoft.ml.spark.Readers.implicits._
-import org.apache.commons.io.FileUtils.getTempDirectoryPath
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.sql._
 
 trait CNTKTestUtils extends TestBase {
 

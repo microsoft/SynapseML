@@ -4,11 +4,14 @@
 package com.microsoft.ml.spark
 
 import java.io._
+
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction, _}
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.StreamUtilities._
 import org.apache.commons.io.IOUtils
+
+import scala.collection.JavaConversions._
 
 class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
 
@@ -37,7 +40,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
 
   def evaluateRandomMinibatch(model: CNTKFunction, batchSize: Int,
                               outputNum: Int = 3, seed: Int = 123): Seq[Seq[Float]] = {
-    val inputVar = model.getArguments.get(0)
+    val inputVar = model.getArguments()(0)
     val inputShape = inputVar.getShape
     val fakeImages = randomSeqSeq(batchSize, seed=seed)
     val inputFVV = toFVV(fakeImages)

@@ -3,20 +3,17 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.SparkException
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.util.{MLReadable, MLWritable}
-import org.apache.spark.ml.{Pipeline, PipelineModel, PipelineStage}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Encoder, Row, SparkSession}
 
-import scala.collection.mutable
+import scala.util.Random
 
-class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzing[CNTKModel]{
+class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzing[CNTKModel] {
 
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
 
@@ -29,6 +26,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputNodeIndex(3)
   }
   val images = testImages(session)
+  import session.implicits._
 
   private def checkParameters(minibatchSize: Int) = {
     val model  = testModel(minibatchSize)
@@ -37,7 +35,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   }
 
   test("A CNTK model should be able to support setting the input and output node") {
-    val model = testModel().setInputNode(0)
+    val model = testModel().setInputNodeIndex(0)
     val data = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
     assert(result.select(outputCol).count() == 3)
@@ -48,37 +46,46 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setModelLocation(session, modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setOutputNodeName("z")
+      .setOutputNode("z")
 
-    val data   = makeFakeData(session, 3, featureVectorLength)
+    val data   = makeFakeData(session, 10, featureVectorLength).coalesce(1)
     val result = model.transform(data)
     assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
-    assert(result.select(outputCol).count() == 3)
+    assert(result.select(outputCol).count() == 10)
   }
 
   test("throws useful exception when invalid node name is given") {
     val model = new CNTKModel()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setOutputNodeName("nonexistant-node")
+      .setOutputNode("nonexistant-node")
       .setModelLocation(session, modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
-    val se = intercept[SparkException] { model.transform(data).collect() }
-    assert(se.getCause.isInstanceOf[IllegalArgumentException])
+    intercept[IllegalArgumentException] { model.transform(data).collect() }
   }
 
-  test("A CNTK model should work on doubles") {
+  test("should work on floats") {
     val model = testModel()
-    val data   = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
+    val data = makeFakeData(session, 3, featureVectorLength)
     val result = model.transform(data)
+    result.printSchema()
+    assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
+    assert(result.count() == 3)
+  }
+
+  test("should work on doubles") {
+    val model = testModel()
+    val data = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
+    val result = model.transform(data)
+    result.printSchema()
     assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
     assert(result.count() == 3)
   }
 
   test("A CNTK model should output Vectors and interop with other estimators") {
     val model = testModel()
-    val data   = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
+    val data = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
     val result = model.transform(data)
     assert(result.select(outputCol).schema.fields(0).dataType == VectorType)
 
@@ -103,10 +110,8 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   }
 
   test("A CNTK model should work on an empty dataframe") {
-    val images = session.createDataFrame(sc.emptyRDD[Row],
-                                         StructType(
-                                           StructField(inputCol, ArrayType(FloatType, false)) ::
-                                             Nil))
+    val images = session.createDataFrame(
+      sc.emptyRDD[Row], new StructType().add(inputCol, ArrayType(FloatType, false)))
     val model = testModel()
     val result = model.transform(images)
     assert(result.count == 0)
@@ -122,16 +127,16 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
     val model = testModel()
     model.write.overwrite().save(saveFile)
     val modelLoaded = CNTKModel.load(saveFile)
-    val result      = modelLoaded.transform(images)
+    val result = modelLoaded.transform(images)
     compareToTestModel(result)
   }
 
   test("A CNTK Model should be pipeline compatible") {
-    val model  = testModel()
-    val pipe   = new Pipeline().setStages(Array(model)).fit(images)
+    val model = testModel()
+    val pipe = new Pipeline().setStages(Array(model)).fit(images)
     pipe.write.overwrite().save(saveFile)
     val pipeLoaded = PipelineModel.load(saveFile)
-    val result     = pipeLoaded.transform(images)
+    val result = pipeLoaded.transform(images)
     compareToTestModel(result)
   }
 
@@ -141,7 +146,21 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
     }
   }
 
+  test("multi in multi out model") {
+    val df = Seq.fill(10) {
+      (Seq.fill(32 * 32 * 3) {Random.nextFloat()}, Seq.fill(10) {Random.nextFloat()})
+    }.toDF("input0", "input1").coalesce(1)
+    val model = new CNTKModel()
+      .setModelLocation(session, modelPath)
+      .setFeedDict(Map("argument_0" -> "input0", "argument_1" -> "input1"))
+      .setFetchDict(Map("foo" -> "output_3"))
+    val results = model.transform(df)
+    assert(results.schema.fieldNames.length == 3)
+    assert(results.collect().length == 10)
+  }
+
   val reader: MLReadable[_] = CNTKModel
+
   override def testObjects(): Seq[TestObject[CNTKModel]] =
     Seq(new TestObject[CNTKModel](testModel(), images))
 
