@@ -21,7 +21,7 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
   }
 
   override def jsonEncode(value: Map[K, V]): String = {
-    value.toJson.prettyPrint
+    value.toJson.compactPrint
   }
 
   override def jsonDecode(json: String): Map[K, V] = {

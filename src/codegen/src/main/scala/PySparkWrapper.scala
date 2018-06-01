@@ -4,12 +4,10 @@
 package com.microsoft.ml.spark.codegen
 
 import scala.collection.mutable.ListBuffer
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.Param
-
+import org.apache.spark.ml.param.{MapParam, Param}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
@@ -188,6 +186,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         StringUtils.capitalize(paramDefault)
       case "DoubleParam" | "FloatParam" | "IntParam" | "LongParam" =>
         paramDefault
+      case "MapParam" =>
+        paramDefault.stripPrefix("Map(").stripSuffix(")")
       case x if x == "Param" || defaultStringIsParsable =>
         "\"" + paramDefault + "\""
       case _ =>
@@ -206,6 +206,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
       case "StringArrayParam" => "list"
       case "ByteArrayParam"   => "list"
       case "MapArrayParam"    => "dict"
+      case "MapParam"         => "dict"
       case _                  => "object"
     }
 
@@ -217,7 +218,10 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 
     if (entryPoint.hasDefault(param)) {
       val paramParent: String = param.parent
-      paramDefault = entryPoint.getDefault(param).get.toString
+      paramDefault = param match {
+        case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
+        case p => entryPoint.getDefault(param).get.toString
+      }
       if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
         autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
                                                + paramParent.length)
