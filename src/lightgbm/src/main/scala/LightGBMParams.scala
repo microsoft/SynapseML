@@ -71,7 +71,7 @@ trait LightGBMParams extends MMLParams {
   def getMinSumHessianInLeaf: Double = $(minSumHessianInLeaf)
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
-  val timeout = DoubleParam(this, "timeout", "Timeout in seconds", 30)
+  val timeout = DoubleParam(this, "timeout", "Timeout in seconds", 120)
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
