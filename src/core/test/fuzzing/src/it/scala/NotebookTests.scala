@@ -18,16 +18,18 @@ class NotebookTests extends TestBase {
     super.beforeAll()
     assert(listActiveJobs(clusterId).isEmpty,
       "Cluster already has running jobs cannot change libraries safely")
-    installLibraries(clusterId)
+    ()
   }
 
   test("Databricks Notebooks") {
-    workspaceMkDir(folder)
+    assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
+    println("Installing libraries")
+    installLibraries(clusterId)
     println(s"Submitting jobs")
     val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
     println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
     try {
-      val monitors = jobIds.map(monitorJob(_, logLevel=2, timeout = timeoutInMillis))
+      val monitors = jobIds.map(monitorJob(_, logLevel = 2, timeout = timeoutInMillis))
       println(s"Monitoring Jobs...")
       val failures = monitors
         .map(Await.ready(_, Duration(timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
@@ -43,13 +45,21 @@ class NotebookTests extends TestBase {
     }
   }
 
-  ignore("list running jobs for convenievce"){
+  ignore("list running jobs for convenievce") {
     val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
     println(obj)
   }
 
+  ignore("Clean libraries") {
+    uninstallAllLibraries(clusterId)
+  }
+
+  ignore("Restart cluster") {
+    restartCluster(clusterId)
+  }
+
   override def afterAll(): Unit = {
-    uninstallLibraries(clusterId)
+    uninstallAllLibraries(clusterId)
     restartCluster(clusterId)
     super.afterAll()
   }

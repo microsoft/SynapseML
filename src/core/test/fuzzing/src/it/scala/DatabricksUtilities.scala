@@ -9,19 +9,29 @@ import java.util.concurrent.TimeoutException
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.SprayImplicits._
 import org.apache.commons.io.IOUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.spark_project.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
+import StreamUtilities.using
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.language.existentials
 import scala.sys.process.Process
 
 object DatabricksUtilities {
-  lazy val client: CloseableHttpClient = HttpClientBuilder.create().build()
+  lazy val requestTimeout = 60000
+
+  lazy val requestConfig = RequestConfig.custom()
+    .setConnectTimeout(requestTimeout)
+    .setConnectionRequestTimeout(requestTimeout)
+    .setSocketTimeout(requestTimeout)
+    .build()
+
+  lazy val client: CloseableHttpClient = HttpClientBuilder
+    .create().setDefaultRequestConfig(requestConfig).build()
 
   // ADB Info
   val region = "southcentralus"
@@ -29,7 +39,7 @@ object DatabricksUtilities {
   val authValue: String = "Basic " + BaseEncoding.base64()
     .encode(("token:" + token).getBytes("UTF-8"))
   val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"
-  val clusterName = "Test Cluster 2"
+  val clusterName = "Test Cluster 4"
   lazy val clusterId: String = getClusterIdByName(clusterName)
   val folder = "/MMLSparkBuild/Build1"
 
@@ -56,28 +66,45 @@ object DatabricksUtilities {
     new File(topDir, "BuildArtifacts/notebooks/hdinsight").getCanonicalFile.listFiles()
   ).get
 
-  def databricksGet(path: String): JsValue = {
-    val request = new HttpGet(baseURL + path)
-    request.addHeader("Authorization", authValue)
-    val response = client.execute(request)
-    if (response.getStatusLine.getStatusCode != 200) {
-      throw new RuntimeException(s"Failed: response: $response")
+  def retry[T](backoffs: List[Int], f: () => T): T = {
+    try {
+      f()
+    } catch {
+      case t: Throwable =>
+        val waitTime = backoffs.headOption.getOrElse(throw t)
+        println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
+        Thread.sleep(waitTime.toLong)
+        retry(backoffs.tail, f)
     }
-    IOUtils.toString(response.getEntity.getContent).parseJson
+  }
+
+  def databricksGet(path: String): JsValue = {
+    retry(List(100, 500, 1000), { () =>
+      val request = new HttpGet(baseURL + path)
+      request.addHeader("Authorization", authValue)
+      using(client.execute(request)) { response =>
+        if (response.getStatusLine.getStatusCode != 200) {
+          throw new RuntimeException(s"Failed: response: $response")
+        }
+        IOUtils.toString(response.getEntity.getContent).parseJson
+      }.get
+    })
   }
 
   //TODO convert all this to typed code
   def databricksPost(path: String, body: String): JsValue = {
-    val request = new HttpPost(baseURL + path)
-    request.addHeader("Authorization", authValue)
-    request.setEntity(new StringEntity(body))
-    val response = client.execute(request)
-
-    if (response.getStatusLine.getStatusCode != 200) {
-      val entity = IOUtils.toString(response.getEntity.getContent, "UTF-8")
-      throw new RuntimeException(s"Failed:\n entity:$entity \n response: $response")
-    }
-    IOUtils.toString(response.getEntity.getContent).parseJson
+    retry(List(100, 500, 1000), { () =>
+      val request = new HttpPost(baseURL + path)
+      request.addHeader("Authorization", authValue)
+      request.setEntity(new StringEntity(body))
+      using(client.execute(request)) { response =>
+        if (response.getStatusLine.getStatusCode != 200) {
+          val entity = IOUtils.toString(response.getEntity.getContent, "UTF-8")
+          throw new RuntimeException(s"Failed:\n entity:$entity \n response: $response")
+        }
+        IOUtils.toString(response.getEntity.getContent).parseJson
+      }.get
+    })
   }
 
   def getClusterIdByName(name: String): String = {
@@ -127,13 +154,15 @@ object DatabricksUtilities {
   }
 
   def uninstallLibraries(clusterId: String): Unit = {
-    databricksPost("libraries/uninstall",
+    val body =
       s"""
          |{
          | "cluster_id": "$clusterId",
          | "libraries": $libraries
          |}
-      """.stripMargin)
+      """.stripMargin
+    println(body)
+    databricksPost("libraries/uninstall", body)
     ()
   }
 
@@ -242,12 +271,35 @@ object DatabricksUtilities {
     //TODO this only gets the first 1k running jobs, full solution would page results
     databricksGet("jobs/runs/list?active_only=true&limit=1000")
       .asJsObject.fields.get("runs").map { runs =>
-        runs.asInstanceOf[JsArray].elements.flatMap {
-          case run if clusterId == run.select[String]("cluster_instance.cluster_id") =>
-            Some(run.select[Int]("run_id"))
-          case _ => None
-        }
+      runs.asInstanceOf[JsArray].elements.flatMap {
+        case run if clusterId == run.select[String]("cluster_instance.cluster_id") =>
+          Some(run.select[Int]("run_id"))
+        case _ => None
+      }
     }.getOrElse(Array().toVector: Vector[Int])
+  }
+
+  def listInstalledLibraries(clusterId: String): Vector[JsValue] = {
+    databricksGet(s"libraries/cluster-status?cluster_id=$clusterId")
+      .asJsObject.fields.get("library_statuses")
+      .map(ls => ls.asInstanceOf[JsArray].elements)
+      .getOrElse(Vector())
+  }
+
+  def uninstallAllLibraries(clusterId: String): Unit = {
+    val libraries = listInstalledLibraries(clusterId)
+      .map(l => l.asJsObject.fields("library"))
+    if (libraries.nonEmpty) {
+      val body =
+        s"""
+           |{
+           |  "cluster_id":"$clusterId",
+           |  "libraries": ${libraries.toJson.compactPrint}
+           |}
+      """.stripMargin
+      databricksPost("libraries/uninstall", body)
+    }
+    ()
   }
 
   def cancelAllJobs(clusterId: String): Unit = {
