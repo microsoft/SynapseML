@@ -17,14 +17,12 @@ class ImageFeaturizer(_ImageFeaturizer):
         SparkSession (SparkSession): The SparkSession that will be used to find the model
         ocation (str): The location of the model, either on local or HDFS
     """
-    def setModelLocation(self, sparkSession, location):
-        jSpark = sparkSession._jsparkSession
-        self._java_obj = self._java_obj.setModelLocation(jSpark, location)
+    def setModelLocation(self, location):
+        self._java_obj = self._java_obj.setModelLocation(location)
         return self
 
     def setModel(self, sparkSession, modelSchema):
-        jSpark = sparkSession._jsparkSession
-        self._java_obj = self._java_obj.setModel(jSpark, modelSchema.toJava(sparkSession))
+        self._java_obj = self._java_obj.setModel(modelSchema.toJava(sparkSession))
         return self
 
     def setMiniBatchSize(self, size):

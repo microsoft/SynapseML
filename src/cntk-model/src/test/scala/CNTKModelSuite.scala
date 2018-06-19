@@ -19,7 +19,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   def testModel(minibatchSize: Int = 10): CNTKModel = {
     new CNTKModel()
-      .setModelLocation(session, modelPath)
+      .setModelLocation(modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setMiniBatchSize(minibatchSize)
@@ -43,7 +43,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   test("A CNTK model should support finding a node by name") {
     val model = new CNTKModel()
-      .setModelLocation(session, modelPath)
+      .setModelLocation(modelPath)
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setOutputNode("z")
@@ -59,7 +59,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
       .setOutputNode("nonexistant-node")
-      .setModelLocation(session, modelPath)
+      .setModelLocation(modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
     intercept[IllegalArgumentException] { model.transform(data).collect() }
@@ -151,7 +151,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       (Seq.fill(32 * 32 * 3) {Random.nextFloat()}, Seq.fill(10) {Random.nextFloat()})
     }.toDF("input0", "input1").coalesce(1)
     val model = new CNTKModel()
-      .setModelLocation(session, modelPath)
+      .setModelLocation(modelPath)
       .setFeedDict(Map("argument_0" -> "input0", "argument_1" -> "input1"))
       .setFetchDict(Map("foo" -> "output_3"))
     val results = model.transform(df)

@@ -170,7 +170,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
     conformedData.unpersist()
     // Note: This currently runs only on linux
     new CNTKModel(uid + "-model")
-      .setModelLocation(spark, config.getModelPath)
+      .setModelLocation(config.getModelPath)
       .setInputCol(features)
       .setOutputCol(labels)
   }
