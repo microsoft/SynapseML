@@ -51,13 +51,11 @@ object LightGBMUtils {
     * Opens a socket communications channel on the driver, starts a thread that
     * waits for the host:port from the executors, and then sends back the
     * information to the executors.
-    * @param numExecutorCores The total number of executors * cores to wait for.
+    * @param numWorkers The total number of training workers to wait for.
     * @return The address and port of the driver socket.
     */
-  def createDriverNodesThread(numExecutorCores: Int, df: DataFrame,
+  def createDriverNodesThread(numWorkers: Int, df: DataFrame,
                               log: Logger, timeout: Double): (String, Int, Future[Unit]) = {
-    val numPartitions = df.rdd.getNumPartitions
-    val numWorkers = math.min(numExecutorCores, numPartitions)
     // Start a thread and open port to listen on
     implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
     val driverServerSocket = new ServerSocket(0)
@@ -188,12 +186,12 @@ object LightGBMUtils {
     */
   def getNodes(data: DataFrame, defaultListenPort: Int, numCoresPerExec: Int): Array[(Int, String)] = {
     val nodes = getExecutors(data, numCoresPerExec)
-    val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length
+    val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length * numCoresPerExec
     if (nodes.isEmpty) {
       // Running in local[*]
       getNodesFromPartitionsLocal(data, defaultListenPort)
     } else if (getSubsetExecutors) {
-      // Special case when num partitions < num executors
+      // Special case when num partitions < num executors * numCoresPerExec
       getNodesFromPartitions(data, defaultListenPort, nodes.toMap)
     } else {
       // Running on cluster, include all workers with driver excluded
