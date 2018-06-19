@@ -130,16 +130,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     lightgbmlib.voidpp_value(boosterOutPtr)
   }
 
-  def mergeModels(newModel: LightGBMBooster): LightGBMBooster = {
-    // Merges models to first handle
-    if (model != null) {
-      LightGBMUtils.validate(
-        lightgbmlib.LGBM_BoosterMerge(getModel(), newModel.getModel()),
-        "Booster merge")
-    }
-    new LightGBMBooster(model)
-  }
-
   def saveNativeModel(session: SparkSession, filename: String): Unit = {
     if (filename == null || filename.isEmpty()) {
       throw new IllegalArgumentException("filename should not be empty or null.")
