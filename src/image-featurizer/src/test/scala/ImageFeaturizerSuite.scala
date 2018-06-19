@@ -32,7 +32,7 @@ class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setModelLocation(session, s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
     val result = model.transform(images)
@@ -44,7 +44,7 @@ class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
     val model = new ImageFeaturizer()
       .setInputCol("image")
       .setOutputCol(outputCol)
-      .setModelLocation(session, s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
 
@@ -69,7 +69,7 @@ class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
   def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
-    .setModel(session, resNet)
+    .setModel(resNet)
 
   test("the Image feature should work with the modelSchema") {
     val result = resNetModel().setCutOutputLayers(0).transform(images)
@@ -109,7 +109,7 @@ class ImageFeaturizerSuite extends CNTKTestUtils with FileReaderUtils
   test("test layers of network", TestBase.Extended) {
     (0 to 9).foreach({ i =>
       val model = new ImageFeaturizer()
-        .setModel(session, resNet)
+        .setModel(resNet)
         .setInputCol(inputCol)
         .setOutputCol(outputCol)
         .setCutOutputLayers(i)
