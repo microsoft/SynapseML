@@ -58,7 +58,8 @@ class LightGBMRegressor(override val uid: String)
     */
   override protected def train(dataset: Dataset[_]): LightGBMRegressionModel = {
     val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
-    val numWorkers = min(numCoresPerExec * numExec, dataset.rdd.getNumPartitions)
+    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Reduce number of partitions to number of executor cores if needed
     val df = dataset.toDF().coalesce(numWorkers).cache()
     val (inetAddress, port, future) =
