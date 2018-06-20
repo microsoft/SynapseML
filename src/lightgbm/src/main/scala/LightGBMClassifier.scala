@@ -11,6 +11,7 @@ import org.apache.spark.sql._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
+import scala.math.min
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
@@ -34,11 +35,11 @@ class LightGBMClassifier(override val uid: String)
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
     val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
-    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    val numWorkers = min(numCoresPerExec * numExec, dataset.rdd.getNumPartitions)
     // Reduce number of partitions to number of executor cores
-    val df = dataset.toDF().coalesce(numExecutorCores).cache()
+    val df = dataset.toDF().coalesce(numWorkers).cache()
     val (inetAddress, port, future) =
-      LightGBMUtils.createDriverNodesThread(numExecutorCores, df, log, getTimeout)
+      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
 
     val nodes = LightGBMUtils.getNodes(df, getDefaultListenPort, numCoresPerExec)
     /* Run a parallel job via map partitions to initialize the native library and network,
@@ -48,7 +49,7 @@ class LightGBMClassifier(override val uid: String)
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
-      getMaxDepth, getMinSumHessianInLeaf, numExecutorCores)
+      getMaxDepth, getMinSumHessianInLeaf, numWorkers)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
