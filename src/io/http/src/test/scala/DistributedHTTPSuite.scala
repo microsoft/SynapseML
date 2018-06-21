@@ -93,6 +93,56 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
     client.close()
   }
 
+  test("test implicits", TestBase.Extended) {
+    import ServingImplicits._
+
+    val server = session.readStream.server
+      .address(host, port, "foo")
+      .option("maxPartitions", 5)
+      .load()
+      .withColumn("newCol", length(col("value")))
+      .withColumn("newCol", to_json(struct("newCol")))
+      .writeStream
+      .server
+      .option("name", "foo")
+      .queryName("foo")
+      .option("replyCol", "newCol")
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .start()
+
+    val client = HttpClientBuilder.create().build()
+
+    def sendRequest(map: Map[String, Any]): String = {
+      val post = new HttpPost(url)
+      val params = new StringEntity(JSONObject(map).toString())
+      post.addHeader("content-type", "application/json")
+      post.setEntity(params)
+      val res = client.execute(post)
+      val out = new BasicResponseHandler().handleResponse(res)
+      res.close()
+      out
+    }
+
+    waitForServer(server)
+
+    val responses = List(
+      sendRequest(Map("foo" -> 1, "bar" -> "here")),
+      sendRequest(Map("foo" -> 2, "bar" -> "heree")),
+      sendRequest(Map("foo" -> 3, "bar" -> "hereee")),
+      sendRequest(Map("foo" -> 4, "bar" -> "hereeee"))
+    )
+    val correctResponses = List(27, 28, 29, 30).map(n => "{\"newCol\":" + n + "}")
+
+    assert(responses === correctResponses)
+
+    (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here")))
+      .foreach(resp => assert(resp === "{\"newCol\":27}"))
+
+    server.stop()
+    client.close()
+  }
+
   test("python client", TestBase.Extended) {
     val server = createServer().start()
 
