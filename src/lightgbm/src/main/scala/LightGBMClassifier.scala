@@ -50,7 +50,7 @@ class LightGBMClassifier(override val uid: String)
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
-      getMaxDepth, getMinSumHessianInLeaf, numWorkers)
+      getMaxDepth, getMinSumHessianInLeaf, numWorkers, numCoresPerExec)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
