@@ -24,7 +24,7 @@ abstract class TrainParams extends Serializable {
       s"learning_rate=$learningRate num_leaves=$numLeaves " +
       s"max_bin=$maxBin bagging_fraction=$baggingFraction bagging_freq=$baggingFreq bagging_seed=$baggingSeed " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
-      s"num_machines=$numMachines"
+      s"num_machines=$numMachines num_threads=1"
   }
 }
 
