@@ -7,6 +7,7 @@ import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, Multiclass
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import java.nio.file.{Files, Path, Paths}
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
@@ -32,6 +33,41 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
     verifyBenchmarks()
+  }
+
+  test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(lgbm.numLeaves, Array(5, 10))
+      .addGrid(lgbm.numIterations, Array(10, 20))
+      .build()
+
+    val trainValidationSplit = new TrainValidationSplit()
+      .setEstimator(lgbm)
+      .setEvaluator(new BinaryClassificationEvaluator().setLabelCol(labelColumnName))
+      .setEstimatorParamMaps(paramGrid)
+      .setTrainRatio(0.8)
+      .setParallelism(2)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val model = trainValidationSplit.fit(featurizer.transform(dataset))
+    model.transform(featurizer.transform(dataset))
+    assert(model != null)
   }
 
   /** Reads a CSV file given the file name and file location.
