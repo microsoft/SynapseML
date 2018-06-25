@@ -103,7 +103,8 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
     model.score(features, false)
   }
 
-  override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
+  override def copy(extra: ParamMap): LightGBMRegressionModel =
+    new LightGBMRegressionModel(uid, model, labelColName, featuresColName, predictionColName)
 
   override val ttag: TypeTag[LightGBMRegressionModel] = typeTag[LightGBMRegressionModel]
 
