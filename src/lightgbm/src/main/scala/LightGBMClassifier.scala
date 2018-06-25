@@ -104,7 +104,8 @@ class LightGBMClassificationModel(
   }
 
   override def copy(extra: ParamMap): LightGBMClassificationModel =
-    defaultCopy(extra)
+    new LightGBMClassificationModel(uid, model, labelColName, featuresColName, predictionColName, probColName,
+      rawPredictionColName, thresholdValues)
 
   override val ttag: TypeTag[LightGBMClassificationModel] =
     typeTag[LightGBMClassificationModel]

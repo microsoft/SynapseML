@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.RegressionEvaluator
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
 
@@ -25,6 +26,40 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
     verifyBenchmarks()
+  }
+
+  test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "airfoil_self_noise.train.csv"
+    val labelColumnName = "Scaled sound pressure level"
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMRegressor()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(lgbm.numLeaves, Array(5, 10))
+      .addGrid(lgbm.numIterations, Array(10, 20))
+      .build()
+
+    val trainValidationSplit = new TrainValidationSplit()
+      .setEstimator(lgbm)
+      .setEvaluator(new RegressionEvaluator().setLabelCol(labelColumnName))
+      .setEstimatorParamMaps(paramGrid)
+      .setTrainRatio(0.8)
+      .setParallelism(2)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val model = trainValidationSplit.fit(featurizer.transform(dataset))
+    model.transform(featurizer.transform(dataset))
+    assert(model != null)
   }
 
   /** Reads a CSV file given the file name and file location.
