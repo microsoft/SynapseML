@@ -21,6 +21,12 @@ class NotebookTests extends TestBase {
     ()
   }
 
+  ignore("Install libraries"){
+    assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
+    println("Installing libraries")
+    installLibraries(clusterId)
+  }
+
   test("Databricks Notebooks") {
     assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
     println("Installing libraries")
