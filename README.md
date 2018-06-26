@@ -231,7 +231,7 @@ and some necessary custom wrappers may be missing.
 
 * Watch [MMLSpark at the Spark Summit].
 
-[our keynote demo in the Spark+AI 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud
+[our keynote demo in the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud
   "Developing for the Intelligent Cloud and Intelligent Edge"
 [our paper]: https://arxiv.org/abs/1804.04031
   "Flexible and Scalable Deep Learning with MMLSpark"
