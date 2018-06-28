@@ -36,9 +36,9 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   test("A CNTK model should be able to support setting the input and output node") {
     val model = testModel().setInputNodeIndex(0)
-    val data = makeFakeData(session, 3, featureVectorLength)
+    val data = makeFakeData(session, 30, featureVectorLength)
     val result = model.transform(data)
-    assert(result.select(outputCol).count() == 3)
+    assert(result.select(outputCol).count() == 30)
   }
 
   test("A CNTK model should support finding a node by name") {

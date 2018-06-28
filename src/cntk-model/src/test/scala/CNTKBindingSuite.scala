@@ -28,23 +28,33 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
     }
   }
 
-  def randomSeqSeq(outerSize: Int, innerSize: Int = 32 * 32 * 3, seed: Int=123): Seq[Seq[Float]] = {
+  def randomSeqSeq(outerSize: Int, dim: Int, seed: Int): Seq[Seq[Float]] = {
     val r = scala.util.Random
     r.setSeed(seed.toLong)
     (1 to outerSize).map(i => {
-      (1 to innerSize).map(j => {
+      (1 to dim).map(j => {
         r.nextFloat()
       })
     })
   }
 
+  def randomFVV(batchSize: Int, dim: Int, seed: Int): FloatVectorVector = {
+    toFVV(randomSeqSeq(batchSize, dim, seed))
+  }
+
   def evaluateRandomMinibatch(model: CNTKFunction, batchSize: Int,
                               outputNum: Int = 3, seed: Int = 123): Seq[Seq[Float]] = {
+    evaluateFVV(
+      model, randomFVV(batchSize,32*32*3, seed), new FloatVectorVector(), outputNum)
+  }
+
+  def evaluateFVV(model: CNTKFunction,
+                  inFvv: FloatVectorVector,
+                  outFvv: FloatVectorVector,
+                  outputNum: Int = 3): Seq[Seq[Float]] = {
     val inputVar = model.getArguments()(0)
     val inputShape = inputVar.getShape
-    val fakeImages = randomSeqSeq(batchSize, seed=seed)
-    val inputFVV = toFVV(fakeImages)
-    val inputVal = Value.createDenseFloat(inputShape, inputFVV, DeviceDescriptor.getCPUDevice)
+    val inputVal = Value.createDenseFloat(inputShape, inFvv, DeviceDescriptor.getCPUDevice)
     val inputDataMap = new UnorderedMapVariableValuePtr()
     inputDataMap.add(inputVar, inputVal)
 
@@ -52,11 +62,10 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
     val outputVar = model.getOutputs.get(outputNum)
     outputDataMap.add(outputVar, null)
 
-    println(s"evaluating shape ${inputVal.getShape().getDimensions.toList}")
+    println(s"evaluating shape ${inputVal.getShape.getDimensions.toList}")
     model.evaluate(inputDataMap, outputDataMap, DeviceDescriptor.getCPUDevice)
-    val outputFVV = new FloatVectorVector()
-    outputDataMap.getitem(outputVar).copyVariableValueToFloat(outputVar, outputFVV)
-    toSeqSeq(outputFVV)
+    outputDataMap.getitem(outputVar).copyVariableValueToFloat(outputVar, outFvv)
+    toSeqSeq(outFvv)
   }
 
   test(" A serializable CNTKModel should be serializable") {

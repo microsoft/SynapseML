@@ -10,7 +10,6 @@ import com.microsoft.CNTK.CNTKUtils._
 import com.microsoft.ml.spark.StreamUtilities.using
 import org.apache.commons.io.FileUtils.{forceDelete, getTempDirectoryPath, writeByteArrayToFile}
 import org.apache.commons.io.IOUtils
-import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, StructField, DataType => SDataType}
 
 import scala.language.implicitConversions
@@ -22,85 +21,6 @@ object CNTKExtensions {
 }
 
 object CNTKUtils {
-
-  type GenericVectorVector = Either[FloatVectorVector, DoubleVectorVector]
-
-  def deleteGVV(fvv: GenericVectorVector): Unit = {
-    fvv match {
-      case Left(vv) =>
-        val size = vv.size().toInt
-        (0 until size).foreach{i =>
-          vv.get(i).delete()
-        }
-        vv.delete()
-      case Right(vv) =>
-        val size = vv.size().toInt
-        (0 until size).foreach{i =>
-          vv.get(i).delete()
-        }
-        vv.delete()
-    }
-  }
-
-  def toSeqSeq(vv: FloatVectorVector): Seq[Seq[Float]] = {
-    (0 until vv.size.toInt).map { i =>
-      val v = vv.get(i)
-      (0 until v.size.toInt).map { j =>
-        v.get(j)
-      }
-    }
-  }
-
-  def toSeqDV(vv: FloatVectorVector): Seq[DenseVector] = {
-    (0 until vv.size.toInt).map { i =>
-      val v = vv.get(i)
-      new DenseVector((0 until v.size.toInt).map { j =>
-        v.get(j).toDouble
-      }.toArray)
-    }
-  }
-
-  def toSeqSeq(vv: DoubleVectorVector): Seq[Seq[Double]] = {
-    (0 until vv.size.toInt).map { i =>
-      val v = vv.get(i)
-      (0 until v.size.toInt).map { j =>
-        v.get(j)
-      }
-    }
-  }
-
-  def toSeqDV(vv: DoubleVectorVector): Seq[DenseVector] = {
-    (0 until vv.size.toInt).map { i =>
-      val v = vv.get(i)
-      new DenseVector((0 until v.size.toInt).map { j =>
-        v.get(j)
-      }.toArray)
-    }
-  }
-
-  def SSFToGVV(arr: Seq[Seq[Float]]): GenericVectorVector = {
-    val inputFVV = new FloatVectorVector(arr.length.toLong)
-    arr.zipWithIndex.foreach { case (vect, i) =>
-      val fv = new FloatVector(vect.length.toLong)
-      vect.zipWithIndex.foreach { case (x, j) =>
-        fv.set(j, x)
-      }
-      inputFVV.set(i, fv)
-    }
-    Left(inputFVV)
-  }
-
-  def SSDToGVV(arr: Seq[Seq[Double]]): GenericVectorVector = {
-    val inputDVV = new DoubleVectorVector(arr.length.toLong)
-    arr.zipWithIndex.foreach { case (vect, i) =>
-      val dv = new DoubleVector(vect.length.toLong)
-      vect.zipWithIndex.foreach { case (x, j) =>
-        dv.set(j, x)
-      }
-      inputDVV.set(i, dv)
-    }
-    Right(inputDVV)
-  }
 
   def loadModelFromBytes(bytes: Array[Byte],
                          device: DeviceDescriptor =
