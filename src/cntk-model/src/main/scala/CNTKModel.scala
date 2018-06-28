@@ -4,10 +4,12 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
-import com.microsoft.CNTK.CNTKExtensions
 import com.microsoft.CNTK.CNTKUtils._
-import com.microsoft.CNTK.{DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
+import com.microsoft.CNTK.{CNTKExtensions, DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
+import com.microsoft.ml.spark.ConversionUtils.GVV
 import com.microsoft.ml.spark.schema.DatasetExtensions
+import com.microsoft.ml.spark.schema.DatasetExtensions.findUnusedColumnName
+import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.linalg.DenseVector
@@ -20,17 +22,15 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
-import DatasetExtensions.findUnusedColumnName
-import org.apache.spark.SparkContext
 
 import scala.collection.JavaConversions._
 
 private object CNTKModelUtils extends java.io.Serializable {
 
   def applyCNTKFunction(model: CNTKFunction,
-                        feedDict: Map[Variable, GenericVectorVector],
+                        feedDict: Map[Variable, GVV],
                         outputVars: List[Variable],
-                        device: DeviceDescriptor): List[GenericVectorVector] = {
+                        device: DeviceDescriptor): List[GVV] = {
 
     val valueMap = feedDict.map { case (v, gvv) =>
       gvv match {
@@ -47,18 +47,25 @@ private object CNTKModelUtils extends java.io.Serializable {
     outputVars.foreach(ov => outputDataMap.add(ov, null))
     model.evaluate(inputDataMap, outputDataMap, device)
 
-    outputVars.map { ov: Variable =>
+    val out = outputVars.map { ov: Variable =>
       ov.getDataType match {
         case CNTKDataType.Float =>
-          val fvv = new FloatVectorVector()
-          outputDataMap.getitem(ov).copyVariableValueToFloat(ov, fvv)
+          val fvv = new FloatVectorVector() //TODO try re-using
+          val value = outputDataMap.getitem(ov)
+          value.copyVariableValueToFloat(ov, fvv)
+          value.delete()
           Left(fvv)
         case CNTKDataType.Double =>
-          val dvv = new DoubleVectorVector()
-          outputDataMap.getitem(ov).copyVariableValueToDouble(ov, dvv)
+          val dvv = new DoubleVectorVector() //TODO try re-using
+          val value = outputDataMap.getitem(ov)
+          value.copyVariableValueToDouble(ov, dvv)
+          value.delete()
           Right(dvv)
       }
     }
+
+    valueMap.values.foreach(_.delete())
+    out
   }
 
   def applyModel(inputMap: Map[String, Int],
@@ -76,34 +83,45 @@ private object CNTKModelUtils extends java.io.Serializable {
       val m = CNTKExtensions.fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
 
       val inputMapVar = inputMap.map { case (k, v) => v -> m.getInputVar(k) }
+
       val outputMapVar = outputMap.map { case (k, v) => m.getOutputVar(v) -> k }
 
-      val preprocessFunction: Row => Map[Variable, GenericVectorVector] = {
-        val inputExtractors = inputMapVar.map {
-          case (colnum, variable) =>
-            variable -> {
-              variable.getDataType match {
-                case CNTKDataType.Float =>
-                  r: Row => SSFToGVV(r.getAs[Seq[Seq[Float]]](colnum))
-                case CNTKDataType.Double =>
-                  r: Row => SSDToGVV(r.getAs[Seq[Seq[Double]]](colnum))
-              }
-            }
+      val inputExtractors = inputMapVar.map {
+        case (colnum, variable) => variable -> {
+          variable.getDataType match {
+            case CNTKDataType.Float =>
+              r: Row => Left(r.getAs[Seq[Seq[Float]]](colnum))
+            case CNTKDataType.Double =>
+              r: Row => Right(r.getAs[Seq[Seq[Double]]](colnum))
+          }
         }
+      }
+      val inputGVVs = inputMapVar.map {
+        case (colnum, variable) => variable -> {
+          variable.getDataType match {
+            case CNTKDataType.Float =>
+              Left(new FloatVectorVector())
+            case CNTKDataType.Double =>
+              Right(new DoubleVectorVector())
+          }
+        }
+      }
 
-        { row: Row => inputExtractors.mapValues(f => f(row)) }
+      // WARNING: DO NOT simplify this to mapValues,
+      // for some reason it calls the inner function more than it should
+      val preprocessFunction: (Row) => Map[Variable, GVV] = {
+        { row: Row => inputExtractors.map { case (k,f) =>
+          k -> ConversionUtils.toGVV(f(row), inputGVVs(k)) }}
       }
 
       val outputVars = outputMapVar.keys.toList
-      val floatConverter = if (convertToDenseVector) {
-        { fvv: FloatVectorVector => toSeqDV(fvv) }
+      val converter = if (convertToDenseVector) {
+        { gvv: GVV => ConversionUtils.toDV(gvv) }
       } else {
-        { fvv: FloatVectorVector => toSeqSeq(fvv) }
-      }
-      val doubleConverter = if (convertToDenseVector) {
-        { dvv: DoubleVectorVector => toSeqDV(dvv) }
-      } else {
-        { dvv: DoubleVectorVector => toSeqSeq(dvv) }
+        { gvv: GVV => ConversionUtils.toSSG(gvv) match {
+          case Left(ssf) => ssf
+          case Right(ssd) => ssd
+        }}
       }
 
       val outputVarVector = new VariableVector()
@@ -113,13 +131,9 @@ private object CNTKModelUtils extends java.io.Serializable {
       inputRows.map { row =>
         val feedDict = preprocessFunction(row)
         val outputGVVs = applyCNTKFunction(of, feedDict, outputVars, device)
-        val resultRow = Row(outputGVVs.map {
-          case Left(vv) => floatConverter(vv)
-          case Right(vv) => doubleConverter(vv)
-        }:_*)
+        val resultRow = Row(outputGVVs.map(converter): _*)
         val outputRow = Row.merge(row, resultRow)
-        feedDict.values.foreach(deleteGVV)
-        outputGVVs.foreach(deleteGVV)
+        outputGVVs.foreach(ConversionUtils.deleteGVV)
         outputRow
       }
     }
