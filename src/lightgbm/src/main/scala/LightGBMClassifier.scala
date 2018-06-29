@@ -117,6 +117,10 @@ class LightGBMClassificationModel(
   def saveNativeModel(session: SparkSession, filename: String): Unit = {
     model.saveNativeModel(session, filename)
   }
+
+  def getFeatureImportances(importanceType: String): Array[Double] = {
+    model.getFeatureImportances(importanceType)
+  }
 }
 
 object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel]

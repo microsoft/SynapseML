@@ -30,3 +30,9 @@ class LightGBMClassificationModel(M):
         sql_ctx = SQLContext.getOrCreate(ctx)
         jsession = sql_ctx.sparkSession._jsparkSession
         self._java_obj.saveNativeModel(jsession, filename)
+
+    def getFeatureImportances(self, importance_type="split"):
+        """
+        Get the feature importances.  The importance_type can be "split" or "gain".
+        """
+        self._java_obj.getFeatureImportances(importance_type)

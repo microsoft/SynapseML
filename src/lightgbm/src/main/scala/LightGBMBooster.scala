@@ -138,4 +138,27 @@ class LightGBMBooster(val model: String) extends Serializable {
     val rdd = session.sparkContext.parallelize(Seq(model))
     rdd.coalesce(1).saveAsTextFile(filename)
   }
+
+  /**
+    * Calls into LightGBM to retrieve the feature importances.
+    * @param importanceType Can be "split" or "gain"
+    * @return The feature importance values as an array.
+    */
+  def getFeatureImportances(importanceType: String): Array[Double] = {
+    val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
+    if (boosterPtr == null) {
+      LightGBMUtils.initializeNativeLibrary()
+      boosterPtr = getModel()
+    }
+    val numFeaturesOut = lightgbmlib.new_intp()
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterGetNumFeature(boosterPtr, numFeaturesOut),
+      "Booster NumFeature")
+    val numFeatures = lightgbmlib.intp_value(numFeaturesOut)
+    val featureImportances = lightgbmlib.new_doubleArray(numFeatures)
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterFeatureImportance(boosterPtr, -1, importanceTypeNum, featureImportances),
+      "Booster FeatureImportance")
+    (0 to numFeatures).map(lightgbmlib.doubleArray_getitem(featureImportances, _)).toArray
+  }
 }

@@ -109,6 +109,14 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   override val ttag: TypeTag[LightGBMRegressionModel] = typeTag[LightGBMRegressionModel]
 
   override def objectsToSave: List[Any] = List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
+
+  def saveNativeModel(session: SparkSession, filename: String): Unit = {
+    model.saveNativeModel(session, filename)
+  }
+
+  def getFeatureImportances(importanceType: String): Array[Double] = {
+    model.getFeatureImportances(importanceType)
+  }
 }
 
 object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel]
