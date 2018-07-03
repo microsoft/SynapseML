@@ -25,7 +25,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 @InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMParams {
+  with LightGBMParams with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   /** Trains the LightGBM Classification model.
@@ -73,7 +73,7 @@ class LightGBMClassificationModel(
   featuresColName: String, predictionColName: String, probColName: String,
   rawPredictionColName: String, thresholdValues: Option[Array[Double]])
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
-    with ConstructorWritable[LightGBMClassificationModel] {
+    with ConstructorWritable[LightGBMClassificationModel] with DefaultParamsWritable {
 
   // Update the underlying Spark ML params
   // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
@@ -120,3 +120,4 @@ class LightGBMClassificationModel(
 }
 
 object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel]
+  with DefaultParamsReadable[LightGBMClassificationModel]

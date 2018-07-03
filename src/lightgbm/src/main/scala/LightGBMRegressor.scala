@@ -36,7 +36,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   */
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMParams {
+    with LightGBMParams with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
   val alpha = DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression", 0.9)
@@ -91,7 +91,7 @@ class LightGBMRegressor(override val uid: String)
 class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, labelColName: String,
                                   featuresColName: String, predictionColName: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
-    with ConstructorWritable[LightGBMRegressionModel] {
+    with ConstructorWritable[LightGBMRegressionModel] with DefaultParamsWritable {
 
   // Update the underlying Spark ML params
   // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
@@ -112,3 +112,4 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
 }
 
 object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel]
+  with DefaultParamsReadable[LightGBMClassificationModel]
