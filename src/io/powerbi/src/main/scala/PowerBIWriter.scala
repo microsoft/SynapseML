@@ -16,9 +16,9 @@ private class StreamMaterializer extends ForeachWriter[Row] {
 
   override def open(partitionId: Long, version: Long): Boolean = true
 
-  override def process(value: Row): Unit = {}
+  override def process(value: Row): Unit = ()
 
-  override def close(errorOrNull: Throwable): Unit = {}
+  override def close(errorOrNull: Throwable): Unit = ()
 
 }
 
