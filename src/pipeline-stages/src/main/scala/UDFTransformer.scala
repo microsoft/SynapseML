@@ -25,6 +25,8 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   val udfPythonKey = "udf"
   val invalidColumnSetError = s"If using multiple columns, only use set inputCols"
 
+  setDefault(outputCol -> (this.uid + "_output"))
+
   override def setInputCol(value: String): this.type = {
     require(!isSet(inputCols), invalidColumnSetError)
     set(inputCol, value)
