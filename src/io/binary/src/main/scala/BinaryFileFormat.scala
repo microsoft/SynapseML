@@ -17,7 +17,7 @@ import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat, FileSplit}
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
 import org.apache.log4j.Logger
 import org.apache.spark.TaskContext
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.datasources._
@@ -34,12 +34,12 @@ import scala.util.Random
   * @param inspectZip whether to inspect zip files
   */
 private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: Boolean, val seed: Long)
-  extends RecordReader[String, BytesWritable] {
+  extends RecordReader[String, Array[Byte]] {
 
   private var done: Boolean = false
   private var inputStream: InputStream = _
   private var filename: String = _
-  private var recordValue: BytesWritable = _
+  private var recordValue: Array[Byte] = _
   private var progress: Float = 0.0F
   private val rng: Random = new Random()
   private var zipIterator: ZipIterator = _
@@ -54,7 +54,7 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
     filename
   }
 
-  override def getCurrentValue: BytesWritable = {
+  override def getCurrentValue: Array[Byte] = {
     recordValue
   }
 
@@ -92,8 +92,7 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
       if (zipIterator.hasNext) {
         val (fn, barr) = zipIterator.next
         filename = fn
-        recordValue = new BytesWritable()
-        recordValue.set(barr, 0, barr.length)
+        recordValue = barr
         true
       } else {
         markAsDone()
@@ -102,8 +101,7 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
     } else {
       if (rng.nextDouble() <= subsample) {
         val barr = IOUtils.toByteArray(inputStream)
-        recordValue = new BytesWritable()
-        recordValue.set(barr, 0, barr.length)
+        recordValue = barr
         markAsDone()
         true
       } else {
@@ -165,7 +163,7 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
         val bytes = record._2
         val row = new GenericInternalRow(2)
         row.update(0, UTF8String.fromString(recordPath))
-        row.update(1, bytes.getBytes)
+        row.update(1, bytes)
         val outerRow = new GenericInternalRow(1)
         outerRow.update(0, row)
         outerRow
@@ -186,7 +184,7 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
                                       subsample: Double,
                                       inspectZip: Boolean,
                                       seed: Long)
-  extends Iterator[(String, BytesWritable)] with Closeable {
+  extends Iterator[(String, Array[Byte])] with Closeable {
 
   private val iterator = {
     val fileSplit = new FileSplit(
@@ -203,8 +201,16 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
 
   override def hasNext: Boolean = iterator.hasNext
 
-  override def next(): (String, BytesWritable) = iterator.next()
+  override def next(): (String, Array[Byte]) = iterator.next()
 
   override def close(): Unit = iterator.close()
+
+}
+
+object ConfUtils {
+
+  def getHConf(df: DataFrame): SerializableConfiguration ={
+    new SerializableConfiguration(df.sparkSession.sparkContext.hadoopConfiguration)
+  }
 
 }

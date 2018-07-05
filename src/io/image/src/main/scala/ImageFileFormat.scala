@@ -5,23 +5,21 @@ package org.apache.spark.image
 
 import java.io.ByteArrayInputStream
 
-import com.microsoft.ml.spark.{ImageReader, ImageWriter}
 import com.microsoft.ml.spark.schema.ImageSchema
-import org.apache.commons.io.IOUtils
+import com.microsoft.ml.spark.{ImageReader, ImageWriter}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileStatus, FileSystem, FileUtil, Path}
+import org.apache.hadoop.fs.{FileStatus, Path}
+import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.hadoop.mapreduce._
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark.TaskContext
 import org.apache.spark.binary._
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.unsafe.types.UTF8String
-import org.apache.spark.util.SerializableConfiguration
-import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.spark.util.SerializableConfiguration
 
 class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with Serializable {
@@ -87,7 +85,7 @@ class ImageFileFormat extends TextBasedFileFormat with DataSourceRegister with S
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
       fileReader.flatMap { record =>
         val recordPath = record._1
-        val byteArray = record._2.getBytes
+        val byteArray = record._2
         ImageReader.OpenCVLoader
         val rowOpt = ImageReader.decode(file.filePath, byteArray)
 
@@ -145,12 +143,4 @@ class ImageOutputWriter(val path: String,
   override def close(): Unit = {
     fs.close()
   }
-}
-
-object ConfUtils {
-
-  def getHConf(df: DataFrame): SerializableConfiguration ={
-    new SerializableConfiguration(df.sparkSession.sparkContext.hadoopConfiguration)
-  }
-
 }
