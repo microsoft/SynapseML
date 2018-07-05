@@ -223,6 +223,8 @@ trait DataFrameEquality extends TestBase {
           a(j) match {
             case lhs: DenseVector =>
               lhs === b(j)
+            case lhs: Array[Byte] =>
+              lhs === b(j)
             case lhs: Double if lhs.isNaN =>
               b(j).asInstanceOf[Double].isNaN
             case lhs: Double =>

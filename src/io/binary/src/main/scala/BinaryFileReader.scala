@@ -3,10 +3,17 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.binary.ConfUtils
+import org.apache.spark.sql.types.BinaryType
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
 
 object BinaryFileReader {
 
@@ -58,6 +65,31 @@ object BinaryFileReader {
       .option("subsample", sampleRatio)
       .option("seed", seed)
       .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
+  }
+
+  def readFromPaths(df: DataFrame,
+                    pathCol: String,
+                    bytesCol: String,
+                    concurrency: Int,
+                    timeout: Int
+                   ): DataFrame = {
+    val outputSchema = df.schema.add(bytesCol, BinaryType, nullable = true)
+    val encoder = RowEncoder(outputSchema)
+    val hconf = ConfUtils.getHConf(df)
+
+    df.mapPartitions { rows =>
+      val futures = rows.map {row: Row =>
+        Future {
+            val path = new Path(row.getAs[String](pathCol))
+            val fs = path.getFileSystem(hconf.value)
+            val bytes = StreamUtilities.using(fs.open(path)) {is => IOUtils.toByteArray(is)}.get
+            val ret = Row.merge(Seq(row, Row(bytes)): _*)
+            ret
+          }(ExecutionContext.global)
+      }
+      AsyncUtils.bufferedAwait(
+        futures,concurrency, Duration.fromNanos(timeout*1000.toLong))(ExecutionContext.global)
+    }(encoder)
   }
 
 }
