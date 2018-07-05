@@ -274,7 +274,7 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
            | "StopWordsRemoverTransform"  | "ImageSetAugmenter" | "PowerBITransformer"
            | "CustomInputParser" | "CustomOutputParser" | "FlattenBatch"
            | "HTTPTransformer" | "JSONOutputParser" | "JSONInputParser"
-           | "SimpleHTTPTransformer"
+           | "SimpleHTTPTransformer" | "Explode" | "Lambda"
            => ""
         case _ =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
