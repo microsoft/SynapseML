@@ -64,7 +64,7 @@ final object ScalaStyleExtras {
     r("SE", "NoFinalizeChecker"),
     r("SE", "StructuralTypeChecker"),
     r("SE", "CovariantEqualsChecker"),
-    r("SE", "NonASCIICharacterChecker"),
+    r("sSE", "NonASCIICharacterChecker"),
     // looks like this doesn't work
     r("SE", "ImportOrderChecker", ("groups" , "our,scala,java,other"),
       ("our", "com.microsoft.ml.spark[.].+"), ("scala", "scala[.].+"), ("java", "java[.].+"), ("other", ".+")),
