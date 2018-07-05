@@ -9,10 +9,9 @@ import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
-import org.apache.hadoop.conf.{Configuration => HConf}
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.hadoop.io.{IOUtils => HUtils}
-import org.apache.spark.image.{ConfUtils, ImageFileFormat}
+import org.apache.spark.binary.ConfUtils
+import org.apache.spark.image.ImageFileFormat
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}

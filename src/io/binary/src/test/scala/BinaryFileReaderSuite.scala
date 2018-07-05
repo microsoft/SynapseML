@@ -4,12 +4,13 @@
 package com.microsoft.ml.spark
 
 import java.io.FileOutputStream
+import java.net.URI
 
 import com.microsoft.ml.spark.Binary.implicits._
-import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
 import com.microsoft.ml.spark.FileUtilities.{File, zipFolder}
 import com.microsoft.ml.spark.schema.BinaryFileSchema
-import org.apache.commons.io.FileUtils
+import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.binary.BinaryFileFormat
 
 trait FileReaderUtils {
@@ -31,7 +32,7 @@ trait FileReaderUtils {
 
 }
 
-class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
+class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrameEquality {
 
   test("binary dataframe") {
     val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
@@ -39,6 +40,25 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils {
     assert(isBinaryFile(data, "value"))
     val paths = data.select("value.path") //make sure that SQL has access to the sub-fields
     assert(paths.count == 31)             //note that text file is also included
+  }
+
+  test("reads the right values"){
+    val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
+      .limit(1).select("value.*")
+    val data2 = BinaryFileReader.readFromPaths(data.select("path"), "path", "bytes", 2, 600000)
+
+    val path = data.collect().head.getString(0)
+    val bytes1 = data.collect().head.getAs[Array[Byte]](1)
+    val bytes2 = data2.collect().head.getAs[Array[Byte]](1)
+    val trueBytes = IOUtils.toByteArray(new URI(path))
+    assert(bytes1 === trueBytes)
+    assert(bytes2 === trueBytes)
+  }
+
+  test("read from paths yields same values") {
+    val data = session.readBinaryFiles(groceriesDirectory, recursive = true).limit(1)
+    val df2 = BinaryFileReader.readFromPaths(data.select("value.path"), "path", "bytes", 2, 600000)
+    assert(df2 === data.select("value.*"))
   }
 
   test("sample ratio test") {
