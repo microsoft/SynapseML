@@ -121,6 +121,8 @@ class LightGBMClassificationModel(
   def getFeatureImportances(importanceType: String): Array[Double] = {
     model.getFeatureImportances(importanceType)
   }
+
+  def getModel: LightGBMBooster = this.model
 }
 
 object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel]
