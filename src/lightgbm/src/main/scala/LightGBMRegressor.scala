@@ -117,6 +117,8 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   def getFeatureImportances(importanceType: String): Array[Double] = {
     model.getFeatureImportances(importanceType)
   }
+
+  def getModel: LightGBMBooster = this.model
 }
 
 object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel]
