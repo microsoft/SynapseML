@@ -58,9 +58,9 @@ object CNTKUtils {
     ArrayType(variableToElementType(v))
   }
 
-  val argumentPrefix = "argument_" // used for indexing into the arguments array of the model
+  val argumentPrefix = "ARGUMENT_" // used for indexing into the arguments array of the model
 
-  val outputPrefix = "output_" // used for indexing into the outputs array of the modes
+  val outputPrefix = "OUTPUT_" // used for indexing into the outputs array of the modes
 
 }
 
