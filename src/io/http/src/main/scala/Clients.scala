@@ -104,24 +104,6 @@ abstract class AsyncClient(val concurrency: Int,
                           (implicit val ec: ExecutionContext)
   extends BaseClient {
 
-  protected def bufferedAwait[T](it: Iterator[Future[T]],
-                                 concurrency: Int,
-                                 timeout: Duration)
-                                (implicit ec: ExecutionContext): Iterator[T] = {
-    if (concurrency > 1) {
-      val slidingIterator = it.sliding(concurrency - 1).withPartial(true)
-      // `hasNext` will auto start the nth future in the batch
-      val (initIterator, tailIterator) = slidingIterator.span(_ => slidingIterator.hasNext)
-      initIterator.map(futureBatch => Await.result(futureBatch.head, timeout)) ++
-        tailIterator.flatMap(lastBatch => Await.result(Future.sequence(lastBatch), timeout))
-    } else if (concurrency == 1) {
-      it.map(f => Await.result(f, timeout))
-    } else {
-      throw new IllegalArgumentException(
-        s"Concurrency needs to be at least 1, got: $concurrency")
-    }
-  }
-
   protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext
 
   override def sendRequestsWithContext
@@ -129,6 +111,6 @@ abstract class AsyncClient(val concurrency: Int,
     val futureResponses = requests.map(r => Future {
       sendRequestWithContext(r)
     })
-    bufferedAwait(futureResponses, concurrency, timeout)
+    AsyncUtils.bufferedAwait(futureResponses, concurrency, timeout)
   }
 }

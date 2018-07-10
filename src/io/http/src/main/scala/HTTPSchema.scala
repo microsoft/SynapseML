@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import java.net.{SocketException, URI}
 
+import com.microsoft.ml.spark.schema.SparkBindings
 import org.apache.commons.io.IOUtils
 import org.apache.http._
 import org.apache.http.client.methods._
@@ -24,23 +25,13 @@ case class HeaderData(name: String, value: String) {
 
   def toHTTPCore: Header = new BasicHeader(name, value)
 
-  def toRow: Row = {
-    Row(name, value)
-  }
-
 }
 
-object HeaderData {
-
-  def fromRow(r: Row): HeaderData = {
-    HeaderData(r.getString(0), r.getString(1))
-  }
-
-}
+object HeaderData  extends SparkBindings[HeaderData]
 
 case class EntityData(content: Array[Byte],
                       contentEncoding: Option[HeaderData],
-                      contentLenth: Long,
+                      contentLength: Long,
                       contentType: Option[HeaderData],
                       isChunked: Boolean,
                       isRepeatable: Boolean,
@@ -64,7 +55,7 @@ case class EntityData(content: Array[Byte],
   def toHttpCore: HttpEntity = {
     val e = new ByteArrayEntity(content)
     contentEncoding.foreach { ce => e.setContentEncoding(ce.toHTTPCore) }
-    assert(e.getContentLength == contentLenth)
+    assert(e.getContentLength == contentLength)
     contentType.foreach(h => e.setContentType(h.toHTTPCore))
     e.setChunked(isChunked)
     assert(e.isRepeatable == isRepeatable)
@@ -72,28 +63,9 @@ case class EntityData(content: Array[Byte],
     e
   }
 
-  def toRow: Row = {
-    Row(content, contentEncoding.map(_.toRow).orNull,
-      contentLenth, contentType.map(_.toRow).orNull,
-      isChunked, isRepeatable, isStreaming)
-  }
-
 }
 
-object EntityData {
-
-  def fromRow(r: Row): EntityData = {
-    EntityData(
-      r.getAs[Array[Byte]](0),
-      if (r.isNullAt(1)) None else Some(HeaderData.fromRow(r.getStruct(1))),
-      r.getLong(2),
-      if (r.isNullAt(3)) None else Some(HeaderData.fromRow(r.getStruct(3))),
-      r.getBoolean(4),
-      r.getBoolean(5),
-      r.getBoolean(6))
-  }
-
-}
+object EntityData extends SparkBindings[EntityData]
 
 case class StatusLineData(protocolVersion: ProtocolVersionData,
                           statusCode: Int,
@@ -105,22 +77,9 @@ case class StatusLineData(protocolVersion: ProtocolVersionData,
          s.getReasonPhrase)
   }
 
-  def toRow: Row = {
-    Row(protocolVersion.toRow, statusCode, reasonPhrase)
-  }
-
 }
 
-object StatusLineData {
-
-  def fromRow(r: Row): StatusLineData = {
-    StatusLineData(
-      ProtocolVersionData.fromRow(r.getStruct(0)),
-      r.getInt(1),
-      r.getString(2))
-  }
-
-}
+object StatusLineData extends SparkBindings[StatusLineData]
 
 case class HTTPResponseData(headers: Array[HeaderData],
                             entity: EntityData,
@@ -134,23 +93,9 @@ case class HTTPResponseData(headers: Array[HeaderData],
          response.getLocale.toString)
   }
 
-  def toRow: Row = {
-    Row.apply(headers.map(_.toRow), entity.toRow, statusLine.toRow, locale)
-  }
-
 }
 
-object HTTPResponseData {
-
-  def fromRow(r: Row): HTTPResponseData = {
-    HTTPResponseData(
-      r.getSeq[Row](0).map(HeaderData.fromRow).toArray,
-      EntityData.fromRow(r.getStruct(1)),
-      StatusLineData.fromRow(r.getStruct(2)),
-      r.getString(3))
-  }
-
-}
+object HTTPResponseData extends SparkBindings[HTTPResponseData]
 
 case class ProtocolVersionData(protocol: String, major: Int, minor: Int) {
 
@@ -162,19 +107,9 @@ case class ProtocolVersionData(protocol: String, major: Int, minor: Int) {
     new ProtocolVersion(protocol, major, minor)
   }
 
-  def toRow: Row = {
-    Row(protocol, major, minor)
-  }
-
 }
 
-object ProtocolVersionData {
-
-  def fromRow(r: Row): ProtocolVersionData = {
-    ProtocolVersionData(r.getString(0), r.getInt(1), r.getInt(2))
-  }
-
-}
+object ProtocolVersionData extends SparkBindings[ProtocolVersionData]
 
 case class RequestLineData(method: String,
                            uri: String,
@@ -188,16 +123,7 @@ case class RequestLineData(method: String,
 
 }
 
-object RequestLineData {
-
-  def fromRow(row: Row): RequestLineData = {
-    RequestLineData(
-      row.getString(0),
-      row.getString(1),
-      if (row.isNullAt(2)) None else Some(ProtocolVersionData.fromRow(row.getStruct(2))))
-  }
-
-}
+object RequestLineData extends SparkBindings[RequestLineData]
 
 case class HTTPRequestData(requestLine: RequestLineData,
                            headers: Array[HeaderData],
@@ -239,17 +165,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
 
 }
 
-object HTTPRequestData {
-
-  def fromRow(row: Row): HTTPRequestData = {
-    assert(row.schema == HTTPSchema.request)
-    HTTPRequestData(
-      RequestLineData.fromRow(row.getStruct(0)),
-      row.getSeq[Row](1).map(HeaderData.fromRow).toArray,
-      if (row.isNullAt(2)) None else Some(EntityData.fromRow(row.getStruct(2)))
-    )}
-
-}
+object HTTPRequestData extends SparkBindings[HTTPRequestData]
 
 object HTTPSchema {
 
@@ -272,10 +188,13 @@ object HTTPSchema {
         e.contentEncoding.map(h => h.value).getOrElse("UTF-8")))
     }
   }
-
-  val entityToStringUDF: UserDefinedFunction =
-    udf({ x: Row => entityToString(EntityData.fromRow(x))},
-        StringType)
+  val entityToStringUDF: UserDefinedFunction = {
+    val fromRow = EntityData.makeFromRowConverter
+    udf({ x: Row =>
+      val sOpt = Option(x).map(r => entityToString(fromRow(r)))
+      sOpt.orNull
+    }, StringType)
+  }
 
   val stringToEntityUDF: UserDefinedFunction = udf({ x: String => stringToEntity(x) },
     ScalaReflection.schemaFor[EntityData].dataType

@@ -4,23 +4,67 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{Param, ParamMap, TransformerParam}
+import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.ml.NamespaceInjections.pipelineModel
 
 object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
 
+trait HasErrorCol extends Params {
+  val errorCol = new Param[String](this, "errorCol", "column to hold http errors")
+
+  def setErrorCol(v: String): this.type = set(errorCol, v)
+
+  def getErrorCol: String = $(errorCol)
+
+}
+
+object ErrorUtils extends Serializable {
+  protected val errorSchema: StructType = new StructType()
+    .add("response", StringType)
+    .add("status", StatusLineData.schema)
+
+  import HTTPResponseData._
+  protected def addError(fromRow: Row => HTTPResponseData)(responseRow: Row): Option[Row] = {
+    val resp = fromRow(responseRow)
+    if (resp.statusLine.statusCode == 200) {
+      None
+    } else {
+      Some(Row(IOUtils.toString(resp.entity.content, "UTF-8"), resp.statusLine))
+    }
+  }
+
+  def nullifyResponse(errorRow: Row, responseRow: Row): Option[Row] = {
+    if (errorRow == null) {
+      Some(responseRow)
+    } else {
+      None
+    }
+  }
+
+  val addErrorUDF: UserDefinedFunction = {
+    val fromRow = HTTPResponseData.makeFromRowConverter
+    udf(addError(fromRow) _, errorSchema)
+  }
+
+  val nullifyResponseUDF: UserDefinedFunction = udf(nullifyResponse _, HTTPSchema.response)
+
+}
+
 class SimpleHTTPTransformer(val uid: String)
-    extends Transformer with HTTPParams with HasMiniBatcher
-    with HasInputCol with HasOutputCol with ComplexParamsWritable {
+  extends Transformer with HTTPParams with HasMiniBatcher
+    with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol {
 
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
 
   val flattenOutputBatches: Param[Boolean] = BooleanParam(
-      this, "flattenOutputBatches",
-      "whether to flatten the output batches")
+    this, "flattenOutputBatches", "whether to flatten the output batches")
 
   /** @group getParam */
   def getFlattenOutputBatches: Boolean = $(flattenOutputBatches)
@@ -29,8 +73,8 @@ class SimpleHTTPTransformer(val uid: String)
   def setFlattenOutputBatches(value: Boolean): this.type = set(flattenOutputBatches, value)
 
   val inputParser: Param[Transformer] = new TransformerParam(
-      this, "inputParser", "format to parse the column to",
-      { case _: HTTPInputParser => true; case _ => false })
+    this, "inputParser", "format to parse the column to",
+    { case _: HTTPInputParser => true; case _ => false })
 
   /** @group getParam */
   def getInputParser: HTTPInputParser = $(inputParser).asInstanceOf[HTTPInputParser]
@@ -38,7 +82,7 @@ class SimpleHTTPTransformer(val uid: String)
   /** @group setParam */
   def setInputParser(value: HTTPInputParser): this.type = set(inputParser, value)
 
-  setDefault(inputParser -> new JSONInputParser())
+  setDefault(inputParser -> new JSONInputParser(), errorCol -> (this.uid + "_errors"))
 
   def setUrl(url: String): SimpleHTTPTransformer.this.type = {
     getInputParser match {
@@ -65,23 +109,26 @@ class SimpleHTTPTransformer(val uid: String)
 
     val mb = get(miniBatcher)
 
-    val inputParser =
-      Some(getInputParser
-             .setInputCol(getInputCol)
-             .setOutputCol(parsedInputCol))
+    val inputParser = Some(getInputParser
+      .setInputCol(getInputCol)
+      .setOutputCol(parsedInputCol))
 
-    val client =
-      Some(new HTTPTransformer()
-             .setHandlingStrategy(getHandlingStrategy)
-             .setConcurrency(getConcurrency)
-             .setConcurrentTimeout(getConcurrentTimeout)
-             .setInputCol(parsedInputCol)
-             .setOutputCol(unparsedOutputCol))
+    val client = Some(new HTTPTransformer()
+      .setHandlingStrategy(getHandlingStrategy)
+      .setConcurrency(getConcurrency)
+      .setConcurrentTimeout(getConcurrentTimeout)
+      .setInputCol(parsedInputCol)
+      .setOutputCol(unparsedOutputCol))
+
+    val parseErrors = Some(Lambda(_
+      .withColumn(getErrorCol, ErrorUtils.addErrorUDF(col(unparsedOutputCol)))
+      .withColumn(unparsedOutputCol, ErrorUtils.nullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
+    ))
 
     val outputParser =
       Some(getOutputParser
-             .setInputCol(unparsedOutputCol)
-             .setOutputCol(getOutputCol))
+        .setInputCol(unparsedOutputCol)
+        .setOutputCol(getOutputCol))
 
     val dropCols = Some(new DropColumns().setCols(Array(parsedInputCol, unparsedOutputCol)))
 
@@ -93,8 +140,9 @@ class SimpleHTTPTransformer(val uid: String)
       }
     )
 
-    NamespaceInjections.pipelineModel(Array(mb, inputParser, client, outputParser, dropCols, flatten)
-                                        .flatten)
+    NamespaceInjections.pipelineModel(Array(
+      mb, inputParser, client, parseErrors, outputParser, dropCols, flatten
+    ).flatten)
 
   }
 
