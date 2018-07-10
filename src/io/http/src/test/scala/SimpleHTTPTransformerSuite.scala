@@ -25,8 +25,8 @@ class SimpleHTTPTransformerSuite
     val results = simpleTransformer.transform(df).collect
     assert(results.length == 10)
     results.foreach(r =>
-      assert(r.getStruct(1).getString(0) === "more blah"))
-    assert(results(0).schema.fields.length == 2)
+      assert(r.getStruct(2).getString(0) === "more blah"))
+    assert(results(0).schema.fields.length == 3)
   }
 
   test("Concurrent HttpTransformerTest") {
@@ -40,9 +40,9 @@ class SimpleHTTPTransformerSuite
         .setConcurrency(3)
         .transform(df)
         .collect
-    assert(results.length  ==10)
-    assert(results.forall(_.getStruct(1).getString(0) == "more blah"))
-    assert(results(0).schema.fields.length == 2)
+    assert(results.length  == 10)
+    assert(results.forall(_.getStruct(2).getString(0) == "more blah"))
+    assert(results(0).schema.fields.length == 3)
   }
 
   override def testObjects(): Seq[TestObject[SimpleHTTPTransformer]] =

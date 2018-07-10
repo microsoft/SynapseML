@@ -43,7 +43,23 @@ trait HTTPParams extends Wrappable {
   /** @group setParam */
   def setHandlingStrategy(value: String): this.type = set(handlingStrategy, value.toLowerCase)
 
-  setDefault(concurrency -> 1, concurrentTimeout -> 100, handlingStrategy -> "advanced")
+  val backoffTiming: ArrayParam = new ArrayParam(this, "backoffTiming",
+    "times to use in backoffs", {  _ => true})
+
+  def getBackoffTiming: Array[Int] = $(backoffTiming) match {
+    case arr: Array[Int] => arr
+    case arr: Array[BigInt] => arr.map(_.toInt)
+    case arr: Array[_] => arr.map {
+      case i: BigInt => i.toInt
+    }
+  }
+
+  def setBackoffTiming(v: Array[Int]): this.type = set(backoffTiming, v)
+
+  setDefault(concurrency -> 1,
+    concurrentTimeout -> 100,
+    handlingStrategy -> "advanced",
+    backoffTiming-> Array(100, 1000, 5000))
 
 }
 
@@ -72,7 +88,7 @@ class HTTPTransformer(val uid: String)
     val strategy: (CloseableHttpClient, HTTPRequestData) => HTTPResponseData =
       getHandlingStrategy match {
         case "basic" => BasicHTTPHandling.handle
-        case "advanced" => AdvancedHTTPHandling.handle
+        case "advanced" => AdvancedHTTPHandling.handle(getBackoffTiming)
       }
 
     getConcurrency match {
@@ -95,6 +111,8 @@ class HTTPTransformer(val uid: String)
     val df = dataset.toDF()
     val enc = RowEncoder(transformSchema(df.schema))
     val colIndex = df.schema.fieldNames.indexOf(getInputCol)
+    val fromRow = HTTPRequestData.makeFromRowConverter
+    val toRow = HTTPResponseData.makeToRowConverter
     df.mapPartitions { it =>
       if (!it.hasNext) {
         Iterator()
@@ -102,10 +120,10 @@ class HTTPTransformer(val uid: String)
         val c = clientHolder.get
         val responsesWithContext = c.sendRequestsWithContext(it.map(row =>
           c.RequestWithContext(
-            HTTPRequestData.fromRow(row.getStruct(colIndex)),
+            fromRow(row.getStruct(colIndex)),
             Some(row))))
         responsesWithContext.map(rwc =>
-          Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.toRow)))
+          Row.merge(rwc.context.get.asInstanceOf[Row], Row(toRow(rwc.response))))
       }
     }(enc)
   }
