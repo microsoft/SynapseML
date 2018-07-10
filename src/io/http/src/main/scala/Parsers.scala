@@ -3,18 +3,20 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
-import scala.reflect.runtime.universe.TypeTag
-import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
+
+import scala.reflect.runtime.universe.TypeTag
 
 abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol {
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -140,7 +142,8 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   override def transform(dataset: Dataset[_]): DataFrame = {
     val stringEntityCol = HTTPSchema.entityToStringUDF(col(getInputCol + ".entity"))
     dataset.toDF
-      .withColumn(getOutputCol, from_json(stringEntityCol, getDataType))
+      .withColumn(getOutputCol, from_json(
+        stringEntityCol, getDataType, Map("charset"->"UTF-8")))
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -181,8 +184,10 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
     set(udfPython, value)
   }
 
+  import HTTPResponseData._
   def setUDF[T: TypeTag](f: HTTPResponseData => T): this.type = {
-    setUDF(udf({ x: Row => f(HTTPResponseData.fromRow(x)) }))
+    val fromRow = HTTPResponseData.makeFromRowConverter
+    setUDF(udf({ x: Row => f(fromRow(x)) }))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -193,7 +198,8 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
         case _ => throw new IllegalArgumentException("Need to set either parseOutput or parseOutputPy")
       }
     }
-    dataset.toDF().withColumn(getOutputCol, parseOutputExpression)
+    dataset.toDF()
+      .withColumn(getOutputCol, parseOutputExpression)
   }
 
   override def transformSchema(schema: StructType): StructType = {
