@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.io._
 import java.net.{URI, URL}
 import java.util
+
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.{Configuration => HadoopConf}
 import org.apache.hadoop.fs.{FileSystem, LocatedFileStatus, Path}
@@ -13,8 +14,11 @@ import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.log4j.LogManager
 import org.apache.spark.sql.SparkSession
 import spray.json._
+
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Abstract representation of a repository for future expansion
   *
@@ -28,6 +32,17 @@ private[spark] abstract class Repository[S <: Schema] {
 
   def addBytes(schema: S, location: URI, bytes: InputStream): S
 
+}
+
+object FaultToleranceUtils {
+  def retryWithTimeout[T](times: Int, timeout: Duration)(f: => T): T ={
+    try{
+      Await.result(Future(f)(ExecutionContext.global), timeout)
+    }catch{
+      case e:Exception if times>=1 =>
+        retryWithTimeout(times-1, timeout)(f)
+    }
+  }
 }
 
 /** Exception returned if a repo cannot find the file
@@ -209,22 +224,30 @@ class ModelDownloader(val spark: SparkSession,
     *
     * @return the model schemas found in the downloader's local path
     */
-  def localModels: util.Iterator[ModelSchema] = localModelRepo.listSchemas().iterator.asJava
+  def localModels: util.Iterator[ModelSchema] =
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {
+      localModelRepo.listSchemas().iterator.asJava
+    }
 
   /** Function for querying the remote server for its registered models
     *
     * @return the model schemas found in remote reposiory accessed through the serverURL
     */
-  def remoteModels: util.Iterator[ModelSchema] = remoteModelRepo.listSchemas().iterator.asJava
+  def remoteModels: util.Iterator[ModelSchema] =
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {
+      remoteModelRepo.listSchemas().iterator.asJava
+    }
 
   /** Method to download a single model
     * @param model the remote model schema
     * @return the new local model schema with a URI that points to the model's location (on HDFS or local)
     */
   def downloadModel(model: ModelSchema): ModelSchema = {
-    repoTransfer(model,
-      new Path(new Path(localPath), NamingConventions.canonicalModelFilename(model)).toUri,
-      remoteModelRepo, localModelRepo)
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(10, "minutes")) {
+      repoTransfer(model,
+        new Path(new Path(localPath), NamingConventions.canonicalModelFilename(model)).toUri,
+        remoteModelRepo, localModelRepo)
+    }
   }
 
   def downloadByName(name: String): ModelSchema = {
