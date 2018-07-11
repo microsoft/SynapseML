@@ -60,7 +60,7 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   // Execution Params
-  val timeoutInMillis: Int = 10 * 60 * 1000
+  val timeoutInMillis: Int = 15 * 60 * 1000
 
   val notebookFiles: Array[File] = Option(
     new File(topDir, "BuildArtifacts/notebooks/hdinsight").getCanonicalFile.listFiles()
@@ -210,7 +210,7 @@ object DatabricksUtilities {
 
   def monitorJob(runId: Integer,
                  interval: Int = 2000,
-                 timeout: Int = 10000,
+                 timeout: Int = 15000,
                  logLevel: Int = 1): Future[Unit] = {
     Future {
       var finalState: Option[String] = None
