@@ -49,8 +49,8 @@ class LightGBMClassifier(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getFeatureFraction,
-      getMaxDepth, getMinSumHessianInLeaf, numWorkers)
+      getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,

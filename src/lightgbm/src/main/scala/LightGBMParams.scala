@@ -56,6 +56,11 @@ trait LightGBMParams extends MMLParams {
   def getBaggingSeed: Int = $(baggingSeed)
   def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
 
+  val earlyStoppingRound = IntParam(this, "earlyStoppingRound", "Early stopping round", 0)
+
+  def getEarlyStoppingRound: Int = $(earlyStoppingRound)
+  def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
+
   val featureFraction = DoubleParam(this, "featureFraction", "Feature fraction", 1)
 
   def getFeatureFraction: Double = $(featureFraction)
