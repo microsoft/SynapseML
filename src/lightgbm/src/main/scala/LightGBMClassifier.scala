@@ -28,6 +28,9 @@ class LightGBMClassifier(override val uid: String)
   with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
+  private var oldModelString: String = _
+  def setOldModelString(oldModelString: String) { this.oldModelString = oldModelString }
+
   /** Trains the LightGBM Classification model.
     *
     * @param dataset The input dataset to train.
@@ -58,7 +61,7 @@ class LightGBMClassifier(override val uid: String)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
-        log, trainParams, numCoresPerExec))(encoder)
+        log, trainParams, numCoresPerExec, oldModelString))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
