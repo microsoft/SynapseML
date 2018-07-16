@@ -47,6 +47,15 @@ object LightGBMUtils {
     featurizer.fit(dataset)
   }
 
+  def getBoosterPtrFromModelString(lgbModelString: String): SWIGTYPE_p_void = {
+    val boosterOutPtr = lightgbmlib.voidpp_handle()
+    val numItersOut = lightgbmlib.new_intp()
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
+      "Booster LoadFromString")
+    lightgbmlib.voidpp_value(boosterOutPtr)
+  }
+
   /**
     * Opens a socket communications channel on the driver, starts a thread that
     * waits for the host:port from the executors, and then sends back the

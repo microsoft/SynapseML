@@ -194,6 +194,16 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val targetDir: Path = Paths.get(getClass.getResource("/").toURI)
       model.saveNativeModel(session, targetDir.toString() + "/" + outputFileName)
       assert(Files.exists(Paths.get(targetDir.toString() + "/" + outputFileName)), true)
+
+      val oldModelString = model.getModel.model
+      val newModel = lgbm.setLabelCol(labelColumnName)
+        .setFeaturesCol(featuresColumn)
+        .setRawPredictionCol(rawPredCol)
+        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+        .setNumLeaves(5)
+        .setNumIterations(10)
+        .setOldModelString(oldModelString)
+        .fit(featurizer.transform(dataset))
     }
   }
 

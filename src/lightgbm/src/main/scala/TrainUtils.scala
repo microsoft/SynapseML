@@ -17,7 +17,7 @@ case class NetworkParams(executorIdToHost: Map[Int, String], defaultListenPort: 
 private object TrainUtils extends java.io.Serializable {
 
   def translate(labelColumn: String, featuresColumn: String, log: Logger, trainParams: TrainParams,
-                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+                inputRows: Iterator[Row], oldModelString: String): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext)
       List[LightGBMBooster]().toIterator
 
@@ -66,6 +66,15 @@ private object TrainUtils extends java.io.Serializable {
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
         // Create the booster
+        boosterPtr = if (oldModelString != null) Some(LightGBMUtils.getBoosterPtrFromModelString(oldModelString)) else {
+          val boosterOutPtr = lightgbmlib.voidpp_handle()
+          val parameters = trainParams.toString()
+          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
+          Some(lightgbmlib.voidpp_value(boosterOutPtr))
+        }
+        // Reset training data
+        LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetTrainingData(boosterPtr.get, datasetPtr.get), "Reset TrainingData")
+
         val boosterOutPtr = lightgbmlib.voidpp_handle()
         val parameters = trainParams.toString()
         LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
@@ -180,7 +189,7 @@ private object TrainUtils extends java.io.Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    log: Logger, trainParams: TrainParams, numCoresPerExec: Int)
+                    log: Logger, trainParams: TrainParams, numCoresPerExec: Int, oldModelString: String)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
@@ -200,7 +209,7 @@ private object TrainUtils extends java.io.Serializable {
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
         LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
-      translate(labelColumn, featuresColumn, log, trainParams, inputRows)
+      translate(labelColumn, featuresColumn, log, trainParams, inputRows, oldModelString)
     } finally {
       // Finalize network when done
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
