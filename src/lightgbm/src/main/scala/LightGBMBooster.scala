@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray}
+import com.microsoft.ml.spark.LightGBMUtils.{intToPtr, newDoubleArray, newIntArray, getBoosterPtrFromModelString}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.SparkSession
 
@@ -21,7 +21,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     // Reload booster on each node
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getModel()
+      boosterPtr = getBoosterPtrFromModelString(model)
     }
     val kind =
       if (raw) lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
@@ -109,15 +109,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     }
   }
 
-  protected def getModel(): SWIGTYPE_p_void = {
-    val boosterOutPtr = lightgbmlib.voidpp_handle()
-    val numItersOut = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterLoadModelFromString(model, numItersOut, boosterOutPtr),
-      "Booster LoadFromString")
-    lightgbmlib.voidpp_value(boosterOutPtr)
-  }
-
   def saveNativeModel(session: SparkSession, filename: String): Unit = {
     if (filename == null || filename.isEmpty()) {
       throw new IllegalArgumentException("filename should not be empty or null.")
@@ -136,7 +127,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getModel()
+      boosterPtr = getBoosterPtrFromModelString(model)
     }
     val numFeaturesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
