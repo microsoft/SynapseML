@@ -10,11 +10,15 @@ import spray.json.RootJsonFormat
 
 case class TADocument(language: Option[String], id: String, text: String)
 
+object TADocument extends SparkBindings[TADocument]
+
 case class TARequest(documents: Seq[TADocument])
 
 object TARequest extends SparkBindings[TARequest]
 
 case class TAError(id: String, message: String)
+
+object TAError extends SparkBindings[TAError]
 
 case class TAResponse[T](documents: Seq[T], errors: Option[Seq[TAError]])
 
@@ -71,3 +75,4 @@ case class NEREntity(value: String,
 object KeyPhraseResponse extends SparkBindings[TAResponse[KeyPhraseScore]]
 
 case class KeyPhraseScore(id: String, keyPhrases: Seq[String])
+
