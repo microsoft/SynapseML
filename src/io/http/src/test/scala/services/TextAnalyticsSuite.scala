@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.functions.{array, col, struct, typedLit}
 
 trait TextKey {
   val textKey = sys.env("TEXT_API_KEY")
@@ -16,30 +16,46 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "Hello World"),
-    ("2", "Bonjour tout le monde"),
-    ("3", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
-    ("4", ":) :( :D")
-  ).toDF("id", "text")
+    "Hello World",
+    "Bonjour tout le monde",
+    "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
+    ":) :( :D"
+  ).toDF("text2")
 
   lazy val detector: LanguageDetector = new LanguageDetector()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
-    .setIdCol("id")
-    .setTextCol("text")
+    .setTextCol("text2")
     .setOutputCol("replies")
 
   test("Basic Usage") {
-
     val replies = detector.transform(df)
-      .withColumn("lang", col("replies.documents").getItem(0)
+      .withColumn("lang", col("replies").getItem(0)
         .getItem("detectedLanguages").getItem(0)
         .getItem("name"))
-      .select("id", "lang")
+      .select("lang")
       .collect().toList
+    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
+  }
 
-    assert(replies(0).getString(1) == "English" && replies(2).getString(1) == "Spanish")
+  test("Is serializable ") {
+    val replies = detector.transform(df.repartition(3))
+      .withColumn("lang", col("replies").getItem(0)
+        .getItem("detectedLanguages").getItem(0)
+        .getItem("name"))
+      .select("text2","lang")
+      .sort("text2")
+      .collect().toList
+    assert(replies(2).getString(1) == "English" && replies(3).getString(1) == "Spanish")
+  }
 
+  test("Batch Usage") {
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
+    val tdf = detector.transform(batchedDF)
+    val replies = tdf.collect().head.getAs[Seq[Row]]("replies")
+    assert(replies.length == 4)
+    val languages = replies.map(_.getAs[Seq[Row]]("detectedLanguages").head.getAs[String]("name")).toSet
+    assert(languages("Spanish") && languages("English"))
   }
 
   override def testObjects(): Seq[TestObject[LanguageDetector]] =
@@ -60,15 +76,13 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
   lazy val detector: EntityDetector = new EntityDetector()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
-    .setIdCol("id")
-    .setTextCol("text")
     .setLanguage("en")
     .setOutputCol("replies")
 
   test("Basic Usage") {
     val results = detector.transform(df)
       .withColumn("entities",
-        col("replies.documents").getItem(0).getItem("entities").getItem("name"))
+        col("replies").getItem(0).getItem("entities").getItem("name"))
       .select("id", "entities").collect().toList
     assert(results.head.getSeq[String](1).toSet == Set("Windows 10", "Microsoft"))
   }
@@ -84,26 +98,24 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "en", "Hello world. This is some input text that I love."),
-    ("2", "fr", "Bonjour tout le monde"),
-    ("3", "es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
 
-  ).toDF("id", "lang", "text")
+  ).toDF("lang", "text")
 
   lazy val t: TextSentiment = new TextSentiment()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
-    .setIdCol("id")
-    .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
   test("Basic Usage") {
     val results = t.transform(df).withColumn("score",
-      col("replies.documents").getItem(0).getItem("score"))
-      .select("id", "score").collect().toList
+      col("replies").getItem(0).getItem("score"))
+      .select("score").collect().toList
 
-    assert(results(0).getFloat(1) > .5 && results(2).getFloat(1) < .5)
+    assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
   }
 
   override def testObjects(): Seq[TestObject[TextSentiment]] =
@@ -117,26 +129,24 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "en", "Hello world. This is some input text that I love."),
-    ("2", "fr", "Bonjour tout le monde"),
-    ("3", "es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
-  ).toDF("id", "lang", "text")
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+  ).toDF("lang", "text")
 
   lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
-    .setIdCol("id")
-    .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
   test("Basic Usage") {
     val results = t.transform(df).withColumn("phrases",
-      col("replies.documents").getItem(0).getItem("keyPhrases"))
-      .select("id", "phrases").collect().toList
+      col("replies").getItem(0).getItem("keyPhrases"))
+      .select("phrases").collect().toList
 
-    assert(results(0).getSeq[String](1).toSet === Set("world", "input text"))
-    assert(results(2).getSeq[String](1).toSet === Set("carretera", "tráfico", "día"))
+    assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
+    assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
   }
 
   override def testObjects(): Seq[TestObject[KeyPhraseExtractor]] =

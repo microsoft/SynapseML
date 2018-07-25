@@ -7,6 +7,7 @@ import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
+import org.apache.spark.sql.functions.{struct, col}
 
 trait VisionKey {
   lazy val visionKey = sys.env("VISION_API_KEY")
@@ -50,7 +51,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
   ).toDF("url")
 
   lazy val celeb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
@@ -64,7 +65,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     val model = pipelineModel(Array(
       celeb, RecognizeDomainSpecificContent.getProbableCeleb("celebs", "celebs")))
     val results = model.transform(df)
-    assert(results.head().getString(2) === "Satya Nadella")
+    assert(results.head().getString(2) === "Leonardo DiCaprio")
   }
 
   override implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame]{
