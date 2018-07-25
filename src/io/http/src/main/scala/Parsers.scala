@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpRequestBase
-import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.{Transformer, UnaryTransformer}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
@@ -139,11 +139,33 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   /** @group setParam */
   def setDataType(value: DataType): this.type = set(dataType, value)
 
+  val postProcessor: Param[Transformer] = new TransformerParam(
+    this, "postProcessor", "optional transformation to postprocess json output", {
+      case udft: UDFTransformer => true
+      case _ => false
+    })
+
+  /** @group getParam */
+  def getPostProcessor: Option[UDFTransformer] = get(postProcessor).map(_.asInstanceOf[UDFTransformer])
+
+  /** @group setParam */
+  def setPostProcessor(value: Option[UDFTransformer]): this.type = {
+    value.map(set(postProcessor, _)).getOrElse(clear(postProcessor)).asInstanceOf[this.type]
+  }
+
+  def setPostProcessFunc(f: AnyRef, dt: DataType): this.type = {
+    setPostProcessor(Some(new UDFTransformer().setUDF(udf(f,dt))))
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
-    dataset.toDF
+    val parsed = dataset.toDF
       .withColumn(getOutputCol, from_json(
         stringEntityCol, getDataType, Map("charset"->"UTF-8")))
+    getPostProcessor.map(_
+        .setInputCol(getOutputCol)
+        .setOutputCol(getOutputCol)
+        .transform(parsed)).getOrElse(parsed)
   }
 
   override def transformSchema(schema: StructType): StructType = {
