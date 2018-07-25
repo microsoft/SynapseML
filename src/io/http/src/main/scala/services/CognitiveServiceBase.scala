@@ -7,51 +7,111 @@ import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.http.client.utils.URLEncodedUtils
-import org.apache.spark.ml.param.{MapParam, Param, ParamMap, Params}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
+import org.apache.spark.sql.functions.{col, struct}
 
 import scala.collection.JavaConverters._
 
-trait HasSubscriptionKey extends Params {
-  val subscriptionKey = new Param[String](this, "subscriptionKey",
-    "the API key to use")
+trait HasVectorizableParams extends Params {
+  def getVectorParam(p: VectorizableParam[_]): String = {
+    this.getOrDefault(p).right.get
+  }
 
-  def getSubscriptionKey: String = $(subscriptionKey)
+  def getScalarParam[T](p: VectorizableParam[T]): T = {
+    this.getOrDefault(p).left.get
+  }
 
-  def setSubscriptionKey(v: String): this.type = set(subscriptionKey, v)
+  def setVectorParam(p: VectorizableParam[_], value: String): this.type = {
+    set(p, Right(value))
+  }
 
+  def setScalarParam[T](p: VectorizableParam[T], value: T): this.type = {
+    set(p, Left(value))
+  }
+
+  def getVectorParam(name: String): String = {
+    getVectorParam(this.getParam(name).asInstanceOf[VectorizableParam[_]])
+  }
+
+  def getScalarParam[T](name: String): T = {
+    getScalarParam(this.getParam(name).asInstanceOf[VectorizableParam[T]])
+  }
+
+  def setVectorParam(name: String, value: String): this.type = {
+    setVectorParam(this.getParam(name).asInstanceOf[VectorizableParam[_]], value)
+  }
+
+  def setScalarParam[T](name: String, value: T): this.type = {
+    setScalarParam(this.getParam(name).asInstanceOf[VectorizableParam[T]], value)
+  }
+
+  def getVectorParamMap: Map[String, String] = this.params.flatMap {
+    case p: VectorizableParam[_] =>
+      get(p).orElse(getDefault(p)).flatMap(v =>
+        v.right.toOption.map(colname => (p.name, colname)))
+    case _ => None
+  }.toMap
+
+  def getValueOpt[T](row: Row, p: VectorizableParam[T]): Option[T] = {
+    get(p).map {
+      case Right(colName) => row.getAs[T](colName)
+      case Left(value) => value
+    } match {
+      case None =>
+        getDefault(p).map {
+          case Right(colName) => row.getAs[T](colName)
+          case Left(value) => value
+        }
+      case s => s
+    }
+  }
+
+  def getValue[T](row: Row, p: VectorizableParam[T]): T =
+    getValueOpt(row, p).get
+
+  def getValueAnyOpt(row: Row, p: VectorizableParam[_]): Option[Any] = {
+    get(p).map {
+      case Right(colName) => row.get(row.fieldIndex(colName))
+      case Left(value) => value
+    } match {
+      case None =>
+        getDefault(p).map {
+          case Right(colName) => row.get(row.fieldIndex(colName))
+          case Left(value) => value
+        }
+      case s => s
+    }
+  }
+
+  def getValueAny(row: Row, p: VectorizableParam[_]): Any =
+    getValueAnyOpt(row, p).get
+
+  def getValueMap(row: Row, excludes: Set[VectorizableParam[_]] = Set()): Map[String, Any] = {
+    this.params.flatMap {
+      case p: VectorizableParam[_] if !excludes(p) =>
+        getValueOpt(row, p).map(v => (p.name, v))
+      case _ => None
+    }.toMap
+  }
 }
 
-trait HasStaticParams extends Params {
+trait HasSubscriptionKey extends HasVectorizableParams {
+  val subscriptionKey = new VectorizableParam[String](
+    this, "subscriptionKey", "the API key to use")
 
-  val staticParams = new MapParam[String, String](this, "staticParams",
-    "Params which are the same for all requests")(StringJsonFormat, StringJsonFormat)
+  def getSubscriptionKey: String = getScalarParam("subscriptionKey")
 
-  def getStaticParams: Map[String, String] = $(staticParams)
+  def setSubscriptionKey(v: String): this.type = setScalarParam("subscriptionKey", v)
 
-  def setStaticParams(v: Map[String, String]): this.type = set(staticParams, v)
+  def getSubscriptionKeyCol: String = getVectorParam("subscriptionKey")
 
-  protected def updateStatic(k: String, v: String): this.type =
-    setStaticParams(get(staticParams).getOrElse(Map()) + (k -> v))
-
-}
-
-trait HasDynamicParamCols extends Params {
-
-  val dynamicParamCols = new MapParam[String, String](this, "dynamicParamCols",
-    "columns that represent parameters")(StringJsonFormat, StringJsonFormat)
-
-  def getDynamicParamCols: Map[String, String] = $(dynamicParamCols)
-
-  def setDynamicParamCols(v: Map[String, String]): this.type = set(dynamicParamCols, v)
-
-  protected def updateDynamicCols(k: String, v: String): this.type =
-    setDynamicParamCols(get(dynamicParamCols).getOrElse(Map()) + (k -> v))
+  def setSubscriptionKeyCol(v: String): this.type = setVectorParam("subscriptionKey", v)
 
 }
 
@@ -68,57 +128,69 @@ object URLEncodingUtils {
   }
 }
 
+trait HasInternalCustomInputParser {
+
+  protected def inputFunc(schema: StructType): Row => HttpRequestBase
+
+  protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
+    new CustomInputParser().setUDF(inputFunc(schema))
+  }
+
+}
+
+trait HasInternalJsonOutputParser {
+
+  protected def responseDataType: DataType
+
+  protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
+    new JSONOutputParser().setDataType(responseDataType)
+  }
+
+}
+
 abstract class CognitiveServicesBase(val uid: String) extends Transformer with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasStaticParams
-  with HasDynamicParamCols with HasErrorCol {
+  with HasSubscriptionKey with HasErrorCol {
 
-  setDefault(staticParams -> Map(),
+  setDefault(
     outputCol -> (this.uid + "_output"),
     errorCol -> (this.uid + "_error"),
     handlingStrategy -> "advanced",
     backoffTiming -> Array(100)
   )
 
-  def inputFunc: Map[String, String] => HttpRequestBase
+  protected def getInternalInputParser(schema: StructType): HTTPInputParser
 
-  def responseDataType: DataType
+  protected def getInternalOutputParser(schema: StructType): HTTPOutputParser
 
-  private[ml] def getInternalTransformer(dynamicParamCol: String, schema: StructType): PipelineModel = {
-    NamespaceInjections.pipelineModel(Array(
+  protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val stages = Array(
+      Lambda(_.withColumn(
+        dynamicParamColName,
+        struct(getVectorParamMap.values.toList.map(col): _*))),
       new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamCol)
+        .setInputCol(dynamicParamColName)
         .setOutputCol(getOutputCol)
-        .setInputParser(new CustomInputParser().setUDF(inputFunc))
-        .setOutputParser(new JSONOutputParser().setDataType(responseDataType))
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
         .setHandlingStrategy(getHandlingStrategy)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(getConcurrentTimeout)
         .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamCol)
-    ))
+      new DropColumns().setCol(dynamicParamColName)
+    )
+
+    NamespaceInjections.pipelineModel(stages)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // Yes, this map(identity) is needed
-    // https://issues.scala-lang.org/browse/SI-7005
-    val colToIndex = dataset.sparkSession.sparkContext.broadcast(
-      getDynamicParamCols.mapValues(dataset.schema.fieldIndex(_)).map(identity)
-    )
-    val dynamicParamMapCol = DatasetExtensions.findUnusedColumnName("dynamic", dataset.schema)
-    val dfWithDynamicCol = dataset.toDF().map { row =>
-      val dynamicParamMap = colToIndex.value.mapValues(i => Option(row.get(i)).map(_.toString).orNull)
-      Row.merge(row, Row(dynamicParamMap))
-    }(RowEncoder(dataset.schema.add(
-      dynamicParamMapCol, MapType(StringType, StringType))))
-    getInternalTransformer(dynamicParamMapCol, dataset.schema)
-      .transform(dfWithDynamicCol)
+    getInternalTransformer(dataset.schema).transform(dataset)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getOutputCol, responseDataType)
-      .add(getErrorCol, HTTPSchema.response)
+    getInternalTransformer(schema).transformSchema(schema)
   }
 }

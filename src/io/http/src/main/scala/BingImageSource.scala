@@ -97,8 +97,9 @@ class BingImageSource(searchTerms: Seq[String],
     val bis: BingImageSearch = new BingImageSearch()
       .setSubscriptionKey(key)
       .setUrl(url)
-      .setDynamicParamCols(Map("q" -> "searchTerm", "offset"->"offset"))
-      .setStaticParams(Map("count" -> imgsPerBatch.toString))
+      .setVectorParam("q", "searchTerm")
+      .setVectorParam("offset","offset")
+      .setScalarParam("count", imgsPerBatch)
       .setOutputCol("images")
 
     val fromRow = BingImagesResponse.makeFromRowConverter

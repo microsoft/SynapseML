@@ -8,6 +8,7 @@ import java.net.URL
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.spark.binary.ConfUtils
+import org.apache.spark.ml.param.VectorizableParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, explode, udf}
@@ -16,13 +17,14 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import spray.json.DefaultJsonProtocol._
 
 object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Serializable {
   def getInputFunc(url: String,
                    subscriptionKey: String,
-                   staticParams: Map[String, String]): Map[String, String] => HttpGet = {
-    { dynamicParams: Map[String, String] =>
-      val allParams = staticParams ++ dynamicParams
+                   staticParams: Map[String, String]): Row => HttpGet = {
+    { dynamicParamRow: Row =>
+      val allParams = staticParams ++ dynamicParamRow.getValuesMap(dynamicParamRow.schema.fieldNames)
       val fullURL = url + "?" + URLEncodingUtils.format(allParams)
       val get = new HttpGet(fullURL)
       get.setHeader("Ocp-Apim-Subscription-Key", subscriptionKey)
@@ -65,47 +67,37 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 
 @InternalWrapper
 class BingImageSearch(override val uid: String)
-  extends CognitiveServicesBase(uid) {
+  extends CognitiveServicesBase(uid)
+  with HasInternalCustomInputParser with HasInternalJsonOutputParser {
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 
   setDefault(url -> "https://api.cognitive.microsoft.com/bing/v7.0/images/search")
 
-  override def inputFunc: Map[String, String] => HttpGet =
-    BingImageSearch.getInputFunc(getUrl, getSubscriptionKey, getStaticParams)
+  override def inputFunc(schema: StructType): Row => HttpGet = {row =>
+    val allParams = getValueMap(row, Set(subscriptionKey)).mapValues(_.toString)
+    val fullURL = url + "?" + URLEncodingUtils.format(allParams)
+    val get = new HttpGet(fullURL)
+    getValueOpt(row, subscriptionKey).foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    get
+  }
 
   override def responseDataType: DataType = BingImagesResponse.schema
 
-  def setOffsetCol(v: String): this.type = {
-    updateDynamicCols("offset", v)
-  }
+  val offset = new VectorizableParam[Int](this, "offset", "where to start searching from")
+  def setOffsetCol(v: String): this.type = setVectorParam(offset, v)
+  def setOffset(v: Int): this.type = setScalarParam(offset, v)
 
-  def setOffset(v: Int): this.type = {
-    updateStatic("offset", v.toString)
-  }
+  val query = new VectorizableParam[String](this, "query", "what to query bing for")
+  def setQuery(v: String): this.type = setScalarParam(query, v)
+  def setQueryCol(v: String): this.type = setVectorParam(query, v)
 
-  def setQuery(v: String): this.type = {
-    updateStatic("q", v)
-  }
+  val count = new VectorizableParam[Int](this, "count", "how many images to return")
+  def setCount(v: Int): this.type = setScalarParam(count, v)
+  def setCountCol(v: String): this.type = setVectorParam(count, v)
 
-  def setQueryCol(v: String): this.type = {
-    updateDynamicCols("q", v)
-  }
-
-  def setCount(v: Int): this.type = {
-    updateStatic("count", v.toString)
-  }
-
-  def setCountCol(v: String): this.type = {
-    updateDynamicCols("count", v)
-  }
-
-  def setImageType(v: String): this.type = {
-    updateStatic("imageType", v)
-  }
-
-  def setImageTypeCol(v: String): this.type = {
-    updateDynamicCols("imageType", v)
-  }
+  val imageType = new VectorizableParam[String](this, "imageType", "the type of image")
+  def setImageType(v: String): this.type = setScalarParam(imageType, v)
+  def setImageTypeCol(v: String): this.type = setVectorParam(imageType, v)
 
 }
