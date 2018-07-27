@@ -41,24 +41,6 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
     assert(results(2).getString(2).startsWith("This is a lot of 12 point text"))
   }
 
-  test("grok repro"){
-    val inputs = Seq(
-      "https://azssparkdemo.blob.core.windows.net/images/1.png",
-      "https://azssparkdemo.blob.core.windows.net/images/2.jpg",
-      "https://azssparkdemo.blob.core.windows.net/images/3.jpg",
-      "https://azssparkdemo.blob.core.windows.net/images/4.jpg",
-      "https://azssparkdemo.blob.core.windows.net/images/5.jpg").toDF("url")
-
-    inputs.mlTransform(
-      new OCR().setSubscriptionKey("142b7e0b34c74935b2b6b4861e998e2f")
-        .setLocation("westus")
-        .setImageUrlCol("url")
-        .setDetectOrientation(true)
-        .setOutputCol("text"),
-      OCR.flatten("text", "text")
-    ).show()
-  }
-
   override def testObjects(): Seq[TestObject[OCR]] =
     Seq(new TestObject(ocr, df))
 

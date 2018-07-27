@@ -94,15 +94,20 @@ object HandlingUtils extends SparkLogging {
     val start = System.currentTimeMillis()
     val resp = sendWithRetries(client, req, retryTimes.toArray)
     logInfo(s"finished sending (${System.currentTimeMillis()-start}ms) $message")
+    val respData = convertAndClose(resp)
     req.releaseConnection()
-    convertAndClose(resp)
+    respData
   }
 
   def advancedUDF(retryTimes: Int*): UserDefinedFunction =
     udf(advanced(retryTimes:_*) _, StringType)
 
-  def basic(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData =
-    convertAndClose(client.execute(request.toHTTPCore))
+  def basic(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
+    val req = request.toHTTPCore
+    val data = convertAndClose(client.execute(req))
+    req.releaseConnection()
+    data
+  }
 
   def basicUDF: UserDefinedFunction = udf(basic _, StringType)
 }
