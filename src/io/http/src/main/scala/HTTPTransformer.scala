@@ -3,16 +3,29 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.http.impl.client.CloseableHttpClient
+import com.microsoft.ml.spark.HandlingUtils.HandlerFunc
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
+
+trait HasHandler extends Params {
+  val handler: UDFParam = new UDFParam(
+    this, "handlingStrategy", "Which strategy to use when handling requests")
+
+  /** @group getParam */
+  def getHandler: HandlerFunc = $(handler).f.asInstanceOf[HandlerFunc]
+
+  def setHandler(v: HandlerFunc): HasHandler.this.type = {
+    set(handler, udf(v, StringType))
+  }
+}
 
 trait HTTPParams extends Wrappable {
   val concurrency: Param[Int] = new IntParam(
@@ -33,33 +46,8 @@ trait HTTPParams extends Wrappable {
   /** @group setParam */
   def setConcurrentTimeout(value: Double): this.type = set(concurrentTimeout, value)
 
-  val handlingStrategy: Param[String] = new Param[String](
-    this, "handlingStrategy", "Which strategy to use when handling requests",
-    { x: String => Set("basic", "advanced")(x.toLowerCase) })
-
-  /** @group getParam */
-  def getHandlingStrategy: String = $(handlingStrategy)
-
-  /** @group setParam */
-  def setHandlingStrategy(value: String): this.type = set(handlingStrategy, value.toLowerCase)
-
-  val backoffTiming: ArrayParam = new ArrayParam(this, "backoffTiming",
-    "times to use in backoffs", {  _ => true})
-
-  def getBackoffTiming: Array[Int] = $(backoffTiming) match {
-    case arr: Array[Int] => arr
-    case arr: Array[BigInt] => arr.map(_.toInt)
-    case arr: Array[_] => arr.map {
-      case i: BigInt => i.toInt
-    }
-  }
-
-  def setBackoffTiming(v: Array[Int]): this.type = set(backoffTiming, v)
-
   setDefault(concurrency -> 1,
-    concurrentTimeout -> 100,
-    handlingStrategy -> "advanced",
-    backoffTiming-> Array(100, 1000, 5000))
+    concurrentTimeout -> 100)
 
 }
 
@@ -79,28 +67,20 @@ object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 
 class HTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
-    with HasOutputCol
+    with HasOutputCol with HasHandler
     with ComplexParamsWritable {
+
+  setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000))
 
   def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
   val clientHolder = SharedVariable {
-    val strategy: (CloseableHttpClient, HTTPRequestData) => HTTPResponseData =
-      getHandlingStrategy match {
-        case "basic" => BasicHTTPHandling.handle
-        case "advanced" => AdvancedHTTPHandling.handle(getBackoffTiming)
-      }
-
     getConcurrency match {
-      case 1 => new SingleThreadedHTTPClient {
-        override def handle(client: Client, request: RequestType) = strategy(client, request)
-      }
+      case 1 => new SingleThreadedHTTPClient(getHandler)
       case n if n > 1 =>
         val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(n, dur)(ec) {
-          override def handle(client: Client, request: RequestType) = strategy(client, request)
-        }
+        new AsyncHTTPClient(getHandler,n, dur)(ec)
     }
   }
 

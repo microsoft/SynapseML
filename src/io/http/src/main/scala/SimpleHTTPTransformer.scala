@@ -58,7 +58,7 @@ object ErrorUtils extends Serializable {
 }
 
 class SimpleHTTPTransformer(val uid: String)
-  extends Transformer with HTTPParams with HasMiniBatcher
+  extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
     with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol {
 
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
@@ -114,7 +114,7 @@ class SimpleHTTPTransformer(val uid: String)
       .setOutputCol(parsedInputCol))
 
     val client = Some(new HTTPTransformer()
-      .setHandlingStrategy(getHandlingStrategy)
+      .setHandler(getHandler)
       .setConcurrency(getConcurrency)
       .setConcurrentTimeout(getConcurrentTimeout)
       .setInputCol(parsedInputCol)

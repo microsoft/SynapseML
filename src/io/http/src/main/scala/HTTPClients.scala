@@ -7,6 +7,9 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.internal.{Logging => SparkLogging}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.types.StringType
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -15,14 +18,6 @@ trait Handler {
 
   def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData
 
-}
-
-trait HandlingUtils {
-  protected def convertAndClose(response: CloseableHttpResponse): HTTPResponseData = {
-    val rData = new HTTPResponseData(response)
-    response.close()
-    rData
-  }
 }
 
 private[ml] trait HTTPClient extends BaseClient
@@ -44,15 +39,24 @@ private[ml] trait HTTPClient extends BaseClient
 
 }
 
-object AdvancedHTTPHandling extends HandlingUtils with SparkLogging {
+object HandlingUtils extends SparkLogging {
+  private[ml] def convertAndClose(response: CloseableHttpResponse): HTTPResponseData = {
+    val rData = new HTTPResponseData(response)
+    response.close()
+    rData
+  }
 
-  private def sendWithRetries(client: CloseableHttpClient,
+  type HandlerFunc = (CloseableHttpClient, HTTPRequestData) => HTTPResponseData
+
+  private[ml] def sendWithRetries(client: CloseableHttpClient,
                               request: HttpRequestBase,
-                              retriesLeft: Array[Int]): HTTPResponseData = {
+                              retriesLeft: Array[Int]): CloseableHttpResponse = {
     val response = client.execute(request)
     val code = response.getStatusLine.getStatusCode
     val suceeded = code match {
       case 200 => true
+      case 201 => true
+      case 202 => true
       case 429 =>
         Option(response.getFirstHeader("Retry-After"))
           .foreach{h =>
@@ -72,7 +76,7 @@ object AdvancedHTTPHandling extends HandlingUtils with SparkLogging {
         false
     }
     if (suceeded || retriesLeft.isEmpty) {
-      convertAndClose(response)
+      response
     } else {
       response.close()
       Thread.sleep(retriesLeft.head.toLong)
@@ -80,7 +84,7 @@ object AdvancedHTTPHandling extends HandlingUtils with SparkLogging {
     }
   }
 
-  def handle(retryTimes: Array[Int])(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
+  def advanced(retryTimes: Int*)(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
     val req = request.toHTTPCore
     val message = req match {
       case r: HttpPost => IOUtils.toString(r.getEntity.getContent, "UTF-8")
@@ -88,22 +92,32 @@ object AdvancedHTTPHandling extends HandlingUtils with SparkLogging {
     }
     logInfo(s"sending $message")
     val start = System.currentTimeMillis()
-    val resp = sendWithRetries(client, req, retryTimes)
+    val resp = sendWithRetries(client, req, retryTimes.toArray)
     logInfo(s"finished sending (${System.currentTimeMillis()-start}ms) $message")
     req.releaseConnection()
-    resp
+    convertAndClose(resp)
   }
-}
 
-object BasicHTTPHandling extends HandlingUtils {
+  def advancedUDF(retryTimes: Int*): UserDefinedFunction =
+    udf(advanced(retryTimes:_*) _, StringType)
 
-  def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData =
+  def basic(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData =
     convertAndClose(client.execute(request.toHTTPCore))
 
+  def basicUDF: UserDefinedFunction = udf(basic _, StringType)
 }
 
-abstract class AsyncHTTPClient(override val concurrency: Int, override val timeout: Duration)
+class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
+                               override val concurrency: Int,
+                               override val timeout: Duration)
                               (override implicit val ec: ExecutionContext)
-  extends AsyncClient(concurrency, timeout)(ec) with HTTPClient
+  extends AsyncClient(concurrency, timeout)(ec) with HTTPClient {
+  override def handle(client: CloseableHttpClient,
+                      request: HTTPRequestData): HTTPResponseData = handler(client, request)
+}
 
-abstract class SingleThreadedHTTPClient extends HTTPClient with SingleThreadedClient
+class SingleThreadedHTTPClient(val handler: HandlingUtils.HandlerFunc)
+  extends HTTPClient with SingleThreadedClient {
+  override def handle(client: CloseableHttpClient,
+                      request: HTTPRequestData): HTTPResponseData = handler(client, request)
+}
