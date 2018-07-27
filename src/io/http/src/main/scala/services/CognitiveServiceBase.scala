@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.HandlingUtils.HandlerFunc
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.http.client.utils.URLEncodedUtils
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
@@ -105,13 +107,13 @@ trait HasSubscriptionKey extends HasVectorizableParams {
   val subscriptionKey = new VectorizableParam[String](
     this, "subscriptionKey", "the API key to use")
 
-  def getSubscriptionKey: String = getScalarParam("subscriptionKey")
+  def getSubscriptionKey: String = getScalarParam(subscriptionKey)
 
-  def setSubscriptionKey(v: String): this.type = setScalarParam("subscriptionKey", v)
+  def setSubscriptionKey(v: String): this.type = setScalarParam(subscriptionKey, v)
 
-  def getSubscriptionKeyCol: String = getVectorParam("subscriptionKey")
+  def getSubscriptionKeyCol: String = getVectorParam(subscriptionKey)
 
-  def setSubscriptionKeyCol(v: String): this.type = setVectorParam("subscriptionKey", v)
+  def setSubscriptionKeyCol(v: String): this.type = setVectorParam(subscriptionKey, v)
 
 }
 
@@ -148,16 +150,17 @@ trait HasInternalJsonOutputParser {
 
 }
 
-abstract class CognitiveServicesBase(val uid: String) extends Transformer with HTTPParams with HasOutputCol
+abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Transformer
+  with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol {
 
   setDefault(
     outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"),
-    handlingStrategy -> "advanced",
-    backoffTiming -> Array(100)
-  )
+    errorCol -> (this.uid + "_error"))
+
+  protected def handlingFunc(client: CloseableHttpClient,
+                             request: HTTPRequestData): HTTPResponseData
 
   protected def getInternalInputParser(schema: StructType): HTTPInputParser
 
@@ -174,7 +177,7 @@ abstract class CognitiveServicesBase(val uid: String) extends Transformer with H
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandlingStrategy(getHandlingStrategy)
+        .setHandler(handlingFunc)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(getConcurrentTimeout)
         .setErrorCol(getErrorCol),
@@ -193,4 +196,13 @@ abstract class CognitiveServicesBase(val uid: String) extends Transformer with H
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
   }
+}
+
+abstract class CognitiveServicesBase(uid: String) extends
+  CognitiveServicesBaseWithoutHandler(uid) with HasHandler {
+  setDefault(handler -> HandlingUtils.advancedUDF(100))
+
+  override def handlingFunc(client: CloseableHttpClient,
+                            request: HTTPRequestData): HTTPResponseData =
+    getHandler(client, request)
 }

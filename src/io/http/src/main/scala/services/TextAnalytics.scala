@@ -141,7 +141,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandlingStrategy(getHandlingStrategy)
+        .setHandler(getHandler)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(getConcurrentTimeout)
         .setErrorCol(getErrorCol),
