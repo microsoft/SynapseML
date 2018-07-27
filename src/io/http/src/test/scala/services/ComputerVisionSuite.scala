@@ -16,6 +16,7 @@ trait VisionKey {
 class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
 
   import session.implicits._
+  import com.microsoft.ml.spark.FluentAPI._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
@@ -40,10 +41,60 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
     assert(results(2).getString(2).startsWith("This is a lot of 12 point text"))
   }
 
+  test("grok repro"){
+    val inputs = Seq(
+      "https://azssparkdemo.blob.core.windows.net/images/1.png",
+      "https://azssparkdemo.blob.core.windows.net/images/2.jpg",
+      "https://azssparkdemo.blob.core.windows.net/images/3.jpg",
+      "https://azssparkdemo.blob.core.windows.net/images/4.jpg",
+      "https://azssparkdemo.blob.core.windows.net/images/5.jpg").toDF("url")
+
+    inputs.mlTransform(
+      new OCR().setSubscriptionKey("142b7e0b34c74935b2b6b4861e998e2f")
+        .setLocation("westus")
+        .setImageUrlCol("url")
+        .setDetectOrientation(true)
+        .setOutputCol("text"),
+      OCR.flatten("text", "text")
+    ).show()
+  }
+
   override def testObjects(): Seq[TestObject[OCR]] =
     Seq(new TestObject(ocr, df))
 
   override def reader: MLReadable[_] = OCR
+}
+
+class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKey {
+
+  import session.implicits._
+  import com.microsoft.ml.spark.FluentAPI._
+
+  lazy val df: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+  ).toDF("url")
+
+  lazy val rt: RecognizeText =  new RecognizeText()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageUrlCol("url")
+    .setMode("Printed")
+    .setOutputCol("ocr")
+
+  test("Basic Usage") {
+    val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))
+      .select("ocr")
+      .collect()
+    assert(results.head.getString(0) ===
+      "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
+  }
+
+  override def testObjects(): Seq[TestObject[RecognizeText]] =
+    Seq(new TestObject(rt, df))
+
+  override def reader: MLReadable[_] = RecognizeText
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent] with VisionKey {

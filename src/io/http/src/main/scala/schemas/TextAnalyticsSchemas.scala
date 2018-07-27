@@ -28,6 +28,7 @@ object TAJSONFormat {
 
   implicit val documentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
   implicit val requestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
+
 }
 
 // Sentiment schemas

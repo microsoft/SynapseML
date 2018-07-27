@@ -35,3 +35,13 @@ case class OCRRegion(boundingBox: String, lines: Seq[OCRLine])
 case class OCRLine(boundingBox: String, words: Seq[OCRWord])
 
 case class OCRWord(boundingBox: String, text: String)
+
+case class RTResponse(status: String, recognitionResult:RTResult)
+
+object RTResponse extends SparkBindings[RTResponse]
+
+case class RTResult(lines:Array[RTLine])
+
+case class RTLine(boundingBox: Array[Int], text: String, words: Array[RTWord])
+
+case class RTWord(boundingBox: Array[Int], text: String)
