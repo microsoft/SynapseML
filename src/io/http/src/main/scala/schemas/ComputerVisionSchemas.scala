@@ -17,7 +17,10 @@ object DSIRResponse extends SparkBindings[DSIRResponse]
 
 case class DSIRMetadata(width: Int, height: Int, format: String)
 
-case class DSIRResult(celebrities: Option[Seq[DSIRCelebrity]])
+case class DSIRResult(celebrities: Option[Seq[DSIRCelebrity]],
+                      landmarks: Option[Seq[DSIRLandmark]])
+
+case class DSIRLandmark(name: String, confidence: Double)
 
 case class DSIRCelebrity(name: String, faceRectangle: DSIRRectangle, confidence: Double)
 
@@ -36,12 +39,50 @@ case class OCRLine(boundingBox: String, words: Seq[OCRWord])
 
 case class OCRWord(boundingBox: String, text: String)
 
-case class RTResponse(status: String, recognitionResult:RTResult)
+case class RTResponse(status: String, recognitionResult: RTResult)
 
 object RTResponse extends SparkBindings[RTResponse]
 
-case class RTResult(lines:Array[RTLine])
+case class RTResult(lines: Array[RTLine])
 
 case class RTLine(boundingBox: Array[Int], text: String, words: Array[RTWord])
 
 case class RTWord(boundingBox: Array[Int], text: String)
+
+case class AIResponse(categories: Option[Seq[AICategory]],
+                      adult: Option[AIAdult],
+                      tags: Option[Seq[AITag]],
+                      description: Option[AIDescription],
+                      requestId: String,
+                      metadata: AIMetadata,
+                      faces: Option[Seq[AIFace]],
+                      color: Option[AIColor],
+                      imageType: Option[AIImageType])
+
+object AIResponse extends SparkBindings[AIResponse]
+
+case class AICategory(name: String, score: Double, detail: Option[AIDetail])
+
+case class AIDetail(celebrities: Option[Seq[DSIRCelebrity]],
+                    landmarks: Option[Seq[DSIRLandmark]])
+
+case class AIAdult(isAdultContent: Boolean,
+                   isRacyContent: Boolean,
+                   adultScore: Double,
+                   racyScore: Double)
+
+case class AITag(name: String, confidence: Double)
+
+case class AIDescription(tags: Seq[String], captions: Seq[AITag])
+
+case class AIMetadata(width: Int, height: Int, format: String)
+
+case class AIFace(age: Int, gender: Int, faceRectangle: DSIRRectangle)
+
+case class AIColor(dominantColorForeground: String,
+                   dominantColorBackground: String,
+                   dominantColors: Seq[String],
+                   accentColor: String,
+                   isBWImg: Option[Boolean])
+
+case class AIImageType(clipArtType: Int, lineDrawingType: Int)
