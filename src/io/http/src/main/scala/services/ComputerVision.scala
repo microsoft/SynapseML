@@ -184,7 +184,7 @@ class RecognizeText(override val uid: String)
     val status = IOUtils.toString(resp.entity.content, "UTF-8")
       .parseJson.asJsObject.fields("status").convertTo[String]
     status match {
-      case "Succeeded" | "Failed" =>  Some(resp)
+      case "Succeeded" | "Failed" => Some(resp)
       case "NotStarted" | "Running" => None
       case s => throw new RuntimeException(s"Received unknown status code: $s")
     }
@@ -193,14 +193,15 @@ class RecognizeText(override val uid: String)
   override protected def handlingFunc(client: CloseableHttpClient,
                                       request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(100)(client, request)
-    if (response.statusLine.statusCode == 202){
+    if (response.statusLine.statusCode == 202) {
       val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)
       val maxTries = 1000
       val delay = 100
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
         queryForResult(key, client, location).orElse({
-          Thread.sleep(delay.toLong); None
+          Thread.sleep(delay.toLong);
+          None
         })
       }
       if (it.hasNext) {
@@ -209,7 +210,7 @@ class RecognizeText(override val uid: String)
         throw new TimeoutException(
           s"Querying for results did not complete within $maxTries tries")
       }
-    }else{
+    } else {
       response
     }
   }
@@ -224,7 +225,8 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
       .setUDF(udf(
         { r: Row =>
           Option(r).map(fromRow).map(
-            _.recognitionResult.lines.map(_.text).mkString(" "))},
+            _.recognitionResult.lines.map(_.text).mkString(" "))
+        },
         StringType))
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
@@ -265,6 +267,81 @@ class GenerateThumbnails(override val uid: String)
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/generateThumbnail")
 
 }
+
+class AnalyzeImage(override val uid: String)
+  extends CognitiveServicesBase(uid) with HasImageUrl
+    with HasInternalJsonOutputParser with HasInternalCustomInputParser {
+
+  val visualFeatures = new VectorizableParam[Seq[String]](
+    this, "visualFeatures", "what visual feature types to return",
+    {
+      case Left(seq) => seq.forall(Set(
+        "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"
+      ))
+      case _ => true
+    }
+  )
+
+  def getVisualFeatures: Seq[String] = getScalarParam(visualFeatures)
+
+  def getVisualFeaturesCol: String = getVectorParam(visualFeatures)
+
+  def setVisualFeatures(v: Seq[String]): this.type = setScalarParam(visualFeatures, v)
+
+  def setVisualFeaturesCol(v: String): this.type = setVectorParam(visualFeatures, v)
+
+  val details = new VectorizableParam[Seq[String]](
+    this, "details", "what visual feature types to return",
+    {
+      case Left(seq) => seq.forall(Set("Celebrities", "Landmarks"))
+      case _ => true
+    }
+  )
+
+  def getDetails: Seq[String] = getScalarParam(details)
+
+  def getDetailsCol: String = getVectorParam(details)
+
+  def setDetails(v: Seq[String]): this.type = setScalarParam(details, v)
+
+  def setDetailsCol(v: String): this.type = setVectorParam(details, v)
+
+  val language = new VectorizableParam[String](
+    this, "language", "the language of the response (en if none given)"
+  )
+
+  def getLanguage: String = getScalarParam(language)
+
+  def getLanguageCol: String = getVectorParam(language)
+
+  def setLanguage(v: String): this.type = setScalarParam(language, v)
+
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  def this() = this(Identifiable.randomUID("AnalyzeImage"))
+
+  def inputFunc(schema: StructType): Row => HttpPost = { row: Row =>
+    val fullURL = getUrl + "?" + URLEncodingUtils
+      .format(List(
+        getValueOpt(row, visualFeatures).map("visualFeatures" -> _.mkString(",")),
+        getValueOpt(row, details).map("details" -> _.mkString(",")),
+        getValueOpt(row, language).map("language" -> _)
+      ).flatten.toMap)
+    val post = new HttpPost(fullURL)
+    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+    post.setHeader("Content-Type", "application/json")
+    val body = Map("url" -> getValue(row, imageUrl))
+    post.setEntity(new StringEntity(body.toJson.compactPrint))
+    post
+  }
+
+  override def responseDataType: DataType = AIResponse.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
+}
+
+object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 object RecognizeDomainSpecificContent
   extends ComplexParamsReadable[RecognizeDomainSpecificContent] with Serializable {
