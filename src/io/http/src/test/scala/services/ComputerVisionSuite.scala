@@ -47,6 +47,48 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
   override def reader: MLReadable[_] = OCR
 }
 
+class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+  ).toDF("url")
+
+  lazy val ai: AnalyzeImage =  new AnalyzeImage()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageUrlCol("url")
+    .setVisualFeatures(
+        Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"))
+    .setDetails(Seq("Celebrities", "Landmarks"))
+    .setOutputCol("features")
+
+  test("Basic Usage") {
+    val fromRow = AIResponse.makeFromRowConverter
+    val responses = ai.transform(df).select("features")
+      .collect().map(r => fromRow(r.getStruct(0)))
+    assert(responses.head.categories.get.head.name === "others_")
+  }
+
+  override def testObjects(): Seq[TestObject[AnalyzeImage]] =
+    Seq(new TestObject(ai, df))
+
+  override def reader: MLReadable[_] = AnalyzeImage
+
+  override implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame]{
+    def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
+      case b:Dataset[_] =>
+        baseDfEq.areEqual(
+          a.select("features.*").drop("requestId"),
+          b.select("features.*").drop("requestId"))
+    }
+  }
+
+}
+
 class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKey {
 
   import session.implicits._
