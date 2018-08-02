@@ -50,7 +50,7 @@ class LightGBMClassifier(override val uid: String)
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getNumClasses, getObjective)
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective)
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
