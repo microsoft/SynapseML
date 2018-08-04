@@ -14,6 +14,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   lazy val moduleName = "lightgbm"
   var portIndex = 30
   val numPartitions = 2
+  val objective = "binary"
 
   // TODO: Need to add multiclass param with objective function
   // verifyLearnerOnMulticlassCsvFile("abalone.csv",                  "Rings", 2)
@@ -51,6 +52,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
+      .setObjective(objective)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(lgbm.numLeaves, Array(5, 10))
@@ -102,6 +104,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
+        .setObjective(objective)
         .fit(trainData)
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
@@ -134,6 +137,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
+        .setObjective(objective)
         .fit(trainData)
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
@@ -161,7 +165,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       new LightGBMClassifier()
         .setLabelCol(labelCol)
         .setFeaturesCol(featuresCol)
-        .setNumLeaves(5),
+        .setNumLeaves(5)
+        .setObjective(objective),
       train))
   }
 
@@ -183,6 +188,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
+        .setObjective(objective)
         .fit(featurizer.transform(dataset))
 
       val targetDir: Path = Paths.get(getClass.getResource("/").toURI)

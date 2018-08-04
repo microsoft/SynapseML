@@ -36,6 +36,14 @@ trait LightGBMParams extends MMLParams {
   def getNumLeaves: Int = $(numLeaves)
   def setNumLeaves(value: Int): this.type = set(numLeaves, value)
 
+  val objective = StringParam(this, "objective",
+    "The Objective. For regression applications, this can be: " +
+    "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
+    "For classification applications, this can be: binary, multiclass, or multiclassova. ", "regression")
+
+  def getObjective: String = $(objective)
+  def setObjective(value: String): this.type = set(objective, value)
+
   val maxBin = IntParam(this, "maxBin", "Max bin", 255)
 
   def getMaxBin: Int = $(maxBin)

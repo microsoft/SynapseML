@@ -17,18 +17,6 @@ class LightGBMBooster(val model: String) extends Serializable {
   @transient
   var boosterPtr: SWIGTYPE_p_void = null
 
-  def numClasses(): Int = {
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getModel()
-    }
-    val numClasses = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterGetNumClasses(boosterPtr, numClasses),
-      "Booster GetNumClasses")
-    lightgbmlib.intp_value(numClasses)
-  }
-
   def score(features: Vector, raw: Boolean): Double = {
     // Reload booster on each node
     if (boosterPtr == null) {
