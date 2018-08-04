@@ -44,13 +44,6 @@ class LightGBMRegressor(override val uid: String)
   def getAlpha: Double = $(alpha)
   def setAlpha(value: Double): this.type = set(alpha, value)
 
-  val application = StringParam(this, "application",
-    "Regression application, regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie",
-    "regression")
-
-  def getApplication: String = $(application)
-  def setApplication(value: String): this.type = set(application, value)
-
   /** Trains the LightGBM Regression model.
     *
     * @param dataset The input dataset to train.
@@ -72,7 +65,7 @@ class LightGBMRegressor(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getApplication, getAlpha, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
+      getObjective, getAlpha, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df

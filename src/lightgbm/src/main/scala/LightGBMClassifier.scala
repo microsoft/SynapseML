@@ -50,7 +50,11 @@ class LightGBMClassifier(override val uid: String)
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective)
+    /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
+     * so we infer the actual numClasses from the dataset here
+     */
+    val actualNumClasses = getNumClasses(dataset)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
@@ -60,7 +64,7 @@ class LightGBMClassifier(override val uid: String)
     Await.result(future, Duration(getTimeout, SECONDS))
     new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
       getPredictionCol, getProbabilityCol, getRawPredictionCol,
-      if (isDefined(thresholds)) Some(getThresholds) else None)
+      if (isDefined(thresholds)) Some(getThresholds) else None, actualNumClasses)
   }
 
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
@@ -71,7 +75,8 @@ class LightGBMClassifier(override val uid: String)
 class LightGBMClassificationModel(
   override val uid: String, model: LightGBMBooster, labelColName: String,
   featuresColName: String, predictionColName: String, probColName: String,
-  rawPredictionColName: String, thresholdValues: Option[Array[Double]])
+  rawPredictionColName: String, thresholdValues: Option[Array[Double]],
+  actualNumClasses: Int)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
     with ConstructorWritable[LightGBMClassificationModel] {
 
@@ -96,7 +101,7 @@ class LightGBMClassificationModel(
     }
   }
 
-  override def numClasses: Int = model.numClasses()
+  override def numClasses: Int = this.actualNumClasses
 
   override protected def predictRaw(features: Vector): Vector = {
     val prediction = model.score(features, true)
@@ -105,14 +110,14 @@ class LightGBMClassificationModel(
 
   override def copy(extra: ParamMap): LightGBMClassificationModel =
     new LightGBMClassificationModel(uid, model, labelColName, featuresColName, predictionColName, probColName,
-      rawPredictionColName, thresholdValues)
+      rawPredictionColName, thresholdValues, actualNumClasses)
 
   override val ttag: TypeTag[LightGBMClassificationModel] =
     typeTag[LightGBMClassificationModel]
 
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
-         getProbabilityCol, getRawPredictionCol, thresholdValues)
+         getProbabilityCol, getRawPredictionCol, thresholdValues, actualNumClasses)
 
   def saveNativeModel(session: SparkSession, filename: String): Unit = {
     model.saveNativeModel(session, filename)

@@ -19,6 +19,7 @@ abstract class TrainParams extends Serializable {
   def maxDepth: Int
   def minSumHessianInLeaf: Double
   def numMachines: Int
+  def objective: String
 
   override def toString(): String = {
     s"is_pre_partition=True boosting_type=gbdt tree_learner=$parallelism num_iterations=$numIterations " +
@@ -26,7 +27,7 @@ abstract class TrainParams extends Serializable {
       s"max_bin=$maxBin bagging_fraction=$baggingFraction bagging_freq=$baggingFreq " +
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
-      s"num_machines=$numMachines"
+      s"num_machines=$numMachines objective=$objective"
   }
 }
 
@@ -35,22 +36,23 @@ abstract class TrainParams extends Serializable {
 case class ClassifierTrainParams(val parallelism: String, val numIterations: Int, val learningRate: Double,
                                  val numLeaves: Int, val maxBin: Int, val baggingFraction: Double, val baggingFreq: Int,
                                  val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
-                                 val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int)
+                                 val maxDepth: Int, val minSumHessianInLeaf: Double,
+                                 val numMachines: Int, val objective: String)
   extends TrainParams {
   override def toString(): String = {
-    s"objective=binary metric=binary_logloss,auc ${super.toString()}"
+    s"metric=binary_logloss,auc ${super.toString()}"
   }
 }
 
 /** Defines the Booster parameters passed to the LightGBM regressor.
   */
 case class RegressorTrainParams(val parallelism: String, val numIterations: Int, val learningRate: Double,
-                                val numLeaves: Int, val application: String, val alpha: Double, val maxBin: Int,
+                                val numLeaves: Int, val objective: String, val alpha: Double, val maxBin: Int,
                                 val baggingFraction: Double, val baggingFreq: Int,
                                 val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                                 val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int)
   extends TrainParams {
   override def toString(): String = {
-    s"objective=$application alpha=$alpha ${super.toString()}"
+    s"alpha=$alpha ${super.toString()}"
   }
 }
