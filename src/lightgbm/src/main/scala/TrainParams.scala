@@ -47,12 +47,13 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
 /** Defines the Booster parameters passed to the LightGBM regressor.
   */
 case class RegressorTrainParams(val parallelism: String, val numIterations: Int, val learningRate: Double,
-                                val numLeaves: Int, val objective: String, val alpha: Double, val maxBin: Int,
+                                val numLeaves: Int, val objective: String, val alpha: Double,
+                                val tweedieVariancePower: Double, val maxBin: Int,
                                 val baggingFraction: Double, val baggingFreq: Int,
                                 val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                                 val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int)
   extends TrainParams {
   override def toString(): String = {
-    s"alpha=$alpha ${super.toString()}"
+    s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower ${super.toString()}"
   }
 }
