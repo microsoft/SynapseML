@@ -27,7 +27,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
   lazy val ocr =  new OCR()
     .setSubscriptionKey(visionKey)
     .setLocation("eastus")
-    //.setUrl("http://13.92.142.38:5000/vision/v1.0/ocr")
+    .setDefaultLanguage("en")
     .setImageUrlCol("url")
     .setDetectOrientation(true)
     .setOutputCol("ocr")
@@ -52,15 +52,17 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
-  ).toDF("url")
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", ""),
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
+  ).toDF("url", "language")
 
   lazy val ai: AnalyzeImage =  new AnalyzeImage()
     .setSubscriptionKey(visionKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
+    .setLanguageCol("language")
+    .setDefaultLanguage("en")
     .setVisualFeatures(
         Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"))
     .setDetails(Seq("Celebrities", "Landmarks"))

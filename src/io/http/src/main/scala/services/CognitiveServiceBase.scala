@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.HandlingUtils.HandlerFunc
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.HttpRequestBase
@@ -12,11 +11,10 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-import org.apache.spark.sql.functions.{col, struct}
 
 import scala.collection.JavaConverters._
 
@@ -60,7 +58,7 @@ trait HasVectorizableParams extends Params {
     case _ => None
   }.toMap
 
-  def getValueOpt[T](row: Row, p: VectorizableParam[T]): Option[T] = {
+  def getValueOpt[T](row: Row, p: VectorizableParam[T], defaultValue: Option[T] = None): Option[T] = {
     get(p).map {
       case Right(colName) => row.getAs[T](colName)
       case Left(value) => value
@@ -69,7 +67,7 @@ trait HasVectorizableParams extends Params {
         getDefault(p).map {
           case Right(colName) => row.getAs[T](colName)
           case Left(value) => value
-        }
+        }.orElse(defaultValue)
       case s => s
     }
   }

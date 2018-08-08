@@ -100,7 +100,8 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
     ("fr", "Bonjour tout le monde"),
-    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("", "ich bin ein berliner")
 
   ).toDF("lang", "text")
 
@@ -108,6 +109,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
     .setLanguageCol("lang")
+    .setDefaultLanguage("de")
     .setOutputCol("replies")
 
   test("Basic Usage") {
