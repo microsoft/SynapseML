@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringEscapeUtils
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{BooleanParam, VectorizableParam}
+import org.apache.spark.ml.param.{BooleanParam, Param, VectorizableParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -54,6 +54,13 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
 
+  val defaultLanguage = new Param[String](this, "defaultLanguage",
+    "the default language code to use if no language option is provided (optional for some services)")
+
+  def setDefaultLanguage(v: String): this.type = set(defaultLanguage, v)
+
+  setDefault(defaultLanguage, "en")
+
   protected def innerResponseDataType: StructType =
     responseDataType("documents").dataType match {
       case ArrayType(idt: StructType, _) => idt
@@ -74,9 +81,11 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
       post.setHeader("Content-Type", "application/json")
       val texts = getValue(row, text)
-      val languages = getValueOpt(row, language).map { seq =>
-        if (seq.lengthCompare(1) == 0) Array.fill(texts.length)(seq.head)
-        else seq.toArray
+
+      val defaultLanguageCode = getOrDefault(defaultLanguage)
+
+      val languages = getValueOpt(row, language, Some(Array.fill(texts.length)(defaultLanguageCode).toSeq)).map { seq =>
+        seq.toArray.map(lang => if(lang == null || lang.isEmpty) defaultLanguageCode else lang)
       }
       val documents = texts.zipWithIndex.map { case (t, i) => TADocument(
         Option(languages.map(ls => ls(i)).orNull),

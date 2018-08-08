@@ -11,7 +11,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param.VectorizableParam
+import org.apache.spark.ml.param.{Param, VectorizableParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.udf
@@ -119,14 +119,22 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
 
-  def inputFunc(schema: StructType): Row => HttpPost = { row: Row =>
+  val defaultLanguage = new Param[String](this, "defaultLanguage",
+    "the default language code to use if no language option is provided (optional for some services)")
+
+  def setDefaultLanguage(v: String): this.type = set(defaultLanguage, v)
+
+  def inputFunc(schema: StructType): Row => HttpPost = {
+    val defaultLanguageCode = getOrDefault(defaultLanguage)
+    row: Row =>
     val post = new HttpPost(getUrl)
     getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
     post.setHeader("Content-Type", "application/json")
     val body: Map[String, String] = List(
       getValueOpt(row, detectOrientation).map(v => "detectOrientation" -> v.toString),
       Some("url" -> getValue(row, imageUrl)),
-      getValueOpt(row, language).map(v => "language" -> v)
+      getValueOpt(row, language, Some(defaultLanguageCode)).map(lang =>
+        if(lang == null || lang.isEmpty) "language" -> defaultLanguageCode else "language" -> lang)
     ).flatten.toMap
     post.setEntity(new StringEntity(body.toJson.compactPrint))
     post
@@ -318,14 +326,24 @@ class AnalyzeImage(override val uid: String)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
+  val defaultLanguage = new Param[String](this, "defaultLanguage",
+    "the default language code to use if no language option is provided (optional for some services)")
+
+  def setDefaultLanguage(v: String): this.type = set(defaultLanguage, v)
+
+  setDefault(defaultLanguage, "en")
+
   def this() = this(Identifiable.randomUID("AnalyzeImage"))
 
-  def inputFunc(schema: StructType): Row => HttpPost = { row: Row =>
+  def inputFunc(schema: StructType): Row => HttpPost = {
+    val defaultLanguageCode = getOrDefault(defaultLanguage)
+    row: Row =>
     val fullURL = getUrl + "?" + URLEncodingUtils
       .format(List(
         getValueOpt(row, visualFeatures).map("visualFeatures" -> _.mkString(",")),
         getValueOpt(row, details).map("details" -> _.mkString(",")),
-        getValueOpt(row, language).map("language" -> _)
+        getValueOpt(row, language, Some(defaultLanguageCode)).map(lang =>
+          if(lang == null || lang.isEmpty) "language" -> defaultLanguageCode else "language" -> lang)
       ).flatten.toMap)
     val post = new HttpPost(fullURL)
     getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
