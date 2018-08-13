@@ -23,6 +23,8 @@ abstract class WrapperGenerator {
 
   def wrapperName(myClass: Class[_]): String
 
+  def modelWrapperName(myClass: Class[_], modelName: String): String
+
   def generateEstimatorWrapper(entryPoint: Estimator[_],
                                entryPointName: String,
                                entryPointQualifiedName: String,
@@ -59,16 +61,18 @@ abstract class WrapperGenerator {
              generateTransformerTestWrapper(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
-                     .find(c => Seq("Estimator", "Predictor").contains(c.getSuperclass.getSimpleName))
+                     .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor")
+                       .contains(c.getSuperclass.getSimpleName))
                      .get
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
               .getActualTypeArguments
             val getModelFromGenericType = (modelType: Type) => {
               val modelClass = modelType.getTypeName.split("<").head
-              (modelClass.split("\\.").last, modelClass)
+              (modelWrapperName(myClass, modelClass.split("\\.").last), modelClass)
             }
             val (modelClass, modelQualifiedClass) = sc.getSuperclass.getSimpleName match {
               case "Estimator" => getModelFromGenericType(typeArgs.head)
+              case "ProbabilisticClassifier" => getModelFromGenericType(typeArgs(2))
               case "Predictor" => getModelFromGenericType(typeArgs(2))
             }
 
@@ -147,6 +151,11 @@ class PySparkWrapperGenerator extends WrapperGenerator {
   def wrapperName(myClass: Class[_]):String = {
     val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
     prefix + myClass.getSimpleName
+  }
+
+  def modelWrapperName(myClass: Class[_], modelName: String): String = {
+    val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
+    prefix + modelName
   }
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
@@ -228,14 +237,18 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
                 |export(sdf_transform)
                 |""".stripMargin)
 
-  def wrapperName(myClass: Class[_]): String =
-    myClass.getSimpleName.foldLeft((true, ""))((base, c) => {
+  def formatWrapperName(name: String): String =
+    name.foldLeft((true, ""))((base, c) => {
       val ignoreCaps = base._1
       val partialStr = base._2
       if (!c.isUpper)      (false, partialStr + c)
       else if (ignoreCaps) (true,  partialStr + c.toLower)
       else                 (true,  partialStr + "_" + c.toLower)
     })._2
+
+  def wrapperName(myClass: Class[_]): String = formatWrapperName(myClass.getSimpleName)
+
+  def modelWrapperName(myClass: Class[_], modelName: String): String = formatWrapperName(modelName)
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
                                entryPointName: String,
