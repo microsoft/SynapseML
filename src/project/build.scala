@@ -26,7 +26,6 @@ object Extras {
   def scalaVer = env("SCALA_FULL_VERSION", null)
   def sparkVer = env("SPARK_VERSION", null)
   def cntkVer  = env("CNTK_VERSION", null)
-
   def commonLibs = Seq(
     "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
     "org.apache.spark"   %% "spark-mllib"  % sparkVer % "provided",
@@ -35,7 +34,7 @@ object Extras {
     "io.spray"           %% "spray-json"   % "1.3.2",
     "com.microsoft.cntk"  % "cntk"         % cntkVer,
     "org.openpnp"         % "opencv"       % "3.2.0-1",
-    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.0.120"
+    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.1.250"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
 
