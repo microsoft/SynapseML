@@ -94,14 +94,14 @@ private object TrainUtils extends java.io.Serializable {
         val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
         val tempM =
           lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-            boosterPtr.get, -1, bufferLengthPtrInt64,
+            boosterPtr.get, 0, -1, bufferLengthPtrInt64,
             bufferOutLengthPtr)
         val bufferOutLength = lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr))
         // TODO: Move the reallocation logic inside the SWIG wrapper
         val model =
           if (bufferOutLength > bufferLength) {
             lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-              boosterPtr.get, -1, bufferOutLengthPtr, bufferOutLengthPtr)
+              boosterPtr.get, 0, -1, bufferOutLengthPtr, bufferOutLengthPtr)
           } else tempM
         log.info("Buffer output length for model: " + bufferOutLength)
         List[LightGBMBooster](new LightGBMBooster(model)).toIterator

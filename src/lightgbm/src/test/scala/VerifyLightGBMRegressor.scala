@@ -147,7 +147,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
         .setPredictionCol(predCol)
         .setMetricName("rmse")
       val metric = eval.evaluate(scoredResult)
-      addBenchmark(s"LightGBMRegressor_$fileName", metric, decimals)
+      addBenchmark(s"LightGBMRegressor_$fileName", metric, decimals, false)
     }
   }
 

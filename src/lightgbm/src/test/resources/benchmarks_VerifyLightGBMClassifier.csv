@@ -1,7 +1,7 @@
 name,value,precision,higherIsBetter
-LightGBMClassifier_PimaIndian.csv,0.8533022388059699,0.1,true
-LightGBMClassifier_data_banknote_authentication.csv,0.9828750914332429,0.1,true
-LightGBMClassifier_task.train.csv,0.8930693053328925,0.1,true
-LightGBMClassifier_breast-cancer.train.csv,0.9892958741778252,0.1,true
-LightGBMClassifier_random.forest.train.csv,0.9928286026612387,0.1,true
-LightGBMClassifier_transfusion.csv,0.7513404297260005,0.1,true
+LightGBMClassifier_PimaIndian.csv,0.8682723880597016,0.1,true
+LightGBMClassifier_data_banknote_authentication.csv,0.9845542360483628,0.1,true
+LightGBMClassifier_task.train.csv,0.89571008099785,0.1,true
+LightGBMClassifier_breast-cancer.train.csv,0.9924667959194766,0.1,true
+LightGBMClassifier_random.forest.train.csv,0.9934505635342457,0.1,true
+LightGBMClassifier_transfusion.csv,0.7849053814311058,0.1,true
