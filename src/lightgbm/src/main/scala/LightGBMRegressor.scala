@@ -44,6 +44,12 @@ class LightGBMRegressor(override val uid: String)
   def getAlpha: Double = $(alpha)
   def setAlpha(value: Double): this.type = set(alpha, value)
 
+  val tweedieVariancePower = DoubleParam(this, "tweedieVariancePower",
+    "control the variance of tweedie distribution, must be between 1 and 2", 1.5)
+
+  def getTweedieVariancePower: Double = $(tweedieVariancePower)
+  def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
+
   /** Trains the LightGBM Regression model.
     *
     * @param dataset The input dataset to train.
@@ -65,8 +71,8 @@ class LightGBMRegressor(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getObjective, getAlpha, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
+      getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,

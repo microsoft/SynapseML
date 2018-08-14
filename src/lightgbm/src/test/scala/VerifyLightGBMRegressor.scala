@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.RegressionEvaluator
-import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
 
@@ -58,6 +58,42 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
 
     val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
     val model = trainValidationSplit.fit(featurizer.transform(dataset))
+    model.transform(featurizer.transform(dataset))
+    assert(model != null)
+  }
+
+  test("Verify LightGBM Regressor with tweedie distribution") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "airfoil_self_noise.train.csv"
+    val labelColumnName = "Scaled sound pressure level"
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMRegressor()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective("tweedie")
+      .setTweedieVariancePower(1.5)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(lgbm.tweedieVariancePower, Array(1.0, 1.2, 1.4, 1.6, 1.8, 1.99))
+      .build()
+
+    val cv = new CrossValidator()
+      .setEstimator(lgbm)
+      .setEvaluator(new RegressionEvaluator().setLabelCol(labelColumnName))
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(3)
+      .setParallelism(2)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    // Choose the best model for tweedie distribution
+    val model = cv.fit(featurizer.transform(dataset))
     model.transform(featurizer.transform(dataset))
     assert(model != null)
   }
