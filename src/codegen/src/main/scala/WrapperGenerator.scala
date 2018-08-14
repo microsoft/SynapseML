@@ -226,6 +226,18 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
                 |import(sparklyr)
                 |
                 |export(sdf_transform)
+                |export(smd_model_downloader)
+                |export(smd_download_by_name)
+                |export(smd_local_models)
+                |export(smd_remote_models)
+                |export(smd_get_model_name)
+                |export(smd_get_model_uri)
+                |export(smd_get_model_type)
+                |export(smd_get_model_hash)
+                |export(smd_get_model_size)
+                |export(smd_get_model_input_node)
+                |export(smd_get_model_num_layers)
+                |export(smd_get_model_layer_names)
                 |""".stripMargin)
 
   def wrapperName(myClass: Class[_]): String =
