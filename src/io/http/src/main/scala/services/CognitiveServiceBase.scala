@@ -15,94 +15,121 @@ import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
+import scala.language.existentials
 
 import scala.collection.JavaConverters._
 
-trait HasVectorizableParams extends Params {
-  def getVectorParam(p: VectorizableParam[_]): String = {
-    this.getOrDefault(p).right.get
+trait HasServiceParams extends Params {
+  def getVectorParam(p: ServiceParam[_]): String = {
+    this.getOrDefault(p).data.get.right.get
   }
 
-  def getScalarParam[T](p: VectorizableParam[T]): T = {
-    this.getOrDefault(p).left.get
+  def getScalarParam[T](p: ServiceParam[T]): T = {
+    this.getOrDefault(p).data.get.left.get
   }
 
-  def setVectorParam(p: VectorizableParam[_], value: String): this.type = {
-    set(p, Right(value))
+  def setVectorParam[T](p: ServiceParam[T], value: String): this.type = {
+    set(p, ServiceParamData[T](
+      Some(Right(value)),
+      this.get(p).flatMap(_.default))
+    )
   }
 
-  def setScalarParam[T](p: VectorizableParam[T], value: T): this.type = {
-    set(p, Left(value))
+  def setDefaultValue[T](p: ServiceParam[T], value: T): this.type = {
+    set(p, ServiceParamData[T](
+      this.get(p).flatMap(_.data),
+      Some(value)
+    ))
+  }
+
+  def setDefaultValue[T](p: ServiceParam[T], value: Option[T]): this.type = {
+    set(p, ServiceParamData[T](
+      this.get(p).flatMap(_.data),
+      value
+    ))
+  }
+
+  def setScalarParam[T](p: ServiceParam[T], value: T): this.type = {
+    set(p, ServiceParamData(
+      Some(Left(value)),
+      this.get(p).flatMap(_.default))
+    )
   }
 
   def getVectorParam(name: String): String = {
-    getVectorParam(this.getParam(name).asInstanceOf[VectorizableParam[_]])
+    getVectorParam(this.getParam(name).asInstanceOf[ServiceParam[_]])
   }
 
   def getScalarParam[T](name: String): T = {
-    getScalarParam(this.getParam(name).asInstanceOf[VectorizableParam[T]])
+    getScalarParam(this.getParam(name).asInstanceOf[ServiceParam[T]])
   }
 
   def setVectorParam(name: String, value: String): this.type = {
-    setVectorParam(this.getParam(name).asInstanceOf[VectorizableParam[_]], value)
+    setVectorParam(this.getParam(name).asInstanceOf[ServiceParam[_]], value)
   }
 
   def setScalarParam[T](name: String, value: T): this.type = {
-    setScalarParam(this.getParam(name).asInstanceOf[VectorizableParam[T]], value)
+    setScalarParam(this.getParam(name).asInstanceOf[ServiceParam[T]], value)
   }
 
   def getVectorParamMap: Map[String, String] = this.params.flatMap {
-    case p: VectorizableParam[_] =>
+    case p: ServiceParam[_] =>
       get(p).orElse(getDefault(p)).flatMap(v =>
-        v.right.toOption.map(colname => (p.name, colname)))
+        v.data.flatMap(_.right.toOption.map(colname => (p.name, colname))))
     case _ => None
   }.toMap
 
-  def getValueOpt[T](row: Row, p: VectorizableParam[T], defaultValue: Option[T] = None): Option[T] = {
-    get(p).map {
-      case Right(colName) => row.getAs[T](colName)
-      case Left(value) => value
-    } match {
-      case None =>
-        getDefault(p).map {
-          case Right(colName) => row.getAs[T](colName)
-          case Left(value) => value
-        }.orElse(defaultValue)
-      case s => s
+  def getRequiredParams: Array[ServiceParam[_]] = this.params.filter {
+    case p:ServiceParam[_] if p.isRequired => true
+    case _ => false
+  }.map(_.asInstanceOf[ServiceParam[_]])
+
+  def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
+    val value = get(p).orElse(getDefault(p)).get
+    value match {
+      case ServiceParamData(_,Some(_)) => false
+      case ServiceParamData(Some(Left(_)),_)=> false
+      case ServiceParamData(Some(Right(colname)), _) =>
+        Option(row.get(row.fieldIndex(colname))).isEmpty
+      case _ => true
     }
   }
 
-  def getValue[T](row: Row, p: VectorizableParam[T]): T =
+  def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
+    get(p).orElse(getDefault(p)).flatMap {param =>
+      param.data.flatMap {
+        case Right(colName) => Option(row.getAs[T](colName))
+        case Left(value) => Some(value)
+      }.orElse(param.default)
+    }
+  }
+
+  def getValue[T](row: Row, p: ServiceParam[T]): T =
     getValueOpt(row, p).get
 
-  def getValueAnyOpt(row: Row, p: VectorizableParam[_]): Option[Any] = {
-    get(p).map {
-      case Right(colName) => row.get(row.fieldIndex(colName))
-      case Left(value) => value
-    } match {
-      case None =>
-        getDefault(p).map {
-          case Right(colName) => row.get(row.fieldIndex(colName))
-          case Left(value) => value
-        }
-      case s => s
+  def getValueAnyOpt(row: Row, p: ServiceParam[_]): Option[Any] = {
+    get(p).orElse(getDefault(p)).map {param =>
+      param.data.flatMap {
+        case Right(colName) => Option(row.get(row.fieldIndex(colName)))
+        case Left(value) => Some(value)
+      }.orElse(param.default)
     }
   }
 
-  def getValueAny(row: Row, p: VectorizableParam[_]): Any =
+  def getValueAny(row: Row, p: ServiceParam[_]): Any =
     getValueAnyOpt(row, p).get
 
-  def getValueMap(row: Row, excludes: Set[VectorizableParam[_]] = Set()): Map[String, Any] = {
+  def getValueMap(row: Row, excludes: Set[ServiceParam[_]] = Set()): Map[String, Any] = {
     this.params.flatMap {
-      case p: VectorizableParam[_] if !excludes(p) =>
+      case p: ServiceParam[_] if !excludes(p) =>
         getValueOpt(row, p).map(v => (p.name, v))
       case _ => None
     }.toMap
   }
 }
 
-trait HasSubscriptionKey extends HasVectorizableParams {
-  val subscriptionKey = new VectorizableParam[String](
+trait HasSubscriptionKey extends HasServiceParams {
+  val subscriptionKey = new ServiceParam[String](
     this, "subscriptionKey", "the API key to use")
 
   def getSubscriptionKey: String = getScalarParam(subscriptionKey)
@@ -130,10 +157,10 @@ object URLEncodingUtils {
 
 trait HasInternalCustomInputParser {
 
-  protected def inputFunc(schema: StructType): Row => HttpRequestBase
+  protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase]
 
   protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
-    new CustomInputParser().setUDF(inputFunc(schema))
+    new CustomInputParser().setNullableUDF(inputFunc(schema))
   }
 
 }

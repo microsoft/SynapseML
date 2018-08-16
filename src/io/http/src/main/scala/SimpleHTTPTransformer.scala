@@ -12,7 +12,6 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.{StringType, StructType}
-import org.apache.spark.ml.NamespaceInjections.pipelineModel
 
 object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
 
@@ -27,21 +26,21 @@ trait HasErrorCol extends Params {
 
 object ErrorUtils extends Serializable {
   protected val errorSchema: StructType = new StructType()
-    .add("response", StringType)
-    .add("status", StatusLineData.schema)
+    .add("response", StringType, nullable = true)
+    .add("status", StatusLineData.schema, nullable = true)
 
-  import HTTPResponseData._
   protected def addError(fromRow: Row => HTTPResponseData)(responseRow: Row): Option[Row] = {
-    val resp = fromRow(responseRow)
-    if (resp.statusLine.statusCode == 200) {
-      None
-    } else {
-      Some(Row(IOUtils.toString(resp.entity.content, "UTF-8"), resp.statusLine))
+    val respOpt = Option(responseRow).map(fromRow)
+    respOpt match {
+      case Some(resp) if resp.statusLine.statusCode == 200 => None
+      case Some(resp) =>
+        Some(Row(IOUtils.toString(resp.entity.content, "UTF-8"), resp.statusLine))
+      case None => None
     }
   }
 
   def nullifyResponse(errorRow: Row, responseRow: Row): Option[Row] = {
-    if (errorRow == null) {
+    if (errorRow == null && responseRow != null) {
       Some(responseRow)
     } else {
       None

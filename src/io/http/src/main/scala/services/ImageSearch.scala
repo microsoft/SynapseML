@@ -8,7 +8,7 @@ import java.net.URL
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.spark.binary.ConfUtils
-import org.apache.spark.ml.param.VectorizableParam
+import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, explode, udf}
@@ -74,29 +74,29 @@ class BingImageSearch(override val uid: String)
 
   setDefault(url -> "https://api.cognitive.microsoft.com/bing/v7.0/images/search")
 
-  override def inputFunc(schema: StructType): Row => HttpGet = {row =>
+  override def inputFunc(schema: StructType): Row => Option[HttpGet] = {row =>
     val allParams = getValueMap(row, Set(subscriptionKey)).mapValues(_.toString)
     val fullURL = url + "?" + URLEncodingUtils.format(allParams)
     val get = new HttpGet(fullURL)
     getValueOpt(row, subscriptionKey).foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get
+    Some(get)
   }
 
   override def responseDataType: DataType = BingImagesResponse.schema
 
-  val offset = new VectorizableParam[Int](this, "offset", "where to start searching from")
+  val offset = new ServiceParam[Int](this, "offset", "where to start searching from")
   def setOffsetCol(v: String): this.type = setVectorParam(offset, v)
   def setOffset(v: Int): this.type = setScalarParam(offset, v)
 
-  val query = new VectorizableParam[String](this, "query", "what to query bing for")
+  val query = new ServiceParam[String](this, "query", "what to query bing for")
   def setQuery(v: String): this.type = setScalarParam(query, v)
   def setQueryCol(v: String): this.type = setVectorParam(query, v)
 
-  val count = new VectorizableParam[Int](this, "count", "how many images to return")
+  val count = new ServiceParam[Int](this, "count", "how many images to return")
   def setCount(v: Int): this.type = setScalarParam(count, v)
   def setCountCol(v: String): this.type = setVectorParam(count, v)
 
-  val imageType = new VectorizableParam[String](this, "imageType", "the type of image")
+  val imageType = new ServiceParam[String](this, "imageType", "the type of image")
   def setImageType(v: String): this.type = setScalarParam(imageType, v)
   def setImageTypeCol(v: String): this.type = setVectorParam(imageType, v)
 

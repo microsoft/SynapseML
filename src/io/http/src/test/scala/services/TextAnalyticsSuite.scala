@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.{array, col, struct, typedLit}
 
 trait TextKey {
   val textKey = sys.env("TEXT_API_KEY")
@@ -101,8 +101,9 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
     ("en", "Hello world. This is some input text that I love."),
     ("fr", "Bonjour tout le monde"),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
-    ("", "ich bin ein berliner")
-
+    (null, "ich bin ein berliner"),
+    (null, null),
+    ("en", null)
   ).toDF("lang", "text")
 
   lazy val t: TextSentiment = new TextSentiment()
@@ -117,6 +118,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
       col("replies").getItem(0).getItem("score"))
       .select("score").collect().toList
 
+    assert(List(4,5).forall(results(_).get(0) == null))
     assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
   }
 
@@ -133,7 +135,8 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
     ("fr", "Bonjour tout le monde"),
-    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("en", null)
   ).toDF("lang", "text")
 
   lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
@@ -146,6 +149,8 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
     val results = t.transform(df).withColumn("phrases",
       col("replies").getItem(0).getItem("keyPhrases"))
       .select("phrases").collect().toList
+
+    println(results)
 
     assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
     assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
