@@ -98,12 +98,12 @@ class HTTPTransformer(val uid: String)
         Iterator()
       }else{
         val c = clientHolder.get
-        val responsesWithContext = c.sendRequestsWithContext(it.map(row =>
-          c.RequestWithContext(
-            fromRow(row.getStruct(colIndex)),
-            Some(row))))
-        responsesWithContext.map(rwc =>
-          Row.merge(rwc.context.get.asInstanceOf[Row], Row(toRow(rwc.response))))
+        val responsesWithContext = c.sendRequestsWithContext(it.map{row =>
+          c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
+        })
+        responsesWithContext.map { rwc =>
+          Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.map(toRow).orNull))
+        }
       }
     }(enc)
   }
@@ -112,7 +112,7 @@ class HTTPTransformer(val uid: String)
 
   def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.request)
-    schema.add(getOutputCol, HTTPSchema.response)
+    schema.add(getOutputCol, HTTPSchema.response, nullable=true)
   }
 
 }

@@ -34,7 +34,9 @@ private[ml] trait HTTPClient extends BaseClient
   }
 
   protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext = {
-    ResponseWithContext(handle(internalClient, request.request), request.context)
+    request.request.map(req =>
+      ResponseWithContext(Some(handle(internalClient, req)), request.context)
+    ).getOrElse(ResponseWithContext(None, request.context))
   }
 
 }
@@ -53,7 +55,7 @@ object HandlingUtils extends SparkLogging {
                               retriesLeft: Array[Int]): CloseableHttpResponse = {
     val response = client.execute(request)
     val code = response.getStatusLine.getStatusCode
-    val suceeded = code match {
+    val succeeded = code match {
       case 200 => true
       case 201 => true
       case 202 => true
@@ -75,7 +77,7 @@ object HandlingUtils extends SparkLogging {
         }}")
         false
     }
-    if (suceeded || retriesLeft.isEmpty) {
+    if (succeeded || retriesLeft.isEmpty) {
       response
     } else {
       response.close()

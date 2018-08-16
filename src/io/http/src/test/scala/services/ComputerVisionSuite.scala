@@ -53,7 +53,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
 
   lazy val df: DataFrame = Seq(
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", ""),
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null),
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
   ).toDF("url", "language")
 
@@ -71,8 +71,9 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   test("Basic Usage") {
     val fromRow = AIResponse.makeFromRowConverter
     val responses = ai.transform(df).select("features")
-      .collect().map(r => fromRow(r.getStruct(0)))
+      .collect().toList.map(r => fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
+    assert(responses(1).categories.get.head.name === "text_sign")
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeImage]] =

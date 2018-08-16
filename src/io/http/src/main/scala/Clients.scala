@@ -71,12 +71,12 @@ private[ml] trait BaseClient {
   protected type ResponseType
   protected type RequestType
 
-  case class ResponseWithContext(response: ResponseType, context: Context) {
-    def this(response: ResponseType) = this(response, None)
+  case class ResponseWithContext(response: Option[ResponseType], context: Context) {
+    def this(response: Option[ResponseType]) = this(response, None)
   }
 
-  case class RequestWithContext(request: RequestType, context: Context) {
-    def this(request: RequestType) = this(request, None)
+  case class RequestWithContext(request: Option[RequestType], context: Context) {
+    def this(request: Option[RequestType]) = this(request, None)
   }
 
   protected lazy val logger: Logger = LogManager.getLogger("BaseClient")
