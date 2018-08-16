@@ -3,21 +3,17 @@
 
 package com.microsoft.ml.spark
 
-import java.util.UUID
-
 import com.microsoft.ml.spark.schema.DatasetExtensions
-import org.apache.commons.lang3.StringEscapeUtils
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{BooleanParam, Param, VectorizableParam}
+import org.apache.spark.ml.param.{Param, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, _}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
-import spray.json._
+import org.apache.spark.sql.{Column, Row}
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 object TextAnalyticsUtils extends Serializable {
 
@@ -35,7 +31,7 @@ object TextAnalyticsUtils extends Serializable {
 abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalCustomInputParser with HasInternalJsonOutputParser {
 
-  val text = new VectorizableParam[Seq[String]](this, "text", "the text in the request body")
+  val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
 
   def setTextCol(v: String): this.type = setVectorParam(text, v)
 
@@ -43,9 +39,9 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setText(v: String): this.type = setScalarParam(text, Seq(v))
 
-  setDefault(text -> Right("text"))
+  setDefault(text -> ServiceParamData(Some(Right("text")), None))
 
-  val language = new VectorizableParam[Seq[String]](this, "language",
+  val language = new ServiceParam[Seq[String]](this, "language",
     "the language code of the text (optional for some services)")
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
@@ -74,28 +70,31 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       .add("errors", ArrayType(TAError.schema))
   }
 
-  override protected def inputFunc(schema: StructType): Row => HttpRequestBase = {
+  override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
-      import TAJSONFormat._
-      val post = new HttpPost(getUrl)
-      getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-      post.setHeader("Content-Type", "application/json")
-      val texts = getValue(row, text)
+      if (shouldSkip(row)) {
+        None
+      } else if (getValue(row, text).forall(Option(_).isEmpty)){
+        None
+      }else{
+        import TAJSONFormat._
+        val post = new HttpPost(getUrl)
+        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        post.setHeader("Content-Type", "application/json")
+        val texts = getValue(row, text)
 
-      val defaultLanguageCode = getOrDefault(defaultLanguage)
+        val defaultLanguageCode = getOrDefault(defaultLanguage)
 
-      val languages = getValueOpt(row, language, Some(Array.fill(texts.length)(defaultLanguageCode).toSeq)).map { seq =>
-        seq.toArray.map(lang => if(lang == null || lang.isEmpty) defaultLanguageCode else lang)
+        val languages = getValueOpt(row, language).map { seq =>
+          seq.toArray.map(lang => if(lang == null || lang.isEmpty) defaultLanguageCode else lang)
+        }
+        val documents = texts.zipWithIndex.map { case (t, i) =>
+          TADocument(Option(languages.map(ls => ls(i)).orNull), i.toString, Option(t).getOrElse(""))
+        }
+        val json = TARequest(documents).toJson.compactPrint
+        post.setEntity(new StringEntity(json, "UTF-8"))
+        Some(post)
       }
-      val documents = texts.zipWithIndex.map { case (t, i) => TADocument(
-        Option(languages.map(ls => ls(i)).orNull),
-        i.toString,
-        t
-      )
-      }
-      val json = TARequest(documents).toJson.compactPrint
-      post.setEntity(new StringEntity(json, "UTF-8"))
-      post
     }
   }
 
@@ -124,15 +123,17 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       col(newCol).alias(oldCol)
     }.toSeq
 
-    val unpackBatchUDF = udf({ row: Row =>
-      val documents = row.getSeq[Row](0).map(doc => (doc.getString(0).toInt, doc)).toMap
-      val errors = row.getSeq[Row](1).map(err => (err.getString(0).toInt, err)).toMap
-      val rows: Seq[Row] = (0 until (documents.size + errors.size)).map(i =>
-        documents.get(i)
-          .map(doc => Row(doc.get(1), None))
-          .getOrElse(Row(None, errors(i).getString(1)))
-      )
-      rows
+    val unpackBatchUDF = udf({ rowOpt: Row =>
+      Option(rowOpt).map{ row =>
+        val documents = row.getSeq[Row](0).map(doc => (doc.getString(0).toInt, doc)).toMap
+        val errors = row.getSeq[Row](1).map(err => (err.getString(0).toInt, err)).toMap
+        val rows: Seq[Row] = (0 until (documents.size + errors.size)).map(i =>
+          documents.get(i)
+            .map(doc => Row(doc.get(1), None))
+            .getOrElse(Row(None, errors(i).getString(1)))
+        )
+        rows
+      }
     }, ArrayType(
       new StructType()
         .add(
@@ -167,8 +168,8 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
 }
 
-trait HasLanguage extends HasVectorizableParams {
-  val language = new VectorizableParam[String](this, "language", "the language to use")
+trait HasLanguage extends HasServiceParams {
+  val language = new ServiceParam[String](this, "language", "the language to use")
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 

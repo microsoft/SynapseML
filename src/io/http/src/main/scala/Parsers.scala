@@ -107,6 +107,10 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
     setUDF(udf({ x: T => new HTTPRequestData(f(x)) }, HTTPSchema.request))
   }
 
+  def setNullableUDF[T](f: T => Option[HttpRequestBase]): this.type = {
+    setUDF(udf({ x: T => f(x).map(new HTTPRequestData(_)) }, HTTPSchema.request))
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     val parseInputExpression = {
       (get(udfScala), get(udfPython)) match {

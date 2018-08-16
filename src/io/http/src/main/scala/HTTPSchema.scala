@@ -234,7 +234,7 @@ object HTTPSchema {
   private val entity_to_string_udf: UserDefinedFunction = {
     val fromRow = EntityData.makeFromRowConverter
     udf({ x: Row =>
-      val sOpt = Option(x).map(r => entityToString(fromRow(r)))
+      val sOpt = Option(x).flatMap(r => entityToString(fromRow(r)))
       sOpt.orNull
     }, StringType)
   }

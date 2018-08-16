@@ -8,7 +8,7 @@ import java.lang.IllegalArgumentException
 import spray.json._
 import spray.json.JsonFormat
 
-object SafeDefaultJsonProtocol extends DefaultJsonProtocol {
+object ServiceParamJsonProtocol extends DefaultJsonProtocol {
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
     new JsonFormat[Either[A, B]] {
       def write(either: Either[A, B]): JsValue = either match {
@@ -22,6 +22,9 @@ object SafeDefaultJsonProtocol extends DefaultJsonProtocol {
         case _ => throw new IllegalArgumentException("Could not parse either type")
       }
     }
+
+  implicit def serviceParamDataFormat[T: JsonFormat]: JsonFormat[ServiceParamData[T]] =
+    jsonFormat2(ServiceParamData.apply)
 }
 
 class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: T => Boolean)
@@ -41,13 +44,19 @@ class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: 
 
 }
 
-import SafeDefaultJsonProtocol._
+case class ServiceParamData[T](
+                           data: Option[Either[T, String]],
+                           default: Option[T])
 
-class VectorizableParam[T](parent: Params, name: String, doc: String, isValid: Either[T, String] => Boolean)
+import ServiceParamJsonProtocol._
+
+class ServiceParam[T](parent: Params,
+                      name: String,
+                      doc: String,
+                      isValid: ServiceParamData[T] => Boolean = ParamValidators.alwaysTrue,
+                      val isRequired: Boolean = false,
+                      val isURLParam: Boolean = false,
+                      val toValueString: T => String = {x: T => x.toString}
+                     )
                           (@transient implicit val dataFormat: JsonFormat[T])
-  extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid) {
-
-  def this(parent: Params, name: String, doc: String)(implicit format: JsonFormat[T]) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
-
-}
+  extends JsonEncodableParam[ServiceParamData[T]](parent, name, doc, isValid)
