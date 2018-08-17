@@ -26,14 +26,14 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
   /** Comma separated list of columns whose type will be converted
     * @group param
     */
-  val col: Param[String] = StringParam(this, "col",
-    "Comma separated list of columns whose type will be converted", "")
+  val cols: StringArrayParam = new StringArrayParam(this, "cols",
+    "Comma separated list of columns whose type will be converted")
 
   /** @group getParam */
-  final def getCol: String = $(col)
+  final def getCols: Array[String] = $(cols)
 
   /** @group setParam */
-  def setCol(value: String): this.type = set(col, value)
+  def setCols(value: Array[String]): this.type = set(cols, value)
 
   /** The result type
     * @group param
@@ -64,10 +64,9 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    require($(col) != null, "No column name specified")
     require(dataset != null, "No dataset supplied")
     require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
-    val colsList = $(col).split(",").map(_.trim)
+    val colsList = $(cols).map(_.trim)
     val errorList = verifyCols(dataset.toDF(), colsList)
     if (errorList.nonEmpty) {
       throw new NoSuchElementException
@@ -96,18 +95,6 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
       df
     }
     res
-  }
-
-  /** Transforms the dataset
-    * @param dataset The input dataset, to be transformed
-    * @param paramMap ParamMap which contains parameter value to override the default value
-    * @return the DataFrame that results from data conversion
-    */
-  override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
-    setCol(paramMap.getOrElse(new Param("col", "col","Name of column whose type will be converted"), ""))
-    setConvertTo(paramMap.getOrElse(new Param("convertTo", "convertTo","Result type"), ""))
-    setDateTimeFormat(paramMap.getOrElse(new Param("dateTimeFormat", "dateTimeFormat", "Time string format"), ""))
-    transform(dataset)
   }
 
   /** Transform the schema

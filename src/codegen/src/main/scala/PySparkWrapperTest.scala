@@ -175,7 +175,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
       entryPointName match {
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
            | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
-        case "DataConversion"      => "col=\"col1\", convertTo=\"double\""
+        case "DataConversion"      => "cols=[\"col1\"], convertTo=\"double\""
         case "DropColumns"         => "cols=[\"col1\"]"
         case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
         case "FastVectorAssembler" => "inputCols=\"col1\""
