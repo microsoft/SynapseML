@@ -52,12 +52,12 @@ class VerifyDataConversions extends TestBase {
   Types tested are boolean, Byte, Short, Int, Long, Float, Double, and string
   */
   test("Test convert all types to Boolean") {
-    val r1 = new DataConversion().setCol("byte").setConvertTo("boolean").transform(masterInDF)
-    val r2 = new DataConversion().setCol("short").setConvertTo("boolean").transform(r1)
-    val r3 = new DataConversion().setCol("int").setConvertTo("boolean").transform(r2)
-    val r4 = new DataConversion().setCol("long").setConvertTo("boolean").transform(r3)
-    val r5 = new DataConversion().setCol("float").setConvertTo("boolean").transform(r4)
-    val r6 = new DataConversion().setCol("double").setConvertTo("boolean").transform(r5)
+    val r1 = new DataConversion().setCols(Array("byte")).setConvertTo("boolean").transform(masterInDF)
+    val r2 = new DataConversion().setCols(Array("short")).setConvertTo("boolean").transform(r1)
+    val r3 = new DataConversion().setCols(Array("int")).setConvertTo("boolean").transform(r2)
+    val r4 = new DataConversion().setCols(Array("long")).setConvertTo("boolean").transform(r3)
+    val r5 = new DataConversion().setCols(Array("float")).setConvertTo("boolean").transform(r4)
+    val r6 = new DataConversion().setCols(Array("double")).setConvertTo("boolean").transform(r5)
     val expectedRes = Seq(( true, true, true, true, true, true, true, "7", "8.0"),
       (false, true, true, true, true, true, true, "16", "17.456"),
       (true, true, true, true, true, true, true, "100", "200.12345"))
@@ -75,7 +75,7 @@ class VerifyDataConversions extends TestBase {
   */
   test("Test convert string to boolean throws an exception") {
     assertThrows[Exception] {
-      new DataConversion().setCol("intstring").setConvertTo("boolean").transform(masterInDF)
+      new DataConversion().setCols(Array("intstring")).setConvertTo("boolean").transform(masterInDF)
     }
   }
 
@@ -177,23 +177,23 @@ class VerifyDataConversions extends TestBase {
   // Test convert to categorical:
   test("Test convert to categorical") {
     val inDF = Seq(("piano", 1, 2), ("drum", 3, 4), ("guitar", 5, 6)).toDF("instruments", "c1", "c2")
-    val res = new DataConversion().setCol("instruments").setConvertTo("toCategorical").transform(inDF)
+    val res = new DataConversion().setCols(Array("instruments")).setConvertTo("toCategorical").transform(inDF)
     assert(SparkSchema.isCategorical(res, "instruments"))
   }
 
   // Test clearing categorical
   test("Test that categorical features will be cleared") {
     val inDF = Seq(("piano", 1, 2), ("drum", 3, 4), ("guitar", 5, 6)).toDF("instruments", "c1", "c2")
-    val res = new DataConversion().setCol("instruments").setConvertTo("toCategorical").transform(inDF)
+    val res = new DataConversion().setCols(Array("instruments")).setConvertTo("toCategorical").transform(inDF)
     assert(SparkSchema.isCategorical(res, "instruments"))
-    val res2 = new DataConversion().setCol("instruments").setConvertTo("clearCategorical").transform(res)
+    val res2 = new DataConversion().setCols(Array("instruments")).setConvertTo("clearCategorical").transform(res)
     assert(!SparkSchema.isCategorical(res2, "instruments"))
     assert(inDF.except(res2).count == 0)
   }
 
   // Verify that a TimestampType is converted to a LongType
   test("Test timestamp to long conversion") {
-    val res = new DataConversion().setCol("Col0").setConvertTo("long")
+    val res = new DataConversion().setCols(Array("Col0")).setConvertTo("long")
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(tsDF)
     assert(res.schema("Col0").dataType == LongType)
     assert(lDF.except(res).count == 0)
@@ -201,30 +201,31 @@ class VerifyDataConversions extends TestBase {
 
   // Test the reverse - long to timestamp
   test("Test long to timestamp conversion") {
-    val res = new DataConversion().setCol("Col0").setConvertTo("date")
+    val res = new DataConversion().setCols(Array("Col0")).setConvertTo("date")
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(lDF)
     assert(res.schema("Col0").dataType == TimestampType)
     assert(tsDF.except(res).count == 0)
   }
 
   test("Test timestamp to string conversion") {
-    val res = new DataConversion().setCol("Col0").setConvertTo("string")
+    val res = new DataConversion().setCols(Array("Col0")).setConvertTo("string")
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(tsDF)
     assert(res.schema("Col0").dataType == StringType)
     assert(sDF.except(res).count == 0)
   }
 
   test("Test date string to timestamp conversion") {
-    val res = new DataConversion().setCol("Col0").setConvertTo("date")
+    val res = new DataConversion().setCols(Array("Col0")).setConvertTo("date")
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(sDF)
-    val res2 = new DataConversion().setCol("Col0").setConvertTo("long")
+    val res2 = new DataConversion().setCols(Array("Col0")).setConvertTo("long")
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(res)
     assert(res.schema("Col0").dataType == TimestampType)
     assert(tsDF.except(res).count == 0)
   }
 
   def generateRes(convTo: String, inDF: DataFrame): DataFrame = {
-    val result = new DataConversion().setCol("bool, byte, short, int, long, float, double, intstring, doublestring")
+    val result = new DataConversion()
+      .setCols(Array("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring"))
       .setConvertTo(convTo).transform(masterInDF)
     result
   }
