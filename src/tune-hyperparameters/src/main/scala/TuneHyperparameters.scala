@@ -29,6 +29,7 @@ import scala.util.control.NonFatal
   * Allows user to specify multiple untrained models to tune using various search strategies.
   * Currently supports cross validation with random grid search.
   */
+@InternalWrapper
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
   with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
 
@@ -191,6 +192,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
 object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 
 /** Model produced by [[TuneHyperparameters]]. */
+@InternalWrapper
 class TuneHyperparametersModel(val uid: String,
                                val model: Transformer,
                                val bestMetric: Double)

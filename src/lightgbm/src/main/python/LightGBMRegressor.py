@@ -9,7 +9,7 @@ if sys.version >= '3':
     basestring = str
 
 from mmlspark._LightGBMRegressor import _LightGBMRegressor
-from mmlspark._LightGBMRegressor import M
+from mmlspark._LightGBMRegressor import _LightGBMRegressionModel
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc
@@ -21,7 +21,7 @@ class LightGBMRegressor(_LightGBMRegressor):
         return model
 
 @inherit_doc
-class LightGBMRegressionModel(M):
+class LightGBMRegressionModel(_LightGBMRegressionModel):
     def saveNativeModel(self, sparkSession, filename):
         """
         Save the booster as string format to a local or WASB remote location.

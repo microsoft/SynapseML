@@ -9,7 +9,7 @@ if sys.version >= '3':
     basestring = str
 
 from mmlspark._LightGBMClassifier import _LightGBMClassifier
-from mmlspark._LightGBMClassifier import M
+from mmlspark._LightGBMClassifier import _LightGBMClassificationModel
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc
@@ -21,7 +21,7 @@ class LightGBMClassifier(_LightGBMClassifier):
         return model
 
 @inherit_doc
-class LightGBMClassificationModel(M):
+class LightGBMClassificationModel(_LightGBMClassificationModel):
     def saveNativeModel(self, sparkSession, filename):
         """
         Save the booster as string format to a local or WASB remote location.
