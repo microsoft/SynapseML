@@ -73,16 +73,18 @@ case class AIAdult(isAdultContent: Boolean,
 
 case class AITag(name: String, confidence: Double)
 
-case class AIDescription(tags: Seq[String], captions: Seq[AITag])
+case class AICaption(text: String, confidence: Double)
+
+case class AIDescription(tags: Seq[String], captions: Seq[AICaption])
 
 case class AIMetadata(width: Int, height: Int, format: String)
 
-case class AIFace(age: Int, gender: Int, faceRectangle: DSIRRectangle)
+case class AIFace(age: Int, gender: String, faceRectangle: DSIRRectangle)
 
 case class AIColor(dominantColorForeground: String,
                    dominantColorBackground: String,
                    dominantColors: Seq[String],
                    accentColor: String,
-                   isBWImg: Option[Boolean])
+                   isBwImg: Option[Boolean])
 
 case class AIImageType(clipArtType: Int, lineDrawingType: Int)
