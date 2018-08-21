@@ -5,8 +5,9 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.NameValuePair
-import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
+import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -14,10 +15,10 @@ import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol.StringJsonFormat
-import scala.language.existentials
 
 import scala.collection.JavaConverters._
+import scala.language.existentials
+import spray.json.DefaultJsonProtocol._
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -72,19 +73,24 @@ trait HasServiceParams extends Params {
     setScalarParam(this.getParam(name).asInstanceOf[ServiceParam[T]], value)
   }
 
-  def getVectorParamMap: Map[String, String] = this.params.flatMap {
+  protected def getVectorParamMap: Map[String, String] = this.params.flatMap {
     case p: ServiceParam[_] =>
       get(p).orElse(getDefault(p)).flatMap(v =>
         v.data.flatMap(_.right.toOption.map(colname => (p.name, colname))))
     case _ => None
   }.toMap
 
-  def getRequiredParams: Array[ServiceParam[_]] = this.params.filter {
+  protected def getRequiredParams: Array[ServiceParam[_]] = this.params.filter {
     case p:ServiceParam[_] if p.isRequired => true
     case _ => false
   }.map(_.asInstanceOf[ServiceParam[_]])
 
-  def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
+  protected def getUrlParams: Array[ServiceParam[_]] = this.params.filter {
+    case p:ServiceParam[_] if p.isURLParam => true
+    case _ => false
+  }.map(_.asInstanceOf[ServiceParam[_]])
+
+  protected def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
     val value = get(p).orElse(getDefault(p)).get
     value match {
       case ServiceParamData(_,Some(_)) => false
@@ -95,7 +101,7 @@ trait HasServiceParams extends Params {
     }
   }
 
-  def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
+  protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
     get(p).orElse(getDefault(p)).flatMap {param =>
       param.data.flatMap {
         case Right(colName) => Option(row.getAs[T](colName))
@@ -104,10 +110,10 @@ trait HasServiceParams extends Params {
     }
   }
 
-  def getValue[T](row: Row, p: ServiceParam[T]): T =
+  protected def getValue[T](row: Row, p: ServiceParam[T]): T =
     getValueOpt(row, p).get
 
-  def getValueAnyOpt(row: Row, p: ServiceParam[_]): Option[Any] = {
+  protected def getValueAnyOpt(row: Row, p: ServiceParam[_]): Option[Any] = {
     get(p).orElse(getDefault(p)).map {param =>
       param.data.flatMap {
         case Right(colName) => Option(row.get(row.fieldIndex(colName)))
@@ -116,10 +122,10 @@ trait HasServiceParams extends Params {
     }
   }
 
-  def getValueAny(row: Row, p: ServiceParam[_]): Any =
+  protected def getValueAny(row: Row, p: ServiceParam[_]): Any =
     getValueAnyOpt(row, p).get
 
-  def getValueMap(row: Row, excludes: Set[ServiceParam[_]] = Set()): Map[String, Any] = {
+  protected def getValueMap(row: Row, excludes: Set[ServiceParam[_]] = Set()): Map[String, Any] = {
     this.params.flatMap {
       case p: ServiceParam[_] if !excludes(p) =>
         getValueOpt(row, p).map(v => (p.name, v))
@@ -155,9 +161,36 @@ object URLEncodingUtils {
   }
 }
 
-trait HasInternalCustomInputParser {
+trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
-  protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase]
+  protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] = getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    {row: Row =>
+      getUrl + "?" + URLEncodingUtils.format(
+        urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name->p.toValueString(v))
+        ).toMap)
+    }
+  }
+
+  protected def prepareEntity: Row => Option[AbstractHttpEntity]
+
+  protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
+    val rowToUrl = prepareUrl
+    val rowToEntity = prepareEntity;
+    {row: Row =>
+      if (shouldSkip(row)){
+        None
+      }else{
+        val post = new HttpPost(rowToUrl(row))
+        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        post.setHeader("Content-Type", "application/json")
+        rowToEntity(row).foreach(post.setEntity)
+        Some(post)
+      }
+    }
+  }
 
   protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
     new CustomInputParser().setNullableUDF(inputFunc(schema))
