@@ -141,7 +141,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 
   test("Basic Usage") {
     val model = pipelineModel(Array(
-      celeb, RecognizeDomainSpecificContent.getProbableCeleb("celebs", "celebs")))
+      celeb, RecognizeDomainSpecificContent.getMostProbableCeleb("celebs", "celebs")))
     val results = model.transform(df)
     assert(results.head().getString(2) === "Leonardo DiCaprio")
   }
@@ -149,7 +149,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   override implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame]{
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
       case b:Dataset[_] =>
-        val t = RecognizeDomainSpecificContent.getProbableCeleb("celebs", "celebs")
+        val t = RecognizeDomainSpecificContent.getMostProbableCeleb("celebs", "celebs")
         baseDfEq.areEqual(t.transform(a), t.transform(b))
     }
   }

@@ -8,10 +8,10 @@ import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.HandlingUtils._
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
-import org.apache.http.entity.StringEntity
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param.{Param, ServiceParam, ServiceParamData}
+import org.apache.spark.ml.param.{ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.udf
@@ -21,7 +21,7 @@ import spray.json._
 
 trait HasImageUrl extends HasServiceParams {
   val imageUrl = new ServiceParam[String](
-    this, "imageUrl", "the url of the image to use")
+    this, "imageUrl", "the url of the image to use", isRequired = true)
 
   def getImageUrl: String = getScalarParam(imageUrl)
 
@@ -49,7 +49,7 @@ trait HasDetectOrientation extends HasServiceParams {
 
 trait HasWidth extends HasServiceParams {
   val width = new ServiceParam[Int](
-    this, "width", "the desired width of the image")
+    this, "width", "the desired width of the image", isURLParam = true)
 
   def getWidth: Int = getScalarParam(width)
 
@@ -63,7 +63,7 @@ trait HasWidth extends HasServiceParams {
 
 trait HasHeight extends HasServiceParams {
   val height = new ServiceParam[Int](
-    this, "height", "the desired height of the image")
+    this, "height", "the desired height of the image", isURLParam = true)
 
   def getHeight: Int = getScalarParam(height)
 
@@ -77,7 +77,7 @@ trait HasHeight extends HasServiceParams {
 
 trait HasSmartCropping extends HasServiceParams {
   val smartCropping = new ServiceParam[Boolean](
-    this, "smartCropping", "whether to intelligently crop the image")
+    this, "smartCropping", "whether to intelligently crop the image", isURLParam = true)
 
   def getSmartCropping: Boolean = getScalarParam(smartCropping)
 
@@ -112,7 +112,7 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
 
 class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageUrl with HasDetectOrientation
-  with HasInternalCustomInputParser with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
 
   def this() = this(Identifiable.randomUID("OCR"))
 
@@ -121,18 +121,13 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
 
   def setDefaultLanguage(v: String): this.type = setDefaultValue(language, v)
 
-  def inputFunc(schema: StructType): Row => Option[HttpPost] = {
-    row: Row =>
-    val post = new HttpPost(getUrl)
-    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-    post.setHeader("Content-Type", "application/json")
+  override def prepareEntity: Row => Option[AbstractHttpEntity] = {row =>
     val body: Map[String, String] = List(
       getValueOpt(row, detectOrientation).map(v => "detectOrientation" -> v.toString),
       Some("url" -> getValue(row, imageUrl)),
       getValueOpt(row, language).map(lang => "language" -> lang)
     ).flatten.toMap
-    post.setEntity(new StringEntity(body.toJson.compactPrint))
-    Some(post)
+    Some(new StringEntity(body.toJson.compactPrint))
   }
 
   override def responseDataType: DataType = OCRResponse.schema
@@ -140,7 +135,7 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
 
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseWithoutHandler(uid)
-    with HasImageUrl with HasInternalCustomInputParser
+    with HasImageUrl with HasCognitiveServiceInput
     with HasInternalJsonOutputParser {
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
@@ -152,7 +147,7 @@ class RecognizeText(override val uid: String)
     {spd: ServiceParamData[String] => spd.data.get match {
       case Left(_) => true
       case Right(s) => Set("Printed", "Handwritten")(s)
-    }})
+    }}, isURLParam = true)
 
   def getMode: String = getScalarParam(mode)
 
@@ -165,16 +160,8 @@ class RecognizeText(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
 
-  def inputFunc(schema: StructType): Row => Option[HttpPost] = { row: Row =>
-    val post = new HttpPost(getUrl + "?mode=" + getValue(row, mode))
-    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-    post.setHeader("Content-Type", "application/json")
-    val body: Map[String, String] = Map(
-      "url" -> getValue(row, imageUrl)
-    )
-    post.setEntity(new StringEntity(body.toJson.compactPrint))
-    Some(post)
-  }
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+    { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 
   private def queryForResult(key: Option[String],
                              client: CloseableHttpClient,
@@ -241,24 +228,12 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasInternalCustomInputParser {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
-  def inputFunc(schema: StructType): Row => Option[HttpPost] = { row: Row =>
-    val fullURL = getUrl + "?" + URLEncodingUtils
-      .format(List(
-        Some("width" -> getValue(row, width).toString),
-        Some("height" -> getValue(row, height).toString),
-        getValueOpt(row, smartCropping).map("smartCropping" -> _.toString)
-      ).flatten.toMap)
-    val post = new HttpPost(fullURL)
-    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-    post.setHeader("Content-Type", "application/json")
-    val body = Map("url" -> getValue(row, imageUrl))
-    post.setEntity(new StringEntity(body.toJson.compactPrint))
-    Some(post)
-  }
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+    { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 
   override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.content })
@@ -273,7 +248,7 @@ class GenerateThumbnails(override val uid: String)
 
 class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl
-    with HasInternalJsonOutputParser with HasInternalCustomInputParser {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
@@ -282,7 +257,9 @@ class AnalyzeImage(override val uid: String)
         "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"
       ))
       case _ => true
-    }}
+    }},
+    isURLParam = true,
+    toValueString = {seq => seq.mkString(",")}
   )
 
   def getVisualFeatures: Seq[String] = getScalarParam(visualFeatures)
@@ -298,7 +275,9 @@ class AnalyzeImage(override val uid: String)
     {spd: ServiceParamData[Seq[String]] => spd.data.get match {
       case Left(seq) => seq.forall(Set("Celebrities", "Landmarks"))
       case _ => true
-    }}
+    }},
+    isURLParam = true,
+    toValueString = {seq => seq.mkString(",")}
   )
 
   def getDetails: Seq[String] = getScalarParam(details)
@@ -310,7 +289,7 @@ class AnalyzeImage(override val uid: String)
   def setDetailsCol(v: String): this.type = setVectorParam(details, v)
 
   val language = new ServiceParam[String](
-    this, "language", "the language of the response (en if none given)"
+    this, "language", "the language of the response (en if none given)", isURLParam = true
   )
 
   def getLanguage: String = getScalarParam(language)
@@ -327,46 +306,21 @@ class AnalyzeImage(override val uid: String)
 
   def this() = this(Identifiable.randomUID("AnalyzeImage"))
 
-  def inputFunc(schema: StructType): Row => Option[HttpPost] = { row: Row =>
-    val fullURL = getUrl + "?" + URLEncodingUtils
-      .format(List(
-        getValueOpt(row, visualFeatures).map("visualFeatures" -> _.mkString(",")),
-        getValueOpt(row, details).map("details" -> _.mkString(",")),
-        getValueOpt(row, language).map(lang => "language" -> lang)
-      ).flatten.toMap)
-    val post = new HttpPost(fullURL)
-    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-    post.setHeader("Content-Type", "application/json")
-    val body = Map("url" -> getValue(row, imageUrl))
-    post.setEntity(new StringEntity(body.toJson.compactPrint))
-    Some(post)
-  }
-
   override def responseDataType: DataType = AIResponse.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+    { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 }
 
 object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 object RecognizeDomainSpecificContent
   extends ComplexParamsReadable[RecognizeDomainSpecificContent] with Serializable {
-  def getInputFunc(url: String,
-                   subscriptionKey: Option[String],
-                   staticParams: Map[String, String]): Row => HttpPost = {
-    { dynamicParamRow: Row =>
-      val allParams = staticParams ++ dynamicParamRow.getValuesMap(dynamicParamRow.schema.fieldNames)
-      import spray.json.DefaultJsonProtocol._
-      val post = new HttpPost(url + s"/models/${allParams("model")}/analyze")
-      subscriptionKey.foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-      post.setHeader("Content-Type", "application/json")
-      post.setEntity(new StringEntity(Map("url" -> allParams("url")).toJson.compactPrint))
-      post
-    }
-  }
 
-  def getProbableCeleb(inputCol: String, outputCol: String): UDFTransformer = {
+  def getMostProbableCeleb(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = DSIRResponse.makeFromRowConverter
     new UDFTransformer()
       .setUDF(udf(
@@ -386,7 +340,7 @@ object RecognizeDomainSpecificContent
 
 class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
-    with HasInternalCustomInputParser with HasInternalJsonOutputParser {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser {
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
@@ -397,16 +351,15 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   def setModelCol(v: String): this.type = setVectorParam(model, v)
 
-  override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { row: Row =>
-    val post = new HttpPost(getUrl + s"/models/${getValue(row, model)}/analyze")
-    getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-    post.setHeader("Content-Type", "application/json")
-    post.setEntity(new StringEntity(Map("url" -> getValue(row, imageUrl)).toJson.compactPrint))
-    Some(post)
-  }
-
   override def responseDataType: DataType = DSIRResponse.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0")
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+    { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
+
+  override protected def prepareUrl: Row => String =
+  {r => getUrl + s"/models/${getValue(r, model)}/analyze"}
+
 }

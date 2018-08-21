@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
-import org.apache.http.entity.StringEntity
+import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.param.{Param, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
@@ -29,7 +29,7 @@ object TextAnalyticsUtils extends Serializable {
 }
 
 abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasInternalCustomInputParser with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
 
   val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
 
@@ -97,6 +97,8 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       }
     }
   }
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)

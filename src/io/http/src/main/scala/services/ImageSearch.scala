@@ -7,6 +7,7 @@ import java.net.URL
 
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
+import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.binary.ConfUtils
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
@@ -68,7 +69,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 @InternalWrapper
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
-  with HasInternalCustomInputParser with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 
@@ -100,4 +101,5 @@ class BingImageSearch(override val uid: String)
   def setImageType(v: String): this.type = setScalarParam(imageType, v)
   def setImageTypeCol(v: String): this.type = setVectorParam(imageType, v)
 
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
 }
