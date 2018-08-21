@@ -59,4 +59,6 @@ class ServiceParam[T](parent: Params,
                       val toValueString: T => String = {x: T => x.toString}
                      )
                           (@transient implicit val dataFormat: JsonFormat[T])
-  extends JsonEncodableParam[ServiceParamData[T]](parent, name, doc, isValid)
+  extends JsonEncodableParam[ServiceParamData[T]](parent, name, doc, isValid) {
+  type ValueType = T
+}
