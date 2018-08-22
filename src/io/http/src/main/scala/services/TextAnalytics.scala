@@ -50,12 +50,9 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
 
-  val defaultLanguage = new Param[String](this, "defaultLanguage",
-    "the default language code to use if no language option is provided (optional for some services)")
+  def setDefaultLanguage(v: String): this.type = setDefaultValue(language, Seq(v))
 
-  def setDefaultLanguage(v: String): this.type = set(defaultLanguage, v)
-
-  setDefault(defaultLanguage, "en")
+  setDefault(language -> ServiceParamData(None, Some(Seq("en"))))
 
   protected def innerResponseDataType: StructType =
     responseDataType("documents").dataType match {
@@ -83,13 +80,13 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         post.setHeader("Content-Type", "application/json")
         val texts = getValue(row, text)
 
-        val defaultLanguageCode = getOrDefault(defaultLanguage)
-
-        val languages = getValueOpt(row, language).map { seq =>
-          seq.toArray.map(lang => if(lang == null || lang.isEmpty) defaultLanguageCode else lang)
+        val languages = getValueOpt(row, language) match {
+          case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
+          case s => s
         }
+
         val documents = texts.zipWithIndex.map { case (t, i) =>
-          TADocument(Option(languages.map(ls => ls(i)).orNull), i.toString, Option(t).getOrElse(""))
+          TADocument(languages.map(ls => ls(i)), i.toString, Option(t).getOrElse(""))
         }
         val json = TARequest(documents).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
