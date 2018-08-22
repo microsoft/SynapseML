@@ -122,6 +122,19 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
     assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
   }
 
+  test("batch usage"){
+    val t = new TextSentiment()
+      .setSubscriptionKey(textKey)
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setLanguage("en")
+      .setOutputCol("score")
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
+    val tdf = t.transform(batchedDF)
+    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
+    assert(replies.length == 6)
+  }
+
   override def testObjects(): Seq[TestObject[TextSentiment]] =
     Seq(new TestObject[TextSentiment](t, df))
 
