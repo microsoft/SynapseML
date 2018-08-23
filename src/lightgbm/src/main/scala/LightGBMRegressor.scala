@@ -72,7 +72,7 @@ class LightGBMRegressor(override val uid: String)
     log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers)
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString)
     val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,

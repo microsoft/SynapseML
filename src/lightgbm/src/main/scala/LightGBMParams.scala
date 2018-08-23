@@ -88,4 +88,9 @@ trait LightGBMParams extends MMLParams {
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
+
+  val modelString = StringParam(this, "modelString", "LightGBM model to retrain", "")
+
+  def getModelString: String = $(modelString)
+  def setModelString(value: String): this.type = set(modelString, value)
 }
