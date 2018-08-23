@@ -4,11 +4,13 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.execution.streaming.{HTTPSinkProvider, HTTPSourceProvider}
-import org.apache.spark.sql.functions.{col, length, to_json, struct}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.StringType
 
 import scala.util.parsing.json.JSONObject
 
@@ -20,13 +22,13 @@ class HTTPSuite extends TestBase with WithFreeUrl {
       .option("port", port.toString)
       .option("name", apiName)
       .load()
-      .withColumn("newCol", length(col("value")))
-      .withColumn("newCol", to_json(struct("newCol")))
+      .withColumn("contentLength", col("request.entity.contentLength"))
+      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
       .writeStream
       .format(classOf[HTTPSinkProvider].getName)
       .option("name", "foo")
       .queryName("foo")
-      .option("replyCol", "newCol")
+      .option("replyCol", "reply")
       .option("checkpointLocation", new File(tmpDir.toFile, "checkpoints").toString)
       .start()
 
@@ -55,7 +57,7 @@ class HTTPSuite extends TestBase with WithFreeUrl {
     posts.zip(correctResponses).foreach { p =>
       val recieved = receiveRequest(p._1)
       println((p._1, p._2, recieved))
-      assert(recieved === "{\"newCol\":" + p._2 + "}")
+      assert(recieved === p._2.toString)
     }
     q1.stop()
   }

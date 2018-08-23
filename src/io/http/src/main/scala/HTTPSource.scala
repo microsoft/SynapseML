@@ -4,8 +4,10 @@
 package org.apache.spark.sql.execution.streaming
 
 import java.net.{InetAddress, InetSocketAddress}
-import javax.annotation.concurrent.GuardedBy
+import java.util.UUID
 
+import javax.annotation.concurrent.GuardedBy
+import com.microsoft.ml.spark.{HTTPRequestData, HTTPResponseData, HTTPSchema, HeaderData}
 import com.microsoft.ml.spark.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
@@ -21,20 +23,21 @@ import org.apache.spark.unsafe.types.UTF8String
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-object HTTPSource {
-
-  val SCHEMA = StructType(
-    StructField("id", LongType) ::
-      StructField("value", StringType) :: Nil)
-
-  def respond(request: HttpExchange, code: Int, response: String): Unit = {
-    request.sendResponseHeaders(code, response.length.toLong)
-    using(request.getResponseBody) {
-      _.write(response.getBytes)
-    }.get
+object HTTPServerUtils {
+  val SCHEMA: StructType = {
+    new StructType().add("id", StringType).add(StructField("request", HTTPSchema.request))
   }
 
-  var replyCallbacks: mutable.Map[String, Iterable[(Long, String)] => Unit] = mutable.Map()
+  def respond(request: HttpExchange, data: HTTPResponseData): Unit = {
+    data.respondToHTTPExchange(request)
+  }
+}
+
+object HTTPSource {
+
+  // Global datastructure that holds the callbacks (function taking request ID and data and sends response)
+  // for the server (keys are server names)
+  var replyCallbacks: mutable.Map[String, (String, HTTPResponseData) => Unit] = mutable.Map()
 
 }
 
@@ -47,25 +50,10 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
 
   class QueueHandler extends HttpHandler {
 
-    private def getBody(request: HttpExchange) = {
-      using(request.getRequestBody) {
-        IOUtils.toString(_, "UTF-8")
-      }.get
-    }
-
     override def handle(request: HttpExchange): Unit = {
-      if (request.getRequestMethod != "POST") {
-        HTTPSource.respond(request, 405, "Only POSTs accepted")
-      }
-      val headers = request.getRequestHeaders
-      if (headers.containsKey("Content-type") &&
-        headers.get("Content-type").get(0) != "application/json") {
-        HTTPSource.respond(request, 400, "Content-type needs to be application/json")
-      }
-      val body = getBody(request)
       HTTPSource.this.synchronized {
         currentOffset = currentOffset + 1
-        requests.append((currentOffset.offset, body, request))
+        requests.append((currentOffset.offset, request))
       }
     }
   }
@@ -74,7 +62,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     * Stored in a ListBuffer to facilitate removing committed batches.
     */
   @GuardedBy("this")
-  protected val requests: ListBuffer[(Long, String, HttpExchange)] = ListBuffer()
+  protected val requests: ListBuffer[(Long, HttpExchange)] = ListBuffer()
 
   @GuardedBy("this")
   protected var currentOffset: LongOffset = new LongOffset(-1)
@@ -90,7 +78,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
   HTTPSource.replyCallbacks.update(name, reply)
 
   /** Returns the schema of the data from this source */
-  override def schema: StructType = HTTPSource.SCHEMA
+  override def schema: StructType = HTTPServerUtils.SCHEMA
 
   override def getOffset: Option[Offset] = synchronized {
     if (currentOffset.offset == -1) None else Some(currentOffset)
@@ -101,14 +89,16 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     val startOrdinal =
       start.flatMap(LongOffset.convert).getOrElse(LongOffset(-1)).offset.toInt + 1
     val endOrdinal = LongOffset.convert(end).getOrElse(LongOffset(-1)).offset.toInt + 1
+    val hrdToIr = HTTPRequestData.makeToInternalRowConverter
+
     // Internal buffer only holds the batches after lastOffsetCommitted
     val rawList = synchronized {
       val sliceStart = startOrdinal - lastOffsetCommitted.offset.toInt - 1
       val sliceEnd = endOrdinal - lastOffsetCommitted.offset.toInt - 1
-      requests.slice(sliceStart, sliceEnd).map{t =>
+      requests.slice(sliceStart, sliceEnd).map{ case(id, request) =>
         val row = new GenericInternalRow(2)
-        row.update(0, t._1)
-        row.update(1, UTF8String.fromString(t._2))
+        row.update(0, UTF8String.fromString(id.toString))
+        row.update(1, hrdToIr(HTTPRequestData.fromHTTPExchange(request)))
         row.asInstanceOf[InternalRow]
       }
     }
@@ -117,11 +107,9 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
       .internalCreateDataFrame(rawBatch, schema, isStreaming = true)
   }
 
-  def reply(replies: Iterable[(Long, String)]): Unit = {
-    replies.foreach { case (id, response) =>
-      val request = requests((id - lastOffsetCommitted.offset).toInt - 1)
-      HTTPSource.respond(request._3, 200, response)
-    }
+  def reply(id: String, reply: HTTPResponseData): Unit = {
+    val request = requests((id.toInt - lastOffsetCommitted.offset).toInt - 1)
+    HTTPServerUtils.respond(request._2, reply)
   }
 
   override def commit(end: Offset): Unit = synchronized {
@@ -134,7 +122,6 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     if (offsetDiff < 0) {
       sys.error(s"Offsets committed out of order: $lastOffsetCommitted followed by $end")
     }
-
     requests.trimStart(offsetDiff)
     lastOffsetCommitted = newOffset
   }
@@ -168,7 +155,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     if (!parameters.contains("name")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
-    ("HTTP", HTTPSource.SCHEMA)
+    ("HTTP", HTTPServerUtils.SCHEMA)
   }
 
   override def createSource(sqlContext: SQLContext,
@@ -195,15 +182,19 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
   }
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
-    val valueCol = options.getOrElse("replyCol", "value")
+    val replyCol = options.getOrElse("replyCol", "reply")
     val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
-    val valueColIndex = data.schema.fieldIndex(valueCol)
+    val replyColIndex = data.schema.fieldIndex(replyCol)
+    val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
 
     val replies = data.queryExecution.toRdd.map { ir =>
-      (ir.getLong(idColIndex), ir.getString(valueColIndex))
+      (ir.getString(idColIndex), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      // 4 is the Number of fields of HTTPResponseData,
+      // there does not seem to be a way to get this w/o reflection
     }.collect()
 
-    HTTPSource.replyCallbacks(options("name"))(replies)
+    val callback = HTTPSource.replyCallbacks(options("name"))
+    replies.foreach(callback.tupled)
   }
 
 }

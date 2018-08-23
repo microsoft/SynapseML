@@ -6,6 +6,8 @@ package com.microsoft.ml.spark
 import java.net.{SocketException, URI}
 
 import com.microsoft.ml.spark.schema.SparkBindings
+import com.microsoft.ml.spark.StreamUtilities.using
+import com.sun.net.httpserver.HttpExchange
 import org.apache.commons.io.IOUtils
 import org.apache.http._
 import org.apache.http.client.methods._
@@ -16,6 +18,9 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, struct, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StringType}
 import org.apache.spark.sql.{Column, Row}
+
+import collection.JavaConverters._
+import collection.JavaConversions._
 
 case class HeaderData(name: String, value: String) {
 
@@ -93,6 +98,20 @@ case class HTTPResponseData(headers: Array[HeaderData],
          response.getLocale.toString)
   }
 
+  def respondToHTTPExchange(request: HttpExchange): Unit = {
+    val responseHeaders = request.getResponseHeaders
+    val headersToAdd = headers ++ Seq(
+      entity.contentType,
+      entity.contentEncoding).flatten
+    if (headersToAdd.nonEmpty) {
+      headersToAdd.foreach(h => responseHeaders.add(h.name, h.value))
+    }
+    request.sendResponseHeaders(statusLine.statusCode, entity.contentLength)
+    using(request.getResponseBody) {
+      _.write(entity.content)
+    }.get
+  }
+
 }
 
 object HTTPResponseData extends SparkBindings[HTTPResponseData]
@@ -165,19 +184,42 @@ case class HTTPRequestData(requestLine: RequestLineData,
 
 }
 
-object HTTPRequestData extends SparkBindings[HTTPRequestData]
+object HTTPRequestData extends SparkBindings[HTTPRequestData] {
+  def fromHTTPExchange(httpe: HttpExchange): HTTPRequestData = {
+    val requestHeaders = httpe.getRequestHeaders
+    val isChunked = Option(requestHeaders.getFirst("Transfer-Encoding")=="chunked").getOrElse(false)
+    HTTPRequestData(
+      RequestLineData(
+        httpe.getRequestMethod,
+        httpe.getRequestURI.toString,
+        Option(httpe.getProtocol).map{p =>
+          val Array(v, n) = p.split("/".toCharArray.head)
+          val Array(major, minor) = n.split(".".toCharArray.head)
+          ProtocolVersionData(v, major.toInt, minor.toInt)
+        }),
+      httpe.getRequestHeaders.asScala.flatMap {
+        case (k, vs) => vs.map(v => HeaderData(k,v))
+      }.toArray,
+      Some(EntityData(
+        IOUtils.toByteArray(httpe.getRequestBody),
+        Option(requestHeaders.getFirst("Content-Encoding")).map(HeaderData("Content-Encoding", _)),
+        requestHeaders.getFirst("Content-Length").toLong,
+        Option(requestHeaders.getFirst("Content-Type")).map(HeaderData("Content-Type", _)),
+        isChunked = isChunked,
+        isRepeatable = false,
+        isStreaming = isChunked
+      ))
+    )
+  }
+}
 
 object HTTPSchema {
 
-  val response: DataType = ScalaReflection.schemaFor[HTTPResponseData].dataType
-  val request: DataType = ScalaReflection.schemaFor[HTTPRequestData].dataType
-
-  def to_http(urlCol: String, headersCol: String, methodCol: String, jsonEntityCol: String): Column = {
-    to_http(col(urlCol), col(headersCol), col(methodCol), col(jsonEntityCol))
-  }
+  val response: DataType = HTTPResponseData.schema
+  val request: DataType = HTTPRequestData.schema
 
   private def stringToEntity(s: String): EntityData = {
-    new EntityData(new StringEntity(s))
+    new EntityData(new StringEntity(s, "UTF-8"))
   }
 
   private def entityToString(e: EntityData): Option[String] = {
@@ -188,7 +230,8 @@ object HTTPSchema {
         e.contentEncoding.map(h => h.value).getOrElse("UTF-8")))
     }
   }
-  val entityToStringUDF: UserDefinedFunction = {
+
+  private val entity_to_string_udf: UserDefinedFunction = {
     val fromRow = EntityData.makeFromRowConverter
     udf({ x: Row =>
       val sOpt = Option(x).map(r => entityToString(fromRow(r)))
@@ -196,11 +239,37 @@ object HTTPSchema {
     }, StringType)
   }
 
-  val stringToEntityUDF: UserDefinedFunction = udf({ x: String => stringToEntity(x) },
-    ScalaReflection.schemaFor[EntityData].dataType
-  )
+  def entity_to_string(c: Column): Column = entity_to_string_udf(c)
 
-  def to_http(urlCol: Column, headersCol: Column, methodCol: Column, jsonEntityCol: Column): Column = {
+  private val string_to_entity_udf: UserDefinedFunction =
+    udf({ x: String => stringToEntity(x) }, EntityData.schema)
+
+  def string_to_entity(c: Column): Column = string_to_entity_udf(c)
+
+  private val request_to_string_udf: UserDefinedFunction = {
+    val fromRow = HTTPRequestData.makeFromRowConverter
+    udf({ x: Row =>
+      val sOpt = Option(x)
+        .flatMap(r => fromRow(r).entity)
+        .map(entityToString)
+      sOpt.orNull
+    }, StringType)
+  }
+
+  def request_to_string(c: Column): Column = request_to_string_udf(c)
+
+  private val string_to_response_udf: UserDefinedFunction =
+    udf({ x: String =>
+      HTTPResponseData(
+        Array(),
+        stringToEntity(x),
+        StatusLineData(null, 200, "Success"),
+        "en")
+    }, HTTPResponseData.schema)
+
+  def string_to_response(c: Column): Column = string_to_response_udf(c)
+
+  def to_http_request(urlCol: Column, headersCol: Column, methodCol: Column, jsonEntityCol: Column): Column = {
     val pvd: Option[ProtocolVersionData] = None
     struct(
       struct(
@@ -208,8 +277,12 @@ object HTTPSchema {
         urlCol.alias("uri"),
         typedLit(pvd).alias("protocolVersion")).alias("requestLine"),
       headersCol.alias("headers"),
-      stringToEntityUDF(jsonEntityCol).alias("entity")
+      string_to_entity(jsonEntityCol).alias("entity")
     ).cast(request)
+  }
+
+  def to_http_request(urlCol: String, headersCol: String, methodCol: String, jsonEntityCol: String): Column = {
+    to_http_request(col(urlCol), col(headersCol), col(methodCol), col(jsonEntityCol))
   }
 
 }

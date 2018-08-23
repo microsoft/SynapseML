@@ -6,9 +6,9 @@ package org.apache.spark.sql.execution.streaming
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.Executors
-import javax.annotation.concurrent.GuardedBy
 
-import com.microsoft.ml.spark.SharedSingleton
+import javax.annotation.concurrent.GuardedBy
+import com.microsoft.ml.spark.{HTTPRequestData, HTTPResponseData, HTTPSchema, SharedSingleton}
 import com.microsoft.ml.spark.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
@@ -25,10 +25,7 @@ import scala.collection.{immutable, mutable}
 object DistributedHTTPSource {
 
   val SCHEMA: StructType = {
-    StructType(
-      StructField("id", StringType) ::
-        StructField("value", StringType) ::
-        Nil)
+    new StructType().add("id", StringType).add(StructField("request", HTTPSchema.request))
   }
 
 }
@@ -100,7 +97,7 @@ class JVMSharedServer(name: String, host: String,
                       port: Int, maxAttempts: Int,
                       handleResponseErrors: Boolean) extends Logging {
 
-  type Body = String
+  type Body = HTTPRequestData
   type Exchange = HttpExchange
   type Request = (Body, Exchange)
   type ID = String
@@ -189,9 +186,9 @@ class JVMSharedServer(name: String, host: String,
     ()
   }
 
-  def respond(batch: Long, uuid: String, code: Int, response: String): Unit = synchronized {
+  def respond(batch: Long, uuid: String, response: HTTPResponseData): Unit = synchronized {
     val request = batchesToRequests(batch).get(uuid)._2
-    respond(request, code, response)
+    response.respondToHTTPExchange(request)
   }
 
   private class RequestHandler extends HttpHandler {
@@ -213,7 +210,7 @@ class JVMSharedServer(name: String, host: String,
         if (headers.containsKey("Content-type")) {
           headers.get("Content-type").get(0) match {
             case "application/json" =>
-              val body = getBody(request)
+              val body = HTTPRequestData.fromHTTPExchange(request)
               val uuid = UUID.randomUUID().toString
               requestsAccepted += 1
               val cb = currentBatch.longValue()
@@ -340,12 +337,15 @@ class DistributedHTTPSource(name: String,
     val startOrdinal =
       start.flatMap(LongOffset.convert).getOrElse(LongOffset(-1)).offset
     val endOrdinal = LongOffset.convert(end).getOrElse(LongOffset(-1)).offset
+    val toRow = HTTPRequestData.makeToRowConverter
 
     serverInfoDFStreaming.mapPartitions { _ =>
       val s = server.get
       s.updateCurrentBatch(currentOffset.offset)
       s.getRequests(startOrdinal, endOrdinal)
-        .map(Row.fromTuple).toIterator
+        .map{ case (id, request) =>
+          Row.fromSeq(Seq(id, toRow(request)))
+        }.toIterator
     }(RowEncoder(DistributedHTTPSource.SCHEMA))
   }
 
@@ -444,14 +444,15 @@ class DistributedHTTPSink(val options: Map[String, String])
   private def server: SharedSingleton[JVMSharedServer] = source.server
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
-    val valueCol = options.getOrElse("replyCol", "value")
+    val replyCol = options.getOrElse("replyCol", "reply")
     val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
-    val valueColIndex = data.schema.fieldIndex(valueCol)
+    val replyColIndex = data.schema.fieldIndex(replyCol)
+    val irToHrd = HTTPResponseData.makeFromInternalRowConverter
 
     data.queryExecution.toRdd.map { ir =>
-      (ir.getString(idColIndex), ir.getString(valueColIndex))
+      (ir.getString(idColIndex), irToHrd(ir.getStruct(replyColIndex, 4)))
     }.foreach { case (id, value) =>
-      server.get.respond(batchId, id, 200, value)
+      server.get.respond(batchId, id, value)
     }
   }
 
