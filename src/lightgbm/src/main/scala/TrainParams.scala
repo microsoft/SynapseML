@@ -20,6 +20,7 @@ abstract class TrainParams extends Serializable {
   def minSumHessianInLeaf: Double
   def numMachines: Int
   def objective: String
+  def modelString: String
 
   override def toString(): String = {
     s"is_pre_partition=True boosting_type=gbdt tree_learner=$parallelism num_iterations=$numIterations " +
@@ -37,7 +38,7 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val numLeaves: Int, val maxBin: Int, val baggingFraction: Double, val baggingFreq: Int,
                                  val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                                  val maxDepth: Int, val minSumHessianInLeaf: Double,
-                                 val numMachines: Int, val objective: String)
+                                 val numMachines: Int, val objective: String, val modelString: String)
   extends TrainParams {
   override def toString(): String = {
     s"metric=binary_logloss,auc ${super.toString()}"
@@ -51,7 +52,8 @@ case class RegressorTrainParams(val parallelism: String, val numIterations: Int,
                                 val tweedieVariancePower: Double, val maxBin: Int,
                                 val baggingFraction: Double, val baggingFreq: Int,
                                 val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
-                                val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int)
+                                val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int,
+                                val modelString: String)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower ${super.toString()}"

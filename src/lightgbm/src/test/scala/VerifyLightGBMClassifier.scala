@@ -3,10 +3,14 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
+
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import java.nio.file.{Files, Path, Paths}
+import org.apache.commons.io.FileUtils
+
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 
 /** Tests to validate the functionality of LightGBM module. */
@@ -182,6 +186,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val featuresColumn = lgbm.uid + "_features"
       val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
       val rawPredCol = "rawPred"
+      val testData = featurizer.transform(dataset)
       val model = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setRawPredictionCol(rawPredCol)
@@ -189,11 +194,13 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setNumLeaves(5)
         .setNumIterations(10)
         .setObjective(objective)
-        .fit(featurizer.transform(dataset))
+        .fit(testData)
 
       val targetDir: Path = Paths.get(getClass.getResource("/").toURI)
-      model.saveNativeModel(session, targetDir.toString() + "/" + outputFileName)
-      assert(Files.exists(Paths.get(targetDir.toString() + "/" + outputFileName)), true)
+      val modelPath = targetDir.toString() + "/" + outputFileName
+      FileUtils.deleteDirectory(new File(modelPath))
+      model.saveNativeModel(session, modelPath)
+      assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = model.getModel.model
       val newModel = lgbm.setLabelCol(labelColumnName)
@@ -202,8 +209,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
-        .setOldModelString(oldModelString)
-        .fit(featurizer.transform(dataset))
+        .setObjective(objective)
+        .setModelString(oldModelString)
+        .fit(testData)
     }
   }
 
