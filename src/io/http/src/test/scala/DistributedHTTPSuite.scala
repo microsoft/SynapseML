@@ -7,15 +7,16 @@ import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
 import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
-import org.apache.spark.sql.functions.{col, length, struct, to_json}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
-import org.apache.spark.sql.types.{IntegerType, StructType}
+import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.concurrent.duration.Duration
@@ -37,13 +38,13 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
       .option("name", "foo")
       .option("maxPartitions", 5)
       .load()
-      .withColumn("newCol", length(col("value")))
-      .withColumn("newCol", to_json(struct("newCol")))
+      .withColumn("contentLength", col("request.entity.contentLength"))
+      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
       .writeStream
       .format(classOf[DistributedHTTPSinkProvider].getName)
       .option("name", "foo")
       .queryName("foo")
-      .option("replyCol", "newCol")
+      .option("replyCol", "reply")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
   }
@@ -82,12 +83,12 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
       sendRequest(Map("foo" -> 3, "bar" -> "hereee")),
       sendRequest(Map("foo" -> 4, "bar" -> "hereeee"))
     )
-    val correctResponses = List(27, 28, 29, 30).map(n => "{\"newCol\":" + n + "}")
+    val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
     assert(responses === correctResponses)
 
     (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here")))
-      .foreach(resp => assert(resp === "{\"newCol\":27}"))
+      .foreach(resp => assert(resp === "27"))
 
     server.stop()
     client.close()
@@ -100,13 +101,12 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
       .address(host, port, "foo")
       .option("maxPartitions", 5)
       .load()
-      .withColumn("newCol", length(col("value")))
-      .withColumn("newCol", to_json(struct("newCol")))
+      .withColumn("contentLength", col("request.entity.contentLength"))
+      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
       .writeStream
       .server
       .option("name", "foo")
       .queryName("foo")
-      .option("replyCol", "newCol")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
@@ -132,12 +132,12 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
       sendRequest(Map("foo" -> 3, "bar" -> "hereee")),
       sendRequest(Map("foo" -> 4, "bar" -> "hereeee"))
     )
-    val correctResponses = List(27, 28, 29, 30).map(n => "{\"newCol\":" + n + "}")
+    val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
     assert(responses === correctResponses)
 
     (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here")))
-      .foreach(resp => assert(resp === "{\"newCol\":27}"))
+      .foreach(resp => assert(resp === "27"))
 
     server.stop()
     client.close()
@@ -228,14 +228,14 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
     )
 
     val responses = futures.map(f => Await.result(f, Duration.Inf))
-    val correctResponses = List(27, 28, 29, 30).map(n => "{\"newCol\":" + n + "}")
+    val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
     assert(responses === correctResponses)
 
     (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here")))
       .foreach { f =>
         val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
-        assert(resp === "{\"newCol\":27}")
+        assert(resp === "27")
       }
 
     server.stop()

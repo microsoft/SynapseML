@@ -62,7 +62,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with 
       .withColumn(headersCol, typedLit(headers))
       .withColumn(methodCol, lit("POST"))
       .withColumn(requestCol,
-                  HTTPSchema.to_http(urlCol, headersCol, methodCol, entityCol))
+                  HTTPSchema.to_http_request(urlCol, headersCol, methodCol, entityCol))
       .drop(entityCol, urlCol, headersCol, methodCol)
       .withColumnRenamed(requestCol, getOutputCol)
   }
@@ -140,7 +140,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   def setDataType(value: DataType): this.type = set(dataType, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val stringEntityCol = HTTPSchema.entityToStringUDF(col(getInputCol + ".entity"))
+    val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
     dataset.toDF
       .withColumn(getOutputCol, from_json(
         stringEntityCol, getDataType, Map("charset"->"UTF-8")))

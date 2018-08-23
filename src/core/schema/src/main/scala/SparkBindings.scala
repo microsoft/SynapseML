@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.schema
 
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.types.StructType
 
@@ -26,10 +27,20 @@ abstract class SparkBindings[T: TypeTag] extends Serializable {
     { r: Row => enc1.fromRow(rowEnc1.toRow(r)) }
   }
 
+  def makeFromInternalRowConverter: InternalRow => T = {
+    val enc1 = enc.resolveAndBind();
+    { r: InternalRow => enc1.fromRow(r) }
+  }
+
   def makeToRowConverter: T => Row = {
     val enc1 = enc.resolveAndBind()
     val rowEnc1 = rowEnc.resolveAndBind();
     { v: T => rowEnc1.fromRow(enc1.toRow(v)) }
+  }
+
+  def makeToInternalRowConverter: T => InternalRow = {
+    val enc1 = enc.resolveAndBind();
+    { v: T => enc1.toRow(v) }
   }
 
 }
