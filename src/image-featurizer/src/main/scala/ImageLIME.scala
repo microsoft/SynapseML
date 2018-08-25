@@ -9,7 +9,7 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamMap, TransformerParam}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
-import org.apache.spark.ml.util.{ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{ArrayType, BooleanType, StructType}
@@ -17,9 +17,9 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
-
-
 import scala.collection.mutable
+
+object ImageLIME extends ComplexParamsReadable[ImageLIME]
 
 /** Distributed implementation of
   * Local Interpretable Model-Agnostic Explanations (LIME)

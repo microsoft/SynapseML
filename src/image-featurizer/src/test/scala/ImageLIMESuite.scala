@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import java.awt.image.BufferedImage
+import java.nio.charset.StandardCharsets
 
 import com.microsoft.ml.spark.Readers.implicits._
 import com.microsoft.ml.spark.schema.ImageSchema
@@ -13,6 +14,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.commons.io.FileUtils
 
 class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   DataFrameEquality with NetworkUtils with FileReaderUtils {
@@ -24,9 +26,6 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   import java.io.File
 
   def downloadFile(url: String, f: File): Unit = {
-    val src = scala.io.Source.fromURL(url)
-    val out = new java.io.FileWriter(f)
-    try {out.write(src.mkString)} finally {out.close()}
   }
 
   // TODO add this image to the datasets directory
@@ -34,7 +33,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     val loc = "/tmp/greyhound.jpg"
     val f = new File(loc)
     if (f.exists()) {f.delete()}
-    downloadFile("https://www.petfinder.com/images/breeds/dog/1290.jpg",f)
+    FileUtils.copyURLToFile(new URL("https://www.petfinder.com/images/breeds/dog/1290.jpg"), f)
     loc
   }
 
@@ -43,18 +42,16 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     val modifier = 50.0
 
     val testImages: DataFrame = session
-      //.readImages(s"$filesRoot/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg", false)
-      //.readImages(s"$filesRoot/Images/CIFAR/00004.png", false)
       .readImages(greyhoundImageLocation, false)
       .withColumnRenamed("image", inputCol)
 
     val resNet = resNetModel().setCutOutputLayers(0)
     val resNetDF = resNet.transform(testImages)
     val resVec = resNetDF.select(outputCol).collect()(0).getAs[DenseVector](0)
-    assert(resVec.argmax == 171)
+    assert(resVec.argmax == 172)
 
     //val getEntryUdf = udf({vec: org.apache.spark.ml.linalg.Vector => vec(0)}, DoubleType)
-    val getEntryUdf = udf({vec: org.apache.spark.ml.linalg.Vector => vec(171)}, DoubleType)
+    val getEntryUdf = udf({vec: org.apache.spark.ml.linalg.Vector => vec(172)}, DoubleType)
     val udfTransformer = new UDFTransformer()
       .setInputCol(resNet.getOutputCol)
       .setOutputCol(resNet.getOutputCol)
@@ -69,6 +66,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
       .setInputCol(inputCol)
       .setCellSize(cellSize)
       .setModifier(modifier)
+      .setNSamples(20)
 
     val result: DataFrame = lime.transform(testImages)
     result.printSchema()
@@ -95,8 +93,10 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     topRow.getAs[DenseVector](2).toArray.foreach(println)
 
     //Superpixel.displayImage(sp.getClusteredImage)
-    //Superpixel.displayImage(censoredImage1)
+    Superpixel.displayImage(censoredImage1)
     //Superpixel.displayImage(censoredImage2)
+
+    Thread.sleep(10000) // Time to view the image
   }
 
   //override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(t, df))
@@ -104,5 +104,5 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   //override def reader: MLReadable[_] = ImageLIME
   override def testObjects(): Seq[TestObject[ImageLIME]] = ???
 
-  override def reader: MLReadable[_] = ???
+  override def reader: MLReadable[_] = ImageLIME
 }
