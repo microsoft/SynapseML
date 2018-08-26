@@ -3,11 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.cognitive.AIResponse
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
-import org.apache.spark.sql.functions.{struct, col}
+import org.apache.spark.sql.functions.{col, struct}
 
 trait VisionKey {
   lazy val visionKey = sys.env("VISION_API_KEY")
