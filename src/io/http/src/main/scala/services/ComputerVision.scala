@@ -141,8 +141,8 @@ class RecognizeText(override val uid: String)
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
   val mode = new ServiceParam[String](this, "mode",
-    "If this parameter is set to \"Printed\", " +
-      "printed text recognition is performed. If \"Handwritten\" is specified," +
+    "If this parameter is set to 'Printed', " +
+      "printed text recognition is performed. If 'Handwritten' is specified," +
       " handwriting recognition is performed",
     {spd: ServiceParamData[String] => spd.data.get match {
       case Left(_) => true
