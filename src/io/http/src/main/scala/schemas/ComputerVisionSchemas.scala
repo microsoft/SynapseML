@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.cognitive
 
 // OCR Schema
 
@@ -22,9 +22,7 @@ case class DSIRResult(celebrities: Option[Seq[DSIRCelebrity]],
 
 case class DSIRLandmark(name: String, confidence: Double)
 
-case class DSIRCelebrity(name: String, faceRectangle: DSIRRectangle, confidence: Double)
-
-case class DSIRRectangle(left: Int, top: Int, width: Int, height: Int)
+case class DSIRCelebrity(name: String, faceRectangle: Rectangle, confidence: Double)
 
 case class OCRResponse(language: String,
                        textAngle: Option[Double],
@@ -79,7 +77,7 @@ case class AIDescription(tags: Seq[String], captions: Seq[AICaption])
 
 case class AIMetadata(width: Int, height: Int, format: String)
 
-case class AIFace(age: Int, gender: String, faceRectangle: DSIRRectangle)
+case class AIFace(age: Int, gender: String, faceRectangle: Rectangle)
 
 case class AIColor(dominantColorForeground: String,
                    dominantColorBackground: String,
