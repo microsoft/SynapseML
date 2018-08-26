@@ -7,6 +7,7 @@ import java.net.URI
 import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.HandlingUtils._
+import com.microsoft.ml.spark.cognitive.{AIResponse, DSIRResponse, OCRResponse, RTResponse}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
