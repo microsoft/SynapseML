@@ -67,6 +67,15 @@ object BinaryFileReader {
       .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
   }
 
+  /**
+    *
+    * @param df the dataframe containing the paths
+    * @param pathCol the column name of the paths to read
+    * @param bytesCol the column name of the resulting bytes column
+    * @param concurrency the number of concurrent reads
+    * @param timeout in milliseconds
+    * @return
+    */
   def readFromPaths(df: DataFrame,
                     pathCol: String,
                     bytesCol: String,
@@ -88,7 +97,7 @@ object BinaryFileReader {
           }(ExecutionContext.global)
       }
       AsyncUtils.bufferedAwait(
-        futures,concurrency, Duration.fromNanos(timeout*1000.toLong))(ExecutionContext.global)
+        futures,concurrency, Duration.fromNanos(timeout*(10^6).toLong))(ExecutionContext.global)
     }(encoder)
   }
 
