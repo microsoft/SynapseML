@@ -5,27 +5,27 @@ package com.microsoft.ml.spark
 
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success, Try}
 
 object AsyncUtils {
   def bufferedAwait[T](it: Iterator[Future[T]],
                                  concurrency: Int,
                                  timeout: Duration)
                                 (implicit ec: ExecutionContext): Iterator[T] = {
-    bufferedAwaitSafe(it, concurrency, timeout).map(_.get)
+    bufferedAwaitSafe(it, concurrency, timeout).map{
+      case Success(data) => data
+      case f:Failure[T] => throw f.exception
+    }
   }
 
-  private def safeAwait[T](f: Future[T], timeout: Duration): Option[T] = {
-    try {
-      Some(Await.result(f, timeout))
-    } catch{
-      case _: TimeoutException => None
-    }
+  private def safeAwait[T](f: Future[T], timeout: Duration): Try[T] = {
+    Try(Await.result(f, timeout))
   }
 
   def bufferedAwaitSafe[T](it: Iterator[Future[T]],
                        concurrency: Int,
                        timeout: Duration)
-                      (implicit ec: ExecutionContext): Iterator[Option[T]] = {
+                      (implicit ec: ExecutionContext): Iterator[Try[T]] = {
     if (concurrency > 1) {
       val slidingIterator = it.sliding(concurrency - 1).withPartial(true)
       // `hasNext` will auto start the nth future in the batch
@@ -40,18 +40,14 @@ object AsyncUtils {
     }
   }
 
-  private def safeAwaitWithContext[T, C](f: (Future[T], C), timeout: Duration): (Option[T], C) = {
-    try {
-      (Some(Await.result(f._1, timeout)), f._2)
-    } catch{
-      case _: TimeoutException => (None, f._2)
-    }
+  private def safeAwaitWithContext[T, C](f: (Future[T], C), timeout: Duration): (Try[T], C) = {
+    (Try(Await.result(f._1, timeout)), f._2)
   }
 
   def bufferedAwaitSafeWithContext[T,C](it: Iterator[(Future[T],C)],
                            concurrency: Int,
                            timeout: Duration)
-                          (implicit ec: ExecutionContext): Iterator[(Option[T],C)] = {
+                          (implicit ec: ExecutionContext): Iterator[(Try[T],C)] = {
     if (concurrency > 1) {
       val slidingIterator = it.sliding(concurrency - 1).withPartial(true)
       // `hasNext` will auto start the nth future in the batch
