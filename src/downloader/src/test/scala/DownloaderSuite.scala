@@ -31,7 +31,7 @@ class DownloaderSuite extends TestBase {
           println(s"$r Stuck for $m")
           Thread.sleep(m)
         }
-        println(s"$r Sucess")
+        println(s"$r Success")
         5
       }
       assert(result === 5)
