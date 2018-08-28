@@ -119,8 +119,9 @@ class LightGBMClassificationModel(
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
          getProbabilityCol, getRawPredictionCol, thresholdValues, actualNumClasses)
 
-  def saveNativeModel(session: SparkSession, filename: String): Unit = {
-    model.saveNativeModel(session, filename)
+  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
+    val session = SparkSession.builder().getOrCreate()
+    model.saveNativeModel(session, filename, overwrite)
   }
 
   def getFeatureImportances(importanceType: String): Array[Double] = {
@@ -130,4 +131,29 @@ class LightGBMClassificationModel(
   def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel]
+object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel] {
+  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
+                              featuresColName: String = "features", predictionColName: String = "prediction",
+                              probColName: String = "probability",
+                              rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
+    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val actualNumClasses = 2
+    val session = SparkSession.builder().getOrCreate()
+    val textRdd = session.read.text(filename)
+    val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
+    val lightGBMBooster = new LightGBMBooster(text)
+    return new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
+      predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
+  }
+
+  def loadNativeModelFromString(model: String, labelColName: String = "label",
+                                featuresColName: String = "features", predictionColName: String = "prediction",
+                                probColName: String = "probability",
+                                rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
+    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val actualNumClasses = 2
+    val lightGBMBooster = new LightGBMBooster(model)
+    return new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
+      predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
+  }
+}
