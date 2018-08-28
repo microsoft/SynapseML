@@ -20,7 +20,7 @@ class DownloaderSuite extends TestBase {
 
   test("retry utility should catch flakiness"){
     (1 to 20).foreach { i =>
-      val result = FaultToleranceUtils.retryWithTimeout(10, Duration.apply(2, "seconds")) {
+      val result = FaultToleranceUtils.retryWithTimeout(20, Duration.apply(2, "seconds")) {
         val r = Random.nextDouble()
         if ( r > .5) {
           println(s"$r failed")
