@@ -10,7 +10,9 @@ if sys.version >= '3':
 
 from mmlspark._LightGBMRegressor import _LightGBMRegressor
 from mmlspark._LightGBMRegressor import _LightGBMRegressionModel
+from pyspark import SparkContext
 from pyspark.ml.common import inherit_doc
+from pyspark.ml.wrapper import JavaParams
 
 @inherit_doc
 class LightGBMRegressor(_LightGBMRegressor):
@@ -22,17 +24,38 @@ class LightGBMRegressor(_LightGBMRegressor):
 
 @inherit_doc
 class LightGBMRegressionModel(_LightGBMRegressionModel):
-    def saveNativeModel(self, sparkSession, filename):
+    def saveNativeModel(self, filename, overwrite=True):
         """
         Save the booster as string format to a local or WASB remote location.
         """
-        ctx = SparkContext.getOrCreate()
-        sql_ctx = SQLContext.getOrCreate(ctx)
-        jsession = sql_ctx.sparkSession._jsparkSession
-        self._java_obj.saveNativeModel(jsession, filename)
+        self._java_obj.saveNativeModel(filename, overwrite)
+
+    @staticmethod
+    def loadNativeModelFromFile(filename, labelColName="label", featuresColName="features",
+                                predictionColName="prediction"):
+        """
+        Load the model from a native LightGBM text file.
+        """
+        ctx = SparkContext._active_spark_context
+        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMRegressionModel
+        java_model = loader.loadNativeModelFromFile(filename, labelColName,
+                                                    featuresColName, predictionColName)
+        return JavaParams._from_java(java_model)
+
+    @staticmethod
+    def loadNativeModelFromString(model, labelColName="label", featuresColName="features",
+                                  predictionColName="prediction"):
+        """
+        Load the model from a native LightGBM model string.
+        """
+        ctx = SparkContext._active_spark_context
+        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMRegressionModel
+        java_model = loader.loadNativeModelFromString(model, labelColName,
+                                                      featuresColName, predictionColName)
+        return JavaParams._from_java(java_model)
 
     def getFeatureImportances(self, importance_type="split"):
         """
         Get the feature importances.  The importance_type can be "split" or "gain".
         """
-        self._java_obj.getFeatureImportances(importance_type)
+        return self._java_obj.getFeatureImportances(importance_type)
