@@ -127,9 +127,10 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
     val requiredSize = cntkModel.getModel.getArguments.get(0).getShape().getDimensions
 
-    val prepare = new ImageTransformer()
+    val prepare = new ResizeImageTransformer()
       .setInputCol($(inputCol))
-      .resize(requiredSize(0).toInt, requiredSize(1).toInt)
+      .setWidth(requiredSize(0).toInt)
+      .setHeight(requiredSize(1).toInt)
 
     val unroll = new UnrollImage()
       .setInputCol(prepare.getOutputCol)
