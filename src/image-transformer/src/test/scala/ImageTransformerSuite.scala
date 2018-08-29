@@ -141,11 +141,8 @@ class ImageTransformerSuite extends LinuxOnly
     val images = session.readImages(fileLocation, recursive = true)
     assert(images.count() == 30)
 
-    val size = (224,200)
     val tr = new ImageTransformer()
       .setOutputCol("out")
-      .resize(height = size._1, width = size._2)
-      .crop(x = 0, y = 0, height = 22, width = 26)
       .resize(height = 15, width = 10)
 
     val preprocessed = tr.transform(images)
@@ -166,6 +163,19 @@ class ImageTransformerSuite extends LinuxOnly
     result.collect().foreach(
       row => assert(row(0).asInstanceOf[DenseVector].toArray.length == 10*15*3, "unrolled image is incorrect"))
 
+  }
+
+  test("Opencv resize performance") {
+    val start = System.currentTimeMillis()
+    val images = session.readImages(fileLocation, recursive = true)
+    assert(images.count() == 30) //Change this if you are adding more images.
+
+    val tr = new ImageTransformer()
+      .setOutputCol("out")
+      .resize(height = 15, width = 10)
+
+    tr.transform(images).foreach( _ => {})
+    println((System.currentTimeMillis()-start)/1000.0)
   }
 
   test("to parquet") {
