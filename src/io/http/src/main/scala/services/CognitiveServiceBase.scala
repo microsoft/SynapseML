@@ -3,16 +3,18 @@
 
 package com.microsoft.ml.spark
 
+import java.net.URI
+
 import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.http.NameValuePair
-import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
+import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.sql.functions.{col, struct}
+import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -161,10 +163,18 @@ object URLEncodingUtils {
   }
 }
 
+object CognitiveServiceUtils {
+
+  def setUA(req: HttpRequestBase): Unit = {
+    req.setHeader("User-Agent", "mmlspark/0.13")
+  }
+}
+
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
   protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] = getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
     {row: Row =>
       getUrl + "?" + URLEncodingUtils.format(
@@ -176,6 +186,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity]
 
+  protected def prepareMethod(): HttpRequestBase = new HttpPost()
+
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
@@ -183,11 +195,19 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
       if (shouldSkip(row)){
         None
       }else{
-        val post = new HttpPost(rowToUrl(row))
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-        post.setHeader("Content-Type", "application/json")
-        rowToEntity(row).foreach(post.setEntity)
-        Some(post)
+        val req = prepareMethod()
+        req.setURI(new URI(rowToUrl(row)))
+        getValueOpt(row, subscriptionKey).foreach(
+          req.setHeader("Ocp-Apim-Subscription-Key", _))
+        req.setHeader("Content-Type", "application/json")
+        CognitiveServiceUtils.setUA(req)
+
+        req match {
+          case er: HttpEntityEnclosingRequestBase =>
+            rowToEntity(row).foreach(er.setEntity)
+          case _ =>
+        }
+        Some(req)
       }
     }
   }
@@ -226,10 +246,13 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
 
   protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
     val stages = Array(
-      Lambda(_.withColumn(
-        dynamicParamColName,
-        struct(getVectorParamMap.values.toList.map(col): _*))),
+      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
       new SimpleHTTPTransformer()
         .setInputCol(dynamicParamColName)
         .setOutputCol(getOutputCol)
