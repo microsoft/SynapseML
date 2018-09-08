@@ -238,7 +238,7 @@ trait DataFrameEquality extends TestBase {
 
   val sortInDataframeEquality = false
 
-  val baseDfEq = new Equality[DataFrame]{
+  val baseDfEq: Equality[DataFrame] = new Equality[DataFrame]{
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
       case ds:Dataset[_] =>
         val b = ds.toDF()
