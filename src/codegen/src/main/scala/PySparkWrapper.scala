@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, MapParam, Param}
+import org.apache.spark.ml.param.{MapParam, Param, ServiceParam, ComplexParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
@@ -99,6 +99,35 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |        "\""
         |        self._set($pname=value)
         |        return self
+        |
+        |""".stripMargin
+  }
+
+  protected def setServiceTemplate(capName: String, pname: String, explanation: String): String = {
+    s"""|    def set$capName(self, value):
+        |        "\""
+        |
+        |        Args:
+        |
+        |$explanation
+        |
+        |        "\""
+        |        self._java_obj = self._java_obj.set$capName(value)
+        |        return self
+        |
+        |
+        |    def set${capName}Col(self, value):
+        |        "\""
+        |
+        |        Args:
+        |
+        |$explanation
+        |
+        |        "\""
+        |        self._java_obj = self._java_obj.set${capName}Col(value)
+        |        return self
+        |
+        |
         |
         |""".stripMargin
   }
@@ -268,13 +297,29 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     for (param <- allParams) {
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
-      paramGettersAndSetters +=
-        setTemplate(StringUtils.capitalize(pname), pname,
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+      if (param.isInstanceOf[ServiceParam[_]]){
+        paramGettersAndSetters +=
+          setServiceTemplate(StringUtils.capitalize(pname), pname,
+            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+      }else{
+        paramGettersAndSetters +=
+          setTemplate(StringUtils.capitalize(pname), pname,
+            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+      }
+
       if (isComplexType(param.getClass.getSimpleName)) {
         paramDefinitionsAndDefaults +=
           defineComplexParamsTemplate(pname, getParamExplanation(param),
             s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
+        paramGettersAndSetters +=
+          getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
+        paramDocList +=
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
+        classParamDocList +=
+          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
+      } else if (param.isInstanceOf[ServiceParam[_]]) {
+        paramDefinitionsAndDefaults +=
+          s"""${scopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
