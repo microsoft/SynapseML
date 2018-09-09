@@ -73,11 +73,19 @@ _prepare_build_artifacts() {
   done
 }
 
+_from_keyvault(){ # secretName, variableName
+  local secret="$(__ az keyvault secret show --vault-name mmlspark-keys --name $1)"
+  secret="${secret##*\"value\": \"}"; secret="${secret%%\"*}"
+  export $2="$secret"
+}
+
 _sbt_run() { # sbt-args...
   if [[ "$BUILDMODE" = "server" ]]; then
-    local biurl="$(__ az keyvault secret show --vault-name mmlspark-keys --name powerbi-url)"
-    biurl="${biurl##*\"value\": \"}"; biurl="${biurl%%\"*}"
-    export MML_POWERBI_URL="$biurl"
+    _from_keyvault powerbi-url MML_POWERBI_URL
+    _from_keyvault face-api-key FACE_API_KEY
+    _from_keyvault text-api-key TEXT_API_KEY
+    _from_keyvault vision-api-key VISION_API_KEY
+    _from_keyvault bing-image-search-key BING_IMAGE_SEARCH_KEY
   fi
 
   local flags=""; if [[ "$BUILDMODE" = "server" ]]; then flags="-no-colors"; fi
@@ -114,9 +122,7 @@ _sbt_build() {
 _sbt_adb_notebooks() {
   show section "Running ADB Notebooks"
   if [[ "$BUILDMODE" = "server" ]]; then
-    local token="$(__ az keyvault secret show --vault-name mmlspark-keys --name adb-token)"
-    token="${token##*\"value\": \"}"; token="${token%%\"*}"
-    export MML_ADB_TOKEN="$token"
+    _from_keyvault adb-token MML_ADB_TOKEN
   fi
 
   local owd="$PWD"
