@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import java.lang.reflect.ParameterizedType
+
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
@@ -37,7 +39,11 @@ class FuzzingTest extends TestBase {
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], ExperimentFuzzing[_ <: PipelineStage]] =
       experimentFuzzers.map(f =>
-        (f.experimentTestObjects().head.stage.getClass, f)).toMap
+        (Class.forName(f.getClass.getMethod("experimentTestObjects")
+          .getGenericReturnType.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.getTypeName)
+        , f)).toMap
     val classesWithFuzzers = classToFuzzer.keys
     val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
     assertOrLog(classesWithoutFuzzers.isEmpty,
@@ -60,7 +66,13 @@ class FuzzingTest extends TestBase {
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], SerializationFuzzing[_ <: PipelineStage with MLWritable]] =
-      serializationFuzzers.map(f => (f.serializationTestObjects().head.stage.getClass, f)).toMap
+      serializationFuzzers.map(f =>
+        (Class.forName(f.getClass.getMethod("serializationTestObjects")
+          .getGenericReturnType.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.getTypeName),
+          f)
+      ).toMap
     val classesWithFuzzers = classToFuzzer.keys
     val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
     assertOrLog(classesWithoutFuzzers.isEmpty,
@@ -85,7 +97,8 @@ class FuzzingTest extends TestBase {
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
     val classToFuzzer: Map[Class[_], PyTestFuzzing[_ <: PipelineStage]] =
-      pytestFuzzers.map(f => (f.pyTestObjects().head.stage.getClass, f)).toMap
+      pytestFuzzers.map(f => (
+        f.pyTestObjects().head.stage.getClass, f)).toMap
     val classesWithFuzzers = classToFuzzer.keys
     val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
