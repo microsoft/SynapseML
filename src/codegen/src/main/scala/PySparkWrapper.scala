@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{MapParam, Param}
+import org.apache.spark.ml.param.{ComplexParam, MapParam, Param}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
@@ -169,7 +169,9 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     "TransformerArrayParam",
     "EstimatorParam",
     "PipelineStageParam",
-    "EstimatorArrayParam")
+    "EstimatorArrayParam",
+    "UDFParam")
+
   protected def isComplexType(paramType: String): Boolean = complexTypes.contains(paramType)
 
   protected def getParamExplanation(param: Param[_]): String = {
@@ -216,26 +218,30 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     var autogenSuffix:  String = null
     var defaultStringIsParsable: Boolean = true
 
-    if (entryPoint.hasDefault(param)) {
-      val paramParent: String = param.parent
-      paramDefault = param match {
-        case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
-        case p => entryPoint.getDefault(param).get.toString
-      }
-      if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
-        autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
-                                               + paramParent.length)
-      else {
-        try {
-          entryPoint.getParam(param.name).w(paramDefault)
-        } catch {
-          case e: Exception =>
-            defaultStringIsParsable = false
+    param match {
+      case p: ComplexParam[_] =>
+      case p if entryPoint.hasDefault(param) =>
+        val paramParent: String = param.parent
+        paramDefault = param match {
+          case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
+          case p => entryPoint.getDefault(param).get.toString
         }
-        pyParamDefault = getPythonizedDefault(paramDefault,
-          param.getClass.getSimpleName, defaultStringIsParsable)
-      }
+        if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
+          autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
+            + paramParent.length)
+        else {
+          try {
+            entryPoint.getParam(param.name).w(paramDefault)
+          } catch {
+            case e: Exception =>
+              defaultStringIsParsable = false
+          }
+          pyParamDefault = getPythonizedDefault(paramDefault,
+            param.getClass.getSimpleName, defaultStringIsParsable)
+        }
+      case _ =>
     }
+
     (pyParamDefault, autogenSuffix)
   }
 
