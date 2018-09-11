@@ -47,6 +47,7 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
+@InternalWrapper
 class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
@@ -144,6 +145,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 }
 
 /** Model produced by [[FindBestModel]]. */
+@InternalWrapper
 class BestModel(val uid: String,
                 val model: Transformer,
                 val scoredDataset: Dataset[_],
