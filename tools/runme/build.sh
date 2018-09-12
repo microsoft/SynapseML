@@ -203,12 +203,9 @@ _publish_to_dockerhub() {
 _upload_artifacts_to_VSTS() {
   if [[ "$BUILDMODE" != "server" ]]; then return; fi
   show section "Uploading Build Artifacts to VSTS"
-  local f d
-  for f in "$BUILD_ARTIFACTS/"**/*; do
-    if [[ -d "$f" ]]; then continue; fi
-    f="${f#$BUILD_ARTIFACTS}"; d="${f%/*}"
-    echo "##vso[artifact.upload artifactname=Build$d]$BUILD_ARTIFACTS/$f"
-  done
+  cd "$BUILD_ARTIFACTS/../"
+  zip -r BuildArtifacts.zip "$BUILD_ARTIFACTS/"
+  echo "##vso[artifact.upload artifactname=BuildArtifacts]$(pwd)/BuildArtifacts.zip"
 }
 
 _upload_artifacts_to_storage() {

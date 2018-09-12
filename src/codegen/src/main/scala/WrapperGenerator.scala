@@ -61,7 +61,7 @@ abstract class WrapperGenerator {
              generateTransformerTestWrapper(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
-                     .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor")
+                     .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor")
                        .contains(c.getSuperclass.getSimpleName))
                      .get
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
@@ -72,8 +72,8 @@ abstract class WrapperGenerator {
             }
             val (modelClass, modelQualifiedClass) = sc.getSuperclass.getSimpleName match {
               case "Estimator" => getModelFromGenericType(typeArgs.head)
-              case "ProbabilisticClassifier" => getModelFromGenericType(typeArgs(2))
-              case "Predictor" => getModelFromGenericType(typeArgs(2))
+              case model if Array("ProbabilisticClassifier", "BaseRegressor", "Predictor").contains(model)
+                => getModelFromGenericType(typeArgs(2))
             }
 
             val className = wrapperName(myClass)

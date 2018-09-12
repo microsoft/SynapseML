@@ -3,16 +3,17 @@
 
 package org.apache.spark.ml.param
 import com.microsoft.ml.spark.ContextObjectInputStream
+import java.io.{InputStream, ObjectOutputStream, OutputStream}
 
-import java.io.{File, InputStream, ObjectOutputStream, OutputStream}
 import com.microsoft.ml.spark.StreamUtilities.using
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.ml.{Pipeline, PipelineStage}
-import org.apache.spark.sql.{DataFrame, Dataset, SaveMode, SparkSession}
+import org.apache.spark.sql._
 import org.json4s.jackson.JsonMethods.{compact, render}
 import org.json4s.JsonDSL._
+
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.reflect.ClassTag
@@ -119,17 +120,11 @@ object Serializer {
       ("paramMap" -> "{}")
 
     val metadataJson: String = compact(render(metadata))
-    val metadataFile = new File(metadataPath)
-    val fileExists = metadataFile.exists()
-    if (fileExists) {
-      if (overwrite) {
-        metadataFile.delete()
-      } else {
-        throw new Exception(
-          s"Failed to save pipeline, metadata file $metadataPath already exists, please turn on overwrite option")
-      }
-    }
-    sc.parallelize(Seq(metadataJson), 1).saveAsTextFile(metadataPath)
+    val session = SparkSession.builder().sparkContext(sc).getOrCreate()
+    import session.implicits._
+    val dataset = session.createDataset(Seq(metadataJson))
+    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
+    dataset.coalesce(1).write.mode(mode).text(metadataPath)
   }
 
   def makeQualifiedPath(sc: SparkContext, path: String): Path = {

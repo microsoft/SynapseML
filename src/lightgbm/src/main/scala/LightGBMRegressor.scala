@@ -34,6 +34,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   *    insurance, or for any target that might be tweedie-distributed
   * @param uid The unique ID.
   */
+@InternalWrapper
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
     with LightGBMParams {
@@ -87,6 +88,7 @@ class LightGBMRegressor(override val uid: String)
 }
 
 /** Model produced by [[LightGBMRegressor]]. */
+@InternalWrapper
 class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, labelColName: String,
                                   featuresColName: String, predictionColName: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
@@ -109,8 +111,9 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
 
   override def objectsToSave: List[Any] = List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
 
-  def saveNativeModel(session: SparkSession, filename: String): Unit = {
-    model.saveNativeModel(session, filename)
+  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
+    val session = SparkSession.builder().getOrCreate()
+    model.saveNativeModel(session, filename, overwrite)
   }
 
   def getFeatureImportances(importanceType: String): Array[Double] = {
@@ -120,4 +123,23 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel]
+object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel] {
+  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
+                              featuresColName: String = "features",
+                              predictionColName: String = "prediction"): LightGBMRegressionModel = {
+    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val session = SparkSession.builder().getOrCreate()
+    val textRdd = session.read.text(filename)
+    val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
+    val lightGBMBooster = new LightGBMBooster(text)
+    return new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+  }
+
+  def loadNativeModelFromString(model: String, labelColName: String = "label",
+                                featuresColName: String = "features",
+                                predictionColName: String = "prediction"): LightGBMRegressionModel = {
+    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val lightGBMBooster = new LightGBMBooster(model)
+    return new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+  }
+}

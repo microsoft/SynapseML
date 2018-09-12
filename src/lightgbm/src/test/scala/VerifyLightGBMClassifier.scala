@@ -199,7 +199,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val targetDir: Path = Paths.get(getClass.getResource("/").toURI)
       val modelPath = targetDir.toString() + "/" + outputFileName
       FileUtils.deleteDirectory(new File(modelPath))
-      model.saveNativeModel(session, modelPath)
+      model.saveNativeModel(modelPath, true)
       assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = model.getModel.model
@@ -212,6 +212,16 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setObjective(objective)
         .setModelString(oldModelString)
         .fit(testData)
+      // Verify can load model from file
+      val newModelFromString = LightGBMClassificationModel.loadNativeModelFromString(oldModelString,
+        labelColumnName, featuresColumn, rawPredictionColName = rawPredCol)
+      val newModelFromFile = LightGBMClassificationModel.loadNativeModelFromFile(modelPath,
+        labelColumnName, featuresColumn, rawPredictionColName = rawPredCol)
+      val originalModelResult = model.transform(testData)
+      val loadedModelFromStringResult = newModelFromString.transform(testData)
+      val loadedModelFromFileResult = newModelFromFile.transform(testData)
+      assert(loadedModelFromStringResult === originalModelResult)
+      assert(loadedModelFromFileResult === originalModelResult)
     }
   }
 

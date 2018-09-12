@@ -53,7 +53,7 @@ object ImageSchema {
   def getBytes(row: Row): Array[Byte] = row.getAs[Array[Byte]](4)
 
   def toBufferedImage(row: Row): BufferedImage = {
-    toBufferedImage(getBytes(row),getWidth(row), getHeight(row) )
+    toBufferedImage(getBytes(row),getWidth(row), getHeight(row))
   }
 
   def toBufferedImage(bytes: Array[Byte], w: Int, h: Int): BufferedImage = {
