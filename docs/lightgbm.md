@@ -6,7 +6,7 @@
 distributed, high-performance gradient boosting (GBDT, GBRT, GBM, or
 MART) framework. This framework specializes in creating high-quality and
 GPU enabled decision tree algorithms for ranking, classification, and
-many other machine learning tasks. Light GBM is part of Microsoft's
+many other machine learning tasks. LightGBM is part of Microsoft's
 [DMTK](http://github.com/microsoft/dmtk) project.
 
 ### Advantages of LightGBM
@@ -69,3 +69,8 @@ The `LightGBMClassifier` and `LightGBMRegressor` use the SparkML API,
 inherit from the same base classes, integrate with SparkML pipelines,
 and can be tuned with [SparkML's cross
 validators](https://spark.apache.org/docs/latest/ml-tuning.html).
+
+Models built can be saved as SparkML pipeline with native LightGBM model
+using `saveNativeModel()`. Additionally, they are fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
+can be converted to PMML format through the
+[JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
