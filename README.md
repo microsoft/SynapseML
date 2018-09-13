@@ -193,7 +193,7 @@ attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
-You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive: 
+You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
 ```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.13.dbc```
 
@@ -272,6 +272,9 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 * [Azure Machine Learning
   preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
+
+* [JPMML-SparkML plugin for converting MMLSpark LightGBM models to
+PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
 
 *Apache®, Apache Spark, and Spark® are either registered trademarks or
 trademarks of the Apache Software Foundation in the United States and/or other
