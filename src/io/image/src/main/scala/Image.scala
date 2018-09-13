@@ -4,11 +4,11 @@
 package com.microsoft.ml.spark
 
 import java.awt.image.BufferedImage
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
-import javax.imageio.ImageIO
+import java.io.ByteArrayInputStream
 
 import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
+import javax.imageio.ImageIO
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -17,7 +17,7 @@ import org.apache.spark.image.ImageFileFormat
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.opencv.core.{CvException, Mat, MatOfByte}
+import org.opencv.core.{Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 
 object ImageReader {
@@ -46,40 +46,16 @@ object ImageReader {
   }
 
   def decode(img: BufferedImage): Option[Row] = {
-    val baos = new ByteArrayOutputStream()
-    ImageIO.write(img, "jpeg", baos)
-    val barr = baos.toByteArray
-    decode(None, barr)
+    Some(ImageSchema.toSparkImage(img, None))
   }
 
   def decode(filename: String, bytes: Array[Byte]): Option[Row] = {
     decode(Some(filename), bytes)
   }
 
-    /** Convert the image from compressd (jpeg, etc.) into OpenCV representation and store it in Row
-    * See ImageSchema for details.
-    *
-    * @param filename arbitrary string
-    * @param bytes    image bytes (for example, jpeg)
-    * @return returns None if decompression fails
-    */
   def decode(filename: Option[String], bytes: Array[Byte]): Option[Row] = {
-    val mat = new MatOfByte(bytes: _*)
-    val decodedOpt = try {
-      Some(Imgcodecs.imdecode(mat, Imgcodecs.CV_LOAD_IMAGE_COLOR))
-    } catch {
-      case _: CvException => None
-    }
-
-    decodedOpt match {
-      case Some(decoded) if !decoded.empty() =>
-        val ocvBytes = new Array[Byte](decoded.total.toInt * decoded.elemSize.toInt)
-        // extract OpenCV bytes
-        decoded.get(0, 0, ocvBytes)
-        // type: CvType.CV_8U
-        Some(Row(filename.orNull, decoded.height, decoded.width, decoded.`type`, ocvBytes))
-      case _ => None
-    }
+    val imgOpt = Option(ImageIO.read(new ByteArrayInputStream(bytes)))
+    imgOpt.map(ImageSchema.toSparkImage(_, filename))
   }
 
   /** Read the directory of images from the local or remote source

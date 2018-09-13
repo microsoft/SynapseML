@@ -59,7 +59,7 @@ class SuperpixelSuite extends CNTKTestUtils {
     assert(samples.size === 10)
   }
 
-  /*test("GetClusteredImage should show the image with its clusters outlined, not censored") {
+  ignore("GetClusteredImage should show the image with its clusters outlined, not censored") {
     Superpixel.displayImage(sp1.getClusteredImage)
     Superpixel.displayImage(censoredImg)
     Superpixel.displayImage(sp2.getClusteredImage)
@@ -67,13 +67,13 @@ class SuperpixelSuite extends CNTKTestUtils {
     Thread.sleep(100000)
   }
 
-  test("Superpixeling should work properly on grocery img") {
+  ignore("Superpixeling should work properly on grocery img") {
     val groceryImg: BufferedImage = ImageIO.read(
       new File(s"$filesRoot/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
     val spGrocery = new Superpixel(groceryImg, 100, 130)
-    Superpixel.displayImage(spGrocery.getClusteredImage())
+    Superpixel.displayImage(spGrocery.getClusteredImage)
     Thread.sleep(180000)
-  }*/
+  }
 
   test("Censored clusters' pixels should be black in the censored image") {
     for (i <- states.indices if !states(i)) {
