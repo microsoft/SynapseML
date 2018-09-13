@@ -8,6 +8,7 @@ if sys.version >= '3':
 
 from mmlspark._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
+from pyspark.sql import SparkSession
 
 @inherit_doc
 class ImageFeaturizer(_ImageFeaturizer):
@@ -21,8 +22,9 @@ class ImageFeaturizer(_ImageFeaturizer):
         self._java_obj = self._java_obj.setModelLocation(location)
         return self
 
-    def setModel(self, sparkSession, modelSchema):
-        self._java_obj = self._java_obj.setModel(modelSchema.toJava(sparkSession))
+    def setModel(self, modelSchema):
+        session = SparkSession.builder.getOrCreate()
+        self._java_obj = self._java_obj.setModel(modelSchema.toJava(session))
         return self
 
     def setMiniBatchSize(self, size):

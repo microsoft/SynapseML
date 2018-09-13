@@ -3,13 +3,11 @@
 
 package com.microsoft.ml.spark.schema
 
-import java.awt.Point
+import java.awt.color.ColorSpace
 import java.awt.image.{BufferedImage, DataBufferByte, Raster}
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
-import java.nio.{ByteBuffer, ByteOrder}
+import java.awt.{Color, Point}
 
-import javax.imageio.ImageIO
-import javax.imageio.spi.ImageInputStreamSpi
+import org.apache.spark.ml.image.{ImageSchema => SparkImageSchema}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -70,5 +68,61 @@ object ImageSchema {
     */
   def isImage(df: DataFrame, column: String): Boolean =
     df.schema(column).dataType == columnSchema
+
+  /** Returns the OCV type (int) of the passed-in image */
+  def getOCVType(img: BufferedImage): Int = {
+    val isGray = img.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
+    val hasAlpha = img.getColorModel.hasAlpha
+    if (isGray) {
+      SparkImageSchema.ocvTypes("CV_8UC1")
+    } else if (hasAlpha) {
+      SparkImageSchema.ocvTypes("CV_8UC4")
+    } else {
+      SparkImageSchema.ocvTypes("CV_8UC3")
+    }
+  }
+
+  /**
+    * Takes a Java BufferedImage and returns a Row Image (spImage).
+    *
+    * @param image Java BufferedImage.
+    * @return Row image in spark.ml.image format with channels in BGR(A) order.
+    */
+  def toSparkImage(image: BufferedImage, origin: Option[String] = None): Row = {
+    val nChannels = image.getColorModel.getNumComponents
+    val height = image.getHeight
+    val width = image.getWidth
+    val isGray = image.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
+    val hasAlpha = image.getColorModel.hasAlpha
+    val decoded = new Array[Byte](height * width * nChannels)
+
+    // https://github.com/apache/spark/blob/7bd46d987156/mllib/
+    // src/main/scala/org/apache/spark/ml/image/ImageSchema.scala#L134
+    if (isGray) {
+      var offset = 0
+      val raster = image.getRaster
+      for (h <- 0 until height) {
+        for (w <- 0 until width) {
+          decoded(offset) = raster.getSample(w, h, 0).toByte
+          offset += 1
+        }
+      }
+    } else {
+      var offset = 0
+      for (h <- 0 until height) {
+        for (w <- 0 until width) {
+          val color = new Color(image.getRGB(w, h), hasAlpha)
+          decoded(offset) = color.getBlue.toByte
+          decoded(offset + 1) = color.getGreen.toByte
+          decoded(offset + 2) = color.getRed.toByte
+          if (hasAlpha) {
+            decoded(offset + 3) = color.getAlpha.toByte
+          }
+          offset += nChannels
+        }
+      }
+    }
+    Row(origin.orNull, height, width, getOCVType(image), decoded)
+  }
 
 }

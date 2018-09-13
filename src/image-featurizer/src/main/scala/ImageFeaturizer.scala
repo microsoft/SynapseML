@@ -5,13 +5,13 @@ package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
-import com.microsoft.ml.spark.schema.DatasetExtensions
+import com.microsoft.ml.spark.schema.{DatasetExtensions, ImageSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.types.{BinaryType, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
@@ -49,6 +49,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   def setCntkModel(value: CNTKModel): this.type = set(cntkModel, value)
 
   val emptyCntkModel = new CNTKModel()
+
   /** @group getParam */
   def getCntkModel: CNTKModel =
     if (isDefined(cntkModel)) $(cntkModel).asInstanceOf[CNTKModel] else emptyCntkModel
@@ -127,18 +128,35 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
     val requiredSize = cntkModel.getModel.getArguments.get(0).getShape().getDimensions
 
-    val prepare = new ResizeImageTransformer()
-      .setInputCol($(inputCol))
-      .setWidth(requiredSize(0).toInt)
-      .setHeight(requiredSize(1).toInt)
+    val inputSchema = dataset.schema(getInputCol).dataType
 
-    val unroll = new UnrollImage()
-      .setInputCol(prepare.getOutputCol)
-      .setOutputCol(resizedCol)
+    val featurizedDF = if (inputSchema == ImageSchema.columnSchema) {
+      val prepare = new ResizeImageTransformer()
+        .setInputCol(getInputCol)
+        .setWidth(requiredSize(0).toInt)
+        .setHeight(requiredSize(1).toInt)
 
-    val resizedDF = prepare.transform(dataset)
-    val unrolledDF = unroll.transform(resizedDF).drop(prepare.getOutputCol)
-    val featurizedDF = cntkModel.transform(unrolledDF).drop(resizedCol)
+      val unroll = new UnrollImage()
+        .setInputCol(prepare.getOutputCol)
+        .setOutputCol(resizedCol)
+
+      val resizedDF = prepare.transform(dataset)
+      val unrolledDF = unroll.transform(resizedDF).drop(prepare.getOutputCol)
+      cntkModel.transform(unrolledDF).drop(resizedCol)
+    } else if (inputSchema == BinaryType) {
+      val unroll = new UnrollBinaryImage()
+        .setInputCol(getInputCol)
+        .setWidth(requiredSize(0).toInt)
+        .setHeight(requiredSize(1).toInt)
+        .setOutputCol(resizedCol)
+
+      cntkModel
+        .transform(unroll.transform(dataset))
+        .drop(resizedCol)
+    } else {
+      throw new IllegalArgumentException(s"Input schema : $inputSchema needs to have image or binary type")
+    }
+
     featurizedDF
   }
 

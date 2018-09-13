@@ -17,15 +17,20 @@ import org.apache.spark.sql.types.StringType
 
 trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
 
-  val modelDir = new File(filesRoot, "CNTKModel")
-  val modelDownloader = new ModelDownloader(session, modelDir.toURI)
+  lazy val modelDir = new File(filesRoot, "CNTKModel")
+  lazy val modelDownloader = new ModelDownloader(session, modelDir.toURI)
 
   lazy val resNetUri: URI = new File(modelDir, "ResNet50_ImageNet.model").toURI
   lazy val resNet: ModelSchema = modelDownloader.downloadByName("ResNet50")
 
-  val images: DataFrame = session.readImages(imagePath, true).withColumnRenamed("image", inputCol)
+  lazy val images: DataFrame = session.readImages(imagePath, true)
+    .withColumnRenamed("image", inputCol)
+  lazy val binaryImages: DataFrame = session.readBinaryFiles(imagePath, true)
+    .withColumn(inputCol, col("value.bytes"))
+
   lazy val groceriesPath = s"${sys.env("DATASETS_HOME")}/Images/Grocery/"
-  val groceryImages: DataFrame = session.readImages(groceriesPath, true).withColumnRenamed("image", inputCol)
+  lazy val groceryImages: DataFrame = session.readImages(groceriesPath, true)
+    .withColumnRenamed("image", inputCol)
 
   def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
@@ -70,8 +75,12 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .queryName("images")
       .start()
 
-    tryWithRetries(){ () =>
-      assert(session.sql("select * from images").count() == 6)
+    try {
+      tryWithRetries() { () =>
+        assert(session.sql("select * from images").count() == 6)
+      }
+    } finally {
+      q1.stop()
     }
   }
 
@@ -84,7 +93,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val newImages = session.read
       .format(classOf[ImageFileFormat].getName)
       .load(cifarDirectory)
-      .withColumnRenamed("image","cntk_images")
+      .withColumnRenamed("image", "cntk_images")
 
     val result = resNetModel().setCutOutputLayers(0).transform(newImages)
     compareToTestModel(result)
@@ -92,6 +101,12 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
 
   test("Image featurizer should work with ResNet50", TestBase.Extended) {
     val result = resNetModel().transform(images)
+    val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
+    assert(resVec.size == 1000)
+  }
+
+  test("Image featurizer should work with ResNet50 Binary", TestBase.Extended) {
+    val result = resNetModel().transform(binaryImages)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
@@ -113,10 +128,10 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     println(images.count())
 
     val result = resNetModel().setInputCol("image").transform(images)
-      .withColumn("foo", udf({x: DenseVector => x(0).toString}, StringType)(col("out")))
+      .withColumn("foo", udf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result, sys.env("MML_POWERBI_URL"), Map("concurrency"->"1"))
+    PowerBIWriter.write(result, sys.env("MML_POWERBI_URL"), Map("concurrency" -> "1"))
   }
 
   test("test layers of network", TestBase.Extended) {
@@ -131,6 +146,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   val reader: MLReadable[_] = ImageFeaturizer
+
   override def testObjects(): Seq[TestObject[ImageFeaturizer]] = Seq(
     new TestObject(resNetModel(), images)
   )
