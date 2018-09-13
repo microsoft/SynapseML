@@ -7,15 +7,17 @@ import org.apache.spark.ml.util.MLReadable
 
 class SuperpixelTransformerSuite extends TransformerFuzzing[SuperpixelTransformer]
   with NetworkUtils with FileReaderUtils {
+  lazy val spt: SuperpixelTransformer = new SuperpixelTransformer().setInputCol(inputCol)
 
   test("basic functionality"){
-    val spt = new SuperpixelTransformer().setInputCol(inputCol)
-    spt.transform(images).show()
+    val results = spt.transform(images)
+    val superpixels = SuperpixelData.fromRow(results.collect()(0).getStruct(1))
+    assert(superpixels.clusters.length === 3)
+    assert(superpixels.clusters.head.length == 310)
   }
 
-  override def testObjects(): Seq[TestObject[SuperpixelTransformer]] = Seq(new TestObject[SuperpixelTransformer](
-    new SuperpixelTransformer().setInputCol(inputCol), images
-  ))
+  override def testObjects(): Seq[TestObject[SuperpixelTransformer]] =
+    Seq(new TestObject(spt, images))
 
   override def reader: MLReadable[_] = SuperpixelTransformer
 }

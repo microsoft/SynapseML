@@ -5,34 +5,35 @@ package com.microsoft.ml.spark
 
 import java.awt.FlowLayout
 import java.awt.image.BufferedImage
-import java.io.File
+import java.io.{ByteArrayInputStream, File}
 import java.util
 
 import com.microsoft.ml.spark.schema.ImageSchema
 import javax.imageio.ImageIO
 import javax.swing.{ImageIcon, JFrame, JLabel}
+import org.apache.spark.internal.{Logging => SpLogging}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
-import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.types.{BinaryType, DataType}
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.util.Random
 
-case class SuperpixelData(clusters: Array[Array[(Int, Int)]])
+case class SuperpixelData(clusters: Seq[Seq[(Int, Int)]])
 
 object SuperpixelData {
-  val schema: DataType =  ScalaReflection.schemaFor[SuperpixelData].dataType
+  val schema: DataType = ScalaReflection.schemaFor[SuperpixelData].dataType
 
   def fromRow(r: Row): SuperpixelData = {
     val clusters = r.getAs[mutable.WrappedArray[mutable.WrappedArray[Row]]](0)
-    SuperpixelData(clusters.map(cluster => cluster.map(r => (r.getInt(0), r.getInt(1))).toArray).toArray)
+    SuperpixelData(clusters.map(cluster => cluster.map(r => (r.getInt(0), r.getInt(1)))))
   }
 
   def fromSuperpixel(sp: Superpixel): SuperpixelData = {
-    SuperpixelData(sp.clusters.map(_.pixels.toArray))
+    SuperpixelData(sp.clusters.map(_.pixels))
   }
 
 }
@@ -43,11 +44,23 @@ object SuperpixelData {
   */
 object Superpixel {
 
-  def getSuperpixelUDF(cellSize: Double, modifier: Double): UserDefinedFunction = udf(
-    { row: Row => SuperpixelData.fromSuperpixel(
-      new Superpixel(ImageSchema.toBufferedImage(row), cellSize, modifier)
-    )},
-    SuperpixelData.schema)
+  def getSuperpixelUDF(inputType: DataType, cellSize: Double, modifier: Double): UserDefinedFunction = {
+    if (inputType == ImageSchema.columnSchema) {
+      udf({ row: Row =>
+        SuperpixelData.fromSuperpixel(
+          new Superpixel(ImageSchema.toBufferedImage(row), cellSize, modifier)
+        )
+      }, SuperpixelData.schema)
+    } else if (inputType == BinaryType) {
+      udf({ bytes: Array[Byte] =>
+        SuperpixelData.fromSuperpixel(
+          new Superpixel(ImageIO.read(new ByteArrayInputStream(bytes)), cellSize, modifier)
+        )
+      }, SuperpixelData.schema)
+    } else {
+      throw new IllegalArgumentException(s"Input type $inputType needs to be image or binary type")
+    }
+  }
 
   def censorImageHelper(img: Row, sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
     val bi = censorImage(img, SuperpixelData.fromRow(sp), states.toArray)
@@ -55,6 +68,13 @@ object Superpixel {
   }
 
   val censorUDF: UserDefinedFunction = udf(censorImageHelper _, ImageSchema.columnSchema)
+
+  def censorImageBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
+    val bi = censorImageBinary(img, SuperpixelData.fromRow(sp), states.toArray)
+    ImageReader.decode(bi).get
+  }
+
+  val censorBinaryUDF: UserDefinedFunction = udf(censorImageBinaryHelper _, ImageSchema.columnSchema)
 
   def displayImage(img: BufferedImage): JFrame = {
     val frame: JFrame = new JFrame()
@@ -93,9 +113,20 @@ object Superpixel {
         cluster.foreach { case (x, y) =>
           output.setRGB(x, y, 0x000000)
         }
-      } else {
+      }
+    }
+    output
+  }
+
+  def censorImageBinary(bytes: Array[Byte],
+                        superpixels: SuperpixelData,
+                        clusterStates: Array[Boolean]): BufferedImage = {
+    val output = ImageIO.read(new ByteArrayInputStream(bytes))
+
+    superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
+      if (!clusterStates(i)) {
         cluster.foreach { case (x, y) =>
-          output.setRGB(x, y, img.getRGB(x, y))
+          output.setRGB(x, y, 0x000000)
         }
       }
     }
@@ -116,7 +147,7 @@ object Superpixel {
     }
 }
 
-class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) {
+class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) extends SpLogging {
   // arrays to store values during process
   private val width = image.getWidth
   private val height = image.getHeight
@@ -133,7 +164,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) {
   util.Arrays.fill(distances, Integer.MAX_VALUE)
   util.Arrays.fill(labels, -1)
   // split rgb-values to own arrays
-  for(y <- 0 until height; x <- 0 until width) {
+  for (y <- 0 until height; x <- 0 until width) {
     val pos = x + y * width
     val color = pixels(pos)
     reds.update(pos, color >> 16 & 0x000000FF)
@@ -159,7 +190,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) {
       val ys = Math.max((c.avg_y - cellSize).toInt, 0)
       val xe = Math.min((c.avg_x + cellSize).toInt, width)
       val ye = Math.min((c.avg_y + cellSize).toInt, height)
-      for (y <- ys until ye; x <- xs until xe){
+      for (y <- ys until ye; x <- xs until xe) {
         val pos = x + width * y
         val D = c.distance(x, y,
           reds(pos), greens(pos), blues(pos),
@@ -184,7 +215,8 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) {
   }
 
   private val end = System.currentTimeMillis
-  println("Clustered to " + clusters.length +
+
+  logInfo("Clustered to " + clusters.length +
     " superpixels in " + loops + " loops in " + (end - start) + " ms.")
 
   def getClusteredImage: BufferedImage = {

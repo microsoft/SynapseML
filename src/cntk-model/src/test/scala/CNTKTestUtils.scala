@@ -18,7 +18,7 @@ trait CNTKTestUtils extends TestBase {
   val labelCol  = "labels"
 
   val featureVectorLength = 3 * 32 * 32
-  val saveFile = new File(tmpDir.toFile, "spark-z.model").toString
+  lazy val saveFile = new File(tmpDir.toFile, "spark-z.model").toString
 
   def testModelDF(spark: SparkSession): DataFrame = {
     import spark.implicits._
