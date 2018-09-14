@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import java.awt.FlowLayout
 import java.awt.image.BufferedImage
-import java.io.{ByteArrayInputStream, File}
+import java.io.File
 import java.util
 
 import com.microsoft.ml.spark.schema.ImageSchema
@@ -53,9 +53,10 @@ object Superpixel {
       }, SuperpixelData.schema)
     } else if (inputType == BinaryType) {
       udf({ bytes: Array[Byte] =>
-        SuperpixelData.fromSuperpixel(
-          new Superpixel(ImageIO.read(new ByteArrayInputStream(bytes)), cellSize, modifier)
-        )
+        val biOpt = ImageSchema.safeRead(bytes)
+        biOpt.map(bi => SuperpixelData.fromSuperpixel(
+          new Superpixel(bi, cellSize, modifier)
+        ))
       }, SuperpixelData.schema)
     } else {
       throw new IllegalArgumentException(s"Input type $inputType needs to be image or binary type")
@@ -70,8 +71,8 @@ object Superpixel {
   val censorUDF: UserDefinedFunction = udf(censorImageHelper _, ImageSchema.columnSchema)
 
   def censorImageBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
-    val bi = censorImageBinary(img, SuperpixelData.fromRow(sp), states.toArray)
-    ImageReader.decode(bi).get
+    val biOpt = censorImageBinary(img, SuperpixelData.fromRow(sp), states.toArray)
+    biOpt.flatMap(ImageReader.decode).orNull
   }
 
   val censorBinaryUDF: UserDefinedFunction = udf(censorImageBinaryHelper _, ImageSchema.columnSchema)
@@ -120,17 +121,18 @@ object Superpixel {
 
   def censorImageBinary(bytes: Array[Byte],
                         superpixels: SuperpixelData,
-                        clusterStates: Array[Boolean]): BufferedImage = {
-    val output = ImageIO.read(new ByteArrayInputStream(bytes))
-
-    superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
-      if (!clusterStates(i)) {
-        cluster.foreach { case (x, y) =>
-          output.setRGB(x, y, 0x000000)
+                        clusterStates: Array[Boolean]): Option[BufferedImage] = {
+    val outputOpt = ImageSchema.safeRead(bytes)
+    outputOpt.map{output =>
+      superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
+        if (!clusterStates(i)) {
+          cluster.foreach { case (x, y) =>
+            output.setRGB(x, y, 0x000000)
+          }
         }
       }
+      output
     }
-    output
   }
 
   def clusterStateSampler(decInclude: Double, numPixels: Int): Iterator[Array[Boolean]] =

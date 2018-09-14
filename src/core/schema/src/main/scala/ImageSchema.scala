@@ -6,10 +6,14 @@ package com.microsoft.ml.spark.schema
 import java.awt.color.ColorSpace
 import java.awt.image.{BufferedImage, DataBufferByte, Raster}
 import java.awt.{Color, Point}
+import java.io.ByteArrayInputStream
 
+import javax.imageio.ImageIO
 import org.apache.spark.ml.image.{ImageSchema => SparkImageSchema}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+
+import scala.util.Try
 
 case class ImageData(path: String,
                      height: Int,
@@ -56,7 +60,10 @@ object ImageSchema {
 
   def toBufferedImage(bytes: Array[Byte], w: Int, h: Int): BufferedImage = {
     val img = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR)
-    img.setData(Raster.createRaster(img.getSampleModel(), new DataBufferByte(bytes, bytes.length), new Point()))
+    img.setData(Raster.createRaster(
+      img.getSampleModel,
+      new DataBufferByte(bytes, bytes.length),
+      new Point()))
     img
   }
 
@@ -80,6 +87,12 @@ object ImageSchema {
     } else {
       SparkImageSchema.ocvTypes("CV_8UC3")
     }
+  }
+
+  def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {
+    if (bytes == null) {return None}
+    Try(Option(ImageIO.read(new ByteArrayInputStream(bytes))))
+      .toOption.flatten
   }
 
   /**

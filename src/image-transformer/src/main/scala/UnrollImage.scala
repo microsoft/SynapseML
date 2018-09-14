@@ -6,13 +6,11 @@ package com.microsoft.ml.spark
 import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
 
 import com.microsoft.ml.spark.schema.ImageSchema._
-import javax.imageio.ImageIO
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.param.{IntParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.functions.udf
@@ -87,18 +85,29 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     val width = image.getWidth
     val unrolled = new Array[Double](height * width * nChannels)
 
-    var offset = 0
-    for (c <- 0 until nChannels){
+    if (isGray) {
+      var offset = 0
+      val raster = image.getRaster
       for (h <- 0 until height) {
         for (w <- 0 until width) {
-          val color = new Color(image.getRGB(w, h), hasAlpha)
-          unrolled(offset) = c match {
-            case 0 => color.getBlue.toDouble
-            case 1 => color.getGreen.toDouble
-            case 2 => color.getRed.toDouble
-            case 3 => color.getAlpha.toDouble
-          }
+          unrolled(offset) = raster.getSample(w, h, 0).toDouble
           offset += 1
+        }
+      }
+    } else {
+      var offset = 0
+      for (c <- 0 until nChannels) {
+        for (h <- 0 until height) {
+          for (w <- 0 until width) {
+            val color = new Color(image.getRGB(w, h), hasAlpha)
+            unrolled(offset) = c match {
+              case 0 => color.getBlue.toDouble
+              case 1 => color.getGreen.toDouble
+              case 2 => color.getRed.toDouble
+              case 3 => color.getAlpha.toDouble
+            }
+            offset += 1
+          }
         }
       }
     }
@@ -107,7 +116,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
   }
 
   private[ml] def unrollBytes(bytes: Array[Byte], width: Option[Int], height: Option[Int]): Option[DenseVector] = {
-    val biOpt = Option(ImageIO.read(new ByteArrayInputStream(bytes)))
+    val biOpt = safeRead(bytes)
     biOpt.map { bi =>
       (height, width) match {
         case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h)(bi))
