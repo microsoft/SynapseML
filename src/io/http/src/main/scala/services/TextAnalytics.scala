@@ -81,10 +81,13 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         CognitiveServiceUtils.setUA(post)
         val texts = getValue(row, text)
 
-        val languages = getValueOpt(row, language) match {
+        val languages = (getValueOpt(row, language) match {
           case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
           case s => s
-        }
+        }).map(_.map {
+          case e if e == null => getOrDefault(language).default.map(_.head).orNull
+          case e => e
+        })
 
         val documents = texts.zipWithIndex.map { case (t, i) =>
           TADocument(languages.map(ls => ls(i)), i.toString, Option(t).getOrElse(""))

@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{MapParam, Param, ServiceParam, ComplexParam}
+import org.apache.spark.ml.param.{ComplexParam, MapParam, Param, ServiceParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 

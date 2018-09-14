@@ -6,8 +6,7 @@ package com.microsoft.ml.spark.codegen
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.Param
-
+import org.apache.spark.ml.param.{Param, ServiceParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
@@ -232,11 +231,15 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
     // Iterate over the params to build strings
     val paramGettersAndSettersString =
       entryPoint.params.filter { param => !isSkippedParam(param.name)
-      }.map { param =>
+      }.flatMap { param =>
         val value = if (isModel(param.name)) "LogisticRegression()"
                     else if (isBaseTransformer(param.name)) "Tokenizer()"
                     else getParamDefault(param)._1
-        setAndGetTemplate(StringUtils.capitalize(param.name), value)
+        param match {
+          case p: ServiceParam[_] => None
+          case _ => Some(setAndGetTemplate(StringUtils.capitalize(param.name), value))
+        }
+
       }.mkString("\n")
     val classParamsString =
       entryPoint.params.map(param => param.name + "=" + getParamDefault(param)._1).mkString(", ")

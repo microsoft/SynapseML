@@ -3,20 +3,21 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.sql.execution.streaming.{BingImageSource, CountSourceProvider}
+import org.apache.spark.sql.execution.streaming.CountSourceProvider
 
 class IteratorSourceSuite extends TestBase {
 
   test("Count", TestBase.Extended) {
     val q1 = session.readStream.format(classOf[CountSourceProvider].getName)
-      .option("batchSize", 10)
+      .option("batchSize", 3)
       .load()
       .writeStream
       .format("console")
       .queryName("foo")
       .start()
 
-    Thread.sleep(5000)
+    Thread.sleep(7000)
+    q1.stop()
   }
 
 }
