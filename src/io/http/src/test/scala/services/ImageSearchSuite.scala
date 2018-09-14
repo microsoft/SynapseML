@@ -46,18 +46,14 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     bytesDF.collect().foreach(row => assert(row.getAs[Array[Byte]](1).length > 100))
   }
 
-  def normalize(df: DataFrame): DataFrame = {
-    getURLs.transform(df).limit(5).cache()
-  }
-
-  override val sortInDataframeEquality: Boolean = true
-
   override lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame] {
     def areEqual(a: DataFrame, b: Any): Boolean =
-      baseDfEq.areEqual(normalize(a), normalize(b.asInstanceOf[DataFrame]))
+      (a.schema === b.asInstanceOf[DataFrame].schema) &&
+        (a.count() === b.asInstanceOf[DataFrame].count()) // BIS is nondeterminisic
   }
 
-  override def testObjects(): Seq[TestObject[BingImageSearch]] = Seq(new TestObject(bis, requestParameters))
+  override def testObjects(): Seq[TestObject[BingImageSearch]] =
+    Seq(new TestObject(bis, requestParameters))
 
   override def reader: MLReadable[_] = BingImageSearch
 

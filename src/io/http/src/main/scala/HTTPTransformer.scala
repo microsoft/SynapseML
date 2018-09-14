@@ -17,7 +17,7 @@ import scala.concurrent.duration.Duration
 
 trait HasHandler extends Params {
   val handler: UDFParam = new UDFParam(
-    this, "handlingStrategy", "Which strategy to use when handling requests")
+    this, "handler", "Which strategy to use when handling requests")
 
   /** @group getParam */
   def getHandler: HandlerFunc = $(handler).f.asInstanceOf[HandlerFunc]
