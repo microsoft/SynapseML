@@ -8,7 +8,6 @@ import java.io.ByteArrayInputStream
 
 import com.microsoft.ml.spark.BinaryFileReader.recursePath
 import com.microsoft.ml.spark.schema.ImageSchema
-import javax.imageio.ImageIO
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -54,7 +53,7 @@ object ImageReader {
   }
 
   def decode(filename: Option[String], bytes: Array[Byte]): Option[Row] = {
-    val imgOpt = Option(ImageIO.read(new ByteArrayInputStream(bytes)))
+    val imgOpt = ImageSchema.safeRead(bytes)
     imgOpt.map(ImageSchema.toSparkImage(_, filename))
   }
 
