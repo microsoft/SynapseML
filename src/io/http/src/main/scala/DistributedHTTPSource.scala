@@ -201,33 +201,18 @@ class JVMSharedServer(name: String, host: String,
 
     override def handle(request: HttpExchange): Unit = synchronized {
       requestsSeen += 1
-      if (request.getRequestMethod == "OPTIONS") {
-        respond(request, 200, "")
-      } else if (request.getRequestMethod != "POST") {
-        respond(request, 405, "Only POSTs accepted")
-      } else {
-        val headers = request.getRequestHeaders
-        if (headers.containsKey("Content-type")) {
-          headers.get("Content-type").get(0) match {
-            case "application/json" =>
-              val body = HTTPRequestData.fromHTTPExchange(request)
-              val uuid = UUID.randomUUID().toString
-              requestsAccepted += 1
-              val cb = currentBatch.longValue()
-              batchesToRequests.get(cb) match {
-                case None =>
-                  val mcm = new MultiChannelMap[ID, Request](nPartitions)
-                  mcm.addToNextList(uuid, (body, request))
-                  batchesToRequests.update(cb, mcm)
-                case Some(mcm) => mcm.addToNextList(uuid, (body, request))
-              }
-              logDebug(s"handling $body batch: $currentBatch ip: $address")
-              ()
-            case _ =>
-              respond(request, 400, "Content-type needs to be application/json")
-          }
-        }
+      val requestData = HTTPRequestData.fromHTTPExchange(request)
+      val uuid = UUID.randomUUID().toString
+      requestsAccepted += 1
+      val cb = currentBatch.longValue()
+      batchesToRequests.get(cb) match {
+        case None =>
+          val mcm = new MultiChannelMap[ID, Request](nPartitions)
+          mcm.addToNextList(uuid, (requestData, request))
+          batchesToRequests.update(cb, mcm)
+        case Some(mcm) => mcm.addToNextList(uuid, (requestData, request))
       }
+      logDebug(s"handling $requestData batch: $currentBatch ip: $address")
     }
   }
 
@@ -306,15 +291,15 @@ class DistributedHTTPSource(name: String,
 
     logInfo("Got or Created services: "
       + serverInfoConfigured.collect().map {r =>
-        s"machine: ${r.getString(0)}, address: ${r.getString(1)}, guid: ${r.getString(2)}"
+        s"\n\t machine: ${r.getString(0)}, address: ${r.getString(1)}, guid: ${r.getString(2)}"
       }.toList.mkString(", "))
     serverInfoConfigured
   }
 
   private[spark] val serverInfoDFStreaming = {
-    val serverInforConfRDD = serverInfoDF.rdd.map(infoEnc.toRow)
+    val serverInfoConfRDD = serverInfoDF.rdd.map(infoEnc.toRow)
     sqlContext.sparkSession.internalCreateDataFrame(
-      serverInforConfRDD, schema, isStreaming = true)
+      serverInfoConfRDD, schema, isStreaming = true)
   }
 
   @GuardedBy("this")
@@ -445,12 +430,18 @@ class DistributedHTTPSink(val options: Map[String, String])
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
     val replyCol = options.getOrElse("replyCol", "reply")
-    val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
+    val idCol = options.getOrElse("idCol", "id")
+    val idColIndex = data.schema.fieldIndex(idCol)
     val replyColIndex = data.schema.fieldIndex(replyCol)
-    val irToHrd = HTTPResponseData.makeFromInternalRowConverter
 
+    val replyType = data.schema(replyCol).dataType
+    val idType = data.schema(idCol).dataType
+    assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
+    assert(idType == StringType, s"id col is $idType, need StringType")
+
+    val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     data.queryExecution.toRdd.map { ir =>
-      (ir.getString(idColIndex), irToHrd(ir.getStruct(replyColIndex, 4)))
+      (ir.getString(idColIndex), irToResponseData(ir.getStruct(replyColIndex, 4)))
     }.foreach { case (id, value) =>
       server.get.respond(batchId, id, value)
     }
