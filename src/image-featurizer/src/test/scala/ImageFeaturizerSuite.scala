@@ -26,7 +26,7 @@ trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
   lazy val images: DataFrame = session.readImages(imagePath, true)
     .withColumnRenamed("image", inputCol)
   lazy val binaryImages: DataFrame = session.readBinaryFiles(imagePath, true)
-    .withColumn(inputCol, col("value.bytes"))
+    .select(col("value.bytes").alias(inputCol))
 
   lazy val groceriesPath = s"${sys.env("DATASETS_HOME")}/Images/Grocery/"
   lazy val groceryImages: DataFrame = session.readImages(groceriesPath, true)
@@ -105,10 +105,15 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     assert(resVec.size == 1000)
   }
 
-  test("Image featurizer should work with ResNet50 Binary", TestBase.Extended) {
-    val result = resNetModel().transform(binaryImages)
-    val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
-    assert(resVec.size == 1000)
+  test("Image featurizer should work with ResNet50 Binary + nulls", TestBase.Extended) {
+    import session.implicits._
+    val corruptImage = Seq("fooo".toCharArray.map(_.toByte))
+      .toDF(inputCol)
+    val df = binaryImages.union(corruptImage)
+
+    val resultDF = resNetModel().transform(df)
+    val result = resultDF.select(outputCol).collect()
+    assert(result(0).getAs[DenseVector](0).size == 1000)
   }
 
   test("Image featurizer should correctly classify an image", TestBase.Extended) {
