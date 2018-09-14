@@ -3,8 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.cognitive.{
-  Face, FaceGrouping, FoundFace, IdentifiedFace}
+import com.microsoft.ml.spark.cognitive.{Face, FaceGrouping, FoundFace, IdentifiedFace}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
@@ -12,6 +11,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
+import scala.util.Try
 
 object DetectFace extends ComplexParamsReadable[DetectFace]
 
@@ -32,7 +33,7 @@ class DetectFace(override val uid: String)
   def setReturnFaceIdCol(v: String): this.type = setVectorParam(returnFaceId, v)
 
   val returnFaceLandmarks = new ServiceParam[Boolean](this,
-    "returnLandmarks",
+    "returnFaceLandmarks",
     "Return face landmarks of the detected faces or not. The default value is false.",
     isURLParam = true
   )
@@ -71,11 +72,8 @@ class DetectFace(override val uid: String)
 
 trait HasMaxNumOfCandidatesReturned extends HasServiceParams {
 
-  val maxNumOfCandidatesReturnedDoc: String
-
   val maxNumOfCandidatesReturned = new ServiceParam[Int](this,
-    "maxNumOfCandidatesReturned",  maxNumOfCandidatesReturnedDoc
-  )
+    "maxNumOfCandidatesReturned",  "")
 
   def setMaxNumOfCandidatesReturned(v: Int): this.type =
     setScalarParam(maxNumOfCandidatesReturned, v)
@@ -86,9 +84,7 @@ trait HasMaxNumOfCandidatesReturned extends HasServiceParams {
 
 trait HasFaceIds extends HasServiceParams {
 
-  val faceIdsDoc: String
-
-  val faceIds = new ServiceParam[Seq[String]](this, "faceIds", faceIdsDoc)
+  val faceIds = new ServiceParam[Seq[String]](this, "faceIds", "")
 
   def setFaceIds(v: Seq[String]): this.type = setScalarParam(faceIds, v)
 
@@ -143,17 +139,18 @@ class FindSimilarFace(override val uid: String)
 
   def setLargeFaceListIdCol(v: String): this.type = setVectorParam(largeFaceListId, v)
 
-  override val faceIdsDoc: String =
+  override val faceIds = new ServiceParam[Seq[String]](this, "faceIds",
     " An array of candidate faceIds. All of them are created by FaceDetect" +
       " and the faceIds will expire 24 hours after the detection call." +
       " The number of faceIds is limited to 1000." +
       " Parameter faceListId, largeFaceListId and faceIds" +
-      " should not be provided at the same time."
+      " should not be provided at the same time.")
 
-  override val maxNumOfCandidatesReturnedDoc: String =
+  override val maxNumOfCandidatesReturned = new ServiceParam[Int](this,
+    "maxNumOfCandidatesReturned",
     " Optional parameter." +
      " The number of top similar faces returned." +
-     " The valid range is [1, 1000].It defaults to 20."
+     " The valid range is [1, 1000].It defaults to 20.")
 
   val mode = new ServiceParam[String](this,
     "mode",
@@ -192,10 +189,9 @@ class GroupFaces(override val uid: String)
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
 
-  override val faceIdsDoc: String =
-    "Array of candidate faceId created by Face - Detect. The maximum is 1000 faces."
-
-  override val faceIds = new ServiceParam[Seq[String]](this, "faceIds", faceIdsDoc, isRequired = true)
+  override val faceIds = new ServiceParam[Seq[String]](this, "faceIds",
+    "Array of candidate faceId created by Face - Detect. The maximum is 1000 faces.",
+    isRequired = true)
 
   override def responseDataType: DataType = FaceGrouping.schema
 
@@ -218,15 +214,15 @@ class IdentifyFaces(override val uid: String)
 
   override def responseDataType: DataType = ArrayType(IdentifiedFace.schema)
 
-  override val faceIdsDoc: String =
+  override val faceIds = new ServiceParam[Seq[String]](this, "faceIds",
     "Array of query faces faceIds, created by the Face - Detect. " +
       "Each of the faces are identified independently. " +
-      "The valid number of faceIds is between [1, 10]. "
+      "The valid number of faceIds is between [1, 10]. ",
+    isRequired = true)
 
-  override val faceIds = new ServiceParam[Seq[String]](this, "faceIds", faceIdsDoc, isRequired = true)
-
-  override val maxNumOfCandidatesReturnedDoc: String =
-    "The range of maxNumOfCandidatesReturned is between 1 and 100 (default is 10)."
+  override val maxNumOfCandidatesReturned =
+    new ServiceParam[Int](this, "maxNumOfCandidatesReturned",
+    "The range of maxNumOfCandidatesReturned is between 1 and 100 (default is 10).")
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/identify")

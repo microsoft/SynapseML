@@ -276,13 +276,3 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with FaceKey {
   override def reader: MLReadable[_] = VerifyFaces
 
 }
-
-class FaceAPISuite extends TestBase with FaceKey {
-
-  test("basic face api usage") {
-    FaceList.delete("foo")
-    FaceList.create("foo", "facelist-foo")
-    FaceList.delete("foo")
-  }
-
-}

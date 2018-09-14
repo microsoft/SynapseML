@@ -81,7 +81,10 @@ class SimpleHTTPTransformer(val uid: String)
   /** @group setParam */
   def setInputParser(value: HTTPInputParser): this.type = set(inputParser, value)
 
-  setDefault(inputParser -> new JSONInputParser(), errorCol -> (this.uid + "_errors"))
+  setDefault(
+    inputParser -> new JSONInputParser(),
+    handler->HandlingUtils.advancedUDF(0,50,100,500),
+    errorCol -> (this.uid + "_errors"))
 
   def setUrl(url: String): SimpleHTTPTransformer.this.type = {
     getInputParser match {

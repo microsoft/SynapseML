@@ -30,14 +30,14 @@ class BingImageSearch(_BingImageSearch):
         return self
 
     @staticmethod
-    def getUrlTransformer(cls, imageCol, urlCol):
+    def getUrlTransformer(imageCol, urlCol):
         from mmlspark import BingImageSearch
         from pyspark.sql import SparkSession
         bis = SparkSession.builder.getOrCreate()._jvm.com.microsoft.ml.spark.BingImageSearch
         return Lambda._from_java(bis.getUrlTransformer(imageCol,urlCol))
 
     @staticmethod
-    def downloadFromUrls(cls, pathCol, bytesCol, concurrency, timeout):
+    def downloadFromUrls(pathCol, bytesCol, concurrency, timeout):
         from mmlspark import BingImageSearch
         from pyspark.sql import SparkSession
         bis = SparkSession.builder.getOrCreate()._jvm.com.microsoft.ml.spark.BingImageSearch

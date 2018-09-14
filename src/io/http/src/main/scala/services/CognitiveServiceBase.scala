@@ -108,7 +108,9 @@ trait HasServiceParams extends Params {
       param.data.flatMap {
         case Right(colName) => Option(row.getAs[T](colName))
         case Left(value) => Some(value)
-      }.orElse(param.default)
+      }.orElse {
+        param.default
+      }
     }
   }
 
