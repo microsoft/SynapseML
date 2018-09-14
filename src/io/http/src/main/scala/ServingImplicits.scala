@@ -3,8 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.HTTPSchema._
+import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
+
 import scala.language.implicitConversions
 
 case class DataStreamReaderExtensions(dsr: DataStreamReader) {
@@ -29,8 +34,46 @@ case class DataStreamWriterExtensions[T](dsw: DataStreamWriter[T]) {
     dsw.format(classOf[HTTPSinkProvider].getName)
   }
 
+  def replyTo(name: String): DataStreamWriter[T] = {
+    dsw.option("name", name)
+  }
+
   def distributedServer: DataStreamWriter[T] = {
     dsw.format(classOf[DistributedHTTPSinkProvider].getName)
+  }
+
+}
+
+case class DataFrameServingExtensions(df: DataFrame) {
+
+  def parseRequest(schema: DataType,
+                    idCol: String = "id",
+                    requestCol: String = "request"): DataFrame = {
+    assert(df.schema(idCol).dataType == StringType &&
+      df.schema(requestCol).dataType == HTTPRequestData.schema)
+    schema match {
+      case BinaryType =>
+        df.select(col(idCol), col(requestCol).getItem("entity").getItem("content").alias("bytes"))
+      case _ =>
+        df.withColumn("variables", from_json(HTTPSchema.request_to_string(col(requestCol)), schema))
+          .select(idCol,"variables.*")
+    }
+  }
+
+  def makeReply(replyCol: String, name: String = "reply"): DataFrame ={
+    def jsonReply(c: Column) = df.withColumn(name, string_to_response(to_json(c)))
+    df.schema(replyCol).dataType match {
+      case StringType => df.withColumn(name, string_to_response(col(replyCol)))
+      case BinaryType => df.withColumn(name, binary_to_response(col(replyCol)))
+      case _: StructType => jsonReply(col(replyCol))
+      case _: MapType => jsonReply(col(replyCol))
+      case at: ArrayType => at.elementType match {
+        case _: StructType => jsonReply(col(replyCol))
+        case _: MapType => jsonReply(col(replyCol))
+        case _ => jsonReply(struct(col(replyCol)))
+      }
+      case _ => jsonReply(struct(col(replyCol)))
+    }
   }
 
 }
@@ -47,4 +90,11 @@ object ServingImplicits {
 
   implicit def dsweToDsw[T](dswe: DataStreamWriterExtensions[T]): DataStreamWriter[T] =
     dswe.dsw
+
+  implicit def dfToDfse[T](df: DataFrame): DataFrameServingExtensions =
+    DataFrameServingExtensions(df)
+
+  implicit def dfseToDf[T](dfse: DataFrameServingExtensions): DataFrame =
+    dfse.df
+
 }

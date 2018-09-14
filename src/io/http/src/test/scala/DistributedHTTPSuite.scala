@@ -10,13 +10,13 @@ import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.StringEntity
+import org.apache.http.entity.{ByteArrayEntity, FileEntity, StringEntity}
 import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
-import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
+import org.apache.spark.sql.types.{BinaryType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.concurrent.duration.Duration
@@ -99,7 +99,7 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
 
     val server = session.readStream.server
       .address(host, port, "foo")
-      .option("maxPartitions", 5)
+      .option("maxPartitions", 3)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
       .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
@@ -139,6 +139,96 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
     (1 to 20).map(i => sendRequest(Map("foo" -> 1, "bar" -> "here")))
       .foreach(resp => assert(resp === "27"))
 
+    server.stop()
+    client.close()
+  }
+
+  test("test implicits 2", TestBase.Extended) {
+    import ServingImplicits._
+
+    val server = session.readStream.server
+      .address(host, port, "foo")
+      .option("maxPartitions", 5)
+      .load()
+      .parseRequest(BinaryType)
+      .withColumn("length", length(col("bytes")))
+      .makeReply("length")
+      .writeStream
+      .server
+      .replyTo("foo")
+      .queryName("foo")
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .start()
+
+    val client = HttpClientBuilder.create().build()
+
+    def sendRequest(): String = {
+      val post = new HttpPost(url)
+      val e = new FileEntity(new File(
+        s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
+      post.setEntity(e)
+      val res = client.execute(post)
+      val out = new BasicResponseHandler().handleResponse(res)
+      res.close()
+      out
+    }
+
+    waitForServer(server)
+
+    val responses = List(
+      sendRequest(),
+      sendRequest(),
+      sendRequest(),
+      sendRequest()
+    )
+
+    responses.foreach(s => assert(s === "{\"length\":279186}"))
+    server.stop()
+    client.close()
+  }
+
+  test("test implicits 2 distributed", TestBase.Extended) {
+    import ServingImplicits._
+
+    val server = session.readStream.distributedServer
+      .address(host, port, "foo")
+      .option("maxPartitions", 5)
+      .load()
+      .parseRequest(BinaryType)
+      .withColumn("length", length(col("bytes")))
+      .makeReply("length")
+      .writeStream
+      .distributedServer
+      .replyTo("foo")
+      .queryName("foo")
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .start()
+
+    val client = HttpClientBuilder.create().build()
+
+    def sendRequest(): String = {
+      val post = new HttpPost(url)
+      val e = new FileEntity(new File(
+        s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
+      post.setEntity(e)
+      val res = client.execute(post)
+      val out = new BasicResponseHandler().handleResponse(res)
+      res.close()
+      out
+    }
+
+    waitForServer(server)
+
+    val responses = List(
+      sendRequest(),
+      sendRequest(),
+      sendRequest(),
+      sendRequest()
+    )
+
+    responses.foreach(s => assert(s === "{\"length\":279186}"))
     server.stop()
     client.close()
   }
