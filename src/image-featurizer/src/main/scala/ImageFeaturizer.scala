@@ -99,6 +99,16 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getCutOutputLayers: Int = $(cutOutputLayers)
 
+  //TODO make nulls pass through
+  val dropNa: BooleanParam =
+    BooleanParam(this, "dropNa", "Whether to drop na values before mapping")
+
+  /** @group setParam */
+  def setDropNa(value: Boolean): this.type = set(dropNa, value)
+
+  /** @group getParam */
+  def getDropNa: Boolean = $(dropNa)
+
   /** Array with valid CNTK nodes to choose from; the first entries of this array should be closer
     * to the output node.
     *
@@ -114,7 +124,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getLayerNames: Array[String] = $(layerNames)
 
-  setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"))
+  setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val spark = dataset.sparkSession
@@ -130,7 +140,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
     val inputSchema = dataset.schema(getInputCol).dataType
 
-    val featurizedDF = if (inputSchema == ImageSchema.columnSchema) {
+    val unrolledDF = if (inputSchema == ImageSchema.columnSchema) {
       val prepare = new ResizeImageTransformer()
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
@@ -141,23 +151,26 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setOutputCol(resizedCol)
 
       val resizedDF = prepare.transform(dataset)
-      val unrolledDF = unroll.transform(resizedDF).drop(prepare.getOutputCol)
-      cntkModel.transform(unrolledDF).drop(resizedCol)
+      unroll.transform(resizedDF).drop(prepare.getOutputCol)
     } else if (inputSchema == BinaryType) {
       val unroll = new UnrollBinaryImage()
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
         .setHeight(requiredSize(1).toInt)
         .setOutputCol(resizedCol)
-
-      cntkModel
-        .transform(unroll.transform(dataset))
-        .drop(resizedCol)
+      unroll.transform(dataset)
     } else {
-      throw new IllegalArgumentException(s"Input schema : $inputSchema needs to have image or binary type")
+      throw new IllegalArgumentException(
+        s"Input schema : $inputSchema needs to have image or binary type")
     }
 
-    featurizedDF
+    val dropped = if (getDropNa){
+      unrolledDF.na.drop(List(resizedCol))
+    }else{
+      unrolledDF
+    }
+    cntkModel.transform(dropped).drop(resizedCol)
+
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
