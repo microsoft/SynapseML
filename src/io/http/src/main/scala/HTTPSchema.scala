@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpExchange
 import org.apache.commons.io.IOUtils
 import org.apache.http._
 import org.apache.http.client.methods._
-import org.apache.http.entity.{ByteArrayEntity, StringEntity}
+import org.apache.http.entity.{ByteArrayEntity, ContentType, StringEntity}
 import org.apache.http.message.BasicHeader
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -218,8 +218,14 @@ object HTTPSchema {
   val response: DataType = HTTPResponseData.schema
   val request: DataType = HTTPRequestData.schema
 
+  //Convenience Functions for making and parsing HTTP objects
+
   private def stringToEntity(s: String): EntityData = {
     new EntityData(new StringEntity(s, "UTF-8"))
+  }
+
+  private def binaryToEntity(arr: Array[Byte]): EntityData = {
+    new EntityData(new ByteArrayEntity(arr))
   }
 
   private def entityToString(e: EntityData): Option[String] = {
@@ -268,6 +274,17 @@ object HTTPSchema {
     }, HTTPResponseData.schema)
 
   def string_to_response(c: Column): Column = string_to_response_udf(c)
+
+  private val binary_to_response_udf: UserDefinedFunction =
+    udf({ x: Array[Byte] =>
+      HTTPResponseData(
+        Array(),
+        binaryToEntity(x),
+        StatusLineData(null, 200, "Success"),
+        "en")
+    }, HTTPResponseData.schema)
+
+  def binary_to_response(c: Column): Column = binary_to_response_udf(c)
 
   def to_http_request(urlCol: Column, headersCol: Column, methodCol: Column, jsonEntityCol: Column): Column = {
     val pvd: Option[ProtocolVersionData] = None

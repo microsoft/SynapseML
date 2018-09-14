@@ -183,10 +183,16 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {
     val replyCol = options.getOrElse("replyCol", "reply")
-    val idColIndex = data.schema.fieldIndex(options.getOrElse("idCol", "id"))
+    val idCol = options.getOrElse("idCol", "id")
+    val idColIndex = data.schema.fieldIndex(idCol)
     val replyColIndex = data.schema.fieldIndex(replyCol)
-    val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
 
+    val replyType = data.schema(replyCol).dataType
+    val idType = data.schema(idCol).dataType
+    assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
+    assert(idType == StringType, s"id col is $idType, need StringType")
+
+    val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     val replies = data.queryExecution.toRdd.map { ir =>
       (ir.getString(idColIndex), irToResponseData(ir.getStruct(replyColIndex, 4)))
       // 4 is the Number of fields of HTTPResponseData,
