@@ -106,14 +106,15 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     new DenseVector(unrolled)
   }
 
-  private[ml] def unrollBytes(bytes: Array[Byte], width: Option[Int], height: Option[Int]): DenseVector = {
-    (height, width) match {
-      case (Some(h), Some(w)) => unrollBI(
-        ResizeUtils.resizeBufferedImage(w, h)(ImageIO.read(new ByteArrayInputStream(bytes))))
-      case (None, None) =>
-        unrollBI(ImageIO.read(new ByteArrayInputStream(bytes)))
-      case _ =>
-        throw new IllegalArgumentException("Height and width must either both be specified or unspecified")
+  private[ml] def unrollBytes(bytes: Array[Byte], width: Option[Int], height: Option[Int]): Option[DenseVector] = {
+    val biOpt = Option(ImageIO.read(new ByteArrayInputStream(bytes)))
+    biOpt.map { bi =>
+      (height, width) match {
+        case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h)(bi))
+        case (None, None) => unrollBI(bi)
+        case _ =>
+          throw new IllegalArgumentException("Height and width must either both be specified or unspecified")
+      }
     }
   }
 
