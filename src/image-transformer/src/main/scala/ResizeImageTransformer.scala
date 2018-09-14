@@ -5,10 +5,8 @@ package com.microsoft.ml.spark
 
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
-import java.io.ByteArrayInputStream
 
 import com.microsoft.ml.spark.schema.ImageSchema
-import javax.imageio.ImageIO
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{IntParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -32,9 +30,12 @@ object ResizeUtils {
     ImageSchema.toSparkImage(resizedImage)
   }
 
-  def resizeBytes(width: Int, height: Int)(bytes: Array[Byte]): Row = {
-    val resizedImage = resizeBufferedImage(width, height)(ImageIO.read(new ByteArrayInputStream(bytes)))
-    ImageSchema.toSparkImage(resizedImage)
+  def resizeBytes(width: Int, height: Int)(bytes: Array[Byte]): Option[Row] = {
+    val biOpt = ImageSchema.safeRead(bytes)
+    biOpt.map { bi =>
+      val resizedImage = resizeBufferedImage(width, height)(bi)
+      ImageSchema.toSparkImage(resizedImage)
+    }
   }
 }
 
