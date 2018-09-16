@@ -9,7 +9,7 @@ import java.util.UUID
 import javax.annotation.concurrent.GuardedBy
 import com.microsoft.ml.spark.{HTTPRequestData, HTTPResponseData, HTTPSchema, HeaderData}
 import com.microsoft.ml.spark.StreamUtilities.using
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer, HttpsServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
@@ -102,7 +102,12 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
         row.asInstanceOf[InternalRow]
       }
     }
-    val rawBatch = sqlContext.sparkContext.parallelize(rawList)
+    val rawBatch = if (rawList.nonEmpty) {
+      sqlContext.sparkContext.parallelize(rawList)
+    } else {
+      sqlContext.sparkContext.emptyRDD[InternalRow]
+    }
+
     sqlContext.sparkSession
       .internalCreateDataFrame(rawBatch, schema, isStreaming = true)
   }
