@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ByteArrayEntity, FileEntity, StringEntity}
-import org.apache.http.impl.client.{BasicResponseHandler, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
 import org.apache.spark.sql.functions.{col, length}
@@ -143,6 +143,31 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
     client.close()
   }
 
+  def sendFileRequest(client: CloseableHttpClient): (String, Long) = {
+    val post = new HttpPost(url)
+    val e = new FileEntity(new File(
+      s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
+    post.setEntity(e)
+    val t0 = System.currentTimeMillis()
+    val res = client.execute(post)
+    val out = new BasicResponseHandler().handleResponse(res)
+    res.close()
+    val t1 = System.currentTimeMillis()
+    (out, t1-t0)
+  }
+
+  def mean(xs: List[Int]): Double = xs match {
+    case Nil => 0.0
+    case ys => ys.sum / ys.size.toDouble
+  }
+
+  def stddev(xs: List[Int], avg: Double): Double = xs match {
+    case Nil => 0.0
+    case ys => math.sqrt((0.0 /: ys) {
+      (a,e) => a + math.pow(e - avg, 2.0)
+    } / xs.size)
+  }
+
   test("test implicits 2", TestBase.Extended) {
     import ServingImplicits._
 
@@ -163,27 +188,18 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
 
     val client = HttpClientBuilder.create().build()
 
-    def sendRequest(): String = {
-      val post = new HttpPost(url)
-      val e = new FileEntity(new File(
-        s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
-      post.setEntity(e)
-      val res = client.execute(post)
-      val out = new BasicResponseHandler().handleResponse(res)
-      res.close()
-      out
-    }
-
     waitForServer(server)
 
-    val responses = List(
-      sendRequest(),
-      sendRequest(),
-      sendRequest(),
-      sendRequest()
+    val responsesWithLatencies = (1 to 100).map( i =>
+      sendFileRequest(client)
     )
 
-    responses.foreach(s => assert(s === "{\"length\":279186}"))
+    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
+    val meanLatency = mean(latencies)
+    val stdLatency = stddev(latencies, meanLatency)
+    println(s"Latency = $meanLatency +/- $stdLatency")
+
+    responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
     server.stop()
     client.close()
   }
@@ -208,27 +224,18 @@ class DistributedHTTPSuite extends TestBase with WithFreeUrl {
 
     val client = HttpClientBuilder.create().build()
 
-    def sendRequest(): String = {
-      val post = new HttpPost(url)
-      val e = new FileEntity(new File(
-        s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
-      post.setEntity(e)
-      val res = client.execute(post)
-      val out = new BasicResponseHandler().handleResponse(res)
-      res.close()
-      out
-    }
-
     waitForServer(server)
 
-    val responses = List(
-      sendRequest(),
-      sendRequest(),
-      sendRequest(),
-      sendRequest()
+    val responsesWithLatencies = (1 to 100).map( i =>
+      sendFileRequest(client)
     )
 
-    responses.foreach(s => assert(s === "{\"length\":279186}"))
+    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
+    val meanLatency = mean(latencies)
+    val stdLatency = stddev(latencies, meanLatency)
+    println(s"Latency = $meanLatency +/- $stdLatency")
+
+    responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
     server.stop()
     client.close()
   }

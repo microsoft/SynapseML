@@ -23,6 +23,18 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
     StructType(schema.map(f => StructField(f.name, ArrayType(f.dataType))))
   }
 
+  def getBatcher(it: Iterator[Row]): Iterator[List[Row]]
+
+  def transform(dataset: Dataset[_]): DataFrame = {
+    dataset.toDF().mapPartitions { it =>
+      if (it.isEmpty) {
+        it
+      }else{
+        getBatcher(it).map(listOfRows => Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
+      }
+    }(RowEncoder(transformSchema(dataset.schema)))
+  }
+
 }
 
 object DynamicMiniBatchTransformer extends DefaultParamsReadable[DynamicMiniBatchTransformer]
@@ -43,12 +55,7 @@ class DynamicMiniBatchTransformer(val uid: String)
 
   setDefault(maxBatchSize -> Integer.MAX_VALUE)
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.toDF().mapPartitions(it =>
-      new DynamicBufferedBatcher(it, getMaxBatchSize).map(listOfRows =>
-        Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
-    )(RowEncoder(transformSchema(dataset.schema)))
-  }
+  override def getBatcher(it: Iterator[Row]) = new DynamicBufferedBatcher(it, getMaxBatchSize)
 
 }
 
@@ -79,12 +86,7 @@ class TimeIntervalMiniBatchTransformer(val uid: String)
 
   setDefault(maxBatchSize -> Integer.MAX_VALUE)
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.toDF().mapPartitions(it =>
-      new TimeIntervalBatcher(it, getMillisToWait, getMaxBatchSize).map(listOfRows =>
-        Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
-    )(RowEncoder(transformSchema(dataset.schema)))
-  }
+  override def getBatcher(it: Iterator[Row]) = new TimeIntervalBatcher(it, getMillisToWait, getMaxBatchSize)
 
 }
 
@@ -152,16 +154,10 @@ class FixedMiniBatchTransformer(val uid: String)
 
   def this() = this(Identifiable.randomUID("FixedMiniBatchTransformer"))
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.toDF().mapPartitions { it =>
-      val batcher =  if (getBuffered){
-        new FixedBufferedBatcher(it, getBatchSize, getMaxBufferSize)
-      }else{
-        new FixedBatcher(it, getBatchSize)
-      }
-      batcher.map(listOfRows =>
-        Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
-    }(RowEncoder(transformSchema(dataset.schema)))
+  override def getBatcher(it: Iterator[Row]): Iterator[List[Row]] = if (getBuffered){
+    new FixedBufferedBatcher(it, getBatchSize, getMaxBufferSize)
+  }else{
+    new FixedBatcher(it, getBatchSize)
   }
 
 }
