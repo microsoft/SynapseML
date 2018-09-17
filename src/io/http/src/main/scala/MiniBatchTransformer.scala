@@ -55,7 +55,8 @@ class DynamicMiniBatchTransformer(val uid: String)
 
   setDefault(maxBatchSize -> Integer.MAX_VALUE)
 
-  override def getBatcher(it: Iterator[Row]) = new DynamicBufferedBatcher(it, getMaxBatchSize)
+  override def getBatcher(it: Iterator[Row]): DynamicBufferedBatcher[Row] =
+    new DynamicBufferedBatcher(it, getMaxBatchSize)
 
 }
 
@@ -86,7 +87,8 @@ class TimeIntervalMiniBatchTransformer(val uid: String)
 
   setDefault(maxBatchSize -> Integer.MAX_VALUE)
 
-  override def getBatcher(it: Iterator[Row]) = new TimeIntervalBatcher(it, getMillisToWait, getMaxBatchSize)
+  override def getBatcher(it: Iterator[Row]): TimeIntervalBatcher[Row] =
+    new TimeIntervalBatcher(it, getMillisToWait, getMaxBatchSize)
 
 }
 

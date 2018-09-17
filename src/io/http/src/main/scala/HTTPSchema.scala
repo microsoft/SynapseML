@@ -264,14 +264,16 @@ object HTTPSchema {
 
   def request_to_string(c: Column): Column = request_to_string_udf(c)
 
+  def stringToResponse(x: String): HTTPResponseData = {
+    HTTPResponseData(
+      Array(),
+      stringToEntity(x),
+      StatusLineData(null, 200, "Success"),
+      "en")
+  }
+
   private val string_to_response_udf: UserDefinedFunction =
-    udf({ x: String =>
-      HTTPResponseData(
-        Array(),
-        stringToEntity(x),
-        StatusLineData(null, 200, "Success"),
-        "en")
-    }, HTTPResponseData.schema)
+    udf(stringToResponse _, HTTPResponseData.schema)
 
   def string_to_response(c: Column): Column = string_to_response_udf(c)
 

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.HTTPSchema._
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.execution.streaming._
+import org.apache.spark.sql.execution.streaming.continuous.{HTTPSinkProviderV2, HTTPSourceProviderV2}
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
@@ -22,6 +23,10 @@ case class DataStreamReaderExtensions(dsr: DataStreamReader) {
     dsr.format(classOf[DistributedHTTPSourceProvider].getName)
   }
 
+  def continuousServer: DataStreamReader = {
+    dsr.format(classOf[HTTPSourceProviderV2].getName)
+  }
+
   def address(host: String, port: Int, api: String): DataStreamReader = {
     dsr.option("host", host).option("port", port.toLong).option("name", api)
   }
@@ -34,12 +39,16 @@ case class DataStreamWriterExtensions[T](dsw: DataStreamWriter[T]) {
     dsw.format(classOf[HTTPSinkProvider].getName)
   }
 
-  def replyTo(name: String): DataStreamWriter[T] = {
-    dsw.option("name", name)
-  }
-
   def distributedServer: DataStreamWriter[T] = {
     dsw.format(classOf[DistributedHTTPSinkProvider].getName)
+  }
+
+  def continuousServer: DataStreamWriter[T] = {
+    dsw.format(classOf[HTTPSinkProviderV2].getName)
+  }
+
+  def replyTo(name: String): DataStreamWriter[T] = {
+    dsw.option("name", name)
   }
 
 }
