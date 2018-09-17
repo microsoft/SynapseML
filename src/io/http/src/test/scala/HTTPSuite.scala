@@ -14,7 +14,7 @@ import org.apache.spark.sql.types.StringType
 
 import scala.util.parsing.json.JSONObject
 
-class HTTPSuite extends TestBase with WithFreeUrl {
+class HTTPSuite extends TestBase with HTTPTestUtils {
 
   test("stream from HTTP", TestBase.Extended) {
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
@@ -32,34 +32,20 @@ class HTTPSuite extends TestBase with WithFreeUrl {
       .option("checkpointLocation", new File(tmpDir.toFile, "checkpoints").toString)
       .start()
 
-    def sendRequest(map: Map[String, Any]): HttpPost = {
-      val post = new HttpPost(url)
-      val params = new StringEntity(JSONObject(map).toString())
-      post.addHeader("content-type", "application/json")
-      post.setEntity(params)
-      post
-    }
+    val client = HttpClientBuilder.create().build()
 
-    def receiveRequest(post: HttpPost): String = {
-      StreamUtilities.using(HttpClientBuilder.create().build()) { client =>
-        val response = client.execute(post)
-        new BasicResponseHandler().handleResponse(response)
-      }.get
-    }
-
-    val p1 = sendRequest(Map("foo" -> 1, "bar" -> "here"))
-    val p2 = sendRequest(Map("foo" -> 1, "bar" -> "heree"))
-    val p3 = sendRequest(Map("foo" -> 1, "bar" -> "hereee"))
-    val p4 = sendRequest(Map("foo" -> 1, "bar" -> "hereeee"))
+    val p1 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"))
+    val p2 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "heree"))
+    val p3 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereee"))
+    val p4 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereeee"))
     val posts = List(p1, p2, p3, p4)
     val correctResponses = List(27, 28, 29, 30)
 
     posts.zip(correctResponses).foreach { p =>
-      val recieved = receiveRequest(p._1)
-      println((p._1, p._2, recieved))
-      assert(recieved === p._2.toString)
+      assert(p._1 === p._2.toString)
     }
     q1.stop()
+    client.close()
   }
 
 }
