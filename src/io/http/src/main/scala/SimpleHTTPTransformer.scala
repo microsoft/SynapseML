@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
@@ -62,7 +62,7 @@ class SimpleHTTPTransformer(val uid: String)
 
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
 
-  val flattenOutputBatches: Param[Boolean] = BooleanParam(
+  val flattenOutputBatches: Param[Boolean] = new BooleanParam(
     this, "flattenOutputBatches", "whether to flatten the output batches")
 
   /** @group getParam */

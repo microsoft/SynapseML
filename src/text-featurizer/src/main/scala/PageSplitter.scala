@@ -3,17 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml._
-import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.{udf, col}
-
-import scala.collection.mutable
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object PageSplitter extends DefaultParamsReadable[PageSplitter]
 
@@ -22,7 +17,7 @@ object PageSplitter extends DefaultParamsReadable[PageSplitter]
   * @param uid The id of the module
   */
 class PageSplitter(override val uid: String)
-  extends Transformer with HasInputCol with HasOutputCol with MMLParams {
+  extends Transformer with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("PageSplitter"))
 

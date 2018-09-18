@@ -90,7 +90,7 @@ object AssembleFeatures extends DefaultParamsReadable[AssembleFeatures]
   * @param uid The id of the module
   */
 class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeaturesModel]
-  with HasFeaturesCol with MMLParams {
+  with HasFeaturesCol with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("AssembleFeatures"))
 
@@ -111,10 +111,10 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   /** Categorical columns are one-hot encoded when true; default is true
     * @group param
     */
-  val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
+  val oneHotEncodeCategoricals: Param[Boolean] = new BooleanParam(this,
     "oneHotEncodeCategoricals",
-    "One-hot encode categoricals",
-    true)
+    "One-hot encode categoricals")
+  setDefault(oneHotEncodeCategoricals -> true)
 
   /** @group getParam */
   final def getOneHotEncodeCategoricals: Boolean = $(oneHotEncodeCategoricals)
@@ -126,7 +126,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     * @group param
     */
   val numberOfFeatures: IntParam =
-    IntParam(this, "numberOfFeatures", "Number of features to hash string columns to")
+    new IntParam(this, "numberOfFeatures", "Number of features to hash string columns to")
 
   /** @group getParam */
   final def getNumberOfFeatures: Int = $(numberOfFeatures)
@@ -135,7 +135,8 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
   /** Specifies whether to allow featurization of images */
-  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "Allow featurization of images", false)
+  val allowImages: Param[Boolean] = new BooleanParam(this, "allowImages", "Allow featurization of images")
+  setDefault(allowImages -> false)
 
   /** @group getParam */
   final def getAllowImages: Boolean = $(allowImages)

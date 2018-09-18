@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 
@@ -15,7 +15,7 @@ object Repartition extends DefaultParamsReadable[Repartition]
 /** Partitions the dataset into n partitions
   * @param uid The id of the module
   */
-class Repartition(val uid: String) extends Transformer with MMLParams {
+class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("Repartition"))
 
   val disable = new BooleanParam(this, "disable",
@@ -30,8 +30,7 @@ class Repartition(val uid: String) extends Transformer with MMLParams {
   /** Number of partitions. Default is 10
     * @group param
     */
-  val n: IntParam = IntParam(this, "n", "Number of partitions",
-    validation = ParamValidators.gt[Int](0))
+  val n: IntParam = new IntParam(this, "n", "Number of partitions", ParamValidators.gt[Int](0))
 
   /** @group getParam */
   final def getN: Int = $(n)

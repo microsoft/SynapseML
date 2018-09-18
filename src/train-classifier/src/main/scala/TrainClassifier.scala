@@ -61,7 +61,9 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
   /** Number of features to hash to
     * @group param
     */
-  val numFeatures = IntParam(this, "numFeatures", "Number of features to hash to", 0)
+  val numFeatures = new IntParam(this, "numFeatures", "Number of features to hash to")
+  setDefault(numFeatures -> 0)
+
   /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
   /** @group setParam */
@@ -71,7 +73,8 @@ class TrainClassifier(override val uid: String) extends Estimator[TrainedClassif
     * See class documentation for how this parameter interacts with specified labels.
     * @group param
     */
-  val reindexLabel = BooleanParam(this, "reindexLabel", "Re-index the label column", true)
+  val reindexLabel = new BooleanParam(this, "reindexLabel", "Re-index the label column")
+  setDefault(reindexLabel -> true)
   /** @group getParam */
   def getReindexLabel: Boolean = $(reindexLabel)
   /** @group setParam */

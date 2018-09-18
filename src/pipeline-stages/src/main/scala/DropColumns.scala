@@ -16,7 +16,7 @@ object DropColumns extends DefaultParamsReadable[DropColumns]
   *
   */
 
-class DropColumns(val uid: String) extends Transformer with MMLParams {
+class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("DropColumns"))
 
   val cols: StringArrayParam = new StringArrayParam(this, "cols", "Comma separated list of column names")

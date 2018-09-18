@@ -10,7 +10,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import java.sql.Timestamp
 
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import schema._
 
 /** DataConversion object. */
@@ -20,7 +20,7 @@ object DataConversion extends DefaultParamsReadable[DataConversion]
   * Returns a new DataFrame with the converted columns
   * @param uid The id of the module
   */
-class DataConversion(override val uid: String) extends Transformer with MMLParams {
+class DataConversion(override val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("DataConversion"))
 
   /** Comma separated list of columns whose type will be converted
@@ -38,7 +38,8 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
   /** The result type
     * @group param
     */
-  val convertTo: Param[String] = StringParam(this, "convertTo", "The result type", "")
+  val convertTo: Param[String] = new Param[String](this, "convertTo", "The result type")
+  setDefault(convertTo->"")
 
   /** @group getParam */
   final def getConvertTo: String = $(convertTo)
@@ -50,8 +51,9 @@ class DataConversion(override val uid: String) extends Transformer with MMLParam
     * The default is yyyy-MM-dd HH:mm:ss
     * @group param
     */
-  val dateTimeFormat: Param[String] = StringParam(this, "dateTimeFormat",
-    "Format for DateTime when making DateTime:String conversions", "yyyy-MM-dd HH:mm:ss")
+  val dateTimeFormat: Param[String] = new Param[String](this, "dateTimeFormat",
+    "Format for DateTime when making DateTime:String conversions")
+  setDefault(dateTimeFormat -> "yyyy-MM-dd HH:mm:ss")
 
   /** @group getParam */
   final def getDateTimeFormat: String = $(dateTimeFormat)

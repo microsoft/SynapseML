@@ -12,7 +12,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.param.{IntParam, ParamMap}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -135,7 +135,8 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
   *
   * @param uid The id of the module
   */
-class UnrollImage(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams{
+class UnrollImage(val uid: String) extends Transformer
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("UnrollImage"))
 
@@ -169,7 +170,8 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   *
   * @param uid The id of the module
   */
-class UnrollBinaryImage(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams{
+class UnrollBinaryImage(val uid: String) extends Transformer
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("UnrollImage"))
 

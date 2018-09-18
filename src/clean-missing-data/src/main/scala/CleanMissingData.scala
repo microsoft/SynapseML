@@ -44,18 +44,19 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   *   `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with MMLParams {
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
-  val cleaningMode: Param[String] = StringParam(this, "cleaningMode", "Cleaning mode", CleanMissingData.meanOpt)
+  val cleaningMode: Param[String] = new Param[String](this, "cleaningMode", "Cleaning mode")
+  setDefault(cleaningMode->CleanMissingData.meanOpt)
   def setCleaningMode(value: String): this.type = set(cleaningMode, value)
   def getCleaningMode: String = $(cleaningMode)
 
   /** Custom value for imputation, supports numeric, string and boolean types.
     * Date and Timestamp currently not supported.
     */
-  val customValue: Param[String] = StringParam(this, "customValue", "Custom value for replacement")
+  val customValue: Param[String] = new Param[String](this, "customValue", "Custom value for replacement")
   def setCustomValue(value: String): this.type = set(customValue, value)
   def getCustomValue: String = $(customValue)
 

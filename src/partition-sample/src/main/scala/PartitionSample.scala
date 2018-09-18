@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 
@@ -21,7 +21,7 @@ object PSConstants {
     final val newColDefault = "Partition"
 }
 
-trait PartitionSampleParams extends MMLParams {
+trait PartitionSampleParams extends Wrappable with DefaultParamsWritable {
 
   // TODO: Convert to Enum
   /** Sampling mode. The options are:
@@ -40,7 +40,7 @@ trait PartitionSampleParams extends MMLParams {
     * The default setting is RandomSample
     * @group param
     */
-  final val mode = StringParam(this, "mode", "AssignToPartition, RandomSample, or Head")
+  final val mode = new Param[String](this, "mode", "AssignToPartition, RandomSample, or Head")
   setDefault(mode, PSConstants.ModeRS)
   /** @group getParam */
   final def getMode: String = $(mode)
@@ -55,7 +55,9 @@ trait PartitionSampleParams extends MMLParams {
     * Default is Percentage
     * @group param
     */
-  final val rsMode = StringParam(this, "rsMode", "Absolute or Percentage", PSConstants.rsPercent)
+  final val rsMode = new Param[String](this, "rsMode", "Absolute or Percentage")
+  setDefault(rsMode -> PSConstants.rsPercent)
+
   /** @group getParam */
   final def getRandomSampleMode: String = $(rsMode)
   /** @group setParam */
@@ -66,7 +68,8 @@ trait PartitionSampleParams extends MMLParams {
     * Default is -1
     * @group param
     */
-  final val seed = LongParam(this, "seed", "Seed for random operations", -1L)
+  final val seed = new LongParam(this, "seed", "Seed for random operations")
+  setDefault(seed -> -1L)
   /** @group getParam */
   final def getSeed: Long = $(seed)
   /** @group setParam */
@@ -76,7 +79,9 @@ trait PartitionSampleParams extends MMLParams {
     * Default is .01
     * @group param
     */
-  final val percent = DoubleParam(this, "percent", "Percent of rows to return", 0.01)
+  final val percent = new DoubleParam(this, "percent", "Percent of rows to return")
+  setDefault(percent -> 0.01)
+
   /** @group getParam */
   final def getPercent: Double = $(percent)
   /** @group setParam */
@@ -88,7 +93,8 @@ trait PartitionSampleParams extends MMLParams {
     * Default is 1000
     * @group param
     */
-  final val count = LongParam(this, "count", "Number of rows to return", 1000L)
+  final val count = new LongParam(this, "count", "Number of rows to return")
+  setDefault(count -> 1000L)
   /** @group getParam */
   final def getCount: Long = $(count)
   /** @group setParam */
@@ -99,7 +105,9 @@ trait PartitionSampleParams extends MMLParams {
     * Default is \"Partition\"
     * @group param
     */
-  final val newColName = StringParam(this, "newColName", "Name of the partition column", PSConstants.newColDefault)
+  final val newColName = new Param[String](this, "newColName", "Name of the partition column")
+  setDefault(newColName->PSConstants.newColDefault)
+
   /** @group getParam */
   final def getNewColName: String = $(newColName)
   /** @group setParam */
@@ -110,7 +118,9 @@ trait PartitionSampleParams extends MMLParams {
     * Default is 10
     * @group param
     */
-  final val numParts = IntParam(this, "numParts", "Number of partitions", 10)
+  final val numParts = new IntParam(this, "numParts", "Number of partitions")
+  setDefault(numParts -> 10)
+
   /** @group getParam */
   final def getNumParts: Int = $(numParts)
   /** @group setParam */

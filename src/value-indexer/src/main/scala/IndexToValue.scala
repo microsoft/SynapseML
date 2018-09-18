@@ -23,7 +23,8 @@ object IndexToValue extends DefaultParamsReadable[IndexToValue]
   * back to any types of values.
   */
 
-class IndexToValue(val uid: String) extends Transformer with HasInputCol with HasOutputCol with MMLParams {
+class IndexToValue(val uid: String) extends Transformer
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("IndexToValue"))
 
   /** @param dataset - The input dataset, to be transformed

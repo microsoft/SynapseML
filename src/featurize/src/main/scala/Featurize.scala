@@ -21,7 +21,8 @@ private object FeaturizeUtilities
 object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
-class Featurize(override val uid: String) extends Estimator[PipelineModel] with MMLParams {
+class Featurize(override val uid: String) extends Estimator[PipelineModel]
+  with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
@@ -39,10 +40,11 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** One hot encode categorical columns when true; default is true
     * @group param
     */
-  val oneHotEncodeCategoricals: Param[Boolean] = BooleanParam(this,
+  val oneHotEncodeCategoricals: Param[Boolean] = new BooleanParam(this,
     "oneHotEncodeCategoricals",
-    "One-hot encode categoricals",
-    true)
+    "One-hot encode categoricals")
+
+  setDefault(oneHotEncodeCategoricals -> true)
 
   /** @group getParam */
   final def getOneHotEncodeCategoricals: Boolean = $(oneHotEncodeCategoricals)
@@ -53,11 +55,9 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   /** Number of features to hash string columns to
     * @group param
     */
-  val numberOfFeatures: IntParam =
-    IntParam(this,
-      "numberOfFeatures",
-      "Number of features to hash string columns to",
-      FeaturizeUtilities.numFeaturesDefault)
+  val numberOfFeatures: IntParam = new IntParam(this, "numberOfFeatures",
+      "Number of features to hash string columns to")
+  setDefault(numberOfFeatures -> FeaturizeUtilities.numFeaturesDefault)
 
   /** @group getParam */
   final def getNumberOfFeatures: Int = $(numberOfFeatures)
@@ -66,7 +66,8 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel] with 
   def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
 
   /** Specifies whether to allow featurization of images */
-  val allowImages: Param[Boolean] = BooleanParam(this, "allowImages", "Allow featurization of images", false)
+  val allowImages: Param[Boolean] = new BooleanParam(this, "allowImages", "Allow featurization of images")
+  setDefault(allowImages -> false)
 
   /** @group getParam */
   final def getAllowImages: Boolean = $(allowImages)

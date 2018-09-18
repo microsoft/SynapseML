@@ -20,7 +20,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Tokenize the input when set to true
     * @group param
     */
-  val useTokenizer = BooleanParam(this, "useTokenizer", "Whether to tokenize the input")
+  val useTokenizer = new BooleanParam(this, "useTokenizer", "Whether to tokenize the input")
 
   /** @group getParam */
   final def getUseTokenizer: Boolean = $(useTokenizer)
@@ -28,7 +28,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Indicates whether the regex splits on gaps (true) or matches tokens (false)
     * @group param
     */
-  val tokenizerGaps = BooleanParam(
+  val tokenizerGaps = new BooleanParam(
     this,
     "tokenizerGaps",
     "Indicates whether regex splits on gaps (true) or matches tokens (false)."
@@ -40,7 +40,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Minumum token length; must be 0 or greater.
     * @group param
     */
-  val minTokenLength = IntParam(this, "minTokenLength", "Minimum token length, >= 0.")
+  val minTokenLength = new IntParam(this, "minTokenLength", "Minimum token length, >= 0.")
 
   /** @group getParam */
   final def getMinTokenLength: Int = $(minTokenLength)
@@ -48,7 +48,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Regex pattern used to match delimiters if gaps (true) or tokens (false)
     * @group param
     */
-  val tokenizerPattern = StringParam(
+  val tokenizerPattern = new Param[String](
     this,
     "tokenizerPattern",
     "Regex pattern used to match delimiters if gaps is true or tokens if gaps is false.")
@@ -59,7 +59,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Indicates whether to convert all characters to lowercase before tokenizing.
     * @group param
     */
-  val toLowercase = BooleanParam(
+  val toLowercase = new BooleanParam(
     this,
     "toLowercase",
     "Indicates whether to convert all characters to lowercase before tokenizing.")
@@ -70,7 +70,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Indicates whether to remove stop words from tokenized data.
     * @group param
     */
-  val useStopWordsRemover = BooleanParam(this,
+  val useStopWordsRemover = new BooleanParam(this,
     "useStopWordsRemover",
     "Whether to remove stop words from tokenized data")
 
@@ -80,7 +80,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Indicates whether a case sensitive comparison is performed on stop words.
     * @group param
     */
-  val caseSensitiveStopWords = BooleanParam(
+  val caseSensitiveStopWords = new BooleanParam(
     this,
     "caseSensitiveStopWords",
     " Whether to do a case sensitive comparison over the stop words")
@@ -92,7 +92,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
     * stopWords input
     * @group param
     */
-  val defaultStopWordLanguage = StringParam(this,
+  val defaultStopWordLanguage = new Param[String](this,
     "defaultStopWordLanguage",
     "Which language to use for the stop word remover," +
       " set this to custom to use the stopWords input")
@@ -103,7 +103,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** The words to be filtered out. This is a comma separated list of words, encoded as a single string.
     * For example, "a, the, and"
     */
-  val stopWords = StringParam(this, "stopWords", "The words to be filtered out.")
+  val stopWords = new Param[String](this, "stopWords", "The words to be filtered out.")
 
   /** @group getParam */
   final def getStopWords: String = $(stopWords)
@@ -111,7 +111,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Enumerate N grams when set
     * @group param
     */
-  val useNGram = BooleanParam(this, "useNGram", "Whether to enumerate N grams")
+  val useNGram = new BooleanParam(this, "useNGram", "Whether to enumerate N grams")
 
   /** @group getParam */
   final def getUseNGram: Boolean = $(useNGram)
@@ -119,7 +119,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** The size of the Ngrams
     * @group param
     */
-  val nGramLength = IntParam(this, "nGramLength", "The size of the Ngrams")
+  val nGramLength = new IntParam(this, "nGramLength", "The size of the Ngrams")
 
   /** @group getParam */
   final def getNGramLength: Int = $(nGramLength)
@@ -127,7 +127,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** All nonnegative word counts are set to 1 when set to true
     * @group param
     */
-  val binary = BooleanParam(
+  val binary = new BooleanParam(
     this,
     "binary",
     "If true, all nonegative word counts are set to 1")
@@ -138,7 +138,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Set the number of features to hash each document to
     * @group param
     */
-  val numFeatures = IntParam(
+  val numFeatures = new IntParam(
     this,
     "numFeatures",
     "Set the number of features to hash each document to")
@@ -149,7 +149,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Scale the Term Frequencies by IDF when set to true
     * @group param
     */
-  val useIDF = BooleanParam(
+  val useIDF = new BooleanParam(
     this,
     "useIDF",
     "Whether to scale the Term Frequencies by IDF")
@@ -160,7 +160,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** Minimum number of documents in which a term should appear.
     * @group param
     */
-  val minDocFreq = IntParam(
+  val minDocFreq = new IntParam(
     this,
     "minDocFreq",
     "The minimum number of documents in which a term should appear.")
