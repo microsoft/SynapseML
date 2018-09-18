@@ -30,8 +30,12 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
         |$docString
         |ml_$entryPointName <- function(x$classParamsString)
         |{
-        |  df <- spark_dataframe(x)
-        |  sc <- spark_connection(df)
+        |  if (unfit.model) {
+        |    sc <- x
+        |  } else {
+        |    df <- spark_dataframe(x)
+        |    sc <- spark_connection(df)
+        |  }
         |  env <- new.env(parent = emptyenv())
         |
         |  env$$model <- \"$entryPointQualifiedName\"
@@ -169,7 +173,9 @@ class SparklyREstimatorWrapper(entryPoint: Estimator[_],
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
   override val modelStr: String =
-  s"""|  mod_model_raw <- mod_parameterized %>%
+  s"""|  if (unfit.model)
+      |    return(mod_parameterized)
+      |  mod_model_raw <- mod_parameterized %>%
       |    invoke(\"fit\", df)
       |
       |  mod_model <- sparklyr:::new_ml_model(mod_parameterized, mod_model_raw, mod_model_raw)
@@ -179,6 +185,6 @@ class SparklyREstimatorWrapper(entryPoint: Estimator[_],
       |""".stripMargin
   override val moduleAcc = "mod_model$model"
   override val psType = "Estimator"
-  override val additionalParams = ", only.model=FALSE"
+  override val additionalParams = ", unfit.model=FALSE, only.model=FALSE"
 
 }
