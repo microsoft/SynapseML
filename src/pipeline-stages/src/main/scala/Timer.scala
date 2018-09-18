@@ -18,16 +18,17 @@ trait TimerParams extends Wrappable {
 
   def getStage: PipelineStage = $(stage)
 
-  val logToScala = BooleanParam(this, "logToScala", "Whether to output the time to the scala console", true)
+  val logToScala = new BooleanParam(this, "logToScala", "Whether to output the time to the scala console")
+  setDefault(logToScala -> true)
 
   def getLogToScala: Boolean = $(logToScala)
 
   def setLogToScala(v: Boolean): this.type = set(logToScala, v)
 
-  val disableMaterialization =
-    BooleanParam(this, "disableMaterialization",
-                 "Whether to disable timing (so that one can turn it off for evaluation)",
-                 false)
+  val disableMaterialization = new BooleanParam(this, "disableMaterialization",
+                 "Whether to disable timing (so that one can turn it off for evaluation)")
+
+  setDefault(disableMaterialization->true)
 
   def getDisableMaterialization: Boolean = $(disableMaterialization)
 

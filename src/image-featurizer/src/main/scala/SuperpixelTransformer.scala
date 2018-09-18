@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, Params}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{BinaryType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
@@ -33,7 +33,7 @@ trait HasModifier extends Params {
   */
 class SuperpixelTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol
-  with MMLParams with HasCellSize with HasModifier {
+  with Wrappable with DefaultParamsWritable with HasCellSize with HasModifier {
   def this() = this(Identifiable.randomUID("SuperpixelTransformer"))
 
   setDefault(cellSize->16.0, modifier->130.0, outputCol->s"${uid}_output")

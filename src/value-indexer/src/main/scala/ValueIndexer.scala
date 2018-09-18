@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.schema._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.{Param, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
@@ -33,7 +33,7 @@ object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
   }
 }
 
-trait ValueIndexerParams extends MMLParams with HasInputCol with HasOutputCol
+trait ValueIndexerParams extends Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol
 
 class NullOrdering[T] (ord: Ordering[T]) extends Ordering[T] {
   override def compare(x: T, y: T): Int =
@@ -115,7 +115,9 @@ class ValueIndexerModel(val uid: String)
   /** The datatype of the levels as a jason string
     * @group param
     */
-  val dataType = StringParam(this, "dataType", "The datatype of the levels as a Json string", "string")
+  val dataType = new Param[String](this, "dataType", "The datatype of the levels as a Json string")
+  setDefault(dataType->"string")
+
   /** @group getParam */
   def getDataTypeStr: String = if ($(dataType) == "string") DataTypes.StringType.json else $(dataType)
   /** @group setParam */

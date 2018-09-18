@@ -13,7 +13,7 @@ import org.apache.spark.sql.types._
 object Explode extends DefaultParamsReadable[Explode]
 
 class Explode(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with MMLParams {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("Explode"))
 
   setDefault(outputCol->(this.uid + "_output"))

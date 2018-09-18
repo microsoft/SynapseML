@@ -7,7 +7,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.expressions.{MutableAggregationBuffer, UserDefinedAggregateFunction}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -18,7 +18,7 @@ import scala.collection.mutable
 
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
-class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
+class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
   def this() = this(Identifiable.randomUID("EnsembleByKey"))
 
   val keys = new StringArrayParam(this, "keys", "Keys to group by")
@@ -52,8 +52,7 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
   def setColName(value: String): this.type = set(colNames, Array(value))
 
   val allowedStrategies = Set("mean")
-  val strategy =
-    StringParam(this, "strategy", "How to ensemble the scores, ex: mean",
+  val strategy = new Param[String](this, "strategy", "How to ensemble the scores, ex: mean",
                 { x: String => allowedStrategies(x) })
 
   def getStrategy: String = $(strategy)
@@ -62,8 +61,8 @@ class EnsembleByKey(val uid: String) extends Transformer with MMLParams {
 
   setDefault(strategy -> "mean")
 
-  val collapseGroup =
-    BooleanParam(this, "collapseGroup", "Whether to collapse all items in group to one entry")
+  val collapseGroup = new BooleanParam(
+    this, "collapseGroup", "Whether to collapse all items in group to one entry")
 
   def getCollapseGroup: Boolean = $(collapseGroup)
 
