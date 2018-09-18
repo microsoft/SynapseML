@@ -15,43 +15,44 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-trait CNTKParams extends MMLParams {
-  val labelsColumnName = StringParam(this, "labelsColumnName", "Label column name", "labels")
+trait CNTKParams extends Params {
+
+  val labelsColumnName = new Param[String](this, "labelsColumnName", "Label column name")
   def getLabelsColumnName: String = $(labelsColumnName)
 
-  val featuresColumnName = StringParam(this, "featuresColumnName", "Features column name", "features")
+  val featuresColumnName = new Param[String](this, "featuresColumnName", "Features column name")
   def getFeaturesColumnName: String = $(featuresColumnName)
 
   // This will go away after the CNTK HDFS Deserializer
-  val localHdfsMount = StringParam(this, "localHdfsMount", "Local mount point for hdfs:///")
+  val localHdfsMount = new Param[String](this, "localHdfsMount", "Local mount point for hdfs:///")
   def getLocalHdfsMount: String = $(localHdfsMount)
 
-  val dataTransfer = StringParam(this, "dataTransfer", "Transfer strategy", "local")
+  val dataTransfer = new Param[String](this, "dataTransfer", "Transfer strategy")
   def setTransferStrategy(s: String): this.type = set(dataTransfer, s)
   def getDataTransfer: String = $(dataTransfer)
 
   // TODO: Convert to enum contract shared with CNTK's HDFS Deserializer
-  val dataFormat = StringParam(this, "dataFormat", "Transfer format", "text")
+  val dataFormat = new Param[String](this, "dataFormat", "Transfer format")
   def setDataFormat(s: String): this.type = set(dataFormat, s)
   def getDataFormat: String = $(dataFormat)
 
-  val weightPrecision = StringParam(this, "weightPrecision", "Weights", CNTKLearner.floatPrecision)
+  val weightPrecision = new Param[String](this, "weightPrecision", "Weights")
   def getWeightPrecision: String = $(weightPrecision)
 
-  val featureCount = IntParam(this, "featureCount", "Number of features for reduction", 1)
+  val featureCount = new IntParam(this, "featureCount", "Number of features for reduction")
   def setFeatureCount(c: Int): this.type = set(featureCount, c)
   def getFeatureCount: Int = $(featureCount)
 
-  val brainScript = StringParam(this, "brainScript", "String of BrainScript config")
+  val brainScript = new Param[String](this, "brainScript", "String of BrainScript config")
   def setBrainScriptText(t: String): this.type = set(brainScript, t)
   def setBrainScriptFile(f: String): this.type = set(brainScript, FileUtilities.readFile(new File(f)))
   def getBrainScript: String = $(brainScript)
 
-  val parallelTrain = BooleanParam(this, "parallelTrain", "Train using an MPI ring", true)
+  val parallelTrain = new BooleanParam(this, "parallelTrain", "Train using an MPI ring")
   def setParallelTrain(b: Boolean): this.type = set(parallelTrain, b)
   def getParallelTrain: Boolean = $(parallelTrain)
 
-  val workingDir = StringParam(this, "workingDir", "Working directory for CNTK", "tmp")
+  val workingDir = new Param[String](this, "workingDir", "Working directory for CNTK")
   def setWorkingDirectory(d: String): this.type = set(workingDir, d)
   def getWorkingDirectory: String = $(workingDir)
 
@@ -60,7 +61,7 @@ trait CNTKParams extends MMLParams {
   def setGPUMachines(value: Array[String]): this.type = set(gpuMachines, value)
   def getGPUMachines: Array[String] = $(gpuMachines)
 
-  val username = StringParam(this, "username", "Username for the GPU VM", "sshuser")
+  val username = new Param[String](this, "username", "Username for the GPU VM")
   def setUserName(value: String): this.type = set(username, value)
   def getUserName: String = $(username)
 
@@ -81,7 +82,20 @@ object CNTKLearner extends DefaultParamsReadable[CNTKLearner] {
 }
 
 @InternalWrapper
-class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CNTKParams {
+class CNTKLearner(override val uid: String) extends Estimator[CNTKModel]
+  with CNTKParams with Wrappable {
+
+  setDefault(
+    labelsColumnName-> "labels",
+    featuresColumnName->"features",
+    dataTransfer->"local",
+    dataFormat->"text",
+    weightPrecision-> CNTKLearner.floatPrecision,
+    featureCount->1,
+    parallelTrain->true,
+    workingDir->"tmp",
+    username->"sshuser"
+  )
 
   def this() = this(Identifiable.randomUID("CNTKLearner"))
 
@@ -165,7 +179,7 @@ class CNTKLearner(override val uid: String) extends Estimator[CNTKModel] with CN
       .setModelOutputDir(config.getLocalModelOutputDir)
       .setModelName(config.getModelName)
 
-    val output = cb.runCommand
+    cb.runCommand()
     logInfo("CNTK training finished")
     conformedData.unpersist()
     // Note: This currently runs only on linux

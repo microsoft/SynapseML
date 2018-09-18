@@ -44,26 +44,26 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   /** @group setParam */
   def setModels(value: Array[Estimator[_]]): this.type = set(models, value)
 
-  val numFolds = IntParam(this, "numFolds", "Number of folds")
+  val numFolds = new IntParam(this, "numFolds", "Number of folds")
   /** @group getParam */
   def getNumFolds: Int = $(numFolds)
   /** @group setParam */
   def setNumFolds(value: Int): this.type = set(numFolds, value)
 
-  val seed = LongParam(this, "seed", "Random number generator seed")
+  val seed = new LongParam(this, "seed", "Random number generator seed")
   /** @group getParam */
   def getSeed: Long = $(seed)
   /** @group setParam */
   def setSeed(value: Long): this.type = set(seed, value)
   setDefault(seed -> 0)
 
-  val numRuns = IntParam(this, "numRuns", "Termination criteria for randomized search")
+  val numRuns = new IntParam(this, "numRuns", "Termination criteria for randomized search")
   /** @group getParam */
   def getNumRuns: Int = $(numRuns)
   /** @group setParam */
   def setNumRuns(value: Int): this.type = set(numRuns, value)
 
-  val parallelism = IntParam(this, "parallelism", "The number of models to run in parallel")
+  val parallelism = new IntParam(this, "parallelism", "The number of models to run in parallel")
   /** @group getParam */
   def getParallelism: Int = $(parallelism)
   /** @group setParam */

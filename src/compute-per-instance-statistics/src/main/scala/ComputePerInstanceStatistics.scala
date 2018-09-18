@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.schema.SchemaConstants._
 import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -17,7 +17,7 @@ object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInst
   val epsilon = 1e-15
 }
 
-trait ComputePerInstanceStatisticsParams extends MMLParams
+trait ComputePerInstanceStatisticsParams extends Wrappable with DefaultParamsWritable
   with HasLabelCol with HasScoresCol with HasScoredLabelsCol with HasScoredProbabilitiesCol with HasEvaluationMetric {
   /** Param "evaluationMetric" is the metric to evaluate the models with. Default is "all"
     *

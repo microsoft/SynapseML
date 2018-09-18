@@ -9,7 +9,7 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
-class Cacher(val uid: String) extends Transformer with DefaultParamsWritable {
+class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
 
   val disable = new BooleanParam(this,
     "disable", "Whether or disable caching (so that you can turn it off during evaluation)")

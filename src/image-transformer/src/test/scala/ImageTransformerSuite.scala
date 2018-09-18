@@ -158,7 +158,7 @@ class UnrollBinaryImageSuite extends LinuxOnly
 }
 
 class ImageTransformerSuite extends LinuxOnly
-  with TransformerFuzzing[ImageTransformer] with ImageTestUtils{
+  with TransformerFuzzing[ImageTransformer] with ImageTestUtils {
 
   test("general workflow") {
     val images = session.readImages(fileLocation, recursive = true)

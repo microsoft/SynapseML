@@ -21,7 +21,7 @@ object MultiNGram extends DefaultParamsReadable[MultiNGram]
   * @param uid The id of the module
   */
 class MultiNGram(override val uid: String)
-    extends Transformer with HasInputCol with HasOutputCol with MMLParams {
+    extends Transformer with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("MultiNGram"))
 

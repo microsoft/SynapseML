@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{ParamMap, _}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -259,7 +259,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   */
 @InternalWrapper
 class ImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with MMLParams {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   import com.microsoft.ml.spark.ImageTransformer._
 

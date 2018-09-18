@@ -89,7 +89,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     *
     * @group param
     */
-  val cutOutputLayers: IntParam = IntParam(this, "cutOutputLayers", "The number of layers to cut " +
+  val cutOutputLayers: IntParam = new IntParam(this, "cutOutputLayers", "The number of layers to cut " +
     "off the end of the network, 0 leaves the network intact," +
     " 1 removes the output layer, etc", ParamValidators.gtEq(0))
 
@@ -101,7 +101,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   //TODO make nulls pass through
   val dropNa: BooleanParam =
-    BooleanParam(this, "dropNa", "Whether to drop na values before mapping")
+    new BooleanParam(this, "dropNa", "Whether to drop na values before mapping")
 
   /** @group setParam */
   def setDropNa(value: Boolean): this.type = set(dropNa, value)

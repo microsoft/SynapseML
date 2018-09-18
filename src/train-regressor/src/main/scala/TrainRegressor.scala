@@ -18,7 +18,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
-  with HasLabelCol with MMLParams with ComplexParamsWritable {
+  with HasLabelCol with Wrappable with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
@@ -37,7 +37,8 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
   /** Number of feature to hash to
     * @group param
     */
-  val numFeatures = IntParam(this, "numFeatures", "Number of features to hash to", 0)
+  val numFeatures = new IntParam(this, "numFeatures", "Number of features to hash to")
+  setDefault(numFeatures -> 0)
   /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
   /** @group setParam */

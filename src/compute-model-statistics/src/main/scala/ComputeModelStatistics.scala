@@ -10,7 +10,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -22,7 +22,7 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
-trait ComputeModelStatisticsParams extends MMLParams
+trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
   with HasLabelCol with HasScoresCol with HasScoredLabelsCol with HasEvaluationMetric {
   /** Param "evaluationMetric" is the metric to evaluate the models with. Default is "all"
     *

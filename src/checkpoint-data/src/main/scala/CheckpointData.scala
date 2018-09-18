@@ -5,18 +5,19 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 import org.apache.spark.storage._
 
-trait CheckpointDataParams extends MMLParams {
+trait CheckpointDataParams extends Wrappable with DefaultParamsWritable {
 
   /** Persist to disk as well as memory. Storage level is MEMORY_AND_DISK if true, else MEMORY_ONLY.
     * Default is false (MEMORY_ONLY)
     * @group param
     */
-  val diskIncluded: BooleanParam = BooleanParam(this, "diskIncluded", "Persist to disk as well as memory", false)
+  val diskIncluded: BooleanParam = new BooleanParam(this, "diskIncluded", "Persist to disk as well as memory")
+  setDefault(diskIncluded->false)
 
   /** @group getParam */
   final def getDiskIncluded: Boolean = $(diskIncluded)
@@ -27,7 +28,8 @@ trait CheckpointDataParams extends MMLParams {
   /** Reverse the cache operatation; unpersist a cached dataset. Default is false
     * @group param
     */
-  val removeCheckpoint: BooleanParam = BooleanParam(this, "removeCheckpoint", "Unpersist a cached dataset", false)
+  val removeCheckpoint: BooleanParam = new BooleanParam(this, "removeCheckpoint", "Unpersist a cached dataset")
+  setDefault(removeCheckpoint->false)
 
   /** @group getParam */
   final def getRemoveCheckpoint: Boolean = $(removeCheckpoint)

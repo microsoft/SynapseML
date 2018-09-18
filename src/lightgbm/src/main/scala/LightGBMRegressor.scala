@@ -40,13 +40,15 @@ class LightGBMRegressor(override val uid: String)
     with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
-  val alpha = DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression", 0.9)
+  val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
+  setDefault(alpha -> 0.9)
 
   def getAlpha: Double = $(alpha)
   def setAlpha(value: Double): this.type = set(alpha, value)
 
-  val tweedieVariancePower = DoubleParam(this, "tweedieVariancePower",
-    "control the variance of tweedie distribution, must be between 1 and 2", 1.5)
+  val tweedieVariancePower = new DoubleParam(this, "tweedieVariancePower",
+    "control the variance of tweedie distribution, must be between 1 and 2")
+  setDefault(tweedieVariancePower -> 1.5)
 
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
@@ -101,7 +103,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(predictionCol, predictionColName)
 
   override protected def predict(features: Vector): Double = {
-    model.score(features, false)
+    model.score(features, raw = false)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel =
@@ -132,7 +134,7 @@ object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionMod
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    return new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
   }
 
   def loadNativeModelFromString(model: String, labelColName: String = "label",
@@ -140,6 +142,6 @@ object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionMod
                                 predictionColName: String = "prediction"): LightGBMRegressionModel = {
     val uid = Identifiable.randomUID("LightGBMRegressor")
     val lightGBMBooster = new LightGBMBooster(model)
-    return new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
   }
 }

@@ -9,7 +9,7 @@ import java.awt.{Image => JImage}
 import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{IntParam, ParamMap}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{BinaryType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -43,7 +43,7 @@ object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransform
 
 @InternalWrapper
 class ResizeImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with MMLParams {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
   import ResizeUtils._
 
