@@ -76,6 +76,21 @@ You should see the output:
    ...
    ```
 
+## Azure Databricks
+
+In Azure Databricks, you can install devtools and the spark package from URL
+and then use spark_connect with method = "databricks":
+
+   ```R
+   install.packages("devtools")
+   devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-0.13.zip")
+   library(sparklyr)
+   library(dplyr)
+   sc <- spark_connect(method = "databricks")
+   faithful_df <- copy_to(sc, faithful)
+   unfit_model = ml_light_gbmregressor(sc, maxDepth=20, featuresCol="waiting", labelCol="eruptions", numIterations=10, unfit.model=TRUE)
+   ml_train_regressor(faithful_df, labelCol="eruptions", unfit_model)
+   ```
 
 ## Building from Source
 
