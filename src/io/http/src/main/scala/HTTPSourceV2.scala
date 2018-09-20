@@ -3,9 +3,8 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import java.io.{BufferedReader, InputStreamReader}
-import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
-import java.util.concurrent.{Executors, LinkedBlockingQueue}
+import java.net.{InetAddress, InetSocketAddress}
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.{Optional, UUID}
 
 import com.jcraft.jsch.Session
@@ -19,17 +18,16 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.HTTPServerUtils
+import org.apache.spark.sql.sources.v2._
 import org.apache.spark.sql.sources.v2.reader.streaming._
 import org.apache.spark.sql.sources.v2.reader.{DataReader, DataReaderFactory}
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter
 import org.apache.spark.sql.sources.v2.writer.{DataWriter, DataWriterFactory, WriterCommitMessage}
-import org.apache.spark.sql.sources.v2._
 import org.apache.spark.sql.sources.{DataSourceRegister, v2}
 import org.apache.spark.sql.streaming.OutputMode
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
@@ -172,8 +170,8 @@ class HTTPContinuousReader(options: DataSourceOptions)
   val port: Int = options.getInt(HTTPSourceV2.PORT, 8888)
   val name: String = options.get(HTTPSourceV2.NAME).get
 
-  private val driverService: HttpServer =
-    DriverServiceUtils.createDriverService(name)
+  //private val driverService: HttpServer =
+  //  DriverServiceUtils.createDriverService(name)
 
   val forwardingOptions: collection.Map[String, String] = options.asMap().asScala
     .filter{ case (k, v) => k.startsWith("forwarding")}
@@ -218,7 +216,7 @@ class HTTPContinuousReader(options: DataSourceOptions)
       val start = partitionStartMap(i)
       HTTPContinuousDataReaderFactory(
         host, port, name, start, i, forwardingOptions,
-        DriverServiceUtils.getDriverHost, driverService.getAddress.getPort
+        DriverServiceUtils.getDriverHost, 8000//driverService.getAddress.getPort
       )
         .asInstanceOf[DataReaderFactory[Row]]
     }.asJava
@@ -229,7 +227,7 @@ class HTTPContinuousReader(options: DataSourceOptions)
   }
 
   override def stop(): Unit = {
-    driverService.stop(0)
+    //driverService.stop(0)
   }
 
 }
@@ -347,7 +345,7 @@ class HTTPContinuousDataReader(host: String,
     resp.close()
     client.close()
   }
-  reportServer()
+  //reportServer()
 
   var forwardingSession: Option[Session] = None
   if (forwardingOptions.getOrElse("forwarding.enabled", "false").toBoolean){
