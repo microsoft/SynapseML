@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import java.io.File
+import java.io.{ByteArrayOutputStream, File}
 import java.nio.file.Files
 
 import org.apache.spark._
@@ -262,5 +262,16 @@ trait DataFrameEquality extends TestBase {
   }
 
   implicit lazy val dfEq: Equality[DataFrame] = baseDfEq
+
+  def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+    val result = eq.areEqual(df1, df2)
+    if(!result){
+      println("df1:")
+      df1.show(10000, false)
+      println("df2:")
+      df2.show(10000, false)
+    }
+    assert(result)
+  }
 
 }
