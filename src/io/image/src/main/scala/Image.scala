@@ -168,7 +168,6 @@ object ImageWriter {
             pathCol:String = "filenames",
             imageCol:String = "image",
             encoding: String=".png"): Unit = {
-
     val hconf = ConfUtils.getHConf(df)
     df.select(imageCol, pathCol).foreachPartition { rows =>
       val fs = FileSystem.get(new Path(basePath).toUri, hconf.value)
