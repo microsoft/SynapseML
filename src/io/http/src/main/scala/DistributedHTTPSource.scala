@@ -15,20 +15,13 @@ import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
-
-object DistributedHTTPSource {
-
-  val SCHEMA: StructType = {
-    new StructType().add("id", StringType).add(StructField("request", HTTPSchema.request))
-  }
-
-}
 
 class MultiChannelMap[K, V](var nLists: Int) {
 
@@ -309,7 +302,7 @@ class DistributedHTTPSource(name: String,
   protected var lastOffsetCommitted: LongOffset = new LongOffset(-1)
 
   /** Returns the schema of the data from this source */
-  override def schema: StructType = DistributedHTTPSource.SCHEMA
+  override def schema: StructType = HTTPSourceV2.SCHEMA
 
   // Note we assume that this function is only called once during the polling of a new batch
   override def getOffset: Option[Offset] = synchronized {
@@ -329,9 +322,9 @@ class DistributedHTTPSource(name: String,
       s.updateCurrentBatch(currentOffset.offset)
       s.getRequests(startOrdinal, endOrdinal)
         .map{ case (id, request) =>
-          Row.fromSeq(Seq(id, toRow(request)))
+          Row.fromSeq(Seq(Row(id, null), toRow(request)))
         }.toIterator
-    }(RowEncoder(DistributedHTTPSource.SCHEMA))
+    }(RowEncoder(HTTPSourceV2.SCHEMA))
   }
 
   override def commit(end: Offset): Unit = synchronized {
@@ -374,7 +367,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     if (!parameters.contains("name")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
-    ("DistributedHTTP", DistributedHTTPSource.SCHEMA)
+    ("DistributedHTTP", HTTPSourceV2.SCHEMA)
   }
 
   override def createSource(sqlContext: SQLContext,
@@ -437,11 +430,11 @@ class DistributedHTTPSink(val options: Map[String, String])
     val replyType = data.schema(replyCol).dataType
     val idType = data.schema(idCol).dataType
     assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
-    assert(idType == StringType, s"id col is $idType, need StringType")
+    assert(idType == HTTPSourceV2.ID_SCHEMA, s"id col is $idType, need ${HTTPSourceV2.ID_SCHEMA}")
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     data.queryExecution.toRdd.map { ir =>
-      (ir.getString(idColIndex), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      (ir.getStruct(idColIndex, 2).getString(0), irToResponseData(ir.getStruct(replyColIndex, 4)))
     }.foreach { case (id, value) =>
       server.get.respond(batchId, id, value)
     }
