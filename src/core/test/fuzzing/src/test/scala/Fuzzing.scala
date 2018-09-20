@@ -93,7 +93,7 @@ trait ExperimentFuzzing[S <: PipelineStage] extends DataFrameEquality {
     experimentTestObjects().foreach { req =>
       val res = runExperiment(req.stage, req.fitDF, req.transDF)
       req.validateDF match {
-        case Some(vdf) => assert(res === vdf)
+        case Some(vdf) => assertDFEq(res, vdf)
         case None => ()
       }
     }
@@ -126,9 +126,13 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
       val loadedStage = reader.load(path)
       (stage, loadedStage) match {
         case (e1: Estimator[_], e2: Estimator[_]) =>
-          assert(e1.fit(fitDF).transform(transDF) === e2.fit(fitDF).transform(transDF))
+          val df1 = e1.fit(fitDF).transform(transDF)
+          val df2 = e2.fit(fitDF).transform(transDF)
+          assertDFEq(df1, df2)
         case (t1: Transformer, t2: Transformer) =>
-          assert(t1.transform(transDF) === t2.transform(transDF))
+          val df1 = t1.transform(transDF)
+          val df2 =t2.transform(transDF)
+          assertDFEq(df1, df2)
         case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
       }
       ()
