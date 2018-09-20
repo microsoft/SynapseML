@@ -89,12 +89,12 @@ object HTTPSourceV2 {
   val PORT = "port"
   val NAME = "name"
 
+  val ID_SCHEMA: StructType = new StructType()
+    .add("requestId", StringType)
+    .add("partitionId", IntegerType)
+
   val SCHEMA: StructType = {
-    new StructType()
-      .add("id", new StructType()
-        .add("requestId", StringType)
-        .add("partitionId", IntegerType))
-      .add(StructField("request", HTTPSchema.request))
+    new StructType().add("id", ID_SCHEMA).add("request", HTTPSchema.request)
   }
 
   private[sql] def createInitialOffset(numPartitions: Int) = {

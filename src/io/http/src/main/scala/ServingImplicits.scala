@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.HTTPSchema._
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.execution.streaming.continuous.{HTTPSinkProviderV2, HTTPSourceProviderV2}
+import org.apache.spark.sql.execution.streaming.continuous.{HTTPSinkProviderV2, HTTPSourceProviderV2, HTTPSourceV2}
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
@@ -58,7 +58,7 @@ case class DataFrameServingExtensions(df: DataFrame) {
   def parseRequest(schema: DataType,
                     idCol: String = "id",
                     requestCol: String = "request"): DataFrame = {
-    assert(df.schema(idCol).dataType == StringType &&
+    assert(df.schema(idCol).dataType == HTTPSourceV2.ID_SCHEMA &&
       df.schema(requestCol).dataType == HTTPRequestData.schema)
     schema match {
       case BinaryType =>

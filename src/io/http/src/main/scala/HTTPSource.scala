@@ -15,6 +15,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
+import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
@@ -24,9 +25,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object HTTPServerUtils {
-  val SCHEMA: StructType = {
-    new StructType().add("id", StringType).add(StructField("request", HTTPSchema.request))
-  }
 
   def respond(request: HttpExchange, data: HTTPResponseData): Unit = {
     data.respondToHTTPExchange(request)
@@ -78,7 +76,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
   HTTPSource.replyCallbacks.update(name, reply)
 
   /** Returns the schema of the data from this source */
-  override def schema: StructType = HTTPServerUtils.SCHEMA
+  override def schema: StructType = HTTPSourceV2.SCHEMA
 
   override def getOffset: Option[Offset] = synchronized {
     if (currentOffset.offset == -1) None else Some(currentOffset)
@@ -97,7 +95,10 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
       val sliceEnd = endOrdinal - lastOffsetCommitted.offset.toInt - 1
       requests.slice(sliceStart, sliceEnd).map{ case(id, request) =>
         val row = new GenericInternalRow(2)
-        row.update(0, UTF8String.fromString(id.toString))
+        val idRow = new GenericInternalRow(2)
+        idRow.update(0, UTF8String.fromString(id.toString))
+        idRow.update(1, null)
+        row.update(0, idRow)
         row.update(1, hrdToIr(HTTPRequestData.fromHTTPExchange(request)))
         row.asInstanceOf[InternalRow]
       }
@@ -160,7 +161,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     if (!parameters.contains("name")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
-    ("HTTP", HTTPServerUtils.SCHEMA)
+    ("HTTP", HTTPSourceV2.SCHEMA)
   }
 
   override def createSource(sqlContext: SQLContext,
@@ -195,11 +196,11 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
     val replyType = data.schema(replyCol).dataType
     val idType = data.schema(idCol).dataType
     assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
-    assert(idType == StringType, s"id col is $idType, need StringType")
+    assert(idType == HTTPSourceV2.ID_SCHEMA, s"id col is $idType, need ${HTTPSourceV2.ID_SCHEMA}")
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     val replies = data.queryExecution.toRdd.map { ir =>
-      (ir.getString(idColIndex), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      (ir.getStruct(idColIndex, 2).getString(0), irToResponseData(ir.getStruct(replyColIndex, 4)))
       // 4 is the Number of fields of HTTPResponseData,
       // there does not seem to be a way to get this w/o reflection
     }.collect()
