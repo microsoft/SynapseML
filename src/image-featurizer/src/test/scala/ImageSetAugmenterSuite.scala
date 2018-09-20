@@ -9,10 +9,12 @@ import org.apache.spark.sql.DataFrame
 
 class ImageSetAugmenterSuite extends LinuxOnly with TransformerFuzzing[ImageSetAugmenter] {
 
-  val groceriesDirectory = "/Images/Grocery/"
+  val groceriesDirectory = "/Images/CIFAR"
   private val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
 
   private val images: DataFrame = session.readImages(fileLocation, recursive = true)
+
+  override val sortInDataframeEquality: Boolean = true
 
   private val ia: ImageSetAugmenter = new ImageSetAugmenter()
     .setInputCol("image")
