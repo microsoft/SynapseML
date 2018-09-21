@@ -65,25 +65,25 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 See our [notebooks](notebooks/samples/) for all examples.
 
-[example:101]: notebooks/samples/101%20-%20Adult%20Census%20Income%20Training.ipynb
+[example:101]: notebooks/samples/Classification%20-%20Adult%20Census.ipynb
   "Adult Census Income Training"
-[example:102]: notebooks/samples/102%20-%20Regression%20Example%20with%20Flight%20Delay%20Dataset.ipynb
+[example:102]: notebooks/samples/Regression%20-%20Flight%20Delays.ipynb
   "Regression Example with Flight Delay Dataset"
-[example:106]: notebooks/samples/106%20-%20Quantile%20Regression%20with%20LightGBM.ipynb
+[example:106]: notebooks/samples/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb
   "Quantile Regression with LightGBM"
-[example:201]: notebooks/samples/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb
+[example:201]: notebooks/samples/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb
   "Amazon Book Reviews - TextFeaturizer"
-[example:203]: notebooks/samples/203%20-%20Breast%20Cancer%20-%20Tune%20Hyperparameters.ipynb
+[example:203]: notebooks/samples/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb
   "Hyperparameter Tuning with MMLSpark"
-[example:301]: notebooks/samples/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb
+[example:301]: notebooks/samples/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb
   "CIFAR10 CNTK CNN Evaluation"
-[example:302]: notebooks/samples/302%20-%20Pipeline%20Image%20Transformations.ipynb
+[example:302]: notebooks/samples/OpenCV%20-%20Pipeline%20Image%20Transformations.ipynb
   "Pipeline Image Transformations"
-[example:304]: notebooks/samples/304%20-%20Medical%20Entity%20Extraction.ipynb
+[example:304]: notebooks/samples/DeepLearning%20-%20BiLSTM%20Medical%20Entity%20Extraction.ipynb
   "Medical Entity Extraction"
-[example:305]: notebooks/samples/305%20-%20Flowers%20ImageFeaturizer.ipynb
+[example:305]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb
   "Deep Flower Classification"
-[example:401]: notebooks/gpu/401%20-%20CNTK%20train%20on%20HDFS.ipynb
+[example:401]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb
   "CIFAR10 CNTK CNN Training"
 
 ## A short example
@@ -110,6 +110,39 @@ documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 
 ## Setup and installation
 
+### Spark package
+
+MMLSpark can be conveniently installed on existing Spark clusters via the
+`--packages` option, examples:
+
+   ```bash
+   spark-shell --packages Azure:mmlspark:0.13
+   pyspark --packages Azure:mmlspark:0.13
+   spark-submit --packages Azure:mmlspark:0.13 MyApp.jar
+   ```
+
+This can be used in other Spark contexts too, for example, you can use MMLSpark
+in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
+`.aztk/spark-defaults.conf`
+file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
+
+### Databricks
+
+To install MMLSpark on the [Databricks
+cloud](http://community.cloud.databricks.com), create a new [library from Maven
+coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
+in your workspace.
+
+For the coordinates use: `Azure:mmlspark:0.13`.  Ensure this library is
+attached to all clusters you create.
+
+Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
+
+You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
+
+```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.13.dbc```
+
+
 ### Docker
 
 The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
@@ -130,22 +163,6 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 MMLSpark can be used to train deep learning models on GPU nodes from a Spark
 application.  See the instructions for [setting up an Azure GPU
 VM](docs/gpu-setup.md).
-
-### Spark package
-
-MMLSpark can be conveniently installed on existing Spark clusters via the
-`--packages` option, examples:
-
-   ```bash
-   spark-shell --packages Azure:mmlspark:0.13
-   pyspark --packages Azure:mmlspark:0.13
-   spark-submit --packages Azure:mmlspark:0.13 MyApp.jar
-   ```
-
-This can be used in other Spark contexts too, for example, you can use MMLSpark
-in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
-`.aztk/spark-defaults.conf`
-file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
 
 ### Python
 
@@ -180,22 +197,6 @@ the `Bash script URI` field, input the script action URL provided above.  Mark
 the rest of the options as shown on the screenshot to the right.
 
 Submit, and the cluster should finish configuring within 10 minutes or so.
-
-### Databricks cloud
-
-To install MMLSpark on the [Databricks
-cloud](http://community.cloud.databricks.com), create a new [library from Maven
-coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
-in your workspace.
-
-For the coordinates use: `Azure:mmlspark:0.13`.  Ensure this library is
-attached to all clusters you create.
-
-Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
-
-You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
-
-```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.13.dbc```
 
 ### SBT
 
