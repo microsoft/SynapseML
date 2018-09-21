@@ -173,7 +173,7 @@ class RecognizeText(override val uid: String)
     CognitiveServiceUtils.setUA(get)
     val resp = convertAndClose(sendWithRetries(client, get, Array(100)))
     get.releaseConnection()
-    val status = IOUtils.toString(resp.entity.content, "UTF-8")
+    val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
       .parseJson.asJsObject.fields("status").convertTo[String]
     status match {
       case "Succeeded" | "Failed" => Some(resp)
@@ -238,7 +238,7 @@ class GenerateThumbnails(override val uid: String)
     { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 
   override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
-    new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.content })
+    new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.map(_.content).orNull })
   }
 
   override def responseDataType: DataType = BinaryType

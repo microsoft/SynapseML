@@ -34,7 +34,8 @@ object ErrorUtils extends Serializable {
     respOpt match {
       case Some(resp) if resp.statusLine.statusCode == 200 => None
       case Some(resp) =>
-        Some(Row(IOUtils.toString(resp.entity.content, "UTF-8"), resp.statusLine))
+        Some(Row(resp.entity.map(entity =>
+          IOUtils.toString(entity.content, "UTF-8")), resp.statusLine))
       case None => None
     }
   }
