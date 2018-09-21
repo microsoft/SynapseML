@@ -39,6 +39,17 @@ object ServerUtils {
     server.start()
     server
   }
+
+  def createServiceOnFreePort(apiName: String,
+                              host: String="0.0.0.0",
+                              handler: HttpHandler): HttpServer ={
+    val port: Int = StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
+    val server = HttpServer.create(new InetSocketAddress(host,port), 100)
+    server.setExecutor(Executors.newFixedThreadPool(100))
+    server.createContext(s"/$apiName", handler)
+    server.start()
+    server
+  }
 }
 
 trait WithFreeUrl {

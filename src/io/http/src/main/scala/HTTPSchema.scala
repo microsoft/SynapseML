@@ -36,7 +36,7 @@ object HeaderData  extends SparkBindings[HeaderData]
 
 case class EntityData(content: Array[Byte],
                       contentEncoding: Option[HeaderData],
-                      contentLength: Long,
+                      contentLength: Option[Long],
                       contentType: Option[HeaderData],
                       isChunked: Boolean,
                       isRepeatable: Boolean,
@@ -50,7 +50,7 @@ case class EntityData(content: Array[Byte],
            case _: SocketException => Array() //TODO investigate why sockets fail sometimes
          },
          Option(e.getContentEncoding).map(new HeaderData(_)),
-         e.getContentLength,
+         Option(e.getContentLength),
          Option(e.getContentType).map(new HeaderData(_)),
          e.isChunked,
          e.isRepeatable,
@@ -60,7 +60,7 @@ case class EntityData(content: Array[Byte],
   def toHttpCore: HttpEntity = {
     val e = new ByteArrayEntity(content)
     contentEncoding.foreach { ce => e.setContentEncoding(ce.toHTTPCore) }
-    assert(e.getContentLength == contentLength)
+    contentLength.foreach { cl => assert(e.getContentLength == cl)}
     contentType.foreach(h => e.setContentType(h.toHTTPCore))
     e.setChunked(isChunked)
     assert(e.isRepeatable == isRepeatable)
@@ -87,13 +87,13 @@ case class StatusLineData(protocolVersion: ProtocolVersionData,
 object StatusLineData extends SparkBindings[StatusLineData]
 
 case class HTTPResponseData(headers: Array[HeaderData],
-                            entity: EntityData,
+                            entity: Option[EntityData],
                             statusLine: StatusLineData,
                             locale: String) {
 
   def this(response: CloseableHttpResponse) = {
     this(response.getAllHeaders.map(new HeaderData(_)),
-         new EntityData(response.getEntity),
+         Option(response.getEntity).map(new EntityData(_)),
          new StatusLineData(response.getStatusLine),
          response.getLocale.toString)
   }
@@ -101,15 +101,16 @@ case class HTTPResponseData(headers: Array[HeaderData],
   def respondToHTTPExchange(request: HttpExchange): Unit = {
     val responseHeaders = request.getResponseHeaders
     val headersToAdd = headers ++ Seq(
-      entity.contentType,
-      entity.contentEncoding).flatten
+      entity.flatMap(_.contentType),
+      entity.flatMap(_.contentEncoding)).flatten
     if (headersToAdd.nonEmpty) {
       headersToAdd.foreach(h => responseHeaders.add(h.name, h.value))
     }
-    request.sendResponseHeaders(statusLine.statusCode, entity.contentLength)
-    using(request.getResponseBody) {
+    request.sendResponseHeaders(statusLine.statusCode,
+      entity.flatMap(_.contentLength).getOrElse(0L))
+    entity.foreach(entity =>using(request.getResponseBody) {
       _.write(entity.content)
-    }.get
+    }.get)
   }
 
 }
@@ -203,7 +204,7 @@ object HTTPRequestData extends SparkBindings[HTTPRequestData] {
       Some(EntityData(
         IOUtils.toByteArray(httpe.getRequestBody),
         Option(requestHeaders.getFirst("Content-Encoding")).map(HeaderData("Content-Encoding", _)),
-        requestHeaders.getFirst("Content-Length").toLong,
+        Option(requestHeaders.getFirst("Content-Length")).map(_.toLong),
         Option(requestHeaders.getFirst("Content-Type")).map(HeaderData("Content-Type", _)),
         isChunked = isChunked,
         isRepeatable = false,
@@ -267,7 +268,7 @@ object HTTPSchema {
   def stringToResponse(x: String): HTTPResponseData = {
     HTTPResponseData(
       Array(),
-      stringToEntity(x),
+      Some(stringToEntity(x)),
       StatusLineData(null, 200, "Success"),
       "en")
   }
@@ -281,7 +282,7 @@ object HTTPSchema {
     udf({ x: Array[Byte] =>
       HTTPResponseData(
         Array(),
-        binaryToEntity(x),
+        Some(binaryToEntity(x)),
         StatusLineData(null, 200, "Success"),
         "en")
     }, HTTPResponseData.schema)

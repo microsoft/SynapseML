@@ -76,7 +76,7 @@ object PowerBIWriter {
         val status = response.statusLine
         val code = status.statusCode
         if (code != 200){
-          val content = new String(response.entity.content)
+          val content = new String(response.entity.get.content)
           throw new HttpResponseException(code, s"Request failed with \n " +
             s"code: $code, \n" +
             s"reason:${status.reasonPhrase}, \n" +
