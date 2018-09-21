@@ -21,8 +21,8 @@ trait ParserUtils extends WithServer {
       .withColumn("unparsedOutput", udf({x: Int =>
         HTTPResponseData(
           Array(),
-          EntityData(
-            "{\"foo\": \"here\"}".getBytes, None, 0, None, false, false, false),
+          Some(EntityData(
+            "{\"foo\": \"here\"}".getBytes, None, None, None, false, false, false)),
           StatusLineData(ProtocolVersionData("foo",1,1),200, "bar"),
           "en")
         }).apply(col("data"))
