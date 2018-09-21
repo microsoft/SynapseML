@@ -249,6 +249,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 
     param match {
       case p: ComplexParam[_] =>
+      case p: ServiceParam[_] =>
       case p if entryPoint.hasDefault(param) =>
         val paramParent: String = param.parent
         paramDefault = param match {
