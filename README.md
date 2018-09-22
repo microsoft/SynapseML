@@ -18,6 +18,9 @@ See the API documentation [for
 Scala](http://mmlspark.azureedge.net/docs/scala/) and [for
 PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
+[<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
+  />](https://github.com/Azure/mmlspark/releases)
+
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
@@ -39,51 +42,83 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 </details>
 
 
-## Notable features
+## Projects
+  
+<table style="width:70%">
+   <tr align="center">
+    <td><b>The Cognitive Services on Spark:</b><img height="40" /></td>
+    <td><b>LIME on Spark:</b><img height="40" /></b></td>
+    <td><b>Spark Serving:</b><img height="40" /></b></td>
+  </tr>
+  <tr align="center">
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png" width="200" /></td>
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/lime_on_spark.jpg" width="180" /></td>
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
+  </tr>
+  <tr align="center">
+    <td>Leverage the Microsoft Cognitive Services at Unprecenented Scales in your existing SparkML pipelines</td>
+    <td>Distributed, Model Agnostic, Interpretations for Image Classifiers</td>
+    <td>Serve any Spark Computation as a Web Service with Sub-Millisecond Latency</td>
+  </tr>
+   <tr align="center">
+    <td><b>LightGBM on Spark:</b><img height="40" /></b></td>
+    <td><b>CNTK on Spark:</b><img height="40" /></b></td>
+    <td><b>HTTP on Spark:</b><img height="40" /></b></td>
+  </tr>
+  <tr align="center">
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png" width="250" /></td>
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png" width="250" /></td>
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png" width="150" /></td>
+  </tr>
+  <tr align="center">
+    <td>Train GPU enabled Gradient Boosted Machines with LightGBM</td>
+    <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
+    <td>An Integration Betweeen Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
+  </tr>
+</table>
 
-[<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
-  />](https://github.com/Azure/mmlspark/releases)
+## Examples
 
-* Create an deep image classifier with transfer learning ([example:305])
+* Create an deep image classifier with transfer learning ([example 1])
 * Fit a LightGBM classification or regression model on a biochemical dataset
-  ([example:106]), to learn more check out the [LightGBM documentation
+  ([example 2]), to learn more check out the [LightGBM documentation
   page](docs/lightgbm.md).
 * Deploy a deep network as a distributed web service with [MMLSpark
   Serving](docs/mmlspark-serving.md)
 * Use web services in Spark with [HTTP on Apache Spark](docs/http.md)
-* Train a deep image classifier on Azure N-Series GPU VMs ([example:401])
+* Train a deep image classifier on Azure N-Series GPU VMs ([example 3])
 * Use Bi-directional LSTMs from Keras for medical entity extraction
-  ([example:304])
-* Create a text analytics system on Amazon book reviews ([example:201])
+  ([example 4])
+* Create a text analytics system on Amazon book reviews ([example 5])
 * Perform distributed hyperparameter tuning to identify Breast Cancer
-  ([example:203])
-* Easily ingest images from HDFS into Spark `DataFrame` ([example:301])
-* Use OpenCV on Spark to manipulate images ([example:302])
+  ([example])
+* Easily ingest images from HDFS into Spark `DataFrame` ([example 6])
+* Use OpenCV on Spark to manipulate images ([example 7])
 * Train classification and regression models easily via implicit featurization
-  of data ([example:101])
-* Train and evaluate a flight delay prediction system ([example:102])
+  of data ([example 8])
+* Train and evaluate a flight delay prediction system ([example 9])
 
 See our [notebooks](notebooks/samples/) for all examples.
 
-[example:101]: notebooks/samples/Classification%20-%20Adult%20Census.ipynb
+[example 1]: notebooks/samples/Classification%20-%20Adult%20Census.ipynb
   "Adult Census Income Training"
-[example:102]: notebooks/samples/Regression%20-%20Flight%20Delays.ipynb
+[example 2]: notebooks/samples/Regression%20-%20Flight%20Delays.ipynb
   "Regression Example with Flight Delay Dataset"
-[example:106]: notebooks/samples/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb
+[example 3]: notebooks/samples/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb
   "Quantile Regression with LightGBM"
-[example:201]: notebooks/samples/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb
+[example 4]: notebooks/samples/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb
   "Amazon Book Reviews - TextFeaturizer"
-[example:203]: notebooks/samples/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb
+[example 5]: notebooks/samples/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb
   "Hyperparameter Tuning with MMLSpark"
-[example:301]: notebooks/samples/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb
+[example 6]: notebooks/samples/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb
   "CIFAR10 CNTK CNN Evaluation"
-[example:302]: notebooks/samples/OpenCV%20-%20Pipeline%20Image%20Transformations.ipynb
+[example 7]: notebooks/samples/OpenCV%20-%20Pipeline%20Image%20Transformations.ipynb
   "Pipeline Image Transformations"
-[example:304]: notebooks/samples/DeepLearning%20-%20BiLSTM%20Medical%20Entity%20Extraction.ipynb
+[example 8]: notebooks/samples/DeepLearning%20-%20BiLSTM%20Medical%20Entity%20Extraction.ipynb
   "Medical Entity Extraction"
-[example:305]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb
+[example 9]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb
   "Deep Flower Classification"
-[example:401]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb
+[example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb
   "CIFAR10 CNTK CNN Training"
 
 ## A short example
