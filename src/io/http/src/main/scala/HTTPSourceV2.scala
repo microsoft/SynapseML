@@ -3,8 +3,9 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.LinkedBlockingQueue
+import java.io.{BufferedReader, InputStreamReader}
+import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
+import java.util.concurrent.{Executors, LinkedBlockingQueue}
 import java.util.{Optional, UUID}
 
 import com.jcraft.jsch.Session
@@ -170,8 +171,8 @@ class HTTPContinuousReader(options: DataSourceOptions)
   val port: Int = options.getInt(HTTPSourceV2.PORT, 8888)
   val name: String = options.get(HTTPSourceV2.NAME).get
 
-  //private val driverService: HttpServer =
-  //  DriverServiceUtils.createDriverService(name)
+  private val driverService: HttpServer =
+    DriverServiceUtils.createDriverService(name)
 
   val forwardingOptions: collection.Map[String, String] = options.asMap().asScala
     .filter{ case (k, v) => k.startsWith("forwarding")}
@@ -216,7 +217,7 @@ class HTTPContinuousReader(options: DataSourceOptions)
       val start = partitionStartMap(i)
       HTTPContinuousDataReaderFactory(
         host, port, name, start, i, forwardingOptions,
-        DriverServiceUtils.getDriverHost, 8000//driverService.getAddress.getPort
+        DriverServiceUtils.getDriverHost, driverService.getAddress.getPort
       )
         .asInstanceOf[DataReaderFactory[Row]]
     }.asJava
@@ -227,7 +228,7 @@ class HTTPContinuousReader(options: DataSourceOptions)
   }
 
   override def stop(): Unit = {
-    //driverService.stop(0)
+    driverService.stop(0)
   }
 
 }
@@ -345,7 +346,7 @@ class HTTPContinuousDataReader(host: String,
     resp.close()
     client.close()
   }
-  //reportServer()
+  reportServer()
 
   var forwardingSession: Option[Session] = None
   if (forwardingOptions.getOrElse("forwarding.enabled", "false").toBoolean){
