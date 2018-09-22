@@ -110,6 +110,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
     .setImageUrlCol("url")
     .setMode("Printed")
     .setOutputCol("ocr")
+    .setConcurrency(5)
 
   test("Basic Usage") {
     val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))

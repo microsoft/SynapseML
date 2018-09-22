@@ -43,6 +43,13 @@ class ImageLIME(val uid: String) extends Transformer
 
   def setNSamples(v: Int): this.type = set(nSamples, v)
 
+  val modelPartitions = new IntParam(this, "modelPartitions",
+    "The number of partitions to create for evaluating the model")
+
+  def getModelPartitions: Int = $(modelPartitions)
+
+  def setModelPartitions(v: Int): this.type = set(modelPartitions, v)
+
   val localModelPartitions = new IntParam(this, "localModelPartitions",
     "The number of partitions to coalesce to to fit the local model")
 
@@ -114,8 +121,12 @@ class ImageLIME(val uid: String) extends Transformer
 
       val broadcastedRow = sc.broadcast(row)
 
+      val localFeaturesDf = get(modelPartitions).map(n=>
+        sc.parallelize(samples,n).toDF(localFeaturesCol)
+      ).getOrElse(samples.toDF(localFeaturesCol))
+
       // Creates a new data frame for each image, containing samples of cluster states
-      val censoredDF = samples.toDF(localFeaturesCol)
+      val censoredDF = localFeaturesDf
         .map(stateRow => Row.merge(broadcastedRow.value, stateRow))(
           RowEncoder(spDFSchema.add(localFeaturesCol, ArrayType(BooleanType))))
         .withColumn(getInputCol,
