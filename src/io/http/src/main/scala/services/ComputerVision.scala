@@ -174,8 +174,8 @@ class RecognizeText(override val uid: String)
     val resp = convertAndClose(sendWithRetries(client, get, Array(100)))
     get.releaseConnection()
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
-      .parseJson.asJsObject.fields("status").convertTo[String]
-    status match {
+      .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
+    status.flatMap {
       case "Succeeded" | "Failed" => Some(resp)
       case "NotStarted" | "Running" => None
       case s => throw new RuntimeException(s"Received unknown status code: $s")

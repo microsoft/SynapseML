@@ -35,7 +35,7 @@ class NotebookTests extends TestBase {
     val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
     println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
     try {
-      val monitors = jobIds.map(monitorJob(_, logLevel = 2, timeout = timeoutInMillis))
+      val monitors = jobIds.map((runId: Int) => monitorJob(runId, timeoutInMillis, logLevel = 2))
       println(s"Monitoring Jobs...")
       val failures = monitors
         .map(Await.ready(_, Duration(timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
