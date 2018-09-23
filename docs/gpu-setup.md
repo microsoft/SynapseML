@@ -26,7 +26,7 @@ to check availability in your data center.
 MMLSpark provides an Azure Resource Manager (ARM) template to create a
 default setup that includes an HDInsight cluster and a GPU machine for
 training.  The template can be found here:
-<https://mmlspark.azureedge.net/buildartifacts/0.13/deploy-main-template.json>.
+<https://mmlspark.azureedge.net/buildartifacts/0.14/deploy-main-template.json>.
 
 It has the following parameters that configure the HDI Spark cluster and
 the associated GPU VM:
@@ -69,7 +69,7 @@ GPU VM setup template at experimentation time.
 ### 1. Deploy an ARM template within the [Azure Portal](https://ms.portal.azure.com/)
 
 [Click here to open the above main
-template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.13%2Fdeploy-main-template.json)
+template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fmmlspark.azureedge.net%2Fbuildartifacts%2F0.14%2Fdeploy-main-template.json)
 in the Azure portal.
 
 (If needed, you click the **Edit template** button to view and edit the
