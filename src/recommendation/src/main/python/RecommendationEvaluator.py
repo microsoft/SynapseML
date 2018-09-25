@@ -52,7 +52,7 @@ class RecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, Java
     __init__(self, rawPredictionCol="rawPrediction", labelCol="label", \
              metricName="ndcgAt")
     """
-    super(MsftRecommendationEvaluator, self).__init__()
+    super(RecommendationEvaluator, self).__init__()
     self._java_obj = self._new_java_obj(
       "com.microsoft.ml.spark.RecommendationEvaluator", self.uid)
     self._setDefault(metricName="ndcgAt")
