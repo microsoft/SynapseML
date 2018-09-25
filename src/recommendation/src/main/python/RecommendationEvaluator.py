@@ -15,7 +15,7 @@ from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
 
 @inherit_doc
-class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, JavaMLReadable, JavaMLWritable):
+class RecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, JavaMLReadable, JavaMLWritable):
   metricName = Param(Params._dummy(), "metricName",
                      """metric name in evaluation - one of:
                      map - 
@@ -54,7 +54,7 @@ class MsftRecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, 
     """
     super(MsftRecommendationEvaluator, self).__init__()
     self._java_obj = self._new_java_obj(
-      "com.microsoft.ml.spark.MsftRecommendationEvaluator", self.uid)
+      "com.microsoft.ml.spark.RecommendationEvaluator", self.uid)
     self._setDefault(metricName="ndcgAt")
     self._setDefault(k=3)
     self._setDefault(saveAll=False)
