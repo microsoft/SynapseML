@@ -49,12 +49,4 @@ object EnvironmentUtils {
     }
   }
 
-  def getEnv(s:String): String = {
-    System.getenv(s) match {
-      case null =>
-        throw new IllegalArgumentException(s"Environment variable $s not found")
-      case v => v
-    }
-  }
-
 }
