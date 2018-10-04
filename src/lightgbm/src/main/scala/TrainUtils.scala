@@ -14,7 +14,7 @@ import org.slf4j.Logger
 
 case class NetworkParams(executorIdToHost: Map[Int, String], defaultListenPort: Int, addr: String, port: Int)
 
-private object TrainUtils extends java.io.Serializable {
+private object TrainUtils extends Serializable {
 
   def translate(labelColumn: String, featuresColumn: String, log: Logger, trainParams: TrainParams,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
