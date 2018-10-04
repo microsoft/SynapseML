@@ -7,5 +7,5 @@ import com.microsoft.ml.spark.Wrappable
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol}
 import org.apache.spark.ml.util._
 
-trait MsftRecEvaluatorParams extends Wrappable
+trait RecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with ComplexParamsWritable
