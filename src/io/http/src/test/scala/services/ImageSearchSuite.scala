@@ -43,7 +43,9 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     val bytesDF = BingImageSearch
       .downloadFromUrls("url", "bytes", 4, 10000)
       .transform(resultsDF.limit(5))
-    bytesDF.collect().foreach(row => assert(row.getAs[Array[Byte]](1).length > 100))
+    val numSucesses = bytesDF.collect().count(row =>
+      row.getAs[Array[Byte]](1).length > 100)
+    assert(numSucesses>3)
   }
 
   override lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame] {
