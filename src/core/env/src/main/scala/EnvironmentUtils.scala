@@ -18,7 +18,7 @@ object EnvironmentUtils {
     val nvsmicmd = if (IsWindows) {
       // Unlikely nvidia is on the path
       val nvsmi = Paths.get(
-        sys.env.getOrElse("ProgramFiles", null),
+        sys.env("ProgramFiles"),
         "NVIDIA Corporation",
         "NVSMI",
         "nvidia-smi.exe").toAbsolutePath.toString
