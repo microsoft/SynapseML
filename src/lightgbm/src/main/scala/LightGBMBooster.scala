@@ -11,6 +11,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 /** Represents a LightGBM Booster learner
   * @param model The string serialized representation of the learner
   */
+@SerialVersionUID(777L)
 class LightGBMBooster(val model: String) extends Serializable {
   /** Transient variable containing local machine's pointer to native booster
     */

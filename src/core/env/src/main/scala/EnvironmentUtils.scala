@@ -18,7 +18,7 @@ object EnvironmentUtils {
     val nvsmicmd = if (IsWindows) {
       // Unlikely nvidia is on the path
       val nvsmi = Paths.get(
-        System.getenv("ProgramFiles"),
+        sys.env("ProgramFiles"),
         "NVIDIA Corporation",
         "NVSMI",
         "nvidia-smi.exe").toAbsolutePath.toString
@@ -46,14 +46,6 @@ object EnvironmentUtils {
       val gpucnt = envInfo.get.split("\n").count(!_.trim.isEmpty)
       log.info(s"$gpucnt GPUs detected")
       Some(gpucnt)
-    }
-  }
-
-  def getEnv(s:String): String = {
-    System.getenv(s) match {
-      case null =>
-        throw new IllegalArgumentException(s"Environment variable $s not found")
-      case v => v
     }
   }
 
