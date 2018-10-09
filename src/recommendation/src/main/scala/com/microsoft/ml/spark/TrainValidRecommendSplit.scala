@@ -226,9 +226,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         .drop(col("collect_list(" + $(itemCol) + ")")).drop(col("shuffle"))
         .cache()
 
-      val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
-      val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
-
       val train = testds
         .select($(userCol), "train")
         .withColumn($(itemCol), explode(col("train")))
