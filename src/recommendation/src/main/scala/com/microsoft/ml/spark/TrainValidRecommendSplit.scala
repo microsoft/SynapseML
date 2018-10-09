@@ -164,17 +164,18 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
   def splitDF(dataset: DataFrame): Array[DataFrame] = {
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
-
+    
+    val shuffle = udf((r: mutable.WrappedArray[Double]) =>
+        if (shuffleBC.value) Random.shuffle(r.toSeq)
+        else r
+    )
+    
     if (dataset.columns.contains($(ratingCol))) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-
-      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
+      
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
@@ -208,11 +209,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
       Array(train, test)
     }
-    else {
-      val shuffle = udf((r: mutable.WrappedArray[Double]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
+    else {      
       val sliceudf = udf(
         (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
