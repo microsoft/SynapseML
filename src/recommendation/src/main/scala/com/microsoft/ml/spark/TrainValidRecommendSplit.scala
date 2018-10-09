@@ -259,29 +259,21 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .select(userColumn, "recommendations." + itemColumn)
       .withColumnRenamed(itemColumn, "prediction")
 
-    val perUserActualItemsDF = if (validationDataset.columns.contains($(ratingCol))) {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
-
-      validationDataset
-        .select(userColumn, itemColumn, $(ratingCol))
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
+    val windowSpec = if (validationDataset.columns.contains($(ratingCol))) {
+      Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
     } else {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
-
-      validationDataset
-        .select(userColumn, itemColumn)
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
+      Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
     }
+    
+    val perUserActualItemsDF = validationDataset
+      .select(userColumn, itemColumn)
+      .withColumn("rank", r().over(windowSpec).alias("rank"))
+      .where(col("rank") <= k)
+      .groupBy(userColumn)
+      .agg(col(userColumn), collect_list(col(itemColumn)))
+      .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
+      .select(userColumn, "label")
+    
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
       .drop(userColumn)
