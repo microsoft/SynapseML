@@ -20,8 +20,8 @@ import scala.util.Random
 
 @InternalWrapper
 class TrainValidRecommendSplit(override val uid: String) extends Estimator[TrainValidRecommendSplitModel]
-  with TrainValidRecommendSplitParams with MMLParams
-  with ComplexParamsWritable with MsftRecommendationParams {
+  with TrainValidRecommendSplitParams with Wrappable
+  with ComplexParamsWritable with RecommendationParams {
 
   def this() = this(Identifiable.randomUID("TrainValidRecommendSplit"))
 
@@ -89,7 +89,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = $(estimator)
-    val eval = $(evaluator).asInstanceOf[MsftRecommendationEvaluator]
+    val eval = $(evaluator).asInstanceOf[RecommendationEvaluator]
     val epm = $(estimatorParamMaps)
     val numModels = epm.length
 
@@ -108,23 +108,10 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         //Assume Rec is last stage of pipeline
         val modelTemp = model.asInstanceOf[PipelineModel].stages.last
         calculateMetrics(modelTemp, validationDataset)
-      case m: MsftRecommendationModel =>
-        val recs = model.asInstanceOf[MsftRecommendationModel].recommendForAllUsers(5 * eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
-        eval.evaluate(preparedTest)
       case a: ALSModel =>
         val recs = model.asInstanceOf[ALSModel].recommendForAllUsers(5 * eval.getK)
         val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
         eval.evaluate(preparedTest)
-      case s: SARModel =>
-        val recs = model.asInstanceOf[SARModel].recommendForAllUsers(5 * eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
-        eval.evaluate(preparedTest)
-      //      case trait: MsftRecommendationModelParams => {
-      //        val recs = model.asInstanceOf[MsftRecommendationModelParams].recommendForAllUsers(5 * eval.getK)
-      //        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
-      //        eval.evaluate(preparedTest)
-      //      }
     }
 
     val metricFutures = epm.zipWithIndex.map { case (paramMap, paramIndex) =>
@@ -264,19 +251,11 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         //Assume Rec is last stage of pipeline
         val pipe = $(estimator).asInstanceOf[Pipeline].getStages.last
         pipe match {
-          case m: MsftRecommendation =>
-            pipe.asInstanceOf[MsftRecommendation]
           case a: ALS =>
             pipe.asInstanceOf[ALS]
-          case s: SAR =>
-            pipe.asInstanceOf[SAR]
         }
-      case m: MsftRecommendation =>
-        $(estimator).asInstanceOf[MsftRecommendation]
       case a: ALS =>
         $(estimator).asInstanceOf[ALS]
-      case s: SAR =>
-        $(estimator).asInstanceOf[SAR]
     }
 
     val userColumn = est.getUserCol
