@@ -5,12 +5,12 @@ Microsoft Machine Learning for Apache Spark
 <img title="Build Status" align="right"
      src="https://mmlspark.azureedge.net/icons/BuildStatus.svg" />
 
-MMLSpark is an ecosytem of tools aimed to expand the distributed computing framework
+MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
-MMLSpark adds a number of deep learning and data science tools to the Spark ecosystem,
+MMLSpark adds many deep learning and data science tools to the Spark ecosystem,
 including seamless integration of Spark Machine Learning pipelines with [Microsoft Cognitive Toolkit
 (CNTK)](https://github.com/Microsoft/CNTK), [LightGBM](https://github.com/Microsoft/LightGBM) and
-[OpenCV](http://www.opencv.org/). This enables powerful and highly-scalable predictive and analytical models
+[OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
 for a variety of datasources.
 
 MMLSpark also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users 
@@ -84,7 +84,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 ## Examples
 
-* Create an deep image classifier with transfer learning ([example 1])
+* Create a deep image classifier with transfer learning ([example 1])
 * Fit a LightGBM classification or regression model on a biochemical dataset
   ([example 2]), to learn more check out the [LightGBM documentation
   page](docs/lightgbm.md).
@@ -161,7 +161,7 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
    spark-submit --packages Azure:mmlspark:0.14 MyApp.jar
    ```
 
-This can be used in other Spark contexts too, for example, you can use MMLSpark
+This can be used in other Spark contexts too. For example, you can use MMLSpark
 in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
 `.aztk/spark-defaults.conf`
 file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
