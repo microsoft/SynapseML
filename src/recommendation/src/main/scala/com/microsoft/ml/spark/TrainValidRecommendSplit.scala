@@ -259,11 +259,10 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .select(userColumn, "recommendations." + itemColumn)
       .withColumnRenamed(itemColumn, "prediction")
 
-    val windowSpec = if (validationDataset.columns.contains($(ratingCol))) {
-      Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
-    } else {
-      Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
-    }
+    val windowSpec = Window.partitionBy(userColumn).orderBy({
+      if (validationDataset.columns.contains($(ratingCol))) col($(ratingCol))
+      else col($(itemCol))
+    }.desc)
     
     val perUserActualItemsDF = validationDataset
       .select(userColumn, itemColumn)
