@@ -27,7 +27,7 @@ import org.json4s.{DefaultFormats, JObject}
 
 import scala.collection.mutable
 
-trait RecommendationParams extends Wrappable with RecommendationModelParams with ALSParams
+trait RecommendationParams extends Wrappable with ALSParams
 
 trait TrainValidRecommendSplitParams extends Wrappable with HasSeed {
   /**
