@@ -29,8 +29,6 @@ import scala.collection.mutable
 
 trait RecommendationParams extends Wrappable with RecommendationModelParams with ALSParams
 
-trait HasPredictionCol extends Params with HasPredictionCol
-
 trait TrainValidRecommendSplitParams extends Wrappable with HasSeed {
   /**
     * Param for ratio between train and validation data. Must be between 0 and 1.
