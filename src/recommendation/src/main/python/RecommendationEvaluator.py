@@ -143,5 +143,16 @@ class RecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, Java
 
     import json
     metricDict = json.loads(array)
-    return metricDict
-    
+
+    output = []
+    for index in range(len(metricDict)):
+      keys = paramGrid[index].keys()
+      newlist = []
+      for i in keys:
+          newlist.append(i)  
+
+      params = {'maxIter': paramGrid[index][newlist[0]], 'regParam': paramGrid[index][newlist[1]]}
+
+      output += [{**params, **metricDict[index]}]
+              
+    return output
