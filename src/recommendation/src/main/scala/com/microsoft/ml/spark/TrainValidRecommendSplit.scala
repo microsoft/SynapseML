@@ -164,18 +164,18 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
   def splitDF(dataset: DataFrame): Array[DataFrame] = {
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
-    
+
     val shuffle = udf((r: mutable.WrappedArray[Double]) =>
         if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
     )
-    
+
     if (dataset.columns.contains($(ratingCol))) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-      
+
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
@@ -209,7 +209,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
 
       Array(train, test)
     }
-    else {      
+    else {
       val sliceudf = udf(
         (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
@@ -263,7 +263,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       if (validationDataset.columns.contains($(ratingCol))) col($(ratingCol))
       else col($(itemCol))
     }.desc)
-    
+
     val perUserActualItemsDF = validationDataset
       .select(userColumn, itemColumn)
       .withColumn("rank", r().over(windowSpec).alias("rank"))
@@ -272,7 +272,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .agg(col(userColumn), collect_list(col(itemColumn)))
       .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
       .select(userColumn, "label")
-    
+
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
       .drop(userColumn)
