@@ -127,7 +127,7 @@ class RecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, Java
     return self._set(**kwargs)
   
   def getMetricsList(self)
-    metrics = self._call_java_("getMetricsList).toString()
+    metrics = self._call_java_("getMetricsList").toString()
     array = metrics \
       .replace("ListBuffer(","[") \
       .replace("Map(","\n{") \
