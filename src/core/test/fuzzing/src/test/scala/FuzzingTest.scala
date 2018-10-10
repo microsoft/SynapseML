@@ -58,7 +58,7 @@ class FuzzingTest extends TestBase {
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
       "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",      
+      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
@@ -90,7 +90,7 @@ class FuzzingTest extends TestBase {
   ignore("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
       "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",      
+      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
