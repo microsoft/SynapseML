@@ -1,0 +1,196 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
+package com.microsoft.ml.spark
+
+import org.apache.spark.ml.Model
+import org.apache.spark.ml.param.{DataFrameParam2, ParamMap}
+import org.apache.spark.ml.recommendation.MsftRecommendationModelParams
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.collection.mutable.{WrappedArray => MWA}
+
+/** SAR Model
+  *
+  * @param uid The id of the module
+  */
+@InternalWrapper
+class SARModel(override val uid: String) extends Model[SARModel]
+  with MsftRecommendationModelParams with Wrappable with SARParams with ComplexParamsWritable {
+
+  /** @group setParam */
+  def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
+
+  val userDataFrame = new DataFrameParam2(this, "userDataFrame", "Time of activity")
+
+  /** @group getParam */
+  def getUserDataFrame: DataFrame = $(userDataFrame)
+
+  /** @group setParam */
+  def setItemDataFrame(value: DataFrame): this.type = set(itemDataFrame, value)
+
+  val itemDataFrame = new DataFrameParam2(this, "itemDataFrame", "Time of activity")
+
+  /** @group getParam */
+  def getItemDataFrame: DataFrame = $(itemDataFrame)
+
+  def this() = this(Identifiable.randomUID("SARModel"))
+
+  override def recommendForAllItems(k: Int): DataFrame = {
+    recommendForAllItems($(rank), $(userDataFrame), $(itemDataFrame), k)
+  }
+
+  override def recommendForAllUsers(k: Int): DataFrame = {
+    val recs = if (isLarge) recommendForAllUsersLarge(k)
+    else if ($(allowSeedItemsInRecommendations)) recommendForAllUsers($(userDataFrame), $(itemDataFrame), k)
+    else recommendForAllUsersNoSeeds(k)
+
+    if ($(autoIndex)) restoreIndex(recs) else recs
+  }
+
+  def restoreIndex(recs: DataFrame): DataFrame = {
+    val itemMap = $(itemDataFrame)
+      .select($(itemCol), $(itemCol) + "_org")
+      .collect()
+      .map(r => r.getInt(0) -> r.getString(1))
+      .toMap
+
+    val arrayTypeAfter = ArrayType(
+      new StructType()
+        .add($(itemCol), StringType)
+        .add("rating", FloatType)
+    )
+
+    val restoreIndexUDF = udf((items: MWA[Int], ratings: MWA[Float]) => {
+      items
+        .zipWithIndex
+        .map(p => (itemMap.getOrElse(p._1, "-1"), ratings.toList(p._2)))
+    })
+
+    recs
+      .join($(userDataFrame), $(userCol))
+      .withColumn("recs",
+        (restoreIndexUDF(col("recommendations." + $(itemCol)), col("recommendations.rating")) as "recs")
+          .cast(arrayTypeAfter))
+      .select(col($(userCol) + "_org") as $(userCol), col("recs") as "recommendations")
+  }
+
+  def isLarge(): Boolean = true //todo: add real is large check here
+
+  def recommendForAllUsersLarge(k: Int): DataFrame = {
+    val df = $(userDataFrame)
+    import df.sparkSession.implicits._
+    $(userDataFrame).withColumnRenamed($(userCol), "customerID").write.mode("overwrite").parquet("./users-parquet")
+    $(itemDataFrame).withColumnRenamed($(itemCol), "itemID").write.mode("overwrite").parquet("./items-parquet")
+    println("Trying to run Python")
+
+    import sys.process._
+
+    val sasUrl = "https://dciborowstoragemle.blob.core.windows.net/artifacts/matmul.py"
+    val sasUrl2 = "?st=2018-03-28T11%3A37%3A00Z&se=2021-03-29T11%3A37%3A00Z&sp=rl&sv=2017-04-17&sr=b"
+    val sasUrl3 = "&sig=CMp4tUZ6i47QdqIAW6VtCZ%2FwSykiVzg5AUKmouN4lOk%3D"
+
+    val wget = "wget -O matmul.py " + sasUrl + sasUrl2 + sasUrl3
+    val downloadResult = (wget).!
+
+    val result = ("python matmul.py " + k + " " + $(allowSeedItemsInRecommendations)).!
+    val pythonOutput = $(userDataFrame).sparkSession.read.parquet("./sampleout/*")
+    //      "rm matmul.py".!
+    val zipVector = udf((list: MWA[java.math.BigDecimal]) => {
+      list.zipWithIndex.map(f => (f._1.toBigIntegerExact, f._2))
+    })
+
+    val recs = pythonOutput
+      .withColumn("recommendations", zipVector($"ratings"))
+      .select("id", "recommendations")
+
+    val arrayType = ArrayType(
+      new StructType()
+        .add($(itemCol), IntegerType)
+        .add("rating", FloatType)
+    )
+    recs.select($"id".as($(userCol)), $"recommendations".cast(arrayType))
+  }
+
+  def recommendForAllUsersNoSeeds(k: Int): DataFrame = {
+
+    val seenItems = udf((items: MWA[Float]) => {
+      items.zipWithIndex
+        .filter(p => {
+          p._1 > 0
+        }).map(_._2)
+    })
+
+    val seenItemsCount = udf((items: MWA[Float]) => items.length)
+
+    val items = $(userDataFrame)
+      .select(col($(userCol)), seenItems(col("flatList")) as "seenItems")
+      .withColumn("seenItemsCount", seenItemsCount(col("seenItems")))
+    items.cache.count
+
+    val itemCountMax = items
+      .select(col("seenItemsCount"))
+      .groupBy()
+      .max("seenItemsCount")
+      .collect()(0).getInt(0)
+
+    val filterScore = udf((items: MWA[Int], ratings: MWA[Float], seenItems: MWA[Int]) => {
+      items
+        .zipWithIndex
+        .filter(p => !seenItems.contains(p._1))
+        .map(p => (p._1, ratings.toList(p._2)))
+        .take(k)
+    })
+
+    val arrayType = ArrayType(
+      new StructType()
+        .add($(itemCol), IntegerType)
+        .add("rating", FloatType)
+    )
+
+    recommendForAllUsers($(userDataFrame), $(itemDataFrame), k + itemCountMax)
+      .join(items, $(userCol))
+      .select(
+        col($(userCol)),
+        (filterScore(
+          col("recommendations." + $(itemCol)),
+          col("recommendations.rating"),
+          col("seenItems")) as "recommendations")
+          .cast(arrayType))
+  }
+
+  override def copy(extra: ParamMap): SARModel = {
+    val copied = new SARModel(uid)
+    copyValues(copied, extra).setParent(parent)
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    checkNumericType(schema, $(userCol))
+    checkNumericType(schema, $(itemCol))
+    schema
+  }
+
+  /**
+    * Check whether the given schema contains a column of the numeric data type.
+    *
+    * @param colName column name
+    */
+  private def checkNumericType(
+                                schema: StructType,
+                                colName: String,
+                                msg: String = ""): Unit = {
+    val actualDataType = schema(colName).dataType
+    val message = if (msg != null && msg.trim.length > 0) " " + msg else ""
+    require(actualDataType.isInstanceOf[NumericType], s"Column $colName must be of type " +
+      s"NumericType but was actually of type $actualDataType.$message")
+  }
+}
+
+object SARModel extends ComplexParamsReadable[SARModel]
