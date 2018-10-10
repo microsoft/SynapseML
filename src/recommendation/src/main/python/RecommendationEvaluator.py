@@ -125,3 +125,23 @@ class RecommendationEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, Java
     """
     kwargs = self._input_kwargs
     return self._set(**kwargs)
+  
+  def getMetricsList(self)
+    metrics = self._call_java_("getMetricsList).toString()
+    array = metrics \
+      .replace("ListBuffer(","[") \
+      .replace("Map(","\n{") \
+      .replace("), ","},") \
+      .replace("map",'"map"') \
+      .replace("maxDiversity",'"maxDiversity"') \
+      .replace("diversityAtK",'"diversityAtK"') \
+      .replace("ndcgAt",'"ndcgAt"') \
+      .replace("recallAtK",'"recallAtK"') \
+      .replace("precisionAtk",'"precisionAtk"') \
+      .replace(" ->",':') \
+      .replace("))",'}]')
+
+    import json
+    metricDict = json.loads(array)
+    return metricDict
+    
