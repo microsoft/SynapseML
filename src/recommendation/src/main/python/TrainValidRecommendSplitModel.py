@@ -47,6 +47,3 @@ class TrainValidRecommendSplitModel(Model, ValidatorParams):
 
     def recommendForAllItems(self, numItems):
         return self.bestModel._call_java("recommendForAllItems", numItems)
-    #
-    # def _transform(self, dataset):
-    #     return self.bestModel.transform(dataset)

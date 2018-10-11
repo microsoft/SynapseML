@@ -211,45 +211,5 @@ object SparkHelpers {
   def getThreadUtils(): ThreadUtils.type = {
     ThreadUtils
   }
-
-  def getALSModel(uid: String,
-                  rank: Int,
-                  userFactors: DataFrame,
-                  itemFactors: DataFrame): ALSModel = {
-    new ALSModel(uid, rank, userFactors, itemFactors)
-  }
-
-  def popRow(r: Row): Any = r.getDouble(1)
-
-  private def blockify(
-                        factors: Dataset[(Int, Array[Float])],
-                        blockSize: Int = 4096): Dataset[Seq[(Int, Array[Float])]] = {
-    import factors.sparkSession.implicits._
-    factors.mapPartitions(_.grouped(blockSize))
-  }
-
-  def loadMetadata(path: String, sc: SparkContext, className: String = ""): Metadata =
-    DefaultParamsReader.loadMetadata(path, sc, className)
-
-  def getAndSetParams(model: Params, metadata: Metadata): Unit =
-    DefaultParamsReader.getAndSetParams(model, metadata)
-
-  val f2jBLAS: NetlibBLAS = BLAS.f2jBLAS
-
-  def getTopByKeyAggregator(num: Int, ord: Ordering[(Int, Float)]): TopByKeyAggregator[Int, Int, Float] =
-    new TopByKeyAggregator[Int, Int, Float](num, ord)
-
-  def getBoundedPriorityQueue(maxSize: Int)(implicit ord: Ordering[(Int, Float)]): BoundedPriorityQueue[(Int, Float)] =
-    new BoundedPriorityQueue[(Int, Float)](maxSize)(Ordering.by(_._2))
-
-  def getRow(row: Row): Rating[Int] = Rating.apply(row.getInt(0), row.getInt(1), row.getFloat(2))
-
-  def transform(
-                 rank: Int,
-                 userFactors: DataFrame,
-                 itemFactors: DataFrame,
-                 dataset: Dataset[_]): DataFrame =
-    new ALSModel(Identifiable.randomUID("als"), rank, userFactors, itemFactors).transform(dataset)
-
 }
 

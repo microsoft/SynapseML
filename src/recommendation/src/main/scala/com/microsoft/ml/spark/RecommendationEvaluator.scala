@@ -15,9 +15,17 @@ import scala.collection.mutable.ListBuffer
 
 final class RecommendationEvaluator(override val uid: String)
   extends Evaluator with RecEvaluatorParams {
+
+  def this() = this(Identifiable.randomUID("recEval"))
+
   val nItems: LongParam = new LongParam(this, "nItems", "number of items")
+  setDefault(nItems -> -1)
+
+  def setNItems(value: Long): this.type = set(nItems, value)
 
   val metricsList = new ListBuffer[Map[String, Double]]()
+
+  def getMetricsList: ListBuffer[Map[String, Double]] = metricsList
 
   def printMetrics(): Unit = {
     metricsList.foreach(map => {
@@ -25,22 +33,8 @@ final class RecommendationEvaluator(override val uid: String)
     })
   }
 
-  def getMetricsList: ListBuffer[Map[String, Double]] = metricsList
-
-  def setNItems(value: Long): this.type = set(nItems, value)
-
-  setDefault(nItems -> -1)
-
-  def this() = this(Identifiable.randomUID("recEval"))
-
-  val metricName: Param[String] = {
-    val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
-      "maxDiversity"))
-    new Param(this, "metricName", "metric name in evaluation " +
-      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity)", allowedParams)
-  }
-
   val saveAll: BooleanParam = new BooleanParam(this, "saveAll", "save all metrics")
+  setDefault(saveAll -> false)
 
   /** @group getParam */
   def getSaveAll: Boolean = $(saveAll)
@@ -48,10 +42,9 @@ final class RecommendationEvaluator(override val uid: String)
   /** @group setParam */
   def setSaveAll(value: Boolean): this.type = set(saveAll, value)
 
-  setDefault(saveAll -> false)
-
   val k: IntParam = new IntParam(this, "k",
     "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
+  setDefault(k -> 1)
 
   /** @group getParam */
   def getK: Int = $(k)
@@ -59,7 +52,13 @@ final class RecommendationEvaluator(override val uid: String)
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
 
-  setDefault(k -> 1)
+  val metricName: Param[String] = {
+    val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
+      "maxDiversity"))
+    new Param(this, "metricName", "metric name in evaluation " +
+      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity)", allowedParams)
+  }
+  setDefault(metricName -> "ndcgAt")
 
   /** @group getParam */
   def getMetricName: String = $(metricName)
@@ -69,8 +68,6 @@ final class RecommendationEvaluator(override val uid: String)
 
   /** @group setParam */
   def setLabelCol(value: String): this.type = set(labelCol, value)
-
-  setDefault(metricName -> "ndcgAt")
 
   /** @group setParam */
   def setPredictionCol(value: String): this.type = set(predictionCol, value)
