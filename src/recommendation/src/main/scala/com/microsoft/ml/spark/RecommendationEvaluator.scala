@@ -54,9 +54,9 @@ final class RecommendationEvaluator(override val uid: String)
 
   val metricName: Param[String] = {
     val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
-      "maxDiversity", "mrr"))
+      "maxDiversity", "mrr", "fcp"))
     new Param(this, "metricName", "metric name in evaluation " +
-      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr)", allowedParams)
+      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr|fcp)", allowedParams)
   }
   setDefault(metricName -> "ndcgAt")
 
@@ -105,6 +105,24 @@ final class RecommendationEvaluator(override val uid: String)
         itemCount.toDouble / $(nItems)
       }
       lazy val meanReciprocalRank: Double = {
+        /**
+          * Compute the mean reciprocal rank (MRR) of all the queries.
+          *
+          * MRR is the inverse position of the first relevant document, and is therefore well-suited
+          * to applications in which only the first result matters.The reciprocal rank is the
+          * multiplicative inverse of the rank of the first correct answer for a query response and
+          * the mean  reciprocal rank is the average of the reciprocal ranks of results for a sample
+          * of queries. MRR is well-suited to applications in which only the first result matters.
+          *
+          * If a query has an empty ground truth set, zero will be used as precision together with
+          * a log warning.
+          *
+          * See the following paper for detail:
+          *
+          * Brian McFee, Gert R. G. Lanckriet Metric Learning to Rank. ICML 2010: 775-782
+          *
+          * @return the mean reciprocal rank of all the queries.
+          */
         predictionAndLabels.map { case (pred, lab) =>
           val labSet = lab.toSet
 
@@ -123,6 +141,20 @@ final class RecommendationEvaluator(override val uid: String)
           }
         }.mean()
       }
+      lazy val fractionConcordantPairs: Double = {
+        predictionAndLabels.map { case (pred, lab) =>
+          var nc = 0.0
+          var nd = 0.0
+          pred.zipWithIndex.foreach(a => {
+            if (lab.length > a._2) {
+              if (a._1 == lab(a._2)) nc = 1 + nc
+              else nd += 1
+            }
+          })
+
+          nc / (nc + nd)
+        }.mean()
+      }
 
 
       def matchMetric(metricName: String): Double = metricName match {
@@ -136,7 +168,8 @@ final class RecommendationEvaluator(override val uid: String)
 
       def getAllMetrics(): Map[String, Double] = {
         Map("map" -> map, "ndcgAt" -> ndcg, "precisionAtk" -> mapk, "recallAtK" -> recallAtK,
-          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity, "mrr" -> meanReciprocalRank)
+          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity, "mrr" -> meanReciprocalRank,
+          "fcp" -> fractionConcordantPairs)
       }
     }
 

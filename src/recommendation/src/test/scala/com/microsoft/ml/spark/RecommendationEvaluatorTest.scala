@@ -24,6 +24,8 @@ class RecommendationEvaluatorTest extends TestBase {
     assert(map("diversityAtK") == 1.0)
     assert(map("ndcgAt") == 1.0)
     assert(map("precisionAtk") == 1.0)
+    assert(map("mrr") == 1.0)
+    assert(map("fcp") == 1.0)
   }
 
   test("testAllMiss") {
@@ -45,6 +47,8 @@ class RecommendationEvaluatorTest extends TestBase {
     assert(map("diversityAtK") == 0.5)
     assert(map("ndcgAt") == 0.0)
     assert(map("precisionAtk") == 0.0)
+    assert(map("mrr") == 0.0)
+    assert(map("fcp") == 0.0)
   }
 
   test("testOrder") {
@@ -66,6 +70,8 @@ class RecommendationEvaluatorTest extends TestBase {
     assert(map("diversityAtK") == 1.0)
     assert(map("ndcgAt") == 1.0)
     assert(map("precisionAtk") == 1.0)
+    assert(map("mrr") == 1.0)
+    assert(map("fcp") == 0.3333333333333333)
   }
 
   test("testExtra") {
@@ -88,5 +94,7 @@ class RecommendationEvaluatorTest extends TestBase {
     assert(map("recallAtK") == 0.5)
     assert(map("ndcgAt") == 1.0)
     assert(map("precisionAtk") == 0.5)
+    assert(map("mrr") == 1.0)
+    assert(map("fcp") == 1.0)
   }
 }
