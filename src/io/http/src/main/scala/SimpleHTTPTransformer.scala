@@ -57,6 +57,7 @@ object ErrorUtils extends Serializable {
 
 }
 
+@InternalWrapper
 class SimpleHTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
     with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol {

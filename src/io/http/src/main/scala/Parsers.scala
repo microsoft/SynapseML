@@ -130,6 +130,7 @@ abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOut
 
 object JSONOutputParser extends ComplexParamsReadable[JSONOutputParser]
 
+@InternalWrapper
 class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("JSONOutputParser"))
@@ -163,9 +164,9 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
-    val parsed = dataset.toDF
-      .withColumn(getOutputCol, from_json(
-        stringEntityCol, getDataType, Map("charset"->"UTF-8")))
+    val parsed = dataset.toDF.withColumn(getOutputCol,
+      from_json(stringEntityCol, getDataType, Map("charset"->"UTF-8")))
+
     getPostProcessor.map(_
         .setInputCol(getOutputCol)
         .setOutputCol(getOutputCol)
@@ -175,6 +176,24 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   override def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.response)
     schema.add(getOutputCol, getDataType)
+  }
+
+}
+
+object StringOutputParser extends ComplexParamsReadable[StringOutputParser]
+
+class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
+
+  def this() = this(Identifiable.randomUID("StringOutputParser"))
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
+    dataset.toDF.withColumn(getOutputCol, stringEntityCol)
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    assert(schema(getInputCol).dataType == HTTPSchema.response)
+    schema.add(getOutputCol, StringType)
   }
 
 }
