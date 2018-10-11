@@ -165,16 +165,17 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
+    val shuffle = udf((r: mutable.WrappedArray[Double]) =>
+        if (shuffleBC.value) Random.shuffle(r.toSeq)
+        else r
+    )
+
     if (dataset.columns.contains($(ratingCol))) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
 
-      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
@@ -209,10 +210,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       Array(train, test)
     }
     else {
-      val shuffle = udf((r: mutable.WrappedArray[Double]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
       val sliceudf = udf(
         (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
@@ -225,9 +222,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         .withColumn("test", dropudf(col("shuffle")))
         .drop(col("collect_list(" + $(itemCol) + ")")).drop(col("shuffle"))
         .cache()
-
-      val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
-      val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
 
       val train = testds
         .select($(userCol), "train")
@@ -265,29 +259,20 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       .select(userColumn, "recommendations." + itemColumn)
       .withColumnRenamed(itemColumn, "prediction")
 
-    val perUserActualItemsDF = if (validationDataset.columns.contains($(ratingCol))) {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
+    val windowSpec = Window.partitionBy(userColumn).orderBy({
+      if (validationDataset.columns.contains($(ratingCol))) col($(ratingCol))
+      else col($(itemCol))
+    }.desc)
 
-      validationDataset
-        .select(userColumn, itemColumn, $(ratingCol))
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
-    } else {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
+    val perUserActualItemsDF = validationDataset
+      .select(userColumn, itemColumn)
+      .withColumn("rank", r().over(windowSpec).alias("rank"))
+      .where(col("rank") <= k)
+      .groupBy(userColumn)
+      .agg(col(userColumn), collect_list(col(itemColumn)))
+      .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
+      .select(userColumn, "label")
 
-      validationDataset
-        .select(userColumn, itemColumn)
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
-    }
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
       .drop(userColumn)

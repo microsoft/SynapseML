@@ -13,8 +13,6 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 @InternalWrapper
 class TrainValidRecommendSplitModel(
                                      override val uid: String)
-//                                     val bestModel: Model[_],
-//                                     val validationMetrics: Array[Double])
   extends Model[TrainValidRecommendSplitModel] with TrainValidRecommendSplitParams
     with ComplexParamsWritable {
 
