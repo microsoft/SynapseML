@@ -142,20 +142,24 @@ final class RecommendationEvaluator(override val uid: String)
         }.mean()
       }
       lazy val fractionConcordantPairs: Double = {
+        /**
+          * Compute FCP (Fraction of Concordant Pairs).
+          * Computed as described in paper `Collaborative Filtering on Ordinal User Feedback
+          *
+          * <http://www.ijcai.org/Proceedings/13/Papers/449.pdf>`_ by Koren and Sill, section 5.2.
+          */
         predictionAndLabels.map { case (pred, lab) =>
           var nc = 0.0
           var nd = 0.0
           pred.zipWithIndex.foreach(a => {
             if (lab.length > a._2) {
-              if (a._1 == lab(a._2)) nc = 1 + nc
+              if (a._1 == lab(a._2)) nc += 1
               else nd += 1
             }
           })
-
           nc / (nc + nd)
         }.mean()
       }
-
 
       def matchMetric(metricName: String): Double = metricName match {
         case "map" => metrics.map
