@@ -2,7 +2,7 @@
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
 import numpy as np
-
+import pyspark
 
 # Methods for train-test split.
 class TrainTestSplit:
@@ -23,7 +23,7 @@ class TrainTestSplit:
         rating_temp = self.groupBy(split_by_column) \
             .agg({split_with_column: "count"}) \
             .withColumnRenamed('count(' + split_with_column + ')', "n" + split_with_column) \
-            .where(col("n" + split_with_column) >= min_rating) 
+            .where(col("n" + split_with_column) >= min_rating)
 
         rating_filtered = self.join(broadcast(rating_temp), split_by_column) \
             .drop("n" + split_with_column)
@@ -62,7 +62,7 @@ class TrainTestSplit:
 
         if not fixed_test_sample:
             rating_all = rating_joined \
-                .join(broadcast(rating_grouped), on = split_by_column, how="outer") \
+                .join(broadcast(rating_grouped), on=split_by_column, how="outer") \
                 .withColumn('splitPoint', bround(col('count') * ratio))
 
             rating_train = rating_all \
@@ -109,6 +109,7 @@ class TrainTestSplit:
         by = "customer" if by_customer else "item"
         with_ = "customer" if by_customer else "item"
         split_by_column, split_with_column = by + "ID", with_ + "ID"
+        pyspark.sql.DataFrame.min_rating_filter = TrainTestSplit.min_rating_filter
 
         rating_joined = self.min_rating_filter(min_rating, by_customer)
 
@@ -121,7 +122,7 @@ class TrainTestSplit:
 
         if fixed_test_sample == False:
             rating_all = rating_joined \
-                .join(broadcast(rating_grouped), on = split_by_column, how="outer") \
+                .join(broadcast(rating_grouped), on=split_by_column, how="outer") \
                 .withColumn('splitPoint', bround(col('count') * ratio))
 
             rating_train = rating_all \
@@ -159,6 +160,7 @@ class TrainTestSplit:
         '''
         from pyspark.sql.window import Window
         from pyspark.sql.functions import row_number, col, rand, broadcast
+        pyspark.sql.DataFrame.min_rating_filter = TrainTestSplit.min_rating_filter
 
         rating_joined = self.min_rating_filter(min_rating, by_customer)
 
@@ -197,6 +199,7 @@ class TrainTestSplit:
         '''
         from pyspark.sql.window import Window
         from pyspark.sql.functions import row_number, col, rand
+        pyspark.sql.DataFrame.min_rating_filter = TrainTestSplit.min_rating_filter
 
         rating_split = self \
             .min_rating_filter(min_rating, by_customer) \
@@ -206,6 +209,7 @@ class TrainTestSplit:
         rating_test = rating_split[1]
 
         return rating_train, rating_test
+
 
 if __name__ == "__main__":
     print("Splitter")
