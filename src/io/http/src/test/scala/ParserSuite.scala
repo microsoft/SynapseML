@@ -55,6 +55,12 @@ class JsonOutputParserSuite extends TransformerFuzzing[JSONOutputParser] with Pa
   override def reader: MLReadable[_] = JSONOutputParser
 }
 
+class StringOutputParserSuite extends TransformerFuzzing[StringOutputParser] with ParserUtils {
+  override def testObjects(): Seq[TestObject[StringOutputParser]] = makeTestObject(
+    new StringOutputParser().setInputCol("unparsedOutput").setOutputCol("out"), session)
+  override def reader: MLReadable[_] = StringOutputParser
+}
+
 class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[CustomInputParser]] = makeTestObject(
     new CustomInputParser().setInputCol("data").setOutputCol("out")

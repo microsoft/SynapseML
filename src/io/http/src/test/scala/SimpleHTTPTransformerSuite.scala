@@ -4,20 +4,22 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructType}
+import org.apache.spark.sql.functions.{struct, from_json, col, udf}
 
 class SimpleHTTPTransformerSuite
-    extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
+  extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
 
   import session.implicits._
+
   val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
 
   def simpleTransformer: SimpleHTTPTransformer =
     new SimpleHTTPTransformer()
       .setInputCol("data")
       .setOutputParser(new JSONOutputParser()
-                         .setDataType(new StructType().add("blah", StringType)))
+        .setDataType(new StructType().add("blah", StringType)))
       .setUrl(url)
       .setOutputCol("results")
 
@@ -34,13 +36,13 @@ class SimpleHTTPTransformerSuite
       new SimpleHTTPTransformer()
         .setInputCol("data")
         .setOutputParser(new JSONOutputParser()
-                           .setDataType(new StructType().add("blah", StringType)))
+          .setDataType(new StructType().add("blah", StringType)))
         .setUrl(url)
         .setOutputCol("results")
         .setConcurrency(3)
         .transform(df)
         .collect
-    assert(results.length  == 10)
+    assert(results.length == 10)
     assert(results.forall(_.getStruct(2).getString(0) == "more blah"))
     assert(results(0).schema.fields.length == 3)
   }
