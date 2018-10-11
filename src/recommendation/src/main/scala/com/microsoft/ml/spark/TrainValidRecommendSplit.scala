@@ -165,6 +165,8 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
+    val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
+
     if (dataset.columns.contains($(ratingCol))) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
@@ -175,7 +177,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
       )
-      val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
         .withColumn("itemIDRating", wrapColumn(col($(itemCol)), col($(ratingCol))))
@@ -215,7 +216,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
       )
       val sliceudf = udf(
         (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-      val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
         .groupBy(col($(userCol)))
@@ -225,9 +225,6 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         .withColumn("test", dropudf(col("shuffle")))
         .drop(col("collect_list(" + $(itemCol) + ")")).drop(col("shuffle"))
         .cache()
-
-      val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
-      val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
 
       val train = testds
         .select($(userCol), "train")
