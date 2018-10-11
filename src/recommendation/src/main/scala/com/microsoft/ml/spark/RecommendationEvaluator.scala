@@ -54,9 +54,9 @@ final class RecommendationEvaluator(override val uid: String)
 
   val metricName: Param[String] = {
     val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
-      "maxDiversity"))
+      "maxDiversity", "mrr"))
     new Param(this, "metricName", "metric name in evaluation " +
-      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity)", allowedParams)
+      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr)", allowedParams)
   }
   setDefault(metricName -> "ndcgAt")
 
@@ -104,6 +104,26 @@ final class RecommendationEvaluator(override val uid: String)
           .size
         itemCount.toDouble / $(nItems)
       }
+      lazy val meanReciprocalRank: Double = {
+        predictionAndLabels.map { case (pred, lab) =>
+          val labSet = lab.toSet
+
+          if (labSet.nonEmpty) {
+            var i = 0
+            var reciprocalRank = 0.0
+            while (i < pred.length && reciprocalRank == 0.0) {
+              if (labSet.contains(pred(i))) {
+                reciprocalRank = 1.0 / (i + 1)
+              }
+              i += 1
+            }
+            reciprocalRank
+          } else {
+            0.0
+          }
+        }.mean()
+      }
+
 
       def matchMetric(metricName: String): Double = metricName match {
         case "map" => metrics.map
@@ -116,7 +136,7 @@ final class RecommendationEvaluator(override val uid: String)
 
       def getAllMetrics(): Map[String, Double] = {
         Map("map" -> map, "ndcgAt" -> ndcg, "precisionAtk" -> mapk, "recallAtK" -> recallAtK,
-          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity)
+          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity, "mrr" -> meanReciprocalRank)
       }
     }
 
