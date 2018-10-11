@@ -105,24 +105,6 @@ final class RecommendationEvaluator(override val uid: String)
         itemCount.toDouble / $(nItems)
       }
       lazy val meanReciprocalRank: Double = {
-        /**
-          * Compute the mean reciprocal rank (MRR) of all the queries.
-          *
-          * MRR is the inverse position of the first relevant document, and is therefore well-suited
-          * to applications in which only the first result matters.The reciprocal rank is the
-          * multiplicative inverse of the rank of the first correct answer for a query response and
-          * the mean  reciprocal rank is the average of the reciprocal ranks of results for a sample
-          * of queries. MRR is well-suited to applications in which only the first result matters.
-          *
-          * If a query has an empty ground truth set, zero will be used as precision together with
-          * a log warning.
-          *
-          * See the following paper for detail:
-          *
-          * Brian McFee, Gert R. G. Lanckriet Metric Learning to Rank. ICML 2010: 775-782
-          *
-          * @return the mean reciprocal rank of all the queries.
-          */
         predictionAndLabels.map { case (pred, lab) =>
           val labSet = lab.toSet
 
@@ -142,12 +124,6 @@ final class RecommendationEvaluator(override val uid: String)
         }.mean()
       }
       lazy val fractionConcordantPairs: Double = {
-        /**
-          * Compute FCP (Fraction of Concordant Pairs).
-          * Computed as described in paper `Collaborative Filtering on Ordinal User Feedback
-          *
-          * <http://www.ijcai.org/Proceedings/13/Papers/449.pdf>`_ by Koren and Sill, section 5.2.
-          */
         predictionAndLabels.map { case (pred, lab) =>
           var nc = 0.0
           var nd = 0.0
