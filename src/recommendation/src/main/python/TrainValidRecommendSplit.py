@@ -150,6 +150,9 @@ class TrainValidRecommendSplit(Estimator, ValidatorParams):
     def _fit(self, dataset):
         est = self.getOrDefault(self.estimator)
         rating = est.getRatingCol()
+        userColumn = est.getUserCol()
+        itemColumn = est.getItemCol()
+
         eva = self.getOrDefault(self.evaluator)
         epm = self.getOrDefault(self.estimatorParamMaps)
         num_models = len(epm)
@@ -166,12 +169,12 @@ class TrainValidRecommendSplit(Estimator, ValidatorParams):
             .stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5)
 
         train = temp_train \
-            .withColumnRenamed('customerID', self.getUserCol()) \
-            .withColumnRenamed('itemID', self.getItemCol())
+            .withColumnRenamed('customerID', userColumn) \
+            .withColumnRenamed('itemID', itemColumn)
 
         validation = temp_validation \
-            .withColumnRenamed('customerID', self.getUserCol()) \
-            .withColumnRenamed('itemID', self.getItemCol())
+            .withColumnRenamed('customerID', userColumn) \
+            .withColumnRenamed('itemID', itemColumn)
 
         train.cache()
         validation.cache()
