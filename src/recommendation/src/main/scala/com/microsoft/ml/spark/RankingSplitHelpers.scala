@@ -111,7 +111,7 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * trainRatio).toInt))
 
       val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-        if (shuffleBC.value) Random.shuffle(r)
+        if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
       )
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * trainRatio).toInt))
@@ -215,7 +215,6 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
 
     joined_rec_actual
   }
-  
 
 }
 
