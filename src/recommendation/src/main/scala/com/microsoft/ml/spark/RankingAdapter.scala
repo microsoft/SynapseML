@@ -17,7 +17,6 @@
 
 package com.microsoft.ml.spark
 
-
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
 import org.apache.spark.ml.util._
@@ -32,7 +31,7 @@ class RecommenderAdapter(override val uid: String)
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
-  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", {x: Estimator[_] => true})
+  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { x: Estimator[_] => true })
 
   /** @group getParam */
   def getRecommender: Estimator[_ <: Model[_]] = $(recommender)
@@ -55,7 +54,6 @@ class RecommenderAdapter(override val uid: String)
 
   /** @group setParam */
   def setNItems(value: Int): this.type = set(nItems, value)
-
 
   def transformSchema(schema: StructType): StructType = {
     val model = getRecommender.asInstanceOf[ALS]
@@ -151,7 +149,7 @@ class RecommenderAdapterModel private[ml](val uid: String)
       case "allUsers" => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
-            new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
         )
       case "allItems" => new StructType()
         .add("itemCol", IntegerType)

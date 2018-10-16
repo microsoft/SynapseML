@@ -93,6 +93,7 @@ class TrainValidRecommendSplitRec extends TestBase {
       .setUserCol(customerIndex.getOutputCol)
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
+      .setCollectSubMetrics(true)
 
     val tvModel = tvRecommendationSplit.fit(transformedDf)
 
@@ -100,8 +101,7 @@ class TrainValidRecommendSplitRec extends TestBase {
 
     val items = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
     val users = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
-
-    //tvModel.getValidationMetrics()
+    tvModel.getSubMetrics.foreach(println(_))
   }
 
 }

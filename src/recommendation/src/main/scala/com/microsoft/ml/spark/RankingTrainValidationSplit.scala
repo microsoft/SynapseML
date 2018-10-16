@@ -23,7 +23,7 @@ import com.microsoft.ml.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
-import org.apache.spark.ml.param.{ParamMap, TransformerParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -83,6 +83,12 @@ class RankingTrainValidationSplit(override val uid: String)
     */
   def setCollectSubModels(value: Boolean): this.type = set(collectSubModels, value)
 
+  val collectSubMetrics: BooleanParam = new BooleanParam(this, "collectSubModels", "")
+
+  def setCollectSubMetrics(value: Boolean): this.type = set(collectSubMetrics, value)
+
+  def getCollectSubMetrics: Boolean = $(collectSubMetrics)
+
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplit"))
 
   def transformSchema(schema: StructType): StructType = {
@@ -113,9 +119,14 @@ class RankingTrainValidationSplit(override val uid: String)
     validationDataset.cache()
 
     val collectSubModelsParam = $(collectSubModels)
+    val collectSubMetricsParam = $(collectSubMetrics)
 
     var subModels: Option[Array[Model[_]]] = if (collectSubModelsParam) {
       Some(Array.fill[Model[_]](epm.length)(null))
+    } else None
+
+    var subMetrics: Option[Array[Map[String, Double]]] = if (collectSubMetricsParam) {
+      Some(Array.fill[Map[String, Double]](epm.length)(null))
     } else None
 
     // Fit models in a Future for training in parallel
@@ -128,7 +139,11 @@ class RankingTrainValidationSplit(override val uid: String)
           subModels.get(paramIndex) = model
         }
         // TODO: duplicate evaluator to take extra params from input
-        val metric = eval.evaluate(model.transform(validationDataset, paramMap))
+        val df = model.transform(validationDataset, paramMap)
+        if (collectSubMetricsParam) {
+          subMetrics.get(paramIndex) = eval.asInstanceOf[RecommendationEvaluator].getMetricsMap(df)
+        }
+        val metric = eval.evaluate(df)
         logDebug(s"Got metric $metric for model trained with $paramMap.")
         metric
       }(executionContext)
@@ -148,7 +163,10 @@ class RankingTrainValidationSplit(override val uid: String)
     logInfo(s"Best set of parameters:\n${epm(bestIndex)}")
     logInfo(s"Best train validation split metric: $bestMetric.")
     val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
-    new RankingTrainValidationSplitModel(uid).setBestModel(bestModel)
+    new RankingTrainValidationSplitModel(uid)
+      .setBestModel(bestModel)
+      .setMetrics(metrics)
+      .setSubMetrics(subMetrics.get.asInstanceOf[Array[Map[String, Any]]])
   }
 
   override def copy(extra: ParamMap): RankingTrainValidationSplit = {
@@ -167,6 +185,17 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
 class RankingTrainValidationSplitModel private[ml](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
+  val subMetrics = new ArrayMapParam(this, "subMetrics", "subMetrics")
+
+  def setSubMetrics(sm: Array[Map[String, Any]]): RankingTrainValidationSplitModel.this.type = set(subMetrics, sm)
+
+  def getSubMetrics: Array[Map[String, Any]] = $(subMetrics)
+
+  val metrics = new DoubleArrayParam(this, "metrics", "metrics")
+
+  def setMetrics(m: Array[Double]): RankingTrainValidationSplitModel.this.type = set(metrics, m)
+
+  def getMetrics: Array[Double] = $(metrics)
 
   val bestModel = new TransformerParam(this, "bestModel", "bestModel", { x: Transformer => true })
 

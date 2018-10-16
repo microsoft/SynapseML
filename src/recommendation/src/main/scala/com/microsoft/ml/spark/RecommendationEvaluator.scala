@@ -14,7 +14,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.reflect.ClassTag
 
 class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
-                                          k: Int, nItems: Long)
+  k: Int, nItems: Long)
   extends Serializable {
   val metrics = new RankingMetrics[T](predictionAndLabels)
 
@@ -98,21 +98,21 @@ trait HasRecommenderCols extends Params {
   /** @group setParam */
   def setUserCol(value: String): this.type = set(userCol, value)
 
-  def getUserCol:String =  $(userCol)
+  def getUserCol: String = $(userCol)
 
   val itemCol = new Param[String](this, "itemCol", "Column of items")
 
   /** @group setParam */
   def setItemCol(value: String): this.type = set(itemCol, value)
 
-  def getItemCol:String =  $(itemCol)
+  def getItemCol: String = $(itemCol)
 
   val ratingCol = new Param[String](this, "ratingCol", "Column of ratings")
 
   /** @group setParam */
   def setRatingCol(value: String): this.type = set(ratingCol, value)
 
-  def getRatingCol:String =  $(ratingCol)
+  def getRatingCol: String = $(ratingCol)
 
 }
 
@@ -145,7 +145,6 @@ class RecommendationEvaluator(override val uid: String)
       "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr|fcp)", allowedParams)
   }
   setDefault(metricName -> "ndcgAt", nItems -> -1)
-
 
   /** @group getParam */
   def getMetricName: String = $(metricName)
