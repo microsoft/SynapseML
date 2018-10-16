@@ -70,7 +70,13 @@ class TrainValidRecommendSplitRec extends TestBase {
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
 
-    val ra = new RecommenderAdapter().setMode("allUsers").setRecommender(als)
+    val ra = new RecommenderAdapter()
+      .setMode("allUsers")
+      .setRecommender(als)
+      .setNItems(10)
+      .setUserCol(customerIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setItemCol(ratingsIndex.getOutputCol)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(als.regParam, Array(1.0))

@@ -48,6 +48,14 @@ class RecommenderAdapter(override val uid: String)
   /** @group setParam */
   def setMode(value: String): this.type = set(mode, value)
 
+  val nItems: IntParam = new IntParam(this, "nItems", "recommendation mode")
+
+  /** @group getParam */
+  def getNItems: Int = $(nItems)
+
+  /** @group setParam */
+  def setNItems(value: Int): this.type = set(nItems, value)
+
 
   def transformSchema(schema: StructType): StructType = {
     val model = getRecommender.asInstanceOf[ALS]
@@ -70,6 +78,10 @@ class RecommenderAdapter(override val uid: String)
     new RecommenderAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
+      .setNItems(getNItems)
+      .setUserCol(getUserCol)
+      .setItemCol(getItemCol)
+      .setRatingCol(getRatingCol)
   }
 
   override def copy(extra: ParamMap): RecommenderAdapter = {
@@ -86,7 +98,7 @@ object RecommenderAdapter extends ComplexParamsReadable[RecommenderAdapter]
   * @param uid Id.
   */
 class RecommenderAdapterModel private[ml](val uid: String)
-  extends Model[RecommenderAdapterModel] with ComplexParamsWritable with Wrappable {
+  extends Model[RecommenderAdapterModel] with ComplexParamsWritable with Wrappable with RecommendationSplitFunctions {
 
   def this() = this(Identifiable.randomUID("RecommenderAdapterModel"))
 
@@ -124,7 +136,10 @@ class RecommenderAdapterModel private[ml](val uid: String)
     transformSchema(dataset.schema)
     val model = getRecommenderModel.asInstanceOf[ALSModel]
     getMode match {
-      case "allUsers" => model.recommendForAllUsers(getNItems)
+      case "allUsers" => {
+        val recs = model.recommendForAllUsers(getNItems)
+        prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, 10).toDF()
+      }
       case "allItems" => model.recommendForAllItems(getNUsers)
       case "normal" => model.transform(dataset)
     }
