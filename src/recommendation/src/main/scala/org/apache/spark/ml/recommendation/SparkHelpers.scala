@@ -5,27 +5,13 @@ package org.apache.spark.ml.recommendation
 
 import com.github.fommil.netlib.{BLAS => NetlibBLAS}
 import com.microsoft.ml.spark.Wrappable
-import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkContext
 import org.apache.spark.ml.evaluation.Evaluator
-import org.apache.spark.ml.linalg.BLAS
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
-import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.ml.tuning.{CrossValidatorParams, TrainValidationSplitParams}
-import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.mllib.linalg.DenseVector
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
-import org.apache.spark.sql._
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
-import org.apache.spark.util.{BoundedPriorityQueue, ThreadUtils}
-import org.json4s.jackson.JsonMethods.{compact, parse, render}
-import org.json4s.{DefaultFormats, JObject}
-
-import scala.collection.mutable
+import org.apache.spark.util.ThreadUtils
 
 trait RecommendationParams extends Wrappable with ALSParams
 
@@ -36,23 +22,12 @@ trait TrainValidRecommendSplitParams extends Wrappable with HasSeed {
     *
     * @group param
     */
-  val minRatingsU: IntParam = new IntParam(this, "minRatingsU",
-    "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
-
-  val minRatingsI: IntParam = new IntParam(this, "minRatingsI",
-    "min ratings for items > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   val trainRatio: DoubleParam = new DoubleParam(this, "trainRatio",
     "ratio between training set and validation set (>= 0 && <= 1)", ParamValidators.inRange(0, 1))
 
   /** @group getParam */
   def getTrainRatio: Double = $(trainRatio)
-
-  /** @group getParam */
-  def getMinRatingsU: Int = $(minRatingsU)
-
-  /** @group getParam */
-  def getMinRatingsI: Int = $(minRatingsI)
 
   /** @group getParam */
   def getEstimatorParamMaps: Array[ParamMap] = $(estimatorParamMaps)
@@ -72,8 +47,12 @@ trait TrainValidRecommendSplitParams extends Wrappable with HasSeed {
   val estimator = new EstimatorParam(this, "estimator", "estimator for selection")
 
   setDefault(trainRatio -> 0.75)
-  setDefault(minRatingsU -> 1)
-  setDefault(minRatingsI -> 1)
+
+  val validationMetrics = new ArrayParam(
+    this, "validationMetrics", "Which metrics to validate the models with")
+
+  /** @group getParam */
+  def getValidationMetrics: Array[String] = $(validationMetrics).map(_.toString)
 
   protected def transformSchemaImpl(schema: StructType): StructType = {
     require($(estimatorParamMaps).nonEmpty, s"Validator requires non-empty estimatorParamMaps")
@@ -124,83 +103,6 @@ private[ml] object TrainValidRecommendSplitParams {
     }
   }
 
-  /**
-    * Generic implementation of save for [[TrainValidRecommendSplitParams]] types.
-    * This handles all [[TrainValidRecommendSplitParams]] fields and saves [[Param]] values, but the implementing
-    * class needs to handle model data.
-    */
-  def saveImpl(
-                path: String,
-                instance: TrainValidRecommendSplitParams,
-                sc: SparkContext,
-                extraMetadata: Option[JObject] = None): Unit = {
-    import org.json4s.JsonDSL._
-
-    val estimatorParamMapsJson = compact(render(
-      instance.getEstimatorParamMaps.map { case paramMap =>
-        paramMap.toSeq.map { case ParamPair(p, v) =>
-          Map("parent" -> p.parent, "name" -> p.name, "value" -> p.jsonEncode(v))
-        }
-      }.toSeq
-    ))
-
-    val validatorSpecificParams = instance match {
-      case cv: CrossValidatorParams =>
-        List("numFolds" -> parse(cv.numFolds.jsonEncode(cv.getNumFolds)))
-      case tvs: TrainValidationSplitParams =>
-        List("trainRatio" -> parse(tvs.trainRatio.jsonEncode(tvs.getTrainRatio)))
-      case _ =>
-        // This should not happen.
-        throw new NotImplementedError("ValidatorParams.saveImpl does not handle type: " +
-          instance.getClass.getCanonicalName)
-    }
-
-    val jsonParams = validatorSpecificParams ++ List(
-      "estimatorParamMaps" -> parse(estimatorParamMapsJson),
-      "seed" -> parse(instance.seed.jsonEncode(instance.getSeed)))
-
-    DefaultParamsWriter.saveMetadata(instance, path, sc, extraMetadata, Some(jsonParams))
-
-    val evaluatorPath = new Path(path, "evaluator").toString
-    instance.getEvaluator.asInstanceOf[MLWritable].save(evaluatorPath)
-    val estimatorPath = new Path(path, "estimator").toString
-    instance.getEstimator.asInstanceOf[MLWritable].save(estimatorPath)
-  }
-
-  /**
-    * Generic implementation of load for [[TrainValidRecommendSplitParams]] types.
-    * This handles all [[TrainValidRecommendSplitParams]] fields, but the implementing
-    * class needs to handle model data and special [[Param]] values.
-    */
-  def loadImpl[M <: Model[M]](
-                               path: String,
-                               sc: SparkContext,
-                               expectedClassName: String): (Metadata, Estimator[M], Evaluator, Array[ParamMap]) = {
-
-    val metadata = DefaultParamsReader.loadMetadata(path, sc, expectedClassName)
-
-    implicit val format: DefaultFormats.type = DefaultFormats
-    val evaluatorPath = new Path(path, "evaluator").toString
-    val evaluator = DefaultParamsReader.loadParamsInstance[Evaluator](evaluatorPath, sc)
-    val estimatorPath = new Path(path, "estimator").toString
-    val estimator = DefaultParamsReader.loadParamsInstance[Estimator[M]](estimatorPath, sc)
-
-    val uidToParams = Map(evaluator.uid -> evaluator) ++ MetaAlgorithmReadWrite.getUidMap(estimator)
-
-    val estimatorParamMaps: Array[ParamMap] =
-      (metadata.params \ "estimatorParamMaps").extract[Seq[Seq[Map[String, String]]]].map {
-        pMap =>
-          val paramPairs = pMap.map { case pInfo: Map[String, String] =>
-            val est = uidToParams(pInfo("parent"))
-            val param = est.getParam(pInfo("name"))
-            val value = param.jsonDecode(pInfo("value"))
-            param -> value
-          }
-          ParamMap(paramPairs: _*)
-      }.toArray
-
-    (metadata, estimator, evaluator, estimatorParamMaps)
-  }
 }
 
 trait RecEvaluatorParams extends Wrappable

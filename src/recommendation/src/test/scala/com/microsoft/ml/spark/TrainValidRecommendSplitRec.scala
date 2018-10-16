@@ -6,13 +6,12 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
-import org.apache.spark.ml.tuning.ParamGridBuilder
+import org.apache.spark.ml.tuning.{ParamGridBuilder, RankingTrainValidationSplit}
 import org.apache.spark.sql.DataFrame
 
 import scala.language.existentials
 
-class TrainValidRecommendSplitRec
-  extends TestBase {
+class TrainValidRecommendSplitRec extends TestBase {
 
   test("testALS") {
     val dfRaw2: DataFrame = session
@@ -71,6 +70,8 @@ class TrainValidRecommendSplitRec
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
 
+    val ra = new RecommenderAdapter().setMode("allUsers").setRecommender(als)
+
     val paramGrid = new ParamGridBuilder()
       .addGrid(als.regParam, Array(1.0))
       .build()
@@ -78,8 +79,8 @@ class TrainValidRecommendSplitRec
     val evaluator = new RecommendationEvaluator()
       .setK(3)
 
-    val tvRecommendationSplit = new TrainValidRecommendSplit()
-      .setEstimator(als)
+    val tvRecommendationSplit = new RankingTrainValidationSplit()
+      .setEstimator(ra)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
@@ -89,14 +90,12 @@ class TrainValidRecommendSplitRec
 
     val tvModel = tvRecommendationSplit.fit(transformedDf)
 
-    val model = tvModel.getBestModel.asInstanceOf[ALSModel]
+    val model = tvModel.getBestModel.asInstanceOf[RecommenderAdapterModel]
 
-    val items = model.recommendForAllUsers(3)
-    val users = model.recommendForAllItems(3)
+    val items = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
+    val users = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
 
-    evaluator.setSaveAll(true)
-    tvRecommendationSplit.fit(transformedDf)
-    evaluator.printMetrics()
+    //tvModel.getValidationMetrics()
   }
 
 }
