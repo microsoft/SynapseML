@@ -103,7 +103,7 @@ class TrainValidRecommendSplit(Estimator, ValidatorParams):
         return self.getOrDefault(self.userCol)
 
     @keyword_only
-    def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None):
+    def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None, trainRatio=0.8):
         """
         __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, numFolds=3,\
                  seed=None)
@@ -148,23 +148,20 @@ class TrainValidRecommendSplit(Estimator, ValidatorParams):
         return model
 
     def _fit(self, dataset):
-        rating = self.getOrDefault(self.ratingCol)
         est = self.getOrDefault(self.estimator)
+        rating = est.getRatingCol()
         eva = self.getOrDefault(self.evaluator)
         epm = self.getOrDefault(self.estimatorParamMaps)
         num_models = len(epm)
         metrics = [0.0] * num_models
-
-        customerID = self.getOrDefault(self.userCol)
-        itemID = self.getOrDefault(self.itemCol)
 
         pyspark.sql.DataFrame.min_rating_filter = TrainTestSplit.min_rating_filter
         pyspark.sql.DataFrame.stratified_split = TrainTestSplit.stratified_split
 
         temp_train, temp_validation = dataset \
             .dropDuplicates() \
-            .withColumnRenamed(self.getUserCol(), 'customerID') \
-            .withColumnRenamed(self.getItemCol(), 'itemID') \
+            .withColumnRenamed(est.getUserCol(), 'customerID') \
+            .withColumnRenamed(est.getItemCol(), 'itemID') \
             .min_rating_filter(min_rating=6, by_customer=True) \
             .stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5)
 
@@ -211,7 +208,7 @@ class TrainValidRecommendSplit(Estimator, ValidatorParams):
         for j in range(numModels):
             model = models[j]  # models[j]
             recs = model.recommendForAllUsers(eva.getK())
-            prepared_test = prepare_test_data(model.transform(validation), recs, eva.getK())
+            prepared_test = prepare_test_data(validation, recs, eva.getK())
             metric = eva.evaluate(prepared_test)
             metrics[j] += metric
         if eva.isLargerBetter():

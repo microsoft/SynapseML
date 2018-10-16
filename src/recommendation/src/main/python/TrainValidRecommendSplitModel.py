@@ -43,7 +43,8 @@ class TrainValidRecommendSplitModel(Model, ValidatorParams):
         return TrainValidRecommendSplitModel(bestModel, validationMetrics)
 
     def recommendForAllUsers(self, numItems):
-        return self.bestModel._call_java("recommendForAllUsers", numItems)
+        return self.bestModel.recommendForAllUsers(numItems)
+        # return self.bestModel._call_java("recommendForAllUsers", numItems)
 
     def recommendForAllItems(self, numItems):
-        return self.bestModel._call_java("recommendForAllItems", numItems)
+        return self.bestModel.recommendForAllItems(numItems)

@@ -110,7 +110,7 @@ class TrainValidRecommendSplit(override val uid: String) extends Estimator[Train
         calculateMetrics(modelTemp, validationDataset)
       case a: ALSModel =>
         val recs = model.asInstanceOf[ALSModel].recommendForAllUsers(5 * eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(model.transform(validationDataset), recs, eval.getK)
+        val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
         eval.evaluate(preparedTest)
     }
 
