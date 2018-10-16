@@ -182,7 +182,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey 
     .setReturnFaceLandmarks(false)
     .setReturnFaceAttributes(Seq())
 
-  val otherFaceIds = detector.transform((satyaFaces ++bradFaces).toDF("url"))
+  lazy val otherFaceIds = detector.transform((satyaFaces ++bradFaces).toDF("url"))
     .select(col("detected_faces").getItem(0).getItem("faceId"))
     .collect()
     .map(r => r.getString(0)).toSeq

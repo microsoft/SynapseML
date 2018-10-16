@@ -8,7 +8,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait TextKey {
-  val textKey = sys.env("TEXT_API_KEY")
+  lazy val textKey = sys.env("TEXT_API_KEY")
 }
 
 class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with TextKey {
