@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.tuning
 
-import com.microsoft.ml.spark.{HasRecommenderCols, _}
+import com.microsoft.ml.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -18,8 +18,6 @@ import org.apache.spark.util.ThreadUtils
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.existentials
-
-class Recommenders extends ALS
 
 /**
   * Validation for hyper-parameter tuning.
