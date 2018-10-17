@@ -1,0 +1,167 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
+package com.microsoft.ml.spark
+
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.recommendation.RecEvaluatorParams
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
+import org.apache.spark.mllib.evaluation.RankingMetrics
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.mutable.ListBuffer
+
+final class RecommendationEvaluator(override val uid: String)
+  extends Evaluator with RecEvaluatorParams {
+
+  def this() = this(Identifiable.randomUID("recEval"))
+
+  val nItems: LongParam = new LongParam(this, "nItems", "number of items")
+  setDefault(nItems -> -1)
+
+  def setNItems(value: Long): this.type = set(nItems, value)
+
+  val metricsList = new ListBuffer[Map[String, Double]]()
+
+  def getMetricsList: ListBuffer[Map[String, Double]] = metricsList
+
+  def printMetrics(): Unit = {
+    metricsList.foreach(map => {
+      print(map.toString())
+    })
+  }
+
+  val saveAll: BooleanParam = new BooleanParam(this, "saveAll", "save all metrics")
+  setDefault(saveAll -> false)
+
+  /** @group getParam */
+  def getSaveAll: Boolean = $(saveAll)
+
+  /** @group setParam */
+  def setSaveAll(value: Boolean): this.type = set(saveAll, value)
+
+  val k: IntParam = new IntParam(this, "k",
+    "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
+  setDefault(k -> 1)
+
+  /** @group getParam */
+  def getK: Int = $(k)
+
+  /** @group setParam */
+  def setK(value: Int): this.type = set(k, value)
+
+  val metricName: Param[String] = {
+    val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
+      "maxDiversity", "mrr", "fcp"))
+    new Param(this, "metricName", "metric name in evaluation " +
+      "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr|fcp)", allowedParams)
+  }
+  setDefault(metricName -> "ndcgAt")
+
+  /** @group getParam */
+  def getMetricName: String = $(metricName)
+
+  /** @group setParam */
+  def setMetricName(value: String): this.type = set(metricName, value)
+
+  /** @group setParam */
+  def setLabelCol(value: String): this.type = set(labelCol, value)
+
+  /** @group setParam */
+  def setPredictionCol(value: String): this.type = set(predictionCol, value)
+
+  override def evaluate(dataset: Dataset[_]): Double = {
+    val schema = dataset.schema
+    val predictionType = schema($(predictionCol)).dataType
+    val labelType = schema($(labelCol)).dataType
+
+    val predictionAndLabels = dataset
+      .select(col($(predictionCol)).cast(predictionType), col($(labelCol)).cast(labelType)).rdd
+      .map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
+    predictionAndLabels.cache()
+    val metrics = new RankingMetrics[Any](predictionAndLabels)
+
+    class AdvancedRankingMetrics(rankingMetrics: RankingMetrics[Any]) {
+      lazy val uniqueItemsRecommended: Array[Any] = predictionAndLabels
+        .map(row => row._1)
+        .reduce((x, y) => x.toSet.union(y.toSet).toArray)
+
+      lazy val map: Double = metrics.meanAveragePrecision
+      lazy val ndcg: Double = metrics.ndcgAt($(k))
+      lazy val mapk: Double = metrics.precisionAt($(k))
+      lazy val recallAtK: Double = predictionAndLabels.map(r =>
+        r._1.distinct.intersect(r._2.distinct).length.toDouble / r._1.length.toDouble).mean()
+      lazy val diversityAtK: Double = {
+        uniqueItemsRecommended.length.toDouble / $(nItems)
+      }
+      lazy val maxDiversity: Double = {
+        val itemCount = predictionAndLabels
+          .map(row => row._2)
+          .reduce((x, y) => x.toSet.union(y.toSet).toArray)
+          .union(uniqueItemsRecommended).toSet
+          .size
+        itemCount.toDouble / $(nItems)
+      }
+      lazy val meanReciprocalRank: Double = {
+        predictionAndLabels.map { case (pred, lab) =>
+          val labSet = lab.toSet
+
+          if (labSet.nonEmpty) {
+            var i = 0
+            var reciprocalRank = 0.0
+            while (i < pred.length && reciprocalRank == 0.0) {
+              if (labSet.contains(pred(i))) {
+                reciprocalRank = 1.0 / (i + 1)
+              }
+              i += 1
+            }
+            reciprocalRank
+          } else {
+            0.0
+          }
+        }.mean()
+      }
+      lazy val fractionConcordantPairs: Double = {
+        predictionAndLabels.map { case (pred, lab) =>
+          var nc = 0.0
+          var nd = 0.0
+          pred.zipWithIndex.foreach(a => {
+            if (lab.length > a._2) {
+              if (a._1 == lab(a._2)) nc += 1
+              else nd += 1
+            }
+          })
+          nc / (nc + nd)
+        }.mean()
+      }
+
+      def matchMetric(metricName: String): Double = metricName match {
+        case "map" => metrics.map
+        case "ndcgAt" => metrics.ndcg
+        case "precisionAtk" => metrics.mapk
+        case "recallAtK" => metrics.recallAtK
+        case "diversityAtK" => metrics.diversityAtK
+        case "maxDiversity" => metrics.maxDiversity
+      }
+
+      def getAllMetrics(): Map[String, Double] = {
+        Map("map" -> map, "ndcgAt" -> ndcg, "precisionAtk" -> mapk, "recallAtK" -> recallAtK,
+          "diversityAtK" -> diversityAtK, "maxDiversity" -> maxDiversity, "mrr" -> meanReciprocalRank,
+          "fcp" -> fractionConcordantPairs)
+      }
+    }
+
+    import scala.language.implicitConversions
+    implicit def aRankingMetricsToRankingMetrics(rankingMetrics: RankingMetrics[Any]): AdvancedRankingMetrics =
+      new AdvancedRankingMetrics(rankingMetrics)
+
+    if (getSaveAll) metricsList += metrics.getAllMetrics()
+
+    metrics.matchMetric($(metricName))
+  }
+
+  override def copy(extra: ParamMap): RecommendationEvaluator = defaultCopy(extra)
+
+}

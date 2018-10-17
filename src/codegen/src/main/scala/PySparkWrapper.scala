@@ -194,6 +194,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", objectBaseClass)
   // Complex types are not easily recognized by Py4j. They need special processing.
   private lazy val complexTypes =  Set[String](
+    "EvaluatorParam",
     "TransformerParam",
     "TransformerArrayParam",
     "EstimatorParam",
