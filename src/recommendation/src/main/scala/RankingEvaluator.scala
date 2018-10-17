@@ -12,6 +12,34 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.reflect.ClassTag
+import org.apache.spark.mllib.evaluation.RankingMetrics
+import org.apache.spark.rdd.RDD
+
+import scala.reflect.ClassTag
+
+trait HasRecommenderCols extends Params {
+  val userCol = new Param[String](this, "userCol", "Column of users")
+
+  /** @group setParam */
+  def setUserCol(value: String): this.type = set(userCol, value)
+
+  def getUserCol: String = $(userCol)
+
+  val itemCol = new Param[String](this, "itemCol", "Column of items")
+
+  /** @group setParam */
+  def setItemCol(value: String): this.type = set(itemCol, value)
+
+  def getItemCol: String = $(itemCol)
+
+  val ratingCol = new Param[String](this, "ratingCol", "Column of ratings")
+
+  /** @group setParam */
+  def setRatingCol(value: String): this.type = set(ratingCol, value)
+
+  def getRatingCol: String = $(ratingCol)
+
+}
 
 class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
   k: Int, nItems: Long)
@@ -90,30 +118,6 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
       "mrr" -> meanReciprocalRank,
       "fcp" -> fractionConcordantPairs)
   }
-}
-
-trait HasRecommenderCols extends Params {
-  val userCol = new Param[String](this, "userCol", "Column of users")
-
-  /** @group setParam */
-  def setUserCol(value: String): this.type = set(userCol, value)
-
-  def getUserCol: String = $(userCol)
-
-  val itemCol = new Param[String](this, "itemCol", "Column of items")
-
-  /** @group setParam */
-  def setItemCol(value: String): this.type = set(itemCol, value)
-
-  def getItemCol: String = $(itemCol)
-
-  val ratingCol = new Param[String](this, "ratingCol", "Column of ratings")
-
-  /** @group setParam */
-  def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  def getRatingCol: String = $(ratingCol)
-
 }
 
 class RankingEvaluator(override val uid: String)

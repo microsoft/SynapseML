@@ -3,11 +3,10 @@ import os
 import pyspark
 import unittest
 import xmlrunner
-from mmlspark.RecommendationEvaluator import RecommendationEvaluator
-from mmlspark.TrainValidRecommendSplit import TrainValidRecommendSplit
+from mmlspark.RankingEvaluator import RankingEvaluator
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
-from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
@@ -87,16 +86,16 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setItemCol(ratingsIndex.getOutputCol())
 
         alsModel = alsWReg.fit(transformedDf)
-        usersRecs = alsModel._call_java("recommendForAllUsers", 3)
-        print(usersRecs.take(1))
+        # usersRecs = alsModel._call_java("recommendForAllUsers", 3)
+        # print(usersRecs.take(1))
 
         paramGrid = ParamGridBuilder() \
             .addGrid(alsWReg.regParam, [1.0]) \
             .build()
 
-        evaluator = RecommendationEvaluator().setSaveAll(True)
+        evaluator = RankingEvaluator().setSaveAll(True)
 
-        tvRecommendationSplit = TrainValidRecommendSplit() \
+        tvRecommendationSplit = RankingTrainValidationSplit() \
             .setEstimator(alsWReg) \
             .setEvaluator(evaluator) \
             .setEstimatorParamMaps(paramGrid) \
@@ -107,13 +106,13 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         tvmodel = tvRecommendationSplit.fit(transformedDf)
 
-        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
+        # usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
 
-        print(usersRecs.take(1))
-        print(tvmodel.validationMetrics)
+        # print(usersRecs.take(1))
+        # print(tvmodel.validationMetrics)
 
-        metrics = evaluator._call_java("getMetricsList").toString()
-        print(metrics)
+        # metrics = evaluator._call_java("getMetricsList").toString()
+        # print(metrics)
 
     def ignore_all_large(self):
         os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"

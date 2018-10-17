@@ -64,7 +64,7 @@ class RankingTrainValidationSplit(override val uid: String)
     */
   def setCollectSubModels(value: Boolean): this.type = set(collectSubModels, value)
 
-  val collectSubMetrics: BooleanParam = new BooleanParam(this, "collectSubModels", "")
+  val collectSubMetrics: BooleanParam = new BooleanParam(this, "collectSubMetrics", "")
 
   def setCollectSubMetrics(value: Boolean): this.type = set(collectSubMetrics, value)
 
