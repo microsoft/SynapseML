@@ -25,7 +25,6 @@ class Recommenders extends ALS
   * Validation for hyper-parameter tuning.
   * Randomly splits the input dataset into train and validation sets,
   * and uses evaluation metric on the validation set to select the best model.
-  * Similar to [[CrossValidator]], but only splits the set once.
   */
 class RankingTrainValidationSplit(override val uid: String)
   extends Estimator[RankingTrainValidationSplitModel]
@@ -62,9 +61,6 @@ class RankingTrainValidationSplit(override val uid: String)
     *
     * Note: If set this param, when you save the returned model, you can set an option
     * "persistSubModels" to be "true" before saving, in order to save these submodels.
-    * You can check documents of
-    * {@link org.apache.spark.ml.tuning.TrainValidationSplitModel.TrainValidationSplitModelWriter}
-    * for more information.
     *
     * @group expertSetParam
     */
@@ -196,8 +192,6 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
   /**
     * @return submodels represented in array. The index of array corresponds to the ordering of
     *         estimatorParamMaps
-    * @throws IllegalArgumentException if subModels are not available. To retrieve subModels,
-    *                                  make sure to set collectSubModels to true before fitting.
     */
   def subModels: Array[Model[_]] = {
     require(_subModels.isDefined, "subModels not available, To retrieve subModels, make sure " +
@@ -218,8 +212,6 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
   /**
     * @return submodels represented in array. The index of array corresponds to the ordering of
     *         estimatorParamMaps
-    * @throws IllegalArgumentException if subModels are not available. To retrieve subModels,
-    *                                  make sure to set collectSubModels to true before fitting.
     */
   def subMetrics: Array[Map[String, Double]] = {
     require(_subMetrics.isDefined, "subModels not available, To retrieve subModels, make sure " +
