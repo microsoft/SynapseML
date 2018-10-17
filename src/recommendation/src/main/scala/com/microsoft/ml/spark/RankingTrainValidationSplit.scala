@@ -24,6 +24,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -86,7 +87,6 @@ class RankingTrainValidationSplit(override val uid: String)
   val collectSubMetrics: BooleanParam = new BooleanParam(this, "collectSubModels", "")
 
   def setCollectSubMetrics(value: Boolean): this.type = set(collectSubMetrics, value)
-
   def getCollectSubMetrics: Boolean = $(collectSubMetrics)
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplit"))
@@ -106,15 +106,25 @@ class RankingTrainValidationSplit(override val uid: String)
   def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
     val schema = dataset.schema
     transformSchema(schema)
-    val est = $(estimator)
-    val eval = $(evaluator)
+
+    val eval = $(evaluator).asInstanceOf[RecommendationEvaluator]
+
+    val est = new RecommenderAdapter() //move within RTVS?
+      .setMode("allUsers") //move to eval
+      .setNItems(eval.getK)
+      .setRecommender($(estimator).asInstanceOf[ALS])
+      .setUserCol($(estimator).asInstanceOf[ALS].getUserCol)
+      .setRatingCol($(estimator).asInstanceOf[ALS].getRatingCol)
+      .setItemCol($(estimator).asInstanceOf[ALS].getItemCol)
+
     val epm = $(estimatorParamMaps)
 
     // Create execution context based on $(parallelism)
     val executionContext = getExecutionContext
 
     val (trainingDataset, validationDataset) =
-      splitDF(filterRatings(dataset.dropDuplicates()), getTrainRatio)
+      splitDF(filterRatings(dataset.dropDuplicates(), est.getItemCol, est.getUserCol), getTrainRatio,
+        est.getItemCol, est.getUserCol, est.getRatingCol)
     trainingDataset.cache()
     validationDataset.cache()
 
@@ -185,11 +195,19 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
 class RankingTrainValidationSplitModel private[ml](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
+
+  def recommendForAllUsers(k: Int): DataFrame = getBestModel.asInstanceOf[RecommenderAdapterModel]
+    .recommendForAllUsers(k)
+
+  def recommendForAllItems(k: Int): DataFrame = getBestModel.asInstanceOf[RecommenderAdapterModel]
+    .recommendForAllItems(k)
+
   val subMetrics = new ArrayMapParam(this, "subMetrics", "subMetrics")
 
   def setSubMetrics(sm: Array[Map[String, Any]]): RankingTrainValidationSplitModel.this.type = set(subMetrics, sm)
 
   def getSubMetrics: Array[Map[String, Any]] = $(subMetrics)
+
 
   val metrics = new DoubleArrayParam(this, "metrics", "metrics")
 

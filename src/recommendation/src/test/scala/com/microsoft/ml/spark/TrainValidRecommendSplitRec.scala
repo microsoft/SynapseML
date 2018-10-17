@@ -70,38 +70,26 @@ class TrainValidRecommendSplitRec extends TestBase {
       .setRatingCol("rating")
       .setItemCol(ratingsIndex.getOutputCol)
 
-    val ra = new RecommenderAdapter()
-      .setMode("allUsers")
-      .setRecommender(als)
-      .setNItems(10)
-      .setUserCol(customerIndex.getOutputCol)
-      .setRatingCol("rating")
-      .setItemCol(ratingsIndex.getOutputCol)
-
     val paramGrid = new ParamGridBuilder()
       .addGrid(als.regParam, Array(1.0))
       .build()
 
     val evaluator = new RecommendationEvaluator()
       .setK(3)
+      .setNItems(10)
 
     val tvRecommendationSplit = new RankingTrainValidationSplit()
-      .setEstimator(ra)
-      .setEvaluator(evaluator)
+      .setEstimator(als)
       .setEstimatorParamMaps(paramGrid)
+      .setEvaluator(evaluator)
       .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getOutputCol)
-      .setRatingCol("rating")
-      .setItemCol(ratingsIndex.getOutputCol)
       .setCollectSubMetrics(true)
 
-    val tvModel = tvRecommendationSplit.fit(transformedDf)
+    val model = tvRecommendationSplit.fit(transformedDf)
 
-    val model = tvModel.getBestModel.asInstanceOf[RecommenderAdapterModel]
-
-    val items = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
-    val users = model.getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
-    tvModel.getSubMetrics.foreach(println(_))
+    val items = model.recommendForAllUsers(3)
+    val users = model.recommendForAllItems(3)
+    model.getSubMetrics.foreach(println(_)) //diversity is negative because numItems isnt set properly
   }
 
 }

@@ -98,6 +98,10 @@ object RecommenderAdapter extends ComplexParamsReadable[RecommenderAdapter]
 class RecommenderAdapterModel private[ml](val uid: String)
   extends Model[RecommenderAdapterModel] with ComplexParamsWritable with Wrappable with RecommendationSplitFunctions {
 
+  def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
+
+  def recommendForAllItems(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
+
   def this() = this(Identifiable.randomUID("RecommenderAdapterModel"))
 
   val recommenderModel = new TransformerParam(this, "recommenderModel", "recommenderModel", { x: Transformer => true })

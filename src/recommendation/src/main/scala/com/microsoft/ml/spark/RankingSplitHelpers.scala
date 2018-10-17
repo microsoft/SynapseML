@@ -41,29 +41,30 @@ trait RecommendationSplitParams extends Params {
 
 trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRecommenderCols {
 
-  private def filterByItemCount(dataset: Dataset[_]): DataFrame =
+  private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset
-      .groupBy($(userCol))
-      .agg(col($(userCol)), count(col($(itemCol))).alias("nitems"))
+      .groupBy(userCol)
+      .agg(col(userCol), count(col(itemCol)).alias("nitems"))
       .where(col("nitems") >= $(minRatingsPerUser))
       .drop("nitems")
       .cache()
 
-  private def filterByUserRatingCount(dataset: Dataset[_]): DataFrame =
+  private def filterByUserRatingCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset
-      .groupBy($(itemCol))
-      .agg(col($(itemCol)), count(col($(userCol))).alias("nusers"))
+      .groupBy(itemCol)
+      .agg(col(itemCol), count(col(userCol)).alias("nusers"))
       .where(col("nusers") >= $(minRatingsPerItem))
-      .join(dataset, $(itemCol))
+      .join(dataset, itemCol)
       .drop("nusers")
       .cache()
 
-  def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
-    .join(filterByItemCount(dataset), $(userCol))
+  def filterRatings(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
+    filterByUserRatingCount(dataset, itemCol, userCol)
+      .join(filterByItemCount(dataset, itemCol, userCol), userCol)
 
   def prepareTestData(userColumn: String, itemColumn: String,
-                      validationDataset: DataFrame, recs: DataFrame,
-                      k: Int): Dataset[_] = {
+    validationDataset: DataFrame, recs: DataFrame,
+    k: Int): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs
@@ -100,25 +101,27 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
     joined_rec_actual
   }
 
-  def splitDF(dataset: DataFrame, trainRatio: Double): (DataFrame, DataFrame) = {
+  def splitDF(dataset: DataFrame, trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
+  (DataFrame, DataFrame) = {
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
-    if (dataset.columns.contains($(ratingCol))) {
+    if (dataset.columns.contains(ratingCol)) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * trainRatio).toInt))
 
       val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
+        //Do not remove .toSeq
         if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
       )
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
-        .withColumn("itemIDRating", wrapColumn(col($(itemCol)), col($(ratingCol))))
-        .groupBy(col($(userCol)))
+        .withColumn("itemIDRating", wrapColumn(col(itemCol), col(ratingCol)))
+        .groupBy(col(userCol))
         .agg(collect_list(col("itemIDRating")))
         .withColumn("shuffle", shuffle(col("collect_list(itemIDRating)")))
         .withColumn("train", sliceudf(col("shuffle")))
@@ -130,22 +133,22 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
       val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
 
       val train = testds
-        .select($(userCol), "train")
+        .select(userCol, "train")
         .withColumn("itemIdRating", explode(col("train")))
         .drop("train")
-        .withColumn($(itemCol), popLeft(col("itemIdRating")))
-        .withColumn($(ratingCol), popRight(col("itemIdRating")))
+        .withColumn(itemCol, popLeft(col("itemIdRating")))
+        .withColumn(ratingCol, popRight(col("itemIdRating")))
         .drop("itemIdRating")
 
       val test = testds
-        .select($(userCol), "test")
+        .select(userCol, "test")
         .withColumn("itemIdRating", explode(col("test")))
         .drop("test")
-        .withColumn($(itemCol), popLeft(col("itemIdRating")))
-        .withColumn($(ratingCol), popRight(col("itemIdRating")))
+        .withColumn(itemCol, popLeft(col("itemIdRating")))
+        .withColumn(ratingCol, popRight(col("itemIdRating")))
         .drop("itemIdRating")
 
-     (train, test)
+      (train, test)
     } else {
       val shuffle = udf((r: mutable.WrappedArray[Double]) =>
         if (shuffleBC.value) Random.shuffle(r.toSeq)
@@ -156,22 +159,22 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
-        .groupBy(col($(userCol)))
-        .agg(collect_list(col($(itemCol))))
-        .withColumn("shuffle", shuffle(col("collect_list(" + $(itemCol) + ")")))
+        .groupBy(col(userCol))
+        .agg(collect_list(col(itemCol)))
+        .withColumn("shuffle", shuffle(col("collect_list(" + itemCol + ")")))
         .withColumn("train", sliceudf(col("shuffle")))
         .withColumn("test", dropudf(col("shuffle")))
-        .drop(col("collect_list(" + $(itemCol) + ")")).drop(col("shuffle"))
+        .drop(col("collect_list(" + itemCol + ")")).drop(col("shuffle"))
         .cache()
 
       val train = testds
-        .select($(userCol), "train")
-        .withColumn($(itemCol), explode(col("train")))
+        .select(userCol, "train")
+        .withColumn(itemCol, explode(col("train")))
         .drop("train")
 
       val test = testds
-        .select($(userCol), "test")
-        .withColumn($(itemCol), explode(col("test")))
+        .select(userCol, "test")
+        .withColumn(itemCol, explode(col("test")))
         .drop("test")
 
       (train, test)
@@ -179,7 +182,7 @@ trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRec
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame,
-                      k: Int): Dataset[_] = {
+    k: Int): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs
