@@ -42,12 +42,10 @@ class LightGBMClassifier(override val uid: String)
     val (inetAddress, port, future) =
       LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
 
-    val nodes = LightGBMUtils.getNodes(df, getDefaultListenPort, numCoresPerExec)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
-    log.info(s"Nodes used for LightGBM: ${nodes.mkString(",")}")
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString)
@@ -55,7 +53,7 @@ class LightGBMClassifier(override val uid: String)
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
-    val networkParams = NetworkParams(nodes.toMap, getDefaultListenPort, inetAddress, port)
+    val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
         log, trainParams, numCoresPerExec))(encoder)
