@@ -12,7 +12,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
 
-case class NetworkParams(executorIdToHost: Map[Int, String], defaultListenPort: Int, addr: String, port: Int)
+case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 
 private object TrainUtils extends Serializable {
 
