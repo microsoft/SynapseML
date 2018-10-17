@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.recommendation.ALS
-import org.apache.spark.ml.tuning.{ParamGridBuilder, RankingTrainValidationSplit}
+import org.apache.spark.ml.tuning.{ParamGridBuilder}
 import org.apache.spark.sql.DataFrame
 
 import scala.language.existentials

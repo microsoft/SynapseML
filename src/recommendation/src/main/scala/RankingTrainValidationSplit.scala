@@ -1,14 +1,27 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.tuning
+package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark._
-import org.apache.spark.internal.Logging
+import org.apache.spark.ml._
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators}
+import org.apache.spark.ml.recommendation._
+import org.apache.spark.ml.util._
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
+import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
-import org.apache.spark.ml.recommendation.{ALS, ALSParams}
+import org.apache.spark.ml.param.shared.HasCollectSubModels
+import org.apache.spark.ml.recommendation.ALS
+import org.apache.spark.ml.tuning.{RankingHelper, TrainValidRecommendSplitParams}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -27,11 +40,10 @@ import scala.language.existentials
 class RankingTrainValidationSplit(override val uid: String)
   extends Estimator[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with RankingFunctions
-    with TrainValidationSplitParams with HasParallelism with HasCollectSubModels
-    with Logging {
+    with TrainValidRecommendSplitParams with HasCollectSubModels {
 
   /** @group setParam */
-  def setEstimator(value: Estimator[_]): this.type = set(estimator, value)
+  def setEstimator(value: Estimator[_ <: Model[_]]): this.type = set(estimator, value)
 
   /** @group setParam */
   def setEstimatorParamMaps(value: Array[ParamMap]): this.type = set(estimatorParamMaps, value)
@@ -83,6 +95,17 @@ class RankingTrainValidationSplit(override val uid: String)
   }
 
   setDefault(minRatingsPerUser -> 1, minRatingsPerItem -> 1)
+
+  override def getExecutionContext: ExecutionContext = {
+
+    getParallelism match {
+      case 1 =>
+        RankingHelper.getThreadUtils().sameThread
+      case n =>
+        ExecutionContext.fromExecutorService(SparkHelpers.getThreadUtils()
+          .newDaemonCachedThreadPool(s"${this.getClass.getSimpleName}-thread-pool", n))
+    }
+  }
 
   def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
     val schema = dataset.schema
@@ -141,7 +164,7 @@ class RankingTrainValidationSplit(override val uid: String)
     }
 
     // Wait for all metrics to be calculated
-    val metrics = metricFutures.map(ThreadUtils.awaitResult(_, Duration.Inf))
+    val metrics = metricFutures.map(RankingHelper.getThreadUtils().awaitResult(_, Duration.Inf))
 
     // Unpersist training & validation set once all metrics have been produced
     trainingDataset.unpersist()
@@ -174,13 +197,13 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
   *
   * @param uid Id.
   */
-class RankingTrainValidationSplitModel private[ml](val uid: String)
+class RankingTrainValidationSplitModel private[spark](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
 
   private var _subModels: Option[Array[Model[_]]] = None
 
-  private[tuning] def setSubModels(subModels: Option[Array[Model[_]]])
+  private[spark] def setSubModels(subModels: Option[Array[Model[_]]])
   : RankingTrainValidationSplitModel = {
     _subModels = subModels
     this
@@ -200,7 +223,7 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
 
   private var _subMetrics: Option[Array[Map[String, Double]]] = None
 
-  private[tuning] def setSubMetrics(subMetrics: Option[Array[Map[String, Double]]])
+  private[spark] def setSubMetrics(subMetrics: Option[Array[Map[String, Double]]])
   : RankingTrainValidationSplitModel = {
     _subMetrics = subMetrics
     this
