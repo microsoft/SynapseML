@@ -94,22 +94,16 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
     joined_rec_actual
   }
 
-  def splitDF(dataset: DataFrame, trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
+  def splitDF(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
   (DataFrame, DataFrame) = {
-    val shuffleFlag = true
-    val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
+    val dataset = filterRatings(dataframe.dropDuplicates(), itemCol, userCol)
 
     if (dataset.columns.contains(ratingCol)) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
         (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * trainRatio).toInt))
-
-      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-        //Do not remove .toSeq
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
+      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) => Random.shuffle(r.toSeq))
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
@@ -143,12 +137,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
 
       (train, test)
     } else {
-      val shuffle = udf((r: mutable.WrappedArray[Double]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
-      val sliceudf = udf(
-        (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * trainRatio).toInt))
+      val shuffle = udf((r: mutable.WrappedArray[Double]) => Random.shuffle(r.toSeq))
+      val sliceudf = udf((r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * trainRatio).toInt))
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
@@ -174,8 +164,7 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
     }
   }
 
-  def prepareTestData(validationDataset: DataFrame, recs: DataFrame,
-    k: Int): Dataset[_] = {
+  def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs

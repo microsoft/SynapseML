@@ -3,9 +3,7 @@
 
 package org.apache.spark.ml.tuning
 
-import java.util.{List => JList}
-
-import com.microsoft.ml.spark._
+import com.microsoft.ml.spark.{HasRecommenderCols, _}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -20,6 +18,8 @@ import org.apache.spark.util.ThreadUtils
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.existentials
+
+class Recommenders extends ALS
 
 /**
   * Validation for hyper-parameter tuning.
@@ -96,13 +96,14 @@ class RankingTrainValidationSplit(override val uid: String)
 
     val eval = $(evaluator).asInstanceOf[RankingEvaluator]
 
-    val est = new RankingAdapter() //move within RTVS?
-      .setMode("allUsers") //move to eval
+    val est = new RankingAdapter()
+      .setMode("allUsers") //allItems does not work, not sure if it would be used
       .setNItems(eval.getK)
-      .setRecommender($(estimator).asInstanceOf[ALS])
+      .setRecommender($(estimator).asInstanceOf[Estimator[_ <: Model[_]]])
       .setUserCol($(estimator).asInstanceOf[ALS].getUserCol)
       .setRatingCol($(estimator).asInstanceOf[ALS].getRatingCol)
       .setItemCol($(estimator).asInstanceOf[ALS].getItemCol)
+    //todo cast to something more generic than ALS
 
     val epm = $(estimatorParamMaps)
 
@@ -110,19 +111,19 @@ class RankingTrainValidationSplit(override val uid: String)
     val executionContext = getExecutionContext
 
     val (trainingDataset, validationDataset) =
-      splitDF(filterRatings(dataset.dropDuplicates(), est.getItemCol, est.getUserCol), getTrainRatio,
-        est.getItemCol, est.getUserCol, est.getRatingCol)
+      splitDF(dataset, getTrainRatio, est.getItemCol, est.getUserCol, est.getRatingCol)
+    //todo replace with something like... dataset.rankingSplit(getTrainRatio)
     trainingDataset.cache()
     validationDataset.cache()
 
     val collectSubModelsParam = $(collectSubModels)
     val collectSubMetricsParam = $(collectSubMetrics)
 
-    var subModels: Option[Array[Model[_]]] = if (collectSubModelsParam) {
+    val subModels: Option[Array[Model[_]]] = if (collectSubModelsParam) {
       Some(Array.fill[Model[_]](epm.length)(null))
     } else None
 
-    var subMetrics: Option[Array[Map[String, Double]]] = if (collectSubMetricsParam) {
+    val subMetrics: Option[Array[Map[String, Double]]] = if (collectSubMetricsParam) {
       Some(Array.fill[Map[String, Double]](epm.length)(null))
     } else None
 
@@ -163,7 +164,8 @@ class RankingTrainValidationSplit(override val uid: String)
     new RankingTrainValidationSplitModel(uid)
       .setBestModel(bestModel)
       .setMetrics(metrics)
-      .setSubMetrics(subMetrics.get.asInstanceOf[Array[Map[String, Any]]])
+      .setSubModels(subModels)
+      .setSubMetrics(subMetrics)
   }
 
   override def copy(extra: ParamMap): RankingTrainValidationSplit = {
@@ -183,17 +185,55 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
 
+  private var _subModels: Option[Array[Model[_]]] = None
+
+  private[tuning] def setSubModels(subModels: Option[Array[Model[_]]])
+  : RankingTrainValidationSplitModel = {
+    _subModels = subModels
+    this
+  }
+
+  /**
+    * @return submodels represented in array. The index of array corresponds to the ordering of
+    *         estimatorParamMaps
+    * @throws IllegalArgumentException if subModels are not available. To retrieve subModels,
+    *                                  make sure to set collectSubModels to true before fitting.
+    */
+  def subModels: Array[Model[_]] = {
+    require(_subModels.isDefined, "subModels not available, To retrieve subModels, make sure " +
+      "to set collectSubModels to true before fitting.")
+    _subModels.get
+  }
+
+  def hasSubModels: Boolean = _subModels.isDefined
+
+  private var _subMetrics: Option[Array[Map[String, Double]]] = None
+
+  private[tuning] def setSubMetrics(subMetrics: Option[Array[Map[String, Double]]])
+  : RankingTrainValidationSplitModel = {
+    _subMetrics = subMetrics
+    this
+  }
+
+  /**
+    * @return submodels represented in array. The index of array corresponds to the ordering of
+    *         estimatorParamMaps
+    * @throws IllegalArgumentException if subModels are not available. To retrieve subModels,
+    *                                  make sure to set collectSubModels to true before fitting.
+    */
+  def subMetrics: Array[Map[String, Double]] = {
+    require(_subMetrics.isDefined, "subModels not available, To retrieve subModels, make sure " +
+      "to set collectSubModels to true before fitting.")
+    _subMetrics.get
+  }
+
+  def hasSubMetrics: Boolean = _subMetrics.isDefined
+
   def recommendForAllUsers(k: Int): DataFrame = getBestModel.asInstanceOf[RankingAdapterModel]
     .recommendForAllUsers(k)
 
   def recommendForAllItems(k: Int): DataFrame = getBestModel.asInstanceOf[RankingAdapterModel]
     .recommendForAllItems(k)
-
-  val subMetrics = new ArrayMapParam(this, "subMetrics", "subMetrics")
-
-  def setSubMetrics(sm: Array[Map[String, Any]]): RankingTrainValidationSplitModel.this.type = set(subMetrics, sm)
-
-  def getSubMetrics: Array[Map[String, Any]] = $(subMetrics)
 
   val metrics = new DoubleArrayParam(this, "metrics", "metrics")
 

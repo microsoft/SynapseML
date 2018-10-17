@@ -128,7 +128,10 @@ class RankingAdapterModel private[ml](val uid: String)
         val recs = model.recommendForAllUsers(getNItems)
         prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, 10).toDF()
       }
-      case "allItems" => model.recommendForAllItems(getNUsers)
+      case "allItems" => {
+        val recs = model.recommendForAllItems(getNUsers)
+        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
+      }
       case "normal" => model.transform(dataset)
     }
   }

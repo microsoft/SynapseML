@@ -97,7 +97,7 @@ class RankingTrainValidationSplitSpec extends TestBase {
 
     val items = model.recommendForAllUsers(3)
     val users = model.recommendForAllItems(3)
-    model.getSubMetrics.foreach(println(_))
+    model.subMetrics.foreach(println(_))
   }
 
 }
