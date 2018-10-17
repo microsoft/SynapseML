@@ -26,11 +26,11 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
+      "org.apache.spark.ml.tuning.RankingTrainValidationSplit",
+      "com.microsoft.ml.spark.RankingAdapterModel",
+      "com.microsoft.ml.spark.RankingAdapter",
+      "org.apache.spark.ml.tuning.Recommenders",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TuneHyperparameters",
@@ -59,11 +59,11 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
+      "org.apache.spark.ml.tuning.RankingTrainValidationSplit",
+      "com.microsoft.ml.spark.RankingAdapterModel",
+      "com.microsoft.ml.spark.RankingAdapter",
+      "org.apache.spark.ml.tuning.Recommenders",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TrainClassifier",
@@ -93,11 +93,11 @@ class FuzzingTest extends TestBase {
 
   ignore("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
+      "org.apache.spark.ml.tuning.RankingTrainValidationSplit",
+      "com.microsoft.ml.spark.RankingAdapterModel",
+      "com.microsoft.ml.spark.RankingAdapter",
+      "org.apache.spark.ml.tuning.Recommenders",
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.TrainValidRecommendSplit",
-      "com.microsoft.ml.spark.TrainValidRecommendSplitModel",
       "com.microsoft.ml.spark.ValueIndexerModel",
       "com.microsoft.ml.spark.CNTKLearner",
       "com.microsoft.ml.spark.TrainClassifier",

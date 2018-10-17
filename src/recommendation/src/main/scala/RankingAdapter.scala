@@ -102,7 +102,7 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
     joined_rec_actual
   }
 
-  def splitDF(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
+  def split(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
   (DataFrame, DataFrame) = {
     val dataset = filterRatings(dataframe.dropDuplicates(), itemCol, userCol)
 
@@ -232,13 +232,13 @@ class RankingAdapter(override val uid: String)
   /** @group setParam */
   def setMode(value: String): this.type = set(mode, value)
 
-  val nItems: IntParam = new IntParam(this, "nItems", "recommendation mode")
+  val k: IntParam = new IntParam(this, "k", "number of items to recommend")
 
   /** @group getParam */
-  def getNItems: Int = $(nItems)
+  def getK: Int = $(k)
 
   /** @group setParam */
-  def setNItems(value: Int): this.type = set(nItems, value)
+  def setK(value: Int): this.type = set(k, value)
 
   def transformSchema(schema: StructType): StructType = {
     val model = getRecommender.asInstanceOf[ALS]
@@ -261,7 +261,7 @@ class RankingAdapter(override val uid: String)
     new RankingAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
-      .setNItems(getNItems)
+      .setNItems(getK)
       .setUserCol(getUserCol)
       .setItemCol(getItemCol)
       .setRatingCol(getRatingCol)

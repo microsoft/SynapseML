@@ -8,7 +8,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
-import org.apache.spark.ml.recommendation.ALS
+import org.apache.spark.ml.recommendation.{ALS, ALSParams}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -92,7 +92,7 @@ class RankingTrainValidationSplit(override val uid: String)
 
     val est = new RankingAdapter()
       .setMode("allUsers") //allItems does not work, not sure if it would be used
-      .setNItems(eval.getK)
+      .setK(eval.getK)
       .setRecommender($(estimator).asInstanceOf[Estimator[_ <: Model[_]]])
       .setUserCol($(estimator).asInstanceOf[ALS].getUserCol)
       .setRatingCol($(estimator).asInstanceOf[ALS].getRatingCol)
@@ -105,8 +105,7 @@ class RankingTrainValidationSplit(override val uid: String)
     val executionContext = getExecutionContext
 
     val (trainingDataset, validationDataset) =
-      splitDF(dataset, getTrainRatio, est.getItemCol, est.getUserCol, est.getRatingCol)
-    //todo replace with something like... dataset.rankingSplit(getTrainRatio)
+      split(dataset, getTrainRatio, est.getItemCol, est.getUserCol, est.getRatingCol)
     trainingDataset.cache()
     validationDataset.cache()
 
