@@ -3,15 +3,15 @@
 
 package com.microsoft.ml.spark
 
-class RecommendationEvaluatorTest extends TestBase {
-  import session.implicits._
+class RankingEvaluatorSpec extends TestBase {
 
+  import session.implicits._
 
   test("testAllTrue") {
     val df = Seq((Array(1, 2, 3), Array(1, 2, 3)))
       .toDF("prediction", "label")
 
-    val evaluator = new RecommendationEvaluator()
+    val evaluator = new RankingEvaluator()
       .setK(3)
       .setNItems(3)
 
@@ -29,7 +29,7 @@ class RecommendationEvaluatorTest extends TestBase {
     val df = Seq((Array(4, 5, 6), Array(1, 2, 3)))
       .toDF("prediction", "label")
 
-    val evaluator = new RecommendationEvaluator()
+    val evaluator = new RankingEvaluator()
       .setK(3)
       .setNItems(6)
 
@@ -47,7 +47,7 @@ class RecommendationEvaluatorTest extends TestBase {
     val df = Seq((Array(3, 2, 1), Array(1, 2, 3)))
       .toDF("prediction", "label")
 
-    val evaluator = new RecommendationEvaluator()
+    val evaluator = new RankingEvaluator()
       .setK(3)
       .setNItems(3)
 
@@ -65,7 +65,7 @@ class RecommendationEvaluatorTest extends TestBase {
     val df = Seq((Array(1, 2, 3, 4, 5, 6), Array(1, 2, 3)))
       .toDF("prediction", "label")
 
-    val evaluator = new RecommendationEvaluator()
+    val evaluator = new RankingEvaluator()
       .setK(6)
       .setNItems(6)
 

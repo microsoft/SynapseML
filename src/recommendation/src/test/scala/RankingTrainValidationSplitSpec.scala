@@ -5,15 +5,23 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.StringIndexer
-import org.apache.spark.ml.recommendation.{ALS, ALSModel}
+import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.tuning.{ParamGridBuilder, RankingTrainValidationSplit}
 import org.apache.spark.sql.DataFrame
 
 import scala.language.existentials
 
-class TrainValidRecommendSplitRec extends TestBase {
+class RankingTrainValidationSplitSpec extends TestBase {
 
   test("testALS") {
+
+    val userCol = "customerIDOrg"
+    val itemCol = "itemIDOrg"
+    val ratingCol = "rating"
+
+    val userColIndex = "customerID"
+    val itemColIndex = "itemID"
+
     val dfRaw2: DataFrame = session
       .createDataFrame(Seq(
         ("11", "Movie 01", 4),
@@ -48,48 +56,48 @@ class TrainValidRecommendSplitRec extends TestBase {
         ("44", "Movie 07", 5),
         ("44", "Movie 08", 1),
         ("44", "Movie 10", 3)))
-      .toDF("customerIDOrg", "itemIDOrg", "rating")
+      .toDF(userCol, itemCol, ratingCol)
 
     val ratings = dfRaw2.dropDuplicates()
 
     val customerIndex = new StringIndexer()
-      .setInputCol("customerIDOrg")
-      .setOutputCol("customerID")
+      .setInputCol(userCol)
+      .setOutputCol(userColIndex)
 
-    val ratingsIndex = new StringIndexer()
-      .setInputCol("itemIDOrg")
-      .setOutputCol("itemID")
+    val itemIndex = new StringIndexer()
+      .setInputCol(itemCol)
+      .setOutputCol(itemColIndex)
 
     val pipeline = new Pipeline()
-      .setStages(Array(customerIndex, ratingsIndex))
+      .setStages(Array(customerIndex, itemIndex))
 
     val transformedDf = pipeline.fit(ratings).transform(ratings)
 
     val als = new ALS()
       .setUserCol(customerIndex.getOutputCol)
-      .setRatingCol("rating")
-      .setItemCol(ratingsIndex.getOutputCol)
+      .setRatingCol(ratingCol)
+      .setItemCol(itemIndex .getOutputCol)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(als.regParam, Array(1.0))
       .build()
 
-    val evaluator = new RecommendationEvaluator()
+    val evaluator = new RankingEvaluator()
       .setK(3)
       .setNItems(10)
 
-    val tvRecommendationSplit = new RankingTrainValidationSplit()
+    val rankingTrainValidationSplit = new RankingTrainValidationSplit()
       .setEstimator(als)
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
       .setTrainRatio(0.8)
       .setCollectSubMetrics(true)
 
-    val model = tvRecommendationSplit.fit(transformedDf)
+    val model = rankingTrainValidationSplit.fit(transformedDf)
 
     val items = model.recommendForAllUsers(3)
     val users = model.recommendForAllItems(3)
-    model.getSubMetrics.foreach(println(_)) //diversity is negative because numItems isnt set properly
+    model.getSubMetrics.foreach(println(_))
   }
 
 }

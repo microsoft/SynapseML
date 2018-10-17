@@ -1,19 +1,5 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
 
 package org.apache.spark.ml.tuning
 
@@ -22,8 +8,8 @@ import java.util.{List => JList}
 import com.microsoft.ml.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
-import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.shared.{HasCollectSubModels, HasParallelism}
 import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
@@ -43,7 +29,7 @@ import scala.language.existentials
   */
 class RankingTrainValidationSplit(override val uid: String)
   extends Estimator[RankingTrainValidationSplitModel]
-    with ComplexParamsWritable with RecommendationSplitFunctions
+    with ComplexParamsWritable with RankingFunctions
     with TrainValidationSplitParams with HasParallelism with HasCollectSubModels
     with Logging {
 
@@ -87,6 +73,7 @@ class RankingTrainValidationSplit(override val uid: String)
   val collectSubMetrics: BooleanParam = new BooleanParam(this, "collectSubModels", "")
 
   def setCollectSubMetrics(value: Boolean): this.type = set(collectSubMetrics, value)
+
   def getCollectSubMetrics: Boolean = $(collectSubMetrics)
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplit"))
@@ -107,9 +94,9 @@ class RankingTrainValidationSplit(override val uid: String)
     val schema = dataset.schema
     transformSchema(schema)
 
-    val eval = $(evaluator).asInstanceOf[RecommendationEvaluator]
+    val eval = $(evaluator).asInstanceOf[RankingEvaluator]
 
-    val est = new RecommenderAdapter() //move within RTVS?
+    val est = new RankingAdapter() //move within RTVS?
       .setMode("allUsers") //move to eval
       .setNItems(eval.getK)
       .setRecommender($(estimator).asInstanceOf[ALS])
@@ -151,7 +138,7 @@ class RankingTrainValidationSplit(override val uid: String)
         // TODO: duplicate evaluator to take extra params from input
         val df = model.transform(validationDataset, paramMap)
         if (collectSubMetricsParam) {
-          subMetrics.get(paramIndex) = eval.asInstanceOf[RecommendationEvaluator].getMetricsMap(df)
+          subMetrics.get(paramIndex) = eval.asInstanceOf[RankingEvaluator].getMetricsMap(df)
         }
         val metric = eval.evaluate(df)
         logDebug(s"Got metric $metric for model trained with $paramMap.")
@@ -196,10 +183,10 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
 
-  def recommendForAllUsers(k: Int): DataFrame = getBestModel.asInstanceOf[RecommenderAdapterModel]
+  def recommendForAllUsers(k: Int): DataFrame = getBestModel.asInstanceOf[RankingAdapterModel]
     .recommendForAllUsers(k)
 
-  def recommendForAllItems(k: Int): DataFrame = getBestModel.asInstanceOf[RecommenderAdapterModel]
+  def recommendForAllItems(k: Int): DataFrame = getBestModel.asInstanceOf[RankingAdapterModel]
     .recommendForAllItems(k)
 
   val subMetrics = new ArrayMapParam(this, "subMetrics", "subMetrics")
@@ -207,7 +194,6 @@ class RankingTrainValidationSplitModel private[ml](val uid: String)
   def setSubMetrics(sm: Array[Map[String, Any]]): RankingTrainValidationSplitModel.this.type = set(subMetrics, sm)
 
   def getSubMetrics: Array[Map[String, Any]] = $(subMetrics)
-
 
   val metrics = new DoubleArrayParam(this, "metrics", "metrics")
 

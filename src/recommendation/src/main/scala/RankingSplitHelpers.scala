@@ -3,22 +3,15 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml._
-import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.recommendation._
-import org.apache.spark.ml.util._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.collection.mutable
-import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
-trait RecommendationSplitParams extends Params {
+trait RankingParams extends Params {
   val minRatingsPerUser: IntParam = new IntParam(this, "minRatingsPerUser",
     "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
@@ -39,7 +32,7 @@ trait RecommendationSplitParams extends Params {
 
 }
 
-trait RecommendationSplitFunctions extends RecommendationSplitParams with HasRecommenderCols {
+trait RankingFunctions extends RankingParams with HasRecommenderCols {
 
   private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset

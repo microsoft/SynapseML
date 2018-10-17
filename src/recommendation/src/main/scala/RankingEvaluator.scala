@@ -116,9 +116,9 @@ trait HasRecommenderCols extends Params {
 
 }
 
-class RecommendationEvaluator(override val uid: String)
+class RankingEvaluator(override val uid: String)
   extends Evaluator with RecEvaluatorParams
-    with RecommendationSplitParams with HasRecommenderCols {
+    with RankingParams with HasRecommenderCols {
 
   def this() = this(Identifiable.randomUID("recEval"))
 
@@ -176,6 +176,6 @@ class RecommendationEvaluator(override val uid: String)
     getMetrics(dataset).matchMetric(getMetricName)
   }
 
-  override def copy(extra: ParamMap): RecommendationEvaluator = defaultCopy(extra)
+  override def copy(extra: ParamMap): RankingEvaluator = defaultCopy(extra)
 
 }

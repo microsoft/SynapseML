@@ -1,19 +1,5 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
 
@@ -26,8 +12,8 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.language.existentials
 
-class RecommenderAdapter(override val uid: String)
-  extends Estimator[RecommenderAdapterModel] with ComplexParamsWritable with RecommendationSplitFunctions {
+class RankingAdapter(override val uid: String)
+  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingFunctions {
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
@@ -72,8 +58,8 @@ class RecommenderAdapter(override val uid: String)
     }
   }
 
-  def fit(dataset: Dataset[_]): RecommenderAdapterModel = {
-    new RecommenderAdapterModel()
+  def fit(dataset: Dataset[_]): RankingAdapterModel = {
+    new RankingAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
       .setNItems(getNItems)
@@ -82,21 +68,21 @@ class RecommenderAdapter(override val uid: String)
       .setRatingCol(getRatingCol)
   }
 
-  override def copy(extra: ParamMap): RecommenderAdapter = {
+  override def copy(extra: ParamMap): RankingAdapter = {
     defaultCopy(extra)
   }
 
 }
 
-object RecommenderAdapter extends ComplexParamsReadable[RecommenderAdapter]
+object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
 
 /**
   * Model from train validation split.
   *
   * @param uid Id.
   */
-class RecommenderAdapterModel private[ml](val uid: String)
-  extends Model[RecommenderAdapterModel] with ComplexParamsWritable with Wrappable with RecommendationSplitFunctions {
+class RankingAdapterModel private[ml](val uid: String)
+  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingFunctions {
 
   def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
 
@@ -164,10 +150,10 @@ class RecommenderAdapterModel private[ml](val uid: String)
     }
   }
 
-  override def copy(extra: ParamMap): RecommenderAdapterModel = {
+  override def copy(extra: ParamMap): RankingAdapterModel = {
     defaultCopy(extra)
   }
 
 }
 
-object RecommenderAdapterModel extends ComplexParamsReadable[RecommenderAdapterModel]
+object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
