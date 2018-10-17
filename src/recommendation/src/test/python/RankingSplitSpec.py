@@ -30,7 +30,7 @@ from pyspark.sql.functions import col
 from mmlspark.TrainTestSplit import *
 
 
-class SplitSpec(unittest.TestCase):
+class RankingSplitSpec(unittest.TestCase):
     def test_split(self):
         from pyspark.sql import SparkSession
         os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"

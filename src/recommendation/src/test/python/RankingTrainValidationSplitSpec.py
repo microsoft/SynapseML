@@ -99,16 +99,13 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setEstimator(alsWReg) \
             .setEvaluator(evaluator) \
             .setEstimatorParamMaps(paramGrid) \
-            .setTrainRatio(0.8) \
-            .setUserCol(customerIndex.getOutputCol()) \
-            .setRatingCol('rating') \
-            .setItemCol(ratingsIndex.getOutputCol())
+            .setTrainRatio(0.8)
 
         tvmodel = tvRecommendationSplit.fit(transformedDf)
 
-        # usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
+        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
 
-        # print(usersRecs.take(1))
+        print(usersRecs.take(1))
         # print(tvmodel.validationMetrics)
 
         # metrics = evaluator._call_java("getMetricsList").toString()

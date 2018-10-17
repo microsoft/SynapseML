@@ -52,7 +52,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
 
   lazy val map: Double = metrics.meanAveragePrecision
   lazy val ndcg: Double = metrics.ndcgAt(k)
-  lazy val mapk: Double = metrics.precisionAt(k)
+  lazy val precisionAtk: Double = metrics.precisionAt(k)
   lazy val recallAtK: Double = predictionAndLabels.map(r =>
     r._1.distinct.intersect(r._2.distinct).length.toDouble / r._1.length.toDouble).mean()
   lazy val diversityAtK: Double = {
@@ -102,7 +102,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
   def matchMetric(metricName: String): Double = metricName match {
     case "map" => map
     case "ndcgAt" => ndcg
-    case "precisionAtk" => mapk
+    case "precisionAtk" => precisionAtk
     case "recallAtK" => recallAtK
     case "diversityAtK" => diversityAtK
     case "maxDiversity" => maxDiversity
@@ -111,7 +111,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
   def getAllMetrics: Map[String, Double] = {
     Map("map" -> map,
       "ndcgAt" -> ndcg,
-      "precisionAtk" -> mapk,
+      "precisionAtk" -> precisionAtk,
       "recallAtK" -> recallAtK,
       "diversityAtK" -> diversityAtK,
       "maxDiversity" -> maxDiversity,

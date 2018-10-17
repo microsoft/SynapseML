@@ -1,0 +1,150 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in the project root for information.
+
+import numpy as np
+import pyspark
+import pyspark.sql.functions as F
+import sys
+from mmlspark.TrainTestSplit import *
+from mmlspark.TrainValidRecommendSplitModel import TrainValidRecommendSplitModel as tvmodel
+from pyspark import keyword_only
+from pyspark.ml import Estimator
+from pyspark.ml.param import Params, Param, TypeConverters
+from pyspark.ml.tuning import ValidatorParams
+from pyspark.ml.util import *
+from pyspark.sql import Window
+from pyspark.sql.functions import col, expr
+
+if sys.version >= '3':
+    basestring = str
+
+
+@inherit_doc
+class RankingTrainValidSplit(Estimator, ValidatorParams):
+    trainRatio = Param(Params._dummy(), "trainRatio", "Param for ratio between train and\
+         validation data. Must be between 0 and 1.", typeConverter=TypeConverters.toFloat)
+    userCol = Param(Params._dummy(), "userCol",
+                    "userCol: column name for user ids. Ids must be within the integer value range. (default: user)")
+    ratingCol = Param(Params._dummy(), "ratingCol", "ratingCol: column name for ratings (default: rating)")
+
+    itemCol = Param(Params._dummy(), "itemCol",
+                    "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)")
+
+    def setTrainRatio(self, value):
+        """
+        Sets the value of :py:attr:`trainRatio`.
+        """
+        return self._set(trainRatio=value)
+
+    def getTrainRatio(self):
+        """
+        Gets the value of trainRatio or its default value.
+        """
+        return self.getOrDefault(self.trainRatio)
+
+    def setItemCol(self, value):
+        """
+
+        Args:
+
+            itemCol (str): column name for item ids. Ids must be within the integer value range. (default: item)
+
+        """
+        self._set(itemCol=value)
+        return self
+
+    def getItemCol(self):
+        """
+
+        Returns:
+
+            str: column name for item ids. Ids must be within the integer value range. (default: item)
+        """
+        return self.getOrDefault(self.itemCol)
+
+    def setRatingCol(self, value):
+        """
+
+        Args:
+
+            ratingCol (str): column name for ratings (default: rating)
+
+        """
+        self._set(ratingCol=value)
+        return self
+
+    def getRatingCol(self):
+        """
+
+        Returns:
+
+            str: column name for ratings (default: rating)
+        """
+        return self.getOrDefault(self.ratingCol)
+
+    def setUserCol(self, value):
+        """
+
+        Args:
+
+            userCol (str): column name for user ids. Ids must be within the integer value range. (default: user)
+
+        """
+        self._set(userCol=value)
+        return self
+
+    def getUserCol(self):
+        """
+
+        Returns:
+
+            str: column name for user ids. Ids must be within the integer value range. (default: user)
+        """
+        return self.getOrDefault(self.userCol)
+
+    @keyword_only
+    def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None, trainRatio=0.8):
+        """
+        __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, numFolds=3,\
+                 seed=None)
+        """
+        super(RankingTrainValidSplit, self).__init__()
+        self._java_obj = self._new_java_obj(
+            "com.microsoft.ml.spark.RankingTrainValidationSplit", self.uid)
+        kwargs = self._input_kwargs
+        self._set(**kwargs)
+
+    @keyword_only
+    def setParams(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None):
+        """
+        setParams(self, estimator=None, estimatorParamMaps=None, evaluator=None, numFolds=3,\
+                  seed=None):
+        Sets params for cross validator.
+        """
+        kwargs = self._input_kwargs
+        return self._set(**kwargs)
+
+    def copy(self, extra=None):
+        """
+        Creates a copy of this instance with a randomly generated uid
+        and some extra params. This copies creates a deep copy of
+        the embedded paramMap, and copies the embedded and extra parameters over.
+
+        :param extra: Extra parameters to copy to the new instance
+        :return: Copy of this instance
+        """
+        if extra is None:
+            extra = dict()
+        newCV = Params.copy(self, extra)
+        if self.isSet(self.estimator):
+            newCV.setEstimator(self.getEstimator().copy(extra))
+        # estimatorParamMaps remain the same
+        if self.isSet(self.evaluator):
+            newCV.setEvaluator(self.getEvaluator().copy(extra))
+        return newCV
+
+    def _create_model(self, java_model):
+        model = tvmodel()
+        model._java_obj = java_model
+        model._transfer_params_from_java()
+        return model
