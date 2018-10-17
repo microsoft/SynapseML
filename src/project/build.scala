@@ -26,6 +26,9 @@ object Extras {
   def scalaVer = env("SCALA_FULL_VERSION", null)
   def sparkVer = env("SPARK_VERSION", null)
   def cntkVer  = env("CNTK_VERSION", null)
+  def commonResolvers = Seq(
+    "LightGBM Maven Repo" at "https://azuremlbuild.blob.core.windows.net/maven"
+  )
   def commonLibs = Seq(
     "org.apache.spark"   %% "spark-core"   % sparkVer % "provided",
     "org.apache.spark"   %% "spark-mllib"  % sparkVer % "provided",
@@ -35,7 +38,7 @@ object Extras {
     "com.microsoft.cntk"  % "cntk"         % cntkVer,
     "org.openpnp"         % "opencv"       % "3.2.0-1",
     "com.jcraft"          % "jsch"         % "0.1.54",
-    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.1.250"
+    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.150"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
 
@@ -115,6 +118,7 @@ object Extras {
     // Common stuff: defaults for all subprojects
     scalaVersion in ThisBuild := scalaVer,
     organization in ThisBuild := defaultOrg,
+    resolvers in ThisBuild ++= commonResolvers,
     libraryDependencies in ThisBuild ++= commonLibs,
     dependencyOverrides in ThisBuild ++= overrideLibs,
     scalacOptions in ThisBuild ++= scalacOpts,
