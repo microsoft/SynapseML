@@ -117,8 +117,7 @@ trait HasRecommenderCols extends Params {
 }
 
 class RankingEvaluator(override val uid: String)
-  extends Evaluator with RecEvaluatorParams
-    with RankingParams with HasRecommenderCols {
+  extends Evaluator with RecEvaluatorParams with HasRecommenderCols {
 
   def this() = this(Identifiable.randomUID("recEval"))
 
