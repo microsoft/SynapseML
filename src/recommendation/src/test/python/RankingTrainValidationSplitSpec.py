@@ -93,12 +93,12 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .addGrid(alsWReg.regParam, [1.0]) \
             .build()
 
-        evaluator = RankingEvaluator().setSaveAll(True)
+        evaluator = RankingEvaluator()
 
         tvRecommendationSplit = RankingTrainValidationSplit() \
+            .setEstimatorParamMaps(paramGrid) \
             .setEstimator(alsWReg) \
             .setEvaluator(evaluator) \
-            .setEstimatorParamMaps(paramGrid) \
             .setTrainRatio(0.8)
 
         tvmodel = tvRecommendationSplit.fit(transformedDf)
@@ -106,10 +106,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
 
         print(usersRecs.take(1))
-        # print(tvmodel.validationMetrics)
-
-        # metrics = evaluator._call_java("getMetricsList").toString()
-        # print(metrics)
+        print(tvmodel.validationMetrics)
 
     def ignore_all_large(self):
         os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"
