@@ -52,6 +52,32 @@ def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel):
     return [singleTask] * len(epm)
 
 
+class HasCollectSubMetrics(Params):
+    """
+    Mixin for param collectSubModels: Param for whether to collect a list of sub-models trained during tuning. If set to false, then only the single best sub-model will be available after fitting. If set to true, then all sub-models will be available. Warning: For large models, collecting all sub-models can cause OOMs on the Spark driver.
+    """
+
+    collectSubMetrics = Param(Params._dummy(), "collectSubMetrics",
+                              "Param for whether to collect a list of sub-models metrics.",
+                              typeConverter=TypeConverters.toBoolean)
+
+    def __init__(self):
+        super(HasCollectSubMetrics, self).__init__()
+        self._setDefault(collectSubMetrics=False)
+
+    def setCollectSubMetrics(self, value):
+        """
+        Sets the value of :py:attr:`collectSubModels`.
+        """
+        return self._set(collectSubModels=value)
+
+    def getCollectSubMetrics(self):
+        """
+        Gets the value of collectSubModels or its default value.
+        """
+        return self.getOrDefault(self.collectSubMetrics)
+
+
 class HasCollectSubModels(Params):
     """
     Mixin for param collectSubModels: Param for whether to collect a list of sub-models trained during tuning. If set to false, then only the single best sub-model will be available after fitting. If set to true, then all sub-models will be available. Warning: For large models, collecting all sub-models can cause OOMs on the Spark driver.
@@ -78,7 +104,9 @@ class HasCollectSubModels(Params):
         return self.getOrDefault(self.collectSubModels)
 
 @inherit_doc
-class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModels, HasParallelism):
+@InternalWrapper
+class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModels, HasCollectSubMetrics,
+                                  HasParallelism):
     trainRatio = Param(Params._dummy(), "trainRatio", "Param for ratio between train and\
          validation data. Must be between 0 and 1.", typeConverter=TypeConverters.toFloat)
     userCol = Param(Params._dummy(), "userCol",
@@ -205,123 +233,62 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         model._transfer_params_from_java()
         return model
 
-    def split(self, dataset, tRatio, userColumn, itemColumn):
-        pyspark.sql.DataFrame.min_rating_filter = RankingSplitters.min_rating_filter
-        pyspark.sql.DataFrame.stratified_split = RankingSplitters.stratified_split
-
-        temp_train, temp_validation = dataset \
-            .dropDuplicates() \
-            .withColumnRenamed(userColumn, 'customerID') \
-            .withColumnRenamed(itemColumn, 'itemID') \
-            .min_rating_filter(min_rating=6, by_customer=True) \
-            .stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=tRatio)
-
-        train = temp_train \
-            .withColumnRenamed('customerID', userColumn) \
-            .withColumnRenamed('itemID', itemColumn)
-
-        validation = temp_validation \
-            .withColumnRenamed('customerID', userColumn) \
-            .withColumnRenamed('itemID', itemColumn)
-        return train, validation
-
-
     def _fit(self, dataset):
+        return self._to_java().fit(dataset._jdf)
 
-        rating = self.getOrDefault(self.estimator).getRatingCol()
-        userColumn = self.getOrDefault(self.estimator).getUserCol()
-        itemColumn = self.getOrDefault(self.estimator).getItemCol()
+    @classmethod
+    def _from_java(cls, java_stage):
+        """
+        Given a Java TrainValidationSplit, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
 
-        eva = self.getOrDefault(self.evaluator)
+        estimator, epms, evaluator = super(RankingTrainValidationSplit, cls)._from_java_impl(java_stage)
+        trainRatio = java_stage.getTrainRatio()
+        seed = java_stage.getSeed()
+        parallelism = java_stage.getParallelism()
+        collectSubModels = java_stage.getCollectSubModels()
+        # Create a new instance of this stage.
+        py_stage = cls(estimator=estimator, estimatorParamMaps=epms, evaluator=evaluator,
+                       trainRatio=trainRatio, seed=seed, parallelism=parallelism,
+                       collectSubModels=collectSubModels)
+        py_stage._resetUid(java_stage.uid())
+        return py_stage
 
-        est = RankingAdapter() \
-            .setRecommender(self.getOrDefault(self.estimator)) \
-            .setMode("allUsers") \
-            .setK(eva.getK()) \
-            .setUserCol(userColumn) \
-            .setItemCol(itemColumn) \
-            .setRatingCol(rating)
-
-        epm = self.getOrDefault(self.estimatorParamMaps)
-        numModels = len(epm)
-
-        tRatio = self.getOrDefault(self.trainRatio)
-        seed = self.getOrDefault(self.seed)
-
-        train, validation = self.split(dataset, tRatio, userColumn, itemColumn)
-
-        subModels = None
-        collectSubModelsParam = self.getCollectSubModels()
-        if collectSubModelsParam:
-            subModels = [None for i in range(numModels)]
-
-        tasks = _parallelFitTasks(est, train, eva, validation, epm, collectSubModelsParam)
-        pool = ThreadPool(processes=min(self.getParallelism(), numModels))
-        metrics = [None] * numModels
-        for j, metric, subModel in pool.imap_unordered(lambda f: f(), tasks):
-            metrics[j] = metric
-            if collectSubModelsParam:
-                subModels[j] = subModel
-
-        train.unpersist()
-        validation.unpersist()
-
-        if eva.isLargerBetter():
-            bestIndex = np.argmax(metrics)
-        else:
-            bestIndex = np.argmin(metrics)
-        bestModel = est.fit(dataset, epm[bestIndex])
-        return self._copyValues(RankingTrainValidationSplitModel(bestModel, metrics, subModels))
-
-    # @classmethod
-    # def _from_java(cls, java_stage):
-    #     """
-    #     Given a Java TrainValidationSplit, create and return a Python wrapper of it.
-    #     Used for ML persistence.
-    #     """
     #
-    #     estimator, epms, evaluator = super(TrainValidationSplit, cls)._from_java_impl(java_stage)
-    #     trainRatio = java_stage.getTrainRatio()
-    #     seed = java_stage.getSeed()
-    #     parallelism = java_stage.getParallelism()
-    #     collectSubModels = java_stage.getCollectSubModels()
-    #     # Create a new instance of this stage.
-    #     py_stage = cls(estimator=estimator, estimatorParamMaps=epms, evaluator=evaluator,
-    #                    trainRatio=trainRatio, seed=seed, parallelism=parallelism,
-    #                    collectSubModels=collectSubModels)
-    #     py_stage._resetUid(java_stage.uid())
-    #     return py_stage
-    #
-    # def _to_java(self):
-    #     """
-    #     Transfer this instance to a Java TrainValidationSplit. Used for ML persistence.
-    #     :return: Java object equivalent to this instance.
-    #     """
-    #
-    #     estimator, epms, evaluator = super(TrainValidationSplit, self)._to_java_impl()
-    #
-    #     _java_obj = JavaParams._new_java_obj("org.apache.spark.ml.tuning.TrainValidationSplit",
-    #                                          self.uid)
-    #     _java_obj.setEstimatorParamMaps(epms)
-    #     _java_obj.setEvaluator(evaluator)
-    #     _java_obj.setEstimator(estimator)
-    #     _java_obj.setTrainRatio(self.getTrainRatio())
-    #     _java_obj.setSeed(self.getSeed())
-    #     _java_obj.setParallelism(self.getParallelism())
-    #     _java_obj.setCollectSubModels(self.getCollectSubModels())
-    #     return _java_obj
+    def _to_java(self):
+        """
+        Transfer this instance to a Java TrainValidationSplit. Used for ML persistence.
+        :return: Java object equivalent to this instance.
+        """
+
+        estimator, epms, evaluator = super(RankingTrainValidationSplit, self)._to_java_impl()
+
+        _java_obj = JavaParams._new_java_obj("com.microsoft.ml.spark.RankingTrainValidationSplit",
+                                             self.uid)
+        _java_obj.setEstimatorParamMaps(epms)
+        _java_obj.setEvaluator(evaluator)
+        _java_obj.setEstimator(estimator)
+        _java_obj.setTrainRatio(self.getTrainRatio())
+        _java_obj.setSeed(self.getSeed())
+        _java_obj.setParallelism(self.getParallelism())
+        _java_obj.setCollectSubModels(self.getCollectSubModels())
+        _java_obj.setCollectSubMetrics(self.getCollectSubMetrics())
+        return _java_obj
 
 
 @inherit_doc
+@InternalWrapper
 class RankingTrainValidationSplitModel(Model, ValidatorParams):
 
-    def __init__(self, bestModel, validationMetrics=[], subModels=None):
+    def __init__(self, bestModel, validationMetrics=[], subModels=None, subMetrics=None):
         super(RankingTrainValidationSplitModel, self).__init__()
         #: best model from cross validation
         self.bestModel = bestModel
         #: evaluated validation metrics
         self.validationMetrics = validationMetrics
         self.subModels = subModels
+        self.subMetrics = subMetrics
 
     def _transform(self, dataset):
         return self.bestModel.transform(dataset)
@@ -341,58 +308,68 @@ class RankingTrainValidationSplitModel(Model, ValidatorParams):
             extra = dict()
         bestModel = self.bestModel.copy(extra)
         validationMetrics = list(self.validationMetrics)
-        return RankingTrainValidationSplitModel(bestModel, validationMetrics)
+        subModels = self.subModels
+        subMetrics = self.subMetrics
+        return RankingTrainValidationSplitModel(bestModel, validationMetrics, subModels, subMetrics)
 
     def recommendForAllUsers(self, numItems):
-        return self.bestModel.recommendForAllUsers(numItems)
-        # return self.bestModel._call_java("recommendForAllUsers", numItems)
+        # return self.bestModel.recommendForAllUsers(numItems)
+        return self.bestModel._call_java("recommendForAllUsers", numItems)
 
     def recommendForAllItems(self, numItems):
         return self.bestModel.recommendForAllItems(numItems)
 
-    # @classmethod
-    # def _from_java(cls, java_stage):
-    #     """
-    #     Given a Java TrainValidationSplitModel, create and return a Python wrapper of it.
-    #     Used for ML persistence.
-    #     """
-    #
-    #     # Load information from java_stage to the instance.
-    #     bestModel = JavaParams._from_java(java_stage.bestModel())
-    #     estimator, epms, evaluator = super(TrainValidationSplitModel,
-    #                                        cls)._from_java_impl(java_stage)
-    #     # Create a new instance of this stage.
-    #     py_stage = cls(bestModel=bestModel).setEstimator(estimator)
-    #     py_stage = py_stage.setEstimatorParamMaps(epms).setEvaluator(evaluator)
-    #
-    #     if java_stage.hasSubModels():
-    #         py_stage.subModels = [JavaParams._from_java(sub_model)
-    #                               for sub_model in java_stage.subModels()]
-    #
-    #     py_stage._resetUid(java_stage.uid())
-    #     return py_stage
-    #
-    # def _to_java(self):
-    #     """
-    #     Transfer this instance to a Java TrainValidationSplitModel. Used for ML persistence.
-    #     :return: Java object equivalent to this instance.
-    #     """
-    #
-    #     sc = SparkContext._active_spark_context
-    #     # TODO: persst validation metrics as well
-    #     _java_obj = JavaParams._new_java_obj(
-    #         "org.apache.spark.ml.tuning.TrainValidationSplitModel",
-    #         self.uid,
-    #         self.bestModel._to_java(),
-    #         _py2java(sc, []))
-    #     estimator, epms, evaluator = super(TrainValidationSplitModel, self)._to_java_impl()
-    #
-    #     _java_obj.set("evaluator", evaluator)
-    #     _java_obj.set("estimator", estimator)
-    #     _java_obj.set("estimatorParamMaps", epms)
-    #
-    #     if self.subModels is not None:
-    #         java_sub_models = [sub_model._to_java() for sub_model in self.subModels]
-    #         _java_obj.setSubModels(java_sub_models)
-    #
-    #     return _java_obj
+    @classmethod
+    def from_java(cls, java_stage):
+        """
+        Given a Java TrainValidationSplitModel, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+
+        # Load information from java_stage to the instance.
+        bestModel = JavaParams._from_java(java_stage.bestModel())
+        estimator, epms, evaluator = super(RankingTrainValidationSplitModel,
+                                           cls)._from_java_impl(java_stage)
+        # Create a new instance of this stage.
+        py_stage = cls(bestModel=bestModel).setEstimator(estimator)
+        py_stage = py_stage.setEstimatorParamMaps(epms).setEvaluator(evaluator)
+
+        if java_stage.hasSubModels():
+            py_stage.subModels = [JavaParams._from_java(sub_model)
+                                  for sub_model in java_stage.subModels()]
+
+        if java_stage.hasSubMetrics():
+            py_stage.subMetrics = [JavaParams._from_java(sub_metrics)
+                                   for sub_metrics in java_stage.subMetrics()]
+
+        py_stage._resetUid(java_stage.uid())
+        return py_stage
+
+    def _to_java(self):
+        """
+        Transfer this instance to a Java TrainValidationSplitModel. Used for ML persistence.
+        :return: Java object equivalent to this instance.
+        """
+
+        sc = SparkContext._active_spark_context
+        # TODO: persst validation metrics as well
+        _java_obj = JavaParams._new_java_obj(
+            "org.apache.spark.ml.tuning.TrainValidationSplitModel",
+            self.uid,
+            self.bestModel._to_java(),
+            _py2java(sc, []))
+        estimator, epms, evaluator = super(TrainValidationSplitModel, self)._to_java_impl()
+
+        _java_obj.set("evaluator", evaluator)
+        _java_obj.set("estimator", estimator)
+        _java_obj.set("estimatorParamMaps", epms)
+
+        if self.subModels is not None:
+            java_sub_models = [sub_model._to_java() for sub_model in self.subModels]
+            _java_obj.setSubModels(java_sub_models)
+
+        if self.subMetrics is not None:
+            java_sub_metrics = [sub_metrics._to_java() for sub_metrics in self.subMetrics]
+            _java_obj.setSubMetrics(java_sub_metrics)
+
+        return _java_obj
