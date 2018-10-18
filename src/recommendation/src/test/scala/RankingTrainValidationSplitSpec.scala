@@ -147,15 +147,15 @@ class RankingTrainValidationSplitSpec extends TestBase with EstimatorFuzzing[Ran
       .build()
 
     val evaluator = new RankingEvaluator()
-      .setK(3)
-      .setNItems(10)
+      .setK(1)
+      .setNItems(3)
 
     val rankingTrainValidationSplit = new RankingTrainValidationSplit()
       .setEstimator(als)
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
       .setTrainRatio(0.8)
-      .setCollectSubMetrics(true)
+
     List(new TestObject(rankingTrainValidationSplit, transformedDf))
   }
 
