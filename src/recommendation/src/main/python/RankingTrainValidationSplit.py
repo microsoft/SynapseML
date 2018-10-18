@@ -18,7 +18,7 @@ import numpy as np
 import pyspark
 import pyspark.sql.functions as F
 import sys
-from mmlspark.RankingSplit import *
+from mmlspark.RankingSplitters import *
 from mmlspark.RankingAdapter import *
 from pyspark import keyword_only
 from pyspark.ml import Estimator
@@ -209,8 +209,8 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         return model
 
     def split(self, dataset, tRatio, userColumn, itemColumn):
-        pyspark.sql.DataFrame.min_rating_filter = RankingSplit.min_rating_filter
-        pyspark.sql.DataFrame.stratified_split = RankingSplit.stratified_split
+        pyspark.sql.DataFrame.min_rating_filter = RankingSplitters.min_rating_filter
+        pyspark.sql.DataFrame.stratified_split = RankingSplitters.stratified_split
 
         temp_train, temp_validation = dataset \
             .dropDuplicates() \

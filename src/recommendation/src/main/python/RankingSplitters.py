@@ -5,7 +5,7 @@ import numpy as np
 import pyspark
 
 # Methods for train-test split.
-class RankingSplit:
+class RankingSplitters:
 
     @staticmethod
     def min_rating_filter(self, min_rating, by_customer=True):
