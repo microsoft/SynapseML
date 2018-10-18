@@ -208,26 +208,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         model._transfer_params_from_java()
         return model
 
-    def _fit(self, dataset):
-
-        rating = self.getOrDefault(self.estimator).getRatingCol()
-        userColumn = self.getOrDefault(self.estimator).getUserCol()
-        itemColumn = self.getOrDefault(self.estimator).getItemCol()
-
-        est = RankingAdapter() \
-            .setRecommender(self.getOrDefault(self.estimator)) \
-            .setMode("allUsers") \
-            .setK(10) \
-            .setUserCol(userColumn) \
-            .setItemCol(itemColumn) \
-            .setRatingCol(rating)
-
-        epm = self.getOrDefault(self.estimatorParamMaps)
-        numModels = len(epm)
-        eva = self.getOrDefault(self.evaluator)
-        tRatio = self.getOrDefault(self.trainRatio)
-        seed = self.getOrDefault(self.seed)
-
+    def split(self, dataset, tRatio, userColumn, itemColumn):
         pyspark.sql.DataFrame.min_rating_filter = RankingSplit.min_rating_filter
         pyspark.sql.DataFrame.stratified_split = RankingSplit.stratified_split
 
@@ -236,7 +217,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
             .withColumnRenamed(userColumn, 'customerID') \
             .withColumnRenamed(itemColumn, 'itemID') \
             .min_rating_filter(min_rating=6, by_customer=True) \
-            .stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=0.5)
+            .stratified_split(min_rating=3, by_customer=True, fixed_test_sample=False, ratio=tRatio)
 
         train = temp_train \
             .withColumnRenamed('customerID', userColumn) \
@@ -245,6 +226,32 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         validation = temp_validation \
             .withColumnRenamed('customerID', userColumn) \
             .withColumnRenamed('itemID', itemColumn)
+        return train, validation
+
+
+    def _fit(self, dataset):
+
+        rating = self.getOrDefault(self.estimator).getRatingCol()
+        userColumn = self.getOrDefault(self.estimator).getUserCol()
+        itemColumn = self.getOrDefault(self.estimator).getItemCol()
+
+        eva = self.getOrDefault(self.evaluator)
+
+        est = RankingAdapter() \
+            .setRecommender(self.getOrDefault(self.estimator)) \
+            .setMode("allUsers") \
+            .setK(eva) \
+            .setUserCol(userColumn) \
+            .setItemCol(itemColumn) \
+            .setRatingCol(rating)
+
+        epm = self.getOrDefault(self.estimatorParamMaps)
+        numModels = len(epm)
+
+        tRatio = self.getOrDefault(self.trainRatio)
+        seed = self.getOrDefault(self.seed)
+
+        train, validation = self.split(dataset, tRatio, userColumn, itemColumn)
 
         subModels = None
         collectSubModelsParam = self.getCollectSubModels()
@@ -268,6 +275,45 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
             bestIndex = np.argmin(metrics)
         bestModel = est.fit(dataset, epm[bestIndex])
         return self._copyValues(RankingTrainValidationSplitModel(bestModel, metrics, subModels))
+
+    # @classmethod
+    # def _from_java(cls, java_stage):
+    #     """
+    #     Given a Java TrainValidationSplit, create and return a Python wrapper of it.
+    #     Used for ML persistence.
+    #     """
+    #
+    #     estimator, epms, evaluator = super(TrainValidationSplit, cls)._from_java_impl(java_stage)
+    #     trainRatio = java_stage.getTrainRatio()
+    #     seed = java_stage.getSeed()
+    #     parallelism = java_stage.getParallelism()
+    #     collectSubModels = java_stage.getCollectSubModels()
+    #     # Create a new instance of this stage.
+    #     py_stage = cls(estimator=estimator, estimatorParamMaps=epms, evaluator=evaluator,
+    #                    trainRatio=trainRatio, seed=seed, parallelism=parallelism,
+    #                    collectSubModels=collectSubModels)
+    #     py_stage._resetUid(java_stage.uid())
+    #     return py_stage
+    #
+    # def _to_java(self):
+    #     """
+    #     Transfer this instance to a Java TrainValidationSplit. Used for ML persistence.
+    #     :return: Java object equivalent to this instance.
+    #     """
+    #
+    #     estimator, epms, evaluator = super(TrainValidationSplit, self)._to_java_impl()
+    #
+    #     _java_obj = JavaParams._new_java_obj("org.apache.spark.ml.tuning.TrainValidationSplit",
+    #                                          self.uid)
+    #     _java_obj.setEstimatorParamMaps(epms)
+    #     _java_obj.setEvaluator(evaluator)
+    #     _java_obj.setEstimator(estimator)
+    #     _java_obj.setTrainRatio(self.getTrainRatio())
+    #     _java_obj.setSeed(self.getSeed())
+    #     _java_obj.setParallelism(self.getParallelism())
+    #     _java_obj.setCollectSubModels(self.getCollectSubModels())
+    #     return _java_obj
+
 
 @inherit_doc
 class RankingTrainValidationSplitModel(Model, ValidatorParams):
@@ -307,3 +353,49 @@ class RankingTrainValidationSplitModel(Model, ValidatorParams):
     def recommendForAllItems(self, numItems):
         return self.bestModel.recommendForAllItems(numItems)
 
+    # @classmethod
+    # def _from_java(cls, java_stage):
+    #     """
+    #     Given a Java TrainValidationSplitModel, create and return a Python wrapper of it.
+    #     Used for ML persistence.
+    #     """
+    #
+    #     # Load information from java_stage to the instance.
+    #     bestModel = JavaParams._from_java(java_stage.bestModel())
+    #     estimator, epms, evaluator = super(TrainValidationSplitModel,
+    #                                        cls)._from_java_impl(java_stage)
+    #     # Create a new instance of this stage.
+    #     py_stage = cls(bestModel=bestModel).setEstimator(estimator)
+    #     py_stage = py_stage.setEstimatorParamMaps(epms).setEvaluator(evaluator)
+    #
+    #     if java_stage.hasSubModels():
+    #         py_stage.subModels = [JavaParams._from_java(sub_model)
+    #                               for sub_model in java_stage.subModels()]
+    #
+    #     py_stage._resetUid(java_stage.uid())
+    #     return py_stage
+    #
+    # def _to_java(self):
+    #     """
+    #     Transfer this instance to a Java TrainValidationSplitModel. Used for ML persistence.
+    #     :return: Java object equivalent to this instance.
+    #     """
+    #
+    #     sc = SparkContext._active_spark_context
+    #     # TODO: persst validation metrics as well
+    #     _java_obj = JavaParams._new_java_obj(
+    #         "org.apache.spark.ml.tuning.TrainValidationSplitModel",
+    #         self.uid,
+    #         self.bestModel._to_java(),
+    #         _py2java(sc, []))
+    #     estimator, epms, evaluator = super(TrainValidationSplitModel, self)._to_java_impl()
+    #
+    #     _java_obj.set("evaluator", evaluator)
+    #     _java_obj.set("estimator", estimator)
+    #     _java_obj.set("estimatorParamMaps", epms)
+    #
+    #     if self.subModels is not None:
+    #         java_sub_models = [sub_model._to_java() for sub_model in self.subModels]
+    #         _java_obj.setSubModels(java_sub_models)
+    #
+    #     return _java_obj
