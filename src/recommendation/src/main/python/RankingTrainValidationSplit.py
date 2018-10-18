@@ -137,7 +137,6 @@ class RankingTrainValidationSplit(_RankingTrainValidationSplit, Estimator, Valid
         py_stage._resetUid(java_stage.uid())
         return py_stage
 
-    #
     def _to_java(self):
         """
         Transfer this instance to a Java TrainValidationSplit. Used for ML persistence.
