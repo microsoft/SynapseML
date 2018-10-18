@@ -16,7 +16,6 @@ from multiprocessing.pool import ThreadPool
 
 import numpy as np
 import pyspark
-import pyspark.sql.functions as F
 import sys
 from mmlspark.RankingSplitters import *
 from mmlspark.RankingAdapter import *
@@ -25,8 +24,6 @@ from pyspark.ml import Estimator
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.tuning import ValidatorParams
 from pyspark.ml.util import *
-from pyspark.sql import Window
-from pyspark.sql.functions import col, expr
 from pyspark.ml.param.shared import HasParallelism
 
 if sys.version >= '3':
@@ -240,7 +237,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         est = RankingAdapter() \
             .setRecommender(self.getOrDefault(self.estimator)) \
             .setMode("allUsers") \
-            .setK(eva) \
+            .setK(eva.getK()) \
             .setUserCol(userColumn) \
             .setItemCol(itemColumn) \
             .setRatingCol(rating)
