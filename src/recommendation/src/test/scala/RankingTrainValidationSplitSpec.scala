@@ -113,13 +113,36 @@ class RankingTrainValidationSplitSpec extends TestBase with EstimatorFuzzing[Ran
       .createDataFrame(Seq(
         ("11", "Movie 01", 4),
         ("11", "Movie 03", 1),
+        ("11", "Movie 04", 5),
+        ("11", "Movie 05", 3),
+        ("11", "Movie 06", 4),
+        ("11", "Movie 07", 1),
+        ("11", "Movie 08", 5),
+        ("11", "Movie 09", 3),
         ("22", "Movie 01", 4),
         ("22", "Movie 02", 5),
+        ("22", "Movie 03", 1),
+        ("22", "Movie 05", 3),
+        ("22", "Movie 06", 4),
+        ("22", "Movie 07", 5),
+        ("22", "Movie 08", 1),
+        ("22", "Movie 10", 3),
         ("33", "Movie 01", 4),
         ("33", "Movie 03", 1),
+        ("33", "Movie 04", 5),
+        ("33", "Movie 05", 3),
+        ("33", "Movie 06", 4),
+        ("33", "Movie 08", 1),
+        ("33", "Movie 09", 5),
+        ("33", "Movie 10", 3),
         ("44", "Movie 01", 4),
         ("44", "Movie 02", 5),
-        ("44", "Movie 03", 1)))
+        ("44", "Movie 03", 1),
+        ("44", "Movie 05", 3),
+        ("44", "Movie 06", 4),
+        ("44", "Movie 07", 5),
+        ("44", "Movie 08", 1),
+        ("44", "Movie 10", 3)))
       .toDF(userCol, itemCol, ratingCol)
 
     val ratings = dfRaw2.dropDuplicates()
@@ -148,13 +171,14 @@ class RankingTrainValidationSplitSpec extends TestBase with EstimatorFuzzing[Ran
 
     val evaluator = new RankingEvaluator()
       .setK(1)
-      .setNItems(3)
+      .setNItems(10)
 
     val rankingTrainValidationSplit = new RankingTrainValidationSplit()
       .setEstimator(als)
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
       .setTrainRatio(0.8)
+      .setCollectSubMetrics(true)
 
     List(new TestObject(rankingTrainValidationSplit, transformedDf))
   }
