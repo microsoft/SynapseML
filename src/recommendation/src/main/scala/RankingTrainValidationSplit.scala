@@ -103,7 +103,7 @@ class RankingTrainValidationSplit(override val uid: String)
       case 1 =>
         RankingHelper.getThreadUtils().sameThread
       case n =>
-        ExecutionContext.fromExecutorService(SparkHelpers.getThreadUtils()
+        ExecutionContext.fromExecutorService(RankingHelper.getThreadUtils()
           .newDaemonCachedThreadPool(s"${this.getClass.getSimpleName}-thread-pool", n))
     }
   }

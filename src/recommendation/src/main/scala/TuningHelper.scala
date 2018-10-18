@@ -9,6 +9,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasParallelism, HasSeed}
+import org.apache.spark.ml.util.{MLWritable, MetaAlgorithmReadWrite}
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.ThreadUtils
@@ -79,3 +80,35 @@ object RankingHelper {
     ThreadUtils
   }
 }
+
+private[ml] object TrainValidRecommendSplitParams {
+  /**
+    * Check that [[TrainValidRecommendSplitParams.evaluator]] and
+    * [[TrainValidRecommendSplitParams.estimator]] are Writable.
+    * This does not check [[TrainValidRecommendSplitParams.estimatorParamMaps]].
+    */
+  def validateParams(instance: TrainValidRecommendSplitParams): Unit = {
+    def checkElement(elem: Params, name: String): Unit = elem match {
+      case stage: MLWritable => // good
+      case other =>
+        throw new UnsupportedOperationException(instance.getClass.getName + " write will fail " +
+          s" because it contains $name which does not implement Writable." +
+          s" Non-Writable $name: ${other.uid} of type ${other.getClass}")
+    }
+
+    checkElement(instance.getEvaluator, "evaluator")
+    checkElement(instance.getEstimator, "estimator")
+    // Check to make sure all Params apply to this estimator.  Throw an error if any do not.
+    // Extraneous Params would cause problems when loading the estimatorParamMaps.
+    val uidToInstance: Map[String, Params] = MetaAlgorithmReadWrite.getUidMap(instance)
+    instance.getEstimatorParamMaps.foreach { case pMap: ParamMap =>
+      pMap.toSeq.foreach { case ParamPair(p, v) =>
+        require(uidToInstance.contains(p.parent), s"ValidatorParams save requires all Params in" +
+          s" estimatorParamMaps to apply to this ValidatorParams, its Estimator, or its" +
+          s" Evaluator. An extraneous Param was found: $p")
+      }
+    }
+  }
+
+}
+
