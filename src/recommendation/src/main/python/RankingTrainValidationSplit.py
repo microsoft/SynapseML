@@ -104,7 +104,6 @@ class HasCollectSubModels(Params):
         return self.getOrDefault(self.collectSubModels)
 
 @inherit_doc
-@InternalWrapper
 class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModels, HasCollectSubMetrics,
                                   HasParallelism):
     trainRatio = Param(Params._dummy(), "trainRatio", "Param for ratio between train and\
@@ -278,7 +277,6 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
 
 
 @inherit_doc
-@InternalWrapper
 class RankingTrainValidationSplitModel(Model, ValidatorParams):
 
     def __init__(self, bestModel, validationMetrics=[], subModels=None, subMetrics=None):

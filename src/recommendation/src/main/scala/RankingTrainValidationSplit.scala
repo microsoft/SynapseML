@@ -37,6 +37,7 @@ import scala.language.existentials
   * Randomly splits the input dataset into train and validation sets,
   * and uses evaluation metric on the validation set to select the best model.
   */
+@InternalWrapper
 class RankingTrainValidationSplit(override val uid: String)
   extends Estimator[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with RankingFunctions
@@ -197,6 +198,7 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
   *
   * @param uid Id.
   */
+@InternalWrapper
 class RankingTrainValidationSplitModel private[spark](val uid: String)
   extends Model[RankingTrainValidationSplitModel]
     with ComplexParamsWritable with Wrappable {
