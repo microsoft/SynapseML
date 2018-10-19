@@ -31,6 +31,17 @@ class RankingTrainValidationSplitSpec extends RankingTestBase with EstimatorFuzz
   override def modelReader: MLReadable[_] = RankingTrainValidationSplitModel
 }
 
+class RankingTrainValidationSplitModelSpec extends RankingTestBase with
+  TransformerFuzzing[RankingTrainValidationSplitModel] {
+
+  override def testObjects(): Seq[TestObject[RankingTrainValidationSplitModel]] = {
+    val df = transformedDf
+    List(new TestObject(rankingTrainValidationSplit.fit(df), df))
+  }
+
+  override def reader: MLReadable[_] = RankingTrainValidationSplitModel
+}
+
 trait RankingTestBase extends TestBase {
   lazy val userCol = "customerIDOrg"
   lazy val itemCol = "itemIDOrg"
