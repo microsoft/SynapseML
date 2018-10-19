@@ -1,7 +1,8 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-import com.microsoft.ml.spark._
+package com.microsoft.ml.spark
+
 import org.apache.spark.ml.util.MLReadable
 
 class RankingAdapterSpec extends RankingTestBase with EstimatorFuzzing[RankingAdapter] {

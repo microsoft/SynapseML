@@ -39,7 +39,7 @@ trait RankingTestBase extends TestBase {
   lazy val userColIndex = "customerID"
   lazy val itemColIndex = "itemID"
 
-  lazy val ratings : DataFrame = session
+  lazy val ratings: DataFrame = session
     .createDataFrame(Seq(
       ("11", "Movie 01", 4),
       ("11", "Movie 03", 1),

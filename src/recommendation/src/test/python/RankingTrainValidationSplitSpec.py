@@ -58,9 +58,6 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         return ratings
 
     def test_all_tiny(self):
-        os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"
-        os.environ["PYSPARK_PYTHON"] = "/home/dciborow/bin/python3"
-
         pyspark.sql.SparkSession.builder.master("local[*]") \
             .config('spark.driver.extraClassPath',
                     "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
@@ -84,10 +81,6 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setUserCol(customerIndex.getOutputCol()) \
             .setRatingCol('rating') \
             .setItemCol(ratingsIndex.getOutputCol())
-
-        alsModel = alsWReg.fit(transformedDf)
-        # usersRecs = alsModel._call_java("recommendForAllUsers", 3)
-        # print(usersRecs.take(1))
 
         paramGrid = ParamGridBuilder() \
             .addGrid(alsWReg.regParam, [1.0]) \
