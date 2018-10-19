@@ -14,8 +14,6 @@ from pyspark.ml import Model
 from pyspark.ml.util import *
 
 import sys
-from mmlspark.RankingSplitters import *
-from mmlspark.RankingAdapter import *
 from mmlspark._RankingTrainValidationSplit import _RankingTrainValidationSplit, _RankingTrainValidationSplitModel
 from pyspark.ml import Estimator
 from pyspark.ml.param import Params, Param, TypeConverters
