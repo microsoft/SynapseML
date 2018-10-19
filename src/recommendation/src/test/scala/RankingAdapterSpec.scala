@@ -7,18 +7,19 @@ import org.apache.spark.ml.util.MLReadable
 
 class RankingAdapterSpec extends RankingTestBase with EstimatorFuzzing[RankingAdapter] {
   override def testObjects(): Seq[TestObject[RankingAdapter]] = {
-    val est = new RankingAdapter()
-      .setMode("allUsers") //allItems does not work, not sure if it would be used
-      .setK(evaluator.getK)
-      .setRecommender(als)
-      .setUserCol(als.getUserCol)
-      .setRatingCol(als.getRatingCol)
-      .setItemCol(als.getItemCol)
-
-    List(new TestObject(est, transformedDf))
+    List(new TestObject(adapter, transformedDf))
   }
 
   override def reader: MLReadable[_] = RankingAdapter
 
   override def modelReader: MLReadable[_] = RankingAdapterModel
+}
+
+class RankingAdapterModelSpec extends RankingTestBase with TransformerFuzzing[RankingAdapterModel] {
+  override def testObjects(): Seq[TestObject[RankingAdapterModel]] = {
+    val df = transformedDf
+    List(new TestObject(adapter.fit(df), df))
+  }
+
+  override def reader: MLReadable[_] = RankingAdapterModel
 }
