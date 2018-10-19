@@ -12,10 +12,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.reflect.ClassTag
-import org.apache.spark.mllib.evaluation.RankingMetrics
-import org.apache.spark.rdd.RDD
-
-import scala.reflect.ClassTag
 
 trait HasRecommenderCols extends Params {
   val userCol = new Param[String](this, "userCol", "Column of users")
@@ -120,6 +116,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
   }
 }
 
+@InternalWrapper
 class RankingEvaluator(override val uid: String)
   extends Evaluator with RecEvaluatorParams with HasRecommenderCols {
 

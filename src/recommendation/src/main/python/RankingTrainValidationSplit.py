@@ -12,15 +12,11 @@ from mmlspark.Utils import *
 from pyspark.ml.common import inherit_doc
 from pyspark.ml import Model
 from pyspark.ml.util import *
-from multiprocessing.pool import ThreadPool
 
-import numpy as np
-import pyspark
 import sys
 from mmlspark.RankingSplitters import *
 from mmlspark.RankingAdapter import *
 from mmlspark._RankingTrainValidationSplit import _RankingTrainValidationSplit, _RankingTrainValidationSplitModel
-from pyspark import keyword_only
 from pyspark.ml import Estimator
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.tuning import ValidatorParams
@@ -29,29 +25,6 @@ from pyspark.ml.param.shared import HasParallelism
 
 if sys.version >= '3':
     basestring = str
-
-
-def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel):
-    """
-    Creates a list of callables which can be called from different threads to fit and evaluate
-    an estimator in parallel. Each callable returns an `(index, metric)` pair.
-
-    :param est: Estimator, the estimator to be fit.
-    :param train: DataFrame, training data set, used for fitting.
-    :param eva: Evaluator, used to compute `metric`
-    :param validation: DataFrame, validation data set, used for evaluation.
-    :param epm: Sequence of ParamMap, params maps to be used during fitting & evaluation.
-    :param collectSubModel: Whether to collect sub model.
-    :return: (int, float, subModel), an index into `epm` and the associated metric value.
-    """
-    modelIter = est.fitMultiple(train, epm)
-
-    def singleTask():
-        index, model = next(modelIter)
-        metric = eva.evaluate(model.transform(validation, epm[index]))
-        return index, metric, model if collectSubModel else None
-
-    return [singleTask] * len(epm)
 
 
 class HasCollectSubMetrics(Params):
@@ -105,8 +78,10 @@ class HasCollectSubModels(Params):
         """
         return self.getOrDefault(self.collectSubModels)
 
+
 @inherit_doc
-class RankingTrainValidationSplit(_RankingTrainValidationSplit, Estimator, ValidatorParams, HasCollectSubModels, HasCollectSubMetrics,
+class RankingTrainValidationSplit(_RankingTrainValidationSplit, Estimator, ValidatorParams, HasCollectSubModels,
+                                  HasCollectSubMetrics,
                                   HasParallelism):
 
     def _create_model(self, java_model):

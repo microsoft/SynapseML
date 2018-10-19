@@ -61,7 +61,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         os.environ["PYSPARK_DRIVER_PYTHON"] = "/home/dciborow/bin/python3"
         os.environ["PYSPARK_PYTHON"] = "/home/dciborow/bin/python3"
 
-        spark = pyspark.sql.SparkSession.builder.master("local[*]") \
+        pyspark.sql.SparkSession.builder.master("local[*]") \
             .config('spark.driver.extraClassPath',
                     "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
             .getOrCreate()
