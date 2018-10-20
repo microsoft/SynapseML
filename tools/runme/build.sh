@@ -109,17 +109,13 @@ _sbt_build() {
     TESTS=",$TESTS,"; TESTS="${TESTS//,+scala,/,}"; TESTS="${TESTS#,}"; TESTS="${TESTS%,}"
     if [[ "$TESTS" = "" ]]; then TESTS="all"; fi
   fi
-  if [[ "$SUBPROJECT" != "" ]]; then 
-      _sbt_run "project $SUBPROJECT" compile
-  else
-      _sbt_run "full-build"
-      show section "Sorting assembly jar for the maven repo"
-      # leave only the -assembley jars under the proper name (and the pom files)
-      local f; for f in "$BUILD_ARTIFACTS/packages/m2/"**; do case "$f" in
-        ( *-@(javadoc|sources).jar@(|.md5|.sha1) ) _rm "$f" ;;
-        ( *-assembly.jar@(|.md5|.sha1) ) _ mv "$f" "${f//-assembly.jar/.jar}" ;;
-      esac; done
-  fi
+  _sbt_run "full-build"
+  show section "Sorting assembly jar for the maven repo"
+  # leave only the -assembley jars under the proper name (and the pom files)
+  local f; for f in "$BUILD_ARTIFACTS/packages/m2/"**; do case "$f" in
+    ( *-@(javadoc|sources).jar@(|.md5|.sha1) ) _rm "$f" ;;
+    ( *-assembly.jar@(|.md5|.sha1) ) _ mv "$f" "${f//-assembly.jar/.jar}" ;;
+  esac; done
   cd "$owd"
 }
 
