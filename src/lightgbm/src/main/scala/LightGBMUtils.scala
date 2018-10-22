@@ -132,8 +132,20 @@ object LightGBMUtils {
     */
   def getNumCoresPerExecutor(dataset: Dataset[_]): Int = {
     val spark = dataset.sparkSession
-    import spark.implicits._
-    spark.range(0, 1).map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+    try {
+      val confCores = spark.sparkContext.getConf
+        .get("spark.executor.cores").toInt
+      val confTaskCpus = spark.sparkContext.getConf
+        .get("spark.task.cpus", "1").toInt
+      confCores / confTaskCpus
+    } catch {
+      case _: NoSuchElementException =>
+        // If spark.executor.cores is not defined, get the cores per JVM
+        import spark.implicits._
+        val numMachineCores = spark.range(0, 1)
+          .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+        numMachineCores
+    }
   }
 
   private def getDriverHost(dataset: Dataset[_]): String = {
