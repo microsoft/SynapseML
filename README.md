@@ -61,7 +61,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
     <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
   </tr>
   <tr align="center">
-    <td>Leverage the Microsoft Cognitive Services at Unprecenented Scales in your existing SparkML pipelines</td>
+    <td>Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines</td>
     <td>Distributed, Model Agnostic, Interpretations for Image Classifiers</td>
     <td>Serve any Spark Computation as a Web Service with Sub-Millisecond Latency</td>
   </tr>
@@ -78,7 +78,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
   <tr align="center">
     <td>Train GPU enabled Gradient Boosted Machines with LightGBM</td>
     <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
-    <td>An Integration Betweeen Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
+    <td>An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
   </tr>
 </table>
 
