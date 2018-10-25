@@ -16,12 +16,14 @@ object PortForwarding {
   def forwardPortToRemote(username: String,
                           sshHost: String,
                           sshPort: Int,
+                          bindAddress: String,
                           remotePortStart: Int,
                           localHost: String,
                           localPort: Int,
                           keyDir: Option[String],
                           keySas: Option[String],
-                          maxRetries: Int
+                          maxRetries: Int,
+                          timeout: Int
                          ): (Session, Int) = {
     keyDir.foreach(kd =>
       new File(kd).listFiles().foreach(f =>
@@ -39,16 +41,18 @@ object PortForwarding {
 
     val session = jsch.getSession(username, sshHost, sshPort)
     session.setConfig("StrictHostKeyChecking", "no")
+    session.setTimeout(timeout)
     session.connect()
     var attempt = 0
     var foundPort: Option[Int] = None
     while (foundPort.isEmpty && attempt <= maxRetries) {
       try {
-        session.setPortForwardingR(remotePortStart + attempt,
-          localHost, localPort)
+        session.setPortForwardingR(
+          bindAddress, remotePortStart + attempt, localHost, localPort)
         foundPort = Some(remotePortStart + attempt)
       } catch {
         case e: Exception =>
+          println(s"failed to forward port. Attempt: $attempt")
           attempt += 1
       }
     }
@@ -65,13 +69,15 @@ object PortForwarding {
       options("forwarding.username"),
       options("forwarding.sshhost"),
       options.getOrElse("forwarding.sshport", "22").toInt,
+      options.getOrElse("forwarding.bindaddress", "*"),
       options.get("forwarding.remoteportstart")
         .orElse(options.get("forwarding.localport")).get.toInt,
       options.getOrElse("forwarding.localhost", "0.0.0.0"),
       options("forwarding.localport").toInt,
       options.get("forwarding.keydir"),
       options.get("forwarding.keysas"),
-      options.getOrElse("forwarding.maxretires", "50").toInt
+      options.getOrElse("forwarding.maxretires", "50").toInt,
+      options.getOrElse("forwarding.timeout", "20000").toInt
     )
   }
 
