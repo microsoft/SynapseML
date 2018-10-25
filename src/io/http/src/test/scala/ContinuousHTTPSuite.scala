@@ -92,12 +92,11 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address(host, 9010, apiName)
+      .address("0.0.0.0", 9010, apiName)
       .option("forwarding.enabled", true)
-      .option("forwarding.username", "marhamil")
-      .option("forwarding.sshHost", "104.208.238.80")
-      //.option("forwarding.keySas","")
-      //.option("forwarding.keyDir", "/home/marhamil/.ssh")
+      .option("forwarding.sshHost", "")
+      .option("forwarding.keySas", "")
+      .option("forwarding.username", "")
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
@@ -109,7 +108,7 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))
       .start()
 
-    Thread.sleep(100000)
+    Thread.sleep(1000000)
     println("stopping server")
     server.stop()
   }
