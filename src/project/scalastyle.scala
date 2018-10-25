@@ -46,7 +46,7 @@ final object ScalaStyleExtras {
     r("SE", "EqualsHashCodeChecker"),
     r("SE", "IllegalImportsChecker", ("illegalImports", "sun._")),
     r("SE", "DeprecatedJavaChecker"),
-    r("SE", "ParameterNumberChecker", ("maxParameters", 9)),
+    r("SE", "ParameterNumberChecker", ("maxParameters", 12)),
     r("SW", "MethodLengthChecker", ("maxLength", 50)),
     r("SE", "NumberOfTypesChecker", ("maxTypes", 30)),
     r("SE", "NumberOfMethodsInTypeChecker", ("maxMethods", 50)),
