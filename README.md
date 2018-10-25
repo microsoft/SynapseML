@@ -124,14 +124,12 @@ See our [notebooks](notebooks/samples/) for all examples.
   "Deep Flower Classification"
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb
   "CIFAR10 CNTK CNN Training"
-[example 11]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb
-  "Deep Flower Classification"
+
 
 ## A short example
 
 Below is an excerpt from a simple example of using a pre-trained CNN to
-classify images in the CIFAR-10 dataset.  View the whole source code as [an
-example notebook][example:301].
+classify images in the CIFAR-10 dataset.  View the whole source code in notebook [example 9].
 
    ```python
    ...
