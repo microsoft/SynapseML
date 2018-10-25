@@ -97,7 +97,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         tvmodel = tvRecommendationSplit.fit(transformedDf)
         print(tvmodel.recommendForAllUsers(3))
-        print(tvmodel.subMetrics)
+        print(tvmodel.validationMetrics)
 
 
 if __name__ == "__main__":
