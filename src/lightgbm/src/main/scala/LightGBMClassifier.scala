@@ -28,6 +28,13 @@ class LightGBMClassifier(override val uid: String)
   with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
+  val isUnbalance = new BooleanParam(this, "isUnbalance",
+    "Set to true if training data is unbalanced in binary classification scenario")
+  setDefault(isUnbalance -> false)
+
+  def getIsUnbalance: Boolean = $(isUnbalance)
+  def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
+
   /** Trains the LightGBM Classification model.
     *
     * @param dataset The input dataset to train.
@@ -48,7 +55,8 @@ class LightGBMClassifier(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString)
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
+      getIsUnbalance, getVerbosity)
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
