@@ -73,7 +73,8 @@ class LightGBMRegressor(override val uid: String)
     val encoder = Encoders.kryo[LightGBMBooster]
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString)
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
+      getVerbosity)
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df
