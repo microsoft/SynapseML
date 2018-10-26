@@ -77,28 +77,28 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         transformedDf = pipeline.fit(ratings).transform(ratings)
 
-        alsWReg = ALS() \
+        als = ALS() \
             .setUserCol(customerIndex.getOutputCol()) \
             .setRatingCol('rating') \
             .setItemCol(ratingsIndex.getOutputCol())
 
         paramGrid = ParamGridBuilder() \
-            .addGrid(alsWReg.regParam, [1.0]) \
+            .addGrid(als.regParam, [1.0]) \
             .build()
 
         evaluator = RankingEvaluator()
 
-        tvRecommendationSplit = RankingTrainValidationSplit() \
+        rankingTrainValidationSplit = RankingTrainValidationSplit() \
             .setEstimatorParamMaps(paramGrid) \
-            .setEstimator(alsWReg) \
+            .setEstimator(als) \
             .setEvaluator(evaluator) \
             .setTrainRatio(0.8) \
             .setCollectSubMetrics(True)
 
-        tvmodel = tvRecommendationSplit.fit(transformedDf)
-        print(tvmodel.recommendForAllUsers(3))
-        print(tvmodel.validationMetrics)
-        print(tvmodel.subMetrics)
+        model = rankingTrainValidationSplit.fit(transformedDf)
+        print(model.recommendForAllUsers(3))
+        print(model.validationMetrics)
+        print(model.subMetrics)
 
 
 if __name__ == "__main__":

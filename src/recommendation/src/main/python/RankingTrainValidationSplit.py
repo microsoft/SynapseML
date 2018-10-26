@@ -191,7 +191,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         return self.getOrDefault(self.userCol)
 
     @keyword_only
-    def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None, trainRatio=0.8):
+    def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None, trainRatio=0.8, java=False):
         """
         __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, numFolds=3,\
                  seed=None)
@@ -199,6 +199,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         super(RankingTrainValidationSplit, self).__init__()
         kwargs = self._input_kwargs
         self._set(**kwargs)
+        self.java = java
 
     @keyword_only
     def setParams(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None):
@@ -236,8 +237,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         return model
 
     def _fit(self, dataset):
-        java = False
-        if java:
+        if self.java:
             return self._to_java().fit(dataset._jdf)
 
         rating = self.getOrDefault(self.estimator).getRatingCol()
