@@ -111,6 +111,45 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(labelOneCnt * 2 < labelOneCntWeight)
   }
 
+  test("Verify LightGBM Classifier with unbalanced dataset") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "task.train.csv"
+    val labelColumnName = "TaskFailed10"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val seed = 42
+    val data = readDataset.randomSplit(Array(0.8, 0.2), seed.toLong)
+    val trainData = data(0)
+    val testData = data(1)
+
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(objective)
+
+    val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
+    val transformedData = featurizer.transform(trainData)
+    val scoredData = featurizer.transform(testData)
+    val scoredWithoutIsUnbalance = lgbm.fit(transformedData)
+      .transform(scoredData)
+    val scoredWithIsUnbalance = lgbm.setIsUnbalance(true).fit(transformedData)
+      .transform(scoredData)
+    val eval = new BinaryClassificationEvaluator()
+      .setLabelCol(labelColumnName)
+      .setRawPredictionCol(rawPredCol)
+    val metricWithoutIsUnbalance = eval.evaluate(scoredWithoutIsUnbalance)
+    val metricWithIsUnbalance = eval.evaluate(scoredWithIsUnbalance)
+    // Verify IsUnbalance parameter improves metric
+    assert(metricWithoutIsUnbalance < metricWithIsUnbalance)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.
