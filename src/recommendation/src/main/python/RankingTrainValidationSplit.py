@@ -199,7 +199,6 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         super(RankingTrainValidationSplit, self).__init__()
         kwargs = self._input_kwargs
         self._set(**kwargs)
-        self.java = java
 
     @keyword_only
     def setParams(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None):
