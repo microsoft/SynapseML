@@ -57,6 +57,7 @@ def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel, collect
 
     return [singleTask] * len(epm)
 
+
 class HasCollectSubMetrics(Params):
     """
     Mixin for param collectSubModels: Param for whether to collect a list of sub-models trained during tuning. If set to false, then only the single best sub-model will be available after fitting. If set to true, then all sub-models will be available. Warning: For large models, collecting all sub-models can cause OOMs on the Spark driver.
@@ -81,6 +82,7 @@ class HasCollectSubMetrics(Params):
         Gets the value of collectSubModels or its default value.
         """
         return self.getOrDefault(self.collectSubMetrics)
+
 
 class HasCollectSubModels(Params):
     """
@@ -107,8 +109,10 @@ class HasCollectSubModels(Params):
         """
         return self.getOrDefault(self.collectSubModels)
 
+
 @inherit_doc
-class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModels, HasCollectSubMetrics, HasParallelism):
+class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModels, HasCollectSubMetrics,
+                                  HasParallelism):
     trainRatio = Param(Params._dummy(), "trainRatio", "Param for ratio between train and\
          validation data. Must be between 0 and 1.", typeConverter=TypeConverters.toFloat)
     userCol = Param(Params._dummy(), "userCol",
@@ -297,7 +301,6 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
             if collectSubMetricsParam:
                 subMetrics[j] = subMetric
 
-
         train.unpersist()
         validation.unpersist()
 
@@ -307,6 +310,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
             bestIndex = np.argmin(metrics)
         bestModel = est.fit(dataset, epm[bestIndex])
         return self._copyValues(RankingTrainValidationSplitModel(bestModel, metrics, subModels, subMetrics))
+
 
 @inherit_doc
 class RankingTrainValidationSplitModel(Model, ValidatorParams):
