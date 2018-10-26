@@ -108,3 +108,6 @@ class RankingEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, JavaMLReada
         """
         kwargs = self._input_kwargs
         return self._set(**kwargs)
+
+    def getMetricsMap(self, dataframe):
+        return self._call_java("getMetricsMap", dataframe)

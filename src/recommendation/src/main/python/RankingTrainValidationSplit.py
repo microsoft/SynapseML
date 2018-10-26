@@ -32,7 +32,8 @@ from pyspark.ml.param.shared import HasParallelism
 if sys.version >= '3':
     basestring = str
 
-def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel):
+
+def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel, collectSubMetrics):
     """
     Creates a list of callables which can be called from different threads to fit and evaluate
     an estimator in parallel. Each callable returns an `(index, metric)` pair.
@@ -49,8 +50,10 @@ def _parallelFitTasks(est, train, eva, validation, epm, collectSubModel):
 
     def singleTask():
         index, model = next(modelIter)
-        metric = eva.evaluate(model.transform(validation, epm[index]))
-        return index, metric, model if collectSubModel else None
+        df = model.transform(validation, epm[index])
+        metric = eva.evaluate(df)
+        metrics = eva.getMetricsMap(df)
+        return index, metric, model if collectSubModel else None, metrics if collectSubMetrics else None
 
     return [singleTask] * len(epm)
 
@@ -71,7 +74,7 @@ class HasCollectSubMetrics(Params):
         """
         Sets the value of :py:attr:`collectSubModels`.
         """
-        return self._set(collectSubModels=value)
+        return self._set(collectSubMetrics=value)
 
     def getCollectSubMetrics(self):
         """
@@ -279,13 +282,21 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         if collectSubModelsParam:
             subModels = [None for i in range(numModels)]
 
-        tasks = _parallelFitTasks(est, train, eva, validation, epm, collectSubModelsParam)
+        subMetrics = None
+        collectSubMetricsParam = self.getCollectSubMetrics()
+        if collectSubMetricsParam:
+            subMetrics = [None for i in range(numModels)]
+
+        tasks = _parallelFitTasks(est, train, eva, validation, epm, collectSubModelsParam, collectSubMetricsParam)
         pool = ThreadPool(processes=min(self.getParallelism(), numModels))
         metrics = [None] * numModels
-        for j, metric, subModel in pool.imap_unordered(lambda f: f(), tasks):
+        for j, metric, subModel, subMetric in pool.imap_unordered(lambda f: f(), tasks):
             metrics[j] = metric
             if collectSubModelsParam:
                 subModels[j] = subModel
+            if collectSubMetricsParam:
+                subMetrics[j] = subMetric
+
 
         train.unpersist()
         validation.unpersist()
@@ -295,18 +306,19 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams, HasCollectSubModel
         else:
             bestIndex = np.argmin(metrics)
         bestModel = est.fit(dataset, epm[bestIndex])
-        return self._copyValues(RankingTrainValidationSplitModel(bestModel, metrics, subModels))
+        return self._copyValues(RankingTrainValidationSplitModel(bestModel, metrics, subModels, subMetrics))
 
 @inherit_doc
 class RankingTrainValidationSplitModel(Model, ValidatorParams):
 
-    def __init__(self, bestModel, validationMetrics=[], subModels=None):
+    def __init__(self, bestModel, validationMetrics=[], subModels=None, subMetrics=None):
         super(RankingTrainValidationSplitModel, self).__init__()
         #: best model from cross validation
         self.bestModel = bestModel
         #: evaluated validation metrics
         self.validationMetrics = validationMetrics
         self.subModels = subModels
+        self.subMetrics = subMetrics
 
     def _transform(self, dataset):
         return self.bestModel.transform(dataset)
