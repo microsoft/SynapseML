@@ -98,10 +98,11 @@ trait RankingTestBase extends TestBase {
   lazy val pipeline: Pipeline = new Pipeline()
     .setStages(Array(customerIndex, itemIndex))
 
-  lazy val als: ALS = new ALS()
-    .setUserCol(customerIndex.getOutputCol)
-    .setRatingCol(ratingCol)
+  val als = new ALS() with HasRecommenderCols
+  als.setUserCol(customerIndex.getOutputCol)
     .setItemCol(itemIndex.getOutputCol)
+    .setRatingCol(ratingCol)
+
 
   lazy val paramGrid: Array[ParamMap] = new ParamGridBuilder()
     .addGrid(als.regParam, Array(1.0))
@@ -124,8 +125,5 @@ trait RankingTestBase extends TestBase {
     .setMode("allUsers") //allItems does not work, not sure if it would be used
     .setK(evaluator.getK)
     .setRecommender(als)
-    .setUserCol(als.getUserCol)
-    .setRatingCol(als.getRatingCol)
-    .setItemCol(als.getItemCol)
 
 }

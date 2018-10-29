@@ -3,6 +3,7 @@ import os
 import pyspark
 import unittest
 import xmlrunner
+from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
 from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
 from pyspark.ml import Pipeline
@@ -13,7 +14,7 @@ from pyspark.sql.types import *
 from pyspark.ml.recommendation import ALS
 
 
-class TrainValidRecommendSplitSpec(unittest.TestCase):
+class RankingAdapterSpec(unittest.TestCase):
 
     @staticmethod
     def getRatings():
@@ -82,23 +83,20 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             .setRatingCol('rating') \
             .setItemCol(ratingsIndex.getOutputCol())
 
-        paramGrid = ParamGridBuilder() \
-            .addGrid(als.regParam, [1.0]) \
-            .build()
+        als.fit(transformedDf)
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als) \
+            .setUserCol(customerIndex.getOutputCol()) \
+            .setRatingCol('rating') \
+            .setItemCol(ratingsIndex.getOutputCol())
 
-        evaluator = RankingEvaluator()
+        model = adapter.fit(transformedDf)
+        output = model.transform(transformedDf)
+        # [Row(prediction=[3, 4, 7, 6, 5], label=[3.0, 4.0, 7.0, 6.0, 5.0, 0.0, 8.0, 1.0, 2.0])]
+        print(str(output.take(1)) + "\n")
 
-        rankingTrainValidationSplit = RankingTrainValidationSplit() \
-            .setEstimatorParamMaps(paramGrid) \
-            .setEstimator(als) \
-            .setEvaluator(evaluator) \
-            .setTrainRatio(0.8) \
-            .setCollectSubMetrics(True)
-
-        model = rankingTrainValidationSplit.fit(transformedDf)
-        print(model.recommendForAllUsers(3))
-        print(model.getMetrics())
-        print(model.subMetrics())
+        metrics = ['ndcgAt', 'fcp', 'mrr']
+        for metric in metrics:
+            print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
 
 if __name__ == "__main__":

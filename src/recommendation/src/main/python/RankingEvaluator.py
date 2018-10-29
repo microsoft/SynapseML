@@ -52,8 +52,7 @@ class RankingEvaluator(JavaEvaluator, HasLabelCol, HasPredictionCol, JavaMLReada
         super(RankingEvaluator, self).__init__()
         self._java_obj = self._new_java_obj(
             "com.microsoft.ml.spark.RankingEvaluator", self.uid)
-        self._setDefault(metricName="ndcgAt")
-        self._setDefault(k=3)
+        self._setDefault(metricName="ndcgAt", k=3)
         kwargs = self._input_kwargs
         self._set(**kwargs)
 

@@ -102,6 +102,8 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
     case "recallAtK" => recallAtK
     case "diversityAtK" => diversityAtK
     case "maxDiversity" => maxDiversity
+    case "mrr" => meanReciprocalRank
+    case "fcp" => fractionConcordantPairs
   }
 
   def getAllMetrics: Map[String, Double] = {
