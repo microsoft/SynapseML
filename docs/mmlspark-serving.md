@@ -182,7 +182,7 @@ We have included settings to automatically configure this SSH tunneling for conv
 ##### Linux Gateway Setup - Azure
 1. [Create a Linux VM using SSH](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/quick-create-portal)
 2. [Open ports 8000-9999 from the Azure Portal](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/nsg-quickstart-portal)
-1. Open the port on the firewall on the VM
+3. Open the port on the firewall on the VM
     ```$xslt
     firewall-cmd --zone=public --add-port=8000-10000/tcp --permanent
     firewall-cmd --reload
