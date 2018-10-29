@@ -4,7 +4,7 @@ import pyspark
 import unittest
 import xmlrunner
 from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.tuning import *
