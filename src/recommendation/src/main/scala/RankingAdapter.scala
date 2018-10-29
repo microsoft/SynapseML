@@ -4,17 +4,13 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.recommendation.{ALS, ALSModel}
+import org.apache.spark.ml.recommendation.{ALS, ALSModel, helper}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
-import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
-
-import scala.language.existentials
-
+import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 
 import scala.collection.mutable
 import scala.util.Random
@@ -208,7 +204,6 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
 
     joined_rec_actual
   }
-
 }
 
 class RankingAdapter(override val uid: String)
@@ -321,22 +316,25 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
-    val model = getRecommenderModel.asInstanceOf[ALSModel]
+    val model = getRecommenderModel
     getMode match {
       case "allUsers" => {
-        val recs = model.recommendForAllUsers(getNItems)
+        val recs = this.recommendForAllUsers(getNItems)
         prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, 10).toDF()
       }
       case "allItems" => {
-        val recs = model.recommendForAllItems(getNUsers)
+        val recs = model.asInstanceOf[ALSModel].recommendForAllItems(getNUsers)
         prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
       }
-      case "normal" => model.transform(dataset)
+      case "normal" => {
+        val recs = helper.flatten(model.transform(dataset), 10, getItemCol, getUserCol)
+        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
+      }
     }
   }
 
   def transformSchema(schema: StructType): StructType = {
-    val model = getRecommenderModel.asInstanceOf[ALSModel]
+    val model = getRecommenderModel //.asInstanceOf[ALSModel]
     getMode match {
       case "allUsers" => new StructType()
         .add("userCol", IntegerType)

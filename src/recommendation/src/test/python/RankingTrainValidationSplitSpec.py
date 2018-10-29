@@ -3,6 +3,7 @@ import os
 import pyspark
 import unittest
 import xmlrunner
+from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
 from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
 from pyspark.ml import Pipeline
@@ -57,11 +58,13 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
             (3, 10, 3, 3)], cSchema)
         return ratings
 
+    @staticmethod
+    def get_pyspark():
+        return pyspark.sql.SparkSession.builder.master("local[*]").config('spark.driver.extraClassPath',
+                                                                          "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar").getOrCreate()
+
     def test_all_tiny(self):
-        pyspark.sql.SparkSession.builder.master("local[*]") \
-            .config('spark.driver.extraClassPath',
-                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
-            .getOrCreate()
+        self.get_pyspark()
 
         ratings = self.getRatings()
 
@@ -99,6 +102,37 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         print(model.recommendForAllUsers(3))
         print(model.getMetrics())
         print(model.subMetrics())
+
+    def test_adapter_evaluator(self):
+        pyspark.sql.SparkSession.builder.master("local[*]") \
+            .config('spark.driver.extraClassPath',
+                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
+            .getOrCreate()
+
+        ratings = self.getRatings()
+
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
+
+        user_id_index = "customerID"
+        item_id_index = "itemID"
+
+        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
+        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+
+        als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
+
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als,
+                                 userCol=als.getUserCol(), itemCol=als.getItemCol(), ratingCol=als.getRatingCol())
+
+        pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
+        output = pipeline.fit(ratings).transform(ratings)
+        print(str(output.take(1)) + "\n")
+
+        metrics = ['ndcgAt', 'fcp', 'mrr']
+        for metric in metrics:
+            print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
 
 if __name__ == "__main__":
