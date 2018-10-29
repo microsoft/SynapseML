@@ -66,32 +66,24 @@ class RankingAdapterSpec(unittest.TestCase):
 
         ratings = self.getRatings()
 
-        customerIndex = StringIndexer() \
-            .setInputCol("originalCustomerID") \
-            .setOutputCol("customerID")
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
 
-        ratingsIndex = StringIndexer() \
-            .setInputCol("newCategoryID") \
-            .setOutputCol("itemID")
+        user_id_index = "customerID"
+        item_id_index = "itemID"
 
-        pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
+        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index)
+        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index)
+        indexed_df = Pipeline(stages=[customer_indexer, items_indexer]).fit(ratings).transform(ratings)
 
-        transformedDf = pipeline.fit(ratings).transform(ratings)
+        als = ALS(userCol=customer_indexer.getOutputCol(), itemCol=items_indexer.getOutputCol(), ratingCol=rating_id)
+        als.fit(indexed_df)
 
-        als = ALS() \
-            .setUserCol(customerIndex.getOutputCol()) \
-            .setRatingCol('rating') \
-            .setItemCol(ratingsIndex.getOutputCol())
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als,
+                                 userCol=als.getUserCol(), itemCol=als.getItemCol(), ratingCol=als.getRatingCol())
 
-        als.fit(transformedDf)
-        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als) \
-            .setUserCol(customerIndex.getOutputCol()) \
-            .setRatingCol('rating') \
-            .setItemCol(ratingsIndex.getOutputCol())
-
-        model = adapter.fit(transformedDf)
-        output = model.transform(transformedDf)
-        # [Row(prediction=[3, 4, 7, 6, 5], label=[3.0, 4.0, 7.0, 6.0, 5.0, 0.0, 8.0, 1.0, 2.0])]
+        output = adapter.fit(indexed_df).transform(indexed_df)
         print(str(output.take(1)) + "\n")
 
         metrics = ['ndcgAt', 'fcp', 'mrr']
