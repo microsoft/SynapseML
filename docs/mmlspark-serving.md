@@ -178,17 +178,30 @@ However, In the future, Databricks will support Virtual Network Injection so thi
 In the meantime, you must use SSH tunneling to forward the services to another machine(s)
 to act as a networking gateway. This machine can be any machine that accpets SSH traffic and requests.
 We have included settings to automatically configure this SSH tunneling for convenience.
-Simply include the following parameters on your reader to configure the SSH tunneling:
 
-```
-server = (spark.readStream.continuousServer()
-  .address("0.0.0.0", 8888, "danger_detector") # set up the service as usual
-  .option("forwarding.enabled", True)  # enable ssh forwarding to a gateway machine
-  .option("forwarding.username", SHH_FORWARDING_USERNAME)
-  .option("forwarding.sshHost", SSH_HOST_NAME)
-  .option("forwarding.keySas", SAS_URL_OF_THE_MACHINES_SSHKEY)
-  .load()  
-```
+##### Linux Gateway Setup - Azure
+1. [Create a Linux VM using SSH](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/quick-create-portal)
+1. [Open ports 8000-9999 from the Azure Portal](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/nsg-quickstart-portal)
+1. Open the port on the firewall on the VM
+    ```$xslt
+    firewall-cmd --zone=public --add-port=8000-10000/tcp --permanent
+    firewall-cmd --reload
+    echo "GatewayPorts yes" >> /etc/ssh/sshd_config
+    service ssh --full-restart
+    ```
+1. Add your private key to a private container in [Azure Storage Blob](https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&tabs=portal).
+1. Generate a SAS link for your key and save it.
+1. Simply include the following parameters on your reader to configure the SSH tunneling:
+    ```
+    serving_inputs = (spark.readStream.continuousServer()
+      .option("numPartitions", 1)
+      .option("forwarding.enabled", True)  # enable ssh forwarding to a gateway machine
+      .option("forwarding.username", "username")
+      .option("forwarding.sshHost", "ip or dns")
+      .option("forwarding.keySas", "SAS url from the previous step")
+      .address("localhost", 8904, "my_api")
+      .load() 
+    ```
 
 Note that this will make your service require an extra jump and affect latency. 
 It is important to pick a gateway that has good connectivity to your spark cluster.
