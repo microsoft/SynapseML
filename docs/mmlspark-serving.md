@@ -189,7 +189,7 @@ We have included settings to automatically configure this SSH tunneling for conv
     echo "GatewayPorts yes" >> /etc/ssh/sshd_config
     service ssh --full-restart
     ```
-1. Add your private key to a private container in [Azure Storage Blob](https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&tabs=portal).
+4. Add your private key to a private container in [Azure Storage Blob](https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&tabs=portal).
 1. Generate a SAS link for your key and save it.
 1. Simply include the following parameters on your reader to configure the SSH tunneling:
     ```
