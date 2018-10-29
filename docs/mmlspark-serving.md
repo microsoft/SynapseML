@@ -191,7 +191,7 @@ We have included settings to automatically configure this SSH tunneling for conv
     ```
 4. Add your private key to a private container in [Azure Storage Blob](https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&tabs=portal).
 5. Generate a SAS link for your key and save it.
-1. Simply include the following parameters on your reader to configure the SSH tunneling:
+6. Simply include the following parameters on your reader to configure the SSH tunneling:
     ```
     serving_inputs = (spark.readStream.continuousServer()
       .option("numPartitions", 1)
