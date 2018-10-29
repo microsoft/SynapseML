@@ -4,7 +4,7 @@ import pyspark
 import unittest
 import xmlrunner
 from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.tuning import *
@@ -97,7 +97,8 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         tvmodel = tvRecommendationSplit.fit(transformedDf)
         print(tvmodel.recommendForAllUsers(3))
-        print(tvmodel.subMetrics)
+        print(tvmodel.subMetrics())
+
 
 
 if __name__ == "__main__":
