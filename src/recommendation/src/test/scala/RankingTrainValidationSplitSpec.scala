@@ -103,7 +103,6 @@ trait RankingTestBase extends TestBase {
     .setItemCol(itemIndex.getOutputCol)
     .setRatingCol(ratingCol)
 
-
   lazy val paramGrid: Array[ParamMap] = new ParamGridBuilder()
     .addGrid(als.regParam, Array(1.0))
     .build()
