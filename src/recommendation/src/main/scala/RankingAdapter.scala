@@ -60,31 +60,10 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
 
   setDefault(labelCol -> "label")
 
-  private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
-    dataset
-      .groupBy(userCol)
-      .agg(col(userCol), count(col(itemCol)).alias("nitems"))
-      .where(col("nitems") >= $(minRatingsPerUser))
-      .drop("nitems")
-      .cache()
-
-  private def filterByUserRatingCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
-    dataset
-      .groupBy(itemCol)
-      .agg(col(itemCol), count(col(userCol)).alias("nusers"))
-      .where(col("nusers") >= $(minRatingsPerItem))
-      .join(dataset, itemCol)
-      .drop("nusers")
-      .cache()
-
-  def filterRatings(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
-    filterByUserRatingCount(dataset, itemCol, userCol)
-      .join(filterByItemCount(dataset, itemCol, userCol), userCol)
-
   def prepareTestData(userColumn: String, itemColumn: String,
     validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
 
-    val rankingCol = if (validationDataset.columns.contains($(ratingCol))) getRatingCol
+    val rankingCol = if (validationDataset.columns.contains(getRatingCol)) getRatingCol
     else getItemCol
 
     val windowSpec = Window.partitionBy(userColumn).orderBy(col(rankingCol).desc)
@@ -106,7 +85,26 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
 
   def split(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
   (DataFrame, DataFrame) = {
-    val dataset = filterRatings(dataframe.dropDuplicates(), itemCol, userCol)
+
+    def filterByItemCount(dataset: Dataset[_]): DataFrame = dataset
+      .groupBy(getUserCol)
+      .agg(col(getUserCol), count(col(getItemCol)).alias("nitems"))
+      .where(col("nitems") >= getMinRatingsPerUser)
+      .drop("nitems")
+      .cache()
+
+    def filterByUserRatingCount(dataset: Dataset[_]): DataFrame = dataset
+      .groupBy(getItemCol)
+      .agg(col(getItemCol), count(col(getUserCol)).alias("nusers"))
+      .where(col("nusers") >= getMinRatingsPerItem)
+      .join(dataset, getItemCol)
+      .drop("nusers")
+      .cache()
+
+    val droppedDuplicates         = dataframe.dropDuplicates().cache()
+    val filteredByItemCount       = filterByItemCount(droppedDuplicates)
+    val filteredByUserRatingCount = filterByUserRatingCount(droppedDuplicates)
+    val dataset                   = filteredByUserRatingCount.join(filteredByItemCount, userCol)
 
     if (dataset.columns.contains(ratingCol)) {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
