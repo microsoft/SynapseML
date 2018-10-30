@@ -53,9 +53,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
   }
 
   protected def header(simpleClassName: String): String = WrapperClassDoc.GenerateWrapperClassDoc(simpleClassName)
-
   protected def classDocTemplate(simpleClassName: String) = s"""${header(simpleClassName)}"""
-
   val modelStr: String
   val moduleAcc: String
   val psType: String
@@ -92,10 +90,10 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
 
   protected def getParamConversion(paramType: String, paramName: String): String = {
     paramType match {
-      case "BooleanParam" => s"as.logical($paramName)"
+      case "BooleanParam"               => s"as.logical($paramName)"
       case "DoubleParam" | "FloatParam" => s"as.double($paramName)"
-      case "StringArrayParam" => s"as.array($paramName)"
-      case "IntParam" | "LongParam" => s"as.integer($paramName)"
+      case "StringArrayParam"           => s"as.array($paramName)"
+      case "IntParam" | "LongParam"     => s"as.integer($paramName)"
       case "MapArrayParam" | "Param" | "StringParam" => paramName
       case _ => paramName
     }
