@@ -16,50 +16,6 @@ import org.apache.spark.ml.evaluation.Evaluator
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.
   */
-abstract class SparklyRWrapper(entryPoint: PipelineStage,
-                               entryPointName: String,
-                               entryPointQualifiedName: String)
-  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
-
-class SparklyRTransformerWrapper(entryPoint: Transformer,
-                                 entryPointName: String,
-                                 entryPointQualifiedName: String)
-  extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
-
-  override val modelStr         = ""
-  override val moduleAcc        = "mod_parameterized"
-  override val psType           = "Transformer"
-  override val additionalParams = ""
-
-}
-
-class SparklyREstimatorWrapper(entryPoint: Estimator[_],
-                               entryPointName: String,
-                               entryPointQualifiedName: String,
-                               companionModelName: String,
-                               companionModelQualifiedName: String)
-  extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
-
-  override val modelStr: String =
-    s"""|  if (unfit.model)
-        |    return(mod_parameterized)
-        |  mod_model_raw <- mod_parameterized %>%
-        |    invoke(\"fit\", df)
-        |
-      |  mod_model <- sparklyr:::new_ml_model(mod_parameterized, mod_model_raw, mod_model_raw)
-        |
-      |  if (only.model)
-        |    return(mod_model)
-        |""".stripMargin
-  override val moduleAcc = "mod_model$model"
-  override val psType = "Estimator"
-  override val additionalParams = ", unfit.model=FALSE, only.model=FALSE"
-
-}
-
-// Copyright (C) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See LICENSE in project root for information.
-
 abstract class SparklyRParamsWrapper(entryPoint: Params,
                                      entryPointName: String,
                                      entryPointQualifiedName: String) extends WritableWrapper {
@@ -198,6 +154,11 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
 
 }
 
+abstract class SparklyRWrapper(entryPoint: PipelineStage,
+                               entryPointName: String,
+                               entryPointQualifiedName: String)
+  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+
 class SparklyREvaluatorWrapper(entryPoint: Evaluator,
                                entryPointName: String,
                                entryPointQualifiedName: String)
@@ -206,4 +167,40 @@ class SparklyREvaluatorWrapper(entryPoint: Evaluator,
   override val moduleAcc       : String = "mod_parameterized"
   override val psType          : String = "Evaluator"
   override val additionalParams: String = ""
+}
+
+class SparklyRTransformerWrapper(entryPoint: Transformer,
+                                 entryPointName: String,
+                                 entryPointQualifiedName: String)
+  extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
+
+  override val modelStr         = ""
+  override val moduleAcc        = "mod_parameterized"
+  override val psType           = "Transformer"
+  override val additionalParams = ""
+
+}
+
+class SparklyREstimatorWrapper(entryPoint: Estimator[_],
+                               entryPointName: String,
+                               entryPointQualifiedName: String,
+                               companionModelName: String,
+                               companionModelQualifiedName: String)
+  extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
+
+  override val modelStr: String =
+    s"""|  if (unfit.model)
+        |    return(mod_parameterized)
+        |  mod_model_raw <- mod_parameterized %>%
+        |    invoke(\"fit\", df)
+        |
+      |  mod_model <- sparklyr:::new_ml_model(mod_parameterized, mod_model_raw, mod_model_raw)
+        |
+      |  if (only.model)
+        |    return(mod_model)
+        |""".stripMargin
+  override val moduleAcc        = "mod_model$model"
+  override val psType           = "Estimator"
+  override val additionalParams = ", unfit.model=FALSE, only.model=FALSE"
+
 }
