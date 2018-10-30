@@ -101,7 +101,6 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   // Complex parameters need type converters
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
     s"""        self.$pname = Param(self, \"$pname\", \"$explanation\", $other)"""
-
   protected def setTemplate(capName: String, pname: String, explanation: String): String = {
     s"""|    def set$capName(self, value):
         |        "\""
@@ -189,14 +188,12 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |    def _from_java(java_stage):
         |        module_name=${entryPointName}.__module__
         |        module_name=module_name.rsplit(".", 1)[0] + ".${
-      if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName
-    }"
+      if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName}"
         |        return from_java(java_stage, module_name)
         |""".stripMargin
   }
 
-  protected val header: String = WrapperClassDoc.GenerateWrapperClassDoc(entryPointName)
-
+  protected val header = WrapperClassDoc.GenerateWrapperClassDoc(entryPointName)
   protected def classDocTemplate(entryPointName: String) = s"""$header"""
 
   protected def paramDocTemplate(explanation: String, docType: String, indent: String): String = {
@@ -206,10 +203,10 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   val psType: String
   private lazy val objectBaseClass: String = "Java" + psType
-  private lazy val autoInheritedClasses    =
+  private lazy val autoInheritedClasses =
     Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", objectBaseClass)
   // Complex types are not easily recognized by Py4j. They need special processing.
-  private lazy val complexTypes            = Set[String](
+  private lazy val complexTypes =  Set[String](
     "TransformerParam",
     "TransformerArrayParam",
     "EstimatorParam",
@@ -258,7 +255,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     }
 
   protected def getParamDefault(param: Param[_]): (String, String) = {
-    var paramDefault:  String = null
+    var paramDefault:   String = null
     var pyParamDefault: String = "None"
     var autogenSuffix:  String = null
     var defaultStringIsParsable: Boolean = true
@@ -269,12 +266,12 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       case p if entryPoint.hasDefault(param) =>
         val paramParent: String = param.parent
         paramDefault = param match {
-          case p: MapParam[_, _] => p.jsonEncode(entryPoint.getDefault(p).get)
+          case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
           case p => entryPoint.getDefault(param).get.toString
         }
         if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
           autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
-                                                   + paramParent.length)
+            + paramParent.length)
         else {
           try {
             entryPoint.getParam(param.name).w(paramDefault)
