@@ -143,7 +143,6 @@ class RankingEvaluator(override val uid: String)
       .select(getPredictionCol, getLabelCol)
       .rdd.map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
       .cache()
-
     new AdvancedRankingMetrics[Any](predictionAndLabels, getK, getNItems)
     //TODO come back to this Any type
   }

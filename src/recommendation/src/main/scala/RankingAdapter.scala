@@ -16,13 +16,15 @@ import scala.collection.mutable
 import scala.util.Random
 
 trait RankingParams extends Params {
-  val minRatingsPerUser: IntParam = new IntParam(this, "minRatingsPerUser",
-                                                 "min ratings for users > 0", ParamValidators.inRange(0, Integer
-      .MAX_VALUE))
+  val minRatingsPerUser: IntParam = new IntParam(this,
+                                                 "minRatingsPerUser",
+                                                 "min ratings for users > 0",
+                                                 ParamValidators.inRange(0, Integer.MAX_VALUE))
 
-  val minRatingsPerItem: IntParam = new IntParam(this, "minRatingsPerItem",
-                                                 "min ratings for items > 0", ParamValidators.inRange(0, Integer
-      .MAX_VALUE))
+  val minRatingsPerItem: IntParam = new IntParam(this,
+                                                 "minRatingsPerItem",
+                                                 "min ratings for items > 0",
+                                                 ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   /** @group setParam */
   def setMinRatingsPerUser(value: Int): this.type = set(minRatingsPerUser, value)
@@ -78,8 +80,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
       .join(filterByItemCount(dataset, itemCol, userCol), userCol)
 
   def prepareTestData(userColumn: String, itemColumn: String,
-                      validationDataset: DataFrame, recs: DataFrame,
-                      k: Int): Dataset[_] = {
+    validationDataset: DataFrame, recs: DataFrame,
+    k: Int): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs
