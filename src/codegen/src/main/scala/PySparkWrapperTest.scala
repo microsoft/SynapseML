@@ -171,7 +171,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     val param: String =
       entryPointName match {
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
-          | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
+           | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
         case "DataConversion"      => "cols=[\"col1\"], convertTo=\"double\""
         case "DropColumns"         => "cols=[\"col1\"]"
         case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
@@ -193,13 +193,13 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
                                      defaultStringIsParsable: Boolean): String =
     paramType match {
-      case "BooleanParam"                                          =>
+      case "BooleanParam" =>
         StringUtils.capitalize(paramDefault)
       case "DoubleParam" | "FloatParam" | "IntParam" | "LongParam" =>
         paramDefault
-      case x if x == "Param" || defaultStringIsParsable            =>
+      case x if x == "Param" || defaultStringIsParsable =>
         "\"" + paramDefault + "\""
-      case _                                                       =>
+      case _ =>
         "None"
     }
 
@@ -210,7 +210,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
       val paramDefault = entryPoint.getDefault(param).get.toString
       if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
         ("None",
-          paramDefault.substring(paramDefault.lastIndexOf(paramParent) + paramParent.length))
+         paramDefault.substring(paramDefault.lastIndexOf(paramParent) + paramParent.length))
       else {
         val defaultStringIsParsable: Boolean =
           try {
@@ -220,7 +220,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
             case e: Exception => false
           }
         (getPythonizedDefault(paramDefault, param.getClass.getSimpleName, defaultStringIsParsable),
-          null)
+         null)
       }
     }
   }
@@ -229,17 +229,17 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     // Iterate over the params to build strings
     val paramGettersAndSettersString =
       entryPoint.params.filter { param => !isSkippedParam(param.name)
-                               }.flatMap { param =>
+      }.flatMap { param =>
         val value = if (isModel(param.name)) "LogisticRegression()"
                     else if (isBaseTransformer(param.name)) "Tokenizer()"
                     else getParamDefault(param)._1
         param match {
           case p: ServiceParam[_] => None
           case p: ComplexParam[_] => None
-          case _                  => Some(setAndGetTemplate(StringUtils.capitalize(param.name), value))
+          case _ => Some(setAndGetTemplate(StringUtils.capitalize(param.name), value))
         }
 
-                                         }.mkString("\n")
+        }.mkString("\n")
     val classParamsString =
       entryPoint.params.map(param => param.name + "=" + getParamDefault(param)._1).mkString(", ")
     classTemplate(classParamsString, paramGettersAndSettersString)
@@ -270,25 +270,25 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
                                     entryPointName: String,
                                     entryPointQualifiedName: String)
   extends PySparkWrapperTest(entryPoint,
-                             entryPointName,
-                             entryPointQualifiedName) {
+    entryPointName,
+    entryPointQualifiedName) {
 
   // The transformer tests for FastVectorAssembler ... UnrollImage are disabled for the moment.
   override def pysparkWrapperTestBuilder(): String = {
     val transformTest =
       entryPointName match {
-        case "ComputeModelStatistics"       => computeStatisticsString(entryPointName)
+        case "ComputeModelStatistics" => computeStatisticsString(entryPointName)
         case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
-        case "IndexToValue"                 => indexToValueString(entryPointName)
-        case "ValueIndexerModel"            => valueIndexerModelString(entryPointName)
+        case "IndexToValue" => indexToValueString(entryPointName)
+        case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-          "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
-          "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
-          "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
-          "Repartition" | "SelectColumns" | "TextPreprocessor" |
-          "SummarizeData"                   =>
+             "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
+             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
+             "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
+             "Repartition" | "SelectColumns" | "TextPreprocessor" |
+             "SummarizeData" =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
-        case _                              => ""
+        case _ => ""
       }
     super.pysparkWrapperTestBuilder + transformTest + unittestString
   }
@@ -300,7 +300,7 @@ class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
                                   entryPointQualifiedName: String,
                                   companionModelName: String,
                                   companionModelQualifiedName: String)
-  extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
+    extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
 
   private val modelName = entryPointName + "Model"
 
