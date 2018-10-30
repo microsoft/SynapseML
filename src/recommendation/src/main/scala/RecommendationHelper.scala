@@ -4,7 +4,7 @@
 package org.apache.spark.ml.recommendation
 
 import com.microsoft.ml.spark.Wrappable
-import org.apache.spark.ml.param.{Param, Params}
+import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions.col
@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 trait RecEvaluatorParams extends Wrappable
-  with HasPredictionCol with HasLabelCol with ComplexParamsWritable
+  with HasPredictionCol with HasLabelCol with kTrait with ComplexParamsWritable
 
 object SparkHelper {
   def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
@@ -55,4 +55,14 @@ trait HasRecommenderCols extends Params {
 
   def getRatingCol: String = $(ratingCol)
 
+}
+
+trait kTrait extends Params{
+  val k: IntParam = new IntParam(this, "k", "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
+
+  /** @group getParam */
+  def getK: Int = $(k)
+
+  /** @group setParam */
+  def setK(value: Int): this.type = set(k, value)
 }

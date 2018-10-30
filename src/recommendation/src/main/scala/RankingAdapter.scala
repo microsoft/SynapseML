@@ -16,25 +16,21 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType
 import scala.collection.mutable
 import scala.util.Random
 
-trait RankingParams extends Params {
-  val minRatingsPerUser: IntParam = new IntParam(this,
-    "minRatingsPerUser",
-    "min ratings for users > 0",
-    ParamValidators.inRange(0, Integer.MAX_VALUE))
-
-  val minRatingsPerItem: IntParam = new IntParam(this,
-    "minRatingsPerItem",
-    "min ratings for items > 0",
-    ParamValidators.inRange(0, Integer.MAX_VALUE))
+trait RankingParams extends kTrait {
+  val minRatingsPerUser: IntParam =
+    new IntParam(this, "minRatingsPerUser", "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   /** @group setParam */
   def setMinRatingsPerUser(value: Int): this.type = set(minRatingsPerUser, value)
 
-  /** @group setParam */
-  def setMinRatingsPerItem(value: Int): this.type = set(minRatingsPerItem, value)
-
   /** @group getParam */
   def getMinRatingsPerUser: Int = $(minRatingsPerUser)
+
+  val minRatingsPerItem: IntParam =
+    new IntParam(this, "minRatingsPerItem", "min ratings for items > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
+
+  /** @group setParam */
+  def setMinRatingsPerItem(value: Int): this.type = set(minRatingsPerItem, value)
 
   /** @group getParam */
   def getMinRatingsPerItem: Int = $(minRatingsPerItem)
@@ -46,15 +42,6 @@ trait RankingParams extends Params {
 
   /** @group setParam */
   def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
-
-  val k: IntParam = new IntParam(this, "k", "number of items to recommend")
-
-  /** @group getParam */
-  def getK: Int = $(k)
-
-  /** @group setParam */
-  def setK(value: Int): this.type = set(k, value)
-
 }
 
 trait RankingFunctions extends RankingParams with HasRecommenderCols {
