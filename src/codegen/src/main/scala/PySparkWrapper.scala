@@ -283,7 +283,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
               defaultStringIsParsable = false
           }
           pyParamDefault = getPythonizedDefault(paramDefault,
-                                                param.getClass.getSimpleName, defaultStringIsParsable)
+            param.getClass.getSimpleName, defaultStringIsParsable)
         }
       case _ =>
     }
@@ -360,7 +360,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       if (pyParamDefault != "None")
         paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
-             paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")""".stripMargin
+        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
 
     }
 
@@ -382,7 +382,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
                     classParamsString,
                     paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
                     classDocString, paramDocString, classParamDocString) + "\n" +
-          saveLoadTemplate(entryPointQualifiedName, entryPointName)
+           saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
   def pysparkWrapperBuilder(): String = {
