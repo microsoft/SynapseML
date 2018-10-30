@@ -11,8 +11,6 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-trait RecommendationParams extends Wrappable with ALSParams
-
 trait RecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with ComplexParamsWritable
 
