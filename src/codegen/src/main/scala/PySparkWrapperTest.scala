@@ -88,20 +88,20 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |""".stripMargin
 
   protected def tryTransformTemplate(entryPointName: String, param: String): String =
-    s"""|        my$entryPointName = $entryPointName($param)
-        |        prediction = my$entryPointName.transform(data)
-        |        self.assertNotEqual(prediction, None)
-        |""".stripMargin
+      s"""|        my$entryPointName = $entryPointName($param)
+          |        prediction = my$entryPointName.transform(data)
+          |        self.assertNotEqual(prediction, None)
+          |""".stripMargin
 
   protected def tryFitTemplate(entryPointName: String, model: String): String =
-    s"""|        my$entryPointName = $entryPointName(model=$model, labelCol="col1", numFeatures=5)
-        |        model = my$entryPointName.fit(data)
-        |        self.assertNotEqual(model, None)""".stripMargin
+      s"""|        my$entryPointName = $entryPointName(model=$model, labelCol="col1", numFeatures=5)
+          |        model = my$entryPointName.fit(data)
+          |        self.assertNotEqual(model, None)""".stripMargin
 
   protected def tryMultiColumnFitTemplate(entryPointName: String, model: String): String =
-    s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
-        |        model = my$entryPointName.fit(data)
-        |        self.assertNotEqual(model, None)""".stripMargin
+      s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
+          |        model = my$entryPointName.fit(data)
+          |        self.assertNotEqual(model, None)""".stripMargin
 
   private def evaluateSetupTemplate(entryPointName: String) =
     s"""|    def test_$entryPointName(self):
