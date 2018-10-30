@@ -264,13 +264,13 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     var defaultStringIsParsable: Boolean = true
 
     param match {
-      case p: ComplexParam[_]                =>
-      case p: ServiceParam[_]                =>
+      case p: ComplexParam[_] =>
+      case p: ServiceParam[_] =>
       case p if entryPoint.hasDefault(param) =>
         val paramParent: String = param.parent
         paramDefault = param match {
           case p: MapParam[_, _] => p.jsonEncode(entryPoint.getDefault(p).get)
-          case p                 => entryPoint.getDefault(param).get.toString
+          case p => entryPoint.getDefault(param).get.toString
         }
         if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
           autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
@@ -285,7 +285,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
           pyParamDefault = getPythonizedDefault(paramDefault,
                                                 param.getClass.getSimpleName, defaultStringIsParsable)
         }
-      case _                                 =>
+      case _ =>
     }
 
     (pyParamDefault, autogenSuffix)
@@ -317,17 +317,17 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       if (param.isInstanceOf[ServiceParam[_]]){
         paramGettersAndSetters +=
           setServiceTemplate(StringUtils.capitalize(pname), pname,
-                             paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
-      } else {
+            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+      }else{
         paramGettersAndSetters +=
           setTemplate(StringUtils.capitalize(pname), pname,
-                      paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
       }
 
       if (isComplexType(param.getClass.getSimpleName)) {
         paramDefinitionsAndDefaults +=
           defineComplexParamsTemplate(pname, getParamExplanation(param),
-                                      s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
+            s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
@@ -360,9 +360,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       if (pyParamDefault != "None")
         paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
-             paramDefinitionsAndDefaults +=
-               s"""${scopeDepth * 2}self._setDefault($pname=self.uid +
-                  |\"$autogenSuffix\")""".stripMargin
+             paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")""".stripMargin
 
     }
 
@@ -384,7 +382,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
                     classParamsString,
                     paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
                     classDocString, paramDocString, classParamDocString) + "\n" +
-        saveLoadTemplate(entryPointQualifiedName, entryPointName)
+          saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
   def pysparkWrapperBuilder(): String = {
