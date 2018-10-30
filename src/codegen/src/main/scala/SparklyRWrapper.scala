@@ -15,7 +15,6 @@ import com.microsoft.ml.spark.FileUtilities._
 import com.microsoft.ml.spark.FileUtilities.StandardOpenOption
 import Config._
 
-
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.
   */
