@@ -16,6 +16,7 @@ import com.microsoft.ml.spark.FileUtilities.{File, writeFile}
 
 import scala.language.existentials
 import com.microsoft.ml.spark.InternalWrapper
+import org.apache.spark.ml.evaluation.Evaluator
 
 import scala.reflect.runtime.universe._
 
@@ -24,6 +25,14 @@ abstract class WrapperGenerator {
   def wrapperName(myClass: Class[_]): String
 
   def modelWrapperName(myClass: Class[_], modelName: String): String
+
+  def generateEvaluatorWrapper(entryPoint: Evaluator,
+                               entryPointName: String,
+                               entryPointQualifiedName: String): WritableWrapper
+
+  def generateEvaluatorTestWrapper(entryPoint: Evaluator,
+                                   entryPointName: String,
+                                   entryPointQualifiedName: String): Option[WritableWrapper]
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
                                entryPointName: String,
@@ -79,6 +88,10 @@ abstract class WrapperGenerator {
             val className = wrapperName(myClass)
             (generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
              generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
+          case ev: Evaluator   =>
+            val className = wrapperName(myClass)
+            (generateEvaluatorWrapper(ev, className, qualifiedClassName),
+             generateEvaluatorTestWrapper(ev, className, qualifiedClassName))
           case _ => return
         }
       wrapper.writeWrapperToFile(wrapperDir)
@@ -156,6 +169,22 @@ class PySparkWrapperGenerator extends WrapperGenerator {
   def modelWrapperName(myClass: Class[_], modelName: String): String = {
     val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
     prefix + modelName
+  }
+
+  def generateEvaluatorWrapper(entryPoint: Evaluator,
+                               entryPointName: String,
+                               entryPointQualifiedName: String): WritableWrapper = {
+    new PySparkEvaluatorWrapper(entryPoint,
+                                entryPointName,
+                                entryPointQualifiedName)
+  }
+
+  def generateEvaluatorTestWrapper(entryPoint: Evaluator,
+                                   entryPointName: String,
+                                   entryPointQualifiedName: String): Option[WritableWrapper] = {
+    Some(new PySparkEvaluatorTestWrapper(entryPoint,
+                                         entryPointName,
+                                         entryPointQualifiedName))
   }
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
@@ -294,4 +323,10 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
     None
   }
 
+  override def generateEvaluatorWrapper(entryPoint: Evaluator, entryPointName: String,
+                                        entryPointQualifiedName: String): WritableWrapper =
+    new SparklyREvaluatorWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+
+  override def generateEvaluatorTestWrapper(entryPoint: Evaluator, entryPointName: String,
+                                            entryPointQualifiedName: String): Option[WritableWrapper] = None
 }
