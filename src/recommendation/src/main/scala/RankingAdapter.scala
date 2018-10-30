@@ -10,10 +10,12 @@ import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{collect_list, rank => r}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 
 import scala.collection.mutable
 import scala.util.Random
+
 
 trait RankingParams extends Params {
   val minRatingsPerUser: IntParam = new IntParam(this,
@@ -190,8 +192,6 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
-    import org.apache.spark.sql.functions.{collect_list, rank => r}
-
     val perUserRecommendedItemsDF: DataFrame = recs
       .select(getUserCol, "recommendations." + getItemCol)
       .withColumnRenamed(getItemCol, "prediction")
