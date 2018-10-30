@@ -46,6 +46,18 @@ trait RankingParams extends kTrait {
 
 trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLabelCol {
 
+  val userStructType: StructType = new StructType()
+    .add(getUserCol, IntegerType)
+    .add("recommendations", ArrayType(
+      new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
+    )
+
+  val itemStructType: StructType = new StructType()
+    .add(getItemCol, IntegerType)
+    .add("recommendations", ArrayType(
+      new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
+    )
+
   setDefault(labelCol -> "label")
 
   private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
@@ -240,23 +252,10 @@ class RankingAdapter(override val uid: String)
   setDefault(mode -> "allUsers", k -> 10)
 
   def transformSchema(schema: StructType): StructType = {
-    val model = getRecommender.asInstanceOf[ALS]
     getMode match {
-      case "allUsers" => new StructType()
-        .add("userCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-        )
-      case "allItems" => new StructType()
-        .add("itemCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("userCol", IntegerType).add("rating", FloatType))
-        )
-      case "normal"   => new StructType()
-        .add("userCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-        )
+      case "allUsers" => userStructType
+      case "allItems" => itemStructType
+      case "normal"   => userStructType
     }
   }
 
@@ -342,20 +341,6 @@ class RankingAdapterModel private[ml](val uid: String)
   }
 
   def transformSchema(schema: StructType): StructType = {
-
-    val userStructType = new StructType()
-      .add(getUserCol, IntegerType)
-      .add("recommendations", ArrayType(
-        new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
-      )
-
-    val itemStructType = new StructType()
-      .add(getItemCol, IntegerType)
-      .add("recommendations", ArrayType(
-        new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
-      )
-
-    val model = getRecommenderModel
     getMode match {
       case "allUsers" => userStructType
       case "allItems" => itemStructType
