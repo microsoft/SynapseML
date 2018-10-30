@@ -296,11 +296,11 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     val imports = ListBuffer[String](additionalImports("utils"))
     val inheritedClasses = ListBuffer[String]()
     inheritedClasses ++= autoInheritedClasses
-    val paramsAndDefaults = ListBuffer[String]()
+    val paramsAndDefaults           = ListBuffer[String]()
     val paramDefinitionsAndDefaults = ListBuffer[String]()
-    val paramGettersAndSetters = ListBuffer[String]()
-    val paramDocList = ListBuffer[String]()
-    val classParamDocList = ListBuffer[String]()
+    val paramGettersAndSetters      = ListBuffer[String]()
+    val paramDocList                = ListBuffer[String]()
+    val classParamDocList           = ListBuffer[String]()
 
     // Iterate over the params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
@@ -314,7 +314,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     for (param <- allParams) {
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
-      if (param.isInstanceOf[ServiceParam[_]]) {
+      if (param.isInstanceOf[ServiceParam[_]]){
         paramGettersAndSetters +=
           setServiceTemplate(StringUtils.capitalize(pname), pname,
                              paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
@@ -367,7 +367,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     }
 
     // Build strings
-    val importsString = imports.mkString("\n")
+    val importsString     = imports.mkString("\n")
     val inheritanceString = inheritedClasses.mkString(", ")
     val classParamsString = paramsAndDefaults.mkString(", ")
     val paramDefinitionsAndDefaultsString = paramDefinitionsAndDefaults.mkString("\n")
@@ -381,10 +381,10 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     }
 
     classTemplate(importsString, inheritanceString,
-                  classParamsString,
-                  paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
-                  classDocString, paramDocString, classParamDocString) + "\n" +
-      saveLoadTemplate(entryPointQualifiedName, entryPointName)
+                    classParamsString,
+                    paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
+                    classDocString, paramDocString, classParamDocString) + "\n" +
+        saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
   def pysparkWrapperBuilder(): String = {
@@ -421,9 +421,9 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 class PySparkTransformerWrapper(entryPoint: Transformer,
                                 entryPointName: String,
                                 entryPointQualifiedName: String)
-  extends PySparkWrapper(entryPoint,
-                         entryPointName,
-                         entryPointQualifiedName) {
+    extends PySparkWrapper(entryPoint,
+                           entryPointName,
+                           entryPointQualifiedName) {
   override val psType = "Transformer"
 }
 
