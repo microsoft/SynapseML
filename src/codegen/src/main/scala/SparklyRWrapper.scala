@@ -8,7 +8,8 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.{Param, Params}
+import org.apache.spark.ml.evaluation.Evaluator
 
 import com.microsoft.ml.spark.FileUtilities._
 import com.microsoft.ml.spark.FileUtilities.StandardOpenOption
@@ -17,9 +18,9 @@ import Config._
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.
   */
-abstract class SparklyRWrapper(entryPoint: PipelineStage,
-                               entryPointName: String,
-                               entryPointQualifiedName: String) extends WritableWrapper {
+abstract class SparklyRParamsWrapper(entryPoint: Params,
+                                     entryPointName: String,
+                                     entryPointQualifiedName: String) extends WritableWrapper {
 
   protected def functionTemplate(docString: String,
                                  classParamsString: String,
@@ -151,6 +152,21 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
               copyrightLines + sparklyRWrapperBuilder())
   }
 
+}
+
+abstract class SparklyRWrapper(entryPoint: PipelineStage,
+                               entryPointName: String,
+                               entryPointQualifiedName: String)
+  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+
+class SparklyREvaluatorWrapper(entryPoint: Evaluator,
+                               entryPointName: String,
+                               entryPointQualifiedName: String)
+  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
+  override val modelStr: String = ""
+  override val moduleAcc: String = "mod_parameterized"
+  override val psType: String = "Evaluator"
+  override val additionalParams: String = ""
 }
 
 class SparklyRTransformerWrapper(entryPoint: Transformer,
