@@ -12,7 +12,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 
-trait RankingParams extends kTrait {
+trait RankingParams extends HasRecommenderCols with HasLabelCol with kTrait {
   val minRatingsPerUser: IntParam =
     new IntParam(this, "minRatingsPerUser", "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
@@ -38,31 +38,8 @@ trait RankingParams extends kTrait {
 
   /** @group setParam */
   def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
-}
 
-trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLabelCol {
   setDefault(k -> 10, labelCol -> "label")
-
-  def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
-
-    val rankingCol = if (validationDataset.columns.contains(getRatingCol)) getRatingCol
-    else getItemCol
-
-    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(rankingCol).desc)
-
-    val perUserActualItemsDF = validationDataset
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= k)
-      .groupBy(getUserCol)
-      .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
-      .select(getUserCol, getLabelCol)
-
-    recs
-      .select(getUserCol, "recommendations." + getItemCol)
-      .withColumnRenamed(getItemCol, "prediction")
-      .join(perUserActualItemsDF, getUserCol)
-      .drop(getUserCol)
-  }
 }
 
 trait Mode extends HasRecommenderCols{
@@ -99,7 +76,7 @@ trait Mode extends HasRecommenderCols{
 }
 
 class RankingAdapter(override val uid: String)
-  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingFunctions with Mode {
+  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode {
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
@@ -137,7 +114,7 @@ object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
   * @param uid Id.
   */
 class RankingAdapterModel private[ml](val uid: String)
-  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingFunctions with Mode {
+  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingParams with Mode {
 
   def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
@@ -154,7 +131,24 @@ class RankingAdapterModel private[ml](val uid: String)
       case "allItems" => this.recommendForAllItems(getK)
       case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
-    prepareTestData(dataset.toDF(), recs, getK).toDF()
+
+    val rankingCol = if (dataset.columns.contains(getRatingCol)) getRatingCol
+    else getItemCol
+
+    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(rankingCol).desc)
+
+    val perUserActualItemsDF = dataset
+      .withColumn("rank", r().over(windowSpec).alias("rank"))
+      .where(col("rank") <= getK)
+      .groupBy(getUserCol)
+      .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
+      .select(getUserCol, getLabelCol)
+
+    recs
+      .select(getUserCol, "recommendations." + getItemCol)
+      .withColumnRenamed(getItemCol, "prediction")
+      .join(perUserActualItemsDF, getUserCol)
+      .drop(getUserCol)
   }
 
   override def copy(extra: ParamMap): RankingAdapterModel = {
