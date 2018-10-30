@@ -229,15 +229,15 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
                                      defaultStringIsParsable: Boolean): String =
     paramType match {
-      case "BooleanParam"                                          =>
+      case "BooleanParam" =>
         StringUtils.capitalize(paramDefault)
       case "DoubleParam" | "FloatParam" | "IntParam" | "LongParam" =>
         paramDefault
-      case "MapParam"                                              =>
+      case "MapParam" =>
         paramDefault.stripPrefix("Map(").stripSuffix(")")
-      case x if x == "Param" || defaultStringIsParsable            =>
+      case x if x == "Param" || defaultStringIsParsable =>
         "\"" + paramDefault + "\""
-      case _                                                       =>
+      case _ =>
         "None"
     }
 
@@ -258,9 +258,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     }
 
   protected def getParamDefault(param: Param[_]): (String, String) = {
-    var paramDefault: String = null
+    var paramDefault:  String = null
     var pyParamDefault: String = "None"
-    var autogenSuffix: String = null
+    var autogenSuffix:  String = null
     var defaultStringIsParsable: Boolean = true
 
     param match {
