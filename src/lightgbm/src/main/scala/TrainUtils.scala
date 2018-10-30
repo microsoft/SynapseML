@@ -6,13 +6,13 @@ package com.microsoft.ml.spark
 import java.io._
 import java.net._
 
-import com.microsoft.ml.spark.StreamUtilities.using
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.spark.StreamUtilities.using
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
 
-case class NetworkParams(executorIdToHost: Map[Int, String], defaultListenPort: Int, addr: String, port: Int)
+case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 
 private object TrainUtils extends Serializable {
 
@@ -165,7 +165,7 @@ private object TrainUtils extends Serializable {
     workerServerSocket
   }
 
-  def getNodes(networkParams: NetworkParams, workerHost: String,
+  def getNodes(networkParams: NetworkParams,
                localListenPort: Int, log: Logger): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
@@ -174,6 +174,8 @@ private object TrainUtils extends Serializable {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
+            val workerHost = driverSocket.getLocalAddress.getHostAddress
+            log.info(s"send current worker info to driver: ${workerHost}:${localListenPort} ")
             // Send the current host:port to the driver
             driverOutput.write(s"$workerHost:$localListenPort\n")
             driverOutput.flush()
@@ -198,7 +200,7 @@ private object TrainUtils extends Serializable {
         LightGBMUtils.initializeNativeLibrary()
         val executorId = LightGBMUtils.getId()
         log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-        (getNodes(networkParams, networkParams.executorIdToHost(executorId), localListenPort, log), localListenPort)
+        (getNodes(networkParams, localListenPort, log), localListenPort)
     }.get
 
     // Initialize the network communication

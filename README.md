@@ -61,7 +61,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
     <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
   </tr>
   <tr align="center">
-    <td>Leverage the Microsoft Cognitive Services at Unprecenented Scales in your existing SparkML pipelines</td>
+    <td>Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines</td>
     <td>Distributed, Model Agnostic, Interpretations for Image Classifiers</td>
     <td>Serve any Spark Computation as a Web Service with Sub-Millisecond Latency</td>
   </tr>
@@ -78,30 +78,29 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
   <tr align="center">
     <td>Train GPU enabled Gradient Boosted Machines with LightGBM</td>
     <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
-    <td>An Integration Betweeen Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
+    <td>An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
   </tr>
 </table>
 
 ## Examples
 
-* Create a deep image classifier with transfer learning ([example 1])
+* Create a deep image classifier with transfer learning ([example 9])
 * Fit a LightGBM classification or regression model on a biochemical dataset
-  ([example 2]), to learn more check out the [LightGBM documentation
+  ([example 3]), to learn more check out the [LightGBM documentation
   page](docs/lightgbm.md).
 * Deploy a deep network as a distributed web service with [MMLSpark
   Serving](docs/mmlspark-serving.md)
 * Use web services in Spark with [HTTP on Apache Spark](docs/http.md)
-* Train a deep image classifier on Azure N-Series GPU VMs ([example 3])
 * Use Bi-directional LSTMs from Keras for medical entity extraction
-  ([example 4])
-* Create a text analytics system on Amazon book reviews ([example 5])
+  ([example 8])
+* Create a text analytics system on Amazon book reviews ([example 4])
 * Perform distributed hyperparameter tuning to identify Breast Cancer
-  ([example])
+  ([example 5])
 * Easily ingest images from HDFS into Spark `DataFrame` ([example 6])
 * Use OpenCV on Spark to manipulate images ([example 7])
 * Train classification and regression models easily via implicit featurization
-  of data ([example 8])
-* Train and evaluate a flight delay prediction system ([example 9])
+  of data ([example 1])
+* Train and evaluate a flight delay prediction system ([example 2])
 
 See our [notebooks](notebooks/samples/) for all examples.
 
@@ -126,11 +125,11 @@ See our [notebooks](notebooks/samples/) for all examples.
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb
   "CIFAR10 CNTK CNN Training"
 
+
 ## A short example
 
 Below is an excerpt from a simple example of using a pre-trained CNN to
-classify images in the CIFAR-10 dataset.  View the whole source code as [an
-example notebook][example:301].
+classify images in the CIFAR-10 dataset.  View the whole source code in notebook [example 9].
 
    ```python
    ...
