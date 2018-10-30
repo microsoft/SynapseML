@@ -163,37 +163,29 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     else if (entryPointName.contains("MultiColumnAdapter"))
       tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
-
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
-
-  protected def evaluateString(entryPointName: String): String = evaluateTemplate(entryPointName)
-
-  protected def indexToValueString(entryPointName: String): String = indexToValueTemplate(entryPointName)
-
+  protected def evaluateString(entryPointName: String): String          = evaluateTemplate(entryPointName)
+  protected def indexToValueString(entryPointName: String): String      = indexToValueTemplate(entryPointName)
   protected def valueIndexerModelString(entryPointName: String): String = valueIndexerModelTemplate(entryPointName)
-
   protected def tryTransformString(entryPointName: String): String = {
     val param: String =
       entryPointName match {
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
           | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
-        case "DataConversion"                                   => "cols=[\"col1\"], convertTo=\"double\""
-        case "DropColumns"                                      => "cols=[\"col1\"]"
-        case "EnsembleByKey"                                    => "keys=[\"col1\"], cols=[\"col3\"]"
-        case "FastVectorAssembler"                              => "inputCols=\"col1\""
-        case "IndexToValue"                                     => "inputCol=\"catOutput\""
-        case "MultiNGram"                                       => "inputColumns=np.array([ \"col5\", \"col6\" ])"
-        case "RenameColumn"                                     => "inputCol=\"col5\", outputCol=\"catOutput1\""
-        case "Repartition"                                      => "n=2"
-        case "SelectColumns"                                    => "cols=[\"col1\"]"
-        case "TextPreprocessor"                                 => "inputCol=\"col5\", outputCol=\"catOutput1\", " +
-          "normFunc=\"identity\""
-        case "ValueIndexerModel"                                => "inputCol=\"col5\", outputCol=\"catOutput\", " +
-          "dataType=\"string\", levels=[\"dog\", \"cat\"," +
-          " \"bird\"]"
-        case "WriteBlob"                                        => "blobPath=\"file:///tmp/" + java.util.UUID
-          .randomUUID + ".tsv\""
-        case _                                                  => ""
+        case "DataConversion"      => "cols=[\"col1\"], convertTo=\"double\""
+        case "DropColumns"         => "cols=[\"col1\"]"
+        case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
+        case "FastVectorAssembler" => "inputCols=\"col1\""
+        case "IndexToValue"        => "inputCol=\"catOutput\""
+        case "MultiNGram"          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
+        case "RenameColumn"        => "inputCol=\"col5\", outputCol=\"catOutput1\""
+        case "Repartition"         => "n=2"
+        case "SelectColumns"       => "cols=[\"col1\"]"
+        case "TextPreprocessor"    => "inputCol=\"col5\", outputCol=\"catOutput1\", normFunc=\"identity\""
+        case "ValueIndexerModel"   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
+          "dataType=\"string\", levels=[\"dog\", \"cat\", \"bird\"]"
+        case "WriteBlob"           => "blobPath=\"file:///tmp/" + java.util.UUID.randomUUID + ".tsv\""
+        case _ => ""
       }
     tryTransformTemplate(entryPointName, param)
   }
