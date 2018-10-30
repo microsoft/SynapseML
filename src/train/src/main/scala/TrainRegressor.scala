@@ -17,32 +17,21 @@ import org.apache.spark.sql.types._
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** Trains a regression model. */
-class TrainRegressor(override val uid: String) extends Estimator[TrainedRegressorModel]
-  with HasLabelCol with Wrappable with ComplexParamsWritable {
+@InternalWrapper
+class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] {
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
-  /** Regressor to run
+  /** Doc for model to run.
+    */
+  override def modelDoc: String = "Regressor to run"
+
+  /** Optional parameter, specifies the name of the features column passed to the learner.
+    * Must have a unique name different from the input columns.
+    * By default, set to <uid>_features.
     * @group param
     */
-  val model = new EstimatorParam(this, "model", "Regressor to run")
-
-  /** @group getParam */
-  def getModel: Estimator[_ <: Model[_]] = $(model)
-  /** @group setParam */
-  def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
-
-  val featuresColumn = this.uid + "_features"
-
-  /** Number of feature to hash to
-    * @group param
-    */
-  val numFeatures = new IntParam(this, "numFeatures", "Number of features to hash to")
-  setDefault(numFeatures -> 0)
-  /** @group getParam */
-  def getNumFeatures: Int = $(numFeatures)
-  /** @group setParam */
-  def setNumFeatures(value: Int): this.type = set(numFeatures, value)
+  setDefault(featuresCol, this.uid + "_features")
 
   /** Fits the regression model.
     *
@@ -64,8 +53,8 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
     val regressor = getModel match {
       case predictor: Predictor[_, _, _] => {
         predictor
-          .setLabelCol(labelColumn)
-          .setFeaturesCol(featuresColumn).asInstanceOf[Estimator[_ <: PipelineStage]]
+          .setLabelCol(getLabelCol)
+          .setFeaturesCol(getFeaturesCol).asInstanceOf[Estimator[_ <: PipelineStage]]
       }
       case default@defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
         // assume label col and features col already set
@@ -106,7 +95,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
     val featureColumns = convertedLabelDataset.columns.filter(col => col != labelColumn).toSeq
 
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(featuresColumn -> featureColumns))
+      .setFeatureColumns(Map(getFeaturesCol -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
       .setNumberOfFeatures(featuresToHashTo)
 
@@ -122,7 +111,7 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
 
     // Note: The fit shouldn't do anything here
     val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
-    new TrainedRegressorModel(uid, labelColumn, pipelineModel, featuresColumn)
+    new TrainedRegressorModel(uid, labelColumn, pipelineModel, getFeaturesCol)
   }
 
   override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = {
@@ -132,7 +121,6 @@ class TrainRegressor(override val uid: String) extends Estimator[TrainedRegresso
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = TrainRegressor.validateTransformSchema(schema)
-
 }
 
 object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
@@ -147,18 +135,18 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   * @param model The trained model
   * @param featuresColumn The features column
   */
+@InternalWrapper
 class TrainedRegressorModel(val uid: String,
                             val labelColumn: String,
-                            val model: PipelineModel,
+                            override val model: PipelineModel,
                             val featuresColumn: String)
-    extends Model[TrainedRegressorModel] with ConstructorWritable[TrainedRegressorModel] {
+    extends AutoTrainedModel[TrainedRegressorModel](model) {
 
   val ttag: TypeTag[TrainedRegressorModel] = typeTag[TrainedRegressorModel]
   val objectsToSave: List[Any] = List(uid, labelColumn, model, featuresColumn)
 
   override def copy(extra: ParamMap): TrainedRegressorModel =
-    new TrainedRegressorModel(
-      uid, labelColumn, model.copy(extra), featuresColumn)
+    new TrainedRegressorModel(uid, labelColumn, model.copy(extra), featuresColumn)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // re-featurize and score the data
@@ -187,9 +175,6 @@ class TrainedRegressorModel(val uid: String,
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType =
     TrainRegressor.validateTransformSchema(schema)
-
-  def getParamMap: ParamMap = model.stages.last.extractParamMap()
-
 }
 
 object TrainedRegressorModel extends ConstructorReadable[TrainedRegressorModel]
