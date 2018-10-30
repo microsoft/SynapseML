@@ -25,7 +25,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       s"from ${pyDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
     ("utils", s"from ${pyDir.getName}.Utils import *")
   )
-
+  val importClassString = ""
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
@@ -34,8 +34,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
                               paramDefinitionsAndDefaultsString: String,
                               paramGettersAndSettersString: String,
                               classDocString: String, paramDocString: String,
-                              classParamDocString: String,
-                              importTypeString: String): String = {
+                              classParamDocString: String): String = {
     s"""|$copyrightLines
         |
         |import sys
@@ -45,7 +44,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
-        |$importTypeString
+        |$importClassString
         |from pyspark.ml.common import inherit_doc
         |$importsString
         |
@@ -86,13 +85,6 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |$paramGettersAndSettersString
         |""".stripMargin
   }
-
-  protected def classTemplate(importsString: String, inheritanceString: String,
-                             classParamsString: String,
-                             paramDefinitionsAndDefaultsString: String,
-                             paramGettersAndSettersString: String,
-                             classDocString: String, paramDocString: String,
-                             classParamDocString: String): String
 
   // Complex parameters need type converters
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
@@ -394,16 +386,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   extends PySparkParamsWrapper(entryPoint,
                                entryPointName,
                                entryPointQualifiedName) {
-  override protected def classTemplate(importsString: String, inheritanceString: String,
-                                       classParamsString: String,
-                                       paramDefinitionsAndDefaultsString: String,
-                                       paramGettersAndSettersString: String,
-                                       classDocString: String, paramDocString: String,
-                                       classParamDocString: String): String = {
-    val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
-    super.classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
-                  paramDocString, classParamDocString, importString)
-  }
+  override val importClassString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
 }
 
 class PySparkTransformerWrapper(entryPoint: Transformer,
@@ -460,16 +443,5 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                                entryPointName,
                                entryPointQualifiedName) {
   override val psType = "Evaluator"
-
-  override protected def classTemplate(importsString: String, inheritanceString: String,
-                                       classParamsString: String,
-                                       paramDefinitionsAndDefaultsString: String,
-                                       paramGettersAndSettersString: String,
-                                       classDocString: String, paramDocString: String,
-                                       classParamDocString: String): String = {
-    val importString = "from pyspark.ml.evaluation import JavaEvaluator"
-    super.classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
-                  paramDocString, classParamDocString, importString)
-  }
-
+  override val importClassString = "from pyspark.ml.evaluation import JavaEvaluator"
 }
