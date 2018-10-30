@@ -11,17 +11,15 @@ import org.apache.spark.mllib.evaluation.RankingMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
-import scala.reflect.ClassTag
-
-class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
+class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[AnyVal], Array[AnyVal])],
   k: Int, nItems: Long)
   extends Serializable {
 
-  lazy val uniqueItemsRecommended: Array[T] = predictionAndLabels
+  lazy val uniqueItemsRecommended: Array[AnyVal] = predictionAndLabels
     .map(row => row._1)
     .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
-  lazy val metrics                         = new RankingMetrics[T](predictionAndLabels)
+  lazy val metrics                         = new RankingMetrics[AnyVal](predictionAndLabels)
   lazy val map: Double                     = metrics.meanAveragePrecision
   lazy val ndcg: Double                    = metrics.ndcgAt(k)
   lazy val precisionAtk: Double            = metrics.precisionAt(k)
@@ -129,13 +127,13 @@ class RankingEvaluator(override val uid: String)
   /** @group setParam */
   def setPredictionCol(value: String): this.type = set(predictionCol, value)
 
-  def getMetrics(dataset: Dataset[_]): AdvancedRankingMetrics[Any] = {
+  def getMetrics(dataset: Dataset[_]): AdvancedRankingMetrics = {
     val predictionAndLabels = dataset
       .select(getPredictionCol, getLabelCol)
-      .rdd.map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
+      .rdd.map { case Row(prediction: Seq[AnyVal], label: Seq[AnyVal]) => (prediction.toArray, label.toArray) }
       .cache()
-    new AdvancedRankingMetrics[Any](predictionAndLabels, getK, getNItems)
-    //TODO come back to this Any type
+
+    new AdvancedRankingMetrics(predictionAndLabels, getK, getNItems)
   }
 
   def getMetricsMap(dataset: Dataset[_]): Map[String, Double] = {
