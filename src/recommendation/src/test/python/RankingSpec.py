@@ -61,7 +61,7 @@ class RankingSpec(unittest.TestCase):
     @staticmethod
     def get_pyspark():
         return pyspark.sql.SparkSession.builder.master("local[*]").config('spark.driver.extraClassPath',
-                                                                          "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar").getOrCreate()
+                                                                          "../../../../../BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar").getOrCreate()
 
     def test_adapter_evaluator(self):
         self.get_pyspark()
