@@ -64,7 +64,7 @@ abstract class WrapperGenerator {
 
       val (wrapper: WritableWrapper, wrapperTests: Option[WritableWrapper]) =
         classInstance match {
-          case t: Transformer  =>
+          case t: Transformer =>
             val className = wrapperName(myClass)
             (generateTransformerWrapper(t, className, qualifiedClassName),
              generateTransformerTestWrapper(t, className, qualifiedClassName))
@@ -131,7 +131,7 @@ abstract class WrapperGenerator {
         .toList
         .sorted
         .foreach(q => writeWrappersToFile(cl.loadClass(q), q))
-      }.get
+    }.get
 
   }
 
@@ -238,7 +238,7 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
   val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
                 .format(new java.util.Date())
   val ver0 = "\\.dev|\\+".r.replaceAllIn(mmlVer, "-")
-  val ver = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
+  val ver  = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
       "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
   writeFile(new File(rDir, "DESCRIPTION"),
@@ -283,8 +283,8 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
       val ignoreCaps = base._1
       val partialStr = base._2
       if (!c.isUpper)      (false, partialStr + c)
-      else if (ignoreCaps) (true, partialStr + c.toLower)
-      else                 (true, partialStr + "_" + c.toLower)
+      else if (ignoreCaps) (true,  partialStr + c.toLower)
+      else                 (true,  partialStr + "_" + c.toLower)
     })._2
 
   def wrapperName(myClass: Class[_]): String = formatWrapperName(myClass.getSimpleName)
