@@ -16,17 +16,16 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType
 import scala.collection.mutable
 import scala.util.Random
 
-
 trait RankingParams extends Params {
   val minRatingsPerUser: IntParam = new IntParam(this,
-                                                 "minRatingsPerUser",
-                                                 "min ratings for users > 0",
-                                                 ParamValidators.inRange(0, Integer.MAX_VALUE))
+    "minRatingsPerUser",
+    "min ratings for users > 0",
+    ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   val minRatingsPerItem: IntParam = new IntParam(this,
-                                                 "minRatingsPerItem",
-                                                 "min ratings for items > 0",
-                                                 ParamValidators.inRange(0, Integer.MAX_VALUE))
+    "minRatingsPerItem",
+    "min ratings for items > 0",
+    ParamValidators.inRange(0, Integer.MAX_VALUE))
 
   /** @group setParam */
   def setMinRatingsPerUser(value: Int): this.type = set(minRatingsPerUser, value)
