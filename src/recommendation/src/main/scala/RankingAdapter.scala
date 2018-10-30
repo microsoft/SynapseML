@@ -161,9 +161,9 @@ class RankingAdapterModel private[ml](val uid: String)
     defaultCopy(extra)
   }
 
-  def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(getK)
+  def recommendForAllUsers(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(k)
 
-  def recommendForAllItems(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(getK)
+  def recommendForAllItems(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(k)
 }
 
 object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
