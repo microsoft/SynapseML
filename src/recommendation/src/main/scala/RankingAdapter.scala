@@ -60,27 +60,25 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
 
   setDefault(labelCol -> "label")
 
-  def prepareTestData(userColumn: String, itemColumn: String,
-    validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
+  def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
 
     val rankingCol = if (validationDataset.columns.contains(getRatingCol)) getRatingCol
     else getItemCol
 
-    val windowSpec = Window.partitionBy(userColumn).orderBy(col(rankingCol).desc)
+    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(rankingCol).desc)
 
     val perUserActualItemsDF = validationDataset
       .withColumn("rank", r().over(windowSpec).alias("rank"))
       .where(col("rank") <= k)
-      .groupBy(userColumn)
-      .agg(col(userColumn), collect_list(col(itemColumn)))
-      .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
-      .select(userColumn, getLabelCol)
+      .groupBy(getUserCol)
+      .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
+      .select(getUserCol, getLabelCol)
 
     recs
-      .select(userColumn, "recommendations." + itemColumn)
-      .withColumnRenamed(itemColumn, "prediction")
-      .join(perUserActualItemsDF, userColumn)
-      .drop(userColumn)
+      .select(getUserCol, "recommendations." + getItemCol)
+      .withColumnRenamed(getItemCol, "prediction")
+      .join(perUserActualItemsDF, getUserCol)
+      .drop(getUserCol)
   }
 
   def split(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
@@ -275,15 +273,15 @@ class RankingAdapterModel private[ml](val uid: String)
     getMode match {
       case "allUsers" => {
         val recs = this.recommendForAllUsers(getNItems)
-        prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, getK).toDF()
+        prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
       case "allItems" => {
         val recs = this.recommendForAllItems(getNUsers)
-        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, getK).toDF()
+        prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
       case "normal"   => {
         val recs = SparkHelper.flatten(model.transform(dataset), getK, getItemCol, getUserCol)
-        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, getK).toDF()
+        prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
     }
   }
