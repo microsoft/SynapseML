@@ -18,11 +18,11 @@ import scala.util.Random
 trait RankingParams extends Params {
   val minRatingsPerUser: IntParam = new IntParam(this, "minRatingsPerUser",
                                                  "min ratings for users > 0", ParamValidators.inRange(0, Integer
-                                                                                                         .MAX_VALUE))
+      .MAX_VALUE))
 
   val minRatingsPerItem: IntParam = new IntParam(this, "minRatingsPerItem",
                                                  "min ratings for items > 0", ParamValidators.inRange(0, Integer
-                                                                                                         .MAX_VALUE))
+      .MAX_VALUE))
 
   /** @group setParam */
   def setMinRatingsPerUser(value: Int): this.type = set(minRatingsPerUser, value)
@@ -58,24 +58,24 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
 
   private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset
-    .groupBy(userCol)
-    .agg(col(userCol), count(col(itemCol)).alias("nitems"))
-    .where(col("nitems") >= $(minRatingsPerUser))
-    .drop("nitems")
-    .cache()
+      .groupBy(userCol)
+      .agg(col(userCol), count(col(itemCol)).alias("nitems"))
+      .where(col("nitems") >= $(minRatingsPerUser))
+      .drop("nitems")
+      .cache()
 
   private def filterByUserRatingCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset
-    .groupBy(itemCol)
-    .agg(col(itemCol), count(col(userCol)).alias("nusers"))
-    .where(col("nusers") >= $(minRatingsPerItem))
-    .join(dataset, itemCol)
-    .drop("nusers")
-    .cache()
+      .groupBy(itemCol)
+      .agg(col(itemCol), count(col(userCol)).alias("nusers"))
+      .where(col("nusers") >= $(minRatingsPerItem))
+      .join(dataset, itemCol)
+      .drop("nusers")
+      .cache()
 
   def filterRatings(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     filterByUserRatingCount(dataset, itemCol, userCol)
-    .join(filterByItemCount(dataset, itemCol, userCol), userCol)
+      .join(filterByItemCount(dataset, itemCol, userCol), userCol)
 
   def prepareTestData(userColumn: String, itemColumn: String,
                       validationDataset: DataFrame, recs: DataFrame,
@@ -83,35 +83,35 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs
-                                               .select(userColumn, "recommendations." + itemColumn)
-                                               .withColumnRenamed(itemColumn, "prediction")
+      .select(userColumn, "recommendations." + itemColumn)
+      .withColumnRenamed(itemColumn, "prediction")
 
     val perUserActualItemsDF = if (validationDataset.columns.contains($(ratingCol))) {
       val windowSpec = Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
 
       validationDataset
-      .select(userColumn, itemColumn, $(ratingCol))
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= k)
-      .groupBy(userColumn)
-      .agg(col(userColumn), collect_list(col(itemColumn)))
-      .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-      .select(userColumn, "label")
+        .select(userColumn, itemColumn, $(ratingCol))
+        .withColumn("rank", r().over(windowSpec).alias("rank"))
+        .where(col("rank") <= k)
+        .groupBy(userColumn)
+        .agg(col(userColumn), collect_list(col(itemColumn)))
+        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
+        .select(userColumn, "label")
     } else {
       val windowSpec = Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
 
       validationDataset
-      .select(userColumn, itemColumn)
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= k)
-      .groupBy(userColumn)
-      .agg(col(userColumn), collect_list(col(itemColumn)))
-      .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-      .select(userColumn, "label")
+        .select(userColumn, itemColumn)
+        .withColumn("rank", r().over(windowSpec).alias("rank"))
+        .where(col("rank") <= k)
+        .groupBy(userColumn)
+        .agg(col(userColumn), collect_list(col(itemColumn)))
+        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
+        .select(userColumn, "label")
     }
     val joined_rec_actual = perUserRecommendedItemsDF
-                            .join(perUserActualItemsDF, userColumn)
-                            .drop(userColumn)
+      .join(perUserActualItemsDF, userColumn)
+      .drop(userColumn)
 
     joined_rec_actual
   }
@@ -124,39 +124,39 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
-                          (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * trainRatio)
-                                                                                 .toInt))
+        (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * trainRatio)
+          .toInt))
       val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) => Random.shuffle(r.toSeq))
       val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
-                   .withColumn("itemIDRating", wrapColumn(col(itemCol), col(ratingCol)))
-                   .groupBy(col(userCol))
-                   .agg(collect_list(col("itemIDRating")))
-                   .withColumn("shuffle", shuffle(col("collect_list(itemIDRating)")))
-                   .withColumn("train", sliceudf(col("shuffle")))
-                   .withColumn("test", dropudf(col("shuffle")))
-                   .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
-                   .cache()
+        .withColumn("itemIDRating", wrapColumn(col(itemCol), col(ratingCol)))
+        .groupBy(col(userCol))
+        .agg(collect_list(col("itemIDRating")))
+        .withColumn("shuffle", shuffle(col("collect_list(itemIDRating)")))
+        .withColumn("train", sliceudf(col("shuffle")))
+        .withColumn("test", dropudf(col("shuffle")))
+        .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
+        .cache()
 
       val popLeft = udf((r: mutable.WrappedArray[Double]) => r(0))
       val popRight = udf((r: mutable.WrappedArray[Double]) => r(1))
 
       val train = testds
-                  .select(userCol, "train")
-                  .withColumn("itemIdRating", explode(col("train")))
-                  .drop("train")
-                  .withColumn(itemCol, popLeft(col("itemIdRating")))
-                  .withColumn(ratingCol, popRight(col("itemIdRating")))
-                  .drop("itemIdRating")
+        .select(userCol, "train")
+        .withColumn("itemIdRating", explode(col("train")))
+        .drop("train")
+        .withColumn(itemCol, popLeft(col("itemIdRating")))
+        .withColumn(ratingCol, popRight(col("itemIdRating")))
+        .drop("itemIdRating")
 
       val test = testds
-                 .select(userCol, "test")
-                 .withColumn("itemIdRating", explode(col("test")))
-                 .drop("test")
-                 .withColumn(itemCol, popLeft(col("itemIdRating")))
-                 .withColumn(ratingCol, popRight(col("itemIdRating")))
-                 .drop("itemIdRating")
+        .select(userCol, "test")
+        .withColumn("itemIdRating", explode(col("test")))
+        .drop("test")
+        .withColumn(itemCol, popLeft(col("itemIdRating")))
+        .withColumn(ratingCol, popRight(col("itemIdRating")))
+        .drop("itemIdRating")
 
       (train, test)
     } else {
@@ -165,23 +165,23 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
       val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * trainRatio).toInt))
 
       val testds = dataset
-                   .groupBy(col(userCol))
-                   .agg(collect_list(col(itemCol)))
-                   .withColumn("shuffle", shuffle(col("collect_list(" + itemCol + ")")))
-                   .withColumn("train", sliceudf(col("shuffle")))
-                   .withColumn("test", dropudf(col("shuffle")))
-                   .drop(col("collect_list(" + itemCol + ")")).drop(col("shuffle"))
-                   .cache()
+        .groupBy(col(userCol))
+        .agg(collect_list(col(itemCol)))
+        .withColumn("shuffle", shuffle(col("collect_list(" + itemCol + ")")))
+        .withColumn("train", sliceudf(col("shuffle")))
+        .withColumn("test", dropudf(col("shuffle")))
+        .drop(col("collect_list(" + itemCol + ")")).drop(col("shuffle"))
+        .cache()
 
       val train = testds
-                  .select(userCol, "train")
-                  .withColumn(itemCol, explode(col("train")))
-                  .drop("train")
+        .select(userCol, "train")
+        .withColumn(itemCol, explode(col("train")))
+        .drop("train")
 
       val test = testds
-                 .select(userCol, "test")
-                 .withColumn(itemCol, explode(col("test")))
-                 .drop("test")
+        .select(userCol, "test")
+        .withColumn(itemCol, explode(col("test")))
+        .drop("test")
 
       (train, test)
     }
@@ -191,35 +191,35 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs
-                                               .select(getUserCol, "recommendations." + getItemCol)
-                                               .withColumnRenamed(getItemCol, "prediction")
+      .select(getUserCol, "recommendations." + getItemCol)
+      .withColumnRenamed(getItemCol, "prediction")
 
     val perUserActualItemsDF = if (validationDataset.columns.contains(getRatingCol)) {
       val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc)
 
       validationDataset
-      .select(getUserCol, getItemCol, getRatingCol)
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= k)
-      .groupBy(getUserCol)
-      .agg(col(getUserCol), collect_list(col(getItemCol)))
-      .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
-      .select(getUserCol, "label")
+        .select(getUserCol, getItemCol, getRatingCol)
+        .withColumn("rank", r().over(windowSpec).alias("rank"))
+        .where(col("rank") <= k)
+        .groupBy(getUserCol)
+        .agg(col(getUserCol), collect_list(col(getItemCol)))
+        .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
+        .select(getUserCol, "label")
     } else {
       val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getItemCol).desc)
 
       validationDataset
-      .select(getUserCol, getItemCol)
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= k)
-      .groupBy(getUserCol)
-      .agg(col(getUserCol), collect_list(col(getItemCol)))
-      .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
-      .select(getUserCol, "label")
+        .select(getUserCol, getItemCol)
+        .withColumn("rank", r().over(windowSpec).alias("rank"))
+        .where(col("rank") <= k)
+        .groupBy(getUserCol)
+        .agg(col(getUserCol), collect_list(col(getItemCol)))
+        .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
+        .select(getUserCol, "label")
     }
     val joined_rec_actual = perUserRecommendedItemsDF
-                            .join(perUserActualItemsDF, getUserCol)
-                            .drop(getUserCol)
+      .join(perUserActualItemsDF, getUserCol)
+      .drop(getUserCol)
 
     joined_rec_actual
   }
@@ -255,18 +255,18 @@ class RankingAdapter(override val uid: String)
       case "allUsers" => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
       case "allItems" => new StructType()
         .add("itemCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("userCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("userCol", IntegerType).add("rating", FloatType))
+        )
       case "normal"   => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
     }
   }
 
@@ -357,18 +357,18 @@ class RankingAdapterModel private[ml](val uid: String)
       case "allUsers" => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
       case "allItems" => new StructType()
         .add("itemCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("userCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("userCol", IntegerType).add("rating", FloatType))
+        )
       case "normal"   => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
-                                           new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-            )
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
     }
   }
 

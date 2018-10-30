@@ -181,24 +181,24 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     val param: String =
       entryPointName match {
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
-             | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
-        case "DataConversion"                                      => "cols=[\"col1\"], convertTo=\"double\""
-        case "DropColumns"                                         => "cols=[\"col1\"]"
-        case "EnsembleByKey"                                       => "keys=[\"col1\"], cols=[\"col3\"]"
-        case "FastVectorAssembler"                                 => "inputCols=\"col1\""
-        case "IndexToValue"                                        => "inputCol=\"catOutput\""
-        case "MultiNGram"                                          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
-        case "RenameColumn"                                        => "inputCol=\"col5\", outputCol=\"catOutput1\""
-        case "Repartition"                                         => "n=2"
-        case "SelectColumns"                                       => "cols=[\"col1\"]"
-        case "TextPreprocessor"                                    => "inputCol=\"col5\", outputCol=\"catOutput1\", " +
-                                                                      "normFunc=\"identity\""
-        case "ValueIndexerModel"                                   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
-                                                                      "dataType=\"string\", levels=[\"dog\", \"cat\"," +
-                                                                      " \"bird\"]"
-        case "WriteBlob"                                           => "blobPath=\"file:///tmp/" + java.util.UUID
-                                                                                                  .randomUUID + ".tsv\""
-        case _                                                     => ""
+          | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
+        case "DataConversion"                                   => "cols=[\"col1\"], convertTo=\"double\""
+        case "DropColumns"                                      => "cols=[\"col1\"]"
+        case "EnsembleByKey"                                    => "keys=[\"col1\"], cols=[\"col3\"]"
+        case "FastVectorAssembler"                              => "inputCols=\"col1\""
+        case "IndexToValue"                                     => "inputCol=\"catOutput\""
+        case "MultiNGram"                                       => "inputColumns=np.array([ \"col5\", \"col6\" ])"
+        case "RenameColumn"                                     => "inputCol=\"col5\", outputCol=\"catOutput1\""
+        case "Repartition"                                      => "n=2"
+        case "SelectColumns"                                    => "cols=[\"col1\"]"
+        case "TextPreprocessor"                                 => "inputCol=\"col5\", outputCol=\"catOutput1\", " +
+          "normFunc=\"identity\""
+        case "ValueIndexerModel"                                => "inputCol=\"col5\", outputCol=\"catOutput\", " +
+          "dataType=\"string\", levels=[\"dog\", \"cat\"," +
+          " \"bird\"]"
+        case "WriteBlob"                                        => "blobPath=\"file:///tmp/" + java.util.UUID
+          .randomUUID + ".tsv\""
+        case _                                                  => ""
       }
     tryTransformTemplate(entryPointName, param)
   }
@@ -295,11 +295,11 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
         case "IndexToValue"                 => indexToValueString(entryPointName)
         case "ValueIndexerModel"            => valueIndexerModelString(entryPointName)
         case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-             "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
-             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
-             "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
-             "Repartition" | "SelectColumns" | "TextPreprocessor" |
-             "SummarizeData"                =>
+          "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
+          "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
+          "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
+          "Repartition" | "SelectColumns" | "TextPreprocessor" |
+          "SummarizeData"                   =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
         case _                              => ""
       }

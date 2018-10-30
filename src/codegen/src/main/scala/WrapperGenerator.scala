@@ -74,9 +74,9 @@ abstract class WrapperGenerator {
               generateTransformerTestWrapper(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
-                     .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor")
-                                .contains(c.getSuperclass.getSimpleName))
-                     .get
+              .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor")
+                .contains(c.getSuperclass.getSimpleName))
+              .get
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
               .getActualTypeArguments
             val getModelFromGenericType = (modelType: Type) => {
@@ -120,19 +120,19 @@ abstract class WrapperGenerator {
       val cl = s(0).asInstanceOf[URLClassLoader]
       val jarFile = s(1).asInstanceOf[JarFile]
       val _ = jarFile.entries.asScala
-              .filter(e => e.getName.endsWith(".class"))
-              .map(e => e.getName.replace("/", ".").stripSuffix(".class"))
-              .filter(q => {
-                val clazz = cl.loadClass(q)
-                try {
-                  clazz.getEnclosingClass == null
-                } catch {
-                  case _: java.lang.NoClassDefFoundError => false
-                }
-              })
-              .toList
-              .sorted
-              .foreach(q => writeWrappersToFile(cl.loadClass(q), q))
+        .filter(e => e.getName.endsWith(".class"))
+        .map(e => e.getName.replace("/", ".").stripSuffix(".class"))
+        .filter(q => {
+          val clazz = cl.loadClass(q)
+          try {
+            clazz.getEnclosingClass == null
+          } catch {
+            case _: java.lang.NoClassDefFoundError => false
+          }
+        })
+        .toList
+        .sorted
+        .foreach(q => writeWrappersToFile(cl.loadClass(q), q))
                          }.get
 
   }

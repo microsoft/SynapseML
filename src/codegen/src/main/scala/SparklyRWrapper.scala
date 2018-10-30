@@ -124,7 +124,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
 
     val funcParamsString = (if (paramsAndDefaults.isEmpty) ""
                             else paramsAndDefaults.mkString(", ", ", ", "")) +
-                           additionalParams
+      additionalParams
     val setParams = setParamsList.mkString(" %>%\n")
     val simpleClassName = entryPoint.getClass.getSimpleName
     val classDocString = classDocTemplate(simpleClassName).replace("\n", s"\n#' ${scopeDepth}")
