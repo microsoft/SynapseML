@@ -34,7 +34,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     paramDefinitionsAndDefaultsString: String,
     paramGettersAndSettersString: String,
     classDocString: String, paramDocString: String,
-    classParamDocString: String): String = {
+    classParamDocString: String,
+    importTypeString: String): String = {
     s"""|$copyrightLines
         |
         |import sys
@@ -44,8 +45,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
-        |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
-        |from pyspark.ml.evaluation import JavaEvaluator
+        |$importTypeString
         |from pyspark.ml.common import inherit_doc
         |$importsString
         |
@@ -86,6 +86,16 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |$paramGettersAndSettersString
         |""".stripMargin
   }
+
+  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
+  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
+  //   if/else can be removed
+  abstract def classTemplate(importsString: String, inheritanceString: String,
+    classParamsString: String,
+    paramDefinitionsAndDefaultsString: String,
+    paramGettersAndSettersString: String,
+    classDocString: String, paramDocString: String,
+    classParamDocString: String): String
 
   // Complex parameters need type converters
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
@@ -389,7 +399,21 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
     entryPointName,
-    entryPointQualifiedName)
+    entryPointQualifiedName) {
+  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
+  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
+  //   if/else can be removed
+  override protected def classTemplate(importsString: String, inheritanceString: String,
+    classParamsString: String,
+    paramDefinitionsAndDefaultsString: String,
+    paramGettersAndSettersString: String,
+    classDocString: String, paramDocString: String,
+    classParamDocString: String): String = {
+    val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
+    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
+      paramDocString, classParamDocString, importString)
+  }
+}
 
 class PySparkEvaluatorWrapper(entryPoint: Evaluator,
   entryPointName: String,
@@ -398,6 +422,21 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
     entryPointName,
     entryPointQualifiedName) {
   override val psType = "Evaluator"
+
+  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
+  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
+  //   if/else can be removed
+  override protected def classTemplate(importsString: String, inheritanceString: String,
+    classParamsString: String,
+    paramDefinitionsAndDefaultsString: String,
+    paramGettersAndSettersString: String,
+    classDocString: String, paramDocString: String,
+    classParamDocString: String): String = {
+    val importString = "from pyspark.ml.evaluation import JavaEvaluator"
+    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
+      paramDocString, classParamDocString, importString)
+  }
+
 }
 
 class PySparkTransformerWrapper(entryPoint: Transformer,
