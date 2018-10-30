@@ -205,10 +205,10 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   val psType: String
   private lazy val objectBaseClass: String = "Java" + psType
-  private lazy val autoInheritedClasses =
+  private lazy val autoInheritedClasses    =
     Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", objectBaseClass)
   // Complex types are not easily recognized by Py4j. They need special processing.
-  private lazy val complexTypes = Set[String](
+  private lazy val complexTypes            = Set[String](
     "TransformerParam",
     "TransformerArrayParam",
     "EstimatorParam",
@@ -359,7 +359,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       if (pyParamDefault != "None")
         paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
-        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
+             paramDefinitionsAndDefaults +=
+               s"""${scopeDepth * 2}self._setDefault($pname=self.uid +
+                  |\"$autogenSuffix\")""".stripMargin
 
     }
 

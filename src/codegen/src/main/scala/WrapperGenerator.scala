@@ -239,10 +239,10 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
   override def wrapperTestDir: File = rTestDir
 
   // description file; need to encode version as decimal
-  val today: String = new java.text.SimpleDateFormat("yyyy-MM-dd")
+  val today    : String = new java.text.SimpleDateFormat("yyyy-MM-dd")
     .format(new java.util.Date())
-  val ver0: String = "\\.dev|\\+".r.replaceAllIn(mmlVer, "-")
-  val ver: String = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
+  val ver0     : String = "\\.dev|\\+".r.replaceAllIn(mmlVer, "-")
+  val ver      : String = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
     "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer: String = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
   writeFile(new File(rDir, "DESCRIPTION"),

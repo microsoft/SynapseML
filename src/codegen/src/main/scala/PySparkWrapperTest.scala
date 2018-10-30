@@ -164,9 +164,9 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     if (entryPointName.contains("Regressor") && !entryPointName.contains("LightGBM"))
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
     else if (entryPointName.contains("Classifier") && !entryPointName.contains("LightGBM"))
-      tryFitTemplate(entryPointName, "LogisticRegression()")
+           tryFitTemplate(entryPointName, "LogisticRegression()")
     else if (entryPointName.contains("MultiColumnAdapter"))
-      tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
+           tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
 
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
@@ -243,8 +243,8 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
       entryPoint.params.filter { param => !isSkippedParam(param.name)
                                }.flatMap { param =>
         val value = if (isModel(param.name)) "LogisticRegression()"
-        else if (isBaseTransformer(param.name)) "Tokenizer()"
-        else getParamDefault(param)._1
+                    else if (isBaseTransformer(param.name)) "Tokenizer()"
+                    else getParamDefault(param)._1
         param match {
           case p: ServiceParam[_] => None
           case p: ComplexParam[_] => None

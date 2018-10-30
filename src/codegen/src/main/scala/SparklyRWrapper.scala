@@ -16,9 +16,9 @@ import org.apache.spark.ml.evaluation.Evaluator
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.
   */
-abstract class SparklyRParmsWrapper(entryPoint: Params,
-                                    entryPointName: String,
-                                    entryPointQualifiedName: String) extends WritableWrapper {
+abstract class SparklyRParamsWrapper(entryPoint: Params,
+                                     entryPointName: String,
+                                     entryPointQualifiedName: String) extends WritableWrapper {
 
   protected def functionTemplate(docString: String,
                                  classParamsString: String,
@@ -53,9 +53,9 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
 
   protected def classDocTemplate(simpleClassName: String) = s"""${header(simpleClassName)}"""
 
-  val modelStr: String
-  val moduleAcc: String
-  val psType: String
+  val modelStr        : String
+  val moduleAcc       : String
+  val psType          : String
   val additionalParams: String
 
   protected def getRDefault(paramDefault: String, paramType: String,
@@ -123,7 +123,7 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
     }
 
     val funcParamsString = (if (paramsAndDefaults.isEmpty) ""
-    else paramsAndDefaults.mkString(", ", ", ", "")) +
+                            else paramsAndDefaults.mkString(", ", ", ", "")) +
       additionalParams
     val setParams = setParamsList.mkString(" %>%\n")
     val simpleClassName = entryPoint.getClass.getSimpleName
@@ -157,15 +157,15 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
 abstract class SparklyRWrapper(entryPoint: PipelineStage,
                                entryPointName: String,
                                entryPointQualifiedName: String)
-  extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
 
 class SparklyREvaluatorWrapper(entryPoint: Evaluator,
                                entryPointName: String,
                                entryPointQualifiedName: String)
-  extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
-  override val modelStr: String = ""
-  override val moduleAcc: String = "mod_parameterized"
-  override val psType: String = "Evaluator"
+  extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
+  override val modelStr        : String = ""
+  override val moduleAcc       : String = "mod_parameterized"
+  override val psType          : String = "Evaluator"
   override val additionalParams: String = ""
 }
 
@@ -174,9 +174,9 @@ class SparklyRTransformerWrapper(entryPoint: Transformer,
                                  entryPointQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
-  override val modelStr = ""
-  override val moduleAcc = "mod_parameterized"
-  override val psType = "Transformer"
+  override val modelStr         = ""
+  override val moduleAcc        = "mod_parameterized"
+  override val psType           = "Transformer"
   override val additionalParams = ""
 
 }
@@ -199,8 +199,8 @@ class SparklyREstimatorWrapper(entryPoint: Estimator[_],
       |  if (only.model)
         |    return(mod_model)
         |""".stripMargin
-  override val moduleAcc = "mod_model$model"
-  override val psType = "Estimator"
+  override val moduleAcc        = "mod_model$model"
+  override val psType           = "Estimator"
   override val additionalParams = ", unfit.model=FALSE, only.model=FALSE"
 
 }

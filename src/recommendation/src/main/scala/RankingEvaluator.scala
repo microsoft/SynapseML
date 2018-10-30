@@ -22,16 +22,17 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
     .map(row => row._1)
     .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
-  lazy val map: Double = metrics.meanAveragePrecision
-  lazy val ndcg: Double = metrics.ndcgAt(k)
-  lazy val precisionAtk: Double = metrics.precisionAt(k)
-  lazy val recallAtK: Double = predictionAndLabels.map(r =>
-                                                         r._1.distinct.intersect(r._2.distinct).length.toDouble / r
-                                                           ._1.length.toDouble).mean()
-  lazy val diversityAtK: Double = {
+  lazy val map                    : Double = metrics.meanAveragePrecision
+  lazy val ndcg                   : Double = metrics.ndcgAt(k)
+  lazy val precisionAtk           : Double = metrics.precisionAt(k)
+  lazy val recallAtK              : Double = predictionAndLabels.map(r =>
+                                                                       r._1.distinct.intersect(r._2.distinct).length
+                                                                         .toDouble / r
+                                                                         ._1.length.toDouble).mean()
+  lazy val diversityAtK           : Double = {
     uniqueItemsRecommended.length.toDouble / nItems
   }
-  lazy val maxDiversity: Double = {
+  lazy val maxDiversity           : Double = {
     val itemCount = predictionAndLabels
       .map(row => row._2)
       .reduce((x, y) => x.toSet.union(y.toSet).toArray)
@@ -39,7 +40,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
       .size
     itemCount.toDouble / nItems
   }
-  lazy val meanReciprocalRank: Double = {
+  lazy val meanReciprocalRank     : Double = {
     predictionAndLabels.map { case (pred, lab) =>
       val labSet = lab.toSet
 
