@@ -20,7 +20,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
-  private def importClass(entryPointName: String): String = {
+  private def importClass(entryPointName:String):String = {
     if (entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
     else s"from mmlspark import $entryPointName"
   }
@@ -98,11 +98,10 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
           |        model = my$entryPointName.fit(data)
           |        self.assertNotEqual(model, None)""".stripMargin
 
-  protected def tryMultiColumnFitTemplate(entryPointName: String, model: String): String =
+  protected def tryMultiColumnFitTemplate(entryPointName: String, model: String) =
       s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
           |        model = my$entryPointName.fit(data)
           |        self.assertNotEqual(model, None)""".stripMargin
-
   private def evaluateSetupTemplate(entryPointName: String) =
     s"""|    def test_$entryPointName(self):
         |        data = {
@@ -152,21 +151,17 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |""".stripMargin
 
   // These params are need custom handling. For now, just skip them so we have tests that pass.
-  private lazy val skippedParams = Set[String]("models", "model", "cntkModel", "stage")
-
+  private lazy val skippedParams =  Set[String]("models", "model", "cntkModel", "stage")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
-
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
-
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
-
   protected def tryFitString(entryPointName: String): String =
     if (entryPointName.contains("Regressor") && !entryPointName.contains("LightGBM"))
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
     else if (entryPointName.contains("Classifier") && !entryPointName.contains("LightGBM"))
-           tryFitTemplate(entryPointName, "LogisticRegression()")
+      tryFitTemplate(entryPointName, "LogisticRegression()")
     else if (entryPointName.contains("MultiColumnAdapter"))
-           tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
+      tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
 
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
