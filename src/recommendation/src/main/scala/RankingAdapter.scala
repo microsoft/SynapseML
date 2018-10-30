@@ -44,7 +44,9 @@ trait RankingParams extends kTrait {
   def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
 }
 
-trait RankingFunctions extends RankingParams with HasRecommenderCols {
+trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLabelCol {
+
+  setDefault(labelCol -> "label")
 
   private def filterByItemCount(dataset: Dataset[_], itemCol: String, userCol: String): DataFrame =
     dataset
@@ -85,8 +87,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
         .where(col("rank") <= k)
         .groupBy(userColumn)
         .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
+        .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
+        .select(userColumn, getLabelCol)
     } else {
       val windowSpec = Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
 
@@ -96,8 +98,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
         .where(col("rank") <= k)
         .groupBy(userColumn)
         .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
-        .select(userColumn, "label")
+        .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
+        .select(userColumn, getLabelCol)
     }
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
@@ -191,8 +193,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
         .where(col("rank") <= k)
         .groupBy(getUserCol)
         .agg(col(getUserCol), collect_list(col(getItemCol)))
-        .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
-        .select(getUserCol, "label")
+        .withColumnRenamed("collect_list(" + getItemCol + ")", getLabelCol)
+        .select(getUserCol, getLabelCol)
     } else {
       val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getItemCol).desc)
 
@@ -202,8 +204,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
         .where(col("rank") <= k)
         .groupBy(getUserCol)
         .agg(col(getUserCol), collect_list(col(getItemCol)))
-        .withColumnRenamed("collect_list(" + getItemCol + ")", "label")
-        .select(getUserCol, "label")
+        .withColumnRenamed("collect_list(" + getItemCol + ")", getLabelCol)
+        .select(getUserCol, getLabelCol)
     }
     val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, getUserCol)
@@ -326,37 +328,38 @@ class RankingAdapterModel private[ml](val uid: String)
     getMode match {
       case "allUsers" => {
         val recs = this.recommendForAllUsers(getNItems)
-        prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, 10).toDF()
+        prepareTestData(getUserCol, getItemCol, dataset.toDF(), recs, getK).toDF()
       }
       case "allItems" => {
-        val recs = model.asInstanceOf[ALSModel].recommendForAllItems(getNUsers)
-        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
+        val recs = this.recommendForAllItems(getNUsers)
+        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, getK).toDF()
       }
       case "normal"   => {
-        val recs = SparkHelper.flatten(model.transform(dataset), 10, getItemCol, getUserCol)
-        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
+        val recs = SparkHelper.flatten(model.transform(dataset), getK, getItemCol, getUserCol)
+        prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, getK).toDF()
       }
     }
   }
 
   def transformSchema(schema: StructType): StructType = {
+
+    val userStructType = new StructType()
+      .add(getUserCol, IntegerType)
+      .add("recommendations", ArrayType(
+        new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
+      )
+
+    val itemStructType = new StructType()
+      .add(getItemCol, IntegerType)
+      .add("recommendations", ArrayType(
+        new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
+      )
+
     val model = getRecommenderModel
     getMode match {
-      case "allUsers" => new StructType()
-        .add("userCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-        )
-      case "allItems" => new StructType()
-        .add("itemCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("userCol", IntegerType).add("rating", FloatType))
-        )
-      case "normal"   => new StructType()
-        .add("userCol", IntegerType)
-        .add("recommendations", ArrayType(
-          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
-        )
+      case "allUsers" => userStructType
+      case "allItems" => itemStructType
+      case "normal"   => userStructType
     }
   }
 
