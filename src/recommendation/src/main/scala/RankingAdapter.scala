@@ -34,6 +34,22 @@ trait RankingParams extends Params {
   /** @group getParam */
   def getMinRatingsPerItem: Int = $(minRatingsPerItem)
 
+  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { x: Estimator[_] => true })
+
+  /** @group getParam */
+  def getRecommender: Estimator[_ <: Model[_]] = $(recommender)
+
+  /** @group setParam */
+  def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
+
+  val k: IntParam = new IntParam(this, "k", "number of items to recommend")
+
+  /** @group getParam */
+  def getK: Int = $(k)
+
+  /** @group setParam */
+  def setK(value: Int): this.type = set(k, value)
+
 }
 
 trait RankingFunctions extends RankingParams with HasRecommenderCols {
@@ -211,14 +227,6 @@ class RankingAdapter(override val uid: String)
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
-  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { x: Estimator[_] => true })
-
-  /** @group getParam */
-  def getRecommender: Estimator[_ <: Model[_]] = $(recommender)
-
-  /** @group setParam */
-  def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
-
   /** @group getParam */
   override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getUserCol
 
@@ -236,14 +244,6 @@ class RankingAdapter(override val uid: String)
   /** @group setParam */
   def setMode(value: String): this.type = set(mode, value)
 
-  val k: IntParam = new IntParam(this, "k", "number of items to recommend")
-
-  /** @group getParam */
-  def getK: Int = $(k)
-
-  /** @group setParam */
-  def setK(value: Int): this.type = set(k, value)
-
   setDefault(mode -> "allUsers", k -> 10)
 
   def transformSchema(schema: StructType): StructType = {
@@ -259,7 +259,11 @@ class RankingAdapter(override val uid: String)
         .add("recommendations", ArrayType(
           new StructType().add("userCol", IntegerType).add("rating", FloatType))
         )
-      case "normal" => model.transformSchema(schema)
+      case "normal" => new StructType()
+        .add("userCol", IntegerType)
+        .add("recommendations", ArrayType(
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
     }
   }
 
@@ -293,7 +297,7 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def recommendForAllItems(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
 
-  def this() = this(Identifiable.randomUID("RecommenderAdapterModel"))
+  def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
   val recommenderModel = new TransformerParam(this, "recommenderModel", "recommenderModel", { x: Transformer => true })
 
@@ -338,14 +342,14 @@ class RankingAdapterModel private[ml](val uid: String)
         prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
       }
       case "normal" => {
-        val recs = helper.flatten(model.transform(dataset), 10, getItemCol, getUserCol)
+        val recs = SparkHelper.flatten(model.transform(dataset), 10, getItemCol, getUserCol)
         prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
       }
     }
   }
 
   def transformSchema(schema: StructType): StructType = {
-    val model = getRecommenderModel //.asInstanceOf[ALSModel]
+    val model = getRecommenderModel
     getMode match {
       case "allUsers" => new StructType()
         .add("userCol", IntegerType)
@@ -357,7 +361,11 @@ class RankingAdapterModel private[ml](val uid: String)
         .add("recommendations", ArrayType(
           new StructType().add("userCol", IntegerType).add("rating", FloatType))
         )
-      case "normal" => model.transformSchema(schema)
+      case "normal" => new StructType()
+        .add("userCol", IntegerType)
+        .add("recommendations", ArrayType(
+          new StructType().add("itemCol", IntegerType).add("rating", FloatType))
+        )
     }
   }
 

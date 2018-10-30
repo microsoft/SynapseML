@@ -5,37 +5,13 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.recommendation.RecEvaluatorParams
+import org.apache.spark.ml.recommendation.{HasRecommenderCols, RecEvaluatorParams}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.mllib.evaluation.RankingMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.reflect.ClassTag
-
-trait HasRecommenderCols extends Params {
-  val userCol = new Param[String](this, "userCol", "Column of users")
-
-  /** @group setParam */
-  def setUserCol(value: String): this.type = set(userCol, value)
-
-  def getUserCol: String = $(userCol)
-
-  val itemCol = new Param[String](this, "itemCol", "Column of items")
-
-  /** @group setParam */
-  def setItemCol(value: String): this.type = set(itemCol, value)
-
-  def getItemCol: String = $(itemCol)
-
-  val ratingCol = new Param[String](this, "ratingCol", "Column of ratings")
-
-  /** @group setParam */
-  def setRatingCol(value: String): this.type = set(ratingCol, value)
-
-  def getRatingCol: String = $(ratingCol)
-
-}
 
 class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
   k: Int, nItems: Long)
