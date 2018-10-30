@@ -192,11 +192,12 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         case "Repartition"                                         => "n=2"
         case "SelectColumns"                                       => "cols=[\"col1\"]"
         case "TextPreprocessor"                                    => "inputCol=\"col5\", outputCol=\"catOutput1\", " +
-          "normFunc=\"identity\""
+                                                                      "normFunc=\"identity\""
         case "ValueIndexerModel"                                   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
-          "dataType=\"string\", levels=[\"dog\", \"cat\", \"bird\"]"
+                                                                      "dataType=\"string\", levels=[\"dog\", \"cat\"," +
+                                                                      " \"bird\"]"
         case "WriteBlob"                                           => "blobPath=\"file:///tmp/" + java.util.UUID
-          .randomUUID + ".tsv\""
+                                                                                                  .randomUUID + ".tsv\""
         case _                                                     => ""
       }
     tryTransformTemplate(entryPointName, param)
