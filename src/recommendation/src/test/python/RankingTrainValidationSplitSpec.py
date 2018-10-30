@@ -104,10 +104,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
         print(model.subMetrics())
 
     def test_adapter_evaluator(self):
-        pyspark.sql.SparkSession.builder.master("local[*]") \
-            .config('spark.driver.extraClassPath',
-                    "/home/dciborow/mmlspark2/BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar") \
-            .getOrCreate()
+        self.get_pyspark()
 
         ratings = self.getRatings()
 
@@ -123,8 +120,7 @@ class TrainValidRecommendSplitSpec(unittest.TestCase):
 
         als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
 
-        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als,
-                                 userCol=als.getUserCol(), itemCol=als.getItemCol(), ratingCol=als.getRatingCol())
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als)
 
         pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
         output = pipeline.fit(ratings).transform(ratings)

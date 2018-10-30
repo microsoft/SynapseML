@@ -115,13 +115,8 @@ class RankingTrainValidationSplit(override val uid: String)
     val eval = $(evaluator).asInstanceOf[RankingEvaluator]
 
     val est = new RankingAdapter()
-      .setMode("allUsers") //allItems does not work, not sure if it would be used
       .setK(eval.getK)
-      .setRecommender($(estimator).asInstanceOf[Estimator[_ <: Model[_]]])
-      .setUserCol($(estimator).asInstanceOf[ALS].getUserCol)
-      .setRatingCol($(estimator).asInstanceOf[ALS].getRatingCol)
-      .setItemCol($(estimator).asInstanceOf[ALS].getItemCol)
-    //todo cast to something more generic than ALS
+      .setRecommender($(estimator))
 
     val epm = $(estimatorParamMaps)
 

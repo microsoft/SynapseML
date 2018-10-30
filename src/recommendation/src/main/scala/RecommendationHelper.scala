@@ -32,3 +32,5 @@ object helper {
     recs.select(col("id").as(srcOutputColumn), col("recommendations").cast(arrayType))
   }
 }
+
+trait PublicALSParams extends ALSParams

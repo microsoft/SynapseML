@@ -219,7 +219,6 @@ trait RankingTestBase extends TestBase {
   lazy val transformedDf: DataFrame = pipeline.fit(ratings).transform(ratings)
 
   lazy val adapter: RankingAdapter = new RankingAdapter()
-    .setMode("allUsers") //allItems does not work, not sure if it would be used
     .setK(evaluator.getK)
     .setRecommender(als)
     .setUserCol(customerIndex.getOutputCol)

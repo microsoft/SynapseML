@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.recommendation.{ALS, ALSModel, helper}
+import org.apache.spark.ml.recommendation._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql._
@@ -209,6 +209,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
 class RankingAdapter(override val uid: String)
   extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingFunctions {
 
+
+
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
   val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { x: Estimator[_] => true })
@@ -218,6 +220,15 @@ class RankingAdapter(override val uid: String)
 
   /** @group setParam */
   def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
+
+  /** @group getParam */
+  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getUserCol
+
+  /** @group getParam */
+  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getItemCol
+
+  /** @group getParam */
+  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getRatingCol
 
   val mode: Param[String] = new Param(this, "mode", "recommendation mode")
 
@@ -234,6 +245,8 @@ class RankingAdapter(override val uid: String)
 
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
+
+  setDefault(mode -> "allUsers", k -> 10)
 
   def transformSchema(schema: StructType): StructType = {
     val model = getRecommender.asInstanceOf[ALS]
