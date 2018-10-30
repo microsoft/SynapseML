@@ -6,16 +6,17 @@ package com.microsoft.ml.spark.codegen
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, Param, ServiceParam}
+import org.apache.spark.ml.param.{ComplexParam, Param, Params, ServiceParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
+import org.apache.spark.ml.evaluation.Evaluator
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
-abstract class PySparkWrapperTest(entryPoint: PipelineStage,
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String) extends WritableWrapper {
+abstract class PySparkWrapperParamsTest(entryPoint: Params,
+                                        entryPointName: String,
+                                        entryPointQualifiedName: String) extends WritableWrapper {
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
@@ -253,6 +254,16 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
   }
 
 }
+
+abstract class PySparkWrapperTest(entryPoint: PipelineStage,
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String)
+  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
+
+class PySparkEvaluatorTestWrapper(entryPoint: Evaluator,
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String)
+  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
 
 class PySparkTransformerWrapperTest(entryPoint: Transformer,
                                     entryPointName: String,

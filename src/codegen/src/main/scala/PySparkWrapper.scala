@@ -7,16 +7,17 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, MapParam, Param, ServiceParam}
+import org.apache.spark.ml.param.{ComplexParam, MapParam, Param, Params, ServiceParam}
+import org.apache.spark.ml.evaluation.Evaluator
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
-abstract class PySparkWrapper(entryPoint: PipelineStage,
-                              entryPointName: String,
-                              entryPointQualifiedName: String)
+abstract class PySparkParamsWrapper(entryPoint: Params,
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String)
     extends WritableWrapper {
 
   private val additionalImports = Map(
@@ -25,6 +26,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
     ("utils", s"from ${pyDir.getName}.Utils import *")
   )
 
+  val importClassString = ""
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
@@ -43,7 +45,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
-        |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
+        |$importClassString
         |from pyspark.ml.common import inherit_doc
         |$importsString
         |
@@ -379,6 +381,15 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 
 }
 
+abstract class PySparkWrapper(entryPoint: PipelineStage,
+                              entryPointName: String,
+                              entryPointQualifiedName: String)
+  extends PySparkParamsWrapper(entryPoint,
+                               entryPointName,
+                               entryPointQualifiedName) {
+  override val importClassString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
+}
+
 class PySparkTransformerWrapper(entryPoint: Transformer,
                                 entryPointName: String,
                                 entryPointQualifiedName: String)
@@ -424,4 +435,14 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
 
   override val psType = "Estimator"
 
+}
+
+class PySparkEvaluatorWrapper(entryPoint: Evaluator,
+                              entryPointName: String,
+                              entryPointQualifiedName: String)
+  extends PySparkParamsWrapper(entryPoint,
+                               entryPointName,
+                               entryPointQualifiedName) {
+  override val psType = "Evaluator"
+  override val importClassString = "from pyspark.ml.evaluation import JavaEvaluator"
 }
