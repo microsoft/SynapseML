@@ -39,7 +39,7 @@ trait RankingParams extends HasRecommenderCols with HasLabelCol with kTrait {
   /** @group setParam */
   def setRecommender(value: Estimator[_ <: Model[_]]): this.type = set(recommender, value)
 
-  setDefault(k -> 10, labelCol -> "label")
+  setDefault(minRatingsPerUser -> 1, minRatingsPerItem -> 1, k -> 10, labelCol -> "label")
 }
 
 trait Mode extends HasRecommenderCols{
@@ -132,8 +132,7 @@ class RankingAdapterModel private[ml](val uid: String)
       case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
 
-    val rankingCol = if (dataset.columns.contains(getRatingCol)) getRatingCol
-    else getItemCol
+    val rankingCol = if (dataset.columns.contains(getRatingCol)) getRatingCol else getItemCol
 
     val windowSpec = Window.partitionBy(getUserCol).orderBy(col(rankingCol).desc)
 
