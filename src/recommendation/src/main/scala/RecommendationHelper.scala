@@ -65,4 +65,6 @@ trait kTrait extends Params{
 
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
+
+  setDefault(k -> 10)
 }

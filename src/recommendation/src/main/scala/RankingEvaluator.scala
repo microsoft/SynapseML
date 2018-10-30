@@ -11,15 +11,15 @@ import org.apache.spark.mllib.evaluation.RankingMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
-class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[AnyVal], Array[AnyVal])],
+class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
   k: Int, nItems: Long)
   extends Serializable {
 
-  lazy val uniqueItemsRecommended: Array[AnyVal] = predictionAndLabels
+  lazy val uniqueItemsRecommended: Array[Any] = predictionAndLabels
     .map(row => row._1)
     .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
-  lazy val metrics                         = new RankingMetrics[AnyVal](predictionAndLabels)
+  lazy val metrics                         = new RankingMetrics[Any](predictionAndLabels)
   lazy val map: Double                     = metrics.meanAveragePrecision
   lazy val ndcg: Double                    = metrics.ndcgAt(k)
   lazy val precisionAtk: Double            = metrics.precisionAt(k)
@@ -130,7 +130,7 @@ class RankingEvaluator(override val uid: String)
   def getMetrics(dataset: Dataset[_]): AdvancedRankingMetrics = {
     val predictionAndLabels = dataset
       .select(getPredictionCol, getLabelCol)
-      .rdd.map { case Row(prediction: Seq[AnyVal], label: Seq[AnyVal]) => (prediction.toArray, label.toArray) }
+      .rdd.map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
       .cache()
 
     new AdvancedRankingMetrics(predictionAndLabels, getK, getNItems)

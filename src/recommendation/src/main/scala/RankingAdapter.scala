@@ -46,13 +46,13 @@ trait RankingParams extends kTrait {
 
 trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLabelCol {
 
-  val userStructType: StructType = new StructType()
+  lazy val userStructType: StructType = new StructType()
     .add(getUserCol, IntegerType)
     .add("recommendations", ArrayType(
       new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
     )
 
-  val itemStructType: StructType = new StructType()
+  lazy val itemStructType: StructType = new StructType()
     .add(getItemCol, IntegerType)
     .add("recommendations", ArrayType(
       new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
