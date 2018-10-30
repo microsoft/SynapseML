@@ -18,7 +18,7 @@ import Config._
 abstract class PySparkParamsWrapper(entryPoint: Params,
                                     entryPointName: String,
                                     entryPointQualifiedName: String)
-  extends WritableWrapper {
+    extends WritableWrapper {
 
   private val additionalImports = Map(
     ("complexTypes",
