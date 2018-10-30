@@ -82,42 +82,26 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
       .join(filterByItemCount(dataset, itemCol, userCol), userCol)
 
   def prepareTestData(userColumn: String, itemColumn: String,
-    validationDataset: DataFrame, recs: DataFrame,
-    k: Int): Dataset[_] = {
-    import org.apache.spark.sql.functions.{collect_list, rank => r}
+    validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
 
-    val perUserRecommendedItemsDF: DataFrame = recs
+    val rankingCol = if (validationDataset.columns.contains($(ratingCol))) getRatingCol
+    else getItemCol
+
+    val windowSpec = Window.partitionBy(userColumn).orderBy(col(rankingCol).desc)
+
+    val perUserActualItemsDF = validationDataset
+      .withColumn("rank", r().over(windowSpec).alias("rank"))
+      .where(col("rank") <= k)
+      .groupBy(userColumn)
+      .agg(col(userColumn), collect_list(col(itemColumn)))
+      .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
+      .select(userColumn, getLabelCol)
+
+    recs
       .select(userColumn, "recommendations." + itemColumn)
       .withColumnRenamed(itemColumn, "prediction")
-
-    val perUserActualItemsDF = if (validationDataset.columns.contains($(ratingCol))) {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(ratingCol)).desc)
-
-      validationDataset
-        .select(userColumn, itemColumn, $(ratingCol))
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
-        .select(userColumn, getLabelCol)
-    } else {
-      val windowSpec = Window.partitionBy(userColumn).orderBy(col($(itemCol)).desc)
-
-      validationDataset
-        .select(userColumn, itemColumn)
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(userColumn)
-        .agg(col(userColumn), collect_list(col(itemColumn)))
-        .withColumnRenamed("collect_list(" + itemColumn + ")", getLabelCol)
-        .select(userColumn, getLabelCol)
-    }
-    val joined_rec_actual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
       .drop(userColumn)
-
-    joined_rec_actual
   }
 
   def split(dataframe: Dataset[_], trainRatio: Double, itemCol: String, userCol: String, ratingCol: String):
@@ -191,40 +175,6 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
     }
   }
 
-  def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
-    val perUserRecommendedItemsDF: DataFrame = recs
-      .select(getUserCol, "recommendations." + getItemCol)
-      .withColumnRenamed(getItemCol, "prediction")
-
-    val perUserActualItemsDF = if (validationDataset.columns.contains(getRatingCol)) {
-      val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc)
-
-      validationDataset
-        .select(getUserCol, getItemCol, getRatingCol)
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(getUserCol)
-        .agg(col(getUserCol), collect_list(col(getItemCol)))
-        .withColumnRenamed("collect_list(" + getItemCol + ")", getLabelCol)
-        .select(getUserCol, getLabelCol)
-    } else {
-      val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getItemCol).desc)
-
-      validationDataset
-        .select(getUserCol, getItemCol)
-        .withColumn("rank", r().over(windowSpec).alias("rank"))
-        .where(col("rank") <= k)
-        .groupBy(getUserCol)
-        .agg(col(getUserCol), collect_list(col(getItemCol)))
-        .withColumnRenamed("collect_list(" + getItemCol + ")", getLabelCol)
-        .select(getUserCol, getLabelCol)
-    }
-    val joined_rec_actual = perUserRecommendedItemsDF
-      .join(perUserActualItemsDF, getUserCol)
-      .drop(getUserCol)
-
-    joined_rec_actual
-  }
 }
 
 class RankingAdapter(override val uid: String)
