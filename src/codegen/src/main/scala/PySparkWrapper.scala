@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.{ComplexParam, MapParam, Param, Params, ServiceParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
 import org.apache.spark.ml.evaluation.Evaluator
@@ -22,8 +22,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   private val additionalImports = Map(
     ("complexTypes",
-      s"from ${pyDir.getName}.TypeConversionUtils import generateTypeConverter, " +
-        s"complexTypeConverter"),
+      s"from ${pyDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
     ("utils", s"from ${pyDir.getName}.Utils import *")
   )
 
