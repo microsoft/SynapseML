@@ -60,6 +60,6 @@ class LightGBMClassificationModel(_LightGBMClassificationModel):
 
     def getFeatureImportances(self, importance_type="split"):
         """
-        Get the feature importances.  The importance_type can be "split" or "gain".
+        Get the feature importances as a list.  The importance_type can be "split" or "gain".
         """
-        return self._java_obj.getFeatureImportances(importance_type)
+        return list(self._java_obj.getFeatureImportances(importance_type))
