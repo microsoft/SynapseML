@@ -9,12 +9,8 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.{collect_list, rank => r}
+import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
-
-import scala.collection.mutable
-import scala.util.Random
 
 trait RankingParams extends kTrait {
   val minRatingsPerUser: IntParam =
@@ -45,20 +41,7 @@ trait RankingParams extends kTrait {
 }
 
 trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLabelCol {
-
-  lazy val userStructType: StructType = new StructType()
-    .add(getUserCol, IntegerType)
-    .add("recommendations", ArrayType(
-      new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
-    )
-
-  lazy val itemStructType: StructType = new StructType()
-    .add(getItemCol, IntegerType)
-    .add("recommendations", ArrayType(
-      new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
-    )
-
-  setDefault(labelCol -> "label")
+  setDefault(k -> 10, labelCol -> "label")
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
 
@@ -82,8 +65,41 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols with HasLab
   }
 }
 
+trait Mode extends HasRecommenderCols{
+
+  val mode: Param[String] = new Param(this, "mode", "recommendation mode")
+
+  /** @group getParam */
+  def getMode: String = $(mode)
+
+  /** @group setParam */
+  def setMode(value: String): this.type = set(mode, value)
+
+  setDefault(mode -> "allUsers")
+
+  def transformSchema(schema: StructType): StructType = {
+    lazy val userStructType: StructType = new StructType()
+      .add(getUserCol, IntegerType)
+      .add("recommendations", ArrayType(
+        new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
+      )
+
+    lazy val itemStructType: StructType = new StructType()
+      .add(getItemCol, IntegerType)
+      .add("recommendations", ArrayType(
+        new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
+      )
+
+    getMode match {
+      case "allUsers" => userStructType
+      case "allItems" => itemStructType
+      case "normal"   => userStructType
+    }
+  }
+}
+
 class RankingAdapter(override val uid: String)
-  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingFunctions {
+  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingFunctions with Mode {
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
@@ -96,32 +112,15 @@ class RankingAdapter(override val uid: String)
   /** @group getParam */
   override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getRatingCol
 
-  val mode: Param[String] = new Param(this, "mode", "recommendation mode")
-
-  /** @group getParam */
-  def getMode: String = $(mode)
-
-  /** @group setParam */
-  def setMode(value: String): this.type = set(mode, value)
-
-  setDefault(mode -> "allUsers", k -> 10)
-
-  def transformSchema(schema: StructType): StructType = {
-    getMode match {
-      case "allUsers" => userStructType
-      case "allItems" => itemStructType
-      case "normal"   => userStructType
-    }
-  }
-
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
     new RankingAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
-      .setNItems(getK)
+      .setK(getK)
       .setUserCol(getUserCol)
       .setItemCol(getItemCol)
       .setRatingCol(getRatingCol)
+      .setLabelCol(getLabelCol)
   }
 
   override def copy(extra: ParamMap): RankingAdapter = {
@@ -138,7 +137,7 @@ object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
   * @param uid Id.
   */
 class RankingAdapterModel private[ml](val uid: String)
-  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingFunctions {
+  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingFunctions with Mode {
 
   def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
 
@@ -152,54 +151,22 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def getRecommenderModel: Model[_] = $(recommenderModel).asInstanceOf[Model[_]]
 
-  val mode: Param[String] = new Param(this, "mode", "recommendation mode")
-
-  /** @group getParam */
-  def getMode: String = $(mode)
-
-  /** @group setParam */
-  def setMode(value: String): this.type = set(mode, value)
-
-  val nItems: IntParam = new IntParam(this, "nItems", "recommendation mode")
-
-  /** @group getParam */
-  def getNItems: Int = $(nItems)
-
-  /** @group setParam */
-  def setNItems(value: Int): this.type = set(nItems, value)
-
-  val nUsers: IntParam = new IntParam(this, "nUsers", "recommendation mode")
-
-  /** @group getParam */
-  def getNUsers: Int = $(nUsers)
-
-  /** @group setParam */
-  def setNUsers(value: Int): this.type = set(nUsers, value)
-
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val model = getRecommenderModel
     getMode match {
       case "allUsers" => {
-        val recs = this.recommendForAllUsers(getNItems)
+        val recs = this.recommendForAllUsers(getK)
         prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
       case "allItems" => {
-        val recs = this.recommendForAllItems(getNUsers)
+        val recs = this.recommendForAllItems(getK)
         prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
       case "normal"   => {
         val recs = SparkHelper.flatten(model.transform(dataset), getK, getItemCol, getUserCol)
         prepareTestData(dataset.toDF(), recs, getK).toDF()
       }
-    }
-  }
-
-  def transformSchema(schema: StructType): StructType = {
-    getMode match {
-      case "allUsers" => userStructType
-      case "allItems" => itemStructType
-      case "normal"   => userStructType
     }
   }
 
