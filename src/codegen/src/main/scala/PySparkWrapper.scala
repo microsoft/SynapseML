@@ -87,9 +87,6 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |""".stripMargin
   }
 
-  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
-  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
-  //   if/else can be removed
   abstract def classTemplate(importsString: String, inheritanceString: String,
                              classParamsString: String,
                              paramDefinitionsAndDefaultsString: String,
@@ -397,9 +394,6 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   extends PySparkParamsWrapper(entryPoint,
                                entryPointName,
                                entryPointQualifiedName) {
-  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
-  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
-  //   if/else can be removed
   override protected def classTemplate(importsString: String, inheritanceString: String,
                                        classParamsString: String,
                                        paramDefinitionsAndDefaultsString: String,
@@ -467,9 +461,6 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                                entryPointQualifiedName) {
   override val psType = "Evaluator"
 
-  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
-  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
-  //   if/else can be removed
   override protected def classTemplate(importsString: String, inheritanceString: String,
                                        classParamsString: String,
                                        paramDefinitionsAndDefaultsString: String,
