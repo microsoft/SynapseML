@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{HasRecommenderCols, RecEvaluatorParams}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.mllib.evaluation.RankingMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
@@ -96,7 +96,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
 
 @InternalWrapper
 class RankingEvaluator(override val uid: String)
-  extends Evaluator with RecEvaluatorParams with HasRecommenderCols {
+  extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("recEval"))
 
@@ -157,3 +157,5 @@ class RankingEvaluator(override val uid: String)
   override def copy(extra: ParamMap): RankingEvaluator = defaultCopy(extra)
 
 }
+
+object RankingEvaluator extends ComplexParamsReadable[RankingEvaluator]
