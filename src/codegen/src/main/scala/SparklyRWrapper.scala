@@ -4,28 +4,27 @@
 package com.microsoft.ml.spark.codegen
 
 import scala.collection.mutable.ListBuffer
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.Param
-
+import org.apache.spark.ml.param.{Param, Params}
 import com.microsoft.ml.spark.FileUtilities._
 import com.microsoft.ml.spark.FileUtilities.StandardOpenOption
 import Config._
+import org.apache.spark.ml.evaluation.Evaluator
 
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.
   */
-abstract class SparklyRWrapper(entryPoint: PipelineStage,
-                               entryPointName: String,
-                               entryPointQualifiedName: String) extends WritableWrapper {
+abstract class SparklyRParmsWrapper(entryPoint: Params,
+  entryPointName: String,
+  entryPointQualifiedName: String) extends WritableWrapper {
 
   protected def functionTemplate(docString: String,
-                                 classParamsString: String,
-                                 setParams: String,
-                                 modelStr: String,
-                                 moduleAcc: String): String = {
+    classParamsString: String,
+    setParams: String,
+    modelStr: String,
+    moduleAcc: String): String = {
     s"""|
         |$docString
         |ml_$entryPointName <- function(x$classParamsString)
@@ -51,14 +50,16 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
   }
 
   protected def header(simpleClassName: String): String = WrapperClassDoc.GenerateWrapperClassDoc(simpleClassName)
+
   protected def classDocTemplate(simpleClassName: String) = s"""${header(simpleClassName)}"""
+
   val modelStr: String
   val moduleAcc: String
   val psType: String
   val additionalParams: String
 
   protected def getRDefault(paramDefault: String, paramType: String,
-                            defaultStringIsParsable: Boolean): String =
+    defaultStringIsParsable: Boolean): String =
     paramType match {
       case "BooleanParam" =>
         StringUtils.upperCase(paramDefault)
@@ -76,22 +77,22 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
       val paramDefault: String = entryPoint.getDefault(param).get.toString
       if (paramDefault.toLowerCase.contains(param.parent.toLowerCase)) "NULL"
       else getRDefault(paramDefault,
-                       param.getClass.getSimpleName,
-                       try {
-                         entryPoint.getParam(param.name).w(paramDefault)
-                         true
-                       } catch {
-                         case _: Exception => false
-                       })
+        param.getClass.getSimpleName,
+        try {
+          entryPoint.getParam(param.name).w(paramDefault)
+          true
+        } catch {
+          case _: Exception => false
+        })
     }
   }
 
   protected def getParamConversion(paramType: String, paramName: String): String = {
     paramType match {
-      case "BooleanParam"               => s"as.logical($paramName)"
+      case "BooleanParam" => s"as.logical($paramName)"
       case "DoubleParam" | "FloatParam" => s"as.double($paramName)"
-      case "StringArrayParam"           => s"as.array($paramName)"
-      case "IntParam" | "LongParam"     => s"as.integer($paramName)"
+      case "StringArrayParam" => s"as.array($paramName)"
+      case "IntParam" | "LongParam" => s"as.integer($paramName)"
       case "MapArrayParam" | "Param" | "StringParam" => paramName
       case _ => paramName
     }
@@ -109,8 +110,8 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
   protected def getSparklyRWrapperBase: String = {
     // Construct relevant strings
     val paramsAndDefaults = ListBuffer[String]()
-    val setParamsList     = ListBuffer[String]()
-    val paramDocList      = ListBuffer[String]()
+    val setParamsList = ListBuffer[String]()
+    val paramDocList = ListBuffer[String]()
 
     // Iterate over the params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
@@ -122,12 +123,12 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
     }
 
     val funcParamsString = (if (paramsAndDefaults.isEmpty) ""
-                            else paramsAndDefaults.mkString(", ", ", ", "")) +
-                           additionalParams
+    else paramsAndDefaults.mkString(", ", ", ", "")) +
+      additionalParams
     val setParams = setParamsList.mkString(" %>%\n")
     val simpleClassName = entryPoint.getClass.getSimpleName
-    val classDocString  = classDocTemplate(simpleClassName).replace("\n", s"\n#' ${scopeDepth}")
-    val paramDocString  = paramDocList.mkString("\n#' ")
+    val classDocString = classDocTemplate(simpleClassName).replace("\n", s"\n#' ${scopeDepth}")
+    val paramDocString = paramDocList.mkString("\n#' ")
 
     val docString =
       s"""|#' Spark ML -- $simpleClassName
@@ -146,43 +147,58 @@ abstract class SparklyRWrapper(entryPoint: PipelineStage,
 
   def writeWrapperToFile(dir: File): Unit = {
     writeFile(sparklyRNamespacePath, s"export(ml_$entryPointName)\n",
-              StandardOpenOption.APPEND)
+      StandardOpenOption.APPEND)
     writeFile(new File(dir, s"$entryPointName.R"),
-              copyrightLines + sparklyRWrapperBuilder())
+      copyrightLines + sparklyRWrapperBuilder())
   }
 
 }
 
+abstract class SparklyRWrapper(entryPoint: PipelineStage,
+  entryPointName: String,
+  entryPointQualifiedName: String)
+  extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+
+class SparklyREvaluatorWrapper(entryPoint: Evaluator,
+  entryPointName: String,
+  entryPointQualifiedName: String)
+  extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
+  override val modelStr: String = ""
+  override val moduleAcc: String = "mod_parameterized"
+  override val psType: String = "Evaluator"
+  override val additionalParams: String = ""
+}
+
 class SparklyRTransformerWrapper(entryPoint: Transformer,
-                                 entryPointName: String,
-                                 entryPointQualifiedName: String)
+  entryPointName: String,
+  entryPointQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
-  override val modelStr         = ""
-  override val moduleAcc        = "mod_parameterized"
-  override val psType           = "Transformer"
+  override val modelStr = ""
+  override val moduleAcc = "mod_parameterized"
+  override val psType = "Transformer"
   override val additionalParams = ""
 
 }
 
 class SparklyREstimatorWrapper(entryPoint: Estimator[_],
-                               entryPointName: String,
-                               entryPointQualifiedName: String,
-                               companionModelName: String,
-                               companionModelQualifiedName: String)
+  entryPointName: String,
+  entryPointQualifiedName: String,
+  companionModelName: String,
+  companionModelQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
   override val modelStr: String =
-  s"""|  if (unfit.model)
-      |    return(mod_parameterized)
-      |  mod_model_raw <- mod_parameterized %>%
-      |    invoke(\"fit\", df)
-      |
+    s"""|  if (unfit.model)
+        |    return(mod_parameterized)
+        |  mod_model_raw <- mod_parameterized %>%
+        |    invoke(\"fit\", df)
+        |
       |  mod_model <- sparklyr:::new_ml_model(mod_parameterized, mod_model_raw, mod_model_raw)
-      |
+        |
       |  if (only.model)
-      |    return(mod_model)
-      |""".stripMargin
+        |    return(mod_model)
+        |""".stripMargin
   override val moduleAcc = "mod_model$model"
   override val psType = "Estimator"
   override val additionalParams = ", unfit.model=FALSE, only.model=FALSE"

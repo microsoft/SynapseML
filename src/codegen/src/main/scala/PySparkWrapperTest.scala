@@ -6,25 +6,26 @@ package com.microsoft.ml.spark.codegen
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, Param, ServiceParam}
+import org.apache.spark.ml.param.{ComplexParam, Param, Params, ServiceParam}
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
+import org.apache.spark.ml.evaluation.Evaluator
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
-abstract class PySparkWrapperTest(entryPoint: PipelineStage,
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String) extends WritableWrapper {
+abstract class PySparkWrapperParamsTest(entryPoint: Params,
+  entryPointName: String,
+  entryPointQualifiedName: String) extends WritableWrapper {
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
-  private def importClass(entryPointName:String):String = {
+  private def importClass(entryPointName: String): String = {
     if (entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
     else s"from mmlspark import $entryPointName"
   }
 
-  protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
+  protected def classTemplate(classParams: String, paramGettersAndSetters: String): String =
     s"""|import unittest
         |import pandas as pd
         |import numpy as np
@@ -48,7 +49,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |
         |""".stripMargin
 
-  protected val unittestString =
+  protected val unittestString: String =
     s"""|
         |import os, xmlrunner
         |if __name__ == "__main__":
@@ -56,7 +57,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |                           failfast=False, buffer=False, catchbreak=False)
         |""".stripMargin
 
-  protected def setAndGetTemplate(paramName: String, value: String) =
+  protected def setAndGetTemplate(paramName: String, value: String): String =
     s"""|    def test_set$paramName(self):
         |        my$entryPointName = $entryPointName()
         |        val = $value
@@ -65,7 +66,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |        self.assertEqual(val, retVal)
         |""".stripMargin
 
-  protected def tryFitSetupTemplate(entryPointName: String) =
+  protected def tryFitSetupTemplate(entryPointName: String): String =
     s"""|    def test_$entryPointName(self):
         |        dog = "dog"
         |        cat = "cat"
@@ -86,21 +87,22 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |        data = sqlC.createDataFrame(pddf)
         |""".stripMargin
 
-  protected def tryTransformTemplate(entryPointName: String, param: String) =
-      s"""|        my$entryPointName = $entryPointName($param)
-          |        prediction = my$entryPointName.transform(data)
-          |        self.assertNotEqual(prediction, None)
-          |""".stripMargin
+  protected def tryTransformTemplate(entryPointName: String, param: String): String =
+    s"""|        my$entryPointName = $entryPointName($param)
+        |        prediction = my$entryPointName.transform(data)
+        |        self.assertNotEqual(prediction, None)
+        |""".stripMargin
 
-  protected def tryFitTemplate(entryPointName: String, model: String) =
-      s"""|        my$entryPointName = $entryPointName(model=$model, labelCol="col1", numFeatures=5)
-          |        model = my$entryPointName.fit(data)
-          |        self.assertNotEqual(model, None)""".stripMargin
+  protected def tryFitTemplate(entryPointName: String, model: String): String =
+    s"""|        my$entryPointName = $entryPointName(model=$model, labelCol="col1", numFeatures=5)
+        |        model = my$entryPointName.fit(data)
+        |        self.assertNotEqual(model, None)""".stripMargin
 
-  protected def tryMultiColumnFitTemplate(entryPointName: String, model: String) =
-      s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
-          |        model = my$entryPointName.fit(data)
-          |        self.assertNotEqual(model, None)""".stripMargin
+  protected def tryMultiColumnFitTemplate(entryPointName: String, model: String): String =
+    s"""|        my$entryPointName = $entryPointName(baseStage=$model, inputCols=["col1"], outputCols=["out"])
+        |        model = my$entryPointName.fit(data)
+        |        self.assertNotEqual(model, None)""".stripMargin
+
   private def evaluateSetupTemplate(entryPointName: String) =
     s"""|    def test_$entryPointName(self):
         |        data = {
@@ -117,7 +119,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |                                numFeatures=256).fit(data)
         |""".stripMargin
 
-  protected def computeStatisticsTemplate(entryPointName: String) =
+  protected def computeStatisticsTemplate(entryPointName: String): String =
     s"""|${evaluateSetupTemplate(entryPointName)}
         |        scoredData = model.transform(data)
         |        scoredData.limit(10).toPandas()
@@ -125,14 +127,14 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |        self.assertNotEqual(evaluatedData, None)
         |""".stripMargin
 
-  protected def valueIndexerModelTemplate(entryPointName: String) =
+  protected def valueIndexerModelTemplate(entryPointName: String): String =
     s"""|${tryFitSetupTemplate(entryPointName)}
         |        valueData = $entryPointName(inputCol="col5", outputCol="catOutput",
         |                                    dataType="string", levels=["dog", "cat", "bird"]).transform(data)
         |        self.assertNotEqual(valueData, None)
         |""".stripMargin
 
-  protected def indexToValueTemplate(entryPointName: String) =
+  protected def indexToValueTemplate(entryPointName: String): String =
     s"""|${tryFitSetupTemplate(entryPointName)}
         |        indexModel = ValueIndexer(inputCol="col5", outputCol="catOutput").fit(data)
         |        indexedData = indexModel.transform(data)
@@ -140,7 +142,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |        self.assertNotEqual(valueData, None)
         |""".stripMargin
 
-  protected def evaluateTemplate(entryPointName: String) =
+  protected def evaluateTemplate(entryPointName: String): String =
     s"""|${evaluateSetupTemplate(entryPointName)}
         |        model = TrainClassifier(model=LogisticRegression(), labelCol="labelColumn",
         |                                numFeatures=256).fit(data)
@@ -150,10 +152,14 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
         |""".stripMargin
 
   // These params are need custom handling. For now, just skip them so we have tests that pass.
-  private lazy val skippedParams =  Set[String]("models", "model", "cntkModel", "stage")
+  private lazy val skippedParams = Set[String]("models", "model", "cntkModel", "stage")
+
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
+
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
+
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
+
   protected def tryFitString(entryPointName: String): String =
     if (entryPointName.contains("Regressor") && !entryPointName.contains("LightGBM"))
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
@@ -162,35 +168,40 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
     else if (entryPointName.contains("MultiColumnAdapter"))
       tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
+
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
-  protected def evaluateString(entryPointName: String): String          = evaluateTemplate(entryPointName)
-  protected def indexToValueString(entryPointName: String): String      = indexToValueTemplate(entryPointName)
+
+  protected def evaluateString(entryPointName: String): String = evaluateTemplate(entryPointName)
+
+  protected def indexToValueString(entryPointName: String): String = indexToValueTemplate(entryPointName)
+
   protected def valueIndexerModelString(entryPointName: String): String = valueIndexerModelTemplate(entryPointName)
+
   protected def tryTransformString(entryPointName: String): String = {
     val param: String =
       entryPointName match {
         case "_CNTKModel" | "MultiTokenizer" | "NltTokenizeTransform" | "TextTransform"
-           | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
-        case "DataConversion"      => "cols=[\"col1\"], convertTo=\"double\""
-        case "DropColumns"         => "cols=[\"col1\"]"
-        case "EnsembleByKey"       => "keys=[\"col1\"], cols=[\"col3\"]"
+             | "TextNormalizerTransform" | "WordTokenizeTransform" => "inputCol=\"col5\""
+        case "DataConversion" => "cols=[\"col1\"], convertTo=\"double\""
+        case "DropColumns" => "cols=[\"col1\"]"
+        case "EnsembleByKey" => "keys=[\"col1\"], cols=[\"col3\"]"
         case "FastVectorAssembler" => "inputCols=\"col1\""
-        case "IndexToValue"        => "inputCol=\"catOutput\""
-        case "MultiNGram"          => "inputColumns=np.array([ \"col5\", \"col6\" ])"
-        case "RenameColumn"        => "inputCol=\"col5\", outputCol=\"catOutput1\""
-        case "Repartition"         => "n=2"
-        case "SelectColumns"       => "cols=[\"col1\"]"
-        case "TextPreprocessor"    => "inputCol=\"col5\", outputCol=\"catOutput1\", normFunc=\"identity\""
-        case "ValueIndexerModel"   => "inputCol=\"col5\", outputCol=\"catOutput\", " +
+        case "IndexToValue" => "inputCol=\"catOutput\""
+        case "MultiNGram" => "inputColumns=np.array([ \"col5\", \"col6\" ])"
+        case "RenameColumn" => "inputCol=\"col5\", outputCol=\"catOutput1\""
+        case "Repartition" => "n=2"
+        case "SelectColumns" => "cols=[\"col1\"]"
+        case "TextPreprocessor" => "inputCol=\"col5\", outputCol=\"catOutput1\", normFunc=\"identity\""
+        case "ValueIndexerModel" => "inputCol=\"col5\", outputCol=\"catOutput\", " +
           "dataType=\"string\", levels=[\"dog\", \"cat\", \"bird\"]"
-        case "WriteBlob"           => "blobPath=\"file:///tmp/" + java.util.UUID.randomUUID + ".tsv\""
+        case "WriteBlob" => "blobPath=\"file:///tmp/" + java.util.UUID.randomUUID + ".tsv\""
         case _ => ""
       }
     tryTransformTemplate(entryPointName, param)
   }
 
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
-                                     defaultStringIsParsable: Boolean): String =
+    defaultStringIsParsable: Boolean): String =
     paramType match {
       case "BooleanParam" =>
         StringUtils.capitalize(paramDefault)
@@ -209,7 +220,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
       val paramDefault = entryPoint.getDefault(param).get.toString
       if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
         ("None",
-         paramDefault.substring(paramDefault.lastIndexOf(paramParent) + paramParent.length))
+          paramDefault.substring(paramDefault.lastIndexOf(paramParent) + paramParent.length))
       else {
         val defaultStringIsParsable: Boolean =
           try {
@@ -219,7 +230,7 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
             case e: Exception => false
           }
         (getPythonizedDefault(paramDefault, param.getClass.getSimpleName, defaultStringIsParsable),
-         null)
+          null)
       }
     }
   }
@@ -230,8 +241,8 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
       entryPoint.params.filter { param => !isSkippedParam(param.name)
       }.flatMap { param =>
         val value = if (isModel(param.name)) "LogisticRegression()"
-                    else if (isBaseTransformer(param.name)) "Tokenizer()"
-                    else getParamDefault(param)._1
+        else if (isBaseTransformer(param.name)) "Tokenizer()"
+        else getParamDefault(param)._1
         param match {
           case p: ServiceParam[_] => None
           case p: ComplexParam[_] => None
@@ -254,9 +265,20 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
 
 }
 
+abstract class PySparkWrapperTest(entryPoint: PipelineStage,
+  entryPointName: String,
+  entryPointQualifiedName: String)
+  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
+
+class PySparkEvaluatorTestWrapper(entryPoint: Evaluator,
+  entryPointName: String,
+  entryPointQualifiedName: String) extends PySparkWrapperParamsTest(entryPoint,
+  entryPointName,
+  entryPointQualifiedName)
+
 class PySparkTransformerWrapperTest(entryPoint: Transformer,
-                                    entryPointName: String,
-                                    entryPointQualifiedName: String)
+  entryPointName: String,
+  entryPointQualifiedName: String)
   extends PySparkWrapperTest(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -270,8 +292,8 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-             "DynamicMiniBatchTransformer"  | "FixedMiniBatchTransformer" |
-             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer"  |
+             "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
+             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
              "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
              "Repartition" | "SelectColumns" | "TextPreprocessor" |
              "SummarizeData" =>
@@ -284,11 +306,11 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
 }
 
 class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String,
-                                  companionModelName: String,
-                                  companionModelQualifiedName: String)
-    extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
+  entryPointName: String,
+  entryPointQualifiedName: String,
+  companionModelName: String,
+  companionModelQualifiedName: String)
+  extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
 
   private val modelName = entryPointName + "Model"
 

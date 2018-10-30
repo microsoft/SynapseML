@@ -94,7 +94,6 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
   }
 }
 
-@InternalWrapper
 class RankingEvaluator(override val uid: String)
   extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable {
 

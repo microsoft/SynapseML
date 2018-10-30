@@ -45,6 +45,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
         |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
+        |from pyspark.ml.evaluation import JavaEvaluator
         |from pyspark.ml.common import inherit_doc
         |$importsString
         |
