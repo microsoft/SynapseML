@@ -25,7 +25,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     else s"from mmlspark import $entryPointName"
   }
 
-  protected def classTemplate(classParams: String, paramGettersAndSetters: String): String =
+  protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
     s"""|import unittest
         |import pandas as pd
         |import numpy as np
@@ -49,7 +49,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |
         |""".stripMargin
 
-  protected val unittestString: String =
+  protected val unittestString =
     s"""|
         |import os, xmlrunner
         |if __name__ == "__main__":
@@ -57,7 +57,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |                           failfast=False, buffer=False, catchbreak=False)
         |""".stripMargin
 
-  protected def setAndGetTemplate(paramName: String, value: String): String =
+  protected def setAndGetTemplate(paramName: String, value: String) =
     s"""|    def test_set$paramName(self):
         |        my$entryPointName = $entryPointName()
         |        val = $value
@@ -66,7 +66,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        self.assertEqual(val, retVal)
         |""".stripMargin
 
-  protected def tryFitSetupTemplate(entryPointName: String): String =
+  protected def tryFitSetupTemplate(entryPointName: String) =
     s"""|    def test_$entryPointName(self):
         |        dog = "dog"
         |        cat = "cat"
@@ -87,13 +87,13 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        data = sqlC.createDataFrame(pddf)
         |""".stripMargin
 
-  protected def tryTransformTemplate(entryPointName: String, param: String): String =
+  protected def tryTransformTemplate(entryPointName: String, param: String) =
       s"""|        my$entryPointName = $entryPointName($param)
           |        prediction = my$entryPointName.transform(data)
           |        self.assertNotEqual(prediction, None)
           |""".stripMargin
 
-  protected def tryFitTemplate(entryPointName: String, model: String): String =
+  protected def tryFitTemplate(entryPointName: String, model: String) =
       s"""|        my$entryPointName = $entryPointName(model=$model, labelCol="col1", numFeatures=5)
           |        model = my$entryPointName.fit(data)
           |        self.assertNotEqual(model, None)""".stripMargin
@@ -119,7 +119,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |                                numFeatures=256).fit(data)
         |""".stripMargin
 
-  protected def computeStatisticsTemplate(entryPointName: String): String =
+  protected def computeStatisticsTemplate(entryPointName: String) =
     s"""|${evaluateSetupTemplate(entryPointName)}
         |        scoredData = model.transform(data)
         |        scoredData.limit(10).toPandas()
@@ -127,14 +127,14 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        self.assertNotEqual(evaluatedData, None)
         |""".stripMargin
 
-  protected def valueIndexerModelTemplate(entryPointName: String): String =
+  protected def valueIndexerModelTemplate(entryPointName: String) =
     s"""|${tryFitSetupTemplate(entryPointName)}
         |        valueData = $entryPointName(inputCol="col5", outputCol="catOutput",
         |                                    dataType="string", levels=["dog", "cat", "bird"]).transform(data)
         |        self.assertNotEqual(valueData, None)
         |""".stripMargin
 
-  protected def indexToValueTemplate(entryPointName: String): String =
+  protected def indexToValueTemplate(entryPointName: String) =
     s"""|${tryFitSetupTemplate(entryPointName)}
         |        indexModel = ValueIndexer(inputCol="col5", outputCol="catOutput").fit(data)
         |        indexedData = indexModel.transform(data)
@@ -142,7 +142,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        self.assertNotEqual(valueData, None)
         |""".stripMargin
 
-  protected def evaluateTemplate(entryPointName: String): String =
+  protected def evaluateTemplate(entryPointName: String) =
     s"""|${evaluateSetupTemplate(entryPointName)}
         |        model = TrainClassifier(model=LogisticRegression(), labelCol="labelColumn",
         |                                numFeatures=256).fit(data)
