@@ -22,7 +22,7 @@ trait RankingTestBase extends TestBase {
 
   lazy val ratings: DataFrame = session
     .createDataFrame(Seq(
-      ("11", "Movie 01", 4),
+      ("11", "Movie 01", 2),
       ("11", "Movie 03", 1),
       ("11", "Movie 04", 5),
       ("11", "Movie 05", 3),
@@ -34,7 +34,7 @@ trait RankingTestBase extends TestBase {
       ("22", "Movie 02", 5),
       ("22", "Movie 03", 1),
       ("22", "Movie 05", 3),
-      ("22", "Movie 06", 4),
+      ("22", "Movie 06", 3),
       ("22", "Movie 07", 5),
       ("22", "Movie 08", 1),
       ("22", "Movie 10", 3),
