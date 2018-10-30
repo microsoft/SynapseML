@@ -139,10 +139,6 @@ object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
 class RankingAdapterModel private[ml](val uid: String)
   extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingFunctions with Mode {
 
-  def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(3)
-
-  def recommendForAllItems(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(3)
-
   def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
   val recommenderModel = new TransformerParam(this, "recommenderModel", "recommenderModel", { x: Transformer => true })
@@ -153,27 +149,21 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
-    val model = getRecommenderModel
-    getMode match {
-      case "allUsers" => {
-        val recs = this.recommendForAllUsers(getK)
-        prepareTestData(dataset.toDF(), recs, getK).toDF()
-      }
-      case "allItems" => {
-        val recs = this.recommendForAllItems(getK)
-        prepareTestData(dataset.toDF(), recs, getK).toDF()
-      }
-      case "normal"   => {
-        val recs = SparkHelper.flatten(model.transform(dataset), getK, getItemCol, getUserCol)
-        prepareTestData(dataset.toDF(), recs, getK).toDF()
-      }
+    val recs = getMode match {
+      case "allUsers" => this.recommendForAllUsers(getK)
+      case "allItems" => this.recommendForAllItems(getK)
+      case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
+    prepareTestData(dataset.toDF(), recs, getK).toDF()
   }
 
   override def copy(extra: ParamMap): RankingAdapterModel = {
     defaultCopy(extra)
   }
 
+  def recommendForAllUsers(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(getK)
+
+  def recommendForAllItems(i: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(getK)
 }
 
 object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
