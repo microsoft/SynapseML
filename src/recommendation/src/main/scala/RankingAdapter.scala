@@ -126,15 +126,8 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
-    val recs = getMode match {
-      case "allUsers" => this.recommendForAllUsers(getK)
-      case "allItems" => this.recommendForAllItems(getK)
-      case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
-    }
 
-    val rankingCol = if (dataset.columns.contains(getRatingCol)) getRatingCol else getItemCol
-
-    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(rankingCol).desc)
+    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))
 
     val perUserActualItemsDF = dataset
       .withColumn("rank", r().over(windowSpec).alias("rank"))
@@ -143,9 +136,14 @@ class RankingAdapterModel private[ml](val uid: String)
       .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
       .select(getUserCol, getLabelCol)
 
+    val recs = getMode match {
+      case "allUsers" => this.recommendForAllUsers(getK)
+      case "allItems" => this.recommendForAllItems(getK)
+      case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
+    }
+
     recs
-      .select(getUserCol, "recommendations." + getItemCol)
-      .withColumnRenamed(getItemCol, "prediction")
+      .select(col(getUserCol), col("recommendations." + getItemCol).as("prediction"))
       .join(perUserActualItemsDF, getUserCol)
       .drop(getUserCol)
   }
