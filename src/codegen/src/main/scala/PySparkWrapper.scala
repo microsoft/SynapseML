@@ -15,74 +15,6 @@ import Config._
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
-abstract class PySparkWrapper(entryPoint: PipelineStage,
-                              entryPointName: String,
-                              entryPointQualifiedName: String)
-  extends PySparkParamsWrapper(entryPoint,
-                               entryPointName,
-                               entryPointQualifiedName) {
-  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
-  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
-  //   if/else can be removed
-  override protected def classTemplate(importsString: String, inheritanceString: String,
-                                       classParamsString: String,
-                                       paramDefinitionsAndDefaultsString: String,
-                                       paramGettersAndSettersString: String,
-                                       classDocString: String, paramDocString: String,
-                                       classParamDocString: String): String = {
-    val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
-    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
-                  paramDocString, classParamDocString, importString)
-  }
-}
-
-class PySparkTransformerWrapper(entryPoint: Transformer,
-                                entryPointName: String,
-                                entryPointQualifiedName: String)
-  extends PySparkWrapper(entryPoint,
-                         entryPointName,
-                         entryPointQualifiedName) {
-  override val psType = "Transformer"
-}
-
-class PySparkEstimatorWrapper(entryPoint: Estimator[_],
-                              entryPointName: String,
-                              entryPointQualifiedName: String,
-                              companionModelName: String,
-                              companionModelQualifiedName: String)
-  extends PySparkWrapper(entryPoint,
-                         entryPointName,
-                         entryPointQualifiedName) {
-
-  private val createModelStringTemplate =
-    s"""|    def _create_model(self, java_model):
-        |        return $companionModelName(java_model)
-        |
-        |""".stripMargin
-
-  private def modelClassString(className: String, superClass: String): String = {
-    s"""|class ${className}(ComplexParamsMixin, JavaModel, JavaMLWritable, JavaMLReadable):
-        |    "\""
-        |    Model fitted by :class:`${superClass}`.
-        |
-        |    This class is left empty on purpose.
-        |    All necessary methods are exposed through inheritance.
-        |    "\""
-        |""".stripMargin
-  }
-
-  override def pysparkWrapperBuilder(): String = {
-    Seq(super.pysparkWrapperBuilder,
-        createModelStringTemplate,
-        modelClassString(companionModelName, entryPointName),
-        saveLoadTemplate(companionModelQualifiedName, companionModelName),
-        "").mkString("\n")
-  }
-
-  override val psType = "Estimator"
-
-}
-
 abstract class PySparkParamsWrapper(entryPoint: Params,
                                     entryPointName: String,
                                     entryPointQualifiedName: String)
@@ -462,6 +394,74 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   def writeWrapperToFile(dir: File): Unit = {
     writeFile(new File(dir, entryPointName + ".py"), pysparkWrapperBuilder())
   }
+
+}
+
+abstract class PySparkWrapper(entryPoint: PipelineStage,
+                              entryPointName: String,
+                              entryPointQualifiedName: String)
+  extends PySparkParamsWrapper(entryPoint,
+                               entryPointName,
+                               entryPointQualifiedName) {
+  // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
+  //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
+  //   if/else can be removed
+  override protected def classTemplate(importsString: String, inheritanceString: String,
+                                       classParamsString: String,
+                                       paramDefinitionsAndDefaultsString: String,
+                                       paramGettersAndSettersString: String,
+                                       classDocString: String, paramDocString: String,
+                                       classParamDocString: String): String = {
+    val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
+    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
+                  paramDocString, classParamDocString, importString)
+  }
+}
+
+class PySparkTransformerWrapper(entryPoint: Transformer,
+                                entryPointName: String,
+                                entryPointQualifiedName: String)
+  extends PySparkWrapper(entryPoint,
+                         entryPointName,
+                         entryPointQualifiedName) {
+  override val psType = "Transformer"
+}
+
+class PySparkEstimatorWrapper(entryPoint: Estimator[_],
+                              entryPointName: String,
+                              entryPointQualifiedName: String,
+                              companionModelName: String,
+                              companionModelQualifiedName: String)
+  extends PySparkWrapper(entryPoint,
+                         entryPointName,
+                         entryPointQualifiedName) {
+
+  private val createModelStringTemplate =
+    s"""|    def _create_model(self, java_model):
+        |        return $companionModelName(java_model)
+        |
+        |""".stripMargin
+
+  private def modelClassString(className: String, superClass: String): String = {
+    s"""|class ${className}(ComplexParamsMixin, JavaModel, JavaMLWritable, JavaMLReadable):
+        |    "\""
+        |    Model fitted by :class:`${superClass}`.
+        |
+        |    This class is left empty on purpose.
+        |    All necessary methods are exposed through inheritance.
+        |    "\""
+        |""".stripMargin
+  }
+
+  override def pysparkWrapperBuilder(): String = {
+    Seq(super.pysparkWrapperBuilder,
+        createModelStringTemplate,
+        modelClassString(companionModelName, entryPointName),
+        saveLoadTemplate(companionModelQualifiedName, companionModelName),
+        "").mkString("\n")
+  }
+
+  override val psType = "Estimator"
 
 }
 
