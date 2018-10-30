@@ -282,11 +282,11 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-          "DynamicMiniBatchTransformer"  | "FixedMiniBatchTransformer" |
-          "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer"  |
-          "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
-          "Repartition" | "SelectColumns" | "TextPreprocessor" |
-          "SummarizeData" =>
+             "DynamicMiniBatchTransformer"  | "FixedMiniBatchTransformer" |
+             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer"  |
+             "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
+             "Repartition" | "SelectColumns" | "TextPreprocessor" |
+             "SummarizeData" =>
           tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
         case _ => ""
       }
