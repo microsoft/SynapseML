@@ -239,7 +239,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
           case _ => Some(setAndGetTemplate(StringUtils.capitalize(param.name), value))
         }
 
-        }.mkString("\n")
+      }.mkString("\n")
     val classParamsString =
       entryPoint.params.map(param => param.name + "=" + getParamDefault(param)._1).mkString(", ")
     classTemplate(classParamsString, paramGettersAndSettersString)
@@ -282,8 +282,8 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
         case "IndexToValue" => indexToValueString(entryPointName)
         case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
         case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-             "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
-             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
+             "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer"|
+             "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer"|
              "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
              "Repartition" | "SelectColumns" | "TextPreprocessor" |
              "SummarizeData" =>
