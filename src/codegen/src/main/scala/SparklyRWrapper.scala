@@ -61,13 +61,13 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
   protected def getRDefault(paramDefault: String, paramType: String,
                             defaultStringIsParsable: Boolean): String =
     paramType match {
-      case "BooleanParam" =>
+      case "BooleanParam"                                          =>
         StringUtils.upperCase(paramDefault)
       case "DoubleParam" | "FloatParam" | "IntParam" | "LongParam" =>
         paramDefault
-      case x if x == "Param" || defaultStringIsParsable =>
+      case x if x == "Param" || defaultStringIsParsable            =>
         "\"" + paramDefault.replace("\\", "\\\\") + "\""
-      case _ =>
+      case _                                                       =>
         "NULL"
     }
 
@@ -77,24 +77,24 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
       val paramDefault: String = entryPoint.getDefault(param).get.toString
       if (paramDefault.toLowerCase.contains(param.parent.toLowerCase)) "NULL"
       else getRDefault(paramDefault,
-        param.getClass.getSimpleName,
-        try {
-          entryPoint.getParam(param.name).w(paramDefault)
-          true
-        } catch {
-          case _: Exception => false
-        })
+                       param.getClass.getSimpleName,
+                       try {
+                         entryPoint.getParam(param.name).w(paramDefault)
+                         true
+                       } catch {
+                         case _: Exception => false
+                       })
     }
   }
 
   protected def getParamConversion(paramType: String, paramName: String): String = {
     paramType match {
-      case "BooleanParam" => s"as.logical($paramName)"
-      case "DoubleParam" | "FloatParam" => s"as.double($paramName)"
-      case "StringArrayParam" => s"as.array($paramName)"
-      case "IntParam" | "LongParam" => s"as.integer($paramName)"
+      case "BooleanParam"                            => s"as.logical($paramName)"
+      case "DoubleParam" | "FloatParam"              => s"as.double($paramName)"
+      case "StringArrayParam"                        => s"as.array($paramName)"
+      case "IntParam" | "LongParam"                  => s"as.integer($paramName)"
       case "MapArrayParam" | "Param" | "StringParam" => paramName
-      case _ => paramName
+      case _                                         => paramName
     }
   }
 
@@ -147,9 +147,9 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
 
   def writeWrapperToFile(dir: File): Unit = {
     writeFile(sparklyRNamespacePath, s"export(ml_$entryPointName)\n",
-      StandardOpenOption.APPEND)
+              StandardOpenOption.APPEND)
     writeFile(new File(dir, s"$entryPointName.R"),
-      copyrightLines + sparklyRWrapperBuilder())
+              copyrightLines + sparklyRWrapperBuilder())
   }
 
 }

@@ -17,10 +17,12 @@ import scala.util.Random
 
 trait RankingParams extends Params {
   val minRatingsPerUser: IntParam = new IntParam(this, "minRatingsPerUser",
-    "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
+                                                 "min ratings for users > 0", ParamValidators.inRange(0, Integer
+      .MAX_VALUE))
 
   val minRatingsPerItem: IntParam = new IntParam(this, "minRatingsPerItem",
-    "min ratings for items > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
+                                                 "min ratings for items > 0", ParamValidators.inRange(0, Integer
+      .MAX_VALUE))
 
   /** @group setParam */
   def setMinRatingsPerUser(value: Int): this.type = set(minRatingsPerUser, value)
@@ -259,7 +261,7 @@ class RankingAdapter(override val uid: String)
         .add("recommendations", ArrayType(
           new StructType().add("userCol", IntegerType).add("rating", FloatType))
         )
-      case "normal" => new StructType()
+      case "normal"   => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
           new StructType().add("itemCol", IntegerType).add("rating", FloatType))
@@ -341,7 +343,7 @@ class RankingAdapterModel private[ml](val uid: String)
         val recs = model.asInstanceOf[ALSModel].recommendForAllItems(getNUsers)
         prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
       }
-      case "normal" => {
+      case "normal"   => {
         val recs = SparkHelper.flatten(model.transform(dataset), 10, getItemCol, getUserCol)
         prepareTestData(getItemCol, getUserCol, dataset.toDF(), recs, 10).toDF()
       }
@@ -361,7 +363,7 @@ class RankingAdapterModel private[ml](val uid: String)
         .add("recommendations", ArrayType(
           new StructType().add("userCol", IntegerType).add("rating", FloatType))
         )
-      case "normal" => new StructType()
+      case "normal"   => new StructType()
         .add("userCol", IntegerType)
         .add("recommendations", ArrayType(
           new StructType().add("itemCol", IntegerType).add("rating", FloatType))

@@ -273,7 +273,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         }
         if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
           autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
-            + paramParent.length)
+                                                   + paramParent.length)
         else {
           try {
             entryPoint.getParam(param.name).w(paramDefault)
@@ -282,7 +282,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
               defaultStringIsParsable = false
           }
           pyParamDefault = getPythonizedDefault(paramDefault,
-            param.getClass.getSimpleName, defaultStringIsParsable)
+                                                param.getClass.getSimpleName, defaultStringIsParsable)
         }
       case _                                 =>
     }
@@ -316,17 +316,17 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       if (param.isInstanceOf[ServiceParam[_]]) {
         paramGettersAndSetters +=
           setServiceTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+                             paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
       } else {
         paramGettersAndSetters +=
           setTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+                      paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
       }
 
       if (isComplexType(param.getClass.getSimpleName)) {
         paramDefinitionsAndDefaults +=
           defineComplexParamsTemplate(pname, getParamExplanation(param),
-            s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
+                                      s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
@@ -378,9 +378,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     }
 
     classTemplate(importsString, inheritanceString,
-      classParamsString,
-      paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
-      classDocString, paramDocString, classParamDocString) + "\n" +
+                  classParamsString,
+                  paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
+                  classDocString, paramDocString, classParamDocString) + "\n" +
       saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
@@ -398,8 +398,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
                               entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
-    entryPointName,
-    entryPointQualifiedName) {
+                               entryPointName,
+                               entryPointQualifiedName) {
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
@@ -411,7 +411,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                                        classParamDocString: String): String = {
     val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
     classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
-      paramDocString, classParamDocString, importString)
+                  paramDocString, classParamDocString, importString)
   }
 }
 
@@ -419,8 +419,8 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                               entryPointName: String,
                               entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
-    entryPointName,
-    entryPointQualifiedName) {
+                               entryPointName,
+                               entryPointQualifiedName) {
   override val psType = "Evaluator"
 
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
@@ -434,7 +434,7 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                                        classParamDocString: String): String = {
     val importString = "from pyspark.ml.evaluation import JavaEvaluator"
     classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
-      paramDocString, classParamDocString, importString)
+                  paramDocString, classParamDocString, importString)
   }
 
 }
@@ -443,8 +443,8 @@ class PySparkTransformerWrapper(entryPoint: Transformer,
                                 entryPointName: String,
                                 entryPointQualifiedName: String)
   extends PySparkWrapper(entryPoint,
-    entryPointName,
-    entryPointQualifiedName) {
+                         entryPointName,
+                         entryPointQualifiedName) {
   override val psType = "Transformer"
 }
 
@@ -454,8 +454,8 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
                               companionModelName: String,
                               companionModelQualifiedName: String)
   extends PySparkWrapper(entryPoint,
-    entryPointName,
-    entryPointQualifiedName) {
+                         entryPointName,
+                         entryPointQualifiedName) {
 
   private val createModelStringTemplate =
     s"""|    def _create_model(self, java_model):
@@ -476,10 +476,10 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
 
   override def pysparkWrapperBuilder(): String = {
     Seq(super.pysparkWrapperBuilder,
-      createModelStringTemplate,
-      modelClassString(companionModelName, entryPointName),
-      saveLoadTemplate(companionModelQualifiedName, companionModelName),
-      "").mkString("\n")
+        createModelStringTemplate,
+        modelClassString(companionModelName, entryPointName),
+        saveLoadTemplate(companionModelQualifiedName, companionModelName),
+        "").mkString("\n")
   }
 
   override val psType = "Estimator"
