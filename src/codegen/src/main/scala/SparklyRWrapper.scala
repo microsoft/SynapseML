@@ -163,9 +163,9 @@ class SparklyREvaluatorWrapper(entryPoint: Evaluator,
                                entryPointName: String,
                                entryPointQualifiedName: String)
   extends SparklyRParamsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
-  override val modelStr        : String = ""
-  override val moduleAcc       : String = "mod_parameterized"
-  override val psType          : String = "Evaluator"
+  override val modelStr: String = ""
+  override val moduleAcc: String = "mod_parameterized"
+  override val psType: String = "Evaluator"
   override val additionalParams: String = ""
 }
 

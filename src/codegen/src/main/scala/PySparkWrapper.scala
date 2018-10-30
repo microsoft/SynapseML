@@ -87,7 +87,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |""".stripMargin
   }
 
-  abstract def classTemplate(importsString: String, inheritanceString: String,
+  protected def classTemplate(importsString: String, inheritanceString: String,
                              classParamsString: String,
                              paramDefinitionsAndDefaultsString: String,
                              paramGettersAndSettersString: String,
@@ -401,7 +401,7 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                                        classDocString: String, paramDocString: String,
                                        classParamDocString: String): String = {
     val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
-    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
+    super.classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
                   paramDocString, classParamDocString, importString)
   }
 }
@@ -468,7 +468,7 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                                        classDocString: String, paramDocString: String,
                                        classParamDocString: String): String = {
     val importString = "from pyspark.ml.evaluation import JavaEvaluator"
-    classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
+    super.classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
                   paramDocString, classParamDocString, importString)
   }
 

@@ -14,7 +14,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.reflect.ClassTag
 
 class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
-                                          k: Int, nItems: Long)
+  k: Int, nItems: Long)
   extends Serializable {
   val metrics = new RankingMetrics[T](predictionAndLabels)
 
@@ -22,17 +22,17 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
     .map(row => row._1)
     .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
-  lazy val map                    : Double = metrics.meanAveragePrecision
-  lazy val ndcg                   : Double = metrics.ndcgAt(k)
-  lazy val precisionAtk           : Double = metrics.precisionAt(k)
-  lazy val recallAtK              : Double = predictionAndLabels.map(r =>
-                                                                       r._1.distinct.intersect(r._2.distinct).length
-                                                                         .toDouble / r
-                                                                         ._1.length.toDouble).mean()
-  lazy val diversityAtK           : Double = {
+  lazy val map: Double = metrics.meanAveragePrecision
+  lazy val ndcg: Double = metrics.ndcgAt(k)
+  lazy val precisionAtk: Double = metrics.precisionAt(k)
+  lazy val recallAtK: Double = predictionAndLabels.map(r =>
+    r._1.distinct.intersect(r._2.distinct).length
+      .toDouble / r
+      ._1.length.toDouble).mean()
+  lazy val diversityAtK: Double = {
     uniqueItemsRecommended.length.toDouble / nItems
   }
-  lazy val maxDiversity           : Double = {
+  lazy val maxDiversity: Double = {
     val itemCount = predictionAndLabels
       .map(row => row._2)
       .reduce((x, y) => x.toSet.union(y.toSet).toArray)
@@ -40,7 +40,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
       .size
     itemCount.toDouble / nItems
   }
-  lazy val meanReciprocalRank     : Double = {
+  lazy val meanReciprocalRank: Double = {
     predictionAndLabels.map { case (pred, lab) =>
       val labSet = lab.toSet
 
@@ -57,7 +57,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
       } else {
         0.0
       }
-                            }.mean()
+    }.mean()
   }
   lazy val fractionConcordantPairs: Double = {
     predictionAndLabels.map { case (pred, lab) =>
@@ -70,7 +70,7 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
         }
       })
       nc / (nc + nd)
-                            }.mean()
+    }.mean()
   }
 
   def matchMetric(metricName: String): Double = metricName match {
@@ -86,13 +86,13 @@ class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Ar
 
   def getAllMetrics: Map[String, Double] = {
     Map("map" -> map,
-        "ndcgAt" -> ndcg,
-        "precisionAtk" -> precisionAtk,
-        "recallAtK" -> recallAtK,
-        "diversityAtK" -> diversityAtK,
-        "maxDiversity" -> maxDiversity,
-        "mrr" -> meanReciprocalRank,
-        "fcp" -> fractionConcordantPairs)
+      "ndcgAt" -> ndcg,
+      "precisionAtk" -> precisionAtk,
+      "recallAtK" -> recallAtK,
+      "diversityAtK" -> diversityAtK,
+      "maxDiversity" -> maxDiversity,
+      "mrr" -> meanReciprocalRank,
+      "fcp" -> fractionConcordantPairs)
   }
 }
 
@@ -108,7 +108,7 @@ class RankingEvaluator(override val uid: String)
   def getNItems: Long = $(nItems)
 
   val k: IntParam = new IntParam(this, "k",
-                                 "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
+    "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
   setDefault(k -> 1)
 
   /** @group getParam */
@@ -119,10 +119,10 @@ class RankingEvaluator(override val uid: String)
 
   val metricName: Param[String] = {
     val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
-                                                      "maxDiversity", "mrr", "fcp"))
+      "maxDiversity", "mrr", "fcp"))
     new Param(this, "metricName", "metric name in evaluation " +
       "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr|fcp)",
-              allowedParams)
+      allowedParams)
   }
   setDefault(metricName -> "ndcgAt", nItems -> -1)
 

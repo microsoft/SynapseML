@@ -262,9 +262,8 @@ abstract class PySparkWrapperTest(entryPoint: PipelineStage,
 
 class PySparkEvaluatorTestWrapper(entryPoint: Evaluator,
                                   entryPointName: String,
-                                  entryPointQualifiedName: String) extends PySparkWrapperParamsTest(entryPoint,
-                                                                                                    entryPointName,
-                                                                                                    entryPointQualifiedName)
+                                  entryPointQualifiedName: String)
+  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
 
 class PySparkTransformerWrapperTest(entryPoint: Transformer,
                                     entryPointName: String,
