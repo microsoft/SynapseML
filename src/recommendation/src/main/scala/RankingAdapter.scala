@@ -76,8 +76,8 @@ trait RankingFunctions extends RankingParams with HasRecommenderCols {
       .join(filterByItemCount(dataset, itemCol, userCol), userCol)
 
   def prepareTestData(userColumn: String, itemColumn: String,
-    validationDataset: DataFrame, recs: DataFrame,
-    k: Int): Dataset[_] = {
+                      validationDataset: DataFrame, recs: DataFrame,
+                      k: Int): Dataset[_] = {
     import org.apache.spark.sql.functions.{collect_list, rank => r}
 
     val perUserRecommendedItemsDF: DataFrame = recs

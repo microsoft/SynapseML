@@ -17,14 +17,14 @@ import org.apache.spark.ml.evaluation.Evaluator
   * Abstraction for SparklyR wrapper generators.
   */
 abstract class SparklyRParmsWrapper(entryPoint: Params,
-  entryPointName: String,
-  entryPointQualifiedName: String) extends WritableWrapper {
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String) extends WritableWrapper {
 
   protected def functionTemplate(docString: String,
-    classParamsString: String,
-    setParams: String,
-    modelStr: String,
-    moduleAcc: String): String = {
+                                 classParamsString: String,
+                                 setParams: String,
+                                 modelStr: String,
+                                 moduleAcc: String): String = {
     s"""|
         |$docString
         |ml_$entryPointName <- function(x$classParamsString)
@@ -59,7 +59,7 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
   val additionalParams: String
 
   protected def getRDefault(paramDefault: String, paramType: String,
-    defaultStringIsParsable: Boolean): String =
+                            defaultStringIsParsable: Boolean): String =
     paramType match {
       case "BooleanParam" =>
         StringUtils.upperCase(paramDefault)
@@ -155,13 +155,13 @@ abstract class SparklyRParmsWrapper(entryPoint: Params,
 }
 
 abstract class SparklyRWrapper(entryPoint: PipelineStage,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                               entryPointName: String,
+                               entryPointQualifiedName: String)
   extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName)
 
 class SparklyREvaluatorWrapper(entryPoint: Evaluator,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                               entryPointName: String,
+                               entryPointQualifiedName: String)
   extends SparklyRParmsWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
   override val modelStr: String = ""
   override val moduleAcc: String = "mod_parameterized"
@@ -170,8 +170,8 @@ class SparklyREvaluatorWrapper(entryPoint: Evaluator,
 }
 
 class SparklyRTransformerWrapper(entryPoint: Transformer,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                                 entryPointName: String,
+                                 entryPointQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
   override val modelStr = ""
@@ -182,10 +182,10 @@ class SparklyRTransformerWrapper(entryPoint: Transformer,
 }
 
 class SparklyREstimatorWrapper(entryPoint: Estimator[_],
-  entryPointName: String,
-  entryPointQualifiedName: String,
-  companionModelName: String,
-  companionModelQualifiedName: String)
+                               entryPointName: String,
+                               entryPointQualifiedName: String,
+                               companionModelName: String,
+                               companionModelQualifiedName: String)
   extends SparklyRWrapper(entryPoint, entryPointName, entryPointQualifiedName) {
 
   override val modelStr: String =

@@ -14,7 +14,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.reflect.ClassTag
 
 class AdvancedRankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])],
-  k: Int, nItems: Long)
+                                          k: Int, nItems: Long)
   extends Serializable {
   val metrics = new RankingMetrics[T](predictionAndLabels)
 

@@ -15,8 +15,8 @@ import org.apache.spark.ml.evaluation.Evaluator
   * Abstraction for PySpark wrapper generators.
   */
 abstract class PySparkWrapperParamsTest(entryPoint: Params,
-  entryPointName: String,
-  entryPointQualifiedName: String) extends WritableWrapper {
+                                        entryPointName: String,
+                                        entryPointQualifiedName: String) extends WritableWrapper {
 
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
@@ -201,7 +201,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   }
 
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
-    defaultStringIsParsable: Boolean): String =
+                                     defaultStringIsParsable: Boolean): String =
     paramType match {
       case "BooleanParam" =>
         StringUtils.capitalize(paramDefault)
@@ -266,19 +266,19 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
 }
 
 abstract class PySparkWrapperTest(entryPoint: PipelineStage,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String)
   extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
 
 class PySparkEvaluatorTestWrapper(entryPoint: Evaluator,
-  entryPointName: String,
-  entryPointQualifiedName: String) extends PySparkWrapperParamsTest(entryPoint,
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String) extends PySparkWrapperParamsTest(entryPoint,
   entryPointName,
   entryPointQualifiedName)
 
 class PySparkTransformerWrapperTest(entryPoint: Transformer,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String)
   extends PySparkWrapperTest(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -306,10 +306,10 @@ class PySparkTransformerWrapperTest(entryPoint: Transformer,
 }
 
 class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
-  entryPointName: String,
-  entryPointQualifiedName: String,
-  companionModelName: String,
-  companionModelQualifiedName: String)
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String,
+                                  companionModelName: String,
+                                  companionModelQualifiedName: String)
   extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
 
   private val modelName = entryPointName + "Model"

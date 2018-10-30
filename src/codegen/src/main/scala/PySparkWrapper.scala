@@ -16,8 +16,8 @@ import org.apache.spark.ml.evaluation.Evaluator
   * Abstraction for PySpark wrapper generators.
   */
 abstract class PySparkParamsWrapper(entryPoint: Params,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String)
   extends WritableWrapper {
 
   private val additionalImports = Map(
@@ -30,12 +30,12 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
   protected def classTemplate(importsString: String, inheritanceString: String,
-    classParamsString: String,
-    paramDefinitionsAndDefaultsString: String,
-    paramGettersAndSettersString: String,
-    classDocString: String, paramDocString: String,
-    classParamDocString: String,
-    importTypeString: String): String = {
+                              classParamsString: String,
+                              paramDefinitionsAndDefaultsString: String,
+                              paramGettersAndSettersString: String,
+                              classDocString: String, paramDocString: String,
+                              classParamDocString: String,
+                              importTypeString: String): String = {
     s"""|$copyrightLines
         |
         |import sys
@@ -91,11 +91,11 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
   abstract def classTemplate(importsString: String, inheritanceString: String,
-    classParamsString: String,
-    paramDefinitionsAndDefaultsString: String,
-    paramGettersAndSettersString: String,
-    classDocString: String, paramDocString: String,
-    classParamDocString: String): String
+                             classParamsString: String,
+                             paramDefinitionsAndDefaultsString: String,
+                             paramGettersAndSettersString: String,
+                             classDocString: String, paramDocString: String,
+                             classParamDocString: String): String
 
   // Complex parameters need type converters
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
@@ -226,7 +226,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   }
 
   protected def getPythonizedDefault(paramDefault: String, paramType: String,
-    defaultStringIsParsable: Boolean): String =
+                                     defaultStringIsParsable: Boolean): String =
     paramType match {
       case "BooleanParam" =>
         StringUtils.capitalize(paramDefault)
@@ -395,8 +395,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 }
 
 abstract class PySparkWrapper(entryPoint: PipelineStage,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                              entryPointName: String,
+                              entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -404,11 +404,11 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
   override protected def classTemplate(importsString: String, inheritanceString: String,
-    classParamsString: String,
-    paramDefinitionsAndDefaultsString: String,
-    paramGettersAndSettersString: String,
-    classDocString: String, paramDocString: String,
-    classParamDocString: String): String = {
+                                       classParamsString: String,
+                                       paramDefinitionsAndDefaultsString: String,
+                                       paramGettersAndSettersString: String,
+                                       classDocString: String, paramDocString: String,
+                                       classParamDocString: String): String = {
     val importString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
     classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
       paramDocString, classParamDocString, importString)
@@ -416,8 +416,8 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
 }
 
 class PySparkEvaluatorWrapper(entryPoint: Evaluator,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                              entryPointName: String,
+                              entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -427,11 +427,11 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
   override protected def classTemplate(importsString: String, inheritanceString: String,
-    classParamsString: String,
-    paramDefinitionsAndDefaultsString: String,
-    paramGettersAndSettersString: String,
-    classDocString: String, paramDocString: String,
-    classParamDocString: String): String = {
+                                       classParamsString: String,
+                                       paramDefinitionsAndDefaultsString: String,
+                                       paramGettersAndSettersString: String,
+                                       classDocString: String, paramDocString: String,
+                                       classParamDocString: String): String = {
     val importString = "from pyspark.ml.evaluation import JavaEvaluator"
     classTemplate(importsString, inheritanceString, classParamsString, paramGettersAndSettersString, classDocString,
       paramDocString, classParamDocString, importString)
@@ -440,8 +440,8 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
 }
 
 class PySparkTransformerWrapper(entryPoint: Transformer,
-  entryPointName: String,
-  entryPointQualifiedName: String)
+                                entryPointName: String,
+                                entryPointQualifiedName: String)
   extends PySparkWrapper(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
@@ -449,10 +449,10 @@ class PySparkTransformerWrapper(entryPoint: Transformer,
 }
 
 class PySparkEstimatorWrapper(entryPoint: Estimator[_],
-  entryPointName: String,
-  entryPointQualifiedName: String,
-  companionModelName: String,
-  companionModelQualifiedName: String)
+                              entryPointName: String,
+                              entryPointQualifiedName: String,
+                              companionModelName: String,
+                              companionModelQualifiedName: String)
   extends PySparkWrapper(entryPoint,
     entryPointName,
     entryPointQualifiedName) {
