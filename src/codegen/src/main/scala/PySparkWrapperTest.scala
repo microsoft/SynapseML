@@ -7,67 +7,13 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.{ComplexParam, Param, Params, ServiceParam}
-import org.apache.spark.ml.evaluation.Evaluator
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
+import org.apache.spark.ml.evaluation.Evaluator
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
   */
-abstract class PySparkWrapperTest(entryPoint: PipelineStage,
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String)
-  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
-
-class PySparkTransformerWrapperTest(entryPoint: Transformer,
-                                    entryPointName: String,
-                                    entryPointQualifiedName: String)
-  extends PySparkWrapperTest(entryPoint,
-                             entryPointName,
-                             entryPointQualifiedName) {
-
-  // The transformer tests for FastVectorAssembler ... UnrollImage are disabled for the moment.
-  override def pysparkWrapperTestBuilder(): String = {
-    val transformTest =
-      entryPointName match {
-        case "ComputeModelStatistics" => computeStatisticsString(entryPointName)
-        case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
-        case "IndexToValue" => indexToValueString(entryPointName)
-        case "ValueIndexerModel" => valueIndexerModelString(entryPointName)
-        case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
-          "DynamicMiniBatchTransformer"  | "FixedMiniBatchTransformer" |
-          "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer"  |
-          "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
-          "Repartition" | "SelectColumns" | "TextPreprocessor" |
-          "SummarizeData" =>
-          tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
-        case _ => ""
-      }
-    super.pysparkWrapperTestBuilder + transformTest + unittestString
-  }
-
-}
-
-class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
-                                  entryPointName: String,
-                                  entryPointQualifiedName: String,
-                                  companionModelName: String,
-                                  companionModelQualifiedName: String)
-  extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
-
-  private val modelName = entryPointName + "Model"
-
-  override def pysparkWrapperTestBuilder(): String = {
-    val testString =
-      if (entryPointName == "FindBestModel")
-        evaluateString(entryPointName)
-      else
-        tryFitSetupTemplate(entryPointName) + tryFitString(entryPointName)
-    super.pysparkWrapperTestBuilder + testString + unittestString
-  }
-
-}
-
 abstract class PySparkWrapperParamsTest(entryPoint: Params,
                                         entryPointName: String,
                                         entryPointQualifiedName: String) extends WritableWrapper {
@@ -322,8 +268,62 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
 
 }
 
+abstract class PySparkWrapperTest(entryPoint: PipelineStage,
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String)
+  extends PySparkWrapperParamsTest(entryPoint, entryPointName, entryPointQualifiedName)
+
 class PySparkEvaluatorTestWrapper(entryPoint: Evaluator,
                                   entryPointName: String,
                                   entryPointQualifiedName: String) extends PySparkWrapperParamsTest(entryPoint,
                                                                                                     entryPointName,
                                                                                                     entryPointQualifiedName)
+
+class PySparkTransformerWrapperTest(entryPoint: Transformer,
+                                    entryPointName: String,
+                                    entryPointQualifiedName: String)
+  extends PySparkWrapperTest(entryPoint,
+                             entryPointName,
+                             entryPointQualifiedName) {
+
+  // The transformer tests for FastVectorAssembler ... UnrollImage are disabled for the moment.
+  override def pysparkWrapperTestBuilder(): String = {
+    val transformTest =
+      entryPointName match {
+        case "ComputeModelStatistics"       => computeStatisticsString(entryPointName)
+        case "ComputePerInstanceStatistics" => computeStatisticsString(entryPointName)
+        case "IndexToValue"                 => indexToValueString(entryPointName)
+        case "ValueIndexerModel"            => valueIndexerModelString(entryPointName)
+        case "CheckpointData" | "DataConversion" | "EnsembleByKey" |
+          "DynamicMiniBatchTransformer" | "FixedMiniBatchTransformer" |
+          "PartitionConsolidator" | "TimeIntervalMiniBatchTransformer" |
+          "PartitionSample" | "Cacher" | "DropColumns" | "RenameColumn" |
+          "Repartition" | "SelectColumns" | "TextPreprocessor" |
+          "SummarizeData"                   =>
+          tryFitSetupTemplate(entryPointName) + tryTransformString(entryPointName)
+        case _                              => ""
+      }
+    super.pysparkWrapperTestBuilder + transformTest + unittestString
+  }
+
+}
+
+class PySparkEstimatorWrapperTest(entryPoint: Estimator[_],
+                                  entryPointName: String,
+                                  entryPointQualifiedName: String,
+                                  companionModelName: String,
+                                  companionModelQualifiedName: String)
+  extends PySparkWrapperTest(entryPoint, entryPointName, entryPointQualifiedName) {
+
+  private val modelName = entryPointName + "Model"
+
+  override def pysparkWrapperTestBuilder(): String = {
+    val testString =
+      if (entryPointName == "FindBestModel")
+        evaluateString(entryPointName)
+      else
+        tryFitSetupTemplate(entryPointName) + tryFitString(entryPointName)
+    super.pysparkWrapperTestBuilder + testString + unittestString
+  }
+
+}
