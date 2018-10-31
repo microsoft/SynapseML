@@ -31,7 +31,7 @@ object SparkHelper {
   }
 }
 
-trait PublicALSParams extends ALSParams
+trait RecommendationParams extends ALSParams
 
 trait HasRecommenderCols extends Params {
   val userCol = new Param[String](this, "userCol", "Column of users")

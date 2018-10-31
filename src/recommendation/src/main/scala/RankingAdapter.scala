@@ -69,13 +69,13 @@ class RankingAdapter(override val uid: String)
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
   /** @group getParam */
-  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getUserCol
+  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getUserCol
 
   /** @group getParam */
-  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getItemCol
+  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getItemCol
 
   /** @group getParam */
-  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getRatingCol
+  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
     new RankingAdapterModel()
