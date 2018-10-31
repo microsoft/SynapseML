@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 trait RecEvaluatorParams extends Wrappable
-  with HasPredictionCol with HasLabelCol with kTrait with ComplexParamsWritable
+  with HasPredictionCol with HasLabelCol with hasK with ComplexParamsWritable
 
 object SparkHelper {
   def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
@@ -31,7 +31,7 @@ object SparkHelper {
   }
 }
 
-trait PublicALSParams extends ALSParams
+trait RecommendationParams extends ALSParams
 
 trait HasRecommenderCols extends Params {
   val userCol = new Param[String](this, "userCol", "Column of users")
@@ -57,7 +57,7 @@ trait HasRecommenderCols extends Params {
 
 }
 
-trait kTrait extends Params{
+trait hasK extends Params{
   val k: IntParam = new IntParam(this, "k", "number of items", ParamValidators.inRange(1, Integer.MAX_VALUE))
 
   /** @group getParam */

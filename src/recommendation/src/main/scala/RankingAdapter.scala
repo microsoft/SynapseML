@@ -12,7 +12,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 
-trait RankingParams extends HasRecommenderCols with HasLabelCol with kTrait {
+trait RankingParams extends HasRecommenderCols with HasLabelCol with hasK {
   val minRatingsPerUser: IntParam =
     new IntParam(this, "minRatingsPerUser", "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
@@ -55,23 +55,11 @@ trait Mode extends HasRecommenderCols{
   setDefault(mode -> "allUsers")
 
   def transformSchema(schema: StructType): StructType = {
-    lazy val userStructType: StructType = new StructType()
+    new StructType()
       .add(getUserCol, IntegerType)
       .add("recommendations", ArrayType(
         new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
       )
-
-    lazy val itemStructType: StructType = new StructType()
-      .add(getItemCol, IntegerType)
-      .add("recommendations", ArrayType(
-        new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
-      )
-
-    getMode match {
-      case "allUsers" => userStructType
-      case "allItems" => itemStructType
-      case "normal"   => userStructType
-    }
   }
 }
 
@@ -81,13 +69,13 @@ class RankingAdapter(override val uid: String)
   def  this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
   /** @group getParam */
-  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getUserCol
+  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getUserCol
 
   /** @group getParam */
-  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getItemCol
+  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getItemCol
 
   /** @group getParam */
-  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getRatingCol
+  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
     new RankingAdapterModel()
@@ -139,7 +127,6 @@ class RankingAdapterModel private[ml](val uid: String)
 
     val recs = getMode match {
       case "allUsers" => this.recommendForAllUsers(getK)
-      case "allItems" => this.recommendForAllItems(getK)
       case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
 
@@ -155,7 +142,6 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def recommendForAllUsers(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(k)
 
-  def recommendForAllItems(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(k)
 }
 
 object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
