@@ -15,6 +15,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
     .reduce((x, y) => x.toSet.union(y.toSet).toArray)
 
   lazy val metrics                         = new RankingMetrics[Any](predictionAndLabels)
+
   lazy val map: Double                     = metrics.meanAveragePrecision
   lazy val ndcg: Double                    = metrics.ndcgAt(k)
   lazy val precisionAtk: Double            = metrics.precisionAt(k)
@@ -65,6 +66,74 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
       nc / (nc + nd)
     }.mean()
   }
+  lazy val battleAverage: Double           = {
+    //order of hits does not matter for BA
+    predictionAndLabels.map { case (pred, lab) =>
+      var nc = 0.0
+      var nd = 0.0
+      pred.zipWithIndex.foreach(a => {
+        if (lab.length > a._2) {
+          if(lab.contains(a._1)) nc += 1
+          else nd += 1
+        }
+      })
+      nc / (nc + nd)
+    }.mean()
+  }
+  lazy val slugging: Double                = {
+    //slugging is the power behind the hit
+    predictionAndLabels.map { case (pred, lab) =>
+      var nc = 0.0
+      var nd = 0.0
+      pred.zipWithIndex.foreach(a => {
+        if (lab.length > a._2) {
+          if(lab.contains(a._1)) nc += 1/lab.indexOf(a._1)
+          nd += 1
+        }
+      })
+      nc / (nd)
+    }.mean()
+  }
+  lazy val ops: Double                     = battleAverage + slugging
+  lazy val runs: Double                    = {
+    //a run is a hit in the right order
+    predictionAndLabels.map { case (pred, lab) =>
+      var nc = 0.0
+      var nd = 0.0
+      pred.zipWithIndex.foreach(a => {
+        if (lab.length > a._2) {
+          if (a._1 == lab(a._2)) nc += 1
+        }
+      })
+      nc
+    }.sum()
+  }
+  lazy val hr: Double                      = {
+    //a home run is when the top label item appears in the predictions
+    predictionAndLabels.map { case (pred, lab) =>
+      var nc = 0.0
+      var nd = 0.0
+      pred.zipWithIndex.foreach(a => {
+        if (lab.length > a._2) {
+          if(lab(0) == a._1) nc += 1
+        }
+      })
+      nc
+    }.sum()
+  }
+  lazy val so: Double                      = {
+    //strike out is when there is no union between pred and lab
+    predictionAndLabels.map { case (pred, lab) =>
+      var nc = 0.0
+      var nd = 0.0
+      pred.zipWithIndex.foreach(a => {
+        if (lab.length > a._2) {
+          if(lab.contains(a._1)) nc += 1
+        }
+      })
+      if (nc == 0) 1 else 0
+    }.sum()
+  }
 
   def matchMetric(metricName: String): Double = metricName match {
     case "map"          => map
@@ -75,6 +144,12 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
     case "maxDiversity" => maxDiversity
     case "mrr"          => meanReciprocalRank
     case "fcp"          => fractionConcordantPairs
+    case "battleAverage" => battleAverage
+    case "slugging"      => slugging
+    case "ops"           => ops
+    case "runs"          => runs
+    case "hr"            => hr
+    case "so"            => so
   }
 
   def getAllMetrics: Map[String, Double] = {
@@ -85,6 +160,13 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
       "diversityAtK" -> diversityAtK,
       "maxDiversity" -> maxDiversity,
       "mrr" -> meanReciprocalRank,
-      "fcp" -> fractionConcordantPairs)
+      "fcp" -> fractionConcordantPairs,
+      "battleAverage" -> battleAverage,
+      "slugging" -> slugging,
+      "ops" -> ops,
+      "runs" -> runs,
+      "hr" -> hr,
+      "so" -> so
+    )
   }
 }
