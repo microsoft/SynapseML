@@ -7,22 +7,22 @@ import org.apache.spark.ml.tuning.RankingCrossValidator
 
 class RankingCrossValidatorSpec extends RankingTestBase {
 
-  test("testALSSparkTVS") {
+  test("testALSSparkCV") {
 
     import scala.language.implicitConversions
 
     val df = pipeline.fit(ratings).transform(ratings)
 
     val rankingTrainValidationSplit = new RankingCrossValidator()
-      .setEstimator(adapter)
-      .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
+      .setEstimator(als)
+      .setEstimatorParamMaps(paramGrid)
 
     val model = rankingTrainValidationSplit.fit(df)
 
     val items = model.recommendForAllUsers(3)
-    print(items)
-    print(model.avgMetrics)
+    println(items)
+    model.avgMetrics.foreach(println)
   }
 
 }

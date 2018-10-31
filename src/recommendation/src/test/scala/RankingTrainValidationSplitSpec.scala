@@ -14,9 +14,9 @@ class RankingTrainValidationSplitSpec extends RankingTestBase {
     val df = pipeline.fit(ratings).transform(ratings)
 
     val rankingTrainValidationSplit = new RankingTrainValidationSplit()
-      .setEstimator(adapter)
-      .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
+      .setEstimator(als)
+      .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
 
     val model = rankingTrainValidationSplit.fit(df)

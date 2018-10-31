@@ -3,9 +3,9 @@
 
 package org.apache.spark.ml.tuning
 
-import com.microsoft.ml.spark.{RankingAdapter, RankingAdapterModel}
-import org.apache.spark.ml.Model
-import org.apache.spark.ml.recommendation.HasRecommenderCols
+import com.microsoft.ml.spark.{RankingAdapter, RankingAdapterModel, RankingEvaluator}
+import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.recommendation.{ALS, HasRecommenderCols}
 import org.apache.spark.sql.{DataFrame, Dataset, RankingDataset}
 
 class RankingCrossValidator extends CrossValidator with HasRecommenderCols {
@@ -27,6 +27,15 @@ class RankingCrossValidator extends CrossValidator with HasRecommenderCols {
 
   /** @group getParam */
   override def getRatingCol: String = getEstimator.asInstanceOf[RankingAdapter].getRatingCol
+
+  /** @group setParam */
+  override def setEstimator(value: Estimator[_]): this.type = {
+    val ranking = new RankingAdapter()
+      .setRecommender(value.asInstanceOf[Estimator[_ <: Model[_]]])
+      .setK(getEvaluator.asInstanceOf[RankingEvaluator].getK)
+    set(estimator, ranking)
+  }
+
 }
 
 class RankingCrossValidatorModel(
