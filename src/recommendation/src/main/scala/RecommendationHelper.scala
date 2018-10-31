@@ -4,8 +4,8 @@
 package org.apache.spark.ml.recommendation
 
 import com.microsoft.ml.spark.Wrappable
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol}
+import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}

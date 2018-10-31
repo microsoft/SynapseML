@@ -3,7 +3,6 @@
 
 package org.apache.spark.sql
 
-import com.microsoft.ml.spark.RankingParams
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.functions.{count => sqlCount, explode => sqlExplode, col => sqlCol, _}
@@ -11,19 +10,19 @@ import org.apache.spark.sql.functions.{count => sqlCount, explode => sqlExplode,
 import scala.collection.mutable
 import scala.util.Random
 
-class RankingDataSet[T](dataset: Dataset[_],
+class RankingDataset[T](dataset: Dataset[_],
   override val sparkSession: SparkSession,
   override val queryExecution: QueryExecution,
   encoder: Encoder[T]) extends Dataset[T](sparkSession, queryExecution, encoder) with Params {
 
-  override def copy(extra: ParamMap): RankingDataSet[T] = {
+  override def copy(extra: ParamMap): RankingDataset[T] = {
     defaultCopy(extra)
   }
 
   override def randomSplit(weights: Array[Double], seed: Long): Array[Dataset[T]] = {
     val encoder: Encoder[T] = this.exprEnc.asInstanceOf[Encoder[T]]
 
-    def filterByItemCount(dataset: RankingDataSet[T]): DataFrame = dataset
+    def filterByItemCount(dataset: RankingDataset[T]): DataFrame = dataset
       .dropDuplicates()
       .groupBy(getUserCol)
       .agg(sqlCol(getUserCol), sqlCount(sqlCol(getItemCol)).alias("nitems"))
@@ -42,12 +41,11 @@ class RankingDataSet[T](dataset: Dataset[_],
 
     val trainRatio = weights(0)
     val dataframe = this
-    val (trainingDataset, validationDataset) =  {
+    val (trainingDataset, validationDataset) = {
 
-      val filteredByItemCount       = filterByItemCount(dataframe)
+      val filteredByItemCount = filterByItemCount(dataframe)
       val filteredByUserRatingCount = filterByUserRatingCount(dataframe)
-      val dataset                   = filteredByUserRatingCount.join(filteredByItemCount, getUserCol)
-
+      val dataset = filteredByUserRatingCount.join(filteredByItemCount, getUserCol)
 
       if (dataset.columns.contains(getRatingCol)) {
         val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
@@ -117,7 +115,7 @@ class RankingDataSet[T](dataset: Dataset[_],
     }
 
     List(
-      new Dataset[T](trainingDataset.sparkSession,   trainingDataset.queryExecution, encoder),
+      new Dataset[T](trainingDataset.sparkSession, trainingDataset.queryExecution, encoder),
       new Dataset[T](validationDataset.sparkSession, validationDataset.queryExecution, encoder)
     ).toArray
   }
@@ -144,6 +142,7 @@ class RankingDataSet[T](dataset: Dataset[_],
   def setRatingCol(value: String): this.type = set(ratingCol, value)
 
   def getRatingCol: String = $(ratingCol)
+
   val minRatingsPerUser: IntParam =
     new IntParam(this, "minRatingsPerUser", "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
@@ -165,22 +164,13 @@ class RankingDataSet[T](dataset: Dataset[_],
   setDefault(minRatingsPerItem -> 1, minRatingsPerUser -> 1)
 }
 
-object RankingDataSet {
-  def toRankingDataSet[T](dataset: Dataset[_]): RankingDataSet[T] = {
+object RankingDataset {
+  def toRankingDataSet[T](dataset: Dataset[_]): RankingDataset[T] = {
     val encoder: Encoder[T] = dataset.exprEnc.asInstanceOf[Encoder[T]]
-    new RankingDataSet[T](
+    new RankingDataset[T](
       dataset,
       dataset.sparkSession,
       dataset.queryExecution,
       encoder)
   }
 }
-
-
-//import scala.language.implicitConversions
-//implicit def df2RDF(rankingDataFrame: Dataset[_]): RankingDataSet[T] =
-//new RankingDataSet[T](
-//dataset,
-//rankingDataFrame.sparkSession,
-//rankingDataFrame.queryExecution,
-//encoder)

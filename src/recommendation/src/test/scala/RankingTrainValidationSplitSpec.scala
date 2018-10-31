@@ -3,9 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.recommendation.HasRecommenderCols
-import org.apache.spark.ml.tuning.{TrainValidationSplit, TrainValidationSplitModel}
-import org.apache.spark.sql.{DataFrame, RankingDataSet}
+import org.apache.spark.ml.tuning.RankingTrainValidationSplit
 
 class RankingTrainValidationSplitSpec extends RankingTestBase {
 
@@ -13,16 +11,10 @@ class RankingTrainValidationSplitSpec extends RankingTestBase {
 
     import scala.language.implicitConversions
 
-    val rankingAdapter = new RankingAdapter()
-      .setMode("allUsers")
-      .setK(evaluator.getK)
-      .setRecommender(als)
-      .setUserCol(als.getUserCol)
-      .setItemCol(als.getItemCol)
-      .setRatingCol(als.getRatingCol)
+    val df = pipeline.fit(ratings).transform(ratings)
 
-    val trainValidationSplit = (new TrainValidationSplit() with HasRecommenderCols)
-      .setEstimator(rankingAdapter)
+    val trainValidationSplit = new RankingTrainValidationSplit()
+      .setEstimator(adapter)
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
       .setTrainRatio(0.8)
@@ -30,24 +22,7 @@ class RankingTrainValidationSplitSpec extends RankingTestBase {
       .setItemCol(als.getItemCol)
       .setRatingCol(als.getRatingCol)
 
-    val df = pipeline.fit(ratings).transform(ratings)
-
-    val rankingDF = RankingDataSet.toRankingDataSet[Any](df)
-      .setUserCol(als.getUserCol)
-      .setItemCol(als.getItemCol)
-      .setRatingCol(als.getRatingCol)
-
-    val model = trainValidationSplit.fit(rankingDF)
-
-    class RankingTrainValidationSplitModel(trainValidationSplitModel: TrainValidationSplitModel) {
-      def recommendForAllUsers(k: Int): DataFrame = trainValidationSplitModel
-        .bestModel
-        .asInstanceOf[RankingAdapterModel]
-        .recommendForAllUsers(k)
-    }
-
-    implicit def tvsm2RTVSM(trainValidationSplitModel: TrainValidationSplitModel): RankingTrainValidationSplitModel =
-      new RankingTrainValidationSplitModel(trainValidationSplitModel)
+    val model = trainValidationSplit.fit(df)
 
     val items = model.recommendForAllUsers(3)
     print(items)
