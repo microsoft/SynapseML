@@ -3,9 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.tuning.RankingTrainValidationSplit
+import org.apache.spark.ml.tuning.RankingCrossValidator
 
-class RankingTrainValidationSplitSpec extends RankingTestBase {
+class RankingCrossValidatorSpec extends RankingTestBase {
 
   test("testALSSparkTVS") {
 
@@ -13,17 +13,16 @@ class RankingTrainValidationSplitSpec extends RankingTestBase {
 
     val df = pipeline.fit(ratings).transform(ratings)
 
-    val rankingTrainValidationSplit = new RankingTrainValidationSplit()
+    val rankingTrainValidationSplit = new RankingCrossValidator()
       .setEstimator(adapter)
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
-      .setTrainRatio(0.8)
 
     val model = rankingTrainValidationSplit.fit(df)
 
     val items = model.recommendForAllUsers(3)
     print(items)
-    print(model.validationMetrics)
+    print(model.avgMetrics)
   }
 
 }
