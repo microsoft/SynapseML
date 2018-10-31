@@ -3,16 +3,18 @@
 
 package org.apache.spark.ml.tuning
 
-import com.microsoft.ml.spark.{RankingAdapter, RankingAdapterModel, RankingEvaluator}
-import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.recommendation.HasRecommenderCols
+import com.microsoft.ml.spark.{RankingAdapter, RankingEvaluator}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, RankingDataset}
+import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.sql.{Dataset, RankingDataset}
 
 class RankingTrainValidationSplit extends TrainValidationSplit
   with ComplexParamsWritable
-  with HasRecommenderCols {
+  with RankingTuningTrait {
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
+    getEstimator.asInstanceOf[RankingAdapter]
+      .setK(getEvaluator.asInstanceOf[RankingEvaluator].getK)
+
     val rankingDF = RankingDataset.toRankingDataSet[Any](dataset)
       .setUserCol(getUserCol)
       .setItemCol(getItemCol)
@@ -22,20 +24,10 @@ class RankingTrainValidationSplit extends TrainValidationSplit
     new RankingTrainValidationSplitModel("rtvs", model.bestModel, model.validationMetrics)
   }
 
-  /** @group getParam */
-  override def getItemCol: String = getEstimator.asInstanceOf[RankingAdapter].getItemCol
-
-  /** @group getParam */
-  override def getUserCol: String = getEstimator.asInstanceOf[RankingAdapter].getUserCol
-
-  /** @group getParam */
-  override def getRatingCol: String = getEstimator.asInstanceOf[RankingAdapter].getRatingCol
-
   /** @group setParam */
   override def setEstimator(value: Estimator[_]): this.type = {
     val ranking = new RankingAdapter()
       .setRecommender(value.asInstanceOf[Estimator[_ <: Model[_]]])
-      .setK(getEvaluator.asInstanceOf[RankingEvaluator].getK)
     set(estimator, ranking)
   }
 }
@@ -47,17 +39,7 @@ class RankingTrainValidationSplitModel(
   override val bestModel: Model[_],
   override val validationMetrics: Array[Double])
   extends TrainValidationSplitModel(uid, bestModel, validationMetrics)
-    with MLWritable {
-  def recommendForAllUsers(k: Int): DataFrame =
-    bestModel
-      .asInstanceOf[RankingAdapterModel]
-      .recommendForAllUsers(k)
-
-  def recommendForAllItems(k: Int): DataFrame =
-    bestModel
-      .asInstanceOf[RankingAdapterModel]
-      .recommendForAllItems(k)
-
+    with MLWritable with RankingTuningModelTrait {
   override def write: TrainValidationSplitModel.TrainValidationSplitModelWriter = {
     new TrainValidationSplitModel.TrainValidationSplitModelWriter(this)
   }

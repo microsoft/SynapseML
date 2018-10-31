@@ -78,7 +78,7 @@ trait Mode extends HasRecommenderCols{
 class RankingAdapter(override val uid: String)
   extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode {
 
-  def this() = this(Identifiable.randomUID("RecommenderAdapter"))
+  def  this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
   /** @group getParam */
   override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with PublicALSParams].getUserCol
