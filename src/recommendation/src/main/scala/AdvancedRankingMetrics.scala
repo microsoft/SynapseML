@@ -129,14 +129,14 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
   }
 
   def matchMetric(metricName: String): Double = metricName match {
-    case "map"          => map
-    case "ndcgAt"       => ndcg
-    case "precisionAtk" => precisionAtk
-    case "recallAtK"    => recallAtK
-    case "diversityAtK" => diversityAtK
-    case "maxDiversity" => maxDiversity
-    case "mrr"          => meanReciprocalRank
-    case "fcp"          => fractionConcordantPairs
+    case "map"           => map
+    case "ndcgAt"        => ndcg
+    case "precisionAtk"  => precisionAtk
+    case "recallAtK"     => recallAtK
+    case "diversityAtK"  => diversityAtK
+    case "maxDiversity"  => maxDiversity
+    case "mrr"           => meanReciprocalRank
+    case "fcp"           => fractionConcordantPairs
     case "battleAverage" => battleAverage
     case "slugging"      => slugging
     case "ops"           => ops
