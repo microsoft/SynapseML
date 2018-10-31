@@ -109,16 +109,9 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
     }.sum()
   }
   lazy val hr: Double                      = {
-    //a home run is when the top label item appears in the predictions
+    //a home run is when the top predicted item appears in the labels since this is the biggest hit we can get
     predictionAndLabels.map { case (pred, lab) =>
-      var nc = 0.0
-      var nd = 0.0
-      pred.zipWithIndex.foreach(a => {
-        if (lab.length > a._2) {
-          if(lab(0) == a._1) nc += 1
-        }
-      })
-      nc
+      if (lab.contains(pred(0))) 1 else 0
     }.sum()
   }
   lazy val so: Double                      = {
