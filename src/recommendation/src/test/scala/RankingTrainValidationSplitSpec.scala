@@ -18,9 +18,6 @@ class RankingTrainValidationSplitSpec extends RankingTestBase {
       .setEstimatorParamMaps(paramGrid)
       .setEvaluator(evaluator)
       .setTrainRatio(0.8)
-      .setUserCol(als.getUserCol)
-      .setItemCol(als.getItemCol)
-      .setRatingCol(als.getRatingCol)
 
     val model = trainValidationSplit.fit(df)
 
