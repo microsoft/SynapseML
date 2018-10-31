@@ -1,11 +1,16 @@
 # Prepare training and test data.
+import pyspark
+from pyspark.ml.tuning import *
+from pyspark.ml.tuning import *
+from pyspark.sql.types import *
 import os
 import pyspark
 import unittest
 import xmlrunner
 from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.RankingCrossValidator import RankingCrossValidator
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.tuning import *
@@ -89,6 +94,83 @@ class RankingSpec(unittest.TestCase):
         metrics = ['ndcgAt', 'fcp', 'mrr']
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
+
+    def test_tvsplitter(self):
+        self.get_pyspark()
+
+        ratings = self.getRatings()
+
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
+
+        user_id_index = "customerID"
+        item_id_index = "itemID"
+
+        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
+        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+
+        als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
+
+        evaluator = RankingEvaluator() \
+            .setK(3) \
+            .setNItems(10)
+
+        paramGrid = ParamGridBuilder() \
+            .addGrid(als.regParam, [1.0]) \
+            .build()
+
+        rankingTrainValidationSplit = RankingTrainValidationSplit() \
+            .setEvaluator(evaluator) \
+            .setEstimator(als) \
+            .setEstimatorParamMaps(paramGrid) \
+            .setTrainRatio(0.8)
+
+        pipeline = Pipeline(stages=[customer_indexer, items_indexer])
+        output = pipeline.fit(ratings).transform(ratings)
+
+        model = rankingTrainValidationSplit.fit(output)
+
+        items = model.recommendForAllUsers(3)
+        print(items)
+
+    def test_cv(self):
+        self.get_pyspark()
+
+        ratings = self.getRatings()
+
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
+
+        user_id_index = "customerID"
+        item_id_index = "itemID"
+
+        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
+        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+
+        als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
+
+        evaluator = RankingEvaluator() \
+            .setK(3) \
+            .setNItems(10)
+
+        paramGrid = ParamGridBuilder() \
+            .addGrid(als.regParam, [1.0]) \
+            .build()
+
+        rankingCrossValidator = RankingCrossValidator() \
+            .setEvaluator(evaluator) \
+            .setEstimator(als) \
+            .setEstimatorParamMaps(paramGrid) \
+
+        pipeline = Pipeline(stages=[customer_indexer, items_indexer])
+        output = pipeline.fit(ratings).transform(ratings)
+
+        model = rankingCrossValidator .fit(output)
+
+        items = model.recommendForAllUsers(3)
+        print(items)
 
 
 if __name__ == "__main__":

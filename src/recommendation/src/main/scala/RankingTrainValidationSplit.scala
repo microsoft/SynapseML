@@ -6,10 +6,12 @@ package org.apache.spark.ml.tuning
 import com.microsoft.ml.spark.{RankingAdapter, RankingAdapterModel, RankingEvaluator}
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.recommendation.HasRecommenderCols
-import org.apache.spark.ml.util.ComplexParamsReadable
+import org.apache.spark.ml.util._
 import org.apache.spark.sql.{DataFrame, Dataset, RankingDataset}
 
-class RankingTrainValidationSplit extends TrainValidationSplit with HasRecommenderCols {
+class RankingTrainValidationSplit extends TrainValidationSplit
+  with ComplexParamsWritable
+  with HasRecommenderCols {
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
     val rankingDF = RankingDataset.toRankingDataSet[Any](dataset)
       .setUserCol(getUserCol)
@@ -44,7 +46,8 @@ class RankingTrainValidationSplitModel(
   override val uid: String,
   override val bestModel: Model[_],
   override val validationMetrics: Array[Double])
-  extends TrainValidationSplitModel(uid, bestModel, validationMetrics) {
+  extends TrainValidationSplitModel(uid, bestModel, validationMetrics)
+    with MLWritable {
   def recommendForAllUsers(k: Int): DataFrame =
     bestModel
       .asInstanceOf[RankingAdapterModel]
@@ -54,6 +57,10 @@ class RankingTrainValidationSplitModel(
     bestModel
       .asInstanceOf[RankingAdapterModel]
       .recommendForAllItems(k)
+
+  override def write: TrainValidationSplitModel.TrainValidationSplitModelWriter = {
+    new TrainValidationSplitModel.TrainValidationSplitModelWriter(this)
+  }
 }
 
 object RankingTrainValidationSplitModel extends ComplexParamsReadable[RankingTrainValidationSplitModel]
