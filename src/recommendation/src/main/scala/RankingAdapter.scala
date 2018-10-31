@@ -127,6 +127,7 @@ class RankingAdapterModel private[ml](val uid: String)
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
 
+    //Rating Ties are broken by Item Id asc, when indexed using Spark indexer, 0 is the most frequent item
     val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))
 
     val perUserActualItemsDF = dataset
