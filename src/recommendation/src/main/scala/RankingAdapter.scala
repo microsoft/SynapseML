@@ -55,23 +55,11 @@ trait Mode extends HasRecommenderCols{
   setDefault(mode -> "allUsers")
 
   def transformSchema(schema: StructType): StructType = {
-    lazy val userStructType: StructType = new StructType()
+    new StructType()
       .add(getUserCol, IntegerType)
       .add("recommendations", ArrayType(
         new StructType().add(getItemCol, IntegerType).add("rating", FloatType))
       )
-
-    lazy val itemStructType: StructType = new StructType()
-      .add(getItemCol, IntegerType)
-      .add("recommendations", ArrayType(
-        new StructType().add(getUserCol, IntegerType).add("rating", FloatType))
-      )
-
-    getMode match {
-      case "allUsers" => userStructType
-      case "allItems" => itemStructType
-      case "normal"   => userStructType
-    }
   }
 }
 
@@ -138,7 +126,6 @@ class RankingAdapterModel private[ml](val uid: String)
 
     val recs = getMode match {
       case "allUsers" => this.recommendForAllUsers(getK)
-      case "allItems" => this.recommendForAllItems(getK)
       case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
 
@@ -154,7 +141,6 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def recommendForAllUsers(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllUsers(k)
 
-  def recommendForAllItems(k: Int): DataFrame = getRecommenderModel.asInstanceOf[ALSModel].recommendForAllItems(k)
 }
 
 object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
