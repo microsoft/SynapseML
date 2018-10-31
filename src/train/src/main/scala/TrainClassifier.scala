@@ -36,38 +36,24 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   *   reindex -> true
   *   labels -> true (Specified)
   * Validate labels matches column type, try to recast to label type, reindex label column
+  *
+  * The currently supported classifiers are:
+  * Logistic Regression Classifier
+  * Decision Tree Classifier
+  * Random Forest Classifier
+  * Gradient Boosted Trees Classifier
+  * Naive Bayes Classifier
+  * Multilayer Perceptron Classifier
+  * In addition to any generic learner that inherits from Predictor.
   */
-class TrainClassifier(override val uid: String) extends Estimator[TrainedClassifierModel]
-  with HasLabelCol with ComplexParamsWritable with HasFeaturesCol {
+@InternalWrapper
+class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] {
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
-  /** Classifier to run. The currently supported classifiers are:
-    * Logistic Regression Classifier
-    * Decision Tree Classifier
-    * Random Forest Classifier
-    * Gradient Boosted Trees Classifier
-    * Naive Bayes Classifier
-    * Multilayer Perceptron Classifier
-    * In addition to any generic learner that inherits from Predictor.
-    * @group param
+  /** Doc for model to run.
     */
-  val model = new EstimatorParam(this, "model", "Classifier to run")
-  /** @group getParam */
-  def getModel: Estimator[_ <: Model[_]] = $(model)
-  /** @group setParam */
-  def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
-
-  /** Number of features to hash to
-    * @group param
-    */
-  val numFeatures = new IntParam(this, "numFeatures", "Number of features to hash to")
-  setDefault(numFeatures -> 0)
-
-  /** @group getParam */
-  def getNumFeatures: Int = $(numFeatures)
-  /** @group setParam */
-  def setNumFeatures(value: Int): this.type = set(numFeatures, value)
+  override def modelDoc: String = "Classifier to run"
 
   /** Specifies whether to reindex the given label column.
     * See class documentation for how this parameter interacts with specified labels.
@@ -288,12 +274,13 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 }
 
 /** Model produced by [[TrainClassifier]]. */
+@InternalWrapper
 class TrainedClassifierModel(val uid: String,
                              val labelColumn: String,
-                             val model: PipelineModel,
+                             override val model: PipelineModel,
                              val levels: Option[Array[_]],
                              val featuresColumn: String)
-    extends Model[TrainedClassifierModel] with ConstructorWritable[TrainedClassifierModel]{
+    extends AutoTrainedModel[TrainedClassifierModel](model) {
 
   val ttag: TypeTag[TrainedClassifierModel] = typeTag[TrainedClassifierModel]
   val objectsToSave: List[AnyRef] = List(uid, labelColumn, model, levels, featuresColumn)
@@ -384,9 +371,6 @@ class TrainedClassifierModel(val uid: String,
       case _ => true
     }
   }
-
-  def getParamMap: ParamMap = model.stages.last.extractParamMap()
-
 }
 
 object TrainedClassifierModel extends ConstructorReadable[TrainedClassifierModel]
