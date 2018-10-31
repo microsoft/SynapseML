@@ -12,7 +12,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 
-trait RankingParams extends HasRecommenderCols with HasLabelCol with kTrait {
+trait RankingParams extends HasRecommenderCols with HasLabelCol with hasK {
   val minRatingsPerUser: IntParam =
     new IntParam(this, "minRatingsPerUser", "min ratings for users > 0", ParamValidators.inRange(0, Integer.MAX_VALUE))
 
