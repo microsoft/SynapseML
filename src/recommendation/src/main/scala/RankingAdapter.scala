@@ -158,3 +158,4 @@ class RankingAdapterModel private[ml](val uid: String)
 }
 
 object RankingAdapterModel extends ComplexParamsReadable[RankingAdapterModel]
+
