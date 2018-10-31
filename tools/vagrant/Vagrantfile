@@ -101,12 +101,15 @@ Vagrant.configure("2") do |config|
 	echo "alias idea=${BIN}/idea.sh" >> /home/vagrant/.bashrc
 	 echo "Done."	
 
-	# Install mmlspark
+  	SHELL
+
+config.vm.provision "shell", privileged: false, inline: <<-SHELL
+  	# Install mmlspark
 	cd ${HOME_DIR}
 	git clone https://github.com/Azure/mmlspark.git 
 	cd mmlspark
 	./runme TESTS="None" #Installs prereqs
 	./runme TESTS="None" #Runs the build
-
   	SHELL
+
 end
