@@ -141,6 +141,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterFeatureImportance(boosterPtr, -1, importanceTypeNum, featureImportances),
       "Booster FeatureImportance")
-    (0 to numFeatures).map(lightgbmlib.doubleArray_getitem(featureImportances, _)).toArray
+    (0 until numFeatures).map(lightgbmlib.doubleArray_getitem(featureImportances, _)).toArray
   }
 }
