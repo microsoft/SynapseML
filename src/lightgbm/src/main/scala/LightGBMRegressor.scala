@@ -75,8 +75,9 @@ class LightGBMRegressor(override val uid: String)
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString)
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
+
     val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
+      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, booster2) => booster1)
     // Wait for future to complete (should be done by now)
