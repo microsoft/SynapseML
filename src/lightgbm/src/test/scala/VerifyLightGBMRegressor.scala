@@ -63,6 +63,39 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     assert(model != null)
   }
 
+  test("Verify LightGBM Regressor with weight column") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "airfoil_self_noise.train.csv"
+    val labelColumnName = "Scaled sound pressure level"
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val weightColName = "weight"
+    val lgbm = new LightGBMRegressor()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setWeightCol(weightColName)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val transformedData = featurizer.transform(dataset)
+    import org.apache.spark.sql.functions._
+    val datasetWithNoWeight = transformedData.withColumn(weightColName, lit(1.0))
+    val datasetWithWeight = transformedData.withColumn(weightColName,
+      when(col(labelColumnName) <= 120, 1000.0).otherwise(1.0))
+    datasetWithNoWeight.show()
+    // Verify changing weight to be higher on instances with lower sound pressure causes labels to decrease on average
+    val avglabelNoWeight = lgbm.fit(datasetWithNoWeight)
+      .transform(datasetWithNoWeight).select(avg("prediction")).first().getDouble(0)
+    val avglabelWeight = lgbm.fit(datasetWithWeight)
+      .transform(datasetWithWeight).select(avg("prediction")).first().getDouble(0)
+    assert(avglabelWeight < avglabelNoWeight)
+  }
+
   test("Verify LightGBM Regressor with tweedie distribution") {
     // Increment port index
     portIndex += numPartitions

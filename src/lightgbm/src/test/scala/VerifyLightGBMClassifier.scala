@@ -77,6 +77,40 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(model != null)
   }
 
+  test("Verify LightGBM Classifier with weight column") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val weightColName = "weight"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setWeightCol(weightColName)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(objective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val transformedData = featurizer.transform(dataset)
+    import org.apache.spark.sql.functions._
+    val datasetWithNoWeight = transformedData.withColumn(weightColName, lit(1.0))
+    val datasetWithWeight = transformedData.withColumn(weightColName,
+      when(col(labelColumnName) >= 1, 100.0).otherwise(1.0))
+    val labelOneCnt = lgbm.fit(datasetWithNoWeight)
+      .transform(datasetWithNoWeight).select("prediction").filter(_.getDouble(0) == 1.0).count()
+    val labelOneCntWeight = lgbm.fit(datasetWithWeight)
+      .transform(datasetWithWeight).select("prediction").filter(_.getDouble(0) == 1.0).count()
+    // Verify changing weight of one label significantly skews the results
+    assert(labelOneCnt * 2 < labelOneCntWeight)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.

@@ -75,6 +75,17 @@ trait HasFeaturesCol extends Wrappable {
   def getFeaturesCol: String = $(featuresCol)
 }
 
+trait HasWeightCol extends Wrappable {
+  /** The name of the weight column
+    * @group param
+    */
+  val weightCol = new Param[String](this, "weightCol", "The name of the weight column")
+  /** @group setParam */
+  def setWeightCol(value: String): this.type = set(weightCol, value)
+  /** @group getParam */
+  def getWeightCol: String = $(weightCol)
+}
+
 trait HasScoredLabelsCol extends Wrappable {
   /** The name of the scored labels column
     * @group param

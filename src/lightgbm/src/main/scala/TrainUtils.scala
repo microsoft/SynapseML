@@ -16,8 +16,28 @@ case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 
 private object TrainUtils extends Serializable {
 
-  def translate(labelColumn: String, featuresColumn: String, log: Logger, trainParams: TrainParams,
-                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+  private def addField(field: Array[Double], fieldName: String, numRows: Int, datasetPtr: Option[SWIGTYPE_p_void]) = {
+    // Generate the column and add to dataset
+    var colArray: Option[SWIGTYPE_p_float] = None
+    try {
+      colArray = Some(lightgbmlib.new_floatArray(numRows))
+      field.zipWithIndex.foreach(ri =>
+        lightgbmlib.floatArray_setitem(colArray.get, ri._2, ri._1.toFloat))
+      val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(colArray.get)
+      val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetSetField(datasetPtr.get, fieldName, colAsVoidPtr, numRows, data32bitType),
+        "DatasetSetField")
+    } finally {
+      // Free column
+      if (colArray.isDefined) {
+        lightgbmlib.delete_floatArray(colArray.get)
+      }
+    }
+  }
+
+  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String], log: Logger,
+                trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext)
       List[LightGBMBooster]().toIterator
 
@@ -44,23 +64,11 @@ private object TrainUtils extends Serializable {
 
       // Validate generated dataset has the correct number of rows and cols
       validateDataset(datasetPtr.get)
+      addField(labels, "label", numRows, datasetPtr)
 
-      // Generate the label column and add to dataset
-      var labelColArray: Option[SWIGTYPE_p_float] = None
-      try {
-        labelColArray = Some(lightgbmlib.new_floatArray(numRows))
-        labels.zipWithIndex.foreach(ri =>
-          lightgbmlib.floatArray_setitem(labelColArray.get, ri._2, ri._1.toFloat))
-        val labelAsVoidPtr = lightgbmlib.float_to_voidp_ptr(labelColArray.get)
-        val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
-        LightGBMUtils.validate(
-          lightgbmlib.LGBM_DatasetSetField(datasetPtr.get, "label", labelAsVoidPtr, numRows, data32bitType),
-          "DatasetSetField")
-      } finally {
-        // Free label column
-        if (labelColArray.isDefined) {
-          lightgbmlib.delete_floatArray(labelColArray.get)
-        }
+      if (weightColumn.isDefined) {
+        val weights = rows.map(row => row.getDouble(row.fieldIndex(weightColumn.get)))
+        addField(weights, "weight", numRows, datasetPtr)
       }
 
       var boosterPtr: Option[SWIGTYPE_p_void] = None
@@ -188,7 +196,7 @@ private object TrainUtils extends Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    log: Logger, trainParams: TrainParams, numCoresPerExec: Int)
+                    weightColumn: Option[String], log: Logger, trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
@@ -208,7 +216,7 @@ private object TrainUtils extends Serializable {
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
         LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
-      translate(labelColumn, featuresColumn, log, trainParams, inputRows)
+      translate(labelColumn, featuresColumn, weightColumn, log, trainParams, inputRows)
     } finally {
       // Finalize network when done
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
