@@ -9,9 +9,10 @@ import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, Multiclass
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import java.nio.file.{Files, Path, Paths}
-import org.apache.commons.io.FileUtils
 
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
+import org.apache.spark.ml.linalg.Vector
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
@@ -114,6 +115,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val splitFeatureImportances = model.getFeatureImportances("split")
       val gainFeatureImportances = model.getFeatureImportances("gain")
       assert(splitFeatureImportances.length == gainFeatureImportances.length)
+      val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
+      assert(featuresLength == splitFeatureImportances.length)
       val eval = new BinaryClassificationEvaluator()
         .setLabelCol(labelColumnName)
         .setRawPredictionCol(rawPredCol)
@@ -146,6 +149,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
       val gainFeatureImportances = model.getFeatureImportances("gain")
+      val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
+      assert(featuresLength == splitFeatureImportances.length)
       assert(splitFeatureImportances.length == gainFeatureImportances.length)
       val eval = new MulticlassClassificationEvaluator()
         .setLabelCol(labelColumnName)
