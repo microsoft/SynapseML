@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.{Column, DataFrame}
 
 /** Tests to validate the functionality of LightGBM module.
@@ -141,7 +142,9 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
       val gainFeatureImportances = model.getFeatureImportances("gain")
+      val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
       assert(splitFeatureImportances.length == gainFeatureImportances.length)
+      assert(featuresLength == splitFeatureImportances.length)
       val eval = new RegressionEvaluator()
         .setLabelCol(labelCol)
         .setPredictionCol(predCol)
