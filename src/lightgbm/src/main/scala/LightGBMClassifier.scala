@@ -54,8 +54,9 @@ class LightGBMClassifier(override val uid: String)
      */
     val actualNumClasses = getNumClasses(dataset)
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
+
     val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
+      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
