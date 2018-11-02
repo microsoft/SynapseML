@@ -85,27 +85,32 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
     predictionAndLabels.map { case (pred, lab) =>
       var nc = 0.0
       var nd = 0.0
-      pred.zipWithIndex.foreach(a => {
-        if (lab.length > a._2) {
-          if(lab.contains(a._1)) nc += 1/lab.indexOf(a._1)
-          nd += 1
-        }
+      pred.zipWithIndex.reverse.foreach(a => {
+        if(lab.contains(a._1)) nc = 1.0 / (lab.indexOf(a._1) + 1.0) * pred.length
       })
-      nc / (nd)
+      nc
     }.mean()
   }
   lazy val ops: Double                     = battleAverage + slugging
-  lazy val runs: Double                    = {
-    //a run is a hit in the right order
+  lazy val rbi: Double                    = {
     predictionAndLabels.map { case (pred, lab) =>
       var nc = 0.0
       var nd = 0.0
-      pred.zipWithIndex.foreach(a => {
-        if (lab.length > a._2) {
-          if (a._1 == lab(a._2)) nc += 1
-        }
-      })
-      nc
+//      pred.zipWithIndex.foreach(a => {
+//
+//        if (lab.length > a._2) {
+//          if (a._1 == lab(a._2)) nc += 1
+//        }
+//      })
+//      nc
+      val intersectionSet = pred.zipWithIndex.intersect(lab.zipWithIndex)
+      if(!intersectionSet.isEmpty) intersectionSet.length else 0
+    }.sum()
+  }
+  lazy val runs: Double                     = {
+    //a run is a hit in the right order
+    predictionAndLabels.map { case (pred, lab) =>
+      if(!pred.zipWithIndex.intersect(lab.zipWithIndex).isEmpty) 1.0 else 0
     }.sum()
   }
   lazy val hr: Double                      = {
@@ -137,10 +142,11 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
     case "maxDiversity"  => maxDiversity
     case "mrr"           => meanReciprocalRank
     case "fcp"           => fractionConcordantPairs
-    case "battleAverage" => battleAverage
-    case "slugging"      => slugging
+    case "ba"            => battleAverage
+    case "slg"           => slugging
     case "ops"           => ops
     case "runs"          => runs
+    case "rbi"          => rbi
     case "hr"            => hr
     case "so"            => so
   }
@@ -154,10 +160,11 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
       "maxDiversity" -> maxDiversity,
       "mrr" -> meanReciprocalRank,
       "fcp" -> fractionConcordantPairs,
-      "battleAverage" -> battleAverage,
-      "slugging" -> slugging,
+      "ba" -> battleAverage,
+      "slg" -> slugging,
       "ops" -> ops,
       "runs" -> runs,
+      "rbi" -> rbi,
       "hr" -> hr,
       "so" -> so
     )
