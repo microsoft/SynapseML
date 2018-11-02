@@ -52,7 +52,7 @@ defvar -xp HOME; mkdir -p "$HOME"
 
 # First, the common container definition
 defvar MAIN_STORAGE "mmlspark"
-defvar MAIN_RESOURCE_GROUP "mmlspark"
+defvar MAIN_RESOURCE_GROUP "mmlspark-rg"
 # to use the storage directly replace: "azureedge" -> "blob.core.windows"
 _main_url() { echo "https://$MAIN_STORAGE.azureedge.net/$1"; }
 # The base URL for our installables
