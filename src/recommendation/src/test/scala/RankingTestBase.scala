@@ -7,7 +7,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.ALS
-import org.apache.spark.ml.tuning._
+import org.apache.spark.ml.tuning.{RankingCrossValidator, _}
 import org.apache.spark.sql.DataFrame
 
 import scala.language.existentials
@@ -86,5 +86,16 @@ trait RankingTestBase extends TestBase {
   lazy val adapter: RankingAdapter = new RankingAdapter()
     .setK(evaluator.getK)
     .setRecommender(als)
+
+  lazy val rankingTrainValidationSplit: RankingTrainValidationSplit = new RankingTrainValidationSplit()
+    .setEvaluator(evaluator)
+    .setEstimator(als)
+    .setEstimatorParamMaps(paramGrid)
+    .setTrainRatio(0.8)
+
+  lazy val rankingCrossValidator: RankingCrossValidator = new RankingCrossValidator()
+    .setEvaluator(evaluator)
+    .setEstimator(als)
+    .setEstimatorParamMaps(paramGrid)
 
 }

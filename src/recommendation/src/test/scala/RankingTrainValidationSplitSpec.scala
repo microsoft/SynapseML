@@ -3,27 +3,26 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.tuning.RankingTrainValidationSplit
+import org.apache.spark.ml.tuning.{RankingTrainValidationSplit, RankingTrainValidationSplitModel}
+import org.apache.spark.ml.util.MLReadable
 
-class RankingTrainValidationSplitSpec extends RankingTestBase {
+class RankingTrainValidationSplitSpec extends RankingTestBase with EstimatorFuzzing[RankingTrainValidationSplit]{
 
-  test("testALSSparkTVS") {
-
-    import scala.language.implicitConversions
-
-    val df = pipeline.fit(ratings).transform(ratings)
-
-    val rankingTrainValidationSplit = new RankingTrainValidationSplit()
-      .setEvaluator(evaluator)
-      .setEstimator(als)
-      .setEstimatorParamMaps(paramGrid)
-      .setTrainRatio(0.8)
-
-    val model = rankingTrainValidationSplit.fit(df)
-
-    val items = model.recommendForAllUsers(3)
-    print(items)
-    print(model.validationMetrics)
+  override def testObjects(): Seq[TestObject[RankingTrainValidationSplit]] = {
+    List(new TestObject(rankingTrainValidationSplit, transformedDf))
   }
 
+  override def reader: MLReadable[_] = RankingTrainValidationSplit
+
+  override def modelReader: MLReadable[_] = RankingTrainValidationSplitModel
 }
+
+class RankingTrainValidationSplitModelSpec extends RankingTestBase with TransformerFuzzing[RankingTrainValidationSplitModel] {
+  override def testObjects(): Seq[TestObject[RankingTrainValidationSplitModel]] = {
+    val df = transformedDf
+    List(new TestObject(rankingTrainValidationSplit.fit(df), df))
+  }
+
+  override def reader: MLReadable[_] = RankingTrainValidationSplitModel
+}
+

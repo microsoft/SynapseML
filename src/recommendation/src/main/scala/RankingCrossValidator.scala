@@ -3,12 +3,14 @@
 
 package org.apache.spark.ml.tuning
 
-import com.microsoft.ml.spark.{RankingAdapter, RankingAdapterModel, RankingEvaluator}
+import com.microsoft.ml.spark.{RankingAdapter, RankingEvaluator}
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, MLWritable}
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.recommendation.{ALS, HasRecommenderCols}
-import org.apache.spark.sql.{DataFrame, Dataset, RankingDataset}
+import org.apache.spark.sql.{Dataset, RankingDataset}
 
-class RankingCrossValidator extends CrossValidator with RankingTuningTrait {
+class RankingCrossValidator extends CrossValidator
+  with ComplexParamsWritable
+  with RankingTuningTrait {
   override def fit(dataset: Dataset[_]): RankingCrossValidatorModel = {
     getEstimator.asInstanceOf[RankingAdapter]
       .setK(getEvaluator.asInstanceOf[RankingEvaluator].getK)
@@ -31,9 +33,18 @@ class RankingCrossValidator extends CrossValidator with RankingTuningTrait {
 
 }
 
+object RankingCrossValidator extends ComplexParamsReadable[RankingCrossValidator]
+
 class RankingCrossValidatorModel(
   override val uid: String,
   override val bestModel: Model[_],
   override val avgMetrics: Array[Double])
   extends CrossValidatorModel(uid, bestModel, avgMetrics)
-  with RankingTuningModelTrait
+    with MLWritable
+    with RankingTuningModelTrait {
+  override def write: CrossValidatorModel.CrossValidatorModelWriter = {
+    new CrossValidatorModel.CrossValidatorModelWriter(this)
+  }
+}
+
+object RankingCrossValidatorModel extends ComplexParamsReadable[RankingCrossValidatorModel]

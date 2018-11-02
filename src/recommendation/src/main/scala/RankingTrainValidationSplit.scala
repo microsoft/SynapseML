@@ -20,8 +20,15 @@ class RankingTrainValidationSplit extends TrainValidationSplit
       .setItemCol(getItemCol)
       .setRatingCol(getRatingCol)
 
-    val model = super.fit(rankingDF)
-    new RankingTrainValidationSplitModel("rtvs", model.bestModel, model.validationMetrics)
+    val trainedModel = super.fit(rankingDF)
+
+    val subModels: Option[Array[Model[_]]] = if (super.getCollectSubModels) {
+      Some(trainedModel.subModels)
+    } else None
+
+    val model = new RankingTrainValidationSplitModel("rtvs", trainedModel.bestModel, trainedModel.validationMetrics)
+    model.setSubModels(subModels)
+    model
   }
 
   /** @group setParam */
