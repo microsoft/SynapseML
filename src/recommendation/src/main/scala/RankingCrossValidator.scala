@@ -31,6 +31,8 @@ class RankingCrossValidator extends CrossValidator
     set(estimator, ranking)
   }
 
+  override def getEstimator: Estimator[_] = $(estimator).asInstanceOf[RankingAdapter].getRecommender
+
 }
 
 object RankingCrossValidator extends ComplexParamsReadable[RankingCrossValidator]

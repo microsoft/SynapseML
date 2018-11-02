@@ -4,6 +4,8 @@
 package org.apache.spark.ml.tuning
 
 import com.microsoft.ml.spark.{RankingAdapter, RankingEvaluator}
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param.{EstimatorParam, Param}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.{Dataset, RankingDataset}
@@ -12,9 +14,12 @@ class RankingTrainValidationSplit extends TrainValidationSplit
   with ComplexParamsWritable
   with RankingTuningTrait {
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
-    getEstimator.asInstanceOf[RankingAdapter]
+    val estimator = getEstimator
+    val rankingEstimator = new RankingAdapter()
+      .setRecommender(estimator.asInstanceOf[Estimator[_ <: Model[_]]])
       .setK(getEvaluator.asInstanceOf[RankingEvaluator].getK)
 
+    setEstimator(rankingEstimator)
     val rankingDF = RankingDataset.toRankingDataSet[Any](dataset)
       .setUserCol(getUserCol)
       .setItemCol(getItemCol)
@@ -28,15 +33,22 @@ class RankingTrainValidationSplit extends TrainValidationSplit
 
     val model = new RankingTrainValidationSplitModel("rtvs", trainedModel.bestModel, trainedModel.validationMetrics)
     model.setSubModels(subModels)
+
+    setEstimator(estimator)
     model
   }
 
   /** @group setParam */
-  override def setEstimator(value: Estimator[_]): this.type = {
-    val ranking = new RankingAdapter()
-      .setRecommender(value.asInstanceOf[Estimator[_ <: Model[_]]])
-    set(estimator, ranking)
-  }
+  override def setEvaluator(value: Evaluator): this.type = set(evaluator, value)
+
+//  override val estimator = new EstimatorParam(this, "estimator", "estimator for selection")
+
+  /** @group setParam */
+  def setEstimator(value: Estimator[_ <: Model[_]]): this.type = set(estimator, value)
+
+    /** @group getParam */
+  override def getEstimator: Estimator[_] = $(estimator)
+
 }
 
 object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainValidationSplit]
