@@ -73,6 +73,10 @@ get_pr_info() {
   fi
 }
 
+md_link() { # text, url
+  echo -n "[$1](${2// /%20})"
+}
+
 # post a status, only on PR builds and if we're running all tests
 post_status() { # state text
   if [[ "$BUILDPR" = */*/* ]]; then return; fi
@@ -84,7 +88,7 @@ post_status() { # state text
 # post a comment with the given text and link to the build; remember its id
 post_comment() { # text [more-text...]
   if [[ "$BUILDPR" = */*/* ]]; then return; fi
-  local text="[$1]($VURL)"; shift; local more_text="$*"
+  local text="$(md_link "$1" "$VURL")"; shift; local more_text="$*"
   if [[ "$more_text" != "" ]]; then text+=$'\n\n'"$more_text"; fi
   api "issues/$BUILDPR/comments" -d '{"body":'"$(jsonq "$text")"'}' - '.id' \
       > "$PRDIR/comment-id"
