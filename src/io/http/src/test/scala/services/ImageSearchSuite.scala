@@ -44,7 +44,7 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
       .downloadFromUrls("url", "bytes", 4, 10000)
       .transform(resultsDF.limit(15))
     val numSucesses = bytesDF.collect().count(row =>
-      row.getAs[Array[Byte]](1).length > 100)
+      Option(row.getAs[Array[Byte]](1)).getOrElse(Array()).length > 100)
     assert(numSucesses>3)
   }
 
