@@ -57,7 +57,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
   </tr>
   <tr align="center">
     <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png" width="200" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/lime_on_spark.jpg" width="180" /></td>
+    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg" width="180" /></td>
     <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
   </tr>
   <tr align="center">
