@@ -59,7 +59,7 @@ class CNTKModel(_CNTKModel):
 
     def setFetchDict(self, dict):
         super(CNTKModel, self).setFetchDict(dict)
-        self._updateJavaFetcgDict()
+        self._updateJavaFetchDict()
         return self
 
     def setModelLocation(self, location):
