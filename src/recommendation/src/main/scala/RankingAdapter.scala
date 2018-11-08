@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.recommendation._
+import org.apache.spark.ml.recommendation.{ALSModel, _}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.sql._
@@ -42,7 +42,7 @@ trait RankingParams extends HasRecommenderCols with HasLabelCol with hasK {
   setDefault(minRatingsPerUser -> 1, minRatingsPerItem -> 1, k -> 10, labelCol -> "label")
 }
 
-trait Mode extends HasRecommenderCols{
+trait Mode extends HasRecommenderCols {
 
   val mode: Param[String] = new Param(this, "mode", "recommendation mode")
 
@@ -125,7 +125,12 @@ class RankingAdapterModel private[ml](val uid: String)
       .select(getUserCol, getLabelCol)
 
     val recs = getMode match {
-      case "allUsers" => this.recommendForAllUsers(getK)
+      case "allUsers" => {
+        this.getRecommenderModel match {
+          case als: ALSModel => als.asInstanceOf[ALSModel].recommendForAllUsers(getK)
+          case sar: SARModel => sar.asInstanceOf[SARModel].recommendForAllUsers(getK)
+        }
+      }
       case "normal"   => SparkHelper.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
 
