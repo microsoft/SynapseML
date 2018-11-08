@@ -1,17 +1,17 @@
 # Prepare training and test data.
 import os
-import pyspark
 import unittest
+
+import pyspark
 import xmlrunner
 from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
-from pyspark.ml.tuning import *
+from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
-from pyspark.ml.recommendation import ALS
 
 
 class RankingSpec(unittest.TestCase):
@@ -89,6 +89,55 @@ class RankingSpec(unittest.TestCase):
         metrics = ['ndcgAt', 'fcp', 'mrr']
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
+
+    def test_all_tiny(self):
+
+        RankingSpec.get_pyspark()
+        ratings = RankingSpec.getRatings()
+
+        customerIndex = StringIndexer() \
+            .setInputCol("originalCustomerID") \
+            .setOutputCol("customerID")
+
+        ratingsIndex = StringIndexer() \
+            .setInputCol("newCategoryID") \
+            .setOutputCol("itemID")
+
+        pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
+
+        transformedDf = pipeline.fit(ratings).transform(ratings)
+
+        als = ALS() \
+            .setUserCol(customerIndex.getOutputCol()) \
+            .setRatingCol('rating') \
+            .setItemCol(ratingsIndex.getOutputCol())
+
+        alsModel = als.fit(transformedDf)
+        usersRecs = alsModel._call_java("recommendForAllUsers", 3)
+        print(usersRecs.take(1))
+
+        paramGrid = ParamGridBuilder() \
+            .addGrid(als.regParam, [1.0]) \
+            .build()
+
+        evaluator = RankingEvaluator()
+
+        tvRecommendationSplit = RankingTrainValidationSplit () \
+            .setEstimator(als) \
+            .setEvaluator(evaluator) \
+            .setEstimatorParamMaps(paramGrid) \
+            .setTrainRatio(0.8) \
+            .setUserCol(customerIndex.getOutputCol()) \
+            .setRatingCol('rating') \
+            .setItemCol(ratingsIndex.getOutputCol())
+
+        tvmodel = tvRecommendationSplit.fit(transformedDf)
+
+        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
+
+        print(usersRecs.take(1))
+        print(tvmodel.validationMetrics)
+
 
 
 if __name__ == "__main__":
