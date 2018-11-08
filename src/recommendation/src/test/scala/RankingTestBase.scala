@@ -69,7 +69,8 @@ trait RankingTestBase extends TestBase {
     .setStages(Array(customerIndex, itemIndex))
 
   val als = new ALS()
-  als.setUserCol(customerIndex.getOutputCol)
+  als
+    .setUserCol(customerIndex.getOutputCol)
     .setItemCol(itemIndex.getOutputCol)
     .setRatingCol(ratingCol)
 
@@ -86,5 +87,14 @@ trait RankingTestBase extends TestBase {
   lazy val adapter: RankingAdapter = new RankingAdapter()
     .setK(evaluator.getK)
     .setRecommender(als)
+
+  lazy val rankingTrainValidationSplit: RankingTrainValidationSplit = new RankingTrainValidationSplit()
+    .setEvaluator(evaluator)
+    .setEstimator(als)
+    .setEstimatorParamMaps(paramGrid)
+    .setTrainRatio(0.8)
+    .setUserCol(customerIndex.getOutputCol)
+    .setItemCol(itemIndex.getOutputCol)
+    .setRatingCol(ratingCol)
 
 }
