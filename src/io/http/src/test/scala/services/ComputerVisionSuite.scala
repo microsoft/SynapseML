@@ -8,7 +8,8 @@ import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
-import org.apache.spark.sql.functions.{col, struct}
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.functions.{col, struct, explode}
 
 trait VisionKey {
   lazy val visionKey = sys.env("VISION_API_KEY")
@@ -186,4 +187,34 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails] wit
     Seq(new TestObject(t, df))
 
   override def reader: MLReadable[_] = GenerateThumbnails
+}
+
+class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+  ).toDF("url")
+
+  lazy val t: TagImage = new TagImage()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageUrlCol("url")
+    .setOutputCol("tags")
+
+  test("Basic Usage") {
+    val results = t.transform(df)
+    val tagResponse = results.head()
+      .getAs[Row]("tags")
+      .getSeq[Row](0)
+
+    assert(tagResponse.map(_.getString(0)).toList.head === "person")
+    assert(tagResponse.map(_.getDouble(1)).toList.head === 0.9983993172645569)
+  }
+
+  override def testObjects(): Seq[TestObject[TagImage]] =
+    Seq(new TestObject(t, df))
+
+  override def reader: MLReadable[_] = TagImage
 }

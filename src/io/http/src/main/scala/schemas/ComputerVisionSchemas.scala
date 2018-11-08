@@ -86,3 +86,17 @@ case class AIColor(dominantColorForeground: String,
                    isBwImg: Option[Boolean])
 
 case class AIImageType(clipArtType: Int, lineDrawingType: Int)
+
+case class TagImagesResponse(tags: Seq[ImageTag],
+                             requestId: String,
+                             metaData: ImageMetadata)
+
+object TagImagesResponse extends SparkBindings[TagImagesResponse]
+
+case class ImageTag(name: String,
+                    confidence: Double,
+                    hint: Option[String])
+
+case class ImageMetadata(width: Int,
+                         height: Int,
+                         format: String)
