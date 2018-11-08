@@ -1,12 +1,12 @@
 # Prepare training and test data.
 import os
-import unittest
-
 import pyspark
+import unittest
 import xmlrunner
 from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
 from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.SAR import SAR
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
@@ -90,6 +90,33 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
+    def test_adapter_evaluator_sar(self):
+        self.get_pyspark()
+
+        ratings = self.getRatings()
+
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
+
+        user_id_index = "customerID"
+        item_id_index = "itemID"
+
+        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
+        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+
+        sar = SAR(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
+
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=sar)
+
+        pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
+        output = pipeline.fit(ratings).transform(ratings)
+        print(str(output.take(1)) + "\n")
+
+        metrics = ['ndcgAt', 'fcp', 'mrr']
+        for metric in metrics:
+            print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
+
     def test_all_tiny(self):
 
         RankingSpec.get_pyspark()
@@ -122,7 +149,7 @@ class RankingSpec(unittest.TestCase):
 
         evaluator = RankingEvaluator()
 
-        tvRecommendationSplit = RankingTrainValidationSplit () \
+        tvRecommendationSplit = RankingTrainValidationSplit() \
             .setEstimator(als) \
             .setEvaluator(evaluator) \
             .setEstimatorParamMaps(paramGrid) \
@@ -139,7 +166,6 @@ class RankingSpec(unittest.TestCase):
         print(tvmodel.validationMetrics)
 
 
-
 if __name__ == "__main__":
-    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS", "TestResults")), \
+    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS", "TestResults")),
                            failfast=False, buffer=False, catchbreak=False)
