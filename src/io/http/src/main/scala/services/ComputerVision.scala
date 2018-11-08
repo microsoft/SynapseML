@@ -7,7 +7,7 @@ import java.net.URI
 import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.HandlingUtils._
-import com.microsoft.ml.spark.cognitive.{AIResponse, DSIRResponse, OCRResponse, RTResponse}
+import com.microsoft.ml.spark.cognitive._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -364,4 +364,42 @@ class RecognizeDomainSpecificContent(override val uid: String)
   override protected def prepareUrl: Row => String =
   {r => getUrl + s"/models/${getValue(r, model)}/analyze"}
 
+}
+
+object TagImage extends ComplexParamsReadable[TagImage]
+
+class TagImage(override val uids: String)
+  extends CognitiveServicesBase(uid)
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+
+  def this() = this(Identifiable.randomUID("TagImage"))
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/tag")
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+  { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
+
+  override def responseDataType: DataType = TagImagesResponse.schema
+
+  val imageUrl = new ServiceParam[String](this, "imageUrl",
+    "Publicly reachable URL of an image in the request body",
+    isRequired = true)
+  def setImageUrl(v: String): this.type = setScalarParam(imageUrl, v)
+  def setImageUrlCol(v: String): this.type = setVectorParam(imageUrl, v)
+
+  private def validateLanguage(spd: ServiceParamData[String]): Boolean = {
+    spd.data.map {
+      case Left(lang) => Set("en","es","ja","pt","zh")(lang)
+      case _ => true
+    }.getOrElse(true)
+  }
+
+  val language = new ServiceParam[String](this, "language",
+    "The desired language for output generation.",
+    isRequired = false, isURLParam = true, isValid = validateLanguage)
+  def setLanguage(v: String): this.type = setScalarParam(language, v)
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  setDefault(language -> ServiceParamData(None, Some("en")))
 }

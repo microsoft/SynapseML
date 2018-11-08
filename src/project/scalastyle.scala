@@ -48,7 +48,7 @@ final object ScalaStyleExtras {
     r("SE", "DeprecatedJavaChecker"),
     r("SE", "ParameterNumberChecker", ("maxParameters", 12)),
     r("SW", "MethodLengthChecker", ("maxLength", 50)),
-    r("SE", "NumberOfTypesChecker", ("maxTypes", 30)),
+    r("SE", "NumberOfTypesChecker", ("maxTypes", 40)),
     r("SE", "NumberOfMethodsInTypeChecker", ("maxMethods", 50)),
     r("SE", "NumberOfTypesChecker"),
     r("SW", "CyclomaticComplexityChecker", ("maximum", 10)),
