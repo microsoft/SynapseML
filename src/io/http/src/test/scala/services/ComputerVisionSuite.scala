@@ -187,3 +187,32 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails] wit
 
   override def reader: MLReadable[_] = GenerateThumbnails
 }
+
+class DescribeImageSuite extends TransformerFuzzing[DescribeImage] with VisionKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+  ).toDF("url")
+
+  lazy val t: DescribeImage = new DescribeImage()
+      .setSubscriptionKey(visionKey)
+      .setLocation("eastus")
+      .setmaxCandidates("3")
+      .setImageUrlCol("url")
+      .setOutputCol("descriptions")
+
+  test("Basic Usage") {
+    val results = t.transform(df)
+    val tags = results.select("descriptions").take(1).head
+      .getStruct(0).getStruct(0).getSeq[String](0).toSet
+    assert(tags("person") && tags("glasses"))
+  }
+  
+  override def testObjects(): Seq[TestObject[DescribeImage]] =
+    Seq(new TestObject(t, df))
+
+  override def reader: MLReadable[_] = DescribeImage
+
+}
