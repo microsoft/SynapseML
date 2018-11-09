@@ -101,7 +101,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(featuresCol, featuresColName)
   set(predictionCol, predictionColName)
 
-  override protected def predict(features: Vector): Double = {
+  override def predict(features: Vector): Double = {
     model.score(features, raw = false)
   }
 
