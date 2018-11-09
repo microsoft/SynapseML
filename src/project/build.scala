@@ -35,6 +35,8 @@ object Extras {
     "com.microsoft.cntk"  % "cntk"         % cntkVer,
     "org.openpnp"         % "opencv"       % "3.2.0-1",
     "com.jcraft"          % "jsch"         % "0.1.54",
+    "com.jcraft"          % "jsch"         % "0.1.54",
+    "org.apache.httpcomponents" % "httpclient"   % "4.5.6",
     "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.1.250"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
