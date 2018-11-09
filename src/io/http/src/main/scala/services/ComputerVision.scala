@@ -403,3 +403,45 @@ class TagImage(override val uid: String)
 
   setDefault(language -> ServiceParamData(None, Some("en")))
 }
+
+object DescribeImage extends ComplexParamsReadable[DescribeImage]
+
+class DescribeImage(override val uid: String)
+  extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
+    with HasImageUrl with HasInternalJsonOutputParser {
+
+  def this() = this(Identifiable.randomUID("DescribeImage"))
+
+  override def responseDataType: DataType = DescribeImageResponse.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/describe")
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+  { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
+
+  val maxCandidates = new ServiceParam[String](this, "maxCandidates", "Maximum candidate descriptions to return",
+    isURLParam = true
+  )
+
+  def setmaxCandidates(v: String): this.type = setScalarParam(maxCandidates, v)
+
+  def setmaxCandidatesCol(v: String): this.type = setVectorParam(maxCandidates, v)
+
+  setDefault(maxCandidates, ServiceParamData(None, Some("1")))
+
+  val language = new ServiceParam[String](this, "language", "Language of image description",
+    isValid = {spd:ServiceParamData[String] => spd.data.map {
+      case Left(lang) => Set("en", "ja", "pt", "zh")(lang)
+      case _ => true
+    }.getOrElse(true)},
+    isURLParam = true
+  )
+
+  def setLanguage(v: String): this.type = setScalarParam(language, v)
+
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  setDefault(language, ServiceParamData(None, Some("en")))
+
+}
