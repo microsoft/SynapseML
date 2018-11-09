@@ -107,14 +107,20 @@ private[ml] object ComplexParamsWriter {
     val cls = instance.getClass.getName
     val params = instance.extractParamMap().toSeq
       .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
+    val defaultParams = instance.defaultParamMap.toSeq
+      .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
     val jsonParams = paramMap.getOrElse(render(params.map { case ParamPair(p, v) =>
       p.name -> parse(p.jsonEncode(v))
     }.toList))
+    val jsonDefaultParams = render(defaultParams.map { case ParamPair(p, v) =>
+      p.name -> parse(p.jsonEncode(v))
+    }.toList)
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
       ("sparkVersion" -> sc.version) ~
       ("uid" -> uid) ~
-      ("paramMap" -> jsonParams)
+      ("paramMap" -> jsonParams) ~
+      ("defaultParamMap" -> jsonDefaultParams)
     val metadata = extraMetadata match {
       case Some(jObject) =>
         basicMetadata ~ jObject
@@ -141,7 +147,7 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
     val cls = Utils.classForName(metadata.className)
     val instance =
       cls.getConstructor(classOf[String]).newInstance(metadata.uid).asInstanceOf[Params]
-    DefaultParamsReader.getAndSetParams(instance, metadata)
+    metadata.getAndSetParams(instance)
     ComplexParamsReader.getAndSetComplexParams(instance, metadata, path)
     instance.asInstanceOf[T]
   }
