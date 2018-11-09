@@ -100,3 +100,11 @@ case class ImageTag(name: String,
 case class ImageMetadata(width: Int,
                          height: Int,
                          format: String)
+
+case class DescribeImageResponse(description: ImageDescription, requestID: String, metadata: ImageMetadata)
+
+object DescribeImageResponse extends SparkBindings[DescribeImageResponse]
+
+case class ImageDescription(tags: Seq[String], captions: Seq[ImageCaptions])
+
+case class ImageCaptions(text: String, confidence: Double)
