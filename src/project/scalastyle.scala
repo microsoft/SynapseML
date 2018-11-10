@@ -87,7 +87,7 @@ final object ScalaStyleExtras {
     //   TodoCommentChecker:            at least for now we need them
     )
 
-  val conf = file(".") / "scalastyle-config.xml"
+  val conf = new File("scalastyle-config.xml")
 
   def modes    = Map(' ' -> null, 's' -> "src", 't' -> "test")
   def prefixes = Map('F' -> "file", 'S' -> "scalariform")
