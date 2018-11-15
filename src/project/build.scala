@@ -10,6 +10,7 @@ import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
 import sbtunidoc.ScalaUnidocPlugin.autoImport.ScalaUnidoc
 import sbtunidoc.BaseUnidocPlugin.autoImport.unidoc
+import org.scalastyle.sbt.ScalastylePlugin.autoImport.scalastyleConfig
 
 object Extras {
 
@@ -94,8 +95,15 @@ object Extras {
                       "codegen/run",
                       "publish",
                       "unidoc")
-      addCommands(st, steps.filter(_ != null).map("noisy-command " + _): _*) }
-  ) ++ ScalaStyleExtras.commands
+      addCommands(st, steps.filter(_ != null).map("noisy-command " + _): _*) },
+    Command.command("run-scalastyle") { st =>
+      Extras.addCommands(st, "run-scalastyle-on src", "run-scalastyle-on test")
+    },
+    Command.single("run-scalastyle-on") { (st, mode) =>
+      val cmd = (if (mode == "src") "" else mode + ":") + "scalastyle"
+      Extras.addCommands(st, s"noisy-command on-all-subs $cmd")
+    }
+  )
 
   // Utilities for sub-project sbt files
   def noJar = Seq(Keys.`package` := file(""))
@@ -140,7 +148,8 @@ object Extras {
     maxErrors in ThisBuild := 20,
     // Show stack traces up to the first SBT stack frame
     traceLevel in ThisBuild := 0,
-    // Stamp the jar manifests with the build info
+    scalastyleConfig in Test := new File("test-scalastyle-config.xml"),
+      // Stamp the jar manifests with the build info
     packageOptions in (Compile, packageBin) +=
       Package.ManifestAttributes(
         "MMLBuildInfo" -> env("MML_BUILD_INFO", "(direct sbt build, no info collected)")),
