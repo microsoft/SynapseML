@@ -9,7 +9,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, struct, explode}
+import org.apache.spark.sql.functions.{col, explode, struct}
+import org.scalatest.Assertion
 
 trait VisionKey {
   lazy val visionKey = sys.env("VISION_API_KEY")
@@ -210,7 +211,11 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey {
       .getSeq[Row](0)
 
     assert(tagResponse.map(_.getString(0)).toList.head === "person")
-    assert(tagResponse.map(_.getDouble(1)).toList.head === 0.9983993172645569)
+    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+    super.assertDFEq(df1.select("tags.tags"),df2.select("tags.tags"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
