@@ -368,7 +368,7 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
 object TagImage extends ComplexParamsReadable[TagImage]
 
-class TagImage(override val uids: String)
+class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid)
     with HasCognitiveServiceInput with HasInternalJsonOutputParser {
 
