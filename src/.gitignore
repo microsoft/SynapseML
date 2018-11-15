@@ -9,7 +9,6 @@ target/
 /project/autogen.scala
 /project/dependencies.*
 /project/project-roots.txt
-/scalastyle-config.xml
 
 # More SBT things
 lib_managed/
@@ -20,7 +19,6 @@ src_managed/
 /project/boot/
 /project/plugins/project/
 /project/project/
-/scalastyle-config.xml
 
 # IntelliJ w/ Scala
 .idea
