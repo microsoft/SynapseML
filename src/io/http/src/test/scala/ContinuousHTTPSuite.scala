@@ -24,7 +24,8 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
@@ -36,7 +37,7 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))  // only change in query
       .start()
 
-    Thread.sleep(5000)
+    Thread.sleep(10000)
 
     val client = HttpClientBuilder.create().build()
 
@@ -59,7 +60,8 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .parseRequest(BinaryType)
       .withColumn("length", length(col("bytes")))
@@ -92,7 +94,8 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address("0.0.0.0", 9010, apiName)
+      .address("0.0.0.0", 9010, apiPath)
+      .option("name", apiName)
       .option("forwarding.enabled", true)
       .option("forwarding.sshHost", "")
       .option("forwarding.keySas", "")
@@ -117,7 +120,8 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
@@ -149,22 +153,23 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
   test("non continuous mode"){
     val server = session
       .readStream
-      .format(classOf[HTTPSourceProvider].getName)
-      .option("host", host)
-      .option("port", port.toString)
+      .continuousServer
+      .address(host, port, apiPath)
       .option("name", apiName)
+      .option("numPartitions", 1)
       .load()
-      .withColumn("foo", col("id"))
+      .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
       .writeStream
-      .format(classOf[HTTPSinkProvider].getName)
+      .format("console")
+      .continuousServer
       .option("name", apiName)
       .queryName("foo").option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    Thread.sleep(5000)
-
+    Thread.sleep(10000)
+    println(server.status)
     val client = HttpClientBuilder.create().build()
 
     val responsesWithLatencies = (1 to 100).map( i =>
@@ -175,6 +180,29 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val meanLatency = mean(latencies)
     val stdLatency = stddev(latencies, meanLatency)
     println(s"Latency = $meanLatency +/- $stdLatency")
+    assert(meanLatency < 5)
+
+    println(HTTPSourceStateHolder.serviceInfoJson(apiName))
+    println("stopping server")
+    server.stop()
+  }
+
+  test("rate"){
+    val server = session
+      .readStream
+      .format("rate")
+      .address(host, port, apiPath)
+      .option("name", apiName)
+      .option("numPartitions", 1)
+      .load()
+      .writeStream
+      .format("console")
+      .option("name", apiName)
+      .queryName("foo").option("checkpointLocation",
+      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .start()
+
+    Thread.sleep(1000000)
 
     println("stopping server")
     server.stop()

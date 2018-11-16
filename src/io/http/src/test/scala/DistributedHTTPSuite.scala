@@ -10,12 +10,12 @@ import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.{ByteArrayEntity, FileEntity, StringEntity}
+import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
-import org.apache.spark.sql.functions.{col, length, udf}
-import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery, Trigger}
+import org.apache.spark.sql.functions.{col, length}
+import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -36,19 +36,43 @@ trait HTTPTestUtils extends WithFreeUrl {
     throw new TimeoutException(s"Server Did not start within $maxTimeWaited ms")
   }
 
-  def sendStringRequest(client: CloseableHttpClient): (String, Long) = {
+  def sendStringRequest(client: CloseableHttpClient,
+                        url: String = url,
+                        payload: String = "foo",
+                        accept400: Boolean = false): (String, Double) = {
     val post = new HttpPost(url)
-    val e = new StringEntity("foo")
+    val e = new StringEntity(payload)
     post.setEntity(e)
+    println("request sent")
+    val t0 = System.nanoTime()
+    val res = client.execute(post)
+    val t1 = System.nanoTime()
+
+    val out = if (accept400 && res.getStatusLine.getStatusCode == 400) {
+      null
+    } else {
+      new BasicResponseHandler().handleResponse(res)
+    }
+    res.close()
+    println("request suceeded")
+    (out, (t1 - t0) / 1e6)
+  }
+
+  def sendJsonRequest(client: CloseableHttpClient, payload: Int): (String, Long) = {
+    val post = new HttpPost(url)
+    val e = new StringEntity("{\"data\":" + s"$payload}")
+    post.setEntity(e)
+    println("request sent")
     val t0 = System.currentTimeMillis()
     val res = client.execute(post)
     val t1 = System.currentTimeMillis()
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
-    (out, t1-t0)
+    println("request suceeded")
+    (out, t1 - t0)
   }
 
-  def sendStringRequestAsync(client: CloseableHttpClient): Future[(String, Long)] = {
+  def sendStringRequestAsync(client: CloseableHttpClient): Future[(String, Double)] = {
     Future {
       sendStringRequest(client)
     }
@@ -81,7 +105,7 @@ trait HTTPTestUtils extends WithFreeUrl {
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     val t1 = System.currentTimeMillis()
-    (out, t1-t0)
+    (out, t1 - t0)
   }
 
   def mean(xs: List[Int]): Double = xs match {
@@ -92,7 +116,7 @@ trait HTTPTestUtils extends WithFreeUrl {
   def stddev(xs: List[Int], avg: Double): Double = xs match {
     case Nil => 0.0
     case ys => math.sqrt((0.0 /: ys) {
-      (a,e) => a + math.pow(e - avg, 2.0)
+      (a, e) => a + math.pow(e - avg, 2.0)
     } / xs.size)
   }
 
@@ -101,7 +125,7 @@ trait HTTPTestUtils extends WithFreeUrl {
 }
 
 // TODO add tests for shuffles
-class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
+class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
 
   // Logger.getRootLogger.setLevel(Level.WARN)
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
@@ -209,7 +233,7 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
 
     waitForServer(server)
 
-    val responsesWithLatencies = (1 to 100).map( i =>
+    val responsesWithLatencies = (1 to 100).map(i =>
       sendFileRequest(client)
     )
 
@@ -245,7 +269,7 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
 
     waitForServer(server)
 
-    val responsesWithLatencies = (1 to 100).map( i =>
+    val responsesWithLatencies = (1 to 100).map(i =>
       sendFileRequest(client)
     )
 

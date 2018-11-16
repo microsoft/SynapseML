@@ -4,9 +4,9 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.HTTPSchema._
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.{Column, DataFrame, Row}
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.execution.streaming.continuous.{HTTPSinkProviderV2, HTTPSourceProviderV2, HTTPSourceV2}
+import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
@@ -28,7 +28,7 @@ case class DataStreamReaderExtensions(dsr: DataStreamReader) {
   }
 
   def address(host: String, port: Int, api: String): DataStreamReader = {
-    dsr.option("host", host).option("port", port.toLong).option("name", api)
+    dsr.option("host", host).option("port", port.toLong).option("path", api)
   }
 
 }
@@ -70,19 +70,7 @@ case class DataFrameServingExtensions(df: DataFrame) {
   }
 
   def makeReply(replyCol: String, name: String = "reply"): DataFrame ={
-    def jsonReply(c: Column) = df.withColumn(name, string_to_response(to_json(c)))
-    df.schema(replyCol).dataType match {
-      case StringType => df.withColumn(name, string_to_response(col(replyCol)))
-      case BinaryType => df.withColumn(name, binary_to_response(col(replyCol)))
-      case _: StructType => jsonReply(col(replyCol))
-      case _: MapType => jsonReply(col(replyCol))
-      case at: ArrayType => at.elementType match {
-        case _: StructType => jsonReply(col(replyCol))
-        case _: MapType => jsonReply(col(replyCol))
-        case _ => jsonReply(struct(col(replyCol)))
-      }
-      case _ => jsonReply(struct(col(replyCol)))
-    }
+    df.withColumn(name, ServingUDFs.makeReplyUDF(col(replyCol), df.schema(replyCol).dataType))
   }
 
 }
