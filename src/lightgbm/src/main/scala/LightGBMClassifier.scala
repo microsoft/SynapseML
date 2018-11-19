@@ -91,7 +91,7 @@ class LightGBMClassificationModel(
   override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
     rawPrediction match {
       case dv: DenseVector =>
-        dv.values(0) = 1.0 / (1.0 + math.exp(-2.0 * dv.values(0)))
+        dv.values(0) = 1.0 / (1.0 + math.exp(-dv.values(0)))
         dv.values(1) = 1.0 - dv.values(0)
         dv
       case sv: SparseVector =>
