@@ -106,7 +106,7 @@ class RankingEvaluator(override val uid: String)
   def getNItems: Long = $(nItems)
 
   val metricName: Param[String] = {
-    val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK",
+    val allowedParams = ParamValidators.inArray(Array("ndcgAt", "map", "mapk", "recallAtK", "diversityAtK", "precisionAtk",
       "maxDiversity", "mrr", "fcp"))
     new Param(this, "metricName", "metric name in evaluation " +
       "(ndcgAt|map|precisionAtk|recallAtK|diversityAtK|maxDiversity|mrr|fcp)",
