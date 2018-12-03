@@ -122,8 +122,7 @@ trait HasMiniBatcher extends Params {
 
 object FixedMiniBatchTransformer extends DefaultParamsReadable[FixedMiniBatchTransformer]
 
-class FixedMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase {
+trait HasBatchSize extends Params {
 
   val batchSize: Param[Int] = new IntParam(
     this, "batchSize", "The max size of the buffer")
@@ -133,6 +132,11 @@ class FixedMiniBatchTransformer(val uid: String)
 
   /** @group setParam */
   def setBatchSize(value: Int): this.type = set(batchSize, value)
+
+}
+
+class FixedMiniBatchTransformer(val uid: String)
+  extends MiniBatchBase with HasBatchSize {
 
   val maxBufferSize: Param[Int] = new IntParam(
     this, "maxBufferSize", "The max size of the buffer")
