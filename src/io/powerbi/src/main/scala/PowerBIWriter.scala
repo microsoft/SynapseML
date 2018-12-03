@@ -12,7 +12,7 @@ import org.apache.spark.sql.{DataFrame, ForeachWriter, Row}
 
 import scala.collection.JavaConverters._
 
-private class StreamMaterializer extends ForeachWriter[Row] {
+private[ml] class StreamMaterializer extends ForeachWriter[Row] {
 
   override def open(partitionId: Long, version: Long): Boolean = true
 
