@@ -86,6 +86,7 @@ _sbt_run() { # sbt-args...
     _from_keyvault text-api-key TEXT_API_KEY
     _from_keyvault vision-api-key VISION_API_KEY
     _from_keyvault bing-image-search-key BING_IMAGE_SEARCH_KEY
+    _from_keyvault azure-search-key AZURE_SEARCH_KEY
   fi
 
   local flags=""; if [[ "$BUILDMODE" = "server" ]]; then flags="-no-colors"; fi

@@ -64,7 +64,8 @@ object Extras {
     "-Yno-adapted-args", // "-Ywarn-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard"
+    "-Ywarn-value-discard",
+    "-Yinline-warnings"
     // this leads to problems sometimes: "-Yinline-warnings"
   )
 
