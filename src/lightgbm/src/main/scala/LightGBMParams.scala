@@ -101,7 +101,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
-  setDefault(timeout->120)
+  setDefault(timeout -> 120)
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
@@ -111,4 +111,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getModelString: String = $(modelString)
   def setModelString(value: String): this.type = set(modelString, value)
+
+  val verbosity = new IntParam(this, "verbosity",
+    "Verbosity where lt 0 is Fatal, eq 0 is Error, eq 1 is Info, gt 1 is Debug")
+  setDefault(verbosity -> 1)
+
+  def getVerbosity: Int = $(verbosity)
+  def setVerbosity(value: Int): this.type = set(verbosity, value)
 }
