@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
@@ -53,10 +54,14 @@ class LightGBMClassifier(override val uid: String)
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
+    val categoricals =
+      if (isDefined(categoricalColumns)) getCategoricalColumns
+      else Array.empty[String]
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
-      getIsUnbalance, getVerbosity)
+      getIsUnbalance, getVerbosity, categoricalIndexes)
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
@@ -149,7 +154,7 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    return new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
+    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
   }
 
@@ -160,7 +165,7 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val actualNumClasses = 2
     val lightGBMBooster = new LightGBMBooster(model)
-    return new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
+    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
   }
 }
