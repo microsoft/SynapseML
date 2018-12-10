@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{DoubleParam, IntParam, Param}
+import org.apache.spark.ml.param.{DoubleParam, IntParam, Param, StringArrayParam}
 import org.apache.spark.ml.util.DefaultParamsWritable
 
 /** Defines common parameters across all LightGBM learners.
@@ -118,4 +118,10 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
+
+  val categoricalColumns = new StringArrayParam(this, "categoricalColumns",
+    "List of categorical column names")
+
+  def getCategoricalColumns: Array[String] = $(categoricalColumns)
+  def setCategoricalColumns(value: Array[String]): this.type = set(categoricalColumns, value)
 }

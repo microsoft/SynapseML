@@ -71,16 +71,20 @@ class LightGBMRegressor(override val uid: String)
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
+    val categoricals =
+      if (isDefined(categoricalColumns)) getCategoricalColumns
+      else Array.empty[String]
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
-      getVerbosity)
+      getVerbosity, categoricalIndexes)
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, booster2) => booster1)
+      .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
