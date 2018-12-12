@@ -32,8 +32,9 @@ object LightGBMUtils {
   /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
     */
   def initializeNativeLibrary(): Unit = {
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
+    val osPrefix = NativeLoader.getOSPrefix()
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
 
   def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String): PipelineModel = {
