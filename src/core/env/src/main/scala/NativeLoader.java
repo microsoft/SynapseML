@@ -67,6 +67,19 @@ public class NativeLoader implements Serializable {
         }
     }
 
+    public static String getOSPrefix() {
+        String OS = System.getProperty("os.name").toLowerCase();
+        if (OS.contains("linux") || OS.contains("mac") || OS.contains("darwin")) {
+            return "";
+        } else if (OS.contains("windows")) {
+            return "lib";
+        } else {
+            throw new UnsatisfiedLinkError(
+                    String.format("This component doesn't currently have native support for OS: %s", OS)
+            );
+        }
+    }
+
     private void extractNativeLibraries(String libName) throws IOException {
         if (!extractionDone) {
             extractResourceFromPath(libName, resourcesPath);
