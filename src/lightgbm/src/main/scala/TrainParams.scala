@@ -42,10 +42,14 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                                  val maxDepth: Int, val minSumHessianInLeaf: Double,
                                  val numMachines: Int, val objective: String, val modelString: String,
-                                 val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int])
+                                 val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int],
+                                 val numClass: Option[Int], val metric: String)
   extends TrainParams {
   override def toString(): String = {
-    s"metric=binary_logloss,auc is_unbalance=${isUnbalance.toString} ${super.toString}"
+    val extraStr =
+      if (numClass.isDefined) s"num_class=${numClass.get}"
+      else s"is_unbalance=${isUnbalance.toString}"
+    s"metric=$metric ${super.toString} $extraStr"
   }
 }
 

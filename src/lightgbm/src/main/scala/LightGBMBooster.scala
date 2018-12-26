@@ -18,7 +18,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   @transient
   var boosterPtr: SWIGTYPE_p_void = null
 
-  def score(features: Vector, raw: Boolean): Double = {
+  def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     // Reload booster on each node
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
@@ -28,12 +28,14 @@ class LightGBMBooster(val model: String) extends Serializable {
       if (raw) lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
       else lightgbmlibConstants.C_API_PREDICT_NORMAL
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind)
-      case sparse: SparseVector => predictForCSR(sparse, kind)
+      case dense: DenseVector => predictForMat(dense.toArray, kind, classification)
+      case sparse: SparseVector => predictForCSR(sparse, kind, classification)
     }
   }
 
-  protected def predictForCSR(sparseVector: SparseVector, kind: Int): Double = {
+  lazy val numClasses: Int = getNumClasses()
+
+  protected def predictForCSR(sparseVector: SparseVector, kind: Int, classification: Boolean): Array[Double] = {
     var values: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     var indexes: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
     var indptrNative: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
@@ -52,7 +54,7 @@ class LightGBMBooster(val model: String) extends Serializable {
       val datasetParams = "max_bin=255 is_pre_partition=True"
       val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
       val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-      scoredDataOutPtr = Some(lightgbmlib.new_doubleArray(numRows))
+      scoredDataOutPtr = Some(lightgbmlib.new_doubleArray(numRows * numClasses))
 
       val scoredDataLengthLongPtr = lightgbmlib.new_longp()
       lightgbmlib.longp_assign(scoredDataLengthLongPtr, numRows)
@@ -62,7 +64,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         indexes.get._1, values.get._1, data64bitType, intToPtr(indptr.length), intToPtr(numRows + 1), intToPtr(numCols),
         kind, -1, datasetParams,
         scoredDataLength_int64_tPtr, scoredDataOutPtr.get), "Booster Predict")
-      lightgbmlib.doubleArray_getitem(scoredDataOutPtr.get, 0)
+      predToArray(classification, scoredDataOutPtr.get, kind)
     } finally {
       // Delete the input row
       if (values.isDefined) lightgbmlib.delete_doubleArray(values.get._2)
@@ -73,7 +75,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     }
   }
 
-  protected def predictForMat(row: Array[Double], kind: Int): Double = {
+  protected def predictForMat(row: Array[Double], kind: Int, classification: Boolean): Array[Double] = {
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     var scoredDataOutPtr: Option[SWIGTYPE_p_double] = None
     try {
@@ -93,7 +95,7 @@ class LightGBMBooster(val model: String) extends Serializable {
       val numColsIntPtr = lightgbmlib.new_intp()
       lightgbmlib.intp_assign(numColsIntPtr, numCols)
       val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr)
-      scoredDataOutPtr = Some(lightgbmlib.new_doubleArray(numRows))
+      scoredDataOutPtr = Some(lightgbmlib.new_doubleArray(numRows * numClasses))
       val datasetParams = "max_bin=255"
       LightGBMUtils.validate(
         lightgbmlib.LGBM_BoosterPredictForMat(
@@ -101,7 +103,7 @@ class LightGBMBooster(val model: String) extends Serializable {
           numCols_int32_tPtr, isRowMajor, kind,
           -1, datasetParams, scoredDataLength_int64_tPtr, scoredDataOutPtr.get),
         "Booster Predict")
-      lightgbmlib.doubleArray_getitem(scoredDataOutPtr.get, 0)
+      predToArray(classification, scoredDataOutPtr.get, kind)
     } finally {
       // Delete the input row
       if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
@@ -142,5 +144,38 @@ class LightGBMBooster(val model: String) extends Serializable {
       lightgbmlib.LGBM_BoosterFeatureImportance(boosterPtr, -1, importanceTypeNum, featureImportances),
       "Booster FeatureImportance")
     (0 until numFeatures).map(lightgbmlib.doubleArray_getitem(featureImportances, _)).toArray
+  }
+
+  /**
+    * Retrieve the number of classes from LightGBM Booster
+    * @return The number of classes.
+    */
+  def getNumClasses(): Int = {
+    if (boosterPtr == null) {
+      LightGBMUtils.initializeNativeLibrary()
+      boosterPtr = getBoosterPtrFromModelString(model)
+    }
+    val numClassesOut = lightgbmlib.new_intp()
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterGetNumClasses(boosterPtr, numClassesOut),
+      "Booster NumClasses")
+    lightgbmlib.intp_value(numClassesOut)
+  }
+
+  private def predToArray(classification: Boolean, scoredDataOutPtr: SWIGTYPE_p_double, kind: Int): Array[Double] = {
+    if (classification && numClasses == 1) {
+      // Binary classification scenario - LightGBM only returns the value for the positive class
+      val pred = lightgbmlib.doubleArray_getitem(scoredDataOutPtr, 0)
+      if (kind == lightgbmlibConstants.C_API_PREDICT_RAW_SCORE) {
+        // Return the raw score for binary classification
+        Array(-pred, pred)
+      } else {
+        // Return the probability for binary classification
+        Array(1 - pred, pred)
+      }
+    } else {
+      (0 until numClasses).map(classNum =>
+        lightgbmlib.doubleArray_getitem(scoredDataOutPtr, classNum)).toArray
+    }
   }
 }

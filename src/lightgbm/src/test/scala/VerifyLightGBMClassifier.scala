@@ -20,12 +20,13 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   lazy val moduleName = "lightgbm"
   var portIndex = 30
   val numPartitions = 2
-  val objective = "binary"
+  val binaryObjective = "binary"
+  val multiclassObject = "multiclass"
 
-  // TODO: Need to add multiclass param with objective function
+  // TODO: Look into error on abalone dataset
   // verifyLearnerOnMulticlassCsvFile("abalone.csv",                  "Rings", 2)
-  // verifyLearnerOnMulticlassCsvFile("BreastTissue.csv",             "Class", 2)
-  // verifyLearnerOnMulticlassCsvFile("CarEvaluation.csv",            "Col7", 2)
+  verifyLearnerOnMulticlassCsvFile("BreastTissue.csv",             "Class", 2)
+  verifyLearnerOnMulticlassCsvFile("CarEvaluation.csv",            "Col7", 2)
   verifyLearnerOnBinaryCsvFile("PimaIndian.csv",                   "Diabetes mellitus", 1)
   verifyLearnerOnBinaryCsvFile("data_banknote_authentication.csv", "class", 1)
   verifyLearnerOnBinaryCsvFile("task.train.csv",                   "TaskFailed10", 1)
@@ -58,7 +59,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
-      .setObjective(objective)
+      .setObjective(binaryObjective)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(lgbm.numLeaves, Array(5, 10))
@@ -96,7 +97,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
-      .setObjective(objective)
+      .setObjective(binaryObjective)
 
     val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
     val transformedData = featurizer.transform(dataset)
@@ -133,7 +134,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
-      .setObjective(objective)
+      .setObjective(binaryObjective)
 
     val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
     val transformedData = featurizer.transform(trainData)
@@ -180,7 +181,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
-      .setObjective(objective)
+      .setObjective(binaryObjective)
 
     val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
     val transformedData = featurizer.transform(trainData)
@@ -226,7 +227,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
-        .setObjective(objective)
+        .setObjective(binaryObjective)
         .fit(trainData)
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
@@ -254,14 +255,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val featuresColumn = lgbm.uid + "_features"
       val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
       val predCol = "pred"
-      val trainData = featurizer.transform(dataset)
+      val tmpTrainData = featurizer.transform(dataset)
+      val labelizer = new ValueIndexer().setInputCol(labelColumnName).setOutputCol(labelColumnName).fit(tmpTrainData)
+      val trainData = labelizer.transform(tmpTrainData)
       val model = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setPredictionCol(predCol)
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
-        .setNumLeaves(5)
-        .setNumIterations(10)
-        .setObjective(objective)
+        .setObjective(multiclassObject)
         .fit(trainData)
       val scoredResult = model.transform(trainData).drop(featuresColumn)
       val splitFeatureImportances = model.getFeatureImportances("split")
@@ -292,7 +293,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setLabelCol(labelCol)
         .setFeaturesCol(featuresCol)
         .setNumLeaves(5)
-        .setObjective(objective),
+        .setObjective(binaryObjective),
       train))
   }
 
@@ -315,7 +316,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
-        .setObjective(objective)
+        .setObjective(binaryObjective)
         .fit(testData)
 
       val targetDir: Path = Paths.get(getClass.getResource("/").toURI)
@@ -331,7 +332,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10)
-        .setObjective(objective)
+        .setObjective(binaryObjective)
         .setModelString(oldModelString)
         .fit(testData)
       // Verify can load model from file
