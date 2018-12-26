@@ -13,4 +13,7 @@ object LightGBMConstants {
   /** Default buffer length for model
     */
   val defaultBufferLength: Int = 10000
+  /** Binary classification objective
+    */
+  val binaryObjective: String = "binary"
 }
