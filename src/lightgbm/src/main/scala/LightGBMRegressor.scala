@@ -40,6 +40,9 @@ class LightGBMRegressor(override val uid: String)
     with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
+  // Set default objective to be regression
+  setDefault(objective -> "regression")
+
   val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
   setDefault(alpha -> 0.9)
 
@@ -79,6 +82,7 @@ class LightGBMRegressor(override val uid: String)
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
       getVerbosity, categoricalIndexes)
+    log.info(s"LightGBMRegressor parameters: ${trainParams}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df
@@ -107,7 +111,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(predictionCol, predictionColName)
 
   override def predict(features: Vector): Double = {
-    model.score(features, raw = false)
+    model.score(features, false, false)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel =
