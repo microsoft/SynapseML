@@ -76,7 +76,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
     <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png" width="150" /></td>
   </tr>
   <tr align="center">
-    <td>Train GPU enabled Gradient Boosted Machines with LightGBM</td>
+    <td>Train Gradient Boosted Machines with LightGBM</td>
     <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
     <td>An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
   </tr>
