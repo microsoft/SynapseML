@@ -174,7 +174,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val featuresColumn = "_features"
     val rawPredCol = "rawPrediction"
     val lgbm = new LightGBMClassifier()
-      .setCategoricalColumns(newCategoricalColumns)
+      .setCategoricalSlotNames(newCategoricalColumns)
       .setLabelCol(labelColumnName)
       .setFeaturesCol(featuresColumn)
       .setRawPredictionCol(rawPredCol)

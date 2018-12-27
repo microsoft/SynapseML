@@ -57,10 +57,11 @@ class LightGBMClassifier(override val uid: String)
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
-    val categoricals =
-      if (isDefined(categoricalColumns)) getCategoricalColumns
-      else Array.empty[String]
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
+
+    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
+    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol,
+      categoricalSlotIndexesArr, categoricalSlotNamesArr)
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
@@ -75,7 +76,7 @@ class LightGBMClassifier(override val uid: String)
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
       getIsUnbalance, getVerbosity, categoricalIndexes, classes, metric)
-    log.info(s"LightGBMClassifier parameters: ${trainParams}")
+    log.info(s"LightGBMClassifier parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df

@@ -74,15 +74,16 @@ class LightGBMRegressor(override val uid: String)
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
-    val categoricals =
-      if (isDefined(categoricalColumns)) getCategoricalColumns
-      else Array.empty[String]
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
+
+    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
+    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol,
+      categoricalSlotIndexesArr, categoricalSlotNamesArr)
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
       getVerbosity, categoricalIndexes)
-    log.info(s"LightGBMRegressor parameters: ${trainParams}")
+    log.info(s"LightGBMRegressor parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df

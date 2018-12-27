@@ -170,7 +170,7 @@ object CategoricalUtilities {
 }
 
 /** A wrapper around level maps: Map[T -> Int] and Map[Int -> T] that converts
-  *   the data to/from Spark Metadata in both MLib and AzreML formats.
+  *   the data to/from Spark Metadata in both MLib and AzureML formats.
   * @param levels  The level values are assumed to be already sorted as needed
   * @param isOrdinal  A flag that indicates if the data are ordinal
   * @tparam T  Input levels could be String, Double, Int, Long, Boolean
@@ -184,7 +184,7 @@ class CategoricalMap[T](val levels: Array[T],
   /** Total number of levels */
   val numLevels = levels.length //TODO: add the maximum possible number of levels?
 
-  /** Spark DataType correspondint to type T */
+  /** Spark DataType corresponding to type T */
   val dataType = CategoricalUtilities.getCategoricalTypeForValue(levels.find(_ != null).head)
 
   /** Maps levels to the corresponding integer index */
@@ -206,7 +206,7 @@ class CategoricalMap[T](val levels: Array[T],
   def getLevelOption(index: Int): Option[T] =
     if (index < 0 || index >= numLevels) None else Some(levels(index))
 
-  /** Stores levels in Spark Metadata in either MLlib format */
+  /** Stores levels in Spark Metadata in MLlib format */
   private def toMetadataMllib(existingMetadata: Metadata): Metadata = {
     require(!isOrdinal, "Cannot save Ordinal data in MLlib Nominal format currently," +
                         " because it does not have a public constructor that accepts Ordinal")
