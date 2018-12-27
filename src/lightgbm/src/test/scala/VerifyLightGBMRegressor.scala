@@ -118,7 +118,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     val featuresColumn = "_features"
     val predCol = "prediction"
     val lgbm = new LightGBMRegressor()
-      .setCategoricalColumns(newCategoricalColumns)
+      .setCategoricalSlotNames(newCategoricalColumns)
       .setLabelCol(labelColumnName)
       .setFeaturesCol(featuresColumn)
       .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
