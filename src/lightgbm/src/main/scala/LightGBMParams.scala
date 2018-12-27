@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{DoubleParam, IntParam, Param, StringArrayParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
 /** Defines common parameters across all LightGBM learners.
@@ -119,9 +119,15 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
 
-  val categoricalColumns = new StringArrayParam(this, "categoricalColumns",
-    "List of categorical column names")
+  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
+    "List of categorical column indexes, the slot index in the features column")
 
-  def getCategoricalColumns: Array[String] = $(categoricalColumns)
-  def setCategoricalColumns(value: Array[String]): this.type = set(categoricalColumns, value)
+  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
+  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
+
+  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
+    "List of categorical column slot names, the slot name in the features column")
+
+  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
+  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
 }
