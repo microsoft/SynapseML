@@ -118,8 +118,9 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
     val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
-    assert(results.head.getString(0) ===
-      "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
+    val headStr = results.head.getString(0)
+    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
+      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
   }
 
   override def testObjects(): Seq[TestObject[RecognizeText]] =

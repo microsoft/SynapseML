@@ -8,13 +8,16 @@ import java.net.{InetAddress, ServerSocket, Socket}
 import java.util.concurrent.Executors
 
 import com.microsoft.ml.lightgbm._
+import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.slf4j.Logger
 
+import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,8 +34,9 @@ object LightGBMUtils {
   /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
     */
   def initializeNativeLibrary(): Unit = {
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm")
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName("_lightgbm_swig")
+    val osPrefix = NativeLoader.getOSPrefix()
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
+    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
 
   def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String): PipelineModel = {
@@ -54,6 +58,33 @@ object LightGBMUtils {
       lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
       "Booster LoadFromString")
     lightgbmlib.voidpp_value(boosterOutPtr)
+  }
+
+  def getCategoricalIndexes(df: DataFrame,
+                            featuresCol: String,
+                            categoricalColumnIndexes: Array[Int],
+                            categoricalColumnSlotNames: Array[String]): Array[Int]  = {
+    val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
+    val featuresSchema = df.schema(featuresCol)
+    val metadata = AttributeGroup.fromStructField(featuresSchema)
+    val categoricalIndexes =
+      if (metadata.attributes.isEmpty) Array[Int]()
+      else {
+        metadata.attributes.get.zipWithIndex.flatMap {
+          case (null, _) => Iterator()
+          case (attr, idx) =>
+            if (attr.name.isDefined && categoricalSlotNamesSet.contains(attr.name.get)) {
+              Iterator(idx)
+            } else {
+              attr match {
+                case _: NumericAttribute | UnresolvedAttribute => Iterator()
+                case binAttr: BinaryAttribute => Iterator(idx)
+                case nomAttr: NominalAttribute => Iterator(idx)
+              }
+            }
+        }
+      }
+    categoricalColumnIndexes.union(categoricalIndexes).distinct
   }
 
   /**
