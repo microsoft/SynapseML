@@ -330,7 +330,7 @@ class RankingTrainValidationSplitModel(
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema, logging = true)
-    $(bestModel).transform(dataset)
+    $(bestModel).transform(dataset).sort("prediction")
   }
 
   override def transformSchema(schema: StructType): StructType = {
