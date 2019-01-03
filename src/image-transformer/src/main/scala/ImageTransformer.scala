@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
-import org.apache.spark.ml.Transformer
+import com.microsoft.ml.spark.schema.BinaryFileSchema
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{ParamMap, _}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.{ImageInjections, Transformer}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -211,11 +212,11 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
 
   /** Convert Spark image representation to OpenCV format. */
   private def row2mat(row: Row): (String, Mat) = {
-    val path    = ImageSchema.getPath(row)
+    val path    = ImageSchema.getOrigin(row)
     val height  = ImageSchema.getHeight(row)
     val width   = ImageSchema.getWidth(row)
-    val ocvType = ImageSchema.getType(row)
-    val bytes   = ImageSchema.getBytes(row)
+    val ocvType = ImageSchema.getMode(row)
+    val bytes   = ImageSchema.getData(row)
 
     val img = new Mat(height, width, ocvType)
     img.put(0,0,bytes)
@@ -226,30 +227,34 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   private def mat2row(img: Mat, path: String = ""): Row = {
     var ocvBytes = new Array[Byte](img.total.toInt*img.elemSize.toInt)
     img.get(0,0,ocvBytes)         //extract OpenCV bytes
-    Row(path, img.height, img.width, img.`type`, ocvBytes)
+    Row(path, img.height, img.width, img.channels(), img.`type`, ocvBytes)
   }
 
   /** Apply all OpenCV transformation stages to a single image; unroll the result if needed
     * For null inputs or binary files that could not be parsed, return None.
     * Break on OpenCV errors.
     */
-  def process(stages: Seq[ImageTransformerStage], decode: Boolean)(row: Row): Option[Row] = {
+  def process(stages: Seq[ImageTransformerStage], decodeMode: String)(r: Any): Option[Row] = {
 
-    if (row == null) return None
+    if (r == null) return None
 
-    val decoded = if (decode) {
-      val path  = BinaryFileSchema.getPath(row)
-      val bytes = BinaryFileSchema.getBytes(row)
+    val decoded = (r, decodeMode) match {
+      case (row: Row,"binaryfile") =>
+        val path = BinaryFileSchema.getPath(row)
+        val bytes = BinaryFileSchema.getBytes(row)
 
-      //early return if the image can't be decompressed
-      ImageReader.decode(path, bytes).getOrElse(return None)
-    } else row
-
-    var (path, img) = row2mat(decoded)
-    for (stage <- stages) {
-      img = stage.apply(img)
+        //early return if the image can't be decompressed
+        ImageInjections.decode(path, bytes).getOrElse(return None).getStruct(0)
+      case (bytes: Array[Byte],"binary") =>
+        ImageInjections.decode(null, bytes).getOrElse(return None).getStruct(0)
+      case (row: Row,"image") =>
+        row
     }
-    Some(mat2row(img, path))
+
+    val (path, img) = row2mat(decoded)
+    val result = stages.foldLeft(img){
+      case (imgInternal, stage) => stage.apply(imgInternal)}
+    Some(mat2row(result, path))
   }
 
 }
@@ -335,11 +340,16 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val schema = dataset.toDF.schema
 
-    val df = ImageReader.loadOpenCV(dataset.toDF)
+    val df = OpenCVUtils.loadOpenCV(dataset.toDF)
 
-    val isBinary = BinaryFileSchema.isBinaryFile(df, $(inputCol))
-    assert(ImageSchema.isImage(df, $(inputCol)) || isBinary,
-           "input column should have Image or BinaryFile type")
+    val decodeMode = df.schema(getInputCol).dataType match {
+      case s if ImageSchemaUtils.isImage(s) => "image"
+      case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
+      case s if s == BinaryType => "binary"
+      case s =>
+        throw new IllegalArgumentException(s"input column should have Image or BinaryFile type, got $s")
+
+    }
 
     val transforms = ListBuffer[ImageTransformerStage]()
     for (stage <- getStages) {
@@ -355,16 +365,15 @@ class ImageTransformer(val uid: String) extends Transformer
       }
     }
 
-    val func = process(transforms, decode = isBinary)(_)
-    val convert = udf(func, ImageSchema.columnSchema)
+    val convert = udf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
 
-    df.withColumn($(outputCol), convert(df($(inputCol))))
+    df.withColumn(getOutputCol, convert(df(getInputCol)))
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add($(outputCol), ImageSchema.columnSchema)
+    schema.add(getOutputCol, ImageSchema.columnSchema)
   }
 
 }

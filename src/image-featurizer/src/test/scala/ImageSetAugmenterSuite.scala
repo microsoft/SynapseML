@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.IOImplicits._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
@@ -12,7 +12,7 @@ class ImageSetAugmenterSuite extends LinuxOnly with TransformerFuzzing[ImageSetA
   val groceriesDirectory = "/Images/CIFAR"
   private val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
 
-  private val images: DataFrame = session.readImages(fileLocation, recursive = true)
+  private val images: DataFrame = session.read.image.load(fileLocation)
 
   override val sortInDataframeEquality: Boolean = true
 

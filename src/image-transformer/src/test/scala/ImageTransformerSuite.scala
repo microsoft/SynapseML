@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import java.awt.GridLayout
 import java.nio.file.Paths
 
-import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.IOImplicits._
 import javax.swing._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{DataFrame, Row}
@@ -29,17 +29,17 @@ trait ImageTestUtils {
   protected def selectImageCols(images: DataFrame): DataFrame = {
     images.select(images("out.height"),
       images("out.width"),
-      images("out.type"),
-      images("out.bytes"),
-      images("out.path"))
+      images("out.mode"),
+      images("out.data"),
+      images("out.origin"))
   }
 
   protected def displayImages(images: DataFrame): Unit = {
     val (jframe, panel) = createScrollingFrame(images.count())
     images.collect().foreach(
-      (row:Row) => {
+      (row: Row) => {
         val img = new Mat(row.getInt(0), row.getInt(1), row.getInt(2))
-        img.put(0,0,row.getAs[Array[Byte]](3))
+        img.put(0, 0, row.getAs[Array[Byte]](3))
         // Have to do the MatOfByte dance here
         val matOfByte = new MatOfByte()
         Imgcodecs.imencode(".jpg", img, matOfByte)
@@ -81,7 +81,7 @@ class UnrollImageSuite extends LinuxOnly
 
   lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
   lazy val imagePath = s"$filesRoot/Images/CIFAR"
-  lazy val images: DataFrame = session.readImages(imagePath, recursive = true)
+  lazy val images: DataFrame = session.read.image.load(imagePath)
 
   test("roll and unroll") {
     val imageCollection = images.select("image").collect().map(_.getAs[Row](0))
@@ -92,7 +92,8 @@ class UnrollImageSuite extends LinuxOnly
           row.getString(0),
           row.getInt(1),
           row.getInt(2),
-          row.getInt(3)
+          row.getInt(3),
+          row.getInt(4)
         )
       )
     )
@@ -102,17 +103,17 @@ class UnrollImageSuite extends LinuxOnly
     assert(images.count() == 6)
 
     val unroll = new UnrollImage().setOutputCol("result")
-    val unrolled = unroll.transform(images).select("image.path","result").collect
+    val unrolled = unroll.transform(images).select("image.origin", "result").collect
 
     unrolled.foreach(row => {
       val path = Paths.get(row.getString(0))
       val expected = firstBytes(path.getFileName.toString)
       val result = row(1).asInstanceOf[DenseVector].toArray
 
-      val length =result.length
+      val length = result.length
       if (length != 3072) throw new Exception(s"array length should be 3072, not $length ")
 
-      assert(result.slice(0,10) === expected)
+      assert(result.slice(0, 10) === expected)
     })
   }
 
@@ -127,8 +128,8 @@ class UnrollBinaryImageSuite extends LinuxOnly
 
   lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
   lazy val imagePath = s"$filesRoot/Images/CIFAR"
-  lazy val images: DataFrame = session.readImages(imagePath, recursive = true)
-  lazy val binaryImages: DataFrame = session.readBinaryFiles(imagePath, recursive = true)
+  lazy val images: DataFrame = session.read.image.load(imagePath)
+  lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
     .withColumn("image", col("value.bytes"))
 
   test("unroll did not change") {
@@ -142,12 +143,12 @@ class UnrollBinaryImageSuite extends LinuxOnly
 
   // This is needed for some small 256!=0 issue in unroll.
   // It only happens at one place throughout the tests though
-  override implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
+  override implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
     def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr:DenseVector =>
+      case bArr: DenseVector =>
         a.values.zip(bArr.values).map {
           case (x, y) if doubleEq.areEqual(x, y) => 0
-          case _=> 0
+          case _ => 0
         }.sum <= 1
     }
   }
@@ -166,9 +167,10 @@ class ImageTransformerSuite extends LinuxOnly
     assert(true)
   }
 
+  lazy val images = session.read.image.option("dropInvalid",true).load(fileLocation + "**")
+
   test("general workflow") {
-    val images = session.readImages(fileLocation, recursive = true)
-    //assert(images.count() == 30) TODO this does not work on build machine for some reason
+    //assert(images.count() == 30) //TODO this does not work on build machine for some reason
 
     val tr = new ImageTransformer()
       .setOutputCol("out")
@@ -178,47 +180,66 @@ class ImageTransformerSuite extends LinuxOnly
 
     val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
-    out_sizes.foreach(
-      (row:Row) => {
+    out_sizes.foreach { row: Row =>
         assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
-      }
-    )
+    }
 
     val unroll = new UnrollImage()
       .setInputCol(tr.getOutputCol)
       .setOutputCol("final")
 
-    val result = unroll.transform(preprocessed).select("final")
-    result.collect().foreach(
-      row => assert(row(0).asInstanceOf[DenseVector].toArray.length == 10*15*3, "unrolled image is incorrect"))
+    unroll.transform(preprocessed)
+      .select("final")
+      .collect().foreach(row =>
+        assert(row.getAs[DenseVector](0).toArray.length == 10 * 15 * 3, "unrolled image is incorrect"))
 
   }
 
   test("binary file input") {
-
-    val images = session.readBinaryFiles(fileLocation, recursive = true)
-    assert(images.count() == 31)
+    val binaries = session.read.binary.load(fileLocation + "**")
+    assert(binaries.count() == 31)
+    binaries.printSchema()
 
     val tr = new ImageTransformer()
       .setInputCol("value")
       .setOutputCol("out")
       .resize(height = 15, width = 10)
 
-    val preprocessed = tr.transform(images).na.drop
+    val preprocessed = tr.transform(binaries).na.drop
     assert(preprocessed.count() == 30)
 
     val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
     out_sizes.foreach(
-      (row:Row) => {
+      (row: Row) => {
+        assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
+      }
+    )
+  }
+
+  test("binary file input 2") {
+    val binaries = session.read.binary.load(fileLocation + "**").select("value.bytes")
+    assert(binaries.count() == 31)
+    binaries.printSchema()
+
+    val tr = new ImageTransformer()
+      .setInputCol("bytes")
+      .setOutputCol("out")
+      .resize(height = 15, width = 10)
+
+    val preprocessed = tr.transform(binaries).na.drop
+    assert(preprocessed.count() == 30)
+
+    val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
+
+    out_sizes.foreach(
+      (row: Row) => {
         assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
       }
     )
   }
 
   test("crop") {
-
-    val images = session.readImages(fileLocation, recursive = true)
 
     val tr = new ImageTransformer()
       .setOutputCol("out")
@@ -230,16 +251,13 @@ class ImageTransformerSuite extends LinuxOnly
     val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
     out_sizes.foreach(
-      (row:Row) => {
+      (row: Row) => {
         assert(row.getInt(0) == 22 && row.getInt(1) == 26, "output images have incorrect size")
       }
     )
   }
 
   test("color format") {
-
-    val images = session.readImages(fileLocation, recursive = true)
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .colorFormat(Imgproc.COLOR_BGR2GRAY)
@@ -253,15 +271,12 @@ class ImageTransformerSuite extends LinuxOnly
     val bytes = Array(10, 1, 3, 9, 6, 16, 11, 7, 8, 6, 26, 40, 57, 50)
     // Validate first image first few bytes have been transformed correctly
     val firstImageBytes = selectTestImageBytes(grayImages)
-    for (i <- 0 until bytes.length) {
+    for (i <- bytes.indices) {
       assert(firstImageBytes(i) == bytes(i))
     }
   }
 
   test("verify blur") {
-
-    val images = session.readImages(fileLocation, recursive = true)
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .blur(100, 100)
@@ -275,15 +290,12 @@ class ImageTransformerSuite extends LinuxOnly
     val bytes = Array(15, 28, 26, 15, 28, 26, 15, 28, 26, 15, 28, 26, 15, 28, 26, 15)
     // Validate first image first few bytes have been transformed correctly
     val firstImageBytes = selectTestImageBytes(blurImages)
-    for (i <- 0 until bytes.length) {
+    for (i <- bytes.indices) {
       assert(firstImageBytes(i) == bytes(i))
     }
   }
 
   test("verify thresholding") {
-
-    val images = session.readImages(fileLocation, recursive = true)
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .threshold(100, 100, Imgproc.THRESH_BINARY)
@@ -296,7 +308,7 @@ class ImageTransformerSuite extends LinuxOnly
     // displayImages(thresholdedImages)
     // Validate first image first few bytes have been transformed correctly
     thresholdedImages.foreach(
-      (row:Row) => {
+      (row: Row) => {
         if (!row.getAs[Array[Byte]](3).forall(b => b == 100 || b == 0)) {
           throw new Exception("threshold did not result in binary values")
         }
@@ -305,9 +317,6 @@ class ImageTransformerSuite extends LinuxOnly
   }
 
   test("verify application of gaussian kernel (has blur effect)") {
-
-    val images = session.readImages(fileLocation, recursive = true)
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .gaussianKernel(20, 10)
@@ -322,16 +331,15 @@ class ImageTransformerSuite extends LinuxOnly
     // Validate first image first few bytes have been transformed correctly
     val bytes = Array(8, 14, 14, 4, 8, 7, 4, 5, 5, 4, 5, 6, 5, 9, 8, 3, 8, 7, 7, 13, 12, 8, 12)
     // Validate first image first few bytes have been transformed correctly
-    for (i <- 0 until bytes.length) {
+    for (i <- bytes.indices) {
       assert(firstImageBytes(i) == bytes(i))
     }
   }
 
   override def testObjects(): Seq[TestObject[ImageTransformer]] =
     Seq(new TestObject[ImageTransformer](new ImageTransformer()
-    .setOutputCol("out")
-    .gaussianKernel(20, 10),
-    session.readImages(fileLocation, recursive = true)))
+      .setOutputCol("out")
+      .gaussianKernel(20, 10), images))
 
   override def reader: ImageTransformer.type = ImageTransformer
 }

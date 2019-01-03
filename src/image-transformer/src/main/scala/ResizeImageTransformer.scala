@@ -6,8 +6,8 @@ package com.microsoft.ml.spark
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
 
-import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{IntParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.{col, udf}
@@ -26,15 +26,15 @@ object ResizeUtils {
   }
 
   def resizeSparkImage(width: Int, height: Int)(image: Row): Row = {
-    val resizedImage = resizeBufferedImage(width,height)(ImageSchema.toBufferedImage(image))
-    ImageSchema.toSparkImage(resizedImage)
+    val resizedImage = resizeBufferedImage(width, height)(ImageUtils.toBufferedImage(image))
+    ImageUtils.toSparkImage(resizedImage).getStruct(0)
   }
 
   def resizeBytes(width: Int, height: Int)(bytes: Array[Byte]): Option[Row] = {
-    val biOpt = ImageSchema.safeRead(bytes)
+    val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
       val resizedImage = resizeBufferedImage(width, height)(bi)
-      ImageSchema.toSparkImage(resizedImage)
+      ImageUtils.toSparkImage(resizedImage)
     }
   }
 }
@@ -66,13 +66,13 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   override def transform(dataset: Dataset[_]): DataFrame = {
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
-    if ( inputType == ImageSchema.columnSchema){
+    if (ImageSchemaUtils.isImage(inputType)) {
       val resizeUDF = udf(resizeSparkImage(getWidth, getHeight) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
     } else if (inputType == BinaryType) {
       val resizeBytesUDF = udf(resizeBytes(getWidth, getHeight) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
-    }else{
+    } else {
       throw new IllegalArgumentException(
         s"Improper dataset schema: $inputType, need image type or byte array")
     }

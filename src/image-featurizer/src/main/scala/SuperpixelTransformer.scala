@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, Params}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -49,7 +48,7 @@ class SuperpixelTransformer(val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     val inputType = schema(getInputCol).dataType
-    assert(inputType == ImageSchema.columnSchema || inputType == BinaryType)
+    assert(ImageSchemaUtils.isImage(inputType) || inputType == BinaryType)
     schema.add(getOutputCol, SuperpixelData.schema)
   }
 

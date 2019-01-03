@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.{BinaryFileSchema, ImageSchema}
+import com.microsoft.ml.spark.schema.BinaryFileSchema
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat
@@ -97,7 +97,7 @@ object BinaryFileReader {
           }(ExecutionContext.global)
       }
       AsyncUtils.bufferedAwait(
-        futures,concurrency, Duration.fromNanos(timeout*(10^6).toLong))(ExecutionContext.global)
+        futures,concurrency, Duration.fromNanos(timeout*(20^6).toLong))(ExecutionContext.global)
     }(encoder)
   }
 

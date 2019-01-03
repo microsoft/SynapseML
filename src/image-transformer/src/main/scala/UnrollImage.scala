@@ -7,7 +7,6 @@ import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
 
-import com.microsoft.ml.spark.schema.ImageSchema._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
@@ -20,11 +19,12 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import scala.math.round
 
 object UnrollImage extends DefaultParamsReadable[UnrollImage]{
+  import org.apache.spark.ml.image.ImageSchema._
 
   private[ml] def unroll(row: Row): DenseVector = {
     val width = getWidth(row)
     val height = getHeight(row)
-    val bytes = getBytes(row)
+    val bytes = getData(row)
 
     val area = width*height
     require(area >= 0 && area < 1e8, "image has incorrect dimensions" )
@@ -53,10 +53,12 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
       originalImage.getString(0),
       originalImage.getInt(1),
       originalImage.getInt(2),
-      originalImage.getInt(3))
+      originalImage.getInt(3),
+      originalImage.getInt(4)
+    )
   }
 
-  private[ml] def roll(values: Array[Int], path: String, height: Int, width: Int, typeVal: Int): Row = {
+  private[ml] def roll(values: Array[Int], path: String, height: Int, width: Int, nChannels: Int, mode: Int): Row = {
     val area = width*height
     require(area >= 0 && area < 1e8, "image has incorrect dimensions" )
     require(values.length == width*height*3, "image has incorrect number of bytes" )
@@ -74,7 +76,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
       }
     }
 
-    Row(path, height, width, typeVal, rearranged.map(_.toByte))
+    Row(path, height, width, nChannels, mode, rearranged.map(_.toByte))
   }
 
   private[ml] def unrollBI(image: BufferedImage): DenseVector = {
@@ -116,7 +118,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
   }
 
   private[ml] def unrollBytes(bytes: Array[Byte], width: Option[Int], height: Option[Int]): Option[DenseVector] = {
-    val biOpt = safeRead(bytes)
+    val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
       (height, width) match {
         case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h)(bi))
@@ -146,18 +148,15 @@ class UnrollImage(val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF
-    assert(isImage(df, $(inputCol)), "input column should have Image type")
-
-    val func = unroll(_)
-    val unrollUDF = udf(func)
-
-    df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
+    assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
+    val unrollUDF = udf(unroll _)
+    df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add($(outputCol), VectorType)
+    schema.add(getOutputCol, VectorType)
   }
 
 }
