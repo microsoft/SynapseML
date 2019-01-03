@@ -4,9 +4,9 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.FileUtilities.File
-import com.microsoft.ml.spark.Readers.implicits._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql._
+import com.microsoft.ml.spark.IOImplicits._
 
 trait CNTKTestUtils extends TestBase {
 
@@ -38,7 +38,7 @@ trait CNTKTestUtils extends TestBase {
   }
 
   def testImages(spark: SparkSession): DataFrame = {
-    val images = spark.readImages(imagePath, true)
+    val images = spark.read.image.load(imagePath)
 
     val unroll = new UnrollImage().setInputCol("image").setOutputCol(inputCol)
 

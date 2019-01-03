@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.{DatasetExtensions, ImageSchema}
+import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -105,7 +105,7 @@ class ImageLIME(val uid: String) extends Transformer
     val inputType = df.schema(getInputCol).dataType
     val censorUDF = inputType match {
       case BinaryType => Superpixel.censorBinaryUDF
-      case t if t == ImageSchema.columnSchema => Superpixel.censorUDF
+      case t if ImageSchemaUtils.isImage(t) => Superpixel.censorUDF
     }
 
     // Collects to head node and creates a data frame from each row (image)

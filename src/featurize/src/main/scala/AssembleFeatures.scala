@@ -8,9 +8,10 @@ import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
 
 import com.microsoft.ml.spark.schema.DatasetExtensions._
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions, ImageSchema}
+import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, DatasetExtensions}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.feature._
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{SparseVector, Vectors}
 import org.apache.spark.ml.param._
@@ -213,7 +214,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
             columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
             columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
           }
-          case _ if ImageSchema.isImage(datasetAsDf, col) =>
+          case _ if ImageSchemaUtils.isImage(datasetAsDf.schema(col)) =>
             if (!getAllowImages) {
               throw new UnsupportedOperationException("Featurization of images columns disabled")
             }
@@ -390,9 +391,9 @@ class AssembleFeaturesModel(val uid: String,
                 })
                 Seq(dataset(col),
                   extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
-              case imageType if imageType == ImageSchema.columnSchema =>
+              case t if ImageSchemaUtils.isImage(t) =>
                 val extractImageFeatures = udf((row: Row) => {
-                  val image  = ImageSchema.getBytes(row).map(_.toDouble)
+                  val image  = ImageSchema.getData(row).map(_.toDouble)
                   val height = ImageSchema.getHeight(row).toDouble
                   val width  = ImageSchema.getWidth(row).toDouble
                   Vectors.dense((height :: (width :: image.toList)).toArray)
