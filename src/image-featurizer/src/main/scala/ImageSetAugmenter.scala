@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml._
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._

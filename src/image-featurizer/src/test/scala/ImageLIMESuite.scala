@@ -7,13 +7,12 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.net.URL
 
-import com.microsoft.ml.spark.Readers.implicits._
-import com.microsoft.ml.spark.schema.ImageSchema
+import com.microsoft.ml.spark.IOImplicits._
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{udf, col}
+import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -51,11 +50,11 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     .setNSamples(3)
 
   lazy val df: DataFrame = session
-    .readBinaryFiles(greyhoundImageLocation, recursive = false)
+    .read.binary.load(greyhoundImageLocation)
     .select(col("value.bytes").alias(inputCol))
 
   lazy val imageDf: DataFrame = session
-    .readImages(greyhoundImageLocation, recursive = false)
+    .read.image.load(greyhoundImageLocation)
     .select(col("image").alias(inputCol))
 
   test("Resnet should output the correct class"){
@@ -84,7 +83,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     val states = topRow.getAs[DenseVector]("weights").toArray.map(_ >= 0.008)
 
     val superpixels2 = SuperpixelData.fromSuperpixel(
-      new Superpixel(ImageSchema.toBufferedImage(imgRow), cellSize, modifier))
+      new Superpixel(ImageUtils.toBufferedImage(imgRow), cellSize, modifier))
 
     //Make sure LIME outputs the correct superpixels
     assert(superpixels1.clusters.map(_.sorted) === superpixels2.clusters.map(_.sorted))

@@ -56,8 +56,8 @@ case class DataStreamWriterExtensions[T](dsw: DataStreamWriter[T]) {
 case class DataFrameServingExtensions(df: DataFrame) {
 
   def parseRequest(schema: DataType,
-                    idCol: String = "id",
-                    requestCol: String = "request"): DataFrame = {
+                   idCol: String = "id",
+                   requestCol: String = "request"): DataFrame = {
     assert(df.schema(idCol).dataType == HTTPSourceV2.ID_SCHEMA &&
       df.schema(requestCol).dataType == HTTPRequestData.schema)
     schema match {

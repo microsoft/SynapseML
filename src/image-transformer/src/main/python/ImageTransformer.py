@@ -13,14 +13,15 @@ from pyspark.sql.types import Row, _create_row
 import numpy as np
 from mmlspark._ImageTransformer import _ImageTransformer
 
-ImageFields = ["path", "height", "width", "type", "bytes"]
+ImageFields = ["origin", "height", "width", "nChannels", "mode", "data"]
 
 ImageSchema = StructType([
     StructField(ImageFields[0], StringType(),  True),
     StructField(ImageFields[1], IntegerType(), True),
     StructField(ImageFields[2], IntegerType(), True),
-    StructField(ImageFields[3], IntegerType(), True),                 # OpenCV type: CV_8U in most cases
-    StructField(ImageFields[4], BinaryType(), True) ])   # OpenCV bytes: row-wise BGR in most cases
+    StructField(ImageFields[3], IntegerType(), True),
+    StructField(ImageFields[4], IntegerType(), True),                 # OpenCV type: CV_8U in most cases
+    StructField(ImageFields[5], BinaryType(), True) ])   # OpenCV bytes: row-wise BGR in most cases
 
 def toNDArray(image):
     """
@@ -32,9 +33,9 @@ def toNDArray(image):
     Returns:
         array: The image as a 1-dimensional array
     """
-    return np.asarray(image.bytes, dtype = np.uint8).reshape((image.height, image.width, 3))[:,:,(2,1,0)]
+    return np.asarray(image.data, dtype = np.uint8).reshape((image.height, image.width, 3))[:,:,(2,1,0)]
 
-def toImage(array, path = "", ocvType = 16):
+def toImage(array, path = "", mode = 16):
     """
 
     Converts a one-dimensional array to a 2 dimensional image
@@ -54,7 +55,7 @@ def toImage(array, path = "", ocvType = 16):
     width = array.shape[1]
     # Creating new Row with _create_row(), because Row(name = value, ... ) orders fields by name,
     # which conflicts with expected ImageSchema order when the new DataFrame is created by UDF
-    return  _create_row(ImageFields, [path, height, width, ocvType, data])
+    return  _create_row(ImageFields, [path, height, width, 3, mode, data])
 
 from pyspark.ml.common import inherit_doc
 @inherit_doc
