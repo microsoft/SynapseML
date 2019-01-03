@@ -131,7 +131,7 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
   /**
     * Instrumentation logging for tuning params including the inner estimator and evaluator info.
     */
-  protected def logTuningParams(instrumentation: Instrumentation[_]): Unit = {
+  protected def logTuningParams(instrumentation: Instrumentation): Unit = {
     instrumentation.logNamedValue("estimator", $(estimator).getClass.getCanonicalName)
     instrumentation.logNamedValue("evaluator", $(evaluator).getClass.getCanonicalName)
     instrumentation.logNamedValue("estimatorParamMapsLength", Int.int2long($(estimatorParamMaps).length))

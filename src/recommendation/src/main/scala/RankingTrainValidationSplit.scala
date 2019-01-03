@@ -293,7 +293,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 }
 
-object TrainValidRecommendSplit extends ComplexParamsReadable[RankingTrainValidationSplit] {
+object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainValidationSplit] {
   def popRow(r: Row): Any = r.getDouble(1)
 }
 
