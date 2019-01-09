@@ -60,13 +60,15 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
   }
 
   //This is needed due to a multiththreading bug n the jvm
-  private def catchFlakiness[T](times: Int)(f: => T): T ={
+  private def catchFlakiness[T](times: Int)(f: => Option[T]): Option[T] ={
     try{
       f
     }catch{
       case e:NullPointerException if times>=1 =>
         logWarning("caught null pointer exception due to jvm bug", e)
         catchFlakiness(times-1)(f)
+      case _: Exception =>
+        None
     }
   }
 
