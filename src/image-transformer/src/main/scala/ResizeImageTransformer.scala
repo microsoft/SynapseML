@@ -16,24 +16,33 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 object ResizeUtils {
 
-  def resizeBufferedImage(width: Int, height: Int)(image: BufferedImage): BufferedImage = {
+  def resizeBufferedImage(width: Int, height: Int, channels: Option[Int])(image: BufferedImage): BufferedImage = {
+    val imgType = channels.map(ImageUtils.channelsToType).getOrElse(image.getType)
+
+    if (image.getWidth == width &&
+      image.getHeight == height &&
+      image.getType == imgType
+    ) {
+      return image
+    }
+
     val resizedImage = image.getScaledInstance(width, height, JImage.SCALE_DEFAULT)
-    val bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    val bufferedImage = new BufferedImage(width, height, imgType)
     val g = bufferedImage.createGraphics()
     g.drawImage(resizedImage, 0, 0, null)
     g.dispose()
     bufferedImage
   }
 
-  def resizeSparkImage(width: Int, height: Int)(image: Row): Row = {
-    val resizedImage = resizeBufferedImage(width, height)(ImageUtils.toBufferedImage(image))
+  def resizeSparkImage(width: Int, height: Int, channels: Option[Int])(image: Row): Row = {
+    val resizedImage = resizeBufferedImage(width, height, channels)(ImageUtils.toBufferedImage(image))
     ImageUtils.toSparkImage(resizedImage).getStruct(0)
   }
 
-  def resizeBytes(width: Int, height: Int)(bytes: Array[Byte]): Option[Row] = {
+  def resizeBytes(width: Int, height: Int, channels: Option[Int])(bytes: Array[Byte]): Option[Row] = {
     val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
-      val resizedImage = resizeBufferedImage(width, height)(bi)
+      val resizedImage = resizeBufferedImage(width, height, channels)(bi)
       ImageUtils.toSparkImage(resizedImage)
     }
   }
@@ -53,6 +62,8 @@ class ResizeImageTransformer(val uid: String) extends Transformer
 
   val height = new IntParam(this, "height", "the width of the image")
 
+  val nChannels= new IntParam(this, "nChannels", "the number of channels of the target image")
+
   def getWidth: Int = $(width)
 
   def setWidth(v: Int): this.type = set(width, v)
@@ -61,16 +72,20 @@ class ResizeImageTransformer(val uid: String) extends Transformer
 
   def setHeight(v: Int): this.type = set(height, v)
 
+  def getNChannels: Int = $(nChannels)
+
+  def setNChannels(v: Int): this.type = set(nChannels, v)
+
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
     if (ImageSchemaUtils.isImage(inputType)) {
-      val resizeUDF = udf(resizeSparkImage(getWidth, getHeight) _, ImageSchema.columnSchema)
+      val resizeUDF = udf(resizeSparkImage(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
     } else if (inputType == BinaryType) {
-      val resizeBytesUDF = udf(resizeBytes(getWidth, getHeight) _, ImageSchema.columnSchema)
+      val resizeBytesUDF = udf(resizeBytes(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
     } else {
       throw new IllegalArgumentException(

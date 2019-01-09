@@ -18,7 +18,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.math.round
 
-object UnrollImage extends DefaultParamsReadable[UnrollImage]{
+object UnrollImage extends DefaultParamsReadable[UnrollImage] {
+
   import org.apache.spark.ml.image.ImageSchema._
 
   private[ml] def unroll(row: Row): DenseVector = {
@@ -26,20 +27,20 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     val height = getHeight(row)
     val bytes = getData(row)
 
-    val area = width*height
-    require(area >= 0 && area < 1e8, "image has incorrect dimensions" )
-    require(bytes.length == width*height*3, "image has incorrect number of bytes" )
+    val area = width * height
+    require(area >= 0 && area < 1e8, "image has incorrect dimensions")
+    require(bytes.length == width * height * 3, "image has incorrect number of bytes")
 
-    val rearranged =  Array.fill[Double](area*3)(0.0)
+    val rearranged = Array.fill[Double](area * 3)(0.0)
     var count = 0
     for (c <- 0 until 3) {
       for (h <- 0 until height) {
         for (w <- 0 until width) {
-          val index = h * width * 3 + w*3 + c
+          val index = h * width * 3 + w * 3 + c
           val b = bytes(index).toDouble
 
           //TODO: is there a better way to convert to unsigned byte?
-          rearranged(count) =  if (b>0) b else b + 256.0
+          rearranged(count) = if (b > 0) b else b + 256.0
           count += 1
         }
       }
@@ -58,17 +59,18 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     )
   }
 
-  private[ml] def roll(values: Array[Int], path: String, height: Int, width: Int, nChannels: Int, mode: Int): Row = {
-    val area = width*height
-    require(area >= 0 && area < 1e8, "image has incorrect dimensions" )
-    require(values.length == width*height*3, "image has incorrect number of bytes" )
+  private[ml] def roll(values: Array[Int], path: String,
+                       height: Int, width: Int, nChannels: Int, mode: Int): Row = {
+    val area = width * height
+    require(area >= 0 && area < 1e8, "image has incorrect dimensions")
+    require(values.length == width * height * 3, "image has incorrect number of bytes")
 
-    val rearranged =  Array.fill[Int](area*3)(0)
+    val rearranged = Array.fill[Int](area * 3)(0)
     var count = 0
     for (c <- 0 until 3) {
       for (h <- 0 until height) {
         for (w <- 0 until width) {
-          val index = h * width * 3 + w*3 + c
+          val index = h * width * 3 + w * 3 + c
           val b = values(count)
           rearranged(index) = if (b < 128) b else b - 256
           count += 1
@@ -117,11 +119,14 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage]{
     new DenseVector(unrolled)
   }
 
-  private[ml] def unrollBytes(bytes: Array[Byte], width: Option[Int], height: Option[Int]): Option[DenseVector] = {
+  private[ml] def unrollBytes(bytes: Array[Byte],
+                              width: Option[Int],
+                              height: Option[Int],
+                              nChannels: Option[Int]): Option[DenseVector] = {
     val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
       (height, width) match {
-        case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h)(bi))
+        case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h, nChannels)(bi))
         case (None, None) => unrollBI(bi)
         case _ =>
           throw new IllegalArgumentException("Height and width must either both be specified or unspecified")
@@ -180,6 +185,8 @@ class UnrollBinaryImage(val uid: String) extends Transformer
 
   val height = new IntParam(this, "height", "the width of the image")
 
+  val nChannels = new IntParam(this, "nChannels", "the number of channels of the target image")
+
   def getWidth: Int = $(width)
 
   def setWidth(v: Int): this.type = set(width, v)
@@ -188,13 +195,18 @@ class UnrollBinaryImage(val uid: String) extends Transformer
 
   def setHeight(v: Int): this.type = set(height, v)
 
+  def getNChannels: Int = $(nChannels)
+
+  def setNChannels(v: Int): this.type = set(nChannels, v)
+
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF
     assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 
-    val unrollUDF = udf({ bytes: Array[Byte] => unrollBytes(bytes, get(width), get(height))}, VectorType)
+    val unrollUDF = udf({ bytes: Array[Byte] =>
+      unrollBytes(bytes, get(width), get(height), get(nChannels)) }, VectorType)
 
     df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
   }
