@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import java.net.URI
+import java.io.File
+import java.net.{URI, URL}
 
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.IOImplicits._
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
@@ -31,6 +33,22 @@ trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
     .option("dropInvalid", true)
     .load(groceriesPath + "**")
     .withColumnRenamed("image", inputCol)
+
+  lazy val greyscaleImageLocation: String = {
+    val loc = "/tmp/greyscale.jpg"
+    val f = new File(loc)
+    if (f.exists()) {f.delete()}
+    FileUtils.copyURLToFile(new URL("https://mmlspark.blob.core.windows.net/datasets/LIME/greyscale.jpg"), f)
+    loc
+  }
+
+  lazy val greyscaleImage: DataFrame = session
+    .read.image.load(greyscaleImageLocation)
+    .select(col("image").alias(inputCol))
+
+  lazy val greyscaleBinary: DataFrame = session
+    .read.binary.load(greyscaleImageLocation)
+    .select(col("value.bytes").alias(inputCol))
 
   def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
@@ -100,6 +118,18 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
 
   test("Image featurizer should work with ResNet50", TestBase.Extended) {
     val result = resNetModel().transform(images)
+    val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
+    assert(resVec.size == 1000)
+  }
+
+  test("Image featurizer should work with ResNet50 in greyscale", TestBase.Extended) {
+    val result = resNetModel().transform(greyscaleImage)
+    val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
+    assert(resVec.size == 1000)
+  }
+
+  test("Image featurizer should work with ResNet50 in greyscale binary", TestBase.Extended) {
+    val result = resNetModel().transform(greyscaleBinary)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }

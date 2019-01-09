@@ -106,7 +106,9 @@ object Superpixel {
   def censorImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
     val img = ImageUtils.toBufferedImage(ImageSchema.getData(imgRow),
       ImageSchema.getWidth(imgRow),
-      ImageSchema.getHeight(imgRow))
+      ImageSchema.getHeight(imgRow),
+      ImageSchema.getNChannels(imgRow)
+    )
     val output = copyImage(img)
 
     superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
