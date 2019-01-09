@@ -26,16 +26,24 @@ object ImageUtils {
 
   import org.apache.spark.ml.image.ImageSchema._
 
+  def channelsToType(channels: Int): Int = channels match {
+    case 1 => BufferedImage.TYPE_BYTE_GRAY
+    case 3 => BufferedImage.TYPE_3BYTE_BGR
+    case 4 => BufferedImage.TYPE_4BYTE_ABGR
+    case c => throw new UnsupportedOperationException("Image resize: number of output  " +
+      s"channels must be 1, 3, or 4, got ${c}.")
+  }
+
   def toBufferedImage(row: InternalRow): BufferedImage = {
-    toBufferedImage(row.getBinary(5), row.getInt(2), row.getInt(1))
+    toBufferedImage(row.getBinary(5), row.getInt(2), row.getInt(1), row.getInt(3))
   }
 
   def toBufferedImage(row: Row): BufferedImage = {
-    toBufferedImage(getData(row), getWidth(row), getHeight(row))
+    toBufferedImage(getData(row), getWidth(row), getHeight(row), getNChannels(row))
   }
 
-  def toBufferedImage(bytes: Array[Byte], w: Int, h: Int): BufferedImage = {
-    val img = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR)
+  def toBufferedImage(bytes: Array[Byte], w: Int, h: Int, nChannels: Int): BufferedImage = {
+    val img = new BufferedImage(w, h, channelsToType(nChannels))
     img.setData(Raster.createRaster(
       img.getSampleModel,
       new DataBufferByte(bytes, bytes.length),

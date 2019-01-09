@@ -145,6 +145,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
         .setHeight(requiredSize(1).toInt)
+        .setNChannels(3)
 
       val unroll = new UnrollImage()
         .setInputCol(prepare.getOutputCol)
@@ -157,6 +158,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
         .setHeight(requiredSize(1).toInt)
+        .setNChannels(3)
         .setOutputCol(resizedCol)
       unroll.transform(dataset)
     } else {
