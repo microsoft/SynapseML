@@ -9,7 +9,6 @@ import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
 import com.microsoft.ml.spark.FileUtilities.File
-import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.spark.ml.{Estimator, PipelineModel}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
@@ -18,6 +17,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.image.ImageSchema
 
 class VerifyAssembleFeatures extends TestBase with EstimatorFuzzing[AssembleFeatures] {
   def testObjects(): Seq[TestObject[AssembleFeatures]] = List(new TestObject(
@@ -172,8 +172,8 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     // Expected is image size with width and height
     val expectedSize = imageSize + 2
     val rowRDD: RDD[Row] = sc.parallelize(Seq[Row](
-      Row(Row(path1, height, width, imgType, Array.fill[Byte](imageSize)(1))),
-      Row(Row(path2, height, width, imgType, Array.fill[Byte](imageSize)(1)))
+      Row(Row(path1, height, width, 3, imgType, Array.fill[Byte](imageSize)(1))),
+      Row(Row(path2, height, width, 3, imgType, Array.fill[Byte](imageSize)(1)))
     ))
     val dataset = session.createDataFrame(rowRDD, imageDFSchema)
     val result: DataFrame = featurize(dataset, includeFeaturesColumns = false)

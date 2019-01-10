@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.IOImplicits._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
@@ -11,7 +11,8 @@ import org.apache.spark.sql.Row
 class ResizeImageTransformerSuite extends TransformerFuzzing[ResizeImageTransformer]
   with ImageTestUtils {
 
-  lazy val images = session.readImages(fileLocation, recursive = true)
+  lazy val images = session.read.image
+    .option("dropInvalid",true).load(fileLocation + "**")
 
   lazy val tr = new ResizeImageTransformer()
     .setOutputCol("out")

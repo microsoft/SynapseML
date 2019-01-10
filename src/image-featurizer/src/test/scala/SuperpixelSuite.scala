@@ -8,8 +8,6 @@ import java.awt.image.BufferedImage
 import java.io.File
 
 import javax.imageio.ImageIO
-import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.types.StringType
 
 import scala.util.Random
 
@@ -47,11 +45,10 @@ class SuperpixelSuite extends CNTKTestUtils {
   val superpixels: SuperpixelData = SuperpixelData.fromSuperpixel(sp1)
   val superpixels2: SuperpixelData = SuperpixelData.fromSuperpixel(sp2)
 
-  ImageReader.OpenCVLoader
   lazy val censoredImg: BufferedImage = Superpixel.censorImage(
-    ImageReader.decode(img).get, superpixels, states)
+    ImageUtils.toSparkImage(img).getStruct(0), superpixels, states)
   lazy val censoredImg2: BufferedImage = Superpixel.censorImage(
-    ImageReader.decode(img2).get, superpixels2, states2)
+    ImageUtils.toSparkImage(img).getStruct(0), superpixels2, states2)
 
   test("ToList should work on an state sampler") {
     val sampler = Superpixel.clusterStateSampler(0.3, 1000)

@@ -11,18 +11,16 @@ import com.microsoft.ml.spark.schema.BinaryFileSchema
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
-import org.apache.hadoop.io.BytesWritable
 import org.apache.hadoop.mapreduce._
-import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat, FileSplit}
+import org.apache.hadoop.mapreduce.lib.input.FileSplit
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
-import org.apache.log4j.Logger
 import org.apache.spark.TaskContext
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.SerializableConfiguration
 
@@ -125,18 +123,29 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
                             sparkSession: SparkSession,
                             options: Map[String, String],
                             files: Seq[FileStatus]): Option[StructType] = {
-    if (files.isEmpty) {
-      None
-    } else {
-      Some(BinaryFileSchema.schema)
-    }
+    Some(BinaryFileSchema.schema)
   }
 
   override def prepareWrite(sparkSession: SparkSession,
                             job: Job,
                             options: Map[String, String],
                             dataSchema: StructType): OutputWriterFactory = {
-    throw new NotImplementedError("writing to binary files is not supported")
+    new OutputWriterFactory {
+      override def newInstance(
+                                path: String,
+                                dataSchema: StructType,
+                                context: TaskAttemptContext): OutputWriter = {
+        new BinaryOutputWriter(
+          path,
+          dataSchema.fieldIndex(options.getOrElse("bytesCol", "bytes")),
+          dataSchema.fieldIndex(options.getOrElse("pathCol", "path")),
+          context)
+      }
+
+      override def getFileExtension(context: TaskAttemptContext): String = {
+        ""
+      }
+    }
   }
 
   override def buildReader(sparkSession: SparkSession,
@@ -205,6 +214,34 @@ private[spark] class HadoopFileReader(file: PartitionedFile,
 
   override def close(): Unit = iterator.close()
 
+}
+
+class BinaryOutputWriter(val path: String,
+                        val bytesCol: Int,
+                        val pathCol: Int,
+                        val context: TaskAttemptContext)
+  extends OutputWriter {
+
+  private val hconf = context.getConfiguration
+
+  private val fs = new Path(path).getFileSystem(hconf)
+
+  override def write(row: InternalRow): Unit = {
+    val bytes = row.getBinary(bytesCol)
+    val filename = row.getString(pathCol)
+    val nonTempPath = new Path(path).getParent.getParent.getParent.getParent.getParent
+    val outputPath = new Path(nonTempPath, filename)
+    val os = fs.create(outputPath)
+    try {
+      IOUtils.write(bytes, os)
+    } finally {
+      os.close()
+    }
+  }
+
+  override def close(): Unit = {
+    fs.close()
+  }
 }
 
 object ConfUtils {

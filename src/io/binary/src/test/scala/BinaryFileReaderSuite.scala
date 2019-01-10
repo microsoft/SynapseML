@@ -12,32 +12,33 @@ import com.microsoft.ml.spark.schema.BinaryFileSchema
 import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.binary.BinaryFileFormat
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StringType
 
 trait FileReaderUtils {
   val fileLocation = s"${sys.env("DATASETS_HOME")}"
   val imagesDirectory: String = fileLocation + "/Images"
-  val groceriesDirectory: String = imagesDirectory + "/Grocery"
-  val cifarDirectory: String = imagesDirectory + "/CIFAR"
-
-  def createZip(directory: String): Unit ={
-    val dir = new File(directory)
-    val zipfile = new File(directory + ".zip")
-    if (!zipfile.exists()) zipFolder(dir, zipfile)
-  }
-
-  def createZips(): Unit ={
-    createZip(groceriesDirectory)
-    createZip(cifarDirectory)
-  }
-
+  val groceriesDirectory: String = imagesDirectory + "/Grocery/"
+  val cifarDirectory: String = imagesDirectory + "/CIFAR/"
 }
 
 class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrameEquality {
 
+  def createZip(directory: String, saveDir: File): Unit ={
+    val dir = new File(directory)
+    val zipfile = new File(saveDir, dir.getName + ".zip")
+    if (!zipfile.exists()) zipFolder(dir, zipfile)
+  }
+
+  object UDFs extends Serializable {
+    val cifarDirectoryVal = cifarDirectory
+    val rename = udf({ x: String => x.split("/").last }, StringType)
+  }
+
   test("binary dataframe") {
     val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
     println(time { data.count })
-    assert(isBinaryFile(data, "value"))
+    assert(isBinaryFile(data.schema("value")))
     val paths = data.select("value.path") //make sure that SQL has access to the sub-fields
     assert(paths.count == 31)             //note that text file is also included
   }
@@ -70,13 +71,17 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
 
   test("with zip file") {
     /* remove when datasets/Images is updated */
-    createZips()
+    val saveDir = new File(tmpDir.toFile, "zips")
+    if (!saveDir.exists()) saveDir.mkdirs()
 
-    val images = session.readBinaryFiles(imagesDirectory, recursive = true)
-    assert(images.count == 74)
+    createZip(cifarDirectory, saveDir)
+    createZip(groceriesDirectory, saveDir)
 
-    val images1 = session.readBinaryFiles(imagesDirectory, recursive = true, inspectZip = false)
-    assert(images1.count == 39)
+    val images = session.readBinaryFiles(saveDir.getAbsolutePath, recursive = true)
+    assert(images.count == 37)
+
+    val images1 = session.readBinaryFiles(saveDir.getAbsolutePath, recursive = true, inspectZip = false)
+    assert(images1.count == 2)
   }
 
   test("handle folders with spaces") {
@@ -102,7 +107,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
     val df = session
       .read
       .format(classOf[BinaryFileFormat].getName)
-      .load(groceriesDirectory + "**/*")
+      .load(groceriesDirectory + "**")
     assert(df.count()==31)
     df.printSchema()
   }
@@ -133,6 +138,29 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       assert(df.count() == 6)
     }
     q1.stop()
+  }
+
+  test("write binary files") {
+    val imageDF = session
+      .read
+      .format(classOf[BinaryFileFormat].getName)
+      .load(cifarDirectory)
+      .sample(.5,0)
+      .select("value.*")
+      .withColumn("path", UDFs.rename(col("path")))
+    imageDF.printSchema()
+    assert(imageDF.count() == 4)
+    val saveDir = new File(tmpDir.toFile, "binaries").toString
+    imageDF.write.mode("overwrite")
+      .format(classOf[BinaryFileFormat].getName)
+      .option("pathCol", "path")
+      .save(saveDir)
+
+    val newImageDf = session
+      .read
+      .format(classOf[BinaryFileFormat].getName)
+      .load(saveDir)
+    assert(newImageDf.count() == 4)
   }
 
 }

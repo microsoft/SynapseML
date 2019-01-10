@@ -5,35 +5,43 @@ package com.microsoft.ml.spark
 
 import java.io.{File, FileInputStream}
 
-import com.microsoft.ml.spark.Image.implicits._
-import com.microsoft.ml.spark.schema.ImageSchema
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
-import org.apache.spark.image.ImageFileFormat
-import org.apache.spark.sql.functions.{col, udf, to_json}
+import org.apache.spark.ml.image.ImageSchema
+import org.apache.spark.ml.source.image.PatchedImageFileFormat
+import org.apache.spark.sql.functions.{col, to_json, udf}
 import org.apache.spark.sql.types.StringType
 
 class ImageReaderSuite extends TestBase with FileReaderUtils {
 
+  val imageFormat: String = classOf[PatchedImageFileFormat].getName
+
   test("image dataframe") {
-    val images = session.readImages(groceriesDirectory, recursive = true)
+    val images = session.read.format(imageFormat)
+      .option("dropInvalid", true).load(groceriesDirectory + "**")
     println(time {
       images.count
     })
-    assert(ImageSchema.isImage(images, "image")) // make sure the column "images" exists and has the right type
-    val paths = images.select("image.path") //make sure that SQL has access to the sub-fields
+
+    // make sure the column "images" exists and has the right type
+    assert(ImageSchemaUtils.isImage(images.schema("image").dataType))
+
+    //make sure that SQL has access to the sub-fields
+    val paths = images.select("image.origin")
+
     assert(paths.count == 30)
-    val areas = images.select(images("image.width") * images("image.height")) //more complicated SQL statement
+    //more complicated SQL statement
+    val areas = images.select(images("image.width") * images("image.height"))
     println(s"   area of image 1 ${areas.take(1)(0)}")
   }
 
   test("read images with subsample") {
     val imageDF = session
       .read
-      .format(classOf[ImageFileFormat].getName)
-      .option("subsample", .5)
+      .format(imageFormat)
       .load(cifarDirectory)
-    assert(imageDF.count() == 3)
+      .sample(.5,0)
+    assert(imageDF.count() == 4)
   }
 
   object UDFs extends Serializable {
@@ -47,23 +55,25 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read images from files") {
-    val files = recursiveListFiles(new File(cifarDirectory)).toSeq.map(f => Tuple1("file://" + f.toString))
+    val files = recursiveListFiles(new File(cifarDirectory))
+      .toSeq.map(f => Tuple1("file://" + f.toString))
     val df = session
       .createDataFrame(files)
       .toDF("filenames")
-    val imageDF = ImageReader.readFromPaths(df, "filenames")
-    assert(imageDF.select("image.bytes").collect().map(_.getAs[Array[Byte]](0)).length == 6)
+    val imageDF = ImageUtils.readFromPaths(df, "filenames")
+    assert(imageDF.select("image.data").collect().map(_.getAs[Array[Byte]](0)).length == 6)
   }
 
   test("read images from strings") {
     val base64Strings = recursiveListFiles(new File(cifarDirectory)).toSeq.map(f =>
-      (f.getAbsolutePath, new Base64().encodeAsString(IOUtils.toByteArray(new FileInputStream(f))))
+      (f.getAbsolutePath, new Base64().encodeAsString(
+        IOUtils.toByteArray(new FileInputStream(f))))
     )
     val df = session
       .createDataFrame(base64Strings)
       .toDF("filenames","bytes")
-    val imageDF = ImageReader.readFromStrings(df, "bytes")
-    assert(imageDF.select("image.bytes").collect().map(_.getAs[Array[Byte]](0)).length == 6)
+    val imageDF = ImageUtils.readFromStrings(df, "bytes")
+    assert(imageDF.select("image.data").collect().map(_.getAs[Array[Byte]](0)).length == 6)
   }
 
   test("read from strings 2") {
@@ -112,63 +122,45 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       "UQeADoPS9IIyVMtP5HInhArJG1Gul/X5rmdeb5WK7Wqat1nQy5XVZeYyGnKAuKSNIEB0iYUY5Z6lzzjmH" +
       "iACwWCzmumzEUTNrNRj4xLdYc2qZx+qq9jjl1JpiZYp6u5yhVr4nKsb+CkyFkScvikzRAAAAAElFTkSuQmCC")))
       .toDF("bytes")
-    assert(ImageReader.readFromStrings(df,"bytes")
+    assert(ImageUtils.readFromStrings(df,"bytes")
       .withColumn("parsed",to_json(col("image")))
       .select("parsed")
-      .collect()(0).getString(0).length() == 4141)
-  }
-
-  test("write images with subsample") {
-    val imageDF = session
-      .read
-      .format(classOf[ImageFileFormat].getName)
-      .option("subsample", .5)
-      .load(cifarDirectory)
-      .withColumn("filenames", UDFs.rename(col("image.path")))
-
-    imageDF.printSchema()
-    assert(imageDF.count() == 3)
-    val saveDir = new File(tmpDir.toFile, "images").toString
-    imageDF.write.mode("overwrite").format(classOf[ImageFileFormat].getName).save(saveDir)
-
-    val newImageDf = session
-      .read
-      .format(classOf[ImageFileFormat].getName)
-      .load(saveDir + "/*")
-    assert(newImageDf.count() == 3)
-    assert(ImageSchema.isImage(newImageDf, "image"))
+      .collect()(0).getString(0).length() == 4154)
   }
 
   test("write images with subsample function 2") {
     val imageDF = session
       .read
-      .format(classOf[ImageFileFormat].getName)
-      .option("subsample", .5)
+      .format(imageFormat)
       .load(cifarDirectory)
-      .withColumn("filenames", UDFs.rename(col("image.path")))
+      .sample(.5,0)
+      .withColumn("filenames", UDFs.rename(col("image.origin")))
 
     imageDF.printSchema()
-    assert(imageDF.count() == 3)
+    assert(imageDF.count() == 4)
     val saveDir = new File(tmpDir.toFile, "images").toString
-    ImageWriter.write(imageDF, saveDir)
+    imageDF.write.mode("overwrite")
+      .format(classOf[PatchedImageFileFormat].getName)
+      .option("pathCol", "filenames")
+      .save(saveDir)
 
     val newImageDf = session
       .read
-      .format(classOf[ImageFileFormat].getName)
+      .format(imageFormat)
       .load(saveDir)
-    assert(newImageDf.count() == 3)
-    assert(ImageSchema.isImage(newImageDf, "image"))
+    assert(newImageDf.count() == 4)
+    assert(ImageSchemaUtils.isImage(newImageDf.schema("image").dataType))
   }
 
   test("structured streaming with images") {
-    val schema = ImageSchema.schema
+    val schema = ImageSchema.imageSchema
     val imageDF = session
       .readStream
-      .format(classOf[ImageFileFormat].getName)
+      .format(imageFormat)
       .schema(schema)
       .load(cifarDirectory)
 
-    val q1 = imageDF.select("image.path").writeStream
+    val q1 = imageDF.select("image.origin").writeStream
       .format("memory")
       .queryName("images")
       .start()
@@ -176,39 +168,9 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     tryWithRetries() { () =>
       val df = session.sql("select * from images")
       assert(df.count() == 6)
+      println("success")
     }
     q1.stop()
-  }
-
-  test("with zip file") {
-    /* remove when datasets/Images is updated */
-    createZips()
-
-    val images = session.readImages(imagesDirectory, recursive = true)
-    assert(ImageSchema.isImage(images, "image"))
-    // Validate path contains an image
-    val extensions = Seq(".jpg", ".png")
-    val sampleImagePath = images.select("image.path").take(1)(0)(0).toString()
-    assert(extensions.exists(ext => sampleImagePath.endsWith(ext)))
-    assert(images.count == 72)
-
-    val images1 = session.readImages(imagesDirectory, recursive = true, inspectZip = false)
-    assert(images1.count == 36)
-  }
-
-  test("sample ratio test") {
-
-    sc.hadoopConfiguration.set("mapreduce.input.fileinputformat.input.dir.recursive", "true")
-
-    val f = sc.binaryFiles(groceriesDirectory)
-    println(time {
-      f.count
-    })
-
-    val images = session.readImages(groceriesDirectory, recursive = true, sampleRatio = 0.5)
-    println(time {
-      images.count
-    }) // the count changes depending on random number generator
   }
 
 }
