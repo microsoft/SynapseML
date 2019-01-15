@@ -101,7 +101,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
-  setDefault(timeout -> 120)
+  setDefault(timeout -> 1200)
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
