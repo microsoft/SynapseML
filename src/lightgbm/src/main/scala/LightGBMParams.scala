@@ -130,4 +130,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
   def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
+
+  val boostFromAverage = new BooleanParam(this, "boostFromAverage",
+    "Adjusts initial score to the mean of labels for faster convergence")
+  setDefault(boostFromAverage -> true)
+
+  def getBoostFromAverage: Boolean = $(boostFromAverage)
+  def setBoostFromAverage(value: Boolean): this.type = set(boostFromAverage, value)
 }

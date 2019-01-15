@@ -75,7 +75,7 @@ class LightGBMClassifier(override val uid: String)
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
-      getIsUnbalance, getVerbosity, categoricalIndexes, classes, metric)
+      getIsUnbalance, getVerbosity, categoricalIndexes, classes, metric, getBoostFromAverage)
     log.info(s"LightGBMClassifier parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
