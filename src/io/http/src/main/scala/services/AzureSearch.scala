@@ -4,18 +4,20 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive._
-import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import org.apache.http.Consts
+import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.log4j.{LogManager, Logger}
+import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
-import org.apache.spark.sql.functions.{array, col, struct, to_json}
+import org.apache.spark.sql.functions.{array, col, struct, to_json, udf}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, ForeachWriter, Row}
 
 import scala.collection.JavaConverters._
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 object AddDocuments extends ComplexParamsReadable[AddDocuments] with Serializable
 
@@ -23,31 +25,31 @@ trait HasActionCol extends HasServiceParams {
 
   val actionCol = new Param[String](this, "actionCol",
     s"""
-      |You can combine actions, such as an upload and a delete, in the same batch.
-      |
+       |You can combine actions, such as an upload and a delete, in the same batch.
+       |
       |upload: An upload action is similar to an 'upsert'
-      |where the document will be inserted if it is new and updated/replaced
-      |if it exists. Note that all fields are replaced in the update case.
-      |
+       |where the document will be inserted if it is new and updated/replaced
+       |if it exists. Note that all fields are replaced in the update case.
+       |
       |merge: Merge updates an existing document with the specified fields.
-      |If the document doesn't exist, the merge will fail. Any field
-      |you specify in a merge will replace the existing field in the document.
-      |This includes fields of type Collection(Edm.String). For example, if
-      |the document contains a field 'tags' with value ['budget'] and you execute
-      |a merge with value ['economy', 'pool'] for 'tags', the final value
-      |of the 'tags' field will be ['economy', 'pool'].
-      | It will not be ['budget', 'economy', 'pool'].
-      |
+       |If the document doesn't exist, the merge will fail. Any field
+       |you specify in a merge will replace the existing field in the document.
+       |This includes fields of type Collection(Edm.String). For example, if
+       |the document contains a field 'tags' with value ['budget'] and you execute
+       |a merge with value ['economy', 'pool'] for 'tags', the final value
+       |of the 'tags' field will be ['economy', 'pool'].
+       | It will not be ['budget', 'economy', 'pool'].
+       |
       |mergeOrUpload: This action behaves like merge if a document
-      | with the given key already exists in the index.
-      | If the document does not exist, it behaves like upload with a new document.
-      |
+       | with the given key already exists in the index.
+       | If the document does not exist, it behaves like upload with a new document.
+       |
       |delete: Delete removes the specified document from the index.
-      | Note that any field you specify in a delete operation,
-      | other than the key field, will be ignored. If you want to
-      |  remove an individual field from a document, use merge
-      |  instead and simply set the field explicitly to null.
-    """.stripMargin.replace("\n",""))
+       | Note that any field you specify in a delete operation,
+       | other than the key field, will be ignored. If you want to
+       |  remove an individual field from a document, use merge
+       |  instead and simply set the field explicitly to null.
+    """.stripMargin.replace("\n", ""))
 
   def setActionCol(v: String): this.type = set(actionCol, v)
 
@@ -85,7 +87,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
 
   override val subscriptionKeyHeaderName = "api-key"
 
-  setDefault(batchSize->100)
+  setDefault(batchSize -> 100)
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val stages = Array(
@@ -96,7 +98,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
       new FixedMiniBatchTransformer().setBuffered(false).setBatchSize(getBatchSize),
       Lambda(df =>
         df.select(struct(
-          to_json(struct(col("arr").alias("value")))
+          to_json(struct(col("arr").alias("value")), Map("charset"->"UTF-8"))
         ).alias("input"))
       ),
       new SimpleHTTPTransformer()
@@ -121,9 +123,8 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
     super.transform(dataset)
   }
 
-  override def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
-    Some(new StringEntity(row.getString(0)))
-  }
+  override def prepareEntity: Row => Option[AbstractHttpEntity] = row =>
+    Some(new StringEntity(row.getString(0), ContentType.create("text/plain", Consts.UTF_8)))
 
   override def responseDataType: DataType = ASResponses.schema
 }
@@ -138,9 +139,21 @@ private[ml] class StreamMaterializer2 extends ForeachWriter[Row] {
 
 }
 
-object AzureSearchWriter extends IndexParser {
+object AzureSearchWriter extends IndexParser with SLogging {
 
   val logger: Logger = LogManager.getRootLogger
+
+  private def checkForErrors(fatal: Boolean)(errorRow: Row, inputRow: Row): Option[Row] = {
+    Option(errorRow).map { r =>
+      val message = s"Service Exception:\n\t ${r.toString()} \n for input:\n\t ${inputRow.toString()}"
+      if (fatal) {
+        throw new RuntimeException(message)
+      } else {
+        logWarning(message)
+        r
+      }
+    }
+  }
 
   private def prepareDF(df: DataFrame, options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
@@ -158,15 +171,12 @@ object AzureSearchWriter extends IndexParser {
     val apiVersion = options.getOrElse("apiVersion", "2017-11-11")
     val indexName = parseIndexJson(indexJson).name.get
     val batchSize = options.getOrElse("batchSize", "100").toInt
+    val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
 
-    SearchIndex.createIfNoneExists(subscriptionKey,serviceName, indexJson, apiVersion)
+    SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
-    checkSchemaParity(df, indexJson) match {
-      case Success(_) => ()
-      case Failure(e) =>
-        println("Exception: Schema mismatch found in dataframe and json")
-        throw e
-    }
+    logInfo("checking schema parity")
+    checkSchemaParity(df.schema, indexJson, actionCol)
 
     new AddDocuments()
       .setSubscriptionKey(subscriptionKey)
@@ -174,30 +184,34 @@ object AzureSearchWriter extends IndexParser {
       .setIndexName(indexName)
       .setActionCol(actionCol)
       .setBatchSize(batchSize)
+      .setOutputCol("out")
+      .setErrorCol("error")
       .transform(df)
+      .withColumn("error", udf(checkForErrors(fatalErrors) _, ErrorUtils.errorSchema)(col("error"), col("input")))
   }
 
-  private def checkSchemaParity(df: DataFrame, indexJson: String): Try[Boolean] = {
-    val edmTypes = Map("Edm.String" -> "string",
-      "Collection(Edm.String)" -> "array<string>",
-      "Edm.Boolean" -> "boolean",
-      "Edm.Int64" -> "bigint",
-      "Edm.Int32" -> "int",
-      "Edm.Double" -> "double",
-      "Edm.DateTimeOffset" -> "string",
-      "Edm.GeographyPoint" -> "string")
-    val fieldNames = parseIndexJson(indexJson).fields.map(f => f.name).toList.map(n => n.toString)
-    val fieldTypes = parseIndexJson(indexJson).fields.map(f => f.`type`).toList.map(t => edmTypes(t.toString))
+  private val edmTypes = Map("Edm.String" -> StringType,
+    "Collection(Edm.String)" -> ArrayType(StringType),
+    "Edm.Boolean" -> BooleanType,
+    "Edm.Int64" -> LongType,
+    "Edm.Int32" -> IntegerType,
+    "Edm.Double" -> DoubleType,
+    "Edm.DateTimeOffset" -> StringType, //See if theres a way to use spark datetimes
+    "Edm.GeographyPoint" -> StringType)
 
-    // drop the first comparison element because the first field in the dataframe corresponds to the search action
-    val isValid = df.schema.toList.drop(1).map(field =>
-        fieldNames.contains(field.name) && fieldTypes.contains(field.dataType.simpleString)
-      )
+  private def checkSchemaParity(schema: StructType, indexJson: String, searchActionCol: String): Unit = {
+    val indexInfo = parseIndexJson(indexJson)
+    val indexFields = indexInfo.fields.map(f => (f.name, edmTypes(f.`type`))).toMap
 
-    val result = isValid.forall(x => x)
+    assert(schema(searchActionCol).dataType == StringType)
+    schema.toList.filter(_.name != searchActionCol).foreach { field =>
 
-    if (result) {Success(result)}
-    else {Failure(new IllegalArgumentException)}
+      val indexType = indexFields.getOrElse(field.name, throw new IllegalArgumentException(
+        s"${field.name} not found in search index fields: ${indexFields.keys.toList}"))
+
+      assert(indexType == field.dataType, s"field ${field.name} requires type" +
+        s" $indexType your dataframe column is of type ${field.dataType}")
+    }
   }
 
   def stream(df: DataFrame, options: Map[String, String] = Map()): DataStreamWriter[Row] = {

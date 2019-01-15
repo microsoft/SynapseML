@@ -135,7 +135,7 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
   }
 
   test("Run azure-search tests with waits") {
-    val testsToRun = Set(1, 2)//, 3)
+    val testsToRun = Set(1, 2) //, 3)
 
     def dependsOn(testNumber: Int, f: => Unit): Unit = {
       if (testsToRun(testNumber)) {
@@ -206,7 +206,6 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
     assertThrows[IllegalArgumentException] {
       SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
     }
-
   }
 
   test("Throw useful error when given mismatched schema and document fields") {
