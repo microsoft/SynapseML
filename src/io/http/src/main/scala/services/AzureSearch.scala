@@ -226,8 +226,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     stream(df, options.asScala.toMap)
   }
 
-  def write(df: DataFrame,
-            options: java.util.HashMap[String, String]): Unit = {
+  def write(df: DataFrame, options: java.util.HashMap[String, String]): Unit = {
     write(df, options.asScala.toMap)
   }
 
