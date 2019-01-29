@@ -420,15 +420,15 @@ class DescribeImage(override val uid: String)
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 
-  val maxCandidates = new ServiceParam[String](this, "maxCandidates", "Maximum candidate descriptions to return",
+  val maxCandidates = new ServiceParam[Int](this, "maxCandidates", "Maximum candidate descriptions to return",
     isURLParam = true
   )
 
-  def setmaxCandidates(v: String): this.type = setScalarParam(maxCandidates, v)
+  def setMaxCandidates(v: Int): this.type = setScalarParam(maxCandidates, v)
 
-  def setmaxCandidatesCol(v: String): this.type = setVectorParam(maxCandidates, v)
+  def setMaxCandidatesCol(v: String): this.type = setVectorParam(maxCandidates, v)
 
-  setDefault(maxCandidates, ServiceParamData(None, Some("1")))
+  setDefault(maxCandidates, ServiceParamData(None, Some(1)))
 
   val language = new ServiceParam[String](this, "language", "Language of image description",
     isValid = {spd:ServiceParamData[String] => spd.data.map {
