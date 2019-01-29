@@ -236,7 +236,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage] with VisionKe
   lazy val t: DescribeImage = new DescribeImage()
     .setSubscriptionKey(visionKey)
     .setLocation("eastus")
-    .setmaxCandidates("3")
+    .setMaxCandidates(3)
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
 
