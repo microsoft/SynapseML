@@ -34,7 +34,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.DataConversion",
       "com.microsoft.ml.spark.PowerBITransformer",
-      "com.microsoft.ml.spark.NER"
+      "com.microsoft.ml.spark.LocalNER"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -63,7 +63,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.DataConversion",
       "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.PowerBITransformer",
-      "com.microsoft.ml.spark.NER"
+      "com.microsoft.ml.spark.LocalNER"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -94,7 +94,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.TuneHyperparameters",
       "com.microsoft.ml.spark.LightGBMClassifier",
       "com.microsoft.ml.spark.LightGBMRegressor",
-      "com.microsoft.ml.spark.PowerBITransformer"
+      "com.microsoft.ml.spark.PowerBITransformer",
+      "com.microsoft.ml.spark.LocalNER"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
