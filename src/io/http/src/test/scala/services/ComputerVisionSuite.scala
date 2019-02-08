@@ -9,7 +9,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, explode, struct}
 import org.scalatest.Assertion
 
 trait VisionKey {
@@ -19,7 +18,6 @@ trait VisionKey {
 class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
 
   import session.implicits._
-  import com.microsoft.ml.spark.FluentAPI._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
@@ -35,12 +33,35 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
     .setDetectOrientation(true)
     .setOutputCol("ocr")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesOCR = new OCR()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setDefaultLanguage("en")
+    .setImageBytesCol("imageBytes")
+    .setDetectOrientation(true)
+    .setOutputCol("bocr")
+
+  test("Basic Usage with URL") {
     val model = pipelineModel(Array(
       ocr,
       OCR.flatten("ocr", "ocr")
     ))
     val results = model.transform(df).collect()
+    assert(results(2).getString(2).startsWith("This is a lot of 12 point text"))
+  }
+
+  test("Basic Usage with Bytes") {
+    val model = pipelineModel(Array(
+      bytesOCR,
+      OCR.flatten("bocr", "bocr")
+    ))
+
+    val results = model.transform(bytesDF).collect()
     assert(results(2).getString(2).startsWith("This is a lot of 12 point text"))
   }
 
@@ -71,7 +92,32 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
     .setDetails(Seq("Celebrities", "Landmarks"))
     .setOutputCol("features")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .drop("url")
+
+  lazy val bytesAI: AnalyzeImage = new AnalyzeImage()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageBytesCol("imageBytes")
+    .setLanguageCol("language")
+    .setDefaultLanguage("en")
+    .setVisualFeatures(
+      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult")
+    )
+    .setDetails(Seq("Celebrities", "Landmarks"))
+    .setOutputCol("features")
+
+  test("Basic Usage with URL") {
+    val fromRow = AIResponse.makeFromRowConverter
+    val responses = ai.transform(df).select("features")
+      .collect().toList.map(r => fromRow(r.getStruct(0)))
+    assert(responses.head.categories.get.head.name === "others_")
+    assert(responses(1).categories.get.head.name === "text_sign")
+  }
+
+  test("Basic Usage with Bytes") {
     val fromRow = AIResponse.makeFromRowConverter
     val responses = ai.transform(df).select("features")
       .collect().toList.map(r => fromRow(r.getStruct(0)))

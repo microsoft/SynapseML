@@ -172,7 +172,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 }
 
 trait HasLanguage extends HasServiceParams {
-  val language = new ServiceParam[String](this, "language", "the language to use")
+  val language = new ServiceParam[String](this, "language", "the language to use", isURLParam = true)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
