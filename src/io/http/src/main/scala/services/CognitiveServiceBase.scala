@@ -92,15 +92,24 @@ trait HasServiceParams extends Params {
     case _ => false
   }.map(_.asInstanceOf[ServiceParam[_]])
 
-  protected def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
+  protected def emptyParamData[T](row: Row, p: ServiceParam[T]): Boolean = {
+    if (get(p).isEmpty && getDefault(p).isEmpty) {
+      return true
+    }
+
     val value = get(p).orElse(getDefault(p)).get
+
     value match {
-      case ServiceParamData(_,Some(_)) => false
-      case ServiceParamData(Some(Left(_)),_)=> false
+      case ServiceParamData(_, Some(_)) => false
+      case ServiceParamData(Some(Left(_)), _) => false
       case ServiceParamData(Some(Right(colname)), _) =>
         Option(row.get(row.fieldIndex(colname))).isEmpty
       case _ => true
     }
+  }
+
+  protected def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
+    emptyParamData(row, p)
   }
 
   protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
