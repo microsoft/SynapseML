@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.RegressionEvaluator
+import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.linalg.Vector
@@ -94,6 +95,48 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     val avglabelWeight = lgbm.fit(datasetWithWeight)
       .transform(datasetWithWeight).select(avg("prediction")).first().getDouble(0)
     assert(avglabelWeight < avglabelNoWeight)
+  }
+
+  test("Verify LightGBM Regressor categorical parameter") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "flare.data1.train.csv"
+    val categoricalColumns = Array("Zurich class", "largest spot size", "spot distribution")
+    val newCategoricalColumns = categoricalColumns.map("c_" + _)
+    val labelColumnName = "M-class flares production by this region"
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
+    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val mca = new MultiColumnAdapter().setInputCols(categoricalColumns).setOutputCols(newCategoricalColumns)
+      .setBaseStage(new StringIndexer())
+    val mcaModel = mca.fit(readDataset)
+    val categoricalDataset = mcaModel.transform(readDataset).drop(categoricalColumns: _*)
+    val seed = 42
+    val data = categoricalDataset.randomSplit(Array(0.8, 0.2), seed.toLong)
+    val trainData = data(0)
+    val testData = data(1)
+
+    val featuresColumn = "_features"
+    val predCol = "prediction"
+    val lgbm = new LightGBMRegressor()
+      .setCategoricalSlotNames(newCategoricalColumns)
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setPredictionCol(predCol)
+
+    val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
+    val transformedData = featurizer.transform(trainData)
+    val scoredData = featurizer.transform(testData)
+    val eval = new RegressionEvaluator()
+      .setLabelCol(labelColumnName)
+      .setPredictionCol(predCol)
+      .setMetricName("rmse")
+    val metric = eval.evaluate(
+      lgbm.fit(transformedData).transform(scoredData))
+    // Verify we get good result
+    assert(metric < 0.6)
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {

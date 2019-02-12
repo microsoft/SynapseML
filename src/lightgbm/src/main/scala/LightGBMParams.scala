@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{DoubleParam, IntParam, Param}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
 /** Defines common parameters across all LightGBM learners.
@@ -101,7 +101,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
-  setDefault(timeout->120)
+  setDefault(timeout -> 1200)
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
@@ -111,4 +111,30 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getModelString: String = $(modelString)
   def setModelString(value: String): this.type = set(modelString, value)
+
+  val verbosity = new IntParam(this, "verbosity",
+    "Verbosity where lt 0 is Fatal, eq 0 is Error, eq 1 is Info, gt 1 is Debug")
+  setDefault(verbosity -> 1)
+
+  def getVerbosity: Int = $(verbosity)
+  def setVerbosity(value: Int): this.type = set(verbosity, value)
+
+  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
+    "List of categorical column indexes, the slot index in the features column")
+
+  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
+  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
+
+  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
+    "List of categorical column slot names, the slot name in the features column")
+
+  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
+  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
+
+  val boostFromAverage = new BooleanParam(this, "boostFromAverage",
+    "Adjusts initial score to the mean of labels for faster convergence")
+  setDefault(boostFromAverage -> true)
+
+  def getBoostFromAverage: Boolean = $(boostFromAverage)
+  def setBoostFromAverage(value: Boolean): this.type = set(boostFromAverage, value)
 }

@@ -62,14 +62,31 @@ case class Match(text: String, offset: Int, length: Int)
 
 // NER Schemas
 
-object NERResponse extends SparkBindings[TAResponse[NERScore]]
+object LocalNERResponse extends SparkBindings[TAResponse[LocalNERScore]]
 
-case class NERScore(id: String, entities: Seq[NEREntity])
+case class LocalNERScore(id: String, entities: Seq[LocalNEREntity])
 
-case class NEREntity(value: String,
+case class LocalNEREntity(value: String,
                      startIndex: Int,
                      precision: Double,
                      category: String)
+
+object NERResponse extends SparkBindings[TAResponse[NERDoc]]
+
+case class NERDoc(id: String, entities: Seq[NEREntity])
+
+case class NEREntity(name: String,
+                     matches: Seq[NERMatch],
+                     `type`: Option[String],
+                     subtype: Option[String],
+                     wikipediaLanguage: Option[String],
+                     wikipediaId: Option[String],
+                     wikipediaUrl: Option[String],
+                     bingId: Option[String])
+
+case class NERMatch(text: String,
+                    offset: Int,
+                    length: Int)
 
 // KeyPhrase Schemas
 

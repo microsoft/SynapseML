@@ -40,6 +40,9 @@ class LightGBMRegressor(override val uid: String)
     with LightGBMParams {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
+  // Set default objective to be regression
+  setDefault(objective -> "regression")
+
   val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
   setDefault(alpha -> 0.9)
 
@@ -71,15 +74,22 @@ class LightGBMRegressor(override val uid: String)
      * translate the data to the LightGBM in-memory representation and train the models
      */
     val encoder = Encoders.kryo[LightGBMBooster]
+
+    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
+    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol,
+      categoricalSlotIndexesArr, categoricalSlotNamesArr)
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString)
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
+      getVerbosity, categoricalIndexes, getBoostFromAverage)
+    log.info(s"LightGBMRegressor parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, booster2) => booster1)
+      .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
@@ -102,7 +112,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(predictionCol, predictionColName)
 
   override def predict(features: Vector): Double = {
-    model.score(features, raw = false)
+    model.score(features, false, false)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel =

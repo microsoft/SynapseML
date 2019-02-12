@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.schema
 
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{BinaryType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 object BinaryFileSchema {
 
@@ -20,13 +20,10 @@ object BinaryFileSchema {
   def getPath(row: Row): String = row.getString(0)
   def getBytes(row: Row): Array[Byte] = row.getAs[Array[Byte]](1)
 
-  /** Check if the dataframe column contains binary file data (i.e. has BinaryFileSchema)
-    *
-    * @param df
-    * @param column
-    * @return
-    */
-  def isBinaryFile(df: DataFrame, column: String): Boolean =
-    df.schema(column).dataType == columnSchema
+  /** Check if the dataframe column contains binary file data (i.e. has BinaryFileSchema) */
+  def isBinaryFile(dt: DataType): Boolean =
+    dt == columnSchema
 
+  def isBinaryFile(sf: StructField): Boolean =
+    isBinaryFile(sf.dataType)
 }

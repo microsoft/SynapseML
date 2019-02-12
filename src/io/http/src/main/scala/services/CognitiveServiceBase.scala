@@ -168,7 +168,7 @@ object URLEncodingUtils {
 object CognitiveServiceUtils {
 
   def setUA(req: HttpRequestBase): Unit = {
-    req.setHeader("User-Agent", "mmlspark/0.13")
+    req.setHeader("User-Agent", "mmlspark/0.15")
   }
 }
 
@@ -179,16 +179,21 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
     {row: Row =>
-      getUrl + "?" + URLEncodingUtils.format(
-        urlParams.flatMap(p =>
+      val base = getUrl
+      val appended = if (!urlParams.isEmpty) {
+        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
           getValueOpt(row, p).map(v => p.name->p.toValueString(v))
         ).toMap)
+      } else {""}
+      base + appended
     }
   }
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity]
 
   protected def prepareMethod(): HttpRequestBase = new HttpPost()
+
+  protected val subscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
@@ -200,7 +205,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
         getValueOpt(row, subscriptionKey).foreach(
-          req.setHeader("Ocp-Apim-Subscription-Key", _))
+          req.setHeader(subscriptionKeyHeaderName, _))
         req.setHeader("Content-Type", "application/json")
         CognitiveServiceUtils.setUA(req)
 
