@@ -108,7 +108,7 @@ object HandlingUtils extends SparkLogging {
                                  request: HTTPRequestData): HTTPResponseData = {
     val req = request.toHTTPCore
     val message = req match {
-      case r: HttpPost => IOUtils.toString(r.getEntity.getContent, "UTF-8")
+      case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
       case r => r.getURI
     }
     logInfo(s"sending $message")
