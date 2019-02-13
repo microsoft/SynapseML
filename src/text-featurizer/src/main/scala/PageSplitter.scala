@@ -48,40 +48,42 @@ class PageSplitter(override val uid: String)
 
   setDefault(maximumPageLength -> 5000, minimumPageLength -> 4500, boundaryRegex -> "\\s")
 
-  def split(text: String): Seq[String] = {
-    if (text.length < getMaximumPageLength) {
-      Seq(text)
-    } else {
-      val lengths = text
-        .split(getBoundaryRegex)
-        .map(_.length)
-        .flatMap(l => List(l, 1))
-        .dropRight(1)
+  def split(textOpt: String): Seq[String] = {
+    Option(textOpt).map { text =>
+      if (text.length < getMaximumPageLength) {
+        Seq(text)
+      } else {
+        val lengths = text
+          .split(getBoundaryRegex)
+          .map(_.length)
+          .flatMap(l => List(l, 1))
+          .dropRight(1)
 
-      val indicies = lengths.scanLeft((0, 0, Nil: List[Int])) { case ((total, count, _), l) =>
-        if (count + l < getMaximumPageLength) {
-          (total + l, count + l, Nil)
-        } else if (count > getMinimumPageLength) {
-          (total + l, l, List(total))
-        } else {
-          val firstPageChars = getMaximumPageLength - count
-          val firstPage = firstPageChars + total
-          val remainingChars = l - firstPageChars
+        val indicies = lengths.scanLeft((0, 0, Nil: List[Int])) { case ((total, count, _), l) =>
+          if (count + l < getMaximumPageLength) {
+            (total + l, count + l, Nil)
+          } else if (count > getMinimumPageLength) {
+            (total + l, l, List(total))
+          } else {
+            val firstPageChars = getMaximumPageLength - count
+            val firstPage = firstPageChars + total
+            val remainingChars = l - firstPageChars
 
-          val numPages = remainingChars / getMaximumPageLength
-          val remainder = remainingChars - getMaximumPageLength * numPages
-          val pages = List(firstPage) ::: (1 to numPages).map(i =>
-            total + firstPageChars + getMaximumPageLength * i).toList
-          (total + l, remainder, pages)
-        }
-      }.flatMap(_._3)
+            val numPages = remainingChars / getMaximumPageLength
+            val remainder = remainingChars - getMaximumPageLength * numPages
+            val pages = List(firstPage) ::: (1 to numPages).map(i =>
+              total + firstPageChars + getMaximumPageLength * i).toList
+            (total + l, remainder, pages)
+          }
+        }.flatMap(_._3)
 
-      val words = (List(0) ::: indicies.toList ::: List(text.length))
-        .sliding(2)
-        .map { case List(start, end) => text.substring(start, end) }
-        .toSeq
-      words
-    }
+        val words = (List(0) ::: indicies.toList ::: List(text.length))
+          .sliding(2)
+          .map { case List(start, end) => text.substring(start, end) }
+          .toSeq
+        words
+      }
+    }.orNull
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
