@@ -14,6 +14,7 @@ import org.apache.spark.sql.types.StringType
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
+import scala.util.Try
 
 trait Handler {
 
@@ -74,7 +75,8 @@ object HandlingUtils extends SparkLogging {
           .foreach { h =>
             logInfo(s"waiting ${h.getValue} on ${
               request match {
-                case p: HttpPost => p.getURI + "   " + IOUtils.toString(p.getEntity.getContent, "UTF-8")
+                case p: HttpPost => p.getURI + "   " +
+                  Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
                 case _ => request.getURI
               }
             }")
@@ -86,7 +88,8 @@ object HandlingUtils extends SparkLogging {
       case _ =>
         logWarning(s"got error  $code: ${response.getStatusLine.getReasonPhrase} on ${
           request match {
-            case p: HttpPost => p.getURI + "   " + IOUtils.toString(p.getEntity.getContent, "UTF-8")
+            case p: HttpPost => p.getURI + "   " +
+              Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
             case _ => request.getURI
           }
         }")
