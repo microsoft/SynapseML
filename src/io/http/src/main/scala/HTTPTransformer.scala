@@ -37,6 +37,15 @@ trait HTTPParams extends Wrappable {
   /** @group setParam */
   def setConcurrency(value: Int): this.type = set(concurrency, value)
 
+  val timeout: Param[Double] = new DoubleParam(
+    this, "timeout", "number of seconds to wait before closing the connection")
+
+  /** @group getParam */
+  def getTimeout: Double = $(timeout)
+
+  /** @group setParam */
+  def setTimeout(value: Double): this.type = set(timeout, value)
+
   val concurrentTimeout: Param[Double] = new DoubleParam(
     this, "concurrentTimeout", "max number seconds to wait on futures if concurrency >= 1")
 
@@ -47,7 +56,8 @@ trait HTTPParams extends Wrappable {
   def setConcurrentTimeout(value: Double): this.type = set(concurrentTimeout, value)
 
   setDefault(concurrency -> 1,
-    concurrentTimeout -> 100)
+    timeout -> 60.0,
+    concurrentTimeout -> 100.0)
 
 }
 
@@ -76,11 +86,11 @@ class HTTPTransformer(val uid: String)
 
   val clientHolder = SharedVariable {
     getConcurrency match {
-      case 1 => new SingleThreadedHTTPClient(getHandler)
+      case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout*1000).toInt)
       case n if n > 1 =>
         val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(getHandler,n, dur)(ec)
+        new AsyncHTTPClient(getHandler,n, dur, (getTimeout*1000).toInt)(ec)
     }
   }
 

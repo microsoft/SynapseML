@@ -40,7 +40,16 @@ class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with 
   /** @group setParam */
   def setHeaders(value: Map[String, String]): this.type = set(headers, value)
 
-  setDefault(headers -> Map[String, String]())
+  val method: Param[String] = new Param[String](
+    this, "method", "method to use for request, (PUT, POST, PATCH)")
+
+  /** @group getParam */
+  def getMethod: String = $(method)
+
+  /** @group setParam */
+  def setMethod(value: String): this.type = set(method, value)
+
+  setDefault(headers -> Map[String, String](), method -> "POST")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF()
@@ -60,7 +69,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with 
       case _             => to_json(struct(getInputCol))
     }).withColumn(urlCol, lit(getUrl))
       .withColumn(headersCol, typedLit(headers))
-      .withColumn(methodCol, lit("POST"))
+      .withColumn(methodCol, lit(getMethod))
       .withColumn(requestCol,
                   HTTPSchema.to_http_request(urlCol, headersCol, methodCol, entityCol))
       .drop(entityCol, urlCol, headersCol, methodCol)
