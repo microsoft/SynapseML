@@ -118,7 +118,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
 
   test("Basic Usage with Bytes") {
     val fromRow = AIResponse.makeFromRowConverter
-    val responses = ai.transform(df).select("features")
+    val responses = bytesAI.transform(bytesDF).select("features")
       .collect().toList.map(r => fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
@@ -159,8 +159,30 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
     .setOutputCol("ocr")
     .setConcurrency(5)
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesRT: RecognizeText = new RecognizeText()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageBytesCol("imageBytes")
+    .setMode("Printed")
+    .setOutputCol("ocr")
+    .setConcurrency(5)
+
+  test("Basic Usage with URL") {
     val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))
+      .select("ocr")
+      .collect()
+    val headStr = results.head.getString(0)
+    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
+      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
+  }
+
+  test("Basic Usage with Bytes") {
+    val results = bytesDF.mlTransform(bytesRT, RecognizeText.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
@@ -189,10 +211,29 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
+    .setSubscriptionKey(visionKey)
+    .setModel("celebrities")
+    .setLocation("eastus")
+    .setImageBytesCol("imageBytes")
+    .setOutputCol("celebs")
+
+  test("Basic Usage with URL") {
     val model = pipelineModel(Array(
       celeb, RecognizeDomainSpecificContent.getMostProbableCeleb("celebs", "celebs")))
     val results = model.transform(df)
+    assert(results.head().getString(2) === "Leonardo DiCaprio")
+  }
+
+  test("Basic Usage with Bytes") {
+    val model = pipelineModel(Array(
+      bytesCeleb, RecognizeDomainSpecificContent.getMostProbableCeleb("celebs", "celebs")))
+    val results = model.transform(bytesDF)
     assert(results.head().getString(2) === "Leonardo DiCaprio")
   }
 
@@ -225,8 +266,25 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails] wit
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setHeight(50).setWidth(50).setSmartCropping(true)
+    .setImageBytesCol("imageBytes")
+    .setOutputCol("thumbnails")
+
+  test("Basic Usage with URL") {
     val results = t.transform(df)
+    assert(results.head().getAs[Array[Byte]](2).length > 1000)
+  }
+
+  test("Basic Usage with Bytes") {
+    val results = bytesGT.transform(bytesDF)
     assert(results.head().getAs[Array[Byte]](2).length > 1000)
   }
 
@@ -250,8 +308,29 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey {
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesTI: TagImage = new TagImage()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setImageBytesCol("imageBytes")
+    .setOutputCol("tags")
+
+  test("Basic Usage with URL") {
     val results = t.transform(df)
+    val tagResponse = results.head()
+      .getAs[Row]("tags")
+      .getSeq[Row](0)
+
+    assert(tagResponse.map(_.getString(0)).toList.head === "person")
+    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+  }
+
+  test("Basic Usage with Bytes") {
+    val results = bytesTI.transform(bytesDF)
     val tagResponse = results.head()
       .getAs[Row]("tags")
       .getSeq[Row](0)
@@ -285,8 +364,27 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage] with VisionKe
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
 
-  test("Basic Usage") {
+  lazy val bytesDF: DataFrame = BingImageSearch
+    .downloadFromUrls("url", "imageBytes", 4, 10000)
+    .transform(df)
+    .select("imageBytes")
+
+  lazy val bytesDI: DescribeImage = new DescribeImage()
+    .setSubscriptionKey(visionKey)
+    .setLocation("eastus")
+    .setMaxCandidates(3)
+    .setImageBytesCol("imageBytes")
+    .setOutputCol("descriptions")
+
+  test("Basic Usage with URL") {
     val results = t.transform(df)
+    val tags = results.select("descriptions").take(1).head
+      .getStruct(0).getStruct(0).getSeq[String](0).toSet
+    assert(tags("person") && tags("glasses"))
+  }
+
+  test("Basic Usage with Bytes") {
+    val results = bytesDI.transform(bytesDF)
     val tags = results.select("descriptions").take(1).head
       .getStruct(0).getStruct(0).getSeq[String](0).toSet
     assert(tags("person") && tags("glasses"))
