@@ -49,7 +49,7 @@ Similarly, you can run the `LightGBMRegressor` by setting the
    ```
 
 For an end to end application, check out the LightGBM [notebook
-example](../notebooks/samples/106%20-%20Quantile%20Regression%20with%20LightGBM.ipynb).
+example](../notebooks/samples/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb).
 
 ### Architecture
 
