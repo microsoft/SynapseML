@@ -43,11 +43,19 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
       .setK(evaluator.getK)
       .setRecommender(algo)
 
-    val output = adapter.fit(transformedDf).transform(transformedDf)
+    val model = adapter.fit(transformedDf)
+    val output = model.transform(transformedDf)
 
     assert(evaluator.setMetricName("ndcgAt").evaluate(output) == 0.7168486344464263)
     assert(evaluator.setMetricName("fcp").evaluate(output) == 0.05000000000000001)
     assert(evaluator.setMetricName("mrr").evaluate(output) == 1.0)
+
+    val users: DataFrame = session
+      .createDataFrame(Seq(("0","0"),("1","1")))
+      .toDF(userColIndex, itemColIndex)
+
+    val recs = model.getRecommenderModel.asInstanceOf[SARModel].recommendForUserSubset(users, 10)
+    assert(recs.count == 2)
   }
 
   val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
