@@ -40,14 +40,65 @@ class SARModel(override val uid: String) extends Model[SARModel]
   def this() = this(Identifiable.randomUID("SARModel"))
 
   /**
+    * Returns top `numItems` items recommended for each user, for all users.
+    *
+    * @param numItems max number of recommendations for each user
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
+  def recommendForAllUsers(numItems: Int): DataFrame = {
+    recommendForAll(getUserDataFrame, getItemDataFrame, getUserCol, getItemCol, numItems)
+  }
+
+  /**
+    * Returns top `numItems` items recommended for each user id in the input data set. Note that if
+    * there are duplicate ids in the input dataset, only one set of recommendations per unique id
+    * will be returned.
+    *
+    * @param dataset  a Dataset containing a column of user ids. The column name must match `userCol`.
+    * @param numItems max number of recommendations for each user.
+    * @return a DataFrame of (userCol: Int, recommendations), where recommendations are
+    *         stored as an array of (itemCol: Int, rating: Float) Rows.
+    */
+  def recommendForUserSubset(dataset: Dataset[_], numItems: Int): DataFrame = {
+    val srcFactorSubset = getSourceFactorSubset(dataset, getUserDataFrame, getUserCol)
+    recommendForAll(srcFactorSubset, getItemDataFrame, getUserCol, getItemCol, numItems)
+  }
+
+  /**
+    * Returns a subset of a factor DataFrame limited to only those unique ids contained
+    * in the input dataset.
+    *
+    * @param dataset input Dataset containing id column to user to filter factors.
+    * @param factors factor DataFrame to filter.
+    * @param column  column name containing the ids in the input dataset.
+    * @return DataFrame containing factors only for those ids present in both the input dataset and
+    *         the factor DataFrame.
+    */
+  private def getSourceFactorSubset(
+    dataset: Dataset[_],
+    factors: DataFrame,
+    column: String): DataFrame = {
+    factors
+      .join(dataset.select(column), factors(getUserCol) === dataset(column), joinType = "left_semi")
+      .select(factors(getUserCol), factors("flatList"))
+  }
+
+  /**
     * Personalized recommendations for a single user are obtained by multiplying the Item-to-Item similarity matrix
     * with a user affinity vector. The user affinity vector is simply a transposed row of the affinity matrix
     * corresponding to that user.
     *
-    * @param k
+    * @param num
     * @return
     */
-  override def recommendForAllUsers(k: Int): DataFrame = {
+  private def recommendForAll(
+    srcFactors: DataFrame,
+    dstFactors: DataFrame,
+    srcOutputColumn: String,
+    dstOutputColumn: String,
+    num: Int): DataFrame = {
+
     def dfToRDDMatrxEntry(dataframe: DataFrame) = {
       dataframe.rdd
         .flatMap(row =>
@@ -55,11 +106,11 @@ class SARModel(override val uid: String) extends Model[SARModel]
         .map(item => MatrixEntry(item.getDouble(0).toLong, item.getInt(1).toLong, item.getFloat(2).toDouble))
     }
 
-    val userItemMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(getUserDataFrame)).toBlockMatrix().cache()
-    val itemItemMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(getItemDataFrame)).toBlockMatrix().cache()
+    val sourceMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(srcFactors)).toBlockMatrix().cache()
+    val destMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(dstFactors)).toBlockMatrix().cache()
 
-    val userToItemMatrix = userItemMatrix
-      .multiply(itemItemMatrix)
+    val userToItemMatrix = sourceMatrix
+      .multiply(destMatrix)
       .toIndexedRowMatrix()
       .rows.map(indexedRow => (indexedRow.index.toInt, indexedRow.vector))
 
@@ -67,11 +118,11 @@ class SARModel(override val uid: String) extends Model[SARModel]
       vector.toArray.zipWithIndex
         .map { case (list, index) => (index, list) }
         .sortWith(_._2 > _._2)
-        .take(k)
+        .take(num)
     })
 
     val recommendationArrayType =
-      ArrayType(new StructType(Array(SF(getItemCol, IntegerType), SF(Constants.ratingCol, FloatType))))
+      ArrayType(new StructType(Array(SF(dstOutputColumn, IntegerType), SF(Constants.ratingCol, FloatType))))
 
     getUserDataFrame.sparkSession.createDataFrame(userToItemMatrix)
       .toDF(id, ratings).withColumn(recommendations, orderAndTakeTopK(col(ratings))).select(id, recommendations)
