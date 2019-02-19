@@ -11,7 +11,8 @@ import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
-import org.apache.spark.sql.functions.{array, col, struct, to_json, udf}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.{explode, col, struct, to_json, udf, collect_set}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, ForeachWriter, Row}
@@ -155,10 +156,17 @@ object AzureSearchWriter extends IndexParser with SLogging {
     }
   }
 
+  private def filterOutNulls(df: DataFrame, collectionColName: String): DataFrame = {
+    def rmNull = udf[Seq[String], Seq[String]] {
+      inputSeq => inputSeq.filter(_ != null)
+    }
+    df.withColumn(collectionColName, rmNull(col(collectionColName)))
+  }
+
   private def prepareDF(df: DataFrame, options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize"
+      "apiVersion", "batchSize", "fatalErrors", "filterNulls"
     )
 
     options.keys.foreach(k =>
@@ -172,11 +180,19 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val indexName = parseIndexJson(indexJson).name.get
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
+    val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
     checkSchemaParity(df.schema, indexJson, actionCol)
+
+    val df1 = if (filterNulls) {
+      val collectionColumns = parseIndexJson(indexJson).fields
+          .filter(_.`type`=="Collection(Edm.String)")
+        .map(_.name)
+      collectionColumns.foldLeft(df){(ndf, c) => filterOutNulls(ndf, c)}
+    } else { df }
 
     new AddDocuments()
       .setSubscriptionKey(subscriptionKey)
@@ -186,7 +202,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
       .setBatchSize(batchSize)
       .setOutputCol("out")
       .setErrorCol("error")
-      .transform(df)
+      .transform(df1)
       .withColumn("error", udf(checkForErrors(fatalErrors) _, ErrorUtils.errorSchema)(col("error"), col("input")))
   }
 
