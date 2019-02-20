@@ -64,11 +64,11 @@ object SearchIndex extends IndexParser with IndexLister {
 
   }
 
-  // validate schema
   private def prepareEntity(indexJson: String): StringEntity = {
     new StringEntity(validIndexJson(indexJson).get)
   }
 
+  // validate schema
   private def validIndexJson(indexJson: String): Try[String] = {
     validateIndexInfo(indexJson).map(_.toJson.compactPrint)
   }

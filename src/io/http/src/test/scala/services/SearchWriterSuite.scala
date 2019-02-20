@@ -217,4 +217,58 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
     }
   }
 
+  /**
+    * All the Edm Types are nullable in Azure Search except for Collection(Edm.String).
+    * Because it is not possible to store a null value in a Collection(Edm.String) field,
+    * there is an option to set a boolean flag, filterNulls, that will remove null values
+    * from the dataset in the Collection(Edm.String) fields before writing the data to the search index.
+    * The default value for this boolean flag is False.
+    */
+  test("Handle null values for Collection(Edm.String) fields") {
+    val in = generateIndexName()
+    val phraseIndex = s"""
+           |{
+           |    "name": "$in",
+           |    "fields": [
+           |      {
+           |        "name": "id",
+           |        "type": "Edm.String",
+           |        "key": true,
+           |        "facetable": false
+           |      },
+           |    {
+           |      "name": "fileName",
+           |      "type": "Edm.String",
+           |      "searchable": false,
+           |      "sortable": false,
+           |      "facetable": false
+           |    },
+           |    {
+           |      "name": "phrases",
+           |      "type": "Collection(Edm.String)",
+           |      "filterable": false,
+           |      "sortable": false,
+           |      "facetable": false
+           |    }
+           |    ]
+           |  }
+        """.stripMargin
+    val phraseDF = Seq(("upload", "0", "file0", Array("p1", "p2", "p3")),
+      ("upload", "1", "file1", Array("p4", null, "p6")))
+      .toDF("searchAction", "id", "fileName", "phrases")
+
+    SearchIndex.createIfNoneExists(azureSearchKey,
+      testServiceName,
+      phraseIndex)
+
+    AzureSearchWriter.write(phraseDF,
+      Map("subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexJson" -> phraseIndex,
+        "filterNulls" -> "true"))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
 }
