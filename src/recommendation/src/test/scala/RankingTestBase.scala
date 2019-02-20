@@ -3,8 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.tuning._
@@ -58,26 +56,22 @@ trait RankingTestBase extends TestBase {
     .dropDuplicates()
     .cache()
 
-  lazy val customerIndex: StringIndexer = new StringIndexer()
-    .setInputCol(userCol)
-    .setOutputCol(userColIndex)
-
-  lazy val itemIndex: StringIndexer = new StringIndexer()
-    .setInputCol(itemCol)
-    .setOutputCol(itemColIndex)
-
-  lazy val pipeline: Pipeline = new Pipeline()
-    .setStages(Array(customerIndex, itemIndex))
+  lazy val recommendationIndexer: RecommendationIndexer = new RecommendationIndexer()
+    .setUserInputCol(userCol)
+    .setUserOutputCol(userColIndex)
+    .setItemInputCol(itemCol)
+    .setItemOutputCol(itemColIndex)
+    .setRatingCol(ratingCol)
 
   val als = new ALS()
   als
-    .setUserCol(customerIndex.getOutputCol)
-    .setItemCol(itemIndex.getOutputCol)
+    .setUserCol(recommendationIndexer.getUserOutputCol)
+    .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
 
   val sar = new SAR()
-  sar.setUserCol(customerIndex.getOutputCol)
-    .setItemCol(itemIndex.getOutputCol)
+  sar.setUserCol(recommendationIndexer.getUserOutputCol)
+    .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
     .setTimeCol("timestamp")
 
@@ -89,7 +83,7 @@ trait RankingTestBase extends TestBase {
     .setK(3)
     .setNItems(10)
 
-  lazy val transformedDf: DataFrame = pipeline.fit(ratings).transform(ratings)
+  lazy val transformedDf: DataFrame = recommendationIndexer.fit(ratings).transform(ratings)
 
   lazy val adapter: RankingAdapter = new RankingAdapter()
     .setK(evaluator.getK)
@@ -100,7 +94,7 @@ trait RankingTestBase extends TestBase {
     .setEstimator(als)
     .setEstimatorParamMaps(paramGrid)
     .setTrainRatio(0.8)
-    .setUserCol(customerIndex.getOutputCol)
-    .setItemCol(itemIndex.getOutputCol)
+    .setUserCol(recommendationIndexer.getUserOutputCol)
+    .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
 }
