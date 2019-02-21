@@ -8,6 +8,7 @@ import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
+import org.apache.spark.sql.functions.typedLit
 import org.scalatest.Assertion
 
 trait VisionKey {
@@ -119,6 +120,16 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   test("Basic Usage with Bytes") {
     val fromRow = AIResponse.makeFromRowConverter
     val responses = bytesAI.transform(bytesDF).select("features")
+      .collect().toList.map(r => fromRow(r.getStruct(0)))
+    assert(responses.head.categories.get.head.name === "others_")
+    assert(responses(1).categories.get.head.name === "text_sign")
+  }
+
+  test("Basic Usage with Bytes and null col") {
+    val fromRow = AIResponse.makeFromRowConverter
+    val responses = bytesAI.setImageUrlCol("url")
+      .transform(bytesDF.withColumn("url", typedLit(null: String)))
+      .select("features")
       .collect().toList.map(r => fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
