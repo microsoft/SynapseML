@@ -82,7 +82,7 @@ class LightGBMRegressor(override val uid: String)
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
-      getVerbosity, categoricalIndexes, getBoostFromAverage)
+      getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType)
     log.info(s"LightGBMRegressor parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
