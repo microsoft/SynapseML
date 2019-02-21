@@ -74,13 +74,6 @@ trait HasImageInput extends HasImageUrl
         req.setURI(new URI(rowToUrl(row)))
         getValueOpt(row, subscriptionKey).foreach(
           req.setHeader(subscriptionKeyHeaderName, _))
-
-        if (row.schema.fieldNames.contains("url")) {
-          req.setHeader("Content-Type", "application/json")
-        } else if (row.schema.fieldNames.contains("imageBytes")) {
-          req.setHeader("Content-Type", "application/octet-stream")
-        }
-
         CognitiveServiceUtils.setUA(req)
         req match {
           case er: HttpEntityEnclosingRequestBase =>
