@@ -24,9 +24,10 @@ abstract class TrainParams extends Serializable {
   def verbosity: Int
   def categoricalFeatures: Array[Int]
   def boostFromAverage: Boolean
+  def boostingType: String
 
   override def toString(): String = {
-    s"is_pre_partition=True boosting_type=gbdt tree_learner=$parallelism num_iterations=$numIterations " +
+    s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism num_iterations=$numIterations " +
       s"learning_rate=$learningRate num_leaves=$numLeaves " +
       s"max_bin=$maxBin bagging_fraction=$baggingFraction bagging_freq=$baggingFreq " +
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
@@ -45,7 +46,8 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val maxDepth: Int, val minSumHessianInLeaf: Double,
                                  val numMachines: Int, val objective: String, val modelString: String,
                                  val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int],
-                                 val numClass: Option[Int], val metric: String, val boostFromAverage: Boolean)
+                                 val numClass: Option[Int], val metric: String, val boostFromAverage: Boolean,
+                                 val boostingType: String)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -64,7 +66,7 @@ case class RegressorTrainParams(val parallelism: String, val numIterations: Int,
                                 val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                                 val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int,
                                 val modelString: String, val verbosity: Int, val categoricalFeatures: Array[Int],
-                                val boostFromAverage: Boolean)
+                                val boostFromAverage: Boolean, val boostingType: String)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower ${super.toString}"
