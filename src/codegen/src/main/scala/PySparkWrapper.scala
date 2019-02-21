@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, MapParam, Param, Params, ServiceParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.evaluation.Evaluator
 import com.microsoft.ml.spark.FileUtilities._
 import Config._
@@ -212,16 +212,18 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     " *\\(undefined\\)$".r.replaceAllIn(expl, "")
   }
 
-  protected def getPythonizedDefault(paramDefault: String, paramType: String,
+  protected def getPythonizedDefault(paramDefault: String, param: Param[_],
                                      defaultStringIsParsable: Boolean): String =
-    paramType match {
-      case "BooleanParam" =>
+    param match {
+      case _:BooleanParam =>
         StringUtils.capitalize(paramDefault)
-      case "DoubleParam" | "FloatParam" | "IntParam" | "LongParam" =>
+      case _: DoubleParam | _:FloatParam | _:IntParam | _:LongParam =>
         paramDefault
-      case "MapParam" =>
+      case _:IntArrayParam | _:StringArrayParam =>
+        paramDefault.stripPrefix("\"").stripSuffix("\"")
+      case _: MapParam[_,_] =>
         paramDefault.stripPrefix("Map(").stripSuffix(")")
-      case x if x == "Param" || defaultStringIsParsable =>
+      case _ if defaultStringIsParsable =>
         "\"" + paramDefault + "\""
       case _ =>
         "None"
@@ -237,6 +239,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       case "StringParam"      => "str"
       case "Param"            => "str"
       case "StringArrayParam" => "list"
+      case "IntArrayParam"    => "list"
       case "ByteArrayParam"   => "list"
       case "MapArrayParam"    => "dict"
       case "MapParam"         => "dict"
@@ -256,7 +259,12 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         val paramParent: String = param.parent
         paramDefault = param match {
           case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
-          case p => entryPoint.getDefault(param).get.toString
+          case p: Param[_] =>
+            val paramValue = entryPoint.getDefault(param).get
+            paramValue match {
+                case a: Array[_] => p.asInstanceOf[Param[Array[_]]].jsonEncode(a)
+                case v => v.toString
+            }
         }
         if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
           autogenSuffix = paramDefault.substring(paramDefault.lastIndexOf(paramParent)
@@ -268,8 +276,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
             case e: Exception =>
               defaultStringIsParsable = false
           }
-          pyParamDefault = getPythonizedDefault(paramDefault,
-            param.getClass.getSimpleName, defaultStringIsParsable)
+          pyParamDefault = getPythonizedDefault(paramDefault, param, defaultStringIsParsable)
         }
       case _ =>
     }
