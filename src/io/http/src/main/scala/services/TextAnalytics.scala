@@ -133,7 +133,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         val rows: Seq[Row] = (0 until (documents.size + errors.size)).map(i =>
           documents.get(i)
             .map(doc => Row(doc.get(1), None))
-            .getOrElse(Row(None, errors(i).getString(1)))
+            .getOrElse(Row(None, errors.get(i).map(_.getString(1)).orNull))
         )
         rows
       }
