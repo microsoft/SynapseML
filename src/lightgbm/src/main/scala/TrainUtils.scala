@@ -30,102 +30,168 @@ private object TrainUtils extends Serializable {
         "DatasetSetField")
     } finally {
       // Free column
-      if (colArray.isDefined) {
-        lightgbmlib.delete_floatArray(colArray.get)
-      }
+      colArray.foreach(lightgbmlib.delete_floatArray(_))
     }
   }
 
-  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String], log: Logger,
+  def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
+                      weightColumn: Option[String],
+                      referenceDataset: Option[SWIGTYPE_p_void]): Option[SWIGTYPE_p_void] = {
+    val numRows = rows.length
+    val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
+    val hrow = rows.head
+    var datasetPtr: Option[SWIGTYPE_p_void] = None
+    datasetPtr =
+      if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+        val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+          case dense: DenseVector => dense.toArray
+          case sparse: SparseVector => sparse.toDense.toArray
+        })
+        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset))
+      } else {
+        val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+          case dense: DenseVector => dense.toSparse
+          case sparse: SparseVector => sparse
+        })
+        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset))
+      }
+
+    // Validate generated dataset has the correct number of rows and cols
+    validateDataset(datasetPtr.get)
+    addField(labels, "label", numRows, datasetPtr)
+    weightColumn.foreach { col =>
+      val weights = rows.map(row => row.getDouble(row.fieldIndex(col)))
+      addField(weights, "weight", numRows, datasetPtr)
+    }
+    datasetPtr
+  }
+
+  def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[SWIGTYPE_p_void],
+                    validDatasetPtr: Option[SWIGTYPE_p_void]): Option[SWIGTYPE_p_void] = {
+    // Create the booster
+    val boosterOutPtr = lightgbmlib.voidpp_handle()
+    val parameters = trainParams.toString()
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDatasetPtr.get, parameters, boosterOutPtr), "Booster")
+    val boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
+    trainParams.modelString.foreach { modelStr =>
+      val booster = LightGBMUtils.getBoosterPtrFromModelString(modelStr)
+      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
+    }
+    validDatasetPtr.foreach { dataset =>
+      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterAddValidData(boosterPtr.get,
+        dataset), "Add Validation Dataset")
+    }
+    boosterPtr
+  }
+
+  def saveBoosterToString(boosterPtr: Option[SWIGTYPE_p_void], log: Logger): String = {
+    val bufferLength = LightGBMConstants.defaultBufferLength
+    val bufferLengthPtr = lightgbmlib.new_longp()
+    lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
+    val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
+    val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, bufferLengthPtrInt64, bufferOutLengthPtr)
+  }
+
+  case class BestEvaluation(evalCounts: Int, evalNames: Array[String], bestScore: Array[Double],
+                            bestScores: Array[Array[Double]], bestIter: Array[Int])
+
+  def createBestEval(boosterPtr: Option[SWIGTYPE_p_void]): Option[BestEvaluation] = {
+    // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
+    val evalCountsPtr = lightgbmlib.new_intp()
+    val resultCounts = lightgbmlib.LGBM_BoosterGetEvalCounts(boosterPtr.get, evalCountsPtr)
+    LightGBMUtils.validate(resultCounts, "Booster Get Eval Counts")
+    val evalCounts = lightgbmlib.intp_value(evalCountsPtr)
+    val bestScore = new Array[Double](evalCounts)
+    val bestScores = new Array[Array[Double]](evalCounts)
+    val bestIter = new Array[Int](evalCounts)
+    // For debugging, can get metric names:
+    val evalNamesPtr = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterPtr.get, evalCounts)
+    val evalNames = (0 until evalCounts).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
+    Some(BestEvaluation(evalCounts, evalNames, bestScore, bestScores, bestIter))
+  }
+
+  def trainCore(trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
+                log: Logger, hasValid: Boolean): Unit = {
+    val isFinishedPtr = lightgbmlib.new_intp()
+    var isFinished = false
+    var iters = 0
+    val bestEval = if (hasValid) createBestEval(boosterPtr) else None
+    while (!isFinished && iters < trainParams.numIterations) {
+      try {
+        val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
+        LightGBMUtils.validate(result, "Booster Update One Iter")
+        isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
+        log.info("LightGBM running iteration: " + iters + " with result: " +
+          result + " and is finished: " + isFinished)
+      } catch {
+        case e: java.lang.Exception => {
+          isFinished = true
+          log.info("LightGBM reached early termination, stopping training on worker")
+        }
+      }
+      if (hasValid && !isFinished) {
+        val evalResults = lightgbmlib.new_doubleArray(bestEval.get.evalCounts)
+        val dummyEvalCountsPtr = lightgbmlib.new_intp()
+        val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
+        lightgbmlib.delete_intp(dummyEvalCountsPtr)
+        LightGBMUtils.validate(resultEval, "Booster Get Eval")
+        (0 until bestEval.get.evalCounts).foreach { index =>
+          val score = lightgbmlib.doubleArray_getitem(evalResults, index)
+          val evalName = bestEval.get.evalNames(index)
+          val cmp =
+            if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
+              (x: Double, y: Double) => x > y
+            else (x: Double, y: Double) => x < y
+          if (bestEval.get.bestScores(index) == null || cmp(score, bestEval.get.bestScore(index))) {
+            bestEval.get.bestScore(index) = score
+            bestEval.get.bestIter(index) = iters
+            bestEval.get.bestScores(index) = (0 until bestEval.get.evalCounts)
+              .map(j => lightgbmlib.doubleArray_getitem(evalResults, j)).toArray
+          } else if (iters - bestEval.get.bestIter(index) >= trainParams.earlyStoppingRound) {
+            isFinished = true
+            log.info("Early stopping, best iteration is " + bestEval.get.bestIter(index))
+          }
+        }
+        lightgbmlib.delete_doubleArray(evalResults)
+      }
+      iters = iters + 1
+    }
+  }
+
+  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
+                validationData: Option[Array[Row]], log: Logger,
                 trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext) {
       List[LightGBMBooster]().toIterator
     } else {
       val rows = inputRows.toArray
-      val numRows = rows.length
-      val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
-      val hrow = rows.head
-      var datasetPtr: Option[SWIGTYPE_p_void] = None
+      var trainDatasetPtr: Option[SWIGTYPE_p_void] = None
+      var validDatasetPtr: Option[SWIGTYPE_p_void] = None
       try {
-        datasetPtr =
-          if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-            val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
-              case dense: DenseVector => dense.toArray
-              case sparse: SparseVector => sparse.toDense.toArray
-            })
-            Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray))
-          } else {
-            val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
-              case dense: DenseVector => dense.toSparse
-              case sparse: SparseVector => sparse
-            })
-            Some(LightGBMUtils.generateSparseDataset(rowsAsSparse))
-          }
-
-        // Validate generated dataset has the correct number of rows and cols
-        validateDataset(datasetPtr.get)
-        addField(labels, "label", numRows, datasetPtr)
-
-        if (weightColumn.isDefined) {
-          val weights = rows.map(row => row.getDouble(row.fieldIndex(weightColumn.get)))
-          addField(weights, "weight", numRows, datasetPtr)
+        trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
+        if (validationData.isDefined && validationData.get.nonEmpty) {
+          validDatasetPtr = generateDataset(validationData.get, labelColumn,
+            featuresColumn, weightColumn, trainDatasetPtr)
         }
-
         var boosterPtr: Option[SWIGTYPE_p_void] = None
         try {
-          // Create the booster
-          val boosterOutPtr = lightgbmlib.voidpp_handle()
-          val parameters = trainParams.toString()
-          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
-          boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
-
-          if (trainParams.modelString != null && !trainParams.modelString.isEmpty) {
-            val booster = LightGBMUtils.getBoosterPtrFromModelString(trainParams.modelString)
-            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
-          }
-
-          val isFinishedPtr = lightgbmlib.new_intp()
-          var isFinised = 0
-          var iters = 0
-          while (isFinised == 0 && iters < trainParams.numIterations) {
-            val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
-            LightGBMUtils.validate(result, "Booster Update One Iter")
-            isFinised = lightgbmlib.intp_value(isFinishedPtr)
-            log.info("LightGBM running iteration: " + iters + " with result: " +
-              result + " and is finished: " + isFinised)
-            iters = iters + 1
-          }
-          val bufferLength = LightGBMConstants.defaultBufferLength
-          val bufferLengthPtr = lightgbmlib.new_longp()
-          lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
-          val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
-          val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-          val tempM =
-            lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-              boosterPtr.get, 0, -1, bufferLengthPtrInt64,
-              bufferOutLengthPtr)
-          val bufferOutLength = lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr))
-          // TODO: Move the reallocation logic inside the SWIG wrapper
-          val model =
-            if (bufferOutLength > bufferLength) {
-              lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-                boosterPtr.get, 0, -1, bufferOutLengthPtr, bufferOutLengthPtr)
-            } else tempM
-          log.info("Buffer output length for model: " + bufferOutLength)
+          boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
+          trainCore(trainParams, boosterPtr, log, !validDatasetPtr.isEmpty)
+          val model = saveBoosterToString(boosterPtr, log)
           List[LightGBMBooster](new LightGBMBooster(model)).toIterator
         } finally {
           // Free booster
-          if (boosterPtr.isDefined) {
-            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr.get),
-              "Finalize Booster")
+          boosterPtr.foreach { booster =>
+            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
           }
         }
       } finally {
-        // Free dataset
-        if (datasetPtr.isDefined) {
-          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr.get),
-            "Finalize Dataset")
-        }
+        // Free datasets
+        trainDatasetPtr.foreach(dataset =>
+          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Train Dataset"))
+        validDatasetPtr.foreach(dataset =>
+          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Validation Dataset"))
       }
     }
   }
@@ -197,7 +263,8 @@ private object TrainUtils extends Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], log: Logger, trainParams: TrainParams, numCoresPerExec: Int)
+                    weightColumn: Option[String], validationData: Option[Array[Row]], log: Logger,
+                    trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
@@ -217,7 +284,7 @@ private object TrainUtils extends Serializable {
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
         LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
-      translate(labelColumn, featuresColumn, weightColumn, log, trainParams, inputRows)
+      translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
     } finally {
       // Finalize network when done
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

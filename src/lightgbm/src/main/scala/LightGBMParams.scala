@@ -5,10 +5,11 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
+import org.apache.spark.sql.DataFrame
 
 /** Defines common parameters across all LightGBM learners.
   */
-trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol {
+trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol with HasValidationIndicatorCol {
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
   setDefault(parallelism->"data_parallel")

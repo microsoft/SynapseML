@@ -323,8 +323,8 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-      SWIGTYPE_p_void = {
+  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
+                           referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
     val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
@@ -343,7 +343,7 @@ object LightGBMUtils {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
                                data.get._1, data64bitType,
                                numRows_int32_tPtr, numCols_int32_tPtr,
-                               isRowMajor, datasetParams, null, datasetOutPtr),
+                               isRowMajor, datasetParams, referenceDataset.orNull, datasetOutPtr),
                              "Dataset create")
     } finally {
       if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
@@ -355,7 +355,8 @@ object LightGBMUtils {
     * @param sparseRows The rows of sparse vector.
     * @return
     */
-  def generateSparseDataset(sparseRows: Array[SparseVector]): SWIGTYPE_p_void = {
+  def generateSparseDataset(sparseRows: Array[SparseVector],
+                            referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
     var values: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     var indexes: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
     var indptrNative: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
@@ -375,13 +376,12 @@ object LightGBMUtils {
       val datasetParams = "max_bin=255 is_pre_partition=True"
       val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
       val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-
       // Generate the dataset for features
       LightGBMUtils.validate(CSRUtils.LGBM_DatasetCreateFromCSR(
                                indptrNative.get._1, dataInt32bitType,
                                indexes.get._1, values.get._1, data64bitType,
                                intToPtr(indptr.length), intToPtr(valuesArray.length),
-                               intToPtr(numCols), datasetParams, null,
+                               intToPtr(numCols), datasetParams, referenceDataset.orNull,
                                datasetOutPtr),
                              "Dataset create")
       lightgbmlib.voidpp_value(datasetOutPtr)
