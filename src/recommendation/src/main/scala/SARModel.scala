@@ -39,7 +39,6 @@ class SARModel(override val uid: String) extends Model[SARModel]
 
   def this() = this(Identifiable.randomUID("SARModel"))
 
-
   def recommendForAllUsersLarge(numItems: Int): DataFrame = {
     val df = $(userDataFrame)
     import df.sparkSession.implicits._
