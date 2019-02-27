@@ -42,17 +42,17 @@ class SARModel(override val uid: String) extends Model[SARModel]
   def recommendForAllUsersLarge(numItems: Int): DataFrame = {
     val df = $(userDataFrame)
     import df.sparkSession.implicits._
-    getUserDataFrame.withColumnRenamed($(userCol), "customerID").write.mode("overwrite").parquet("/tmp/users-parquet")
-    getItemDataFrame.withColumnRenamed($(itemCol), "itemID").write.mode("overwrite").parquet("/tmp/items-parquet")
+    getUserDataFrame.withColumnRenamed($(userCol), "customerID").write.mode("overwrite").parquet("file:/tmp/users-parquet")
+    getItemDataFrame.withColumnRenamed($(itemCol), "itemID").write.mode("overwrite").parquet("file:/tmp/items-parquet")
     println("Trying to run Python")
 
     import sys.process._
 
-    val matmul = "./src/recommendation/src/main/resources/matmux.py"
+    val matmul = "file:/tmp/matmux.py"
 
     val seed = false
     val result = ("python " + matmul + " " + numItems + " " + seed).!
-    val pythonOutput = $(userDataFrame).sparkSession.read.parquet("/tmp/sampleout/*")
+    val pythonOutput = $(userDataFrame).sparkSession.read.parquet("file:/tmp/sampleout/*")
 
     val zipVector = udf((list: Seq[Seq[Double]]) => {
       list.map(f => (f(0).toInt, f(1)))
