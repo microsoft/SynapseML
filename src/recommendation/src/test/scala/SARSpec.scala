@@ -46,16 +46,16 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
       .setK(5)
       .setNItems(10)
 
-//    assert(evaluator.setMetricName("ndcgAt").evaluate(output) >= 0.7168486344464263)
-//    assert(evaluator.setMetricName("fcp").evaluate(output) >= 0.05)
-//    assert(evaluator.setMetricName("mrr").evaluate(output) == 1.0)
+    //    assert(evaluator.setMetricName("ndcgAt").evaluate(output) >= 0.7168486344464263)
+    //    assert(evaluator.setMetricName("fcp").evaluate(output) >= 0.05)
+    //    assert(evaluator.setMetricName("mrr").evaluate(output) == 1.0)
 
     val users: DataFrame = session
-      .createDataFrame(Seq(("0","0"),("1","1")))
+      .createDataFrame(Seq(("0", "0"), ("1", "1")))
       .toDF(userColIndex, itemColIndex)
 
     val recs = recopipeline.stages(1).asInstanceOf[RankingAdapterModel].getRecommenderModel
-        .asInstanceOf[SARModel].recommendForUserSubset(users, 10)
+      .asInstanceOf[SARModel].recommendForUserSubset(users, 10)
     assert(recs.count == 2)
   }
 
@@ -64,8 +64,7 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     .option("inferSchema", "true") //reading the headers
     .csv("/mnt/ml-20m/ratings.csv.gz").na.drop
 
-  test("SAR movie lens all recs")(test_recommendations(movieLensLarge))
-
+  ignore("SAR movie lens all recs")(test_recommendations(movieLensLarge))
 
   val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
   val sim_count1: String = getClass.getResource("/sim_count1.csv.gz").getPath
