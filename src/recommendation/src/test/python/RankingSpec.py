@@ -6,6 +6,7 @@ import xmlrunner
 from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
 from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.RecommendationIndexer import RecommendationIndexer
 from mmlspark.SAR import SAR
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
@@ -75,14 +76,14 @@ class RankingSpec(unittest.TestCase):
         user_id_index = "customerID"
         item_id_index = "itemID"
 
-        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
-        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
+                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
 
         als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
 
         adapter = RankingAdapter(mode='allUsers', k=5, recommender=als)
 
-        pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
+        pipeline = Pipeline(stages=[recommendation_indexer, adapter])
         output = pipeline.fit(ratings).transform(ratings)
         print(str(output.take(1)) + "\n")
 
@@ -102,14 +103,14 @@ class RankingSpec(unittest.TestCase):
         user_id_index = "customerID"
         item_id_index = "itemID"
 
-        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
-        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
+                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
 
         sar = SAR(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
 
         adapter = RankingAdapter(mode='allUsers', k=5, recommender=sar)
 
-        pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
+        pipeline = Pipeline(stages=[recommendation_indexer, adapter])
         output = pipeline.fit(ratings).transform(ratings)
         print(str(output.take(1)) + "\n")
 

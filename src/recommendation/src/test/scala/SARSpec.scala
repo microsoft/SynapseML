@@ -3,9 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.PipelineModel
-import org.apache.spark.ml.feature.StringIndexerModel
+import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, udf}
@@ -16,8 +14,8 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
   override def testObjects(): List[TestObject[SAR]] = {
     List(
       new TestObject(new SAR()
-        .setUserCol(customerIndex.getOutputCol)
-        .setItemCol(itemIndex.getOutputCol)
+        .setUserCol(recommendationIndexer.getUserOutputCol)
+        .setItemCol(recommendationIndexer.getItemOutputCol)
         .setRatingCol(ratingCol), transformedDf)
     )
   }
@@ -27,27 +25,37 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
   override def modelReader: SARModel.type = SARModel
 
   test("SAR") {
-    val pipelineModel: PipelineModel = pipeline.fit(ratings)
-    val transformedDf = pipelineModel.transform(ratings)
 
     val algo = sar
       .setSupportThreshold(1)
       .setSimilarityFunction("jacccard")
       .setActivityTimeFormat("EEE MMM dd HH:mm:ss Z yyyy")
 
+    val adapter: RankingAdapter = new RankingAdapter()
+      .setK(5)
+      .setRecommender(algo)
+
+    val recopipeline = new Pipeline()
+      .setStages(Array(recommendationIndexer, adapter))
+      .fit(ratings)
+
+    val output = recopipeline.transform(ratings)
+
     val evaluator: RankingEvaluator = new RankingEvaluator()
       .setK(5)
       .setNItems(10)
 
-    val adapter: RankingAdapter = new RankingAdapter()
-      .setK(evaluator.getK)
-      .setRecommender(algo)
-
-    val output = adapter.fit(transformedDf).transform(transformedDf)
-
     assert(evaluator.setMetricName("ndcgAt").evaluate(output) == 0.7168486344464263)
     assert(evaluator.setMetricName("fcp").evaluate(output) == 0.05000000000000001)
     assert(evaluator.setMetricName("mrr").evaluate(output) == 1.0)
+
+    val users: DataFrame = session
+      .createDataFrame(Seq(("0","0"),("1","1")))
+      .toDF(userColIndex, itemColIndex)
+
+    val recs = recopipeline.stages(1).asInstanceOf[RankingAdapterModel].getRecommenderModel
+        .asInstanceOf[SARModel].recommendForUserSubset(users, 10)
+    assert(recs.count == 2)
   }
 
   val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
@@ -100,8 +108,8 @@ class SARModelSpec extends RankingTestBase with TransformerFuzzing[SARModel] {
   override def testObjects(): Seq[TestObject[SARModel]] = {
     List(
       new TestObject(new SAR()
-        .setUserCol(customerIndex.getOutputCol)
-        .setItemCol(itemIndex.getOutputCol)
+        .setUserCol(recommendationIndexer.getUserOutputCol)
+        .setItemCol(recommendationIndexer.getItemOutputCol)
         .setRatingCol(ratingCol)
         .fit(transformedDf), transformedDf)
     )
@@ -120,27 +128,14 @@ object SarTLCSpec extends RankingTestBase {
 
   def test_affinity_matrices(tlcSampleData: DataFrame, threshold: Int, similarityFunction: String, simFile: String,
     user_aff: String):
-  (SARModel, Broadcast[Map[Int, String]], Broadcast[Map[Int, String]]) = {
+  (SARModel, RecommendationIndexerModel) = {
 
     val ratings = tlcSampleData
 
-    val pipelineModel: PipelineModel = pipeline.fit(ratings)
-    val transformedDf = pipelineModel.transform(ratings)
+    val recommendationIndexerModel = recommendationIndexer.fit(ratings)
+    val transformedDf = recommendationIndexerModel.transform(ratings)
 
-    def getIndexFromPipeline(i: Int) = {
-      pipelineModel
-        .stages(i).asInstanceOf[StringIndexerModel]
-        .labels
-        .zipWithIndex
-        .map(t => (t._2, t._1))
-        .toMap
-    }
-
-    val userMap = getIndexFromPipeline(0)
-    val itemMap = getIndexFromPipeline(1)
-
-    val userMapBC = session.sparkContext.broadcast(userMap)
-    val itemMapBC = session.sparkContext.broadcast(itemMap)
+    val itemMap = recommendationIndexerModel.getItemIndex
 
     val model = sar
       .setSupportThreshold(threshold)
@@ -165,18 +160,19 @@ object SarTLCSpec extends RankingTestBase {
         assert(groundTrueScore == sparkSarScore)
       })
     })
-    (model, userMapBC, itemMapBC)
+    (model, recommendationIndexerModel)
   }
 
   def test_product_recommendations(tlcSampleData: DataFrame, threshold: Int, similarityFunction: String,
     simFile: String, user_aff: String,
     userPredFile: String): Unit = {
 
-    val (model, userMapBC, itemMapBC) = test_affinity_matrices(tlcSampleData, threshold, similarityFunction, simFile,
+    val (model, recommendationIndexerModel) = test_affinity_matrices(tlcSampleData, threshold, similarityFunction,
+      simFile,
       user_aff)
 
-    val recoverUser = udf((userID: Integer) => userMapBC.value.getOrElse[String](userID, "-1"))
-    val recoverItem = udf((itemID: Integer) => itemMapBC.value.getOrElse[String](itemID, "-1"))
+    val recoverUser = recommendationIndexerModel.recoverUser()
+    val recoverItem = recommendationIndexerModel.recoverItem()
 
     val usersProducts = tlcSampleData
       .filter(col("userId") === "0003000098E85347")
@@ -186,6 +182,8 @@ object SarTLCSpec extends RankingTestBase {
       .map(_.getString(0))
 
     val usersProductsBC = session.sparkContext.broadcast(usersProducts)
+
+    val itemMapBC = session.sparkContext.broadcast(recommendationIndexerModel.getItemIndex)
 
     val filterScore = udf((items: Seq[Int], ratings: Seq[Float]) => {
       items.zipWithIndex

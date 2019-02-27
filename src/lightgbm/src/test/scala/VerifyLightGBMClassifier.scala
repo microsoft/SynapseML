@@ -22,6 +22,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   val numPartitions = 2
   val binaryObjective = "binary"
   val multiclassObject = "multiclass"
+  val boostingTypes = Array("gbdt", "rf", "dart", "goss")
 
   // TODO: Look into error on abalone dataset
   // verifyLearnerOnMulticlassCsvFile("abalone.csv",                  "Rings", 2)
@@ -211,71 +212,89 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnBinaryCsvFile(fileName: String,
                                    labelColumnName: String,
                                    decimals: Int): Unit = {
-    test("Verify LightGBMClassifier can be trained and scored on " + fileName, TestBase.Extended) {
-      // Increment port index
-      portIndex += numPartitions
-      val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-      val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-      val lgbm = new LightGBMClassifier()
-      val featuresColumn = lgbm.uid + "_features"
-      val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
-      val rawPredCol = "rawPred"
-      val trainData = featurizer.transform(dataset)
-      val model = lgbm.setLabelCol(labelColumnName)
-        .setFeaturesCol(featuresColumn)
-        .setRawPredictionCol(rawPredCol)
-        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
-        .setNumLeaves(5)
-        .setNumIterations(10)
-        .setObjective(binaryObjective)
-        .fit(trainData)
-      val scoredResult = model.transform(trainData).drop(featuresColumn)
-      val splitFeatureImportances = model.getFeatureImportances("split")
-      val gainFeatureImportances = model.getFeatureImportances("gain")
-      assert(splitFeatureImportances.length == gainFeatureImportances.length)
-      val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
-      assert(featuresLength == splitFeatureImportances.length)
-      val eval = new BinaryClassificationEvaluator()
-        .setLabelCol(labelColumnName)
-        .setRawPredictionCol(rawPredCol)
-      val metric = eval.evaluate(scoredResult)
-      addBenchmark(s"LightGBMClassifier_$fileName", metric, decimals)
+    boostingTypes.foreach { boostingType =>
+      val boostingText = " with boosting type " + boostingType
+      val testText = "Verify LightGBMClassifier can be trained and scored on "
+      test(testText + fileName + boostingText, TestBase.Extended) {
+        // Increment port index
+        portIndex += numPartitions
+        val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+        val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+        val lgbm = new LightGBMClassifier()
+        val featuresColumn = lgbm.uid + "_features"
+        val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+        val rawPredCol = "rawPred"
+        val trainData = featurizer.transform(dataset)
+        if (boostingType == "rf") {
+          lgbm.setBaggingFraction(0.9)
+          lgbm.setBaggingFreq(1)
+        }
+        val model = lgbm.setLabelCol(labelColumnName)
+          .setFeaturesCol(featuresColumn)
+          .setRawPredictionCol(rawPredCol)
+          .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+          .setNumLeaves(5)
+          .setNumIterations(10)
+          .setObjective(binaryObjective)
+          .setBoostingType(boostingType)
+          .fit(trainData)
+        val scoredResult = model.transform(trainData).drop(featuresColumn)
+        val splitFeatureImportances = model.getFeatureImportances("split")
+        val gainFeatureImportances = model.getFeatureImportances("gain")
+        assert(splitFeatureImportances.length == gainFeatureImportances.length)
+        val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
+        assert(featuresLength == splitFeatureImportances.length)
+        val eval = new BinaryClassificationEvaluator()
+          .setLabelCol(labelColumnName)
+          .setRawPredictionCol(rawPredCol)
+        val metric = eval.evaluate(scoredResult)
+        addBenchmark(s"LightGBMClassifier_${fileName}_${boostingType}", metric, decimals)
+      }
     }
   }
 
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        decimals: Int): Unit = {
-    test("Verify LightGBMClassifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
-      // Increment port index
-      portIndex += numPartitions
-      val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
-      val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-      val lgbm = new LightGBMClassifier()
-      val featuresColumn = lgbm.uid + "_features"
-      val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
-      val predCol = "pred"
-      val tmpTrainData = featurizer.transform(dataset)
-      val labelizer = new ValueIndexer().setInputCol(labelColumnName).setOutputCol(labelColumnName).fit(tmpTrainData)
-      val trainData = labelizer.transform(tmpTrainData)
-      val model = lgbm.setLabelCol(labelColumnName)
-        .setFeaturesCol(featuresColumn)
-        .setPredictionCol(predCol)
-        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
-        .setObjective(multiclassObject)
-        .fit(trainData)
-      val scoredResult = model.transform(trainData).drop(featuresColumn)
-      val splitFeatureImportances = model.getFeatureImportances("split")
-      val gainFeatureImportances = model.getFeatureImportances("gain")
-      val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
-      assert(featuresLength == splitFeatureImportances.length)
-      assert(splitFeatureImportances.length == gainFeatureImportances.length)
-      val eval = new MulticlassClassificationEvaluator()
-        .setLabelCol(labelColumnName)
-        .setPredictionCol(predCol)
-        .setMetricName("accuracy")
-      val metric = eval.evaluate(scoredResult)
-      addBenchmark(s"LightGBMClassifier_$fileName", metric, decimals)
+    boostingTypes.foreach { boostingType =>
+      val boostingText = " with boosting type " + boostingType
+      val testText = "Verify LightGBMClassifier can be trained and scored on multiclass "
+      test(testText + fileName + boostingText, TestBase.Extended) {
+        // Increment port index
+        portIndex += numPartitions
+        val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
+        val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+        val lgbm = new LightGBMClassifier()
+        val featuresColumn = lgbm.uid + "_features"
+        val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+        val predCol = "pred"
+        val tmpTrainData = featurizer.transform(dataset)
+        val labelizer = new ValueIndexer().setInputCol(labelColumnName).setOutputCol(labelColumnName).fit(tmpTrainData)
+        val trainData = labelizer.transform(tmpTrainData)
+        if (boostingType == "rf") {
+          lgbm.setBaggingFraction(0.9)
+          lgbm.setBaggingFreq(1)
+        }
+        val model = lgbm.setLabelCol(labelColumnName)
+          .setFeaturesCol(featuresColumn)
+          .setPredictionCol(predCol)
+          .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+          .setObjective(multiclassObject)
+          .setBoostingType(boostingType)
+          .fit(trainData)
+        val scoredResult = model.transform(trainData).drop(featuresColumn)
+        val splitFeatureImportances = model.getFeatureImportances("split")
+        val gainFeatureImportances = model.getFeatureImportances("gain")
+        val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
+        assert(featuresLength == splitFeatureImportances.length)
+        assert(splitFeatureImportances.length == gainFeatureImportances.length)
+        val eval = new MulticlassClassificationEvaluator()
+          .setLabelCol(labelColumnName)
+          .setPredictionCol(predCol)
+          .setMetricName("accuracy")
+        val metric = eval.evaluate(scoredResult)
+        addBenchmark(s"LightGBMClassifier_${fileName}_${boostingType}", metric, decimals)
+      }
     }
   }
 

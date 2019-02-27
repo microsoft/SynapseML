@@ -137,4 +137,13 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBoostFromAverage: Boolean = $(boostFromAverage)
   def setBoostFromAverage(value: Boolean): this.type = set(boostFromAverage, value)
+
+  val boostingType = new Param[String](this, "boostingType",
+    "Default gbdt = traditional Gradient Boosting Decision Tree. Options are: " +
+    "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
+    "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
+  setDefault(boostingType -> "gbdt")
+
+  def getBoostingType: String = $(boostingType)
+  def setBoostingType(value: String): this.type = set(boostingType, value)
 }

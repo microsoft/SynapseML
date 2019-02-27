@@ -15,8 +15,8 @@ class RankingTrainValidationSplitSpec extends RankingTestBase with EstimatorFuzz
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
-      .setUserCol(customerIndex.getOutputCol)
-      .setItemCol(itemIndex.getOutputCol)
+      .setUserCol(recommendationIndexer.getUserOutputCol)
+      .setItemCol(recommendationIndexer.getItemOutputCol)
       .setRatingCol("rating")
 
     val tvModel = tvRecommendationSplit.fit(transformedDf)
