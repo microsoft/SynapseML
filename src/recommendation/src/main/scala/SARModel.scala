@@ -42,8 +42,10 @@ class SARModel(override val uid: String) extends Model[SARModel]
   def recommendForAllUsersLarge(numItems: Int): DataFrame = {
     val df = $(userDataFrame)
     import df.sparkSession.implicits._
-    getUserDataFrame.withColumnRenamed($(userCol), "customerID").write.mode("overwrite").parquet("file:/tmp/users-parquet")
-    getItemDataFrame.withColumnRenamed($(itemCol), "itemID").write.mode("overwrite").parquet("file:/tmp/items-parquet")
+    getUserDataFrame.withColumnRenamed($(userCol), "customerID").write.mode("overwrite")
+      .parquet("file:/tmp/users-parquet")
+    getItemDataFrame.withColumnRenamed($(itemCol), "itemID").write.mode("overwrite")
+      .parquet("file:/tmp/items-parquet")
     println("Trying to run Python")
 
     import sys.process._
