@@ -357,40 +357,19 @@ object LightGBMUtils {
     */
   def generateSparseDataset(sparseRows: Array[SparseVector],
                             referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
-    var values: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    var indexes: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
-    var indptrNative: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
-    try {
-      val valuesArray = sparseRows.flatMap(_.values)
-      values = Some(newDoubleArray(valuesArray))
-      val indexesArray = sparseRows.flatMap(_.indices)
-      indexes = Some(newIntArray(indexesArray))
-      val indptr = new Array[Int](sparseRows.length + 1)
-      sparseRows.zipWithIndex.foreach {
-        case (row, index) => indptr(index + 1) = indptr(index) + row.numNonzeros
-      }
-      indptrNative = Some(newIntArray(indptr))
-      val numCols = sparseRows(0).size
+    val numCols = sparseRows(0).size
 
-      val datasetOutPtr = lightgbmlib.voidpp_handle()
-      val datasetParams = "max_bin=255 is_pre_partition=True"
-      val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
-      val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-      // Generate the dataset for features
-      LightGBMUtils.validate(CSRUtils.LGBM_DatasetCreateFromCSR(
-                               indptrNative.get._1, dataInt32bitType,
-                               indexes.get._1, values.get._1, data64bitType,
-                               intToPtr(indptr.length), intToPtr(valuesArray.length),
-                               intToPtr(numCols), datasetParams, referenceDataset.orNull,
-                               datasetOutPtr),
-                             "Dataset create")
-      lightgbmlib.voidpp_value(datasetOutPtr)
-    } finally {
-      // Delete the input rows
-      if (values.isDefined)  lightgbmlib.delete_doubleArray(values.get._2)
-      if (indexes.isDefined) lightgbmlib.delete_intArray(indexes.get._2)
-      if (indptrNative.isDefined) lightgbmlib.delete_intArray(indptrNative.get._2)
-    }
+    val datasetOutPtr = lightgbmlib.voidpp_handle()
+    val datasetParams = "max_bin=255 is_pre_partition=True"
+
+    // Generate the dataset for features
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRDirect(
+                             sparseRows.asInstanceOf[Array[Object]],
+                             sparseRows.length,
+                             intToPtr(numCols), datasetParams, referenceDataset.orNull,
+                             datasetOutPtr),
+                           "Dataset create")
+
+    lightgbmlib.voidpp_value(datasetOutPtr)
   }
-
 }
