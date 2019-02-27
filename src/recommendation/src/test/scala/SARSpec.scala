@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, udf}
@@ -58,6 +59,14 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     assert(recs.count == 2)
   }
 
+  private[spark] lazy val movieLensLarge: DataFrame = session.read
+    .option("header", "true") //reading the headers
+    .option("inferSchema", "true") //reading the headers
+    .csv("/mnt/ml-20m/ratings.csv.gz").na.drop
+
+  test("SAR movie lens all recs")(test_recommendations(movieLensLarge))
+
+
   val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
   val sim_count1: String = getClass.getResource("/sim_count1.csv.gz").getPath
   val sim_lift1: String = getClass.getResource("/sim_lift1.csv.gz").getPath
@@ -102,6 +111,38 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
   test("tlc test userpred jac3 userid only")(
     SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "jaccard", sim_jac3, user_aff, userpred_jac3))
 
+  private[spark] def test_recommendations(ratings: DataFrame, customerId: String = "userId", itemId: String = "movieId",
+    rating: String = "rating", similarityFunction: String = "jacccard"): Unit = {
+    session.sparkContext.setLogLevel("WARN")
+
+    ratings.cache()
+    val customerIndex = new StringIndexer()
+      .setInputCol(customerId)
+      .setOutputCol("customerID")
+
+    val ratingsIndex = new StringIndexer()
+      .setInputCol(itemId)
+      .setOutputCol("itemID")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(customerIndex, ratingsIndex))
+
+    val transformedDf = pipeline.fit(ratings).transform(ratings)
+    transformedDf.cache().count
+
+    //    ratings.unpersist()
+    val sar = new SAR()
+      .setUserCol(customerIndex.getOutputCol)
+      .setItemCol(ratingsIndex.getOutputCol)
+      .setRatingCol("rating")
+      .setSimilarityFunction(similarityFunction)
+      .setSupportThreshold(2)
+      .setActivityTimeFormat("EEE MMM dd HH:mm:ss Z yyyy")
+
+    val model: SARModel = sar.fit(transformedDf)
+    val recs = model.recommendForAllUsers(10)
+    println(recs.count)
+  }
 }
 
 class SARModelSpec extends RankingTestBase with TransformerFuzzing[SARModel] {
