@@ -363,7 +363,7 @@ object LightGBMUtils {
     val datasetParams = "max_bin=255 is_pre_partition=True"
 
     // Generate the dataset for features
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRDirect(
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
                              sparseRows.asInstanceOf[Array[Object]],
                              sparseRows.length,
                              intToPtr(numCols), datasetParams, referenceDataset.orNull,
