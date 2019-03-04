@@ -1,10 +1,10 @@
 # Smart Adaptive Recommendations (SAR) Algorithm
 
-**SAR** is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and items description. It produces easily explainable / interpretable recommendations and handles "cold item" and "semi-cold user" scenarios.
+**SAR** is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and items description. It produces easily explainable / interpretable recommendations.
 
 The overall architecture of SAR is shown in the following diagram:
 
-![SAR Diagram](https://imgur.com/AMPShWl)
+![SAR Diagram](https://i.imgur.com/AMPShWl.jpg)
 
 ## Input
 
