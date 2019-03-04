@@ -1,4 +1,5 @@
 # Smart Adaptive Recommendations (SAR) Algorithm
+The following document is a subset of the implemented logic, the orginal can be found [here](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md)
 
 **SAR** is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and items description. It produces easily explainable / interpretable recommendations.
 
