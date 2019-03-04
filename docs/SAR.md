@@ -14,7 +14,7 @@ The input to SAR consists of:
 
 **Transaction data**, also called **usage data**, contains information on interactions between users and items and has the following schema:
 
-``<User Id>,<Item Id>,<Time>,[<Event>]``
+``<User Id>,<Item Id>,<Time>``
 
 Each row represents a single interaction between a user and an item, which we call a transaction. Here is an example of usage data (displayed as a table for readability, but note that it must be provided in the comma-separated format above):
 
