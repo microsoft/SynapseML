@@ -155,9 +155,9 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
    ```bash
-   spark-shell --packages Azure:mmlspark:0.15
-   pyspark --packages Azure:mmlspark:0.15
-   spark-submit --packages Azure:mmlspark:0.15 MyApp.jar
+   spark-shell --packages Azure:mmlspark:0.16
+   pyspark --packages Azure:mmlspark:0.16
+   spark-submit --packages Azure:mmlspark:0.16 MyApp.jar
    ```
 
 This can be used in other Spark contexts too. For example, you can use MMLSpark
@@ -172,14 +172,14 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `Azure:mmlspark:0.15`.  Ensure this library is
+For the coordinates use: `Azure:mmlspark:0.16`.  Ensure this library is
 attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.15.dbc```
+```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.1.dbc```
 
 
 ### Docker
@@ -212,7 +212,7 @@ the above example, or from python:
    ```python
    import pyspark
    spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-               .config("spark.jars.packages", "Azure:mmlspark:0.15") \
+               .config("spark.jars.packages", "Azure:mmlspark:0.16") \
                .getOrCreate()
    import mmlspark
    ```
@@ -228,7 +228,7 @@ running script actions, see [this
 guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
 
 The script action url is:
-<https://mmlspark.azureedge.net/buildartifacts/0.15/install-mmlspark.sh>.
+<https://mmlspark.azureedge.net/buildartifacts/0.16/install-mmlspark.sh>.
 
 If you're using the Azure Portal to run the script action, go to `Script
 actions` → `Submit new` in the `Overview` section of your cluster blade.  In
@@ -244,7 +244,7 @@ your `build.sbt`:
 
    ```scala
    resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
-   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.15"
+   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.16"
    ```
 
 ### Building from source
