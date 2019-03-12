@@ -46,7 +46,6 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     .setInputCol(inputCol)
     .setCellSize(cellSize)
     .setModifier(modifier)
-    .setLocalModelPartitions(1)
     .setNSamples(3)
 
   lazy val df: DataFrame = session
@@ -66,6 +65,24 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   test("LIME on Binary types", TestBase.Extended) {
     val result: DataFrame = lime.setNSamples(20).transform(df)
     result.show()
+  }
+
+  test("basic functionality"){
+    import session.implicits._
+
+    val df = Seq(
+      (1, "foo", "foo1", 11),
+      (1, "bar", "foo1", 12),
+      (1, "r", "foo1", 13),
+      (2, "bar", "foo2", 14),
+      (2, "bar2", "foo2", 15),
+      (3, "bar2", "foo2", 16),
+      (4, "bar2", "foo2", 17))
+      .toDF("id","b","c", "d").coalesce(1)
+
+    val rdf = LIMEUtils.localAggregateBy(df,"id",Seq("b", "d"))
+    rdf.printSchema()
+    rdf.show()
   }
 
   test("LIME on image Types", TestBase.Extended) {
@@ -93,7 +110,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
 
     // Uncomment these two lines to view the image
     //Superpixel.displayImage(censoredImage1)
-    //Thread.sleep(10000)
+    //Thread.sleep(100000)
   }
 
   override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, df))
