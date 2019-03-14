@@ -20,7 +20,6 @@ import org.apache.spark.sql.types.{BinaryType, DataType}
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import scala.util.Random
 
 case class SuperpixelData(clusters: Seq[Seq[(Int, Int)]])
 
@@ -63,19 +62,19 @@ object Superpixel {
     }
   }
 
-  def censorImageHelper(img: Row, sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
-    val bi = censorImage(img, SuperpixelData.fromRow(sp), states.toArray)
+  def maskImageHelper(img: Row, sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
+    val bi = maskImage(img, SuperpixelData.fromRow(sp), states.toArray)
     ImageUtils.toSparkImage(bi).getStruct(0)
   }
 
-  val censorUDF: UserDefinedFunction = udf(censorImageHelper _, ImageSchema.columnSchema)
+  val maskImageUDF: UserDefinedFunction = udf(maskImageHelper _, ImageSchema.columnSchema)
 
-  def censorImageBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
-    val biOpt = censorImageBinary(img, SuperpixelData.fromRow(sp), states.toArray)
+  def maskBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
+    val biOpt = maskBinary(img, SuperpixelData.fromRow(sp), states.toArray)
     biOpt.map(ImageUtils.toSparkImage(_).getStruct(0)).orNull
   }
 
-  val censorBinaryUDF: UserDefinedFunction = udf(censorImageBinaryHelper _, ImageSchema.columnSchema)
+  val maskBinaryUDF: UserDefinedFunction = udf(maskBinaryHelper _, ImageSchema.columnSchema)
 
   def displayImage(img: BufferedImage): JFrame = {
     val frame: JFrame = new JFrame()
@@ -103,7 +102,7 @@ object Superpixel {
     b
   }
 
-  def censorImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
+  def maskImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
     val img = ImageUtils.toBufferedImage(ImageSchema.getData(imgRow),
       ImageSchema.getWidth(imgRow),
       ImageSchema.getHeight(imgRow),
@@ -121,9 +120,9 @@ object Superpixel {
     output
   }
 
-  def censorImageBinary(bytes: Array[Byte],
-                        superpixels: SuperpixelData,
-                        clusterStates: Array[Boolean]): Option[BufferedImage] = {
+  def maskBinary(bytes: Array[Byte],
+                 superpixels: SuperpixelData,
+                 clusterStates: Array[Boolean]): Option[BufferedImage] = {
     val outputOpt = ImageUtils.safeRead(bytes)
     outputOpt.map{output =>
       superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
@@ -137,18 +136,6 @@ object Superpixel {
     }
   }
 
-  def clusterStateSampler(decInclude: Double, numPixels: Int): Iterator[Array[Boolean]] =
-    new Iterator[Array[Boolean]] {
-      Random.setSeed(0)
-
-      override def hasNext: Boolean = true
-
-      override def next(): Array[Boolean] = {
-        Array.fill(numPixels) {
-          Random.nextDouble() > decInclude
-        }
-      }
-    }
 }
 
 class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) extends SpLogging {
