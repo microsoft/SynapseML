@@ -11,10 +11,9 @@ import org.apache.spark.sql.DataFrame
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.spark.sql.functions._
-
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
-import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.linalg.Vector
 
 class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing[VowpalWabbitClassifier] {
@@ -22,41 +21,79 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
   val numPartitions = 2
 
   test("Verify VowpalWabbit Classifier can be run with TrainValidationSplit") {
-    val fileName = "PimaIndian.csv"
-    val labelColumnName = "Diabetes mellitus"
+      val fileName = "a1a.train.svmlight"
 
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+      val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+      val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
 
-    dataset.show
+    val vw = new VowpalWabbitClassifier()
+        .setArgs("--link=logistic --quiet")
+
+    val paramGrid = new ParamGridBuilder()
+       .addGrid(vw.learningRate, Array(0.5, 0.05, 0.001))
+       .addGrid(vw.numPasses, Array(1, 3, 5))
+       .build()
+
+    val cv = new CrossValidator()
+      .setEstimator(vw)
+      .setEvaluator(new BinaryClassificationEvaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(3)
+      .setParallelism(2) // thanks to dynamic port assignment in spanning_tree.cc :)
+
+    val model = cv.fit(dataset)
+    model.transform(dataset)
+
+    val auc = model.avgMetrics(0)
+    println(s"areaUnderROC: $auc")
+
+    // TODO: what the best approach here? pass all individual parameters or the training args or both?
+    // println(model.bestModel.asInstanceOf[VowpalWabbitClassifier].getLearningRate)
+    // println(model.bestModel.asInstanceOf[VowpalWabbitClassifier].getNumPasses)
   }
 
   test("Verify VowpalWabbit Classifier can be run with libsvm") {
+    val fileName = "a1a.train.svmlight"
+
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+
+    val vw = new VowpalWabbitClassifier()
+      // .setArgs("--link=logistic") // --loss_function=logistic or --loss_function=hinge
+      .setPowerT(0.3)
+      .setNumPasses(3)
+
+    // dataset.show
+    val classifier = vw.fit(dataset)
+    assert(classifier.model.length > 400)
+
+    val labelOneCnt = classifier.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
+
+    assert(labelOneCnt  < dataset.count)
+    assert(labelOneCnt > 10)
+  }
+
+  test("Verify VowpalWabbit Classifier w/ and w/o link=logistic produce same results") {
     val fileName = "a1a.train.svmlight"
     val labelColumnName = "Diabetes mellitus"
 
     val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
     val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
 
-    //val df2 = dataset.select(col("features"), when(col("label") === lit(1), lit(0)).otherwise(lit(1)).alias("label"))
+    // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Predicting-probabilities
+    val vw1 = new VowpalWabbitClassifier()
+        .setNumPasses(2)
+    val classifier1 = vw1.fit(dataset)
 
-    // dataset.show
+    val vw2 = new VowpalWabbitClassifier()
+        .setArgs("--link=logistic")
+        .setNumPasses(2)
+    val classifier2 = vw1.fit(dataset)
 
-    val vw = new VowpalWabbitClassifier()
-      // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Predicting-probabilities
-      // TODO: not sure what is going on here
-      .setArgs("--binary --loss_function=logistic") //--link=logistic
-      .setPowerT(0.3)
-      .setNumPasses(3)
+    val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
+    val labelOneCnt2 = classifier2.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
 
-    // dataset.show
-    val classifier = vw.fit(dataset)
-    println(classifier.model.length)
-
-    classifier.transform(dataset).show
-    // val labelOneCnt = model.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
-
-    //assert(labelOneCnt > 10)
+    assert(labelOneCnt1 == labelOneCnt2)
   }
 
   /** Reads a CSV file given the file name and file location.

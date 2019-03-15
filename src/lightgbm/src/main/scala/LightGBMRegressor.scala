@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import org.apache.spark.ClusterUtil
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.Vector
@@ -62,8 +63,8 @@ class LightGBMRegressor(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMRegressionModel = {
-    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
-    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset)
+    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Reduce number of partitions to number of executor cores if needed
     val df = dataset.toDF().coalesce(numWorkers).cache()
