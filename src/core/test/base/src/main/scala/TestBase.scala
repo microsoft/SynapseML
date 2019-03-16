@@ -208,6 +208,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 trait DataFrameEquality extends TestBase {
   val epsilon = 1e-4
   implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
+
   implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
     def areEqual(a: DenseVector, b: Any): Boolean = b match {
       case bArr:DenseVector =>
