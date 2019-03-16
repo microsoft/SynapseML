@@ -1,0 +1,16 @@
+name,value,precision,higherIsBetter
+VowpalWabbitRegressor_energyefficiency2012_data.train.csv_,7.476904829030441,1.0,false
+VowpalWabbitRegressor_energyefficiency2012_data.train.csv_--adaptive,23.056904698993836,1.0,false
+VowpalWabbitRegressor_energyefficiency2012_data.train.csv_--sgd,13.765146167337702,1.0,false
+VowpalWabbitRegressor_airfoil_self_noise.train.csv_,52.22035149152813,0.1,false
+VowpalWabbitRegressor_airfoil_self_noise.train.csv_--adaptive,16.986594362595973,0.1,false
+VowpalWabbitRegressor_airfoil_self_noise.train.csv_--sgd,107.73428573645899,0.1,false
+VowpalWabbitRegressor_Buzz.TomsHardware.train.csv_,13264.909430022946,1000.0,false
+VowpalWabbitRegressor_Buzz.TomsHardware.train.csv_--adaptive,3326.7193866532766,1000.0,false
+VowpalWabbitRegressor_Buzz.TomsHardware.train.csv_--sgd,57928.91766291467,1000.0,false
+VowpalWabbitRegressor_machine.train.csv_,176.78166487258542,100.0,false
+VowpalWabbitRegressor_machine.train.csv_--adaptive,189.73168858579896,100.0,false
+VowpalWabbitRegressor_machine.train.csv_--sgd,216.04164050159872,100.0,false
+VowpalWabbitRegressor_Concrete_Data.train.csv_,15.277956975564635,1.0,false
+VowpalWabbitRegressor_Concrete_Data.train.csv_--adaptive,32.80150846463789,1.0,false
+VowpalWabbitRegressor_Concrete_Data.train.csv_--sgd,36.21985987572943,1.0,false

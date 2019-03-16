@@ -10,11 +10,17 @@ import org.apache.spark.ml.{Estimator, Model, PredictionModel, Predictor}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.sql.functions.{col, struct, udf}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
-import vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitMurmur, VowpalWabbitNative}
+import vowpalwabbit.spark.prediction.ScalarPrediction
+import vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.math.min
 import scala.reflect.ClassTag
+
+case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
 
 object VWUtil {
   def autoClose[A <: AutoCloseable,B](closeable: A)(fun: (A) => B): B = {
@@ -24,6 +30,13 @@ object VWUtil {
       closeable.close()
     }
   }
+
+  def generateNamespaceInfos(featuresCol:String, additionalFeatures:Seq[String], hashSeed:Int, schema:StructType):Seq[NamespaceInfo] =
+   (Seq(featuresCol) ++ additionalFeatures)
+    .map(col => new NamespaceInfo(
+      VowpalWabbitMurmur.hash(col, hashSeed),
+      col.charAt(0),
+      schema.fieldIndex(col)))
 }
 
 @InternalWrapper
@@ -38,6 +51,12 @@ trait VowpalWabbitBase extends DefaultParamsWritable
 
   def getArgs: String = $(args)
   def setArgs(value: String): this.type = set(args, value)
+
+  val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
+  setDefault(additionalFeatures -> Array())
+
+  def getAdditionalFeatures: Array[String] = $(additionalFeatures)
+  def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 
   // to support Grid search we need to replicate the parameters here...
   val numPasses = new IntParam(this, "numPasses", "Number of passes over the data")
@@ -98,16 +117,20 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  lazy val featureColNamespaceHash = VowpalWabbitMurmur.hash(getFeaturesCol, getHashSeed)
 
-  lazy val featureColFeatureGroup = getFeaturesCol.charAt(0) // TODO: empty, is it possbile?
-
-  private def trainInternal(df: DataFrame, vwArgs: String) = {
-
+  private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: () => String = () => "") = {
     val labelColIdx = df.schema.fieldIndex(getLabelCol)
-    val featureColIdx = df.schema.fieldIndex(getFeaturesCol)
+
+    val applyLabel = if (get(weightCol).isDefined) {
+      val weightColIdx = df.schema.fieldIndex(getWeightCol)
+      (row:Row, ex:VowpalWabbitExample) => ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
+    }
+    else
+      (row:Row, ex:VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
 
     println(vwArgs) // TODO: properly log
+
+    val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
 
     def trainIteration(inputRows: Iterator[Row]): Iterator[Array[Byte]] = {
       val numPasses = getNumPasses
@@ -121,7 +144,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         () => inputRowsArr.iterator
       }
 
-      val args = s"$vwArgs --node ${TaskContext.get.partitionId}"
+      val args = s"$vwArgs ${contextArgs()}"
 
       VWUtil.autoClose(new VowpalWabbitNative(args)) { vw =>
         VWUtil.autoClose(vw.createExample()) { ex =>
@@ -133,14 +156,18 @@ trait VowpalWabbitBase extends DefaultParamsWritable
             val it = iteratorGenerator()
             while (it.hasNext) {
               val row = it.next
-              ex.setLabel(row.getDouble(labelColIdx).toFloat)
 
-              row.get(featureColIdx) match {
-                case dense: DenseVector => ex.addToNamespaceDense(featureColFeatureGroup,
-                  featureColNamespaceHash, dense.values)
-                case sparse: SparseVector => ex.addToNamespaceSparse(featureColFeatureGroup,
-                  sparse.indices, sparse.values)
-              }
+              // transfer label
+              applyLabel(row, ex)
+
+              // transfer features
+              for (ns <- featureColIndices)
+                row.get(ns.colIdx) match {
+                  case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+                    ns.hash, dense.values)
+                  case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+                    sparse.indices, sparse.values)
+                }
 
               ex.learn
               ex.clear
@@ -199,7 +226,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         */
         vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port --unique_id $jobUniqueId --total $numPartitions ")
 
-        trainInternal(df, vwArgs.result)
+        trainInternal(df, vwArgs.result, () => s"--node ${TaskContext.get.partitionId}")
       } finally {
         spanningTree.stop
       }
@@ -209,7 +236,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   }
 }
 
-trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
+trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol with org.apache.spark.ml.param.shared.HasRawPredictionCol
 {
   val model: Array[Byte]
 
@@ -217,21 +244,43 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   lazy val vw = new VowpalWabbitNative("--testonly --quiet", model)
 
   @transient
+  lazy val example = vw.createExample()
+
+  @transient
   lazy val vwArgs = vw.getArguments
 
-  // load the hash seed directly from the model to support pre-trained models
-  val featureColNamespaceHash = VowpalWabbitMurmur.hash(getFeaturesCol, vwArgs.getHashSeed)
 
-  val featureColFeatureGroup = getFeaturesCol.charAt(0) // TODO: empty, is it possible?
+  val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
+  def getAdditionalFeatures: Array[String] = $(additionalFeatures)
+  def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 
-  protected def predictInternal(features: Vector): Object = {
-    VWUtil.autoClose(vw.createExample()) { ex =>
-      features match {
-        case dense: DenseVector => ex.addToNamespaceDense(featureColFeatureGroup, featureColNamespaceHash, dense.values)
-        case sparse: SparseVector => ex.addToNamespaceSparse(featureColFeatureGroup, sparse.indices, sparse.values)
+  protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
+    val featureColIndices = (Seq(getFeaturesCol) ++ getAdditionalFeatures)
+      .zipWithIndex.map { case (col, index) => new NamespaceInfo(
+        VowpalWabbitMurmur.hash(col, vwArgs.getHashSeed),
+        col.charAt(0),
+        index)
+    }
+
+    val predictUDF = udf { (namespaces: Row) => predictInternal(featureColIndices, namespaces) }
+
+    val allCols = Seq(col($(featuresCol))) ++ getAdditionalFeatures.map(col)
+
+    dataset.withColumn($(rawPredictionCol), predictUDF(struct(allCols: _*)))
+  }
+
+  protected def predictInternal(featureColIndices:Seq[NamespaceInfo], namespaces: Row): Double = {
+    example.clear
+
+    for (ns <- featureColIndices)
+      namespaces.get(ns.colIdx) match {
+        case dense: DenseVector => example.addToNamespaceDense(ns.featureGroup,
+          ns.hash, dense.values)
+        case sparse: SparseVector => example.addToNamespaceSparse(ns.featureGroup,
+          sparse.indices, sparse.values)
       }
 
-      ex.predict
-    }
+    // TODO: surface confidence
+    example.predict.asInstanceOf[ScalarPrediction].getValue.toDouble
   }
 }

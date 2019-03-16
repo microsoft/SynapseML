@@ -59,7 +59,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
     val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
 
     val vw = new VowpalWabbitClassifier()
-      // .setArgs("--link=logistic") // --loss_function=logistic or --loss_function=hinge
       .setPowerT(0.3)
       .setNumPasses(3)
 
@@ -108,4 +107,8 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
       .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
       .csv(fileLocation)
   }
+
+  // TODO
+  // override def reader: MLReadable[_] = VowpalWabbitClassifier
+  // override def modelReader: MLReadable[_] = VowpalWabbitClassifierModel
 }
