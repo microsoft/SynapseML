@@ -5,7 +5,6 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.sql.{Column, DataFrame}
-import vowpalwabbit.spark.VowpalWabbitFeaturizer
 
 class VerifyVowpalWabbitRegressor extends Benchmarks { // with EstimatorFuzzing[VowpalWabbitRegressor] {
   lazy val moduleName = "vw"

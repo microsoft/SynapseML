@@ -10,11 +10,8 @@ import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.shared.HasProbabilityCol
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
-import vowpalwabbit.spark.VowpalWabbitMurmur
 
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.math.exp
-import vowpalwabbit.spark.prediction.ScalarPrediction
 
 object VowpalWabbitClassifier extends DefaultParamsReadable[VowpalWabbitClassifier]
 

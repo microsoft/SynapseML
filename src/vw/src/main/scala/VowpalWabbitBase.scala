@@ -13,8 +13,8 @@ import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
-import vowpalwabbit.spark.prediction.ScalarPrediction
-import vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
+import org.vowpalwabbit.bare.prediction.ScalarPrediction
+import org.vowpalwabbit.bare.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.math.min
