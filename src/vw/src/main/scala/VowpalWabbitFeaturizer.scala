@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.featurizer._
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{IntParam, ParamMap}
+import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
@@ -13,9 +13,9 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.Identifiable
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuilder
 
-class VowpalWabbitFeaturizer(override val uid:String) extends Transformer with HasInputCols with HasOutputCol
+class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with HasInputCols with HasOutputCol
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
@@ -25,49 +25,56 @@ class VowpalWabbitFeaturizer(override val uid:String) extends Transformer with H
   def getSeed: Int = $(seed)
   def setSeed(value: Int): this.type = set(seed, value)
 
-  private def sortAndDistinct(indices:ArrayBuffer[Int], values:ArrayBuffer[Double]): (Array[Int], Array[Double]) = {
+  val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols", "Input cols that should be split add word boundaries")
+  setDefault(stringSplitInputCols -> Array())
+
+  def getStringSplitInputCols: Array[String] = $(stringSplitInputCols)
+  def setStringSplitInputCols(value: Array[String]): this.type = set(stringSplitInputCols, value)
+
+  private def sortAndDistinct(indices: Array[Int], values: Array[Double]): (Array[Int], Array[Double]) = {
     if (indices.length == 0)
-      return (indices.toArray, values.toArray)
-
-    // get a sorted list of indices
-    val argsort = (0 until indices.length)
-      .sortWith(indices(_) < indices(_))
-      .toArray
-
-    val indicesSorted = new Array[Int](indices.length)
-    val valuesSorted = new Array[Double](indices.length)
-
-    var previousIndex = indicesSorted(0) = indices(argsort(0))
-    valuesSorted(0) = values(argsort(0))
-
-    // in-place de-duplicate
-    var j = 1
-    for (i <- 1 until indices.length) {
-      val index = indices(argsort(i))
-
-      if (index != previousIndex) {
-        previousIndex = indicesSorted(j) = index
-        valuesSorted(j) = values(argsort(i))
-
-        j += 1
-      }
-    }
-
-    if (j == indices.length)
-      (indicesSorted, valuesSorted)
+      (indices, values)
     else {
-      // just in case we found duplicates, let compact the array
-      val indicesCompacted = new Array[Int](j)
-      val valuesCompacted = new Array[Double](j)
+      // get a sorted list of indices
+      val argsort = (0 until indices.length)
+        .sortWith(indices(_) < indices(_))
+        .toArray
 
-      Array.copy(indicesSorted, 0, indicesCompacted, 0, j)
-      Array.copy(valuesSorted, 0, valuesCompacted, 0, j)
+      val indicesSorted = new Array[Int](indices.length)
+      val valuesSorted = new Array[Double](indices.length)
 
-      (indicesCompacted, valuesCompacted)
+      var previousIndex = indicesSorted(0) = indices(argsort(0))
+      valuesSorted(0) = values(argsort(0))
+
+      // in-place de-duplicate
+      var j = 1
+      for (i <- 1 until indices.length) {
+        val index = indices(argsort(i))
+
+        if (index != previousIndex) {
+          previousIndex = indicesSorted(j) = index
+          valuesSorted(j) = values(argsort(i))
+
+          j += 1
+        }
+      }
+
+      if (j == indices.length)
+        (indicesSorted, valuesSorted)
+      else {
+        // just in case we found duplicates, let compact the array
+        val indicesCompacted = new Array[Int](j)
+        val valuesCompacted = new Array[Double](j)
+
+        Array.copy(indicesSorted, 0, indicesCompacted, 0, j)
+        Array.copy(valuesSorted, 0, valuesCompacted, 0, j)
+
+        (indicesCompacted, valuesCompacted)
+      }
     }
   }
 
-  private def getFeaturizer(name:String, dataType:DataType, idx:Int, namespaceHash:Int): Featurizer =
+  private def getFeaturizer(name: String, dataType: DataType, idx: Int, namespaceHash: Int): Featurizer =
     dataType match {
       case DoubleType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getDouble(idx))
       case FloatType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getFloat(idx).toDouble)
@@ -105,9 +112,10 @@ class VowpalWabbitFeaturizer(override val uid:String) extends Transformer with H
     val inputColsList= getInputCols
     val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
 
-    val featurizers:Array[Featurizer] = dataset.schema.fields
+    val fieldSubset = dataset.schema.fields
       .filter(f => inputColsList.contains(f.name))
-      .zipWithIndex
+
+    val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
       .map { case (field, idx) => getFeaturizer(field.name, field.dataType, idx, namespaceHash) }
 
         // TODO: list types
@@ -120,10 +128,12 @@ class VowpalWabbitFeaturizer(override val uid:String) extends Transformer with H
 
     val mode = udf((r: Row) => {
       // educated guess on size
-      val indices = new ArrayBuffer[Int](featurizers.length)
-      val values = new ArrayBuffer[Double](featurizers.length)
+      val indices = ArrayBuilder.make[Int]
+      indices.sizeHint(featurizers.length)
+      val values = ArrayBuilder.make[Double]
+      values.sizeHint(featurizers.length)
 
-      // apply all featurizers
+        // apply all featurizers
       for (f <- featurizers)
         if (!r.isNullAt(f.fieldIdx))
           f.featurize(r, indices, values)
@@ -132,12 +142,12 @@ class VowpalWabbitFeaturizer(override val uid:String) extends Transformer with H
       // Warning:
       //   - due to SparseVector limitations (which doesn't allow duplicates) we need filter
       //   - VW command line allows for duplicate features with different values (just updates twice)
-      val (indicesSorted, valuesSorted) = sortAndDistinct(indices, values)
+      val (indicesSorted, valuesSorted) = sortAndDistinct(indices.result, values.result)
 
       Vectors.sparse(Featurizer.maxIndexMask, indicesSorted, valuesSorted)
     })
 
-    dataset.toDF.withColumn(getOutputCol, mode.apply(struct(getInputCols.map(col) :_ *)))
+    dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
   }
 
   override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)

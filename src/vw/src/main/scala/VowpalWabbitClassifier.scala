@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.classification.{ClassificationModel, ProbabilisticClassificationModel, ProbabilisticClassifier}
+import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.shared.HasProbabilityCol
 import org.apache.spark.sql._
@@ -42,7 +42,7 @@ class VowpalWabbitClassificationModel(
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel with HasProbabilityCol // TODO: HasThresholds
 {
-  def numClasses = 2
+  def numClasses: Int = 2
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     val df = transformImplInternal(dataset)
@@ -53,9 +53,9 @@ class VowpalWabbitClassificationModel(
 
     // convert raw prediction to probability (if needed)
     val probabilityUdf = if (vwArgs.getArgs.contains("--link=logistic"))
-      udf { (pred:Double) => Vectors.dense(Array(1 - pred, pred)) }
+      udf { (pred: Double) => Vectors.dense(Array(1 - pred, pred)) }
     else
-      udf { (pred:Double) => {
+      udf { (pred: Double) => {
         val prob = 1.0 / (1.0 + exp(-pred))
         Vectors.dense(Array(1 - prob, prob))
       } }

@@ -6,19 +6,16 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import org.apache.spark.{ClusterUtil, TaskContext}
-import org.apache.spark.ml.{Estimator, Model, PredictionModel, Predictor}
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsWritable}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.vowpalwabbit.bare.prediction.ScalarPrediction
 import org.vowpalwabbit.bare.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.math.min
-import scala.reflect.ClassTag
 
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
 
@@ -31,7 +28,8 @@ object VWUtil {
     }
   }
 
-  def generateNamespaceInfos(featuresCol:String, additionalFeatures:Seq[String], hashSeed:Int, schema:StructType):Seq[NamespaceInfo] =
+  def generateNamespaceInfos(featuresCol: String, additionalFeatures: Seq[String], hashSeed: Int,
+                             schema: StructType): Seq[NamespaceInfo] =
    (Seq(featuresCol) ++ additionalFeatures)
     .map(col => new NamespaceInfo(
       VowpalWabbitMurmur.hash(col, hashSeed),
@@ -117,16 +115,16 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: () => String = () => "") = {
     val labelColIdx = df.schema.fieldIndex(getLabelCol)
 
     val applyLabel = if (get(weightCol).isDefined) {
       val weightColIdx = df.schema.fieldIndex(getWeightCol)
-      (row:Row, ex:VowpalWabbitExample) => ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
+      (row: Row, ex: VowpalWabbitExample) =>
+        ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
     }
     else
-      (row:Row, ex:VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
+      (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
 
     println(vwArgs) // TODO: properly log
 
@@ -153,10 +151,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
           // - re-establishing network connection
           for (_ <- 0 to getNumPasses) {
             // pass data to VW native part
-            val it = iteratorGenerator()
-            while (it.hasNext) {
-              val row = it.next
-
+            for (row <- iteratorGenerator()) {
               // transfer label
               applyLabel(row, ex)
 
@@ -224,7 +219,8 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         --node should be unique for each node and range from {0,total-1}.
         --holdout_off should be included for distributed training
         */
-        vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port --unique_id $jobUniqueId --total $numPartitions ")
+        vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
+          .append(s"--unique_id $jobUniqueId --total $numPartitions ")
 
         trainInternal(df, vwArgs.result, () => s"--node ${TaskContext.get.partitionId}")
       } finally {
@@ -236,7 +232,8 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   }
 }
 
-trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol with org.apache.spark.ml.param.shared.HasRawPredictionCol
+trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
+  with org.apache.spark.ml.param.shared.HasRawPredictionCol
 {
   val model: Array[Byte]
 
@@ -248,7 +245,6 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
 
   @transient
   lazy val vwArgs = vw.getArguments
-
 
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
@@ -269,7 +265,7 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
     dataset.withColumn($(rawPredictionCol), predictUDF(struct(allCols: _*)))
   }
 
-  protected def predictInternal(featureColIndices:Seq[NamespaceInfo], namespaces: Row): Double = {
+  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], namespaces: Row): Double = {
     example.clear
 
     for (ns <- featureColIndices)

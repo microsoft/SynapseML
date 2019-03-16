@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import java.io.File
 
-import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
+import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import java.nio.file.{Files, Path, Paths}
@@ -14,7 +14,6 @@ import org.apache.spark.sql.functions._
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
-import org.apache.spark.ml.linalg.Vector
 
 class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"

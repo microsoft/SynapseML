@@ -6,20 +6,20 @@ package com.microsoft.ml.spark.featurizer
 import org.apache.spark.sql.Row
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
 
-class NumericFeaturizer(override val fieldIdx:Int, columnName:String, namespaceHash:Int, val getFieldValue: (Row) => Double)
+class NumericFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int,
+                        val getFieldValue: (Row) => Double)
   extends Featurizer(fieldIdx) {
 
     val featureIdx = Featurizer.maxIndexMask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
 
-    override def featurize(row: Row, indices:ArrayBuffer[Int], values:ArrayBuffer[Double]):Unit = {
-        val value = getFieldValue(row)
-        if (value != 0) {
-            indices += featureIdx
-            values += value
-        }
-        ()
+    override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
+      val value = getFieldValue(row)
+      if (value != 0) {
+          indices += featureIdx
+          values += value
+      }
+      ()
     }
 }
-
