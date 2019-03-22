@@ -310,11 +310,25 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 * [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
 
+* [LightGBM](https://github.com/Microsoft/LightGBM)
+
+* [Recommenders](https://github.com/Microsoft/Recommenders)
+
+* [ML.NET](https://github.com/dotnet/machinelearning)
+
+* [Infer.NET](https://github.com/dotnet/infer)
+
+* [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
+
+* [LightLDA](https://github.com/Microsoft/LightLDA)
+
 * [Azure Machine Learning
   preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
 
 * [JPMML-SparkML plugin for converting MMLSpark LightGBM models to
 PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
+
+* [Azure Machine Learning Studio](https://studio.azureml.net/)
 
 *Apache®, Apache Spark, and Spark® are either registered trademarks or
 trademarks of the Apache Software Foundation in the United States and/or other
