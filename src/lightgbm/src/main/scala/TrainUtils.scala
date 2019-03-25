@@ -38,93 +38,94 @@ private object TrainUtils extends Serializable {
 
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String], log: Logger,
                 trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    if (!inputRows.hasNext)
+    if (!inputRows.hasNext) {
       List[LightGBMBooster]().toIterator
-
-    val rows = inputRows.toArray
-    val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
-    val hrow = rows.head
-    var datasetPtr: Option[SWIGTYPE_p_void] = None
-    try {
-      datasetPtr =
-        if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-          val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
-            case dense: DenseVector => dense.toArray
-            case sparse: SparseVector => sparse.toDense.toArray
-          })
-          Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray))
-        } else {
-          val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
-            case dense: DenseVector => dense.toSparse
-            case sparse: SparseVector => sparse
-          })
-          Some(LightGBMUtils.generateSparseDataset(rowsAsSparse))
-        }
-
-      // Validate generated dataset has the correct number of rows and cols
-      validateDataset(datasetPtr.get)
-      addField(labels, "label", numRows, datasetPtr)
-
-      if (weightColumn.isDefined) {
-        val weights = rows.map(row => row.getDouble(row.fieldIndex(weightColumn.get)))
-        addField(weights, "weight", numRows, datasetPtr)
-      }
-
-      var boosterPtr: Option[SWIGTYPE_p_void] = None
+    } else {
+      val rows = inputRows.toArray
+      val numRows = rows.length
+      val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
+      val hrow = rows.head
+      var datasetPtr: Option[SWIGTYPE_p_void] = None
       try {
-        // Create the booster
-        val boosterOutPtr = lightgbmlib.voidpp_handle()
-        val parameters = trainParams.toString()
-        LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
-        boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
+        datasetPtr =
+          if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+            val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+              case dense: DenseVector => dense.toArray
+              case sparse: SparseVector => sparse.toDense.toArray
+            })
+            Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray))
+          } else {
+            val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+              case dense: DenseVector => dense.toSparse
+              case sparse: SparseVector => sparse
+            })
+            Some(LightGBMUtils.generateSparseDataset(rowsAsSparse))
+          }
 
-        if (trainParams.modelString != null && !trainParams.modelString.isEmpty) {
-          val booster = LightGBMUtils.getBoosterPtrFromModelString(trainParams.modelString)
-          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
+        // Validate generated dataset has the correct number of rows and cols
+        validateDataset(datasetPtr.get)
+        addField(labels, "label", numRows, datasetPtr)
+
+        if (weightColumn.isDefined) {
+          val weights = rows.map(row => row.getDouble(row.fieldIndex(weightColumn.get)))
+          addField(weights, "weight", numRows, datasetPtr)
         }
 
-        val isFinishedPtr = lightgbmlib.new_intp()
-        var isFinised = 0
-        var iters = 0
-        while (isFinised == 0 && iters < trainParams.numIterations) {
-          val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
-          LightGBMUtils.validate(result, "Booster Update One Iter")
-          isFinised = lightgbmlib.intp_value(isFinishedPtr)
-          log.info("LightGBM running iteration: " + iters + " with result: " +
-            result + " and is finished: " + isFinised)
-          iters = iters + 1
-        }
-        val bufferLength = LightGBMConstants.defaultBufferLength
-        val bufferLengthPtr = lightgbmlib.new_longp()
-        lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
-        val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
-        val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-        val tempM =
-          lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-            boosterPtr.get, 0, -1, bufferLengthPtrInt64,
-            bufferOutLengthPtr)
-        val bufferOutLength = lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr))
-        // TODO: Move the reallocation logic inside the SWIG wrapper
-        val model =
-          if (bufferOutLength > bufferLength) {
+        var boosterPtr: Option[SWIGTYPE_p_void] = None
+        try {
+          // Create the booster
+          val boosterOutPtr = lightgbmlib.voidpp_handle()
+          val parameters = trainParams.toString()
+          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(datasetPtr.get, parameters, boosterOutPtr), "Booster")
+          boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
+
+          if (trainParams.modelString != null && !trainParams.modelString.isEmpty) {
+            val booster = LightGBMUtils.getBoosterPtrFromModelString(trainParams.modelString)
+            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
+          }
+
+          val isFinishedPtr = lightgbmlib.new_intp()
+          var isFinised = 0
+          var iters = 0
+          while (isFinised == 0 && iters < trainParams.numIterations) {
+            val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
+            LightGBMUtils.validate(result, "Booster Update One Iter")
+            isFinised = lightgbmlib.intp_value(isFinishedPtr)
+            log.info("LightGBM running iteration: " + iters + " with result: " +
+              result + " and is finished: " + isFinised)
+            iters = iters + 1
+          }
+          val bufferLength = LightGBMConstants.defaultBufferLength
+          val bufferLengthPtr = lightgbmlib.new_longp()
+          lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
+          val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
+          val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
+          val tempM =
             lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
-              boosterPtr.get, 0, -1, bufferOutLengthPtr, bufferOutLengthPtr)
-          } else tempM
-        log.info("Buffer output length for model: " + bufferOutLength)
-        List[LightGBMBooster](new LightGBMBooster(model)).toIterator
-      } finally {
-        // Free booster
-        if (boosterPtr.isDefined) {
-          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr.get),
-                                 "Finalize Booster")
+              boosterPtr.get, 0, -1, bufferLengthPtrInt64,
+              bufferOutLengthPtr)
+          val bufferOutLength = lightgbmlib.longp_value(lightgbmlib.int64_t_to_long_ptr(bufferOutLengthPtr))
+          // TODO: Move the reallocation logic inside the SWIG wrapper
+          val model =
+            if (bufferOutLength > bufferLength) {
+              lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(
+                boosterPtr.get, 0, -1, bufferOutLengthPtr, bufferOutLengthPtr)
+            } else tempM
+          log.info("Buffer output length for model: " + bufferOutLength)
+          List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+        } finally {
+          // Free booster
+          if (boosterPtr.isDefined) {
+            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr.get),
+              "Finalize Booster")
+          }
         }
-      }
-    } finally {
-      // Free dataset
-      if (datasetPtr.isDefined) {
-        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr.get),
-                               "Finalize Dataset")
+      } finally {
+        // Free dataset
+        if (datasetPtr.isDefined) {
+          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr.get),
+            "Finalize Dataset")
+        }
       }
     }
   }
