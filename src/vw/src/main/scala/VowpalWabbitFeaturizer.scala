@@ -19,17 +19,22 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
+  setDefault(inputCols -> Array())
+
   val seed = new IntParam(this, "seed", "Hash seed")
   setDefault(seed -> 0)
 
   def getSeed: Int = $(seed)
   def setSeed(value: Int): this.type = set(seed, value)
 
-  val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols", "Input cols that should be split add word boundaries")
+  val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols",
+    "Input cols that should be split add word boundaries")
   setDefault(stringSplitInputCols -> Array())
 
   def getStringSplitInputCols: Array[String] = $(stringSplitInputCols)
   def setStringSplitInputCols(value: Array[String]): this.type = set(stringSplitInputCols, value)
+
+  private def getAllInputCols = getInputCols ++ getStringSplitInputCols
 
   private def sortAndDistinct(indices: Array[Int], values: Array[Double]): (Array[Int], Array[Double]) = {
     if (indices.length == 0)
@@ -43,7 +48,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       val indicesSorted = new Array[Int](indices.length)
       val valuesSorted = new Array[Double](indices.length)
 
-      var previousIndex = indicesSorted(0) = indices(argsort(0))
+      indicesSorted(0) = indices(argsort(0))
+      var previousIndex = indicesSorted(0)
       valuesSorted(0) = values(argsort(0))
 
       // in-place de-duplicate
@@ -52,7 +58,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
         val index = indices(argsort(i))
 
         if (index != previousIndex) {
-          previousIndex = indicesSorted(j) = index
+          indicesSorted(j) = index
+          previousIndex = index
           valuesSorted(j) = values(argsort(i))
 
           j += 1
@@ -74,7 +81,9 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
     }
   }
 
-  private def getFeaturizer(name: String, dataType: DataType, idx: Int, namespaceHash: Int): Featurizer =
+  private def getFeaturizer(name: String, dataType: DataType, idx: Int, namespaceHash: Int): Featurizer = {
+    val stringSplitInputCols = getStringSplitInputCols
+
     dataType match {
       case DoubleType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getDouble(idx))
       case FloatType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getFloat(idx).toDouble)
@@ -83,7 +92,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       case ShortType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getShort(idx).toDouble)
       case ByteType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getByte(idx).toDouble)
       case BooleanType => new BooleanFeaturizer(idx, name, namespaceHash)
-      case StringType => new StringFeaturizer(idx, name, namespaceHash)
+      case StringType => if (stringSplitInputCols.contains(name)) new StringSplitFeaturizer(idx, name, namespaceHash)
+      else new StringFeaturizer(idx, name, namespaceHash)
       case arr: ArrayType => {
         if (arr.elementType != DataTypes.StringType)
           throw new RuntimeException(s"Unsupported array element type: ${dataType}")
@@ -107,9 +117,10 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       }
       case _ => throw new RuntimeException(s"Unsupported data type: ${dataType}")
     }
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val inputColsList= getInputCols
+    val inputColsList = getAllInputCols
     val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
 
     val fieldSubset = dataset.schema.fields
@@ -154,7 +165,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
 
   override def transformSchema(schema: StructType): StructType = {
     val fieldNames = schema.fields.map(_.name)
-    for (f <- getInputCols)
+    for (f <- getAllInputCols)
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
 

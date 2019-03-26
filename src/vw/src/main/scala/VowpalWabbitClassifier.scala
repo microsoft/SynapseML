@@ -44,7 +44,7 @@ class VowpalWabbitClassificationModel(
 {
   def numClasses: Int = 2
 
-  protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
+  override def transform(dataset: Dataset[_]): DataFrame = {
     val df = transformImplInternal(dataset)
 
     // which mode one once to use depends a bit on how this should be deployed
@@ -69,6 +69,8 @@ class VowpalWabbitClassificationModel(
 
   override def copy(extra: ParamMap): VowpalWabbitClassificationModel =
     new VowpalWabbitClassificationModel(uid, model)
+      .setFeaturesCol(getFeaturesCol)
+    .setAdditionalFeatures(getAdditionalFeatures)
 
   protected override def predictRaw(features: Row): Vector = {
     throw new NotImplementedError("Not implement")

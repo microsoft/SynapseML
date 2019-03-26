@@ -3,15 +3,17 @@
 
 package com.microsoft.ml.spark.featurizer
 
+import com.microsoft.ml.spark.VowpalWabbitMurmurWithPrefix
 import org.apache.spark.sql.Row
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
-import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
+import scala.collection.mutable.ArrayBuilder
 
 class StringFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
   extends Featurizer(fieldIdx) {
+  val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
+
     override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
-      indices += Featurizer.maxIndexMask & VowpalWabbitMurmur.hash(columnName + row.getString(fieldIdx), namespaceHash)
+      indices += Featurizer.maxIndexMask & hasher.hash(row.getString(fieldIdx), namespaceHash)
       values += 1.0
 
       ()

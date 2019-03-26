@@ -52,7 +52,6 @@ trait VowpalWabbitBase extends DefaultParamsWritable
 
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
   setDefault(additionalFeatures -> Array())
-
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
   def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 
@@ -86,6 +85,15 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   def getIgnoreNamespaces: String = $(ignoreNamespaces)
   def setIgnoreNamespaces(value: String): this.type = set(ignoreNamespaces, value)
 
+  val initialModel = new ByteArrayParam(this, "initialModel", "Initial model to start from")
+  def getInitialModel: Array[Byte] = $(initialModel)
+  def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
+
+  val cacheRows = new BooleanParam(this, "cacheRows", "Cache rows in multi-pass mode")
+  setDefault(cacheRows -> false)
+  def getCacheRows: Boolean = $(cacheRows)
+  def setCacheRows(value: Boolean): this.type = set(cacheRows, value)
+
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParam[T](param: Param[T], option: String): StringBuilder = {
       if (!get(param).isEmpty) {
@@ -93,9 +101,9 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         param match {
           case _: StringArrayParam => {
             for (q <- get(param).get)
-              sb.append(option).append(' ').append(q)
+              sb.append(' ').append(option).append(' ').append(q)
           }
-          case _ => sb.append(option).append(' ').append(get(param).get)
+          case _ => sb.append(' ').append(option).append(' ').append(get(param).get)
         }
       }
 
@@ -130,8 +138,9 @@ trait VowpalWabbitBase extends DefaultParamsWritable
 
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
 
-    def trainIteration(inputRows: Iterator[Row]): Iterator[Array[Byte]] = {
-      val numPasses = getNumPasses
+    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte]): Iterator[Array[Byte]] = {
+      // only perform the inner-loop if we cache the inputRows
+      val numPasses = if(getCacheRows) getNumPasses else 1
 
       val iteratorGenerator = if (numPasses == 1)
       // avoid caching inputRows
@@ -144,12 +153,13 @@ trait VowpalWabbitBase extends DefaultParamsWritable
 
       val args = s"$vwArgs ${contextArgs()}"
 
-      VWUtil.autoClose(new VowpalWabbitNative(args)) { vw =>
+      VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args)
+                       else new VowpalWabbitNative(args, localInitialModel)) { vw =>
         VWUtil.autoClose(vw.createExample()) { ex =>
           // loop in here to avoid
           // - passing model back and forth
           // - re-establishing network connection
-          for (_ <- 0 to getNumPasses) {
+          for (_ <- 0 until numPasses) {
             // pass data to VW native part
             for (row <- iteratorGenerator()) {
               // transfer label
@@ -177,7 +187,17 @@ trait VowpalWabbitBase extends DefaultParamsWritable
     }
 
     val encoder = Encoders.kryo[Array[Byte]]
-    df.mapPartitions(trainIteration)(encoder).reduce((m1, _) => m1)
+
+    // schedule multiple mapPartitions in
+    val outerNumPasses = if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
+    var localInitialModel = if (isDefined(initialModel)) getInitialModel else null
+
+    for (_ <- 0 until outerNumPasses) {
+      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
+        .reduce((m1, _) => m1)
+    }
+
+    localInitialModel
   }
 
   protected def trainInternal(dataset: Dataset[_]): Array[Byte] = {
@@ -187,9 +207,10 @@ trait VowpalWabbitBase extends DefaultParamsWritable
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
 
     // Reduce number of partitions to number of executor cores
-    val df = dataset.toDF().coalesce(numWorkers).cache()
-
-    val numPartitions = df.rdd.getNumPartitions
+    val df = if (dataset.rdd.getNumPartitions > numWorkers)
+        dataset.toDF.coalesce(numWorkers)
+      else
+        dataset.toDF
 
     val vwArgs = new StringBuilder()
       .append(s"${getArgs} --save_resume --preserve_performance_counters ")
@@ -198,7 +219,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
       .appendParam(l1, "--l1").appendParam(l2, "--l2")
       .appendParam(ignoreNamespaces, "--ignore").appendParam(interactions, "-q")
 
-    val binaryModel = if (numPartitions == 1)
+    val binaryModel = if (numWorkers == 1)
       trainInternal(df, vwArgs.result)
     else  {
       // multiple partitions -> setup distributed coordination
@@ -220,7 +241,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         --holdout_off should be included for distributed training
         */
         vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
-          .append(s"--unique_id $jobUniqueId --total $numPartitions ")
+          .append(s"--unique_id $jobUniqueId --total $numWorkers ")
 
         trainInternal(df, vwArgs.result, () => s"--node ${TaskContext.get.partitionId}")
       } finally {

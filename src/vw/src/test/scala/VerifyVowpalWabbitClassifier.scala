@@ -51,17 +51,12 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
     // println(model.bestModel.asInstanceOf[VowpalWabbitClassifier].getNumPasses)
   }
 
-  test("Verify VowpalWabbit Classifier can be run with libsvm") {
-    val fileName = "a1a.train.svmlight"
-
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
-
+  private def testAlaTrain(dataset: DataFrame, cacheRows: Boolean) = {
     val vw = new VowpalWabbitClassifier()
       .setPowerT(0.3)
       .setNumPasses(3)
+      .setCacheRows(cacheRows)
 
-    // dataset.show
     val classifier = vw.fit(dataset)
     assert(classifier.model.length > 400)
 
@@ -69,6 +64,16 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
 
     assert(labelOneCnt  < dataset.count)
     assert(labelOneCnt > 10)
+  }
+
+  test("Verify VowpalWabbit Classifier can be run with libsvm") {
+    val fileName = "a1a.train.svmlight"
+
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+
+    testAlaTrain(dataset, true)
+    testAlaTrain(dataset, false)
   }
 
   test("Verify VowpalWabbit Classifier w/ and w/o link=logistic produce same results") {

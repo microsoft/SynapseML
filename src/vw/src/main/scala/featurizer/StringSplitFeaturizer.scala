@@ -7,17 +7,22 @@ import com.microsoft.ml.spark.VowpalWabbitMurmurWithPrefix
 import org.apache.spark.sql.Row
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
-import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
+import scala.collection.mutable.ArrayBuilder
 
-class StringArrayFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
+class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
   extends Featurizer(fieldIdx) {
+
+  val nonWhiteSpaces = "\\S+".r
   val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
 
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
-    for (s <- row.getSeq[String](fieldIdx)) {
-      indices += Featurizer.maxIndexMask & hasher.hash(s, namespaceHash)
+
+    val s = row.getString(fieldIdx)
+
+    for (e <- nonWhiteSpaces.findAllMatchIn(s)) {
+      // Note: since the hasher access the chars directly it avoids any allocation
+      indices += Featurizer.maxIndexMask & hasher.hash(s, e.start, e.end, namespaceHash)
       values += 1.0
     }
   }
 }
-
