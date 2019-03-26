@@ -8,8 +8,9 @@ import java.net._
 
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
 import com.microsoft.ml.spark.StreamUtilities.using
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{DataFrame, Row}
 import org.slf4j.Logger
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
@@ -93,22 +94,15 @@ private object TrainUtils extends Serializable {
     lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, bufferLengthPtrInt64, bufferOutLengthPtr)
   }
 
-  case class BestEvaluation(evalCounts: Int, evalNames: Array[String], bestScore: Array[Double],
-                            bestScores: Array[Array[Double]], bestIter: Array[Int])
-
-  def createBestEval(boosterPtr: Option[SWIGTYPE_p_void]): Option[BestEvaluation] = {
+  def getEvalNames(boosterPtr: Option[SWIGTYPE_p_void]): Array[String]  = {
     // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
     val evalCountsPtr = lightgbmlib.new_intp()
     val resultCounts = lightgbmlib.LGBM_BoosterGetEvalCounts(boosterPtr.get, evalCountsPtr)
     LightGBMUtils.validate(resultCounts, "Booster Get Eval Counts")
     val evalCounts = lightgbmlib.intp_value(evalCountsPtr)
-    val bestScore = new Array[Double](evalCounts)
-    val bestScores = new Array[Array[Double]](evalCounts)
-    val bestIter = new Array[Int](evalCounts)
     // For debugging, can get metric names:
     val evalNamesPtr = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterPtr.get, evalCounts)
-    val evalNames = (0 until evalCounts).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
-    Some(BestEvaluation(evalCounts, evalNames, bestScore, bestScores, bestIter))
+    (0 until evalCounts).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
   }
 
   def trainCore(trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
@@ -116,7 +110,11 @@ private object TrainUtils extends Serializable {
     val isFinishedPtr = lightgbmlib.new_intp()
     var isFinished = false
     var iters = 0
-    val bestEval = if (hasValid) createBestEval(boosterPtr) else None
+    val evalNames = getEvalNames(boosterPtr)
+    val evalCounts = evalNames.length
+    val bestScore = new Array[Double](evalCounts)
+    val bestScores = new Array[Array[Double]](evalCounts)
+    val bestIter = new Array[Int](evalCounts)
     while (!isFinished && iters < trainParams.numIterations) {
       try {
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
@@ -125,32 +123,32 @@ private object TrainUtils extends Serializable {
         log.info("LightGBM running iteration: " + iters + " with result: " +
           result + " and is finished: " + isFinished)
       } catch {
-        case e: java.lang.Exception => {
+        case _: java.lang.Exception =>
           isFinished = true
-          log.info("LightGBM reached early termination, stopping training on worker")
-        }
+          log.warn("LightGBM reached early termination on one worker," +
+            " stopping training on worker. This message should rarely occur")
       }
       if (hasValid && !isFinished) {
-        val evalResults = lightgbmlib.new_doubleArray(bestEval.get.evalCounts)
+        val evalResults = lightgbmlib.new_doubleArray(evalNames.length)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
         LightGBMUtils.validate(resultEval, "Booster Get Eval")
-        (0 until bestEval.get.evalCounts).foreach { index =>
+        evalNames.zipWithIndex.foreach { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(evalResults, index)
-          val evalName = bestEval.get.evalNames(index)
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
               (x: Double, y: Double) => x > y
-            else (x: Double, y: Double) => x < y
-          if (bestEval.get.bestScores(index) == null || cmp(score, bestEval.get.bestScore(index))) {
-            bestEval.get.bestScore(index) = score
-            bestEval.get.bestIter(index) = iters
-            bestEval.get.bestScores(index) = (0 until bestEval.get.evalCounts)
+            else
+              (x: Double, y: Double) => x < y
+          if (bestScores(index) == null || cmp(score, bestScore(index))) {
+            bestScore(index) = score
+            bestIter(index) = iters
+            bestScores(index) = evalNames.indices
               .map(j => lightgbmlib.doubleArray_getitem(evalResults, j)).toArray
-          } else if (iters - bestEval.get.bestIter(index) >= trainParams.earlyStoppingRound) {
+          } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
             isFinished = true
-            log.info("Early stopping, best iteration is " + bestEval.get.bestIter(index))
+            log.info("Early stopping, best iteration is " + bestIter(index))
           }
         }
         lightgbmlib.delete_doubleArray(evalResults)
@@ -170,14 +168,14 @@ private object TrainUtils extends Serializable {
       var validDatasetPtr: Option[SWIGTYPE_p_void] = None
       try {
         trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
-        if (validationData.isDefined && validationData.get.nonEmpty) {
+        if (validationData.isDefined) {
           validDatasetPtr = generateDataset(validationData.get, labelColumn,
             featuresColumn, weightColumn, trainDatasetPtr)
         }
         var boosterPtr: Option[SWIGTYPE_p_void] = None
         try {
           boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-          trainCore(trainParams, boosterPtr, log, !validDatasetPtr.isEmpty)
+          trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
           val model = saveBoosterToString(boosterPtr, log)
           List[LightGBMBooster](new LightGBMBooster(model)).toIterator
         } finally {
@@ -227,13 +225,12 @@ private object TrainUtils extends Serializable {
         workerServerSocket.bind(new InetSocketAddress(localListenPort))
         foundPort = true
       } catch {
-        case ex: IOException => {
-          log.info(s"Could not bind to port $localListenPort...")
+        case ex: IOException =>
+          log.warn(s"Could not bind to port $localListenPort...")
           localListenPort += 1
           if (localListenPort - basePort > 1000) {
             throw new Exception("Error: Could not find open port after 1k tries")
           }
-        }
       }
     }
     log.info(s"Successfully bound to port $localListenPort")
@@ -244,13 +241,13 @@ private object TrainUtils extends Serializable {
                localListenPort: Int, log: Logger): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
-        using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream())),
-          new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream())))) {
+        using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
+          new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream)))) {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
             val workerHost = driverSocket.getLocalAddress.getHostAddress
-            log.info(s"send current worker info to driver: ${workerHost}:${localListenPort} ")
+            log.info(s"send current worker info to driver: $workerHost:$localListenPort ")
             // Send the current host:port to the driver
             driverOutput.write(s"$workerHost:$localListenPort\n")
             driverOutput.flush()
