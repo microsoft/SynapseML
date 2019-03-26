@@ -45,6 +45,7 @@ class LightGBMClassifier(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
+    val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
     val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
@@ -77,15 +78,15 @@ class LightGBMClassifier(override val uid: String)
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, classes, metric, getBoostFromAverage, getBoostingType)
-    log.info(s"LightGBMClassifier parameters: ${trainParams.toString}")
+    log.info(s"LightGBMClassifier parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
     val validationData =
-      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(get(validationIndicatorCol).get))
-        Some(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect())
+      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
+        Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
       else None
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        validationData, log, trainParams, numCoresPerExec))(encoder)
+        validationData.map(_.value), log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
