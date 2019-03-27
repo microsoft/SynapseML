@@ -135,3 +135,17 @@ trait HasEvaluationMetric extends Wrappable {
   /** @group setParam */
   def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
 }
+
+trait HasValidationIndicatorCol extends Wrappable {
+  /** The name of the validation indicator column
+    * @group param
+    */
+  val validationIndicatorCol: Param[String] =
+    new Param[String](this, "validationIndicatorCol", "Indicates whether the row is for training or validation")
+
+  /** @group getParam */
+  def getValidationIndicatorCol: String = $(validationIndicatorCol)
+
+  /** @group setParam */
+  def setValidationIndicatorCol(value: String): this.type = set(validationIndicatorCol, value)
+}

@@ -46,6 +46,7 @@ class LightGBMClassifier(override val uid: String)
     * @return The trained model.
     */
   override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
+    val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset)
     val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
@@ -73,16 +74,20 @@ class LightGBMClassifier(override val uid: String)
     val metric =
       if (classes.isDefined) "multiclass"
       else "binary_logloss,auc"
+    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, classes, metric, getBoostFromAverage, getBoostingType)
-    log.info(s"LightGBMClassifier parameters: ${trainParams.toString}")
+    log.info(s"LightGBMClassifier parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
-
+    val validationData =
+      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
+        Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
+      else None
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        log, trainParams, numCoresPerExec))(encoder)
+        validationData.map(_.value), log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))

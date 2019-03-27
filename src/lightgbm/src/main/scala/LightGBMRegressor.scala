@@ -80,16 +80,21 @@ class LightGBMRegressor(override val uid: String)
     val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
     val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol,
       categoricalSlotIndexesArr, categoricalSlotNamesArr)
+    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
       getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType)
     log.info(s"LightGBMRegressor parameters: ${trainParams.toString}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
 
+    val validationData =
+      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(get(validationIndicatorCol).get))
+        Some(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect())
+      else None
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        log, trainParams, numCoresPerExec))(encoder)
+        validationData, log, trainParams, numCoresPerExec))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))

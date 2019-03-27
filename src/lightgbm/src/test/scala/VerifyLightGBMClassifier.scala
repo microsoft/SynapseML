@@ -8,6 +8,7 @@ import java.io.File
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{lit, rand}
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.commons.io.FileUtils
@@ -151,6 +152,50 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val metricWithIsUnbalance = eval.evaluate(scoredWithIsUnbalance)
     // Verify IsUnbalance parameter improves metric
     assert(metricWithoutIsUnbalance < metricWithIsUnbalance)
+  }
+
+  test("Verify LightGBM Classifier with validation dataset") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "task.train.csv"
+    val labelColumnName = "TaskFailed10"
+    val validationColumnName = "validation"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val seed = 42
+    val data = readDataset.randomSplit(Array(0.6, 0.2, 0.2), seed.toLong)
+    val trainData = data(0).withColumn(validationColumnName, lit(false))
+    val validationData = data(1).withColumn(validationColumnName, lit(true))
+    val testData = data(2).withColumn(validationColumnName, lit(false))
+
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(100)
+      .setNumIterations(100)
+      .setObjective(binaryObjective)
+      .setIsUnbalance(true)
+    val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
+    val lgbmModel = lgbm.fit(featurizer.transform(trainData.orderBy(rand())))
+    val trainWithValid = trainData.union(validationData).orderBy(rand())
+    val lgbmWithValidation = lgbm
+      .setValidationIndicatorCol(validationColumnName)
+      .setEarlyStoppingRound(2)
+    val featurizerValid = LightGBMUtils.featurizeData(trainWithValid, labelColumnName, featuresColumn)
+    val lgbmWithValidationModel = lgbmWithValidation.fit(featurizerValid.transform(trainWithValid))
+    val scoredWithoutValidation = lgbmModel.transform(featurizer.transform(testData))
+    val scoredWithValidation = lgbmWithValidationModel.transform(featurizerValid.transform(testData))
+    val eval = new BinaryClassificationEvaluator()
+      .setLabelCol(labelColumnName)
+      .setRawPredictionCol(rawPredCol)
+    val metricWithoutValidation = eval.evaluate(scoredWithoutValidation)
+    val metricWithValidation = eval.evaluate(scoredWithValidation)
+    // Verify validation improves metric
+    assert(metricWithoutValidation < metricWithValidation)
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
