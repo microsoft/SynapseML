@@ -46,6 +46,8 @@ class VowpalWabbitRegressorModel(override val uid: String, val model: Array[Byte
 
   override def copy(extra: ParamMap): VowpalWabbitRegressorModel =
     new VowpalWabbitRegressorModel(uid, model)
+      .setFeaturesCol(getFeaturesCol)
+      .setAdditionalFeatures(getAdditionalFeatures)
 
   override val ttag: TypeTag[VowpalWabbitRegressorModel] =
     typeTag[VowpalWabbitRegressorModel]

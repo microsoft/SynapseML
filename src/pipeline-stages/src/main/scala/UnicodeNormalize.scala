@@ -49,19 +49,12 @@ class UnicodeNormalize(val uid: String) extends Transformer
 
     require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
-<<<<<<< HEAD
     val normalizeFunc = (value: String) =>
       if (value == null) null
       else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
     val f = if (getLower)
       (value: String) => if (value == null) null else normalizeFunc(value.toLowerCase)
-=======
-    val normalizeFunc = (value: String) => Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
-
-    val f = if (getLower)
-      (value: String) => normalizeFunc(value.toLowerCase)
->>>>>>> 0b84a230d1556ced87be9139dd798237711c1158
     else
       normalizeFunc
 

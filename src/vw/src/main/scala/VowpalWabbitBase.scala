@@ -38,10 +38,9 @@ object VWUtil {
 }
 
 @InternalWrapper
-trait VowpalWabbitBase extends DefaultParamsWritable
-  with org.apache.spark.ml.param.shared.HasWeightCol
-  with org.apache.spark.ml.param.shared.HasFeaturesCol
-  with org.apache.spark.ml.param.shared.HasLabelCol
+trait VowpalWabbitBase extends Wrappable
+  with DefaultParamsWritable
+  with HasWeightCol
 {
   // can we switch to https://docs.scala-lang.org/overviews/macros/paradise.html ?
   val args = new Param[String](this, "args", "VW command line arguments passed")
@@ -94,6 +93,15 @@ trait VowpalWabbitBase extends DefaultParamsWritable
   def getCacheRows: Boolean = $(cacheRows)
   def setCacheRows(value: Boolean): this.type = set(cacheRows, value)
 
+  val enableCacheFile = new BooleanParam(this, "cacheFile", "Enable local cache file")
+  setDefault(enableCacheFile -> false)
+  def getEnableCacheFile: Boolean = $(enableCacheFile)
+  def setEnableCacheFile(value: Boolean): this.type = set(enableCacheFile, value)
+
+  // abstract methods that implementors need to provide (mixed in through Classifier,...)
+  def getLabelCol: String
+  def getFeaturesCol: String
+
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParam[T](param: Param[T], option: String): StringBuilder = {
       if (!get(param).isEmpty) {
@@ -139,9 +147,9 @@ trait VowpalWabbitBase extends DefaultParamsWritable
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
 
-    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte]): Iterator[Array[Byte]] = {
+    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte], pass: Int): Iterator[Array[Byte]] = {
       // only perform the inner-loop if we cache the inputRows
-      val numPasses = if(getCacheRows) getNumPasses else 1
+      val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
       val iteratorGenerator = if (numPasses == 1)
       // avoid caching inputRows
@@ -152,10 +160,19 @@ trait VowpalWabbitBase extends DefaultParamsWritable
         () => inputRowsArr.iterator
       }
 
-      val args = s"$vwArgs ${contextArgs()}"
+      val args = new StringBuilder
+      args.append(vwArgs)
+      args.append(" ").append(contextArgs())
 
-      VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args)
-                       else new VowpalWabbitNative(args, localInitialModel)) { vw =>
+      if (getEnableCacheFile) {
+        val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
+        cacheFile.deleteOnExit
+
+        args.append(s" -k --cache_file ${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
+      }
+
+      VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args.result)
+                       else new VowpalWabbitNative(args.result, localInitialModel)) { vw =>
         VWUtil.autoClose(vw.createExample()) { ex =>
           // loop in here to avoid
           // - passing model back and forth
@@ -190,11 +207,11 @@ trait VowpalWabbitBase extends DefaultParamsWritable
     val encoder = Encoders.kryo[Array[Byte]]
 
     // schedule multiple mapPartitions in
-    val outerNumPasses = if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
+    val outerNumPasses = if (getEnableCacheFile) 1 else if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
     var localInitialModel = if (isDefined(initialModel)) getInitialModel else null
 
-    for (_ <- 0 until outerNumPasses) {
-      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
+    for (p <- 0 until outerNumPasses) {
+      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p))(encoder)
         .reduce((m1, _) => m1)
     }
 

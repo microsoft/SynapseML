@@ -51,7 +51,7 @@ class LightGBMClassifier(override val uid: String)
     val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Reduce number of partitions to number of executor cores
-    val df = dataset.toDF().coalesce(numWorkers).cache()
+    val df = dataset.toDF().coalesce(numWorkers) //.cache()
     val (inetAddress, port, future) =
       LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
 

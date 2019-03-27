@@ -70,7 +70,7 @@ class VowpalWabbitClassificationModel(
   override def copy(extra: ParamMap): VowpalWabbitClassificationModel =
     new VowpalWabbitClassificationModel(uid, model)
       .setFeaturesCol(getFeaturesCol)
-    .setAdditionalFeatures(getAdditionalFeatures)
+      .setAdditionalFeatures(getAdditionalFeatures)
 
   protected override def predictRaw(features: Row): Vector = {
     throw new NotImplementedError("Not implement")

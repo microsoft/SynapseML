@@ -215,25 +215,10 @@ private object TrainUtils extends Serializable {
   }
 
   private def findOpenPort(defaultListenPort: Int, numCoresPerExec: Int, log: Logger): Socket = {
-    val basePort = defaultListenPort + (LightGBMUtils.getId() * numCoresPerExec)
-    var localListenPort = basePort
-    var foundPort = false
-    var workerServerSocket: Socket = null
-    while (!foundPort) {
-      try {
-        workerServerSocket = new Socket()
-        workerServerSocket.bind(new InetSocketAddress(localListenPort))
-        foundPort = true
-      } catch {
-        case ex: IOException =>
-          log.warn(s"Could not bind to port $localListenPort...")
-          localListenPort += 1
-          if (localListenPort - basePort > 1000) {
-            throw new Exception("Error: Could not find open port after 1k tries")
-          }
-      }
-    }
-    log.info(s"Successfully bound to port $localListenPort")
+    val workerServerSocket = new Socket()
+    workerServerSocket.bind(new InetSocketAddress(0))
+
+    log.info(s"Successfully bound to port ${workerServerSocket.getLocalPort}")
     workerServerSocket
   }
 

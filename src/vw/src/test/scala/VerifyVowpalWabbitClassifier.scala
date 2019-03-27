@@ -99,6 +99,25 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
     assert(labelOneCnt1 == labelOneCnt2)
   }
 
+  test("Verify VowpalWabbit Classifier w/ bfgs and cache file") {
+    val fileName = "a1a.train.svmlight"
+    val labelColumnName = "Diabetes mellitus"
+
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+
+    val vw1 = new VowpalWabbitClassifier()
+      .setNumPasses(3)
+      .setEnableCacheFile(true)
+      .setArgs("--loss_function=logistic --bfgs")
+    val classifier1 = vw1.fit(dataset)
+
+    val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
+
+    println(labelOneCnt1)
+    // assert(labelOneCnt1 == labelOneCnt2)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.
