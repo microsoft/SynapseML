@@ -3,12 +3,15 @@
 
 package com.microsoft.ml.spark
 
+import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
+import java.net.{InetAddress, ServerSocket, Socket}
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import org.apache.spark.{ClusterUtil, TaskContext}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{DefaultParamsWritable}
+import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
@@ -16,6 +19,7 @@ import org.vowpalwabbit.bare.prediction.ScalarPrediction
 import org.vowpalwabbit.bare.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
 import scala.math.min
+import scala.concurrent.{ExecutionContext, Future}
 
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
 
@@ -147,7 +151,8 @@ trait VowpalWabbitBase extends Wrappable
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
 
-    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte], pass: Int): Iterator[Array[Byte]] = {
+    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte], pass: Int,
+                       consoleAddr: InetAddress, consolePort: Int): Iterator[Array[Byte]] = {
       // only perform the inner-loop if we cache the inputRows
       val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
@@ -171,37 +176,46 @@ trait VowpalWabbitBase extends Wrappable
         args.append(s" -k --cache_file ${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
       }
 
-      VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args.result)
-                       else new VowpalWabbitNative(args.result, localInitialModel)) { vw =>
-        VWUtil.autoClose(vw.createExample()) { ex =>
-          // loop in here to avoid
-          // - passing model back and forth
-          // - re-establishing network connection
-          for (_ <- 0 until numPasses) {
-            // pass data to VW native part
-            for (row <- iteratorGenerator()) {
-              // transfer label
-              applyLabel(row, ex)
+      //VWUtil.autoClose(new Socket(consoleAddr, consolePort)) { consoleSocket => {
+        VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args.result)
+        else new VowpalWabbitNative(args.result, localInitialModel)) { vw =>
+          VWUtil.autoClose(vw.createExample()) { ex =>
 
-              // transfer features
-              for (ns <- featureColIndices)
-                row.get(ns.colIdx) match {
-                  case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-                    ns.hash, dense.values)
-                  case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-                    sparse.indices, sparse.values)
-                }
+            /*
+            val writer = new BufferedWriter(new OutputStreamWriter(consoleSocket.getOutputStream))
+            writer.write("###################### Hello World\n")
+            writer.flush
+            */
 
-              ex.learn
-              ex.clear
+            // loop in here to avoid
+            // - passing model back and forth
+            // - re-establishing network connection
+            for (_ <- 0 until numPasses) {
+              // pass data to VW native part
+              for (row <- iteratorGenerator()) {
+                // transfer label
+                applyLabel(row, ex)
+
+                // transfer features
+                for (ns <- featureColIndices)
+                  row.get(ns.colIdx) match {
+                    case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+                      ns.hash, dense.values)
+                    case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+                      sparse.indices, sparse.values)
+                  }
+
+                ex.learn
+                ex.clear
+              }
+
+              vw.endPass
             }
-
-            vw.endPass
           }
-        }
 
-        Seq(vw.getModel).toIterator
-      }
+          Seq(vw.getModel).toIterator
+        }
+    //  }}
     }
 
     val encoder = Encoders.kryo[Array[Byte]]
@@ -210,10 +224,38 @@ trait VowpalWabbitBase extends Wrappable
     val outerNumPasses = if (getEnableCacheFile) 1 else if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
     var localInitialModel = if (isDefined(initialModel)) getInitialModel else null
 
+    // setup central logging server
+    /*
+    implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    val consoleSocket = new ServerSocket(0)
+    Future {
+      while (true) {
+        val clientSocket = consoleSocket.accept
+
+        Future {
+          val reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream))
+          var line: String = null
+          while ({ line = reader.readLine(); line != null }) {
+            println(s"Worker: ${clientSocket.getInetAddress} $line")
+          }
+        }
+      }
+    }
+    val consoleAddr = consoleSocket.getInetAddress
+    val consolePort = consoleSocket.getLocalPort
+    */
+
+    val consoleAddr = null
+    val consolePort = 0
+
     for (p <- 0 until outerNumPasses) {
-      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p))(encoder)
+      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p,
+        consoleAddr, consolePort))(encoder)
         .reduce((m1, _) => m1)
     }
+
+    // close logging server
+    // consoleSocket.close / use AutoClose
 
     localInitialModel
   }

@@ -15,62 +15,15 @@ import org.apache.spark.ml.util.Identifiable
 
 import scala.collection.mutable.ArrayBuilder
 
-class VowpalWabbitInteractions(override val uid: String) extends Transformer with HasInputCols with HasOutputCol
+class VowpalWabbitInteractions(override val uid: String) extends Transformer with HasInputCols with HasOutputCol with HasNumBits
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
-  val mask = new IntParam(this, "mask", "Hash mask")
-  setDefault(mask -> ((1 << 31) - 1))
-
-  def getMask: Int = $(mask)
-  def setMask(value: Int): this.type = set(mask, value)
-
   override def transform(dataset: Dataset[_]): DataFrame = {
-  /*
-    val inputColsList = getAllInputCols
-    val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
-
-    val fieldSubset = dataset.schema.fields
-      .filter(f => inputColsList.contains(f.name))
-
-    val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
-      .map { case (field, idx) => getFeaturizer(field.name, field.dataType, idx, namespaceHash) }
-
-    // TODO: list types
-    // BinaryType
-    // CalendarIntervalType
-    // DateType
-    // NullType
-    // TimestampType
-    // getStruct
-
-    val mode = udf((r: Row) => {
-      val indices = ArrayBuilder.make[Int]
-      val values = ArrayBuilder.make[Double]
-
-      // educated guess on size
-      indices.sizeHint(featurizers.length)
-      values.sizeHint(featurizers.length)
-
-      // apply all featurizers
-      for (f <- featurizers)
-        if (!r.isNullAt(f.fieldIdx))
-          f.featurize(r, indices, values)
-
-      // sort by indices and remove duplicate values
-      // Warning:
-      //   - due to SparseVector limitations (which doesn't allow duplicates) we need filter
-      //   - VW command line allows for duplicate features with different values (just updates twice)
-      val (indicesSorted, valuesSorted) = sortAndDistinct(indices.result, values.result)
-
-      Vectors.sparse(getMask, indicesSorted, valuesSorted)
-    })
-
-    dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
-    */
-
     val fieldSubset = dataset.schema.fields
       .filter(f => getInputCols.contains(f.name))
+
+    val mask = getMask
 
     val mode = udf((r: Row) => {
 
@@ -86,7 +39,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer wit
 
       def interact(idx: Int, value: Double, ns: Int): Unit = {
         if (ns == r.size) {
-          newIndices(i) += idx
+          newIndices(i) += mask & idx
           newValues(i) += value
 
           i += 1
@@ -100,9 +53,12 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer wit
         }
       }
 
+      // start the recursion
       interact(0, 1, 0)
 
+      val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(newIndices, newValues, getSumCollisions)
 
+      Vectors.sparse(1 << getNumBits, indicesSorted, valuesSorted)
     })
 
     dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))

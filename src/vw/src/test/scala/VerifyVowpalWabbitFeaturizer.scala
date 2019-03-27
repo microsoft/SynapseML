@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.featurizer.Featurizer
 
 class VerifyVowpalWabbitFeaturizer extends TestBase {
 
-  val defaultMask = ((1 << 31) - 1)
+  val defaultMask = ((1 << 30) - 1)
 
   case class Sample1(val str: String, val seq: Seq[String])
   case class Input[T] (val in: T)
@@ -98,12 +98,12 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(vec.numNonzeros == 2)
 
     // note: order depends on the hashes
-    assert(vec.indices(1) == (defaultMask &
-      VowpalWabbitMurmur.hash("ink1", VowpalWabbitMurmur.hash("features", 0))))
     assert(vec.indices(0) == (defaultMask &
+      VowpalWabbitMurmur.hash("ink1", VowpalWabbitMurmur.hash("features", 0))))
+    assert(vec.indices(1) == (defaultMask &
       VowpalWabbitMurmur.hash("ink2", VowpalWabbitMurmur.hash("features", 0))))
-    assert(vec.values(1) == v1)
-    assert(vec.values(0) == v2)
+    assert(vec.values(0) == v1)
+    assert(vec.values(1) == v2)
   }
 
   test("Verify VowpalWabbit Featurizer can be run with MapStringDouble") {

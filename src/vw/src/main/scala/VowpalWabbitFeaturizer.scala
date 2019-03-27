@@ -15,7 +15,7 @@ import org.apache.spark.ml.util.Identifiable
 
 import scala.collection.mutable.ArrayBuilder
 
-class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with HasInputCols with HasOutputCol
+class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with HasInputCols with HasOutputCol with HasNumBits
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
@@ -27,18 +27,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
   def getSeed: Int = $(seed)
   def setSeed(value: Int): this.type = set(seed, value)
 
-  val mask = new IntParam(this, "mask", "Hash mask")
-  setDefault(mask -> ((1 << 31) - 1))
-
-  def getMask: Int = $(mask)
-  def setMask(value: Int): this.type = set(mask, value)
-
-  val sumCollisions = new BooleanParam(this, "sumCollisions", "Sums collisions if true, otherwise removes them")
-  setDefault(sumCollisions -> true)
-
-  def getSumCollisions: Boolean = $(sumCollisions)
-  def setSumCollisions(value: Boolean): this.type = set(sumCollisions, value)
-
   val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols",
     "Input cols that should be split add word boundaries")
   setDefault(stringSplitInputCols -> Array())
@@ -47,56 +35,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
   def setStringSplitInputCols(value: Array[String]): this.type = set(stringSplitInputCols, value)
 
   private def getAllInputCols = getInputCols ++ getStringSplitInputCols
-
-  private def sortAndDistinct(indices: Array[Int], values: Array[Double]): (Array[Int], Array[Double]) = {
-    if (indices.length == 0)
-      (indices, values)
-    else {
-      // get a sorted list of indices
-      val argsort = (0 until indices.length)
-        .sortWith(indices(_) < indices(_))
-        .toArray
-
-      val indicesSorted = new Array[Int](indices.length)
-      val valuesSorted = new Array[Double](indices.length)
-
-      indicesSorted(0) = indices(argsort(0))
-      var previousIndex = indicesSorted(0)
-      valuesSorted(0) = values(argsort(0))
-
-      val sumCollisions = getSumCollisions
-
-      // in-place de-duplicate
-      var j = 1
-      for (i <- 1 until indices.length) {
-        val argIndex = argsort(i)
-        val index = indices(argIndex)
-
-        if (index != previousIndex) {
-          indicesSorted(j) = index
-          previousIndex = index
-          valuesSorted(j) = values(argIndex)
-
-          j += 1
-        }
-        else if (sumCollisions)
-          valuesSorted(j - 1) += values(argIndex)
-      }
-
-      if (j == indices.length)
-        (indicesSorted, valuesSorted)
-      else {
-        // just in case we found duplicates, let compact the array
-        val indicesCompacted = new Array[Int](j)
-        val valuesCompacted = new Array[Double](j)
-
-        Array.copy(indicesSorted, 0, indicesCompacted, 0, j)
-        Array.copy(valuesSorted, 0, valuesCompacted, 0, j)
-
-        (indicesCompacted, valuesCompacted)
-      }
-    }
-  }
 
   private def getFeaturizer(name: String, dataType: DataType, idx: Int, namespaceHash: Int): Featurizer = {
     val stringSplitInputCols = getStringSplitInputCols
@@ -173,9 +111,9 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       // Warning:
       //   - due to SparseVector limitations (which doesn't allow duplicates) we need filter
       //   - VW command line allows for duplicate features with different values (just updates twice)
-      val (indicesSorted, valuesSorted) = sortAndDistinct(indices.result, values.result)
+      val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(indices.result, values.result, getSumCollisions)
 
-      Vectors.sparse(getMask, indicesSorted, valuesSorted)
+      Vectors.sparse(1 << getNumBits, indicesSorted, valuesSorted)
     })
 
     dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
