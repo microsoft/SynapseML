@@ -9,12 +9,12 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import scala.collection.mutable.{ArrayBuilder}
 
 class MapFeaturizer[T](override val fieldIdx: Int, val columnName: String, val namespaceHash: Int,
-                       val valueFeaturizer: (T) => Double)
+                       val mask: Int, val valueFeaturizer: (T) => Double)
   extends Featurizer(fieldIdx) {
 
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
     for ((k,v) <- row.getMap[String, T](fieldIdx).iterator) {
-      indices += Featurizer.maxIndexMask & VowpalWabbitMurmur.hash(columnName + k, namespaceHash)
+      indices += mask & VowpalWabbitMurmur.hash(columnName + k, namespaceHash)
       values += valueFeaturizer(v)
     }
   }

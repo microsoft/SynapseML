@@ -45,13 +45,13 @@ class SuperpixelSuite extends CNTKTestUtils {
   val superpixels: SuperpixelData = SuperpixelData.fromSuperpixel(sp1)
   val superpixels2: SuperpixelData = SuperpixelData.fromSuperpixel(sp2)
 
-  lazy val censoredImg: BufferedImage = Superpixel.censorImage(
+  lazy val censoredImg: BufferedImage = Superpixel.maskImage(
     ImageUtils.toSparkImage(img).getStruct(0), superpixels, states)
-  lazy val censoredImg2: BufferedImage = Superpixel.censorImage(
+  lazy val censoredImg2: BufferedImage = Superpixel.maskImage(
     ImageUtils.toSparkImage(img).getStruct(0), superpixels2, states2)
 
   test("ToList should work on an state sampler") {
-    val sampler = Superpixel.clusterStateSampler(0.3, 1000)
+    val sampler = LIMEUtils.randomMasks(0.3, 1000)
     val samples: List[Array[Boolean]] = sampler.take(10).toList
     assert(samples.size === 10)
   }

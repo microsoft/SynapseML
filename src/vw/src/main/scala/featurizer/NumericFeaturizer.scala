@@ -9,10 +9,10 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
 
 class NumericFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int,
-                        val getFieldValue: (Row) => Double)
+                        mask: Int, val getFieldValue: (Row) => Double)
   extends Featurizer(fieldIdx) {
 
-    val featureIdx = Featurizer.maxIndexMask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
+    val featureIdx = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
 
     override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
       val value = getFieldValue(row)

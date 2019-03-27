@@ -7,10 +7,6 @@ import org.apache.spark.sql.Row
 
 import scala.collection.mutable.ArrayBuilder
 
-object Featurizer {
-  val maxIndexMask: Int = ((1 << 31) - 1)
-}
-
 abstract class Featurizer(val fieldIdx: Int) extends Serializable {
 
   // TODO: review this, but due to SparseVector limitations we don't support 64bit indices

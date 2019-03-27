@@ -8,7 +8,7 @@ import org.apache.spark.sql.Row
 
 import scala.collection.mutable.ArrayBuilder
 
-class MapStringFeaturizer(override val fieldIdx: Int, val columnName: String, namespaceHash: Int)
+class MapStringFeaturizer(override val fieldIdx: Int, val columnName: String, namespaceHash: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
 
   val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
@@ -16,7 +16,7 @@ class MapStringFeaturizer(override val fieldIdx: Int, val columnName: String, na
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
     for ((k,v) <- row.getMap[String, String](fieldIdx).iterator) {
       // TODO: could optimize k + v...
-      indices += Featurizer.maxIndexMask & hasher.hash(k + v, namespaceHash)
+      indices += mask & hasher.hash(k + v, namespaceHash)
       values += 1.0
     }
   }

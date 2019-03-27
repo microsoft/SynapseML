@@ -11,6 +11,8 @@ import com.microsoft.ml.spark.featurizer.Featurizer
 
 class VerifyVowpalWabbitFeaturizer extends TestBase {
 
+  val defaultMask = ((1 << 31) - 1)
+
   case class Sample1(val str: String, val seq: Seq[String])
   case class Input[T] (val in: T)
 
@@ -76,9 +78,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 2)
-    assert(v1.indices(0) == (Featurizer.maxIndexMask &
+    assert(v1.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
-    assert(v1.indices(1) == (Featurizer.maxIndexMask &
+    assert(v1.indices(1) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarie", VowpalWabbitMurmur.hash("features", 0))))
     assert(v1.values(0) == 1.0)
     assert(v1.values(1) == 1.0)
@@ -96,9 +98,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(vec.numNonzeros == 2)
 
     // note: order depends on the hashes
-    assert(vec.indices(1) == (Featurizer.maxIndexMask &
+    assert(vec.indices(1) == (defaultMask &
       VowpalWabbitMurmur.hash("ink1", VowpalWabbitMurmur.hash("features", 0))))
-    assert(vec.indices(0) == (Featurizer.maxIndexMask &
+    assert(vec.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("ink2", VowpalWabbitMurmur.hash("features", 0))))
     assert(vec.values(1) == v1)
     assert(vec.values(0) == v2)
@@ -122,9 +124,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 2)
-    assert(v1.indices(0) == (Featurizer.maxIndexMask &
+    assert(v1.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
-    assert(v1.indices(1) == (Featurizer.maxIndexMask &
+    assert(v1.indices(1) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarie", VowpalWabbitMurmur.hash("features", 0))))
     assert(v1.values(0) == 1.0)
     assert(v1.values(1) == 1.0)
@@ -134,12 +136,27 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setStringSplitInputCols(Array("in"))
       .setOutputCol("features")
+    val df1 = session.createDataFrame(Seq(Input[String]("markus markus markus")))
+
+    val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
+
+    assert(v1.numNonzeros == 1)
+    assert(v1.indices(0) == (defaultMask &
+      VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
+    assert(v1.values(0) == 3.0)
+  }
+
+  test("Verify VowpalWabbit Featurizer can generate duplicates and remove") {
+    val featurizer1 = new VowpalWabbitFeaturizer()
+      .setSumCollisions(false)
+      .setStringSplitInputCols(Array("in"))
+      .setOutputCol("features")
     val df1 = session.createDataFrame(Seq(Input[String]("markus markus")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 1)
-    assert(v1.indices(0) == (Featurizer.maxIndexMask &
+    assert(v1.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
     assert(v1.values(0) == 1.0)
   }

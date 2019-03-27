@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.featurizer._
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
+import org.apache.spark.ml.param.{BooleanParam, IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
@@ -26,6 +26,18 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
 
   def getSeed: Int = $(seed)
   def setSeed(value: Int): this.type = set(seed, value)
+
+  val mask = new IntParam(this, "mask", "Hash mask")
+  setDefault(mask -> ((1 << 31) - 1))
+
+  def getMask: Int = $(mask)
+  def setMask(value: Int): this.type = set(mask, value)
+
+  val sumCollisions = new BooleanParam(this, "sumCollisions", "Sums collisions if true, otherwise removes them")
+  setDefault(sumCollisions -> true)
+
+  def getSumCollisions: Boolean = $(sumCollisions)
+  def setSumCollisions(value: Boolean): this.type = set(sumCollisions, value)
 
   val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols",
     "Input cols that should be split add word boundaries")
@@ -52,18 +64,23 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       var previousIndex = indicesSorted(0)
       valuesSorted(0) = values(argsort(0))
 
+      val sumCollisions = getSumCollisions
+
       // in-place de-duplicate
       var j = 1
       for (i <- 1 until indices.length) {
-        val index = indices(argsort(i))
+        val argIndex = argsort(i)
+        val index = indices(argIndex)
 
         if (index != previousIndex) {
           indicesSorted(j) = index
           previousIndex = index
-          valuesSorted(j) = values(argsort(i))
+          valuesSorted(j) = values(argIndex)
 
           j += 1
         }
+        else if (sumCollisions)
+          valuesSorted(j - 1) += values(argIndex)
       }
 
       if (j == indices.length)
@@ -85,33 +102,35 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
     val stringSplitInputCols = getStringSplitInputCols
 
     dataType match {
-      case DoubleType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getDouble(idx))
-      case FloatType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getFloat(idx).toDouble)
-      case IntegerType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getInt(idx).toDouble)
-      case LongType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getLong(idx).toDouble)
-      case ShortType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getShort(idx).toDouble)
-      case ByteType => new NumericFeaturizer(idx, name, namespaceHash, r => r.getByte(idx).toDouble)
-      case BooleanType => new BooleanFeaturizer(idx, name, namespaceHash)
-      case StringType => if (stringSplitInputCols.contains(name)) new StringSplitFeaturizer(idx, name, namespaceHash)
-      else new StringFeaturizer(idx, name, namespaceHash)
+      case DoubleType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getDouble(idx))
+      case FloatType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getFloat(idx).toDouble)
+      case IntegerType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getInt(idx).toDouble)
+      case LongType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getLong(idx).toDouble)
+      case ShortType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getShort(idx).toDouble)
+      case ByteType => new NumericFeaturizer(idx, name, namespaceHash, getMask, r => r.getByte(idx).toDouble)
+      case BooleanType => new BooleanFeaturizer(idx, name, namespaceHash, getMask)
+      case StringType =>
+        if (stringSplitInputCols.contains(name))
+          new StringSplitFeaturizer(idx, name, namespaceHash, getMask)
+      else new StringFeaturizer(idx, name, namespaceHash, getMask)
       case arr: ArrayType => {
         if (arr.elementType != DataTypes.StringType)
           throw new RuntimeException(s"Unsupported array element type: ${dataType}")
 
-        new StringArrayFeaturizer(idx, name, namespaceHash)
+        new StringArrayFeaturizer(idx, name, namespaceHash, getMask)
       }
       case m: MapType => {
         if (m.keyType != DataTypes.StringType)
           throw new RuntimeException(s"Unsupported map key type: ${dataType}")
 
         m.valueType match {
-          case StringType => new MapStringFeaturizer(idx, name, namespaceHash)
-          case DoubleType => new MapFeaturizer[Double](idx, name, namespaceHash, v => v)
-          case FloatType => new MapFeaturizer[Float](idx, name, namespaceHash, v => v.toDouble)
-          case IntegerType => new MapFeaturizer[Int](idx, name, namespaceHash, v => v.toDouble)
-          case LongType => new MapFeaturizer[Long](idx, name, namespaceHash, v => v.toDouble)
-          case ShortType => new MapFeaturizer[Short](idx, name, namespaceHash, v => v.toDouble)
-          case ByteType => new MapFeaturizer[Byte](idx, name, namespaceHash, v => v.toDouble)
+          case StringType => new MapStringFeaturizer(idx, name, namespaceHash, getMask)
+          case DoubleType => new MapFeaturizer[Double](idx, name, namespaceHash, getMask, v => v)
+          case FloatType => new MapFeaturizer[Float](idx, name, namespaceHash, getMask, v => v.toDouble)
+          case IntegerType => new MapFeaturizer[Int](idx, name, namespaceHash, getMask, v => v.toDouble)
+          case LongType => new MapFeaturizer[Long](idx, name, namespaceHash, getMask, v => v.toDouble)
+          case ShortType => new MapFeaturizer[Short](idx, name, namespaceHash, getMask, v => v.toDouble)
+          case ByteType => new MapFeaturizer[Byte](idx, name, namespaceHash, getMask, v => v.toDouble)
           case _ => throw new RuntimeException(s"Unsupported map value type: ${dataType}")
         }
       }
@@ -138,10 +157,11 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
         // getStruct
 
     val mode = udf((r: Row) => {
-      // educated guess on size
       val indices = ArrayBuilder.make[Int]
-      indices.sizeHint(featurizers.length)
       val values = ArrayBuilder.make[Double]
+
+      // educated guess on size
+      indices.sizeHint(featurizers.length)
       values.sizeHint(featurizers.length)
 
         // apply all featurizers
@@ -155,7 +175,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       //   - VW command line allows for duplicate features with different values (just updates twice)
       val (indicesSorted, valuesSorted) = sortAndDistinct(indices.result, values.result)
 
-      Vectors.sparse(Featurizer.maxIndexMask, indicesSorted, valuesSorted)
+      Vectors.sparse(getMask, indicesSorted, valuesSorted)
     })
 
     dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))

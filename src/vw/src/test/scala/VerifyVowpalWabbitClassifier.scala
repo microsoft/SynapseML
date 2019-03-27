@@ -62,7 +62,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
 
     val labelOneCnt = classifier.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
 
-    assert(labelOneCnt  < dataset.count)
+    assert(labelOneCnt < dataset.count)
     assert(labelOneCnt > 10)
   }
 

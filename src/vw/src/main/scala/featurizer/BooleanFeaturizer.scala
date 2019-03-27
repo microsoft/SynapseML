@@ -8,10 +8,10 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
 import scala.collection.mutable.{ArrayBuilder}
 
-class BooleanFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int)
+class BooleanFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int, mask: Int)
   extends Featurizer(fieldIdx) {
 
-    val featureIdx = Featurizer.maxIndexMask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
+    val featureIdx = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
 
     override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
       if (row.getBoolean(fieldIdx)) {

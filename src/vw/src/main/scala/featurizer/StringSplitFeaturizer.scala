@@ -9,7 +9,7 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
 import scala.collection.mutable.ArrayBuilder
 
-class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
+class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
 
   val nonWhiteSpaces = "\\S+".r
@@ -21,7 +21,7 @@ class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, 
 
     for (e <- nonWhiteSpaces.findAllMatchIn(s)) {
       // Note: since the hasher access the chars directly it avoids any allocation
-      indices += Featurizer.maxIndexMask & hasher.hash(s, e.start, e.end, namespaceHash)
+      indices += mask & hasher.hash(s, e.start, e.end, namespaceHash)
       values += 1.0
     }
   }

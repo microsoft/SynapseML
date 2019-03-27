@@ -9,13 +9,13 @@ import org.vowpalwabbit.bare.VowpalWabbitMurmur
 
 import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
 
-class StringArrayFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
+class StringArrayFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
   val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
 
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
     for (s <- row.getSeq[String](fieldIdx)) {
-      indices += Featurizer.maxIndexMask & hasher.hash(s, namespaceHash)
+      indices += mask & hasher.hash(s, namespaceHash)
       values += 1.0
     }
   }

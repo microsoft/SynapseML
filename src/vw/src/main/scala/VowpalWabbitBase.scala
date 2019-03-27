@@ -137,6 +137,7 @@ trait VowpalWabbitBase extends DefaultParamsWritable
     println(vwArgs) // TODO: properly log
 
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
+        .toArray
 
     def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte]): Iterator[Array[Byte]] = {
       // only perform the inner-loop if we cache the inputRows

@@ -8,12 +8,12 @@ import org.apache.spark.sql.Row
 
 import scala.collection.mutable.ArrayBuilder
 
-class StringFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int)
+class StringFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
   val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
 
     override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
-      indices += Featurizer.maxIndexMask & hasher.hash(row.getString(fieldIdx), namespaceHash)
+      indices += mask & hasher.hash(row.getString(fieldIdx), namespaceHash)
       values += 1.0
 
       ()
