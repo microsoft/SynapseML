@@ -5,9 +5,10 @@ package com.microsoft.ml.spark
 
 import scala.reflect.runtime.universe.TypeTag
 import org.apache.spark.sql.functions._
-import org.apache.spark.ml.linalg.{SparseVector, Vector}
+import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import com.microsoft.ml.spark.featurizer.Featurizer
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 class VerifyVowpalWabbitFeaturizer extends TestBase {
 
@@ -15,6 +16,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
 
   case class Sample1(val str: String, val seq: Seq[String])
   case class Input[T] (val in: T)
+  case class Input2[T, S] (val in1: T, val in2: S)
 
   test("Verify VowpalWabbit Featurizer can be run with seq and string") {
     val featurizer1 = new VowpalWabbitFeaturizer()
@@ -159,5 +161,63 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(v1.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
     assert(v1.values(0) == 1.0)
+  }
+
+  test("Verify VowpalWabbit Featurizer output VectorUDT schema type") {
+    val newSchema = new VowpalWabbitFeaturizer()
+        .setInputCols(Array("data"))
+        .setOutputCol("features")
+      .transformSchema(new StructType(Array(new StructField("data", DataTypes.DoubleType, true))))
+
+    assert(newSchema.fields(1).name == "features")
+    assert(newSchema.fields(1).dataType.typeName == "vector")
+  }
+
+  private def verifyArrays(actual: Array[Double], expected: Array[Double]) = {
+    assert(actual.length == expected.length)
+
+    (actual.sorted zip expected.sorted).forall{ case (x,y) => x == y }
+  }
+
+  test("Verify VowpalWabbit Featurizer can combine vectors") {
+    val df1 = session.createDataFrame(Seq(Input2[Vector, Vector](
+      Vectors.dense(1.0, 2.0, 3.0),
+      Vectors.sparse(8, Array(1, 4), Array(5.0, 8.0))
+    )))
+
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("in1", "in2"))
+      .setOutputCol("features")
+      .setNumBits(18)
+
+    val dfOut = featurizer.transform(df1)
+
+    val output = dfOut.head.getAs[SparseVector]("features")
+
+    assert(output.size == 262144)
+    assert(output.numNonzeros == 4)
+
+    verifyArrays(output.values, Array(1.0,7.0,3.0,8.0))
+  }
+
+  test("Verify VowpalWabbit Featurizer can combine vectors and remask") {
+    val df1 = session.createDataFrame(Seq(Input2[Vector, Vector](
+      Vectors.dense(1.0, 2.0, 3.0),
+      Vectors.sparse(8, Array(1, 4), Array(5.0, 8.0))
+    )))
+
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("in1", "in2"))
+      .setOutputCol("features")
+      .setNumBits(2)
+
+    val dfOut = featurizer.transform(df1)
+
+    val output = dfOut.head.getAs[SparseVector]("features")
+
+    assert(output.size == 4)
+    assert(output.numNonzeros == 3)
+
+    verifyArrays(output.values, Array(9.0,7.0,3.0))
   }
 }

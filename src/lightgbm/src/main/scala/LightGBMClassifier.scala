@@ -58,7 +58,7 @@ class LightGBMClassifier(override val uid: String)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
      */
-    val encoder = Encoders.kryo[LightGBMBooster]
+    val encoder = Encoders.kryo[Option[LightGBMBooster]]
 
     val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
     val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
@@ -85,13 +85,18 @@ class LightGBMClassifier(override val uid: String)
       if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
         Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
       else None
+    log.info(s"################# LightGBMClassifier: validation.isEmpty? ${validationData.isEmpty}")
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         validationData.map(_.value), log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, _) => booster1)
+      .reduce((a, b) => if (a.isEmpty) b else a)
+      // .collect().filter(!_.isEmpty)(0)
+
+    //val lightGBMBooster.
+    //  .reduce((a, b) => if (a.isEmpty) b else a)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
-    new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
+    new LightGBMClassificationModel(uid, lightGBMBooster.get, getLabelCol, getFeaturesCol,
       getPredictionCol, getProbabilityCol, getRawPredictionCol,
       if (isDefined(thresholds)) Some(getThresholds) else None, actualNumClasses)
   }

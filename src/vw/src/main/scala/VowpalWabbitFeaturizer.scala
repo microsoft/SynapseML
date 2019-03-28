@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.featurizer._
-import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{BooleanParam, IntParam, ParamMap, StringArrayParam}
+import org.apache.spark.ml.{Transformer, VectorUDTUtil}
+import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
@@ -15,7 +15,8 @@ import org.apache.spark.ml.util.Identifiable
 
 import scala.collection.mutable.ArrayBuilder
 
-class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with HasInputCols with HasOutputCol with HasNumBits
+class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
+  with HasInputCols with HasOutputCol with HasNumBits
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
@@ -72,7 +73,11 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
           case _ => throw new RuntimeException(s"Unsupported map value type: ${dataType}")
         }
       }
-      case _ => throw new RuntimeException(s"Unsupported data type: ${dataType}")
+      case m:Any =>
+        if (m.typeName == "vector") // unfortunately the type is private
+          new VectorFeaturizer(idx, getMask)
+        else
+          throw new RuntimeException(s"Unsupported data type: ${dataType}")
     }
   }
 
@@ -127,6 +132,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer with 
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
 
-    schema
+    schema.add(new StructField(getOutputCol, VectorUDTUtil.getDataType, true))
   }
 }

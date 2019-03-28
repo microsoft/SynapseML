@@ -239,18 +239,8 @@ object LightGBMUtils {
     lightgbmlib.long_to_int64_t_ptr(longPtr)
   }
 
-  def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-      (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
-    val numCols = rowsAsDoubleArray.head.length
-    val data = lightgbmlib.new_doubleArray(numCols * numRows)
-    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
-      ri._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
-    (lightgbmlib.double_to_voidp_ptr(data), data)
-  }
-
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
-                           referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
+                                    referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
     val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
@@ -262,17 +252,17 @@ object LightGBMUtils {
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
+    var data: SWIGTYPE_p_double = null
     try {
-      data = Some(generateData(numRows, rowsAsDoubleArray))
-      // Generate the dataset for features
+      data = lightgbmlib.LGBM_CreateRowMatrixFromArrayOfArray(rowsAsDoubleArray.asInstanceOf[Array[Object]])
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
-                               data.get._1, data64bitType,
-                               numRows_int32_tPtr, numCols_int32_tPtr,
-                               isRowMajor, datasetParams, referenceDataset.orNull, datasetOutPtr),
-                             "Dataset create")
+        lightgbmlib.double_to_voidp_ptr(data),
+        data64bitType,
+        numRows_int32_tPtr, numCols_int32_tPtr,
+        isRowMajor, datasetParams, referenceDataset.orNull, datasetOutPtr),
+        "Dataset create")
     } finally {
-      if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
+      lightgbmlib.LGBM_DeleteRowMatrix(data)
     }
     lightgbmlib.voidpp_value(datasetOutPtr)
   }

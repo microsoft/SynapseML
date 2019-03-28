@@ -45,6 +45,7 @@ object VWUtil {
 trait VowpalWabbitBase extends Wrappable
   with DefaultParamsWritable
   with HasWeightCol
+  // TODO: with HasFeaturesCol
 {
   // can we switch to https://docs.scala-lang.org/overviews/macros/paradise.html ?
   val args = new Param[String](this, "args", "VW command line arguments passed")
@@ -213,7 +214,9 @@ trait VowpalWabbitBase extends Wrappable
             }
           }
 
-          Seq(vw.getModel).toIterator
+          // only export the model on the first partition
+          Seq(if (TaskContext.get.partitionId== 0) vw.getModel
+              else Array[Byte](0)).iterator
         }
     //  }}
     }
@@ -251,7 +254,8 @@ trait VowpalWabbitBase extends Wrappable
     for (p <- 0 until outerNumPasses) {
       localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p,
         consoleAddr, consolePort))(encoder)
-        .reduce((m1, _) => m1)
+        .reduce((a, b) => if (a.length == 0) b else a)
+        // .reduce((m1, _) => m1)
     }
 
     // close logging server

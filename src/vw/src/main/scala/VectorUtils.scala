@@ -4,7 +4,8 @@
 package com.microsoft.ml.spark
 
 object VectorUtils {
-  def sortAndDistinct(indices: Array[Int], values: Array[Double], sumCollisions: Boolean = true): (Array[Int], Array[Double]) = {
+  def sortAndDistinct(indices: Array[Int], values: Array[Double], sumCollisions: Boolean = true):
+  (Array[Int], Array[Double]) = {
     if (indices.length == 0)
       (indices, values)
     else {

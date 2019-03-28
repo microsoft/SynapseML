@@ -74,7 +74,7 @@ class LightGBMRegressor(override val uid: String)
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
      */
-    val encoder = Encoders.kryo[LightGBMBooster]
+    val encoder = Encoders.kryo[Option[LightGBMBooster]]
 
     val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
     val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
@@ -95,10 +95,10 @@ class LightGBMRegressor(override val uid: String)
     val lightGBMBooster = df
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
         validationData, log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, _) => booster1)
+      .reduce((a, b) => if (a.isEmpty) b else a)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
-    new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
+    new LightGBMRegressionModel(uid, lightGBMBooster.get, getLabelCol, getFeaturesCol, getPredictionCol)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressor = defaultCopy(extra)

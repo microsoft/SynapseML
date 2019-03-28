@@ -8,6 +8,7 @@ import java.net._
 
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
 import com.microsoft.ml.spark.StreamUtilities.using
+import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.{DataFrame, Row}
@@ -159,9 +160,10 @@ private object TrainUtils extends Serializable {
 
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
                 validationData: Option[Array[Row]], log: Logger,
-                trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+                trainParams: TrainParams, inputRows: Iterator[Row]): Option[LightGBMBooster] = {
     if (!inputRows.hasNext) {
-      List[LightGBMBooster]().toIterator
+      // List[LightGBMBooster]().toIterator
+      None
     } else {
       val rows = inputRows.toArray
       var trainDatasetPtr: Option[SWIGTYPE_p_void] = None
@@ -177,7 +179,8 @@ private object TrainUtils extends Serializable {
           boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
           trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
           val model = saveBoosterToString(boosterPtr, log)
-          List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+          // List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+          Option(new LightGBMBooster(model))
         } finally {
           // Free booster
           boosterPtr.foreach { booster =>
@@ -247,26 +250,32 @@ private object TrainUtils extends Serializable {
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
                     weightColumn: Option[String], validationData: Option[Array[Row]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
-                   (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+                   (inputRows: Iterator[Row]): Iterator[Option[LightGBMBooster]] = {
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
     // should not be a problem
-    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
-      openPort =>
-        val localListenPort = openPort.getLocalPort
-        // Initialize the native library
-        LightGBMUtils.initializeNativeLibrary()
-        val executorId = LightGBMUtils.getId()
-        log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-        (getNodes(networkParams, localListenPort, log), localListenPort)
-    }.get
+    val (nodes, localListenPort) =
+      using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
+        openPort =>
+          val localListenPort = openPort.getLocalPort
+
+          // Initialize the native library
+          LightGBMUtils.initializeNativeLibrary()
+          val executorId = LightGBMUtils.getId()
+          log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
+          (getNodes(networkParams, localListenPort, log), localListenPort)
+      }.get
 
     // Initialize the network communication
     log.info(s"LightGBM worker listening on: $localListenPort")
     try {
+      val nodeList = nodes.split(",")
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
-      translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
+        LightGBMConstants.defaultListenTimeout, nodeList.length), "Network init")
+      val booster = translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
+
+      Seq(if (TaskContext.get.partitionId== 0) booster
+          else None).iterator
     } finally {
       // Finalize network when done
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

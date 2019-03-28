@@ -3,19 +3,16 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.featurizer._
-import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{BooleanParam, IntParam, ParamMap, StringArrayParam}
-import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
+import org.apache.spark.ml.{Transformer, VectorUDTUtil}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.types.{StructField, StructType}
 
-import scala.collection.mutable.ArrayBuilder
-
-class VowpalWabbitInteractions(override val uid: String) extends Transformer with HasInputCols with HasOutputCol with HasNumBits
+class VowpalWabbitInteractions(override val uid: String) extends Transformer
+  with HasInputCols with HasOutputCol with HasNumBits
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
@@ -72,6 +69,6 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer wit
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
 
-    schema
+    schema.add(new StructField(getOutputCol, VectorUDTUtil.getDataType, true))
   }
 }
