@@ -54,7 +54,7 @@ class UnicodeNormalize(val uid: String) extends Transformer
       else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
     val f = if (getLower)
-      (value: String) => if (value == null) null else normalizeFunc(value.toLowerCase)
+      (value: String) => Option(value).map(s => normalizeFunc(s.toLowerCase)).orNull
     else
       normalizeFunc
 
