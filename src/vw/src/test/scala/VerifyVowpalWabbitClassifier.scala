@@ -15,7 +15,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 
-class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing[VowpalWabbitClassifier] {
+class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"
   val numPartitions = 2
 
@@ -131,7 +131,18 @@ class VerifyVowpalWabbitClassifier extends Benchmarks { // with EstimatorFuzzing
       .csv(fileLocation)
   }
 
-  // TODO
-  // override def reader: MLReadable[_] = VowpalWabbitClassifier
-  // override def modelReader: MLReadable[_] = VowpalWabbitClassifierModel
+  override def reader: MLReadable[_] = VowpalWabbitClassifier
+  override def modelReader: MLReadable[_] = VowpalWabbitClassificationModel
+
+  override def testObjects(): Seq[TestObject[VowpalWabbitClassifier]] = {
+
+    val fileName = "a1a.train.svmlight"
+
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+
+    Seq(new TestObject(
+      new VowpalWabbitClassifier(),
+      dataset))
+  }
 }

@@ -11,6 +11,8 @@ import org.apache.spark.ml.regression.{BaseRegressor, RegressionModel}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
+object VowpalWabbitRegressor extends DefaultParamsReadable[VowpalWabbitRegressor]
+
 @InternalWrapper
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressorModel]
@@ -21,20 +23,26 @@ class VowpalWabbitRegressor(override val uid: String)
   override def train(dataset: Dataset[_]): VowpalWabbitRegressorModel = {
     val binaryModel = trainInternal(dataset)
 
-    new VowpalWabbitRegressorModel(uid, binaryModel)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
+    new VowpalWabbitRegressorModel(uid, binaryModel, getLabelCol, getFeaturesCol, getAdditionalFeatures,
+      getPredictionCol)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
 
 @InternalWrapper
-class VowpalWabbitRegressorModel(override val uid: String, val model: Array[Byte])
+class VowpalWabbitRegressorModel(override val uid: String, val model: Array[Byte], labelColName: String,
+                                 featuresColName: String, additionalFeaturesName: Array[String],
+                                 predictionColName: String)
   extends RegressionModel[Row, VowpalWabbitRegressorModel]
     with VowpalWabbitBaseModel
     with ConstructorWritable[VowpalWabbitRegressorModel]
 {
+  set(labelCol, labelColName)
+  set(featuresCol, featuresColName)
+  set(additionalFeatures, additionalFeaturesName)
+  set(predictionCol, predictionColName)
+
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
       .withColumn($(predictionCol), col($(rawPredictionCol)))
@@ -45,13 +53,14 @@ class VowpalWabbitRegressorModel(override val uid: String, val model: Array[Byte
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressorModel =
-    new VowpalWabbitRegressorModel(uid, model)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
+    new VowpalWabbitRegressorModel(uid, model, getLabelCol, getFeaturesCol, getAdditionalFeatures, getPredictionCol)
 
   override val ttag: TypeTag[VowpalWabbitRegressorModel] =
     typeTag[VowpalWabbitRegressorModel]
 
   override def objectsToSave: List[Any] =
-    List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
+    List(uid, model, getLabelCol, getFeaturesCol, getAdditionalFeatures, getPredictionCol)
 }
+
+object VowpalWabbitRegressorModel extends ConstructorReadable[VowpalWabbitRegressorModel]
+

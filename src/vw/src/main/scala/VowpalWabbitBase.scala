@@ -45,7 +45,6 @@ object VWUtil {
 trait VowpalWabbitBase extends Wrappable
   with DefaultParamsWritable
   with HasWeightCol
-  // TODO: with HasFeaturesCol
 {
   // can we switch to https://docs.scala-lang.org/overviews/macros/paradise.html ?
   val args = new Param[String](this, "args", "VW command line arguments passed")
@@ -152,8 +151,8 @@ trait VowpalWabbitBase extends Wrappable
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
 
-    def trainIteration(inputRows: Iterator[Row], localInitialModel: Array[Byte], pass: Int,
-                       consoleAddr: InetAddress, consolePort: Int): Iterator[Array[Byte]] = {
+    def trainIteration(inputRows: Iterator[Row], localInitialModel: Option[Array[Byte]], pass: Int,
+                       consoleAddr: InetAddress, consolePort: Int): Iterator[Option[Array[Byte]]] = {
       // only perform the inner-loop if we cache the inputRows
       val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
@@ -174,12 +173,13 @@ trait VowpalWabbitBase extends Wrappable
         val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
         cacheFile.deleteOnExit
 
-        args.append(s" -k --cache_file ${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
+        args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
       }
 
+      println(s"Final args: $args")
       //VWUtil.autoClose(new Socket(consoleAddr, consolePort)) { consoleSocket => {
-        VWUtil.autoClose(if (localInitialModel == null) new VowpalWabbitNative(args.result)
-        else new VowpalWabbitNative(args.result, localInitialModel)) { vw =>
+      VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
+        else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
           VWUtil.autoClose(vw.createExample()) { ex =>
 
             /*
@@ -214,18 +214,20 @@ trait VowpalWabbitBase extends Wrappable
             }
           }
 
+          if (getEnableCacheFile)
+            vw.performRemainingPasses
+
           // only export the model on the first partition
-          Seq(if (TaskContext.get.partitionId== 0) vw.getModel
-              else Array[Byte](0)).iterator
+          Seq(if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None).iterator
         }
     //  }}
     }
 
-    val encoder = Encoders.kryo[Array[Byte]]
+    val encoder = Encoders.kryo[Option[Array[Byte]]]
 
     // schedule multiple mapPartitions in
     val outerNumPasses = if (getEnableCacheFile) 1 else if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
-    var localInitialModel = if (isDefined(initialModel)) getInitialModel else null
+    var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     // setup central logging server
     /*
@@ -254,8 +256,7 @@ trait VowpalWabbitBase extends Wrappable
     for (p <- 0 until outerNumPasses) {
       localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p,
         consoleAddr, consolePort))(encoder)
-        .reduce((a, b) => if (a.length == 0) b else a)
-        // .reduce((m1, _) => m1)
+        .reduce((a, b) => if (a.isEmpty) b else a)
     }
 
     // close logging server
@@ -313,7 +314,7 @@ trait VowpalWabbitBase extends Wrappable
       }
     }
 
-    binaryModel
+    binaryModel.get
   }
 }
 
