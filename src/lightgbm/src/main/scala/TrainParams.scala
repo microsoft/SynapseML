@@ -46,12 +46,12 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val maxDepth: Int, val minSumHessianInLeaf: Double,
                                  val numMachines: Int, val objective: String, val modelString: Option[String],
                                  val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int],
-                                 val numClass: Option[Int], val metric: String, val boostFromAverage: Boolean,
+                                 val numClass: Int, val metric: String, val boostFromAverage: Boolean,
                                  val boostingType: String)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
-      if (numClass.isDefined) s"num_class=${numClass.get}"
+      if (objective != LightGBMConstants.binaryObjective) s"num_class=$numClass"
       else s"is_unbalance=${isUnbalance.toString}"
     s"metric=$metric ${super.toString} $extraStr"
   }
