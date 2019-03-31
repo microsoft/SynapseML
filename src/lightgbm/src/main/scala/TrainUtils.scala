@@ -158,7 +158,7 @@ private object TrainUtils extends Serializable {
   }
 
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
-                validationData: Option[Array[Row]], log: Logger,
+                validationData: Option[Broadcast[Array[Row]]], log: Logger,
                 trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     if (!inputRows.hasNext) {
       List[LightGBMBooster]().toIterator
@@ -169,7 +169,7 @@ private object TrainUtils extends Serializable {
       try {
         trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
         if (validationData.isDefined) {
-          validDatasetPtr = generateDataset(validationData.get, labelColumn,
+          validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
             featuresColumn, weightColumn, trainDatasetPtr)
         }
         var boosterPtr: Option[SWIGTYPE_p_void] = None
@@ -260,7 +260,7 @@ private object TrainUtils extends Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], validationData: Option[Array[Row]], log: Logger,
+                    weightColumn: Option[String], validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     // Ideally we would start the socket connections in the C layer, this opens us up for
@@ -271,7 +271,6 @@ private object TrainUtils extends Serializable {
         val localListenPort = openPort.getLocalPort
         // Initialize the native library
         LightGBMUtils.initializeNativeLibrary()
-        val executorId = LightGBMUtils.getId()
         log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
         (getNodes(networkParams, localListenPort, log), localListenPort)
     }.get
