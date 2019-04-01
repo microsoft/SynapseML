@@ -312,15 +312,9 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 * [LightGBM](https://github.com/Microsoft/LightGBM)
 
-* [Recommenders](https://github.com/Microsoft/Recommenders)
-
-* [ML.NET](https://github.com/dotnet/machinelearning)
-
-* [Infer.NET](https://github.com/dotnet/infer)
-
 * [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
 
-* [LightLDA](https://github.com/Microsoft/LightLDA)
+* [Recommenders](https://github.com/Microsoft/Recommenders)
 
 * [Azure Machine Learning
   preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
