@@ -330,7 +330,8 @@ object LightGBMUtils {
   }
 
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
-                           referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
+                           referenceDataset: Option[LightGBMDataset],
+                           featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
     val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
@@ -349,12 +350,14 @@ object LightGBMUtils {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
                                data.get._1, data64bitType,
                                numRows_int32_tPtr, numCols_int32_tPtr,
-                               isRowMajor, datasetParams, referenceDataset.orNull, datasetOutPtr),
+                               isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
                              "Dataset create")
     } finally {
       if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
     }
-    lightgbmlib.voidpp_value(datasetOutPtr)
+    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
+    dataset.setFeatureNames(featureNamesOpt, numCols)
+    dataset
   }
 
   /** Generates a sparse dataset in CSR format.
@@ -362,7 +365,8 @@ object LightGBMUtils {
     * @return
     */
   def generateSparseDataset(sparseRows: Array[SparseVector],
-                            referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
+                            referenceDataset: Option[LightGBMDataset],
+                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
     val numCols = sparseRows(0).size
 
     val datasetOutPtr = lightgbmlib.voidpp_handle()
@@ -372,10 +376,11 @@ object LightGBMUtils {
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
                              sparseRows.asInstanceOf[Array[Object]],
                              sparseRows.length,
-                             intToPtr(numCols), datasetParams, referenceDataset.orNull,
+                             intToPtr(numCols), datasetParams, referenceDataset.map(_.dataset).orNull,
                              datasetOutPtr),
                            "Dataset create")
-
-    lightgbmlib.voidpp_value(datasetOutPtr)
+    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
+    dataset.setFeatureNames(featureNamesOpt, numCols)
+    dataset
   }
 }
