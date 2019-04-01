@@ -42,7 +42,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   verifySaveBooster(
     fileName = "PimaIndian.csv",
     labelColumnName = "Diabetes mellitus",
-    outputFileName = "model.txt")
+    outputFileName = "model.txt",
+    colsToVerify = Array("Diabetes pedigree function", "Age (years)"))
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
     verifyBenchmarks()
@@ -436,8 +437,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   def verifySaveBooster(fileName: String,
-                       outputFileName: String,
-                       labelColumnName: String): Unit = {
+                        outputFileName: String,
+                        labelColumnName: String,
+                        colsToVerify: Array[String]): Unit = {
     test("Verify LightGBMClassifier save booster to " + fileName) {
       // Increment port index
       portIndex += numPartitions
@@ -464,6 +466,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = model.getModel.model
+      // Verify model string contains some feature
+      colsToVerify.foreach(col => oldModelString.contains(col))
       val newModel = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setRawPredictionCol(rawPredCol)
