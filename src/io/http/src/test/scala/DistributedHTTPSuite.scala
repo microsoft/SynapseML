@@ -178,6 +178,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
 
     val server = session.readStream.server
       .address(host, port, "foo")
+      .option("name", "foo")
       .option("maxPartitions", 3)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
@@ -216,6 +217,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
 
     val server = session.readStream.server
       .address(host, port, "foo")
+      .option("name", "foo")
       .option("maxPartitions", 5)
       .load()
       .parseRequest(BinaryType)
@@ -253,6 +255,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session.readStream.distributedServer
       .address(host, port, "foo")
       .option("maxPartitions", 5)
+      .option("name", "foo")
       .load()
       .parseRequest(BinaryType)
       .withColumn("length", length(col("bytes")))
