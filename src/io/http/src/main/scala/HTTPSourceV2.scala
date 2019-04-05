@@ -18,7 +18,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkContext, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.HTTPServerUtils
@@ -48,7 +48,7 @@ private[streaming] case class ServiceInfo(name: String,
                                           publicIp: Option[String])
 
 class HTTPSourceProviderV2 extends DataSourceRegister
-  with DataSourceV2 with ContinuousReadSupport with MicroBatchReadSupport {
+  with DataSourceV2 with ContinuousReadSupport with MicroBatchReadSupport with Logging {
 
   override def createContinuousReader(schema: Optional[StructType],
                                       checkpointLocation: String,
@@ -61,7 +61,7 @@ class HTTPSourceProviderV2 extends DataSourceRegister
   override def createMicroBatchReader(schema: Optional[StructType],
                                       checkpointLocation: String,
                                       options: DataSourceOptions): MicroBatchReader = {
-    println("Creating Microbatch reader")
+    logInfo("Creating Microbatch reader")
     new HTTPMicroBatchReader(continuous = false, options = options)
   }
 }
@@ -95,6 +95,7 @@ object HTTPSourceV2 {
   val PORT = "port"
   val PATH = "path"
   val NAME = "name"
+  val EPOCH_LENGTH = "epochLength" // in millis
 
   val ID_SCHEMA: StructType = new StructType()
     .add("originatingService", StringType)
@@ -170,7 +171,8 @@ private[streaming] case class WorkerServiceConfig(host: String,
                                                   path: String,
                                                   forwardingOptions: collection.Map[String, String],
                                                   driverServiceHost: String,
-                                                  driverServicePort: Int
+                                                  driverServicePort: Int,
+                                                  epochLength: Long
                                                  )
 
 private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: DataSourceOptions)
@@ -182,6 +184,8 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   val port: Int = options.getInt(HTTPSourceV2.PORT, 8888)
   val path: String = options.get(HTTPSourceV2.PATH).get
   val name: String = options.get(HTTPSourceV2.NAME).get
+  val epochLength: Long = options.get(HTTPSourceV2.EPOCH_LENGTH).orElse("30000").toLong
+
   val forwardingOptions: collection.Map[String, String] = options.asMap().asScala
     .filter { case (k, v) => k.startsWith("forwarding") }
 
@@ -237,7 +241,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
     val startMap = getPartitionOffsetMap(startOffset)
     val endMap = if (!continuous) Some(getPartitionOffsetMap(endOffset)) else None
     val config = WorkerServiceConfig(host, port, path, forwardingOptions,
-      DriverServiceUtils.getDriverHost, driverService.getAddress.getPort)
+      DriverServiceUtils.getDriverHost, driverService.getAddress.getPort, epochLength)
     Range(0, numPartitions).map { i =>
       HTTPInputPartition(continuous, name, config, startMap(i), endMap.map(_ (i)), i)
         : InputPartition[InternalRow]
@@ -247,7 +251,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   override def commit(end: Offset): Unit = {}
 
   override def stop(): Unit = {
-    println("Stopping 1")
+    logDebug("Stopping 1")
     driverService.stop(0)
     HTTPSourceStateHolder.cleanUp(name)
   }
@@ -288,7 +292,7 @@ private[streaming] case class HTTPInputPartition(continuous: Boolean,
                                                  partitionIndex: Int
                                                 )
 
-  extends ContinuousInputPartition[InternalRow] {
+  extends ContinuousInputPartition[InternalRow] with Logging {
 
   override def createContinuousReader(
                                        offset: PartitionOffset): InputPartitionReader[InternalRow] = {
@@ -298,7 +302,7 @@ private[streaming] case class HTTPInputPartition(continuous: Boolean,
   }
 
   override def createPartitionReader(): InputPartitionReader[InternalRow] = {
-    println("creating partition reader")
+    logInfo("creating partition reader")
     new HTTPInputPartitionReader(
       continuous, name, config, startValue, endValue, partitionIndex
     )
@@ -453,10 +457,10 @@ private[streaming] class WorkerServer(val name: String,
 
   def registerPartition(localEpoch: Epoch, partitionId: PID): Unit = synchronized {
     if (registeredPartitions.get(partitionId).isEmpty) {
-      println(s"registering $partitionId localEpoch:$localEpoch globalEpoch:$epoch")
+      logInfo(s"registering $partitionId localEpoch:$localEpoch globalEpoch:$epoch")
       registeredPartitions.update(partitionId, localEpoch)
     } else {
-      println(s"re-registering $partitionId localEpoch:$localEpoch globalEpoch:$epoch")
+      logInfo(s"re-registering $partitionId localEpoch:$localEpoch globalEpoch:$epoch")
       val previousEpoch = registeredPartitions(partitionId)
       registeredPartitions.update(partitionId, localEpoch)
       //there has been a failed partition and we need to rehydrate the queue
@@ -548,10 +552,6 @@ private[streaming] class WorkerServer(val name: String,
     }
   }
 
-  /** All batches from `lastCommittedOffset + 1` to `currentOffset`, inclusive.
-    * Stored in a ListBuffer to facilitate removing committed batches.
-    */
-
   private def getMachineLocalIp: String = {
     InetAddress.getLocalHost.getHostAddress
   }
@@ -567,7 +567,6 @@ private[streaming] class WorkerServer(val name: String,
 
   @GuardedBy("this")
   private var epochStart = System.currentTimeMillis()
-  private val epochLength = 5000
 
   private def getNextRequestHelper(localEpoch: Epoch,
                                    partitionIndex: PID,
@@ -582,7 +581,7 @@ private[streaming] class WorkerServer(val name: String,
     } else if (localEpoch < epoch || Option(queue.peek()).isDefined) {
       Some(Left(0L))
     } else {
-      Some(Right(epochLength - (System.currentTimeMillis() - epochStart)))
+      Some(Right(config.epochLength - (System.currentTimeMillis() - epochStart)))
     }
 
     timeout
@@ -591,7 +590,7 @@ private[streaming] class WorkerServer(val name: String,
         case Right(t) =>
           Option(queue.poll(t, TimeUnit.MILLISECONDS)).orElse {
             synchronized {
-              //If the queue times out then we start creating the next queue and transfer any stragglers
+              //If the queue times out then we move to the next epoc
               epoch += 1
               val lbq = new LinkedBlockingQueue[CachedRequest]()
               requestQueues.update(epoch, lbq)
@@ -609,7 +608,7 @@ private[streaming] class WorkerServer(val name: String,
     getNextRequestHelper(localEpoch, partitionIndex, continuous)
       .map { request =>
         routingTable.put(request.id, request)
-        if (!request.isCached) {
+        if (TaskContext.get().attemptNumber() == 0) {
           // If the request has never been materialized add it to the cache, otherwise we are in a retry and
           // should not modify the history
           historyQueues.getOrElseUpdate((localEpoch, partitionIndex), new ListBuffer[CachedRequest]())

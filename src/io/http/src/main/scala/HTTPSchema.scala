@@ -120,7 +120,7 @@ case class HTTPResponseData(headers: Array[HeaderData],
       }.get)
     } catch {
       case e: java.io.IOException =>
-        HTTPResponseData.warn(s"Could send bytes: ${e.getMessage}")
+        HTTPResponseData.warn(s"Could not send bytes: ${e.getMessage}")
     }
   }
 

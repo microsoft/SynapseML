@@ -41,8 +41,6 @@ trait LinuxOnly extends TestBase {
 
 abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
 
-  println(s"\n>>>-------------------- $this --------------------<<<")
-
   // "This Is A Bad Thing" according to my research. However, this is
   // just for tests so maybe ok. A better design would be to break the
   // session stuff into TestSparkSession as a trait and have test suites
