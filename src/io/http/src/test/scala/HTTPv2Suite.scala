@@ -28,12 +28,14 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   def baseDF(numPartitions: Int = 4,
              apiName: String = apiName,
              apiPath: String = apiPath,
-             port: Int = port): DataFrame = {
+             port: Int = port,
+             epochLength: Long = 5000): DataFrame = {
     session
       .readStream
       .format(classOf[HTTPSourceProviderV2].getName)
       .address(host, port, apiPath)
       .option("name", apiName)
+      .option("epochLength", epochLength)
       .option("numPartitions", numPartitions.toLong)
       .load()
   }
@@ -64,7 +66,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("10 seconds")) // only change in query
       .start()
     using(server) {
-      Thread.sleep(10000)
+      Thread.sleep(3000)
       assertLatency((1 to 100).map(i => sendStringRequest(client)), 5)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -76,7 +78,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server) {
-      Thread.sleep(10000)
+      Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client))
       val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
       assertLatency(responsesWithLatencies, 2000)
@@ -89,7 +91,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server) {
-      Thread.sleep(10000)
+      Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client))
       val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
       assertLatency(responsesWithLatencies, 2000)
@@ -103,7 +105,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server) {
-      Thread.sleep(5000)
+      waitForServer(server)
       (1 to 100).foreach(i => sendStringRequest(client))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -113,7 +115,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server2) {
-      Thread.sleep(5000)
+      waitForServer(server2)
       (1 to 100).foreach(i => sendStringRequest(client))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -125,9 +127,9 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server) {
-      Thread.sleep(10000)
+      waitForServer(server)
       val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client))
-      Thread.sleep(5000)
+      Thread.sleep(1000)
       (1 to 100).foreach(_ => sendStringRequest(client))
       assertLatency(responsesWithLatencies, 10)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
@@ -156,9 +158,9 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     using(server1) {
       val server2 = basePipeline(numPartitions = 2, name = "q2",
         apiPath = "bar", apiName = "n2", port = port2).start()
+      waitForServer(server1)
       using(server2) {
-
-        Thread.sleep(10000)
+        waitForServer(server2)
         val l1 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port/foo"))
         val l2 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port2/bar"))
         assertLatency(l1, 10)
@@ -187,8 +189,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .start()
 
     using(server) {
-      Thread.sleep(5000)
-
+      waitForServer(server)
       val r1 = (1 to 100).map(i =>
         sendStringRequest(client, payload = """{"value": 1}""")
       )
@@ -221,19 +222,17 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       }
     }, DoubleType)
 
-    val server = baseWrite(baseDF()
+    val server = baseWrite(baseDF(epochLength = 5000)
       .withColumn("foo", flakyUDF(col("id.partitionId")))
       .makeReply("foo"))
       .start()
 
     using(server) {
-      Thread.sleep(5000)
-
+      waitForServer(server)
       val responsesWithLatencies = (1 to 300).map(i =>
         sendStringRequest(client)
       )
       assertLatency(responsesWithLatencies, 200)
-
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
