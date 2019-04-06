@@ -37,10 +37,10 @@ object SparkSessionFactory {
   }
   def currentDir(): String = System.getProperty("user.dir")
 
-  def getSession(name: String, logLevel: String = "WARN"): SparkSession = {
+  def getSession(name: String, logLevel: String = "WARN", numRetries: Int): SparkSession = {
     val conf = new SparkConf()
         .setAppName(name)
-        .setMaster("local[*]")
+        .setMaster(if (numRetries == 1){"local[*]"}else{s"local[*, $numRetries]"})
         .set("spark.logConf", "true")
         .set("spark.sql.warehouse.dir", SparkSessionFactory.localWarehousePath)
     val sess = SparkSession.builder()
