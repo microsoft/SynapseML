@@ -24,7 +24,8 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
@@ -36,30 +37,19 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))  // only change in query
       .start()
 
-    Thread.sleep(5000)
-
-    val client = HttpClientBuilder.create().build()
-
-    val responsesWithLatencies = (1 to 100).map( i =>
-      sendStringRequest(client)
-    )
-
-    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
-    val meanLatency = mean(latencies)
-    val stdLatency = stddev(latencies, meanLatency)
-    println(s"Latency = $meanLatency +/- $stdLatency")
-    assert(meanLatency < 5)
-
-    println(HTTPSourceStateHolder.serviceInfoJson(apiName))
-    println("stopping server")
-    server.stop()
+    using(server){
+      Thread.sleep(10000)
+      val responsesWithLatencies = (1 to 100).map( i => sendStringRequest(client))
+      assertLatency(responsesWithLatencies, 5)
+    }
   }
 
   test("continuous mode with files"){
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .parseRequest(BinaryType)
       .withColumn("length", length(col("bytes")))
@@ -72,27 +62,20 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))  // only change in query
       .start()
 
-    Thread.sleep(5000)
+    using(server){
+      Thread.sleep(5000)
+      val responsesWithLatencies = (1 to 10).map( i =>  sendFileRequest(client))
+      assertLatency(responsesWithLatencies, 100)
+    }
 
-    val client = HttpClientBuilder.create().build()
-
-    val responsesWithLatencies = (1 to 10).map( i =>
-      sendFileRequest(client)
-    )
-
-    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
-    val meanLatency = mean(latencies)
-    val stdLatency = stddev(latencies, meanLatency)
-    println(s"Latency = $meanLatency +/- $stdLatency")
-    println("stopping server")
-    server.stop()
   }
 
   ignore("forwarding ports to vm"){
     val server = session
       .readStream
       .continuousServer
-      .address("0.0.0.0", 9010, apiName)
+      .address("0.0.0.0", 9010, apiPath)
+      .option("name", apiName)
       .option("forwarding.enabled", true)
       .option("forwarding.sshHost", "")
       .option("forwarding.keySas", "")
@@ -108,16 +91,15 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))
       .start()
 
-    Thread.sleep(1000000)
-    println("stopping server")
-    server.stop()
+    using(server){Thread.sleep(10000)}
   }
 
   test("async"){
     val server = session
       .readStream
       .continuousServer
-      .address(host, port, apiName)
+      .address(host, port, apiPath)
+      .option("name", apiName)
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
@@ -129,55 +111,43 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .trigger(Trigger.Continuous("1 second"))  // only change in query
       .start()
 
-    Thread.sleep(5000)
-
-    val client = HttpClientBuilder.create().build()
-
-    val futures = (1 to 10).map( i =>
-      sendStringRequestAsync(client)
-    )
-
-    futures.foreach { f =>
-      val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
-      println(resp)
+    using(server){
+      Thread.sleep(5000)
+      val futures = (1 to 10).map( i =>
+        sendStringRequestAsync(client)
+      )
+      futures.foreach { f =>
+        val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+        println(resp)
+      }
     }
-
-    println("stopping server")
-    server.stop()
   }
 
   test("non continuous mode"){
     val server = session
       .readStream
-      .format(classOf[HTTPSourceProvider].getName)
-      .option("host", host)
-      .option("port", port.toString)
+      .continuousServer
+      .address(host, port, apiPath)
       .option("name", apiName)
+      .option("numPartitions", 1)
       .load()
-      .withColumn("foo", col("id"))
+      .withColumn("foo", col("id.requestId"))
       .makeReply("foo")
       .writeStream
-      .format(classOf[HTTPSinkProvider].getName)
+      .format("console")
+      .continuousServer
       .option("name", apiName)
       .queryName("foo").option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    Thread.sleep(5000)
+    using(server){
+      Thread.sleep(10000)
+      println(server.status)
+      val responsesWithLatencies = (1 to 100).map( i => sendStringRequest(client))
+      assertLatency(responsesWithLatencies, 5)
+    }
 
-    val client = HttpClientBuilder.create().build()
-
-    val responsesWithLatencies = (1 to 100).map( i =>
-      sendStringRequest(client)
-    )
-
-    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
-    val meanLatency = mean(latencies)
-    val stdLatency = stddev(latencies, meanLatency)
-    println(s"Latency = $meanLatency +/- $stdLatency")
-
-    println("stopping server")
-    server.stop()
   }
 
 }
