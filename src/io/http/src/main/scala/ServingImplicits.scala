@@ -55,21 +55,81 @@ case class DataStreamWriterExtensions[T](dsw: DataStreamWriter[T]) {
 
 case class DataFrameServingExtensions(df: DataFrame) {
 
-  def parseRequest(schema: DataType,
+  private def jsonParsingError(schema: DataType)(body: String): String = {
+    s"JSON Parsing error, expected schema:\n ${schema.simpleString}\n recieved:\n $body"
+  }
+
+  private def fullJsonParsingSuccess(a: Any): Boolean = {
+    a match {
+      case s: Seq[_] => s.forall(fullJsonParsingSuccess)
+      case a: Row => a.toSeq.forall(fullJsonParsingSuccess)
+      case null => false
+      case _ => true
+    }
+  }
+
+  /**
+    *
+    * @param apiName
+    * @param schema
+    * @param idCol
+    * @param requestCol
+    * @param parsingCheck "none": to accept all requests,
+    *                     "full": to ensure all fields and subfields are non-null,
+    *                     "partial": to ensure the root structure was parsed correctly
+    * @return
+    */
+  def parseRequest(apiName: String,
+                   schema: DataType,
                    idCol: String = "id",
-                   requestCol: String = "request"): DataFrame = {
+                   requestCol: String = "request",
+                   parsingCheck: String = "none"): DataFrame = {
     assert(df.schema(idCol).dataType == HTTPSourceV2.ID_SCHEMA &&
       df.schema(requestCol).dataType == HTTPRequestData.schema)
     schema match {
       case BinaryType =>
         df.select(col(idCol), col(requestCol).getItem("entity").getItem("content").alias("bytes"))
       case _ =>
-        df.withColumn("variables", from_json(HTTPSchema.request_to_string(col(requestCol)), schema))
-          .select(idCol,"variables.*")
+        val parsedDf = df
+          .withColumn("body", HTTPSchema.request_to_string(col(requestCol)))
+          .withColumn("parsed", from_json(col("body"), schema))
+        if (parsingCheck.toLowerCase == "none") {
+          parsedDf.select(idCol, "parsed.*")
+        } else {
+          val successCol = parsingCheck.toLowerCase  match {
+            case "full"  => udf({x: Any => !fullJsonParsingSuccess(x)}, BooleanType)(col("parsed"))
+            case "partial" => col("parsed").isNull
+            case _ => throw new IllegalArgumentException(
+              s"Need to use either full, partial, or none. Received $parsingCheck")
+          }
+
+          val df1 = parsedDf
+            .withColumn("didReply",
+              when(successCol,
+                ServingUDFs.sendReplyUDF(
+                  lit(apiName),
+                  ServingUDFs.makeReplyUDF(
+                    udf(jsonParsingError(schema) _, StringType)(col("body")),
+                    StringType,
+                    code = lit(400),
+                    reason = lit("JSON Parsing Failure")),
+                  col("id")
+                )
+              )
+                .otherwise(lit(null)))
+            .filter(col("didReply").isNull)
+
+          df1.withColumn("parsed", udf({ x: Row =>
+            println(x)
+            x
+          }, df1.schema("parsed").dataType)(col("parsed")))
+            .select(idCol, "parsed.*")
+
+        }
     }
   }
 
-  def makeReply(replyCol: String, name: String = "reply"): DataFrame ={
+  def makeReply(replyCol: String, name: String = "reply"): DataFrame = {
     df.withColumn(name, ServingUDFs.makeReplyUDF(col(replyCol), df.schema(replyCol).dataType))
   }
 
