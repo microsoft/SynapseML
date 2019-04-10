@@ -72,7 +72,8 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
         case _: DoubleType => sortLevels[JDouble](levels)(NullOrdering[JDouble](Ordering[JDouble]))
         case _: StringType => sortLevels[String](levels)(NullOrdering[String](Ordering[String]))
         case _: BooleanType => sortLevels[JBoolean](levels)(NullOrdering[JBoolean](Ordering[JBoolean]))
-        case _ => throw new UnsupportedOperationException("Unsupported Categorical type " + dataType.toString)
+        case _ => throw new UnsupportedOperationException(
+          "Unsupported Categorical type " + dataType.toString + " for column: " + getInputCol)
       }
     // Create the indexer
     new ValueIndexerModel()
