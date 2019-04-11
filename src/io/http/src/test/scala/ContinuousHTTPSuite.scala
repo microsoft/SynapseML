@@ -51,7 +51,7 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .address(host, port, apiPath)
       .option("name", apiName)
       .load()
-      .parseRequest(BinaryType)
+      .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length")
       .writeStream
