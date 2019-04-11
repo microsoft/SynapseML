@@ -172,9 +172,62 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     }
   }
 
+  test("can reply to bad requests immediately partial") {
+    val server = baseWrite(baseDF()
+      .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "partial")
+      .makeReply("value"))
+      .start()
+
+    using(server) {
+      waitForServer(server)
+      val r1 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """{"value": 1}""")
+      )
+
+      val r2 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """{"valu111e": 1}""")
+      )
+
+      val r3 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
+      )
+      assertLatency(r1, 60)
+      assertLatency(r2, 60)
+      assertLatency(r3, 60)
+      r3.foreach(p => assert(Option(p._1).isEmpty))
+    }
+  }
+
+  test("can reply to bad requests immediately") {
+    val server = baseWrite(baseDF()
+      .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "full")
+      .makeReply("value"))
+      .start()
+
+    using(server) {
+      waitForServer(server)
+      val r1 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """{"value": 1}""")
+      )
+
+      val r2 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400)
+      )
+
+      val r3 = (1 to 10).map(i =>
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
+      )
+      assertLatency(r1, 60)
+      assertLatency(r2, 60)
+      assertLatency(r3, 60)
+
+      (r2 ++ r3).foreach(p => assert(Option(p._1).isEmpty))
+    }
+  }
+
   test("can reply from the middle of the pipeline") {
     val server = baseWrite(baseDF()
-      .parseRequest(new StructType().add("value", IntegerType))
+      .parseRequest(apiName, new StructType().add("value", IntegerType))
       .withColumn("didReply",
         when(col("value").isNull,
           ServingUDFs.sendReplyUDF(
@@ -195,11 +248,11 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       )
 
       val r2 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""", accept400 = true)
+        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400)
       )
 
       val r3 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", accept400 = true)
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -246,7 +299,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .map(i => (i, i.toString + "_foo"))
       .toDF("key", "value").cache()
 
-    val df1 = baseDF(1).parseRequest(new StructType().add("data", IntegerType))
+    val df1 = baseDF(1).parseRequest(apiName, new StructType().add("data", IntegerType))
 
     df1.printSchema()
 

@@ -41,7 +41,7 @@ trait HTTPTestUtils extends WithFreeUrl {
   def sendStringRequest(client: CloseableHttpClient,
                         url: String = url,
                         payload: String = "foo",
-                        accept400: Boolean = false): (String, Double) = {
+                        targetCode: Int = 200): (String, Double) = {
     val post = new HttpPost(url)
     val e = new StringEntity(payload)
     post.setEntity(e)
@@ -50,7 +50,8 @@ trait HTTPTestUtils extends WithFreeUrl {
     val res = client.execute(post)
     val t1 = System.nanoTime()
 
-    val out = if (accept400 && res.getStatusLine.getStatusCode == 400) {
+    assert(targetCode == res.getStatusLine.getStatusCode)
+    val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
       null
     } else {
       new BasicResponseHandler().handleResponse(res)
@@ -242,7 +243,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
       .option("name", "foo")
       .option("maxPartitions", 5)
       .load()
-      .parseRequest(BinaryType)
+      .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length")
       .writeStream
@@ -275,7 +276,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
       .option("maxPartitions", 5)
       .option("name", "foo")
       .load()
-      .parseRequest(BinaryType)
+      .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length")
       .writeStream

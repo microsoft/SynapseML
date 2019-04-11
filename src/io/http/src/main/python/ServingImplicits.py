@@ -51,13 +51,13 @@ def _writeContServer(self):
 
 setattr(pyspark.sql.streaming.DataStreamWriter, 'continuousServer', _writeContServer)
 
-def _parseRequest(self,schema,
-                 idCol="id",requestCol="request"):
+def _parseRequest(self, apiName, schema,
+                 idCol="id", requestCol="request", parsingCheck = "none"):
     ctx = SparkContext.getOrCreate()
     jvm = ctx._jvm
     extended = jvm.com.microsoft.ml.spark.DataFrameServingExtensions(self._jdf)
     dt = jvm.org.apache.spark.sql.types.DataType
-    jResult = extended.parseRequest(dt.fromJson(schema.json()), idCol, requestCol)
+    jResult = extended.parseRequest(apiName, dt.fromJson(schema.json()), idCol, requestCol, parsingCheck)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jResult, sql_ctx)
 
