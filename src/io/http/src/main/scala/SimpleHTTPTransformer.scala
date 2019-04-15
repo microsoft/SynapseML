@@ -48,7 +48,7 @@ object ErrorUtils extends Serializable {
     }
   }
 
-  val addErrorUDF: UserDefinedFunction = {
+  def addErrorUDF: UserDefinedFunction = {
     val fromRow = HTTPResponseData.makeFromRowConverter
     udf(addError(fromRow) _, errorSchema)
   }

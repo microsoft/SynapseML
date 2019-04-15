@@ -251,7 +251,7 @@ object HTTPSchema {
     }
   }
 
-  private val entity_to_string_udf: UserDefinedFunction = {
+  private def entity_to_string_udf: UserDefinedFunction = {
     val fromRow = EntityData.makeFromRowConverter
     udf({ x: Row =>
       val sOpt = Option(x).flatMap(r => entityToString(fromRow(r)))
@@ -266,7 +266,7 @@ object HTTPSchema {
 
   def string_to_entity(c: Column): Column = string_to_entity_udf(c)
 
-  private val request_to_string_udf: UserDefinedFunction = {
+  private def request_to_string_udf: UserDefinedFunction = {
     val fromRow = HTTPRequestData.makeFromRowConverter
     udf({ x: Row =>
       val sOpt = Option(x)
