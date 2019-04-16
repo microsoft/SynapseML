@@ -266,7 +266,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     val r = scala.util.Random
     val flakyUDF = udf({ x: Int =>
       val d = r.nextDouble()
-      if (d < .05 && x == 1) {
+      if (d < .03 && x == 1) {
         println(s"failing on partition $x")
         throw new RuntimeException()
       } else {
@@ -275,7 +275,8 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       }
     }, DoubleType)
 
-    val server = baseWrite(baseDF(epochLength = 5000)
+    Thread.sleep(1000)
+    val server = baseWrite(baseDF(epochLength = 1000)
       .withColumn("foo", flakyUDF(col("id.partitionId")))
       .makeReply("foo"))
       .start()

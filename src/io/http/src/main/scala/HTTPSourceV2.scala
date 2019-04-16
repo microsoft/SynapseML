@@ -467,7 +467,8 @@ private[streaming] class WorkerServer(val name: String,
       if (previousEpoch == localEpoch) {
         logWarning(s"Adding to crash list localEpoch:$localEpoch globalEpoch:$epoch partition:$partitionId")
         val recoveredQueue = new LinkedBlockingQueue[CachedRequest]()
-        recoveredQueue.addAll(historyQueues((localEpoch, partitionId)))
+        recoveredQueue.addAll(historyQueues.getOrElse(
+          (localEpoch, partitionId), new ListBuffer[CachedRequest]()))
         recoveredPartitions.update((localEpoch, partitionId), recoveredQueue)
       }
     }
