@@ -364,7 +364,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     if (!parameters.contains("port")) {
       throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
     }
-    if (!parameters.contains("name")) {
+    if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
     ("DistributedHTTP", HTTPSourceV2.SCHEMA)
@@ -377,13 +377,13 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
                             parameters: Map[String, String]): Source = {
     val host = parameters("host")
     val port = parameters("port").toInt
-    val name = parameters("name")
+    val name = parameters("path")
     val maxPartitions = parameters.get("maxPartitions").map(_.toInt)
     val maxAttempts = parameters.getOrElse("maxPortAttempts", "10").toInt
     val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "false").toBoolean
     val source = new DistributedHTTPSource(
       name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
-    DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)
+    DistributedHTTPSink.activeSinks(parameters("path")).linkWithSource(source)
 
     parameters.get("deployLoadBalancer") match {
       case Some(s) if s.toBoolean =>

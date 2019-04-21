@@ -159,7 +159,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     if (!parameters.contains("port")) {
       throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
     }
-    if (!parameters.contains("name")) {
+    if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
     ("HTTP", HTTPSourceV2.SCHEMA)
@@ -172,7 +172,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
                             parameters: Map[String, String]): Source = {
     val host = parameters("host")
     val port = parameters("port").toInt
-    val name = parameters("name")
+    val name = parameters("path")
     val source = new HTTPSource(name, host, port, sqlContext)
     source
   }

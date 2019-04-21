@@ -169,7 +169,7 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
     session.readStream.format(classOf[DistributedHTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toLong)
-      .option("name", "foo")
+      .option("path", "foo")
       .option("maxPartitions", 5)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
@@ -205,7 +205,6 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
   test("test implicits", TestBase.Extended) {
     val server = session.readStream.server
       .address(host, port, "foo")
-      .option("name", "foo")
       .option("maxPartitions", 3)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
@@ -240,7 +239,6 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
 
     val server = session.readStream.server
       .address(host, port, "foo")
-      .option("name", "foo")
       .option("maxPartitions", 5)
       .load()
       .parseRequest(apiName, BinaryType)
@@ -274,7 +272,6 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
     val server = session.readStream.distributedServer
       .address(host, port, "foo")
       .option("maxPartitions", 5)
-      .option("name", "foo")
       .load()
       .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
