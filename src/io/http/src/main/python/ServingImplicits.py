@@ -27,7 +27,7 @@ setattr(pyspark.sql.streaming.DataStreamReader, 'continuousServer', _readContSer
 def _address(self, host, port, api):
     return self.option("host", host) \
         .option("port", port) \
-        .option("name", api)
+        .option("path", api)
 
 setattr(pyspark.sql.streaming.DataStreamReader, 'address', _address)
 
