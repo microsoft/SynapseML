@@ -117,6 +117,7 @@ private object TrainUtils extends Serializable {
     val bestIter = new Array[Int](evalCounts)
     while (!isFinished && iters < trainParams.numIterations) {
       try {
+        log.info("LightGBM worker calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
         LightGBMUtils.validate(result, "Booster Update One Iter")
         isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
@@ -160,37 +161,33 @@ private object TrainUtils extends Serializable {
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
                 validationData: Option[Broadcast[Array[Row]]], log: Logger,
                 trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    if (!inputRows.hasNext) {
-      List[LightGBMBooster]().toIterator
-    } else {
-      val rows = inputRows.toArray
-      var trainDatasetPtr: Option[SWIGTYPE_p_void] = None
-      var validDatasetPtr: Option[SWIGTYPE_p_void] = None
-      try {
-        trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
-        if (validationData.isDefined) {
-          validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-            featuresColumn, weightColumn, trainDatasetPtr)
-        }
-        var boosterPtr: Option[SWIGTYPE_p_void] = None
-        try {
-          boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-          trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
-          val model = saveBoosterToString(boosterPtr, log)
-          List[LightGBMBooster](new LightGBMBooster(model)).toIterator
-        } finally {
-          // Free booster
-          boosterPtr.foreach { booster =>
-            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
-          }
-        }
-      } finally {
-        // Free datasets
-        trainDatasetPtr.foreach(dataset =>
-          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Train Dataset"))
-        validDatasetPtr.foreach(dataset =>
-          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Validation Dataset"))
+    val rows = inputRows.toArray
+    var trainDatasetPtr: Option[SWIGTYPE_p_void] = None
+    var validDatasetPtr: Option[SWIGTYPE_p_void] = None
+    try {
+      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
+      if (validationData.isDefined) {
+        validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
+          featuresColumn, weightColumn, trainDatasetPtr)
       }
+      var boosterPtr: Option[SWIGTYPE_p_void] = None
+      try {
+        boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
+        trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        val model = saveBoosterToString(boosterPtr, log)
+        List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+      } finally {
+        // Free booster
+        boosterPtr.foreach { booster =>
+          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
+        }
+      }
+    } finally {
+      // Free datasets
+      trainDatasetPtr.foreach(dataset =>
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Train Dataset"))
+      validDatasetPtr.foreach(dataset =>
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Validation Dataset"))
     }
   }
 
@@ -237,8 +234,9 @@ private object TrainUtils extends Serializable {
     workerServerSocket
   }
 
-  def getNodes(networkParams: NetworkParams,
-               localListenPort: Int, log: Logger): String = {
+  def getNetworkInitNodes(networkParams: NetworkParams,
+                          localListenPort: Int, log: Logger,
+                          emptyPartition: Boolean): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
         using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
@@ -246,15 +244,27 @@ private object TrainUtils extends Serializable {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
-            val workerHost = driverSocket.getLocalAddress.getHostAddress
-            log.info(s"send current worker info to driver: $workerHost:$localListenPort ")
+            val workerStatus =
+              if (emptyPartition) {
+                log.info("send empty status to driver")
+                LightGBMConstants.ignoreStatus
+              } else {
+                val workerHost = driverSocket.getLocalAddress.getHostAddress
+                val workerInfo = s"$workerHost:$localListenPort"
+                log.info(s"send current worker info to driver: $workerInfo ")
+                workerInfo
+              }
             // Send the current host:port to the driver
-            driverOutput.write(s"$workerHost:$localListenPort\n")
+            driverOutput.write(s"$workerStatus\n")
             driverOutput.flush()
-            // Wait to get the list of nodes from the driver
-            val nodes = driverInput.readLine()
-            log.info(s"LightGBM worker got nodes for network init: $nodes")
-            nodes
+            if (workerStatus != LightGBMConstants.ignoreStatus) {
+              // Wait to get the list of nodes from the driver
+              val nodes = driverInput.readLine()
+              log.info(s"LightGBM worker got nodes for network init: $nodes")
+              nodes
+            } else {
+              workerStatus
+            }
         }.get
     }.get
   }
@@ -263,6 +273,7 @@ private object TrainUtils extends Serializable {
                     weightColumn: Option[String], validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    val emptyPartition = !inputRows.hasNext
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
     // should not be a problem
@@ -272,18 +283,23 @@ private object TrainUtils extends Serializable {
         // Initialize the native library
         LightGBMUtils.initializeNativeLibrary()
         log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-        (getNodes(networkParams, localListenPort, log), localListenPort)
+        (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
     }.get
 
-    // Initialize the network communication
-    log.info(s"LightGBM worker listening on: $localListenPort")
-    try {
-      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
-      translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
-    } finally {
-      // Finalize network when done
-      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
+    if (emptyPartition) {
+      log.warn("LightGBM worker encountered empty partition, for best performance ensure no partitions empty")
+      List[LightGBMBooster]().toIterator
+    } else {
+      // Initialize the network communication
+      log.info(s"LightGBM worker listening on: $localListenPort")
+      try {
+        LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
+          LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
+        translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
+      } finally {
+        // Finalize network when done
+        LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
+      }
     }
   }
 

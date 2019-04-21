@@ -7,14 +7,17 @@ import java.io.File
 
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Encoder, Encoders, Row}
 import org.apache.spark.sql.functions.{lit, rand}
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.commons.io.FileUtils
+import org.apache.spark.TaskContext
 import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{Vector, VectorUDT}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.types._
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
@@ -239,6 +242,44 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       lgbm.fit(transformedData).transform(scoredData))
     // Verify we get good result
     assert(metric > 0.8)
+  }
+
+  test("Verify LightGBM Classifier won't get stuck on empty partitions") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val infoSchema = new StructType()
+      .add(labelColumnName, IntegerType).add(featuresColumn, org.apache.spark.ml.linalg.SQLDataTypes.VectorType)
+    val infoEnc = RowEncoder(infoSchema)
+    val trainData = featurizer.transform(dataset).select(labelColumnName, featuresColumn)
+      .mapPartitions(iter => {
+        val ctx = TaskContext.get
+        val partId = ctx.partitionId
+        // Create an empty partition
+        if (partId == 0) {
+          Iterator()
+        } else {
+          iter
+        }
+      })(infoEnc)
+    val model = lgbm.fit(trainData)
+    model.transform(trainData)
+    assert(model != null)
   }
 
   /** Reads a CSV file given the file name and file location.

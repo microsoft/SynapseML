@@ -105,16 +105,22 @@ object LightGBMUtils {
       driverServerSocket.setSoTimeout(duration.toMillis.toInt)
     }
     val f = Future {
+      var emptyWorkerCounter = 0
       val hostAndPorts = ListBuffer[(Socket, String)]()
       log.info(s"driver expecting $numWorkers connections...")
-      while (hostAndPorts.size < numWorkers) {
+      while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
         log.info("driver accepting a new connection...")
         val driverSocket = driverServerSocket.accept()
         val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
         val comm = reader.readLine()
-        log.info(s"driver received socket from worker: $comm")
-        val socketAndComm = (driverSocket, comm)
-        hostAndPorts += socketAndComm
+        if (comm == LightGBMConstants.ignoreStatus) {
+          log.info("driver received ignore status from worker")
+          emptyWorkerCounter += 1
+        } else {
+          log.info(s"driver received socket from worker: $comm")
+          val socketAndComm = (driverSocket, comm)
+          hostAndPorts += socketAndComm
+        }
       }
       // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
       val allConnections = hostAndPorts.map(_._2).mkString(",")
