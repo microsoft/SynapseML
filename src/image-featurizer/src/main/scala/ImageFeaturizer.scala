@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
-import com.microsoft.ml.spark.schema.{DatasetExtensions, ImageSchema}
+import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
@@ -140,11 +140,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
     val inputSchema = dataset.schema(getInputCol).dataType
 
-    val unrolledDF = if (inputSchema == ImageSchema.columnSchema) {
+    val unrolledDF = if (ImageSchemaUtils.isImage(inputSchema)) {
       val prepare = new ResizeImageTransformer()
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
         .setHeight(requiredSize(1).toInt)
+        .setNChannels(3)
 
       val unroll = new UnrollImage()
         .setInputCol(prepare.getOutputCol)
@@ -157,6 +158,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setInputCol(getInputCol)
         .setWidth(requiredSize(0).toInt)
         .setHeight(requiredSize(1).toInt)
+        .setNChannels(3)
         .setOutputCol(resizedCol)
       unroll.transform(dataset)
     } else {

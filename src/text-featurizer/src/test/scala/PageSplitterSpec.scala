@@ -15,7 +15,8 @@ class PageSplitterSpec extends TransformerFuzzing[PageSplitter] {
     "hsjbhjhnskjhndwjnbvckjbnwkjwenbvfkjhbnwevkjhbnwejhkbnvjkhnbndjkbnd",
     "hsjbhjhnskjhndwjnbvckjbnwkjwenbvfkjhbnwevkjhbnwejhkbnvjkhnbndjkbnd " +
       "190872340870271091309831097813097130i3u709781",
-    ""
+    "",
+    null
   ).toDF("text")
 
   lazy val t = new PageSplitter()
@@ -25,7 +26,8 @@ class PageSplitterSpec extends TransformerFuzzing[PageSplitter] {
     .setOutputCol("pages")
 
   test("Basic usage") {
-    t.transform(df).collect().foreach { row =>
+    val resultList = t.transform(df).collect().toList
+    resultList.dropRight(1).foreach { row =>
       val pages = row.getSeq[String](1).toList
       val text = row.getString(0)
       assert(pages.mkString("") === text)

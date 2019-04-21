@@ -7,7 +7,7 @@ import java.io.File
 import java.net.URI
 
 import org.apache.spark.ml.feature.{OneHotEncoderEstimator, StringIndexerModel}
-import com.microsoft.ml.spark.Readers.implicits._
+import com.microsoft.ml.spark.IOImplicits._
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterEach, Suite}
@@ -255,12 +255,12 @@ TrainNetwork = {
     val indexedLabel = "idxlabels"
     val labelCol = "labels"
 
-    val images = session.readImages(imagePath, true)
+    val images = session.read.image.load(imagePath)
 
     // Label annotation: CIFAR is constructed here as
     // 01234-01.png, meaning (len - 5, len - 3) is label
     val pathLen = images.first.getStruct(0).getString(0).length
-    val labeledData = images.withColumn(tmpLabel, images("image.path").substr(pathLen - 5, 2).cast("float"))
+    val labeledData = images.withColumn(tmpLabel, images("image.origin").substr(pathLen - 5, 2).cast("float"))
 
     // Unroll images into Spark representation
     val unroller = new UnrollImage().setOutputCol(inputCol).setInputCol("image")

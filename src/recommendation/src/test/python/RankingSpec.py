@@ -5,13 +5,14 @@ import unittest
 import xmlrunner
 from mmlspark.RankingAdapter import RankingAdapter
 from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit, RankingTrainValidationSplitModel
+from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.RecommendationIndexer import RecommendationIndexer
+from mmlspark.SAR import SAR
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
-from pyspark.ml.tuning import *
+from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
-from pyspark.ml.recommendation import ALS
 
 
 class RankingSpec(unittest.TestCase):
@@ -75,14 +76,14 @@ class RankingSpec(unittest.TestCase):
         user_id_index = "customerID"
         item_id_index = "itemID"
 
-        customer_indexer = StringIndexer(inputCol=user_id, outputCol=user_id_index).fit(ratings)
-        items_indexer = StringIndexer(inputCol=item_id, outputCol=item_id_index).fit(ratings)
+        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
+                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
 
         als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
 
         adapter = RankingAdapter(mode='allUsers', k=5, recommender=als)
 
-        pipeline = Pipeline(stages=[customer_indexer, items_indexer, adapter])
+        pipeline = Pipeline(stages=[recommendation_indexer, adapter])
         output = pipeline.fit(ratings).transform(ratings)
         print(str(output.take(1)) + "\n")
 
@@ -90,7 +91,82 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
+    def test_adapter_evaluator_sar(self):
+        self.get_pyspark()
+
+        ratings = self.getRatings()
+
+        user_id = "originalCustomerID"
+        item_id = "newCategoryID"
+        rating_id = 'rating'
+
+        user_id_index = "customerID"
+        item_id_index = "itemID"
+
+        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
+                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
+
+        sar = SAR(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
+
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=sar)
+
+        pipeline = Pipeline(stages=[recommendation_indexer, adapter])
+        output = pipeline.fit(ratings).transform(ratings)
+        print(str(output.take(1)) + "\n")
+
+        metrics = ['ndcgAt', 'fcp', 'mrr']
+        for metric in metrics:
+            print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
+
+    def test_all_tiny(self):
+
+        RankingSpec.get_pyspark()
+        ratings = RankingSpec.getRatings()
+
+        customerIndex = StringIndexer() \
+            .setInputCol("originalCustomerID") \
+            .setOutputCol("customerID")
+
+        ratingsIndex = StringIndexer() \
+            .setInputCol("newCategoryID") \
+            .setOutputCol("itemID")
+
+        pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
+
+        transformedDf = pipeline.fit(ratings).transform(ratings)
+
+        als = ALS() \
+            .setUserCol(customerIndex.getOutputCol()) \
+            .setRatingCol('rating') \
+            .setItemCol(ratingsIndex.getOutputCol())
+
+        alsModel = als.fit(transformedDf)
+        usersRecs = alsModel._call_java("recommendForAllUsers", 3)
+        print(usersRecs.take(1))
+
+        paramGrid = ParamGridBuilder() \
+            .addGrid(als.regParam, [1.0]) \
+            .build()
+
+        evaluator = RankingEvaluator()
+
+        tvRecommendationSplit = RankingTrainValidationSplit() \
+            .setEstimator(als) \
+            .setEvaluator(evaluator) \
+            .setEstimatorParamMaps(paramGrid) \
+            .setTrainRatio(0.8) \
+            .setUserCol(customerIndex.getOutputCol()) \
+            .setRatingCol('rating') \
+            .setItemCol(ratingsIndex.getOutputCol())
+
+        tvmodel = tvRecommendationSplit.fit(transformedDf)
+
+        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
+
+        print(usersRecs.take(1))
+        print(tvmodel.validationMetrics)
+
 
 if __name__ == "__main__":
-    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS", "TestResults")), \
+    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS", "TestResults")),
                            failfast=False, buffer=False, catchbreak=False)

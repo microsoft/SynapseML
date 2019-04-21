@@ -3,12 +3,13 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{DoubleParam, IntParam, Param, StringArrayParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
+import org.apache.spark.sql.DataFrame
 
 /** Defines common parameters across all LightGBM learners.
   */
-trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol {
+trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol with HasValidationIndicatorCol {
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
   setDefault(parallelism->"data_parallel")
@@ -101,7 +102,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
-  setDefault(timeout -> 120)
+  setDefault(timeout -> 1200)
 
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
@@ -119,9 +120,31 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
 
-  val categoricalColumns = new StringArrayParam(this, "categoricalColumns",
-    "List of categorical column names")
+  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
+    "List of categorical column indexes, the slot index in the features column")
 
-  def getCategoricalColumns: Array[String] = $(categoricalColumns)
-  def setCategoricalColumns(value: Array[String]): this.type = set(categoricalColumns, value)
+  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
+  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
+
+  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
+    "List of categorical column slot names, the slot name in the features column")
+
+  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
+  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
+
+  val boostFromAverage = new BooleanParam(this, "boostFromAverage",
+    "Adjusts initial score to the mean of labels for faster convergence")
+  setDefault(boostFromAverage -> true)
+
+  def getBoostFromAverage: Boolean = $(boostFromAverage)
+  def setBoostFromAverage(value: Boolean): this.type = set(boostFromAverage, value)
+
+  val boostingType = new Param[String](this, "boostingType",
+    "Default gbdt = traditional Gradient Boosting Decision Tree. Options are: " +
+    "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
+    "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
+  setDefault(boostingType -> "gbdt")
+
+  def getBoostingType: String = $(boostingType)
+  def setBoostingType(value: String): this.type = set(boostingType, value)
 }

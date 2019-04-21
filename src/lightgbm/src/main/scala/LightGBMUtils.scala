@@ -12,10 +12,12 @@ import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.slf4j.Logger
 
+import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -58,11 +60,31 @@ object LightGBMUtils {
     lightgbmlib.voidpp_value(boosterOutPtr)
   }
 
-  def getCategoricalIndexes(df: DataFrame, categoricalColumns: Array[String]): Array[Int]  = {
-    val isCategorical = df.columns.map(columnName => (columnName, SparkSchema.isCategorical(df, columnName)))
-      .union(categoricalColumns.map(columnName => (columnName, true))).toMap
-    df.schema.fieldNames.zipWithIndex
-      .filter(name => isCategorical.contains(name._1) && isCategorical(name._1)).map(_._2)
+  def getCategoricalIndexes(df: DataFrame,
+                            featuresCol: String,
+                            categoricalColumnIndexes: Array[Int],
+                            categoricalColumnSlotNames: Array[String]): Array[Int]  = {
+    val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
+    val featuresSchema = df.schema(featuresCol)
+    val metadata = AttributeGroup.fromStructField(featuresSchema)
+    val categoricalIndexes =
+      if (metadata.attributes.isEmpty) Array[Int]()
+      else {
+        metadata.attributes.get.zipWithIndex.flatMap {
+          case (null, _) => Iterator()
+          case (attr, idx) =>
+            if (attr.name.isDefined && categoricalSlotNamesSet.contains(attr.name.get)) {
+              Iterator(idx)
+            } else {
+              attr match {
+                case _: NumericAttribute | UnresolvedAttribute => Iterator()
+                case binAttr: BinaryAttribute => Iterator(idx)
+                case nomAttr: NominalAttribute => Iterator(idx)
+              }
+            }
+        }
+      }
+    categoricalColumnIndexes.union(categoricalIndexes).distinct
   }
 
   /**
@@ -301,8 +323,8 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-      SWIGTYPE_p_void = {
+  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
+                           referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
     val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
@@ -321,7 +343,7 @@ object LightGBMUtils {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
                                data.get._1, data64bitType,
                                numRows_int32_tPtr, numCols_int32_tPtr,
-                               isRowMajor, datasetParams, null, datasetOutPtr),
+                               isRowMajor, datasetParams, referenceDataset.orNull, datasetOutPtr),
                              "Dataset create")
     } finally {
       if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
@@ -333,42 +355,21 @@ object LightGBMUtils {
     * @param sparseRows The rows of sparse vector.
     * @return
     */
-  def generateSparseDataset(sparseRows: Array[SparseVector]): SWIGTYPE_p_void = {
-    var values: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    var indexes: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
-    var indptrNative: Option[(SWIGTYPE_p_int32_t, SWIGTYPE_p_int)] = None
-    try {
-      val valuesArray = sparseRows.flatMap(_.values)
-      values = Some(newDoubleArray(valuesArray))
-      val indexesArray = sparseRows.flatMap(_.indices)
-      indexes = Some(newIntArray(indexesArray))
-      val indptr = new Array[Int](sparseRows.length + 1)
-      sparseRows.zipWithIndex.foreach {
-        case (row, index) => indptr(index + 1) = indptr(index) + row.numNonzeros
-      }
-      indptrNative = Some(newIntArray(indptr))
-      val numCols = sparseRows(0).size
+  def generateSparseDataset(sparseRows: Array[SparseVector],
+                            referenceDataset: Option[SWIGTYPE_p_void]): SWIGTYPE_p_void = {
+    val numCols = sparseRows(0).size
 
-      val datasetOutPtr = lightgbmlib.voidpp_handle()
-      val datasetParams = "max_bin=255 is_pre_partition=True"
-      val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
-      val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    val datasetOutPtr = lightgbmlib.voidpp_handle()
+    val datasetParams = "max_bin=255 is_pre_partition=True"
 
-      // Generate the dataset for features
-      LightGBMUtils.validate(CSRUtils.LGBM_DatasetCreateFromCSR(
-                               indptrNative.get._1, dataInt32bitType,
-                               indexes.get._1, values.get._1, data64bitType,
-                               intToPtr(indptr.length), intToPtr(valuesArray.length),
-                               intToPtr(numCols), datasetParams, null,
-                               datasetOutPtr),
-                             "Dataset create")
-      lightgbmlib.voidpp_value(datasetOutPtr)
-    } finally {
-      // Delete the input rows
-      if (values.isDefined)  lightgbmlib.delete_doubleArray(values.get._2)
-      if (indexes.isDefined) lightgbmlib.delete_intArray(indexes.get._2)
-      if (indptrNative.isDefined) lightgbmlib.delete_intArray(indptrNative.get._2)
-    }
+    // Generate the dataset for features
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
+                             sparseRows.asInstanceOf[Array[Object]],
+                             sparseRows.length,
+                             intToPtr(numCols), datasetParams, referenceDataset.orNull,
+                             datasetOutPtr),
+                           "Dataset create")
+
+    lightgbmlib.voidpp_value(datasetOutPtr)
   }
-
 }

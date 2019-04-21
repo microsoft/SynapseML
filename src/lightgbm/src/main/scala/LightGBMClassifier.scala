@@ -3,16 +3,12 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.sql._
 
-import scala.concurrent.Await
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.math.min
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
@@ -26,8 +22,11 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 @InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMParams {
+  with LightGBMBase[LightGBMClassificationModel] {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
+
+  // Set default objective to be binary classification
+  setDefault(objective -> LightGBMConstants.binaryObjective)
 
   val isUnbalance = new BooleanParam(this, "isUnbalance",
     "Set to true if training data is unbalanced in binary classification scenario")
@@ -36,47 +35,26 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  /** Trains the LightGBM Classification model.
-    *
-    * @param dataset The input dataset to train.
-    * @return The trained model.
-    */
-  override protected def train(dataset: Dataset[_]): LightGBMClassificationModel = {
-    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
-    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
-    // Reduce number of partitions to number of executor cores
-    val df = dataset.toDF().coalesce(numWorkers).cache()
-    val (inetAddress, port, future) =
-      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
-
-    /* Run a parallel job via map partitions to initialize the native library and network,
-     * translate the data to the LightGBM in-memory representation and train the models
-     */
-    val encoder = Encoders.kryo[LightGBMBooster]
-    val categoricals =
-      if (isDefined(categoricalColumns)) getCategoricalColumns
-      else Array.empty[String]
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
-    val trainParams = ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
-      getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, getModelString,
-      getIsUnbalance, getVerbosity, categoricalIndexes)
+  def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
-    val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
+    val metric =
+      if (getObjective == LightGBMConstants.binaryObjective) "binary_logloss,auc"
+      else "multiclass"
+    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
+    ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
+      getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
+      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, metric, getBoostFromAverage, getBoostingType)
+  }
 
-    val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, _) => booster1)
-    // Wait for future to complete (should be done by now)
-    Await.result(future, Duration(getTimeout, SECONDS))
+  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
+    val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
     new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
       getPredictionCol, getProbabilityCol, getRawPredictionCol,
-      if (isDefined(thresholds)) Some(getThresholds) else None, actualNumClasses)
+      if (isDefined(thresholds)) Some(getThresholds) else None, classifierTrainParams.numClass)
   }
 
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
@@ -116,8 +94,11 @@ class LightGBMClassificationModel(
   override def numClasses: Int = this.actualNumClasses
 
   override protected def predictRaw(features: Vector): Vector = {
-    val prediction = model.score(features, true)
-    Vectors.dense(Array(-prediction, prediction))
+    Vectors.dense(model.score(features, true, true))
+  }
+
+  override protected def predictProbability(features: Vector): Vector = {
+    Vectors.dense(model.score(features, false, true))
   }
 
   override def copy(extra: ParamMap): LightGBMClassificationModel =
@@ -149,11 +130,11 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
                               probColName: String = "probability",
                               rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
-    val actualNumClasses = 2
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
+    val actualNumClasses = lightGBMBooster.getNumClasses()
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
   }
@@ -163,8 +144,8 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
                                 probColName: String = "probability",
                                 rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
-    val actualNumClasses = 2
     val lightGBMBooster = new LightGBMBooster(model)
+    val actualNumClasses = lightGBMBooster.getNumClasses()
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
   }

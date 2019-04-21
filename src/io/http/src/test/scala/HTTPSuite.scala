@@ -20,7 +20,7 @@ class HTTPSuite extends TestBase with HTTPTestUtils {
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toString)
-      .option("name", apiName)
+      .option("name", apiPath)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
       .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))

@@ -38,7 +38,7 @@ object Extras {
     "com.jcraft"          % "jsch"         % "0.1.54",
     "com.jcraft"          % "jsch"         % "0.1.54",
     "org.apache.httpcomponents" % "httpclient"   % "4.5.6",
-    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.200"
+    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.300"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
 
@@ -64,7 +64,8 @@ object Extras {
     "-Yno-adapted-args", // "-Ywarn-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard"
+    "-Ywarn-value-discard",
+    "-Yinline-warnings"
     // this leads to problems sometimes: "-Yinline-warnings"
   )
 

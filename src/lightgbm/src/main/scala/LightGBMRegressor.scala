@@ -9,9 +9,6 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.regression.{BaseRegressor, RegressionModel}
 import org.apache.spark.sql._
 
-import scala.concurrent.Await
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.math.min
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
@@ -37,8 +34,11 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 @InternalWrapper
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMParams {
+    with LightGBMBase[LightGBMRegressionModel] {
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
+
+  // Set default objective to be regression
+  setDefault(objective -> "regression")
 
   val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
   setDefault(alpha -> 0.9)
@@ -53,40 +53,15 @@ class LightGBMRegressor(override val uid: String)
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
 
-  /** Trains the LightGBM Regression model.
-    *
-    * @param dataset The input dataset to train.
-    * @return The trained model.
-    */
-  override protected def train(dataset: Dataset[_]): LightGBMRegressionModel = {
-    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
-    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
-    // Reduce number of partitions to number of executor cores if needed
-    val df = dataset.toDF().coalesce(numWorkers).cache()
-    val (inetAddress, port, future) =
-      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
-
-    /* Run a parallel job via map partitions to initialize the native library and network,
-     * translate the data to the LightGBM in-memory representation and train the models
-     */
-    val encoder = Encoders.kryo[LightGBMBooster]
-    val categoricals =
-      if (isDefined(categoricalColumns)) getCategoricalColumns
-      else Array.empty[String]
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, categoricals)
-    val trainParams = RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
+  def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
+    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
+    RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getModelString,
-      getVerbosity, categoricalIndexes)
-    val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
+      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
+      getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType)
+  }
 
-    val lightGBMBooster = df
-      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        log, trainParams, numCoresPerExec))(encoder)
-      .reduce((booster1, _) => booster1)
-    // Wait for future to complete (should be done by now)
-    Await.result(future, Duration(getTimeout, SECONDS))
+  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
   }
 
@@ -107,7 +82,7 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   set(predictionCol, predictionColName)
 
   override def predict(features: Vector): Double = {
-    model.score(features, raw = false)
+    model.score(features, false, false)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel =

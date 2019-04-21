@@ -25,7 +25,7 @@ trait HasErrorCol extends Params {
 }
 
 object ErrorUtils extends Serializable {
-  protected val errorSchema: StructType = new StructType()
+  val errorSchema: StructType = new StructType()
     .add("response", StringType, nullable = true)
     .add("status", StatusLineData.schema, nullable = true)
 
@@ -48,7 +48,7 @@ object ErrorUtils extends Serializable {
     }
   }
 
-  val addErrorUDF: UserDefinedFunction = {
+  def addErrorUDF: UserDefinedFunction = {
     val fromRow = HTTPResponseData.makeFromRowConverter
     udf(addError(fromRow) _, errorSchema)
   }

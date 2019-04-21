@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -175,4 +176,41 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
   override def reader: MLReadable[_] = KeyPhraseExtractor
 }
 
+class NERSuite extends TransformerFuzzing[NER] with TextKey {
+  import session.implicits._
 
+  lazy val df: DataFrame = Seq(
+    ("1", "en", "Jeff bought three dozen eggs because there was a 50% discount."),
+    ("2", "en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
+  ).toDF("id", "language", "text")
+
+  lazy val n: NER = new NER()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setLanguage("en")
+    .setOutputCol("response")
+
+  test("Basic Usage") {
+    val results = n.transform(df)
+    val matches = results.withColumn("match",
+      col("response")
+        .getItem(0)
+        .getItem("entities")
+        .getItem("matches")
+        .getItem(0)
+        .getItem(0))
+      .select("match")
+
+    val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
+
+    assert(testRow.getAs[String]("text") === "Jeff")
+    assert(testRow.getAs[Int]("offset") === 0)
+    assert(testRow.getAs[Int]("length") === 4)
+
+  }
+
+  override def testObjects(): Seq[TestObject[NER]] =
+    Seq(new TestObject[NER](n, df))
+
+  override def reader: MLReadable[_] = NER
+}

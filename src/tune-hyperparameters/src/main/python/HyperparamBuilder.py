@@ -18,7 +18,7 @@ class HyperparamBuilder(object):
     def __init__(self):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        self.hyperparamBuilder = self.jvm.com.microsoft.ml.spark.HyperparamBuilder()
+        self.hyperparams = {}
 
     def addHyperparam(self, est, param, hyperParam):
         """
@@ -29,8 +29,7 @@ class HyperparamBuilder(object):
             dist (Dist): Distribution of values
 
         """
-        javaParam = est._java_obj.getParam(param.name)
-        self.hyperparamBuilder.addHyperparam(javaParam, hyperParam.get())
+        self.hyperparams[param] = (est, hyperParam)
         return self
 
     def build(self):
@@ -38,7 +37,7 @@ class HyperparamBuilder(object):
         Builds the search space of hyperparameters, returns the map of hyperparameters to search through.
 
         """
-        return self.hyperparamBuilder.build()
+        return self.hyperparams.items()
 
 class DiscreteHyperParam(object):
     """
@@ -56,10 +55,11 @@ class RangeHyperParam(object):
     """
     Specifies a range of values.
     """
-    def __init__(self, min, max, seed=0, isDouble=False):
+    def __init__(self, min, max, seed=0):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
         self.rangeParam = self.jvm.com.microsoft.ml.spark.HyperParamUtils.getRangeHyperParam(min, max, seed)
+
     def get(self):
         return self.rangeParam
 
@@ -70,7 +70,11 @@ class GridSpace(object):
     def __init__(self, paramValues):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        self.gridSpace = self.jvm.com.microsoft.ml.spark.GridSpace(paramValues)
+        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.HyperparamBuilder()
+        for k, (est, hyperparam) in paramValues:
+            javaParam = est._java_obj.getParam(k.name)
+            hyperparamBuilder.addHyperparam(javaParam, hyperparam.get())
+        self.gridSpace = self.jvm.com.microsoft.ml.spark.GridSpace(hyperparamBuilder.build())
 
     def space(self):
         return self.gridSpace
@@ -82,7 +86,11 @@ class RandomSpace(object):
     def __init__(self, paramDistributions):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        self.paramSpace = self.jvm.com.microsoft.ml.spark.RandomSpace(paramDistributions)
+        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.HyperparamBuilder()
+        for k, (est, hyperparam) in paramDistributions:
+            javaParam = est._java_obj.getParam(k.name)
+            hyperparamBuilder.addHyperparam(javaParam, hyperparam.get())
+        self.paramSpace = self.jvm.com.microsoft.ml.spark.RandomSpace(hyperparamBuilder.build())
 
     def space(self):
         return self.paramSpace
