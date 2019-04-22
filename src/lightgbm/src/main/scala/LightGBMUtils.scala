@@ -39,11 +39,13 @@ object LightGBMUtils {
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
 
-  def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String): PipelineModel = {
+  def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
+                    weightColumn: Option[String] = None, groupColumn: Option[String] = None): PipelineModel = {
     // Create pipeline model to featurize the dataset
     val oneHotEncodeCategoricals = true
     val featuresToHashTo = FeaturizeUtilities.numFeaturesTreeOrNNBased
-    val featureColumns = dataset.columns.filter(col => col != labelColumn).toSeq
+    val featureColumns = dataset.columns.filter(col => col != labelColumn &&
+      weightColumn.forall(_ != col) && groupColumn.forall(_ != col)).toSeq
     val featurizer = new Featurize()
       .setFeatureColumns(Map(featuresColumn -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
@@ -295,22 +297,6 @@ object LightGBMUtils {
         Array((id, host)).toIterator
       }).collect()
     nodes
-  }
-
-  def newDoubleArray(array: Array[Double]): (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
-    val data = lightgbmlib.new_doubleArray(array.length)
-    array.zipWithIndex.foreach {
-      case (value, index) => lightgbmlib.doubleArray_setitem(data, index, value)
-    }
-    (lightgbmlib.double_to_voidp_ptr(data), data)
-  }
-
-  def newIntArray(array: Array[Int]): (SWIGTYPE_p_int32_t, SWIGTYPE_p_int) = {
-    val data = lightgbmlib.new_intArray(array.length)
-    array.zipWithIndex.foreach {
-      case (value, index) => lightgbmlib.intArray_setitem(data, index, value)
-    }
-    (lightgbmlib.int_to_int32_t_ptr(data), data)
   }
 
   def intToPtr(value: Int): SWIGTYPE_p_int64_t = {

@@ -13,7 +13,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
-/** Trains a LightGBM Binary Classification model, a fast, distributed, high performance gradient boosting
+/** Trains a LightGBM Classification model, a fast, distributed, high performance gradient boosting
   * framework based on decision tree algorithms.
   * For more information please see here: https://github.com/Microsoft/LightGBM.
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst

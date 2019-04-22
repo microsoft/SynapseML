@@ -166,6 +166,7 @@ class FuzzingTest extends TestBase {
       "org.apache.spark.ml.feature.FastVectorAssembler", // In Spark namespace
       "com.microsoft.ml.spark.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.ml.spark.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.LightGBMRanker", // HasFeaturesCol is part of spark's base class
       "com.microsoft.ml.spark.TextFeaturizer" // needs to hide setters from model
     )
     pipelineStages.foreach { stage =>

@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import java.io._
 import java.net._
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.StreamUtilities.using
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -20,7 +20,7 @@ case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 private object TrainUtils extends Serializable {
 
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
-                      weightColumn: Option[String], initScoreColumn: Option[String],
+                      weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
                       referenceDataset: Option[LightGBMDataset]): Option[LightGBMDataset] = {
     val numRows = rows.length
     val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
@@ -45,16 +45,43 @@ private object TrainUtils extends Serializable {
 
     // Validate generated dataset has the correct number of rows and cols
     datasetPtr.get.validateDataset()
-    datasetPtr.get.addField(labels, "label", numRows)
+    datasetPtr.get.addFloatField(labels, "label", numRows)
     weightColumn.foreach { col =>
       val weights = rows.map(row => row.getDouble(row.fieldIndex(col)))
-      datasetPtr.get.addField(weights, "weight", numRows)
+      datasetPtr.get.addFloatField(weights, "weight", numRows)
     }
+    addGroupColumn(rows, groupColumn, datasetPtr, numRows)
     initScoreColumn.foreach { col =>
       val initScores = rows.map(row => row.getDouble(row.fieldIndex(col)))
       datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
     }
     datasetPtr
+  }
+
+  def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
+                     datasetPtr: Option[LightGBMDataset], numRows: Int): Unit = {
+    groupColumn.foreach { col =>
+      val group = rows.map(row => row.getInt(row.fieldIndex(col)))
+      // Convert to distinct count (note ranker should have sorted within partition by group id)
+      // We use a triplet of a list of cardinalities, last unqiue value and unique value count
+      val cardinalityTriplet =
+      group.foldLeft((List.empty[Int], -1, 0)) { (listValue, currentValue) =>
+        if (listValue._2 < 0) {
+          // Base case, keep list as empty and set cardinality to 1
+          (listValue._1, currentValue, 1)
+        }
+        else if (listValue._2 == currentValue) {
+          // Encountered same value
+          (listValue._1, currentValue, listValue._3 + 1)
+        }
+        else {
+          // New value, need to reset counter and add new cardinality to list
+          (listValue._3 :: listValue._1, currentValue, 1)
+        }
+      }
+      val groupCardinality = (cardinalityTriplet._3 :: cardinalityTriplet._1).reverse.toArray
+      datasetPtr.get.addIntField(groupCardinality, "group", groupCardinality.length)
+    }
   }
 
   def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[LightGBMDataset],
@@ -165,17 +192,19 @@ private object TrainUtils extends Serializable {
   }
 
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
-                initScoreColumn: Option[String], validationData: Option[Broadcast[Array[Row]]],
+                initScoreColumn: Option[String], groupColumn: Option[String],
+                validationData: Option[Broadcast[Array[Row]]],
                 log: Logger, trainParams: TrainParams,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
-      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, initScoreColumn, None)
+      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
+        weightColumn, initScoreColumn, groupColumn, None)
       if (validationData.isDefined) {
         validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, initScoreColumn, trainDatasetPtr)
+          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr)
       }
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
@@ -259,12 +288,14 @@ private object TrainUtils extends Serializable {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
         LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
     } catch {
-      case ex: Throwable => {
-        log.info(s"NetworkInit failed with exception on local port $localListenPort, retrying: $ex")
+      case ex @ (_: Exception | _: Throwable) => {
+        log.info(s"NetworkInit failed with exception on local port $localListenPort with exception: $ex")
         Thread.sleep(delay)
         if (retry > 0) {
+          log.info(s"Retrying NetworkInit with local port $localListenPort")
           networkInit(nodes, localListenPort, log, retry - 1, delay * 2)
         } else {
+          log.info(s"NetworkInit reached maximum exceptions on retry: $ex")
           throw ex
         }
       }
@@ -272,7 +303,7 @@ private object TrainUtils extends Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], initScoreColumn: Option[String],
+                    weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
@@ -299,7 +330,7 @@ private object TrainUtils extends Serializable {
         val retries = 3
         val initialDelay = 1000L
         networkInit(nodes, localListenPort, log, retries, initialDelay)
-        translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, validationData,
+        translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, groupColumn, validationData,
           log, trainParams, inputRows)
       } finally {
         // Finalize network when done
