@@ -33,7 +33,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
+  def addFloatField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_float] = None
     try {
@@ -66,6 +66,24 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     } finally {
       // Free column
       colArray.foreach(lightgbmlib.delete_doubleArray(_))
+    }
+  }
+
+  def addIntField(field: Array[Int], fieldName: String, numRows: Int): Unit = {
+    // Generate the column and add to dataset
+    var colArray: Option[SWIGTYPE_p_int] = None
+    try {
+      colArray = Some(lightgbmlib.new_intArray(numRows))
+      field.zipWithIndex.foreach(ri =>
+        lightgbmlib.intArray_setitem(colArray.get, ri._2, ri._1))
+      val colAsVoidPtr = lightgbmlib.int_to_voidp_ptr(colArray.get)
+      val data32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data32bitType),
+        "DatasetSetField")
+    } finally {
+      // Free column
+      colArray.foreach(lightgbmlib.delete_intArray(_))
     }
   }
 

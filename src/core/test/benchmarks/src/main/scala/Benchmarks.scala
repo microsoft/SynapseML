@@ -122,4 +122,9 @@ object DatasetUtils {
   def regressionTrainFile(name: String): File =
     new File(s"${sys.env("DATASETS_HOME")}/Regression/Train", name)
 
+  def rankingTrainFile(name: String): File =
+    new File(s"${sys.env("DATASETS_HOME")}/Ranking/Train", name)
+
+  def rankingTestFile(name: String): File =
+    new File(s"${sys.env("DATASETS_HOME")}/Ranking/Test", name)
 }
