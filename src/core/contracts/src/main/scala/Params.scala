@@ -161,3 +161,14 @@ trait HasInitScoreCol extends Wrappable {
   /** @group getParam */
   def getInitScoreCol: String = $(initScoreCol)
 }
+
+trait HasGroupCol extends Wrappable {
+  /** The name of the group column
+    * @group param
+    */
+  val groupCol = new Param[String](this, "groupCol", "The name of the group column")
+  /** @group setParam */
+  def setGroupCol(value: String): this.type = set(groupCol, value)
+  /** @group getParam */
+  def getGroupCol: String = $(groupCol)
+}

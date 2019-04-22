@@ -91,7 +91,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
-  test("Verify LightGBM Classifier with batch training") {
+  ignore("Verify LightGBM Classifier with batch training") {
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"

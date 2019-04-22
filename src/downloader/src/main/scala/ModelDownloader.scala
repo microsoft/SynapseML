@@ -36,10 +36,11 @@ private[spark] abstract class Repository[S <: Schema] {
 
 object FaultToleranceUtils {
   def retryWithTimeout[T](times: Int, timeout: Duration)(f: => T): T ={
-    try{
+    try {
       Await.result(Future(f)(ExecutionContext.global), timeout)
-    }catch{
-      case e:Exception if times>=1 =>
+    } catch {
+      case e: Exception if times >= 1 =>
+        print(s"Received exception on call, retrying: $e")
         retryWithTimeout(times-1, timeout)(f)
     }
   }

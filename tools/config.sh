@@ -91,9 +91,9 @@ INSTALLATIONS=(
   vers:   "PYTHONDONTWRITEBYTECODE=true conda --version|conda <{ver}>"
   where:  "devel runtime build"
 
-  DataSets ver: "2017-05-25"
+  DataSets ver: "2019-05-02"
   url:    "$INSTALLER_URL/datasets-<{ver}>.tgz"
-  sha256: "9cf58c6d22fa3d3507608c5af23eb791e37bea324d2c98209ae7356becd4ce41"
+  sha256: "20baed47a4ac790788ab66f491ea7152189e6d54f4272c5e36205b03f375c27e"
   vers:   "cat version|<{ver}>"
   where:  "devel build"
 
