@@ -576,7 +576,8 @@ private[streaming] class WorkerServer(val name: String,
       return Option(recoveredPartitions((localEpoch, partitionIndex)).poll())
     }
 
-    val queue = requestQueues(localEpoch)
+    val queue = requestQueues.getOrElseUpdate(
+      localEpoch, new LinkedBlockingQueue[CachedRequest]())
     val timeout: Option[Either[Long, Long]] = if (continuous) {
       None
     } else if (localEpoch < epoch || Option(queue.peek()).isDefined) {
