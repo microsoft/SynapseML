@@ -6,7 +6,7 @@ Begin by installing [Docker for your OS][docker-products].  Then, to get the
 MMLSpark image and run it, open a terminal (powershell/cmd on Windows) and run
 
    ```bash
-   docker run -it -p 8888:8888 microsoft/mmlspark
+   docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release
    ```
 
 In your browser, go to <http://localhost:8888/> — you'll see the Docker image
@@ -14,7 +14,7 @@ EULA, and once you accept it, the Jupyter notebook interface will start.  To
 skip this step, add `-e ACCEPT_EULA=yes` to the Docker command:
 
    ```bash
-   docker run -it -p 8888:8888 -e ACCEPT_EULA=y microsoft/mmlspark
+   docker run -it -p 8888:8888 -e ACCEPT_EULA=y mcr.microsoft.com/mmlspark/release
    ```
 
 You can now select one of the sample notebooks and run it, or create your own.
@@ -26,13 +26,13 @@ You can now select one of the sample notebooks and run it, or create your own.
 
 ## Running a specific version
 
-In the above, `microsoft/mmlspark` specifies the project and image name that you
+In the above, `mcr.microsoft.com/mmlspark/release` specifies the project and image name that you
 want to run.  There is another component implicit here which is the *tag* (=
 version) that you want to use — specifying it explicitly looks like
-`microsoft/mmlspark:0.16` for the `0.16` tag.
+`mcr.microsoft.com/mmlspark/release:0.17` for the `0.17` tag.
 
-Leaving `microsoft/mmlspark` by itself has an implicit `latest` tag, so it is
-equivalent to `microsoft/mmlspark:latest`.  The `latest` tag is identical to the
+Leaving `mcr.microsoft.com/mmlspark/release` by itself has an implicit `latest` tag, so it is
+equivalent to `mcr.microsoft.com/mmlspark/release:latest`.  The `latest` tag is identical to the
 most recent stable MMLSpark version.  You can see the current [mmlspark tags] on
 our [Docker Hub repository][mmlspark-dockerhub].
 
@@ -47,7 +47,7 @@ that you will probably want to use can look as follows:
               -e ACCEPT_EULA=y \
               -p 127.0.0.1:80:8888 \
               -v ~/myfiles:/notebooks/myfiles \
-              microsoft/mmlspark:0.16
+              mcr.microsoft.com/mmlspark/release:0.17
    ```
 
 In this example, backslashes are used to break things up for readability; you
@@ -59,7 +59,7 @@ path and line breaks looks a little different:
               -e ACCEPT_EULA=y `
               -p 127.0.0.1:80:8888 `
               -v C:\myfiles:/notebooks/myfiles `
-              microsoft/mmlspark:0.16
+              mcr.microsoft.com/mmlspark/release:0.17
    ```
 
 Let's break this command and go over the meaning of each part:
@@ -143,7 +143,7 @@ Let's break this command and go over the meaning of each part:
      model.write().overwrite().save('myfiles/myTrainedModel.mml')
      ```
 
-* **`microsoft/mmlspark:0.16`**
+* **`mcr.microsoft.com/mmlspark/release:0.17`**
 
   Finally, this specifies an explicit version tag for the image that we want to
   run.
@@ -157,7 +157,7 @@ additional flag that is useful for this is `--name` that gives a convenient
 label to the running image:
 
    ```bash
-   docker run -d --name my-mmlspark ...flags... microsoft/mmlspark
+   docker run -d --name my-mmlspark ...flags... mcr.microsoft.com/mmlspark/release
    ```
 
 When running in this mode, you can use
@@ -212,7 +212,7 @@ fires up the Jupyter notebook server.  This makes it possible to use the Spark
 environment directly in the container if you start it as:
 
    ```bash
-   docker run -it ...flags... microsoft/mmlspark bash
+   docker run -it ...flags... mcr.microsoft.com/mmlspark/release bash
    ```
 
 This starts the container with bash instead of Jupyter.  This environment has
@@ -241,21 +241,21 @@ This means that you need to explicitly tell Docker to check for a new version
 and pull it if one exists.  You do this with the `pull` command:
 
    ```bash
-   docker pull microsoft/mmlspark
+   docker pull mcr.microsoft.com/mmlspark/release
    ```
 
 Since we didn't specify an explicit tag here, `docker` adds the implied
-`:latest` tag, and checks the available `microsoft/mmlspark` image with this tag
+`:latest` tag, and checks the available `mcr.microsoft.com/mmlspark/release` image with this tag
 on Docker Hub.  When it finds a different image with this tag, it will fetch a
 copy to your machine, changing the image that an unqualified
-`microsoft/mmlspark` refers to.
+`mcr.microsoft.com/mmlspark/release` refers to.
 
 Docker normally knows only about the tags that it fetched, so if you've always
-used `microsoft/mmlspark` to refer to the image without an explicit version tag,
+used `mcr.microsoft.com/mmlspark/release` to refer to the image without an explicit version tag,
 then you wouldn't have the version-tagged image too.  Once the tag is updated,
 the previous version will still be in your system, only without any tag.  Using
 `docker images` to list the images in your system will now show you two images
-for `microsoft/mmlspark`, one with a tag of `latest` and one with no tag, shown
+for `mcr.microsoft.com/mmlspark/release`, one with a tag of `latest` and one with no tag, shown
 as `<none>`.  Assuming that you don't have active containers (including detached
 ones), `docker system prune` will remove this untagged image, reclaiming the
 used space.
