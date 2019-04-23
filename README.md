@@ -155,9 +155,9 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
    ```bash
-   spark-shell --packages Azure:mmlspark:0.16
-   pyspark --packages Azure:mmlspark:0.16
-   spark-submit --packages Azure:mmlspark:0.16 MyApp.jar
+   spark-shell --packages Azure:mmlspark:0.17
+   pyspark --packages Azure:mmlspark:0.17
+   spark-submit --packages Azure:mmlspark:0.17 MyApp.jar
    ```
 
 This can be used in other Spark contexts too. For example, you can use MMLSpark
@@ -172,14 +172,14 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `Azure:mmlspark:0.16`.  Ensure this library is
+For the coordinates use: `Azure:mmlspark:0.17`.  Ensure this library is
 attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.16.dbc```
+```https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.17.dbc```
 
 
 ### Docker
@@ -188,14 +188,14 @@ The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
 do so, run the following command:
 
    ```bash
-   docker run -it -p 8888:8888 -e ACCEPT_EULA=yes microsoft/mmlspark
+   docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release
    ```
 
 Navigate to <http://localhost:8888/> in your web browser to run the sample
 notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 > To read the EULA for using the docker image, run \
-> `docker run -it -p 8888:8888 microsoft/mmlspark eula`
+> `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
 
 ### GPU VM Setup
 
@@ -212,7 +212,7 @@ the above example, or from python:
    ```python
    import pyspark
    spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-               .config("spark.jars.packages", "Azure:mmlspark:0.16") \
+               .config("spark.jars.packages", "Azure:mmlspark:0.17") \
                .getOrCreate()
    import mmlspark
    ```
@@ -228,7 +228,7 @@ running script actions, see [this
 guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
 
 The script action url is:
-<https://mmlspark.azureedge.net/buildartifacts/0.16/install-mmlspark.sh>.
+<https://mmlspark.azureedge.net/buildartifacts/0.17/install-mmlspark.sh>.
 
 If you're using the Azure Portal to run the script action, go to `Script
 actions` → `Submit new` in the `Overview` section of your cluster blade.  In
@@ -244,7 +244,7 @@ your `build.sbt`:
 
    ```scala
    resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
-   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.16"
+   libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.17"
    ```
 
 ### Building from source
