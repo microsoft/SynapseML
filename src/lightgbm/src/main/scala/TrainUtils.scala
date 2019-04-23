@@ -269,6 +269,23 @@ private object TrainUtils extends Serializable {
     }.get
   }
 
+  def networkInit(nodes: String, localListenPort: Int, log: Logger, retry: Int, delay: Long): Unit = {
+    try {
+      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
+        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
+    } catch {
+      case ex: Throwable => {
+        log.info(s"NetworkInit failed with exception on local port $localListenPort, retrying: $ex")
+        Thread.sleep(delay)
+        if (retry > 0) {
+          networkInit(nodes, localListenPort, log, retry - 1, delay * 2)
+        } else {
+          throw ex
+        }
+      }
+    }
+  }
+
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
                     weightColumn: Option[String], validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
@@ -293,8 +310,9 @@ private object TrainUtils extends Serializable {
       // Initialize the network communication
       log.info(s"LightGBM worker listening on: $localListenPort")
       try {
-        LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-          LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
+        val retries = 3
+        val initialDelay = 1000L
+        networkInit(nodes, localListenPort, log, retries, initialDelay)
         translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
       } finally {
         // Finalize network when done

@@ -50,6 +50,8 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     val paramGrid = new ParamGridBuilder()
       .addGrid(lgbm.numLeaves, Array(5, 10))
       .addGrid(lgbm.numIterations, Array(10, 20))
+      .addGrid(lgbm.lambdaL1, Array(0.1, 0.5))
+      .addGrid(lgbm.lambdaL2, Array(0.1, 0.5))
       .build()
 
     val trainValidationSplit = new TrainValidationSplit()
@@ -63,6 +65,10 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     val model = trainValidationSplit.fit(featurizer.transform(dataset))
     model.transform(featurizer.transform(dataset))
     assert(model != null)
+    // Validate lambda parameters set on model
+    val modelStr = model.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.model
+    assert(modelStr.contains("[lambda_l1: 0.1]") || modelStr.contains("[lambda_l1: 0.5]"))
+    assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
   test("Verify LightGBM Regressor with weight column") {

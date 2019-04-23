@@ -147,4 +147,16 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBoostingType: String = $(boostingType)
   def setBoostingType(value: String): this.type = set(boostingType, value)
+
+  val lambdaL1 = new DoubleParam(this, "lambdaL1", "L1 regularization")
+  setDefault(lambdaL1 -> 0.0)
+
+  def getLambdaL1: Double = $(lambdaL1)
+  def setLambdaL1(value: Double): this.type = set(lambdaL1, value)
+
+  val lambdaL2 = new DoubleParam(this, "lambdaL2", "L2 regularization")
+  setDefault(lambdaL2 -> 0.0)
+
+  def getLambdaL2: Double = $(lambdaL2)
+  def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
 }
