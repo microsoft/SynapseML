@@ -58,6 +58,10 @@ class LightGBMClassifier(override val uid: String)
       if (isDefined(thresholds)) Some(getThresholds) else None, classifierTrainParams.numClass)
   }
 
+  def stringFromTrainedModel(model: LightGBMClassificationModel): String = {
+    model.getModel.model
+  }
+
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
 }
 
