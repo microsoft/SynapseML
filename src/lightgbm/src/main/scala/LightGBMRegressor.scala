@@ -65,6 +65,10 @@ class LightGBMRegressor(override val uid: String)
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
   }
 
+  def stringFromTrainedModel(model: LightGBMRegressionModel): String = {
+    model.getModel.model
+  }
+
   override def copy(extra: ParamMap): LightGBMRegressor = defaultCopy(extra)
 }
 

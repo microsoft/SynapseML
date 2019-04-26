@@ -90,6 +90,33 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
+  test("Verify LightGBM Classifier with batch training") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val batches = Array(0, 2, 10)
+    batches.map { numBatches =>
+      val model = lgbm.setNumBatches(numBatches).fit(featurizer.transform(dataset))
+      model.transform(featurizer.transform(dataset))
+      assert(model != null)
+    }
+  }
+
   test("Verify LightGBM Classifier with weight column") {
     // Increment port index
     portIndex += numPartitions
