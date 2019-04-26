@@ -9,7 +9,9 @@ import org.apache.spark.sql.{Dataset, Encoders}
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.math.min
-import org.apache.spark.ml.param.shared.{HasLabelCol => HasLabelColSpark, HasFeaturesCol => HasFeaturesColSpark}
+import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
+
+import scala.language.existentials
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
   with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
@@ -20,6 +22,21 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return The trained model.
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
+    if (getNumBatches > 0) {
+      val ratio = 1.0 / getNumBatches
+      val datasets = dataset.randomSplit((0 until getNumBatches).map(_=> ratio).toArray)
+      datasets.foldLeft(None: Option[TrainedModel]) { (model, dataset) =>
+        if (!model.isEmpty) {
+          setModelString(stringFromTrainedModel(model.get))
+        }
+        Some(innerTrain(dataset))
+      }.get
+    } else {
+      innerTrain(dataset)
+    }
+  }
+
+  def innerTrain(dataset: Dataset[_]): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
     val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
@@ -57,4 +74,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
 
   protected def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
+
+  protected def stringFromTrainedModel(model: TrainedModel): String
 }

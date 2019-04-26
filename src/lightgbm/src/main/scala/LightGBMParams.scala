@@ -159,4 +159,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getLambdaL2: Double = $(lambdaL2)
   def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
+
+  val numBatches = new IntParam(this, "numBatches",
+    "If greater than 0, splits data into separate batches during training")
+  setDefault(numBatches -> 0)
+
+  def getNumBatches: Int = $(numBatches)
+  def setNumBatches(value: Int): this.type = set(numBatches, value)
 }
