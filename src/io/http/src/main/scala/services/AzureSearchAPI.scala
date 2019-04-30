@@ -30,7 +30,7 @@ trait IndexLister {
       s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion&$$select=name"
     )
     indexListRequest.setHeader("api-key", key)
-    val indexListResponse = safeSend(indexListRequest, close=false)
+    val indexListResponse = safeSend(indexListRequest, close = false)
     val indexList = IOUtils.toString(indexListResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
     indexListResponse.close()
     for (i <- indexList.value.seq) yield i.name
@@ -201,7 +201,7 @@ object SearchIndex extends IndexParser with IndexLister {
     val getStatsRequest = new HttpGet(
       s"https://$serviceName.search.windows.net/indexes/$indexName/stats?api-version=$apiVersion")
     getStatsRequest.setHeader("api-key", key)
-    val statsResponse = safeSend(getStatsRequest, close=false)
+    val statsResponse = safeSend(getStatsRequest, close = false)
     val stats = IOUtils.toString(statsResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexStats]
     statsResponse.close()
 
