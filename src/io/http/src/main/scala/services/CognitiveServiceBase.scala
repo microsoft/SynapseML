@@ -83,12 +83,12 @@ trait HasServiceParams extends Params {
   }.toMap
 
   protected def getRequiredParams: Array[ServiceParam[_]] = this.params.filter {
-    case p:ServiceParam[_] if p.isRequired => true
+    case p: ServiceParam[_] if p.isRequired => true
     case _ => false
   }.map(_.asInstanceOf[ServiceParam[_]])
 
   protected def getUrlParams: Array[ServiceParam[_]] = this.params.filter {
-    case p:ServiceParam[_] if p.isURLParam => true
+    case p: ServiceParam[_] if p.isURLParam => true
     case _ => false
   }.map(_.asInstanceOf[ServiceParam[_]])
 
@@ -113,7 +113,7 @@ trait HasServiceParams extends Params {
   }
 
   protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
-    get(p).orElse(getDefault(p)).flatMap {param =>
+    get(p).orElse(getDefault(p)).flatMap { param =>
       param.data.flatMap {
         case Right(colName) => Option(row.getAs[T](colName))
         case Left(value) => Some(value)
@@ -127,7 +127,7 @@ trait HasServiceParams extends Params {
     getValueOpt(row, p).get
 
   protected def getValueAnyOpt(row: Row, p: ServiceParam[_]): Option[Any] = {
-    get(p).orElse(getDefault(p)).map {param =>
+    get(p).orElse(getDefault(p)).flatMap { param =>
       param.data.flatMap {
         case Right(colName) => Option(row.get(row.fieldIndex(colName)))
         case Left(value) => Some(value)
@@ -187,13 +187,15 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
     val urlParams: Array[ServiceParam[Any]] =
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
-    {row: Row =>
+    { row: Row =>
       val base = getUrl
       val appended = if (!urlParams.isEmpty) {
         "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name->p.toValueString(v))
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
         ).toMap)
-      } else {""}
+      } else {
+        ""
+      }
       base + appended
     }
   }
@@ -204,18 +206,20 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
   protected val subscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
 
+  protected def contentType: Row => String = { _ => "application/json" }
+
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
-    {row: Row =>
-      if (shouldSkip(row)){
+    { row: Row =>
+      if (shouldSkip(row)) {
         None
-      }else{
+      } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
         getValueOpt(row, subscriptionKey).foreach(
           req.setHeader(subscriptionKeyHeaderName, _))
-        req.setHeader("Content-Type", "application/json")
+        req.setHeader("Content-Type", contentType(row))
         CognitiveServiceUtils.setUA(req)
 
         req match {

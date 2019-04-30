@@ -49,6 +49,7 @@ object Extras {
     "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
     )
 
+
   def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts"))
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))
   def mavenDir     = artifactsDir / "packages" / "m2"
