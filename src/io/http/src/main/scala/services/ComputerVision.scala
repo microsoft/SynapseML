@@ -56,12 +56,13 @@ trait HasImageInput extends HasImageUrl
   with HasImageBytes with HasCognitiveServiceInput {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r => getValueOpt(r, imageUrl)
-      .map(url => new StringEntity(Map("url" -> url).toJson.compactPrint, ContentType.APPLICATION_JSON))
-      .orElse(getValueOpt(r, imageBytes)
-        .map(bytes => new ByteArrayEntity(bytes, ContentType.APPLICATION_OCTET_STREAM))
-      ).orElse(throw new IllegalArgumentException(
-      "Payload needs to contain image bytes or url. This code should not run"))
+    r =>
+      getValueOpt(r, imageUrl)
+        .map(url => new StringEntity(Map("url" -> url).toJson.compactPrint, ContentType.APPLICATION_JSON))
+        .orElse(getValueOpt(r, imageBytes)
+          .map(bytes => new ByteArrayEntity(bytes, ContentType.APPLICATION_OCTET_STREAM))
+        ).orElse(throw new IllegalArgumentException(
+        "Payload needs to contain image bytes or url. This code should not run"))
   }
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
