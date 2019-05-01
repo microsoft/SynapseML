@@ -7,8 +7,9 @@ import scala.reflect.runtime.universe.TypeTag
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
-import com.microsoft.ml.spark.featurizer.Featurizer
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+
+import scala.io.Source
 
 class VerifyVowpalWabbitFeaturizer extends TestBase {
 
@@ -173,7 +174,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(newSchema.fields(1).dataType.typeName == "vector")
   }
 
-  private def verifyArrays(actual: Array[Double], expected: Array[Double]) = {
+  private def verifyArrays[T](actual: Array[T], expected: Array[T])(implicit ord: Ordering[T]) = {
     assert(actual.length == expected.length)
 
     (actual.sorted zip expected.sorted).forall{ case (x,y) => x == y }
@@ -219,5 +220,22 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(output.numNonzeros == 3)
 
     verifyArrays(output.values, Array(9.0,7.0,3.0))
+  }
+
+  test("Check tamil encoding") {
+    val row = Source.fromURL(getClass.getResource("/utf-input.txt")).mkString
+    val df = session.createDataFrame(Seq(
+      (row, "output")))
+      .toDF("a", "normalized")
+
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setStringSplitInputCols(Array("a"))
+      .setOutputCol("features")
+
+    val result = featurizer.transform(df)
+    val vec = result.head().getAs[SparseVector](2)
+
+    assert(vec.numNonzeros == 6)
+    verifyArrays(vec.indices, Array(260933379,376953061,482756394,597851995,781002072,950998778))
   }
 }

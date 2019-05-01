@@ -12,16 +12,22 @@ import scala.collection.mutable.ArrayBuilder
 class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, val namespaceHash: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
 
-  val nonWhiteSpaces = "\\S+".r
+  // (?U) makes \w unicode aware
+  // https://stackoverflow.com/questions/4304928/unicode-equivalents-for-w-and-b-in-java-regular-expressions
+  //
+  // we could follow
+  // https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
+  // but that strips single character words...
+  val nonWhiteSpaces = "(?U)\\w+".r
   val hasher = new VowpalWabbitMurmurWithPrefix(columnName)
 
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
-
     val s = row.getString(fieldIdx)
 
     for (e <- nonWhiteSpaces.findAllMatchIn(s)) {
       // Note: since the hasher access the chars directly it avoids any allocation
-      indices += mask & hasher.hash(s, e.start, e.end, namespaceHash)
+      indices +=  mask & hasher.hash(s, e.start, e.end, namespaceHash)
+
       values += 1.0
     }
   }

@@ -73,7 +73,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
           case _ => throw new RuntimeException(s"Unsupported map value type: ${dataType}")
         }
       }
-      case m:Any =>
+      case m: Any =>
         if (m.typeName == "vector") // unfortunately the type is private
           new VectorFeaturizer(idx, getMask)
         else

@@ -22,7 +22,7 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
 
   def hash(str: String, start: Int, end: Int, namespaceHash: Int): Int = {
     if (end - start > maxSize)
-      VowpalWabbitMurmur.hash(prefix + str.substring(0, end), namespaceHash)
+      VowpalWabbitMurmur.hash(prefix + str.substring(start, end), namespaceHash)
     else {
       // adapted from https://stackoverflow.com/questions/5513144/converting-char-to-byte/20604909#20604909
       // copy sub part
