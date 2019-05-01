@@ -23,8 +23,12 @@ object MetricUtils {
     if (schemaInfo.isDefined) {
       schemaInfo.get
     } else {
-      if (labelCol.isEmpty || evaluationMetric == MetricConstants.AllSparkMetrics) {
+      if (labelCol.isEmpty) {
         throw new Exception("Please score the model prior to evaluating")
+      } else if (evaluationMetric == MetricConstants.AllSparkMetrics) {
+        throw new Exception("Please specify whether you are using evaluation for " +
+          MetricConstants.ClassificationMetrics + " or " + MetricConstants.RegressionMetrics +
+          " instead of " + MetricConstants.AllSparkMetrics)
       }
       ("custom model", labelCol.get,
         if (isClassificationMetric(evaluationMetric))
