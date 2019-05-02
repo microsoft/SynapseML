@@ -20,7 +20,7 @@ case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 private object TrainUtils extends Serializable {
 
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
-                      weightColumn: Option[String],
+                      weightColumn: Option[String], initScoreColumn: Option[String],
                       referenceDataset: Option[LightGBMDataset]): Option[LightGBMDataset] = {
     val numRows = rows.length
     val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
@@ -49,6 +49,10 @@ private object TrainUtils extends Serializable {
     weightColumn.foreach { col =>
       val weights = rows.map(row => row.getDouble(row.fieldIndex(col)))
       datasetPtr.get.addField(weights, "weight", numRows)
+    }
+    initScoreColumn.foreach { col =>
+      val initScores = rows.map(row => row.getDouble(row.fieldIndex(col)))
+      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
     }
     datasetPtr
   }
@@ -161,16 +165,17 @@ private object TrainUtils extends Serializable {
   }
 
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
-                validationData: Option[Broadcast[Array[Row]]], log: Logger,
-                trainParams: TrainParams, inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+                initScoreColumn: Option[String], validationData: Option[Broadcast[Array[Row]]],
+                log: Logger, trainParams: TrainParams,
+                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
-      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
+      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, initScoreColumn, None)
       if (validationData.isDefined) {
         validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, trainDatasetPtr)
+          featuresColumn, weightColumn, initScoreColumn, trainDatasetPtr)
       }
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
@@ -267,7 +272,8 @@ private object TrainUtils extends Serializable {
   }
 
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], validationData: Option[Broadcast[Array[Row]]], log: Logger,
+                    weightColumn: Option[String], initScoreColumn: Option[String],
+                    validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val emptyPartition = !inputRows.hasNext
@@ -293,7 +299,8 @@ private object TrainUtils extends Serializable {
         val retries = 3
         val initialDelay = 1000L
         networkInit(nodes, localListenPort, log, retries, initialDelay)
-        translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
+        translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, validationData,
+          log, trainParams, inputRows)
       } finally {
         // Finalize network when done
         LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

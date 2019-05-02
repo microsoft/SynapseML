@@ -51,6 +51,24 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
+  def addDoubleField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
+    // Generate the column and add to dataset
+    var colArray: Option[SWIGTYPE_p_double] = None
+    try {
+      colArray = Some(lightgbmlib.new_doubleArray(numRows))
+      field.zipWithIndex.foreach(ri =>
+        lightgbmlib.doubleArray_setitem(colArray.get, ri._2, ri._1))
+      val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(colArray.get)
+      val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data64bitType),
+        "DatasetSetField")
+    } finally {
+      // Free column
+      colArray.foreach(lightgbmlib.delete_doubleArray(_))
+    }
+  }
+
   def setFeatureNames(featureNamesOpt: Option[Array[String]], numCols: Int): Unit = {
     // Add in slot names if they exist
     featureNamesOpt.foreach { featureNamesVal =>
