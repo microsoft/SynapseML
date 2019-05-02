@@ -149,3 +149,15 @@ trait HasValidationIndicatorCol extends Wrappable {
   /** @group setParam */
   def setValidationIndicatorCol(value: String): this.type = set(validationIndicatorCol, value)
 }
+
+trait HasInitScoreCol extends Wrappable {
+  /** The name of the initial score column
+    * @group param
+    */
+  val initScoreCol = new Param[String](this, "initScoreCol",
+    "The name of the initial score column, used for continued training")
+  /** @group setParam */
+  def setInitScoreCol(value: String): this.type = set(initScoreCol, value)
+  /** @group getParam */
+  def getInitScoreCol: String = $(initScoreCol)
+}
