@@ -118,6 +118,46 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
   }
 
+  test("Verify LightGBM Classifier continued training with initial score") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val initScoreCol = "initScore"
+    val predictionCol = "prediction"
+    val probabilityCol = "probability"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(30)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val trainingData = featurizer.transform(dataset)
+    val model = lgbm.fit(trainingData)
+    val scoredDataWithoutInitScore = model.transform(trainingData)
+    import org.apache.spark.sql.functions.udf
+    val convertUDF = udf((vector: org.apache.spark.ml.linalg.DenseVector) => vector(1))
+    val modelFromInitScore = lgbm.setInitScoreCol(initScoreCol).fit(scoredDataWithoutInitScore
+      .withColumn(initScoreCol, convertUDF(scoredDataWithoutInitScore(rawPredCol)))
+      .drop(predictionCol, probabilityCol, rawPredCol))
+    val scoredDataWithInitScore = modelFromInitScore.transform(trainingData)
+    val eval = new BinaryClassificationEvaluator()
+      .setLabelCol(labelColumnName)
+      .setRawPredictionCol(rawPredCol)
+    val metricWithoutInitScore = eval.evaluate(scoredDataWithoutInitScore)
+    val metricWithInitScore = eval.evaluate(scoredDataWithInitScore)
+    // Verify InitScore parameter improves metric
+    assert(metricWithoutInitScore < metricWithInitScore)
+  }
+
   test("Verify LightGBM Classifier with weight column") {
     // Increment port index
     portIndex += numPartitions
