@@ -44,7 +44,7 @@ object RESTHelpers {
   //TODO use this elsewhere
   def safeSend(request: HttpRequestBase,
                backoffs: List[Int] = List(100, 500, 1000),
-               expectedCodes:Set[Int] =  Set(),
+               expectedCodes: Set[Int] = Set(),
                close: Boolean = true): CloseableHttpResponse = {
 
     retry(List(100, 500, 1000), { () =>
@@ -74,7 +74,9 @@ object RESTHelpers {
           response.close()
           throw e
       } finally {
-        if (close) {response.close()}
+        if (close) {
+          response.close()
+        }
       }
     })
   }
@@ -89,11 +91,11 @@ object FaceUtils {
   val faceKey = sys.env("FACE_API_KEY")
 
   def faceSend(request: HttpRequestBase, path: String,
-                  params: Map[String, String] = Map()): String = {
+               params: Map[String, String] = Map()): String = {
 
     val paramString = if (params.isEmpty) {
       ""
-    }else{
+    } else {
       "?" + URLEncodingUtils.format(params)
     }
     request.setURI(new URI(baseURL + path + paramString))
@@ -125,22 +127,22 @@ object FaceUtils {
     faceSend(new HttpDelete(), path, params)
   }
 
-  def facePost[T](path: String, body:T, params: Map[String, String] = Map())
-                    (implicit format: JsonFormat[T]): String = {
+  def facePost[T](path: String, body: T, params: Map[String, String] = Map())
+                 (implicit format: JsonFormat[T]): String = {
     val post = new HttpPost()
     post.setEntity(new StringEntity(body.toJson.compactPrint))
     faceSend(post, path, params)
   }
 
-  def facePut[T](path: String, body:T, params: Map[String, String] = Map())
-                   (implicit format: JsonFormat[T]): String = {
+  def facePut[T](path: String, body: T, params: Map[String, String] = Map())
+                (implicit format: JsonFormat[T]): String = {
     val post = new HttpPut()
     post.setEntity(new StringEntity(body.toJson.compactPrint))
     faceSend(post, path, params)
   }
 
-  def facePatch[T](path: String, body:T, params: Map[String, String] = Map())
-                (implicit format: JsonFormat[T]): String = {
+  def facePatch[T](path: String, body: T, params: Map[String, String] = Map())
+                  (implicit format: JsonFormat[T]): String = {
     val post = new HttpPatch()
     post.setEntity(new StringEntity(body.toJson.compactPrint))
     faceSend(post, path, params)
@@ -159,31 +161,31 @@ object FaceList {
 
   import FaceListProtocol._
 
-  def add(url: String, faceListId:String,
+  def add(url: String, faceListId: String,
           userData: Option[String] = None, targetFace: Option[String] = None): Unit = {
     facePost(
       s"facelists/$faceListId/persistedFaces",
-      Map("url"->url),
-      List(userData.map("userData"->_), targetFace.map("targetFace"->_)).flatten.toMap
+      Map("url" -> url),
+      List(userData.map("userData" -> _), targetFace.map("targetFace" -> _)).flatten.toMap
     )
     ()
   }
 
-  def create(faceListId:String, name: String,
-          userData: Option[String] = None): Unit = {
+  def create(faceListId: String, name: String,
+             userData: Option[String] = None): Unit = {
     facePut(
       s"facelists/$faceListId",
-      List(userData.map("userData"->_), Some("name"->name)).flatten.toMap
+      List(userData.map("userData" -> _), Some("name" -> name)).flatten.toMap
     )
     ()
   }
 
-  def delete(faceListId:String): Unit = {
+  def delete(faceListId: String): Unit = {
     faceDelete(s"facelists/$faceListId")
     ()
   }
 
-  def deleteFace(faceListId:String, persistedFaceId: String): Unit = {
+  def deleteFace(faceListId: String, persistedFaceId: String): Unit = {
     faceDelete(s"facelists/$faceListId/persistedFaces/$persistedFaceId")
     ()
   }
@@ -197,7 +199,7 @@ object FaceList {
   }
 
   def patch(faceListId: String, name: String, userData: String): Unit = {
-    facePatch(s"facelists/$faceListId", Map("name"->name, "userData"->userData))
+    facePatch(s"facelists/$faceListId", Map("name" -> name, "userData" -> userData))
     ()
   }
 
@@ -212,33 +214,33 @@ object PersonGroup {
 
   import PersonGroupProtocol._
 
-  def create(personGroupId:String, name: String,
+  def create(personGroupId: String, name: String,
              userData: Option[String] = None): Unit = {
     facePut(
       s"persongroups/$personGroupId",
-      List(userData.map("userData"->_), Some("name"->name)).flatten.toMap
+      List(userData.map("userData" -> _), Some("name" -> name)).flatten.toMap
     )
     ()
   }
 
-  def delete(personGroupId:String): Unit = {
+  def delete(personGroupId: String): Unit = {
     faceDelete(s"persongroups/$personGroupId")
     ()
   }
 
-  def get(personGroupId:String): Unit = {
+  def get(personGroupId: String): Unit = {
     faceGet(s"persongroups/$personGroupId")
     ()
   }
 
-  def list(start: Option[String]=None, top: Option[String]=None): Seq[PersonGroupInfo] = {
+  def list(start: Option[String] = None, top: Option[String] = None): Seq[PersonGroupInfo] = {
     faceGet(s"persongroups",
-      List(start.map("start"->_), top.map("top"->_)).flatten.toMap
+      List(start.map("start" -> _), top.map("top" -> _)).flatten.toMap
     ).parseJson.convertTo[Seq[PersonGroupInfo]]
   }
 
   def train(personGroupId: String): Unit = {
-    facePost(s"persongroups/$personGroupId/train", body="")
+    facePost(s"persongroups/$personGroupId/train", body = "")
     ()
   }
 
@@ -256,24 +258,24 @@ object Person {
 
   import PersonProtocol._
 
-  def addFace(url: String, personGroupId:String, personId: String,
-             userData: Option[String] = None, targetFace: Option[String] = None): String = {
+  def addFace(url: String, personGroupId: String, personId: String,
+              userData: Option[String] = None, targetFace: Option[String] = None): String = {
     facePost(
       s"persongroups/$personGroupId/persons/$personId/persistedFaces",
-      Map("url"->url),
-      List(userData.map("userData"->_), targetFace.map("targetFace"->_)).flatten.toMap
+      Map("url" -> url),
+      List(userData.map("userData" -> _), targetFace.map("targetFace" -> _)).flatten.toMap
     ).parseJson.asJsObject().fields("persistedFaceId").convertTo[String]
   }
 
-  def create(name:String, personGroupId:String,
-              userData: Option[String] = None): String = {
+  def create(name: String, personGroupId: String,
+             userData: Option[String] = None): String = {
     facePost(
       s"persongroups/$personGroupId/persons",
-      List(Some("name"->name), userData.map("userData"->_)).flatten.toMap
+      List(Some("name" -> name), userData.map("userData" -> _)).flatten.toMap
     ).parseJson.asJsObject().fields("personId").convertTo[String]
   }
 
-  def delete(personGroupId:String, personId: String): Unit = {
+  def delete(personGroupId: String, personId: String): Unit = {
     faceDelete(
       s"persongroups/$personGroupId/persons/$personId"
     )
@@ -284,11 +286,11 @@ object Person {
            start: Option[String] = None,
            top: Option[String] = None): Seq[PersonInfo] = {
     faceGet(s"persongroups/$personGroupId/persons",
-      List(start.map("start"->_), top.map("top"->_)).flatten.toMap
+      List(start.map("start" -> _), top.map("top" -> _)).flatten.toMap
     ).parseJson.convertTo[Seq[PersonInfo]]
   }
 
-  def deleteFace(personGroupId:String, personId: String, persistedFaceId: String): Unit = {
+  def deleteFace(personGroupId: String, personId: String, persistedFaceId: String): Unit = {
     faceDelete(
       s"persongroups/$personGroupId/persons/$personId/persistedFaces/$persistedFaceId"
     )
