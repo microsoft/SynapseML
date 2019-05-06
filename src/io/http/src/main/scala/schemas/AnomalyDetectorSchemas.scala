@@ -6,6 +6,8 @@ package com.microsoft.ml.spark.cognitive
 import com.microsoft.ml.spark.schema.SparkBindings
 import spray.json.DefaultJsonProtocol._
 
+object TimeSeriesPoint extends SparkBindings[TimeSeriesPoint]
+
 case class TimeSeriesPoint(timestamp: String, value: Double)
 
 case class ADRequest(series: Seq[TimeSeriesPoint],
@@ -28,13 +30,33 @@ case class ADLastResponse(isAnomaly: Boolean,
 
 object ADLastResponse extends SparkBindings[ADLastResponse]
 
+case class ADSingleResponse(isAnomaly: Boolean,
+                            isPositiveAnomaly: Boolean,
+                            isNegativeAnomaly: Boolean,
+                            period: Int,
+                            expectedValue: Double,
+                            upperMargin: Double,
+                            lowerMargin: Double)
+
+object ADSingleResponse extends SparkBindings[ADSingleResponse]
+
 case class ADEntireResponse(isAnomaly: Seq[Boolean],
                             isPositiveAnomaly: Seq[Boolean],
                             isNegativeAnomaly: Seq[Boolean],
                             period: Int,
                             expectedValues: Seq[Double],
                             upperMargins: Seq[Double],
-                            lowerMargins: Seq[Double])
+                            lowerMargins: Seq[Double]) {
+
+  def explode: Seq[ADSingleResponse] = {
+    isAnomaly.indices.map {i =>
+      ADSingleResponse(
+        isAnomaly(i), isPositiveAnomaly(i), isNegativeAnomaly(i),
+        period, expectedValues(i), upperMargins(i), lowerMargins(i)
+      )
+    }
+  }
+}
 
 object ADEntireResponse extends SparkBindings[ADEntireResponse]
 
