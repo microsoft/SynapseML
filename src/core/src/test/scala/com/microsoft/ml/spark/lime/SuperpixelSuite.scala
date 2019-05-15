@@ -44,8 +44,8 @@ class SuperpixelSuite extends CNTKTestUtils {
     Random.nextDouble() > 0.5
   }
 
-  val superpixels: SuperpixelData = SuperpixelData.fromSuperpixel(sp1)
-  val superpixels2: SuperpixelData = SuperpixelData.fromSuperpixel(sp2)
+  lazy val superpixels: SuperpixelData = SuperpixelData.fromSuperpixel(sp1)
+  lazy val superpixels2: SuperpixelData = SuperpixelData.fromSuperpixel(sp2)
 
   lazy val censoredImg: BufferedImage = Superpixel.maskImage(
     ImageUtils.toSparkImage(img).getStruct(0), superpixels, states)

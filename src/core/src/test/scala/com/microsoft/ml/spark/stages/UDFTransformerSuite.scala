@@ -12,10 +12,10 @@ import org.apache.spark.sql.functions.udf
 import org.scalatest.Assertion
 
 class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransformer] {
-  val baseDF: DataFrame = makeBasicDF()
-  val baseNullableDF: DataFrame = makeBasicNullableDF()
-  val outCol = "out"
-  val stringToIntegerUDF: UserDefinedFunction = udf((_: String) => 1)
+  lazy val baseDF: DataFrame = makeBasicDF()
+  lazy val baseNullableDF: DataFrame = makeBasicNullableDF()
+  lazy val outCol = "out"
+  lazy val stringToIntegerUDF: UserDefinedFunction = udf((_: String) => 1)
 
   def udfTransformerTest(baseDF: DataFrame,
                          testUDF: UserDefinedFunction,

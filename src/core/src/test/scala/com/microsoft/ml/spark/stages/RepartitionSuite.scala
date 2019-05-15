@@ -13,7 +13,7 @@ class RepartitionSuite extends TestBase with TransformerFuzzing[Repartition] {
 
   import session.implicits._
 
-  val input = Seq(
+  lazy val input = Seq(
     (0, "guitars", "drums"),
     (1, "piano", "trumpet"),
     (2, "bass", "cymbals"),

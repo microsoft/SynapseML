@@ -38,10 +38,10 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
   }
 
-  val dfRoundTrip: DataFrame = createMockDataset
+  lazy val dfRoundTrip: DataFrame = createMockDataset
   val reader: MLReadable[_] = TrainRegressor
   val modelReader: MLReadable[_] = TrainedRegressorModel
-  val stageRoundTrip: PipelineStage with MLWritable =
+  lazy val stageRoundTrip: PipelineStage with MLWritable =
     TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
 
   test("Smoke test for training on a regressor") {

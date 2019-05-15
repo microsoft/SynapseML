@@ -20,7 +20,7 @@ class VerifyDataConversions extends TestBase {
   /*
   DataFrame for the numerical and string <--> numerical conversions
    */
-  val masterInDF = Seq((true: Boolean, 1: Byte, 2: Short, 3: Integer, 4: Long, 5.0F, 6.0, "7", "8.0"),
+  lazy val masterInDF = Seq((true: Boolean, 1: Byte, 2: Short, 3: Integer, 4: Long, 5.0F, 6.0, "7", "8.0"),
     (false, 9: Byte, 10: Short, 11: Integer, 12: Long, 14.5F, 15.5, "16", "17.456"),
     (true, -127: Byte, 345: Short, testShort, testVal, 18.91F, 20.21, "100", "200.12345"))
     .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
@@ -28,7 +28,7 @@ class VerifyDataConversions extends TestBase {
   /*
   Dataframe of Timestamp data
    */
-  val tsDF= Seq("1986-07-27 12:48:00.123", "1988-11-01 11:08:48.456", "1993-08-06 15:32:00.789").toDF("Col0")
+  lazy val tsDF= Seq("1986-07-27 12:48:00.123", "1988-11-01 11:08:48.456", "1993-08-06 15:32:00.789").toDF("Col0")
     .select($"Col0".cast("timestamp"))
 
   /*
@@ -36,15 +36,15 @@ class VerifyDataConversions extends TestBase {
   values to Timestamp.getTime()
    */
   val f = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
-  val parseTimeFromString = udf((t:String)=>{new Timestamp(f.parse(t).getTime)})
-  val lDF = Seq(f.parse("1986-07-27 12:48:00.123").getTime(),
+  lazy val parseTimeFromString = udf((t:String)=>{new Timestamp(f.parse(t).getTime)})
+  lazy val lDF = Seq(f.parse("1986-07-27 12:48:00.123").getTime(),
     f.parse("1988-11-01 11:08:48.456").getTime(),
     f.parse("1993-08-06 15:32:00.789").getTime()).toDF("Col0")
 
   /*
   Timestaps as strings dataframe
    */
-  val sDF = Seq("1986-07-27 12:48:00.123", "1988-11-01 11:08:48.456", "1993-08-06 15:32:00.789").toDF("Col0")
+  lazy val sDF = Seq("1986-07-27 12:48:00.123", "1988-11-01 11:08:48.456", "1993-08-06 15:32:00.789").toDF("Col0")
 
   /*
   Test conversion of all numeric types to Boolean

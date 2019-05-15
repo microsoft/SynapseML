@@ -11,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 
 class TimerSuite extends EstimatorFuzzing[Timer] {
 
-  val df: DataFrame = session
+  lazy val df: DataFrame = session
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
                          (2, "we Cant go to the park, because of the snow!"),

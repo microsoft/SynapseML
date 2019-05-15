@@ -12,19 +12,19 @@ class UnicodeNormalizeSuite extends TestBase with TransformerFuzzing[UnicodeNorm
   val INPUT_COL = "words1"
   val OUTPUT_COL = "norm1"
 
-  val wordDF = session.createDataFrame(Seq(
+  lazy val wordDF = session.createDataFrame(Seq(
     ("Schön", 1),
     ("Scho\u0308n", 1),
     (null, 1)))
     .toDF(INPUT_COL, "dummy")
 
-  val expectedResultComposed = session.createDataFrame(Seq(
+  lazy val expectedResultComposed = session.createDataFrame(Seq(
     ("Schön", 1, "schön"),
     ("Scho\u0308n", 1, "schön"),
     (null, 1, null)))
     .toDF(INPUT_COL, "dummy", OUTPUT_COL)
 
-  val expectedResultDecomposed = session.createDataFrame(Seq(
+  lazy val expectedResultDecomposed = session.createDataFrame(Seq(
     ("Schön", 1, "sch\u0308n"),
     ("Scho\u0308n", 1, "sch\u0308n"),
     (null, 1, null)))

@@ -25,7 +25,7 @@ import scala.util.Random
 /** Tests to validate the functionality of Evaluate Model module. */
 class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
   val labelColumn = "Label"
-  val dataset = session.createDataFrame(Seq(
+  lazy val dataset = session.createDataFrame(Seq(
     (0, 2, 0.50, 0.60, 0),
     (1, 3, 0.40, 0.50, 1),
     (0, 4, 0.78, 0.99, 2),
@@ -176,8 +176,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(3) === 0.0)
   }
 
-  val logisticRegressor: TrainClassifier = createLR.setLabelCol(labelColumn)
-  val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
+  lazy val logisticRegressor: TrainClassifier = createLR.setLabelCol(labelColumn)
+  lazy val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 

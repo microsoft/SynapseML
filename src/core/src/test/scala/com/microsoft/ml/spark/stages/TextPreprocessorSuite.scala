@@ -14,25 +14,28 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
   val INPUT_COL = "words1"
   val OUTPUT_COL = "out"
 
-  val expectedResult = session.createDataFrame(Seq(
+  lazy val expectedResult = session.createDataFrame(Seq(
     (toMap1, "The sad sap boy drank sap"),
     (toMap2, "The sap sap drank sap"),
     ("foo", "foo"),
     (s"$toMap3 aABc0123456789Zz_", "The sap sap")))
     .toDF(INPUT_COL, OUTPUT_COL)
 
-  val wordDF = expectedResult.drop(OUTPUT_COL)
+  lazy val wordDF = expectedResult.drop(OUTPUT_COL)
 
-  val testMap = Map[String, String] (
+  lazy val testMap = Map[String, String] (
     "happy"   -> "sad",
     "hater"   -> "sap",
     "sad"     -> "sap",
     "sad doy" -> "sap"
   )
 
-  val testTrie1 = Trie(Map[String, String]("happy" -> "sad", "hater" -> "sap"))
-  var testTrie1Pivot: Trie = testTrie1
-  for (letter <- "ha") testTrie1Pivot = testTrie1Pivot.get(letter).get
+  lazy val testTrie1 = Trie(Map[String, String]("happy" -> "sad", "hater" -> "sap"))
+  lazy val testTrie1Pivot = {
+    var testTrie1Pivot1: Trie = testTrie1
+    for (letter <- "ha") testTrie1Pivot1 = testTrie1Pivot1.get(letter).get
+    testTrie1Pivot1
+  }
 
   test("Check for value of words with intersection in trie") {
       var copyHappy: Trie = testTrie1

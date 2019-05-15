@@ -15,8 +15,8 @@ import scala.util.Random
 
 class DownloaderSuite extends TestBase {
 
-  val saveDir = Files.createTempDirectory("Models-").toFile
-  val d = new ModelDownloader(session, saveDir.toURI)
+  lazy val saveDir = Files.createTempDirectory("Models-").toFile
+  lazy val d = new ModelDownloader(session, saveDir.toURI)
 
   test("retry utility should catch flakiness"){
     (1 to 20).foreach { i =>
