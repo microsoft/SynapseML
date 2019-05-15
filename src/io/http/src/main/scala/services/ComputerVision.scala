@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.HandlingUtils._
 import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, StringEntity}

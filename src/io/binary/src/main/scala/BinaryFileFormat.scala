@@ -6,8 +6,8 @@ package org.apache.spark.binary
 import java.io.{Closeable, InputStream}
 import java.net.URI
 
-import com.microsoft.ml.spark.StreamUtilities.ZipIterator
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.env.StreamUtilities.ZipIterator
+import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}

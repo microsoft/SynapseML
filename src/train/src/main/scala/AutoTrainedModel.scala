@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.serialize.ConstructorWritable
 import org.apache.spark.ml.{Model, PipelineModel, Transformer}
 import org.apache.spark.ml.param.ParamMap
 

@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.param.{ParamMap, ParamPair}
 import org.apache.spark.ml.util.MLReadable

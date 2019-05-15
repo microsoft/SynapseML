@@ -8,7 +8,9 @@ import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.{Estimator, PipelineModel}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}

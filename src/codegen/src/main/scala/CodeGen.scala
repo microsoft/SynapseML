@@ -9,7 +9,7 @@ import WrapperClassDoc._
 
 import scala.util.matching.Regex
 import java.util.regex.Pattern
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import org.apache.commons.io.FilenameUtils._
 import org.apache.commons.io.FileUtils
 

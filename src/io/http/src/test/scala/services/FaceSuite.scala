@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive.Face
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit}

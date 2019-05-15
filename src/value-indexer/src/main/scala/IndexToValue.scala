@@ -3,8 +3,10 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.SchemaConstants.MMLTag
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalMap, CategoricalUtilities, DatasetExtensions}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.schema.{CategoricalColumnInfo, CategoricalUtilities}
+import com.microsoft.ml.spark.core.schema.SchemaConstants.MMLTag
+import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, CategoricalMap, DatasetExtensions}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._

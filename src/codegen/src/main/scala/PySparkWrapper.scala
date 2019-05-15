@@ -9,8 +9,9 @@ import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.evaluation.Evaluator
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 
 /** :: DeveloperApi ::
   * Abstraction for PySpark wrapper generators.
@@ -295,7 +296,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     val paramDocList                = ListBuffer[String]()
     val classParamDocList           = ListBuffer[String]()
 
-    // Iterate over the params to build strings
+    // Iterate over the com.microsoft.ml.spark.core.serialize.params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
     // Check for complex types
     if (allParams.exists(p => isComplexType(p.getClass.getSimpleName))) {

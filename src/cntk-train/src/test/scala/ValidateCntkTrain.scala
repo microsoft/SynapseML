@@ -8,6 +8,7 @@ import java.net.URI
 
 import org.apache.spark.ml.feature.{OneHotEncoderEstimator, StringIndexerModel}
 import com.microsoft.ml.spark.IOImplicits._
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterEach, Suite}

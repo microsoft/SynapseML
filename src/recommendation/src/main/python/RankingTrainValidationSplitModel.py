@@ -31,7 +31,7 @@ class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, Valida
     def copy(self, extra=None):
         """
         Creates a copy of this instance with a randomly generated uid
-        and some extra params. This copies the underlying bestModel,
+        and some extra com.microsoft.ml.spark.core.serialize.params. This copies the underlying bestModel,
         creates a deep copy of the embedded paramMap, and
         copies the embedded and extra parameters over.
         And, this creates a shallow copy of the validationMetrics.

@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 
 class UDFSuite extends TestBase {

@@ -13,9 +13,9 @@ import org.apache.spark.ml.{Estimator, Transformer}
 import com.microsoft.ml.spark.StreamUtilities._
 import Config._
 import com.microsoft.ml.spark.FileUtilities.{File, writeFile}
+import com.microsoft.ml.spark.core.env.InternalWrapper
 
 import scala.language.existentials
-import com.microsoft.ml.spark.InternalWrapper
 import org.apache.spark.ml.evaluation.Evaluator
 
 import scala.reflect.runtime.universe._

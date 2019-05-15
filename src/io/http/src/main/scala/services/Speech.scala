@@ -16,6 +16,8 @@ import javax.sound.sampled.AudioFileFormat.Type
 import javax.sound.sampled._
 import java.io._
 
+import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
+
 import scala.language.existentials
 
 object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable

@@ -4,9 +4,12 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.feature.{StringIndexer, Tokenizer}
-import com.microsoft.ml.spark.schema.DatasetExtensions._
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.util.MLReadable
+
 import scala.collection.mutable
 
 class MultiColumnAdapterSpec extends TestBase with EstimatorFuzzing[MultiColumnAdapter] {

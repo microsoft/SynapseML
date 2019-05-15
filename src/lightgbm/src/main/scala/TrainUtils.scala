@@ -7,7 +7,7 @@ import java.io._
 import java.net._
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}

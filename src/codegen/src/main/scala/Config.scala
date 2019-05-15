@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import sys.process.Process
 
 object Config {

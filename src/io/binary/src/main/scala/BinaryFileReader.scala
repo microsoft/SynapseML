@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.env.StreamUtilities
+import com.microsoft.ml.spark.core.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.utils.AsyncUtils
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.binary.BinaryFileFormat

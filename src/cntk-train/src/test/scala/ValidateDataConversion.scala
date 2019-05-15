@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.io.File
 import java.net.URI
 
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.linalg._
 import org.slf4j.LoggerFactory

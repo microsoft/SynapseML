@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions.udf

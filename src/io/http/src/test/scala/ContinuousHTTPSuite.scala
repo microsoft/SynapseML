@@ -6,8 +6,9 @@ package com.microsoft.ml.spark
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.ServingImplicits._
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.execution.streaming.{HTTPSinkProvider, HTTPSourceProvider}

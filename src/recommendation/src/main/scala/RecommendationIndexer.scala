@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.attribute.NominalAttribute
 import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
 import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}

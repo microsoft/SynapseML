@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.schema.SparkBindings
+import com.microsoft.ml.spark.core.schema.SparkBindings
 import spray.json.DefaultJsonProtocol._
 
 object TimeSeriesPoint extends SparkBindings[TimeSeriesPoint]

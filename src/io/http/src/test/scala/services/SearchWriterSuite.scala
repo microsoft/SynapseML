@@ -6,6 +6,8 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import com.microsoft.ml.spark.RESTHelpers._
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame

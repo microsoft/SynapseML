@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 
 class RankingAdapterSpec extends RankingTestBase with EstimatorFuzzing[RankingAdapter] {

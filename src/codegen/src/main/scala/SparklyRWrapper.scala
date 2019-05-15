@@ -11,8 +11,8 @@ import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.ml.evaluation.Evaluator
 
-import com.microsoft.ml.spark.FileUtilities._
-import com.microsoft.ml.spark.FileUtilities.StandardOpenOption
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities.StandardOpenOption
 import Config._
 
 /** :: DeveloperApi ::
@@ -113,7 +113,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
     val setParamsList     = ListBuffer[String]()
     val paramDocList      = ListBuffer[String]()
 
-    // Iterate over the params to build strings
+    // Iterate over the com.microsoft.ml.spark.core.serialize.params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
     for (param <- allParams) {
       val pname = param.name

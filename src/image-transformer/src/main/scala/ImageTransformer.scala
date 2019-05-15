@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.BinaryFileSchema
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchemaUtils}
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{ParamMap, _}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -130,7 +132,7 @@ object Flip {
 }
 
   /** Blurs the image using a box filter.
-    * The params are a map of the dimensions of the blurring box. Please refer to
+    * The com.microsoft.ml.spark.core.serialize.params are a map of the dimensions of the blurring box. Please refer to
     * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
     * @param params
     */

@@ -3,10 +3,12 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel, PipelineStage}
 import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.sql.types._
 
 object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
@@ -80,7 +82,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
       setParamInternal(value, "outputCols", Array(this.uid + "_out"))
     } else {
       throw new IllegalArgumentException(
-        "Need to pass a pipeline stage with inputCol and outputCol params")
+        "Need to pass a pipeline stage with inputCol and outputCol com.microsoft.ml.spark.core.serialize.params")
     }
     set(baseStage, value)
   }

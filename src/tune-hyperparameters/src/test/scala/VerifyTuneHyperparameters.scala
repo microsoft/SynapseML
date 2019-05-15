@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.metrics.MetricConstants
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
+import com.microsoft.ml.spark.core.test.fuzzing.TestObject
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param.Param

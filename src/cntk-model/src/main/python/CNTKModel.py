@@ -20,7 +20,7 @@ class CNTKModel(_CNTKModel):
     """
     def _transfer_map_from_java(self, param):
         """
-        Transforms the embedded params from the companion Java object.
+        Transforms the embedded com.microsoft.ml.spark.core.serialize.params from the companion Java object.
         """
         sc = SparkContext._active_spark_context
         if self._java_obj.hasParam(param.name):
@@ -33,7 +33,7 @@ class CNTKModel(_CNTKModel):
 
     def _transfer_map_to_java(self, param):
         """
-        Transforms the embedded params to the companion Java object.
+        Transforms the embedded com.microsoft.ml.spark.core.serialize.params to the companion Java object.
         """
         value = self.extractParamMap()[param]
         java_param = self._java_obj.getParam(param.name)

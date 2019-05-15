@@ -5,7 +5,8 @@ package com.microsoft.ml.spark
 
 import java.nio.file.Files
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.test.base.TestBase
 
 import scala.collection.JavaConversions._
 import org.apache.commons.io.FileUtils

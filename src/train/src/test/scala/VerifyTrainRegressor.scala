@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import java.io.File
 
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.{Estimator, PipelineStage}
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}

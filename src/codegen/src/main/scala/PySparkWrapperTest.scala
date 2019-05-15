@@ -6,9 +6,10 @@ package com.microsoft.ml.spark.codegen
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{ComplexParam, Param, Params, ServiceParam}
-import com.microsoft.ml.spark.FileUtilities._
+import org.apache.spark.ml.param.{Param, Params, ServiceParam}
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 import org.apache.spark.ml.evaluation.Evaluator
 
 /** :: DeveloperApi ::
@@ -150,7 +151,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        self.assertNotEqual(bestModel, None)
         |""".stripMargin
 
-  // These params are need custom handling. For now, just skip them so we have tests that pass.
+  // These com.microsoft.ml.spark.core.serialize.params are need custom handling. For now, just skip them so we have tests that pass.
   private lazy val skippedParams =  Set[String]("models", "model", "cntkModel", "stage")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
@@ -226,7 +227,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   }
 
   protected def getPysparkWrapperTestBase: String = {
-    // Iterate over the params to build strings
+    // Iterate over the com.microsoft.ml.spark.core.serialize.params to build strings
     val paramGettersAndSettersString =
       entryPoint.params.filter { param => !isSkippedParam(param.name)
       }.flatMap { param =>

@@ -8,7 +8,7 @@ import java.util.UUID
 
 import javax.annotation.concurrent.GuardedBy
 import com.microsoft.ml.spark.{HTTPRequestData, HTTPResponseData, HTTPSchema, HeaderData}
-import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer, HttpsServer}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging

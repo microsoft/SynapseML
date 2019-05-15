@@ -4,9 +4,10 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.SerializableFunction
-import org.apache.spark.ml.param.{ComplexParam, Params}
+import com.microsoft.ml.spark.core.serialize.ComplexParam
+import org.apache.spark.ml.param.Params
 
-/** Param for ByteArray.  Needed as spark has explicit params for many different
+/** Param for ByteArray.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
   * types but not ByteArray.
   */
 class CNTKFunctionParam(parent: Params, name: String, doc: String,

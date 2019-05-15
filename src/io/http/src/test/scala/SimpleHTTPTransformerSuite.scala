@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructType}
-import org.apache.spark.sql.functions.{struct, from_json, col, udf}
+import org.apache.spark.sql.functions.{col, from_json, struct, udf}
 
 class SimpleHTTPTransformerSuite
   extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {

@@ -47,7 +47,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "FINISHED",
       "text": "%spark.pyspark\n#Run the sparkPi example. see https://spark.apache.org/examples.html\n\n\nfrom random import random\n\npartitions = 2\nn = 100000 * partitions\n\ndef f(_):\n    x = random() * 2 - 1\n    y = random() * 2 - 1\n    return 1 if x ** 2 + y ** 2 <= 1 else 0\n\nadd = lambda x,y :x+y\nprint(\"starting pyspark example\")\ncount = sc.parallelize(range(1, n + 1), partitions).map(f).reduce(add)\nprint(\"Pi is roughly %f\" % (4.0 * count / n))\n",
@@ -76,7 +76,7 @@
       "progressUpdateIntervalMs": 500,
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%spark.pyspark\n",

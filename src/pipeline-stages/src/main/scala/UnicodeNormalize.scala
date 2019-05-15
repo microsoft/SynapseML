@@ -5,11 +5,13 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap}
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions.udf
 import java.text.Normalizer
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]

@@ -4,11 +4,14 @@
 package com.microsoft.ml.spark
 
 import breeze.stats.distributions.{RandBasis, Uniform}
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.TrainRegressorTestUtilities._
 import com.microsoft.ml.spark.TrainClassifierTestUtilities._
-import com.microsoft.ml.spark.metrics.MetricConstants
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
 import org.apache.commons.math3.random.MersenneTwister
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator

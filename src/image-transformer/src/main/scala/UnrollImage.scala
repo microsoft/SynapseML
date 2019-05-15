@@ -7,6 +7,8 @@ import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, Vector}

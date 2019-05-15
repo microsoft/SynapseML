@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
@@ -76,7 +78,7 @@ class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labe
   extends RankerModel[Vector, LightGBMRankerModel]
     with ConstructorWritable[LightGBMRankerModel] {
 
-  // Update the underlying Spark ML params
+  // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
   // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
   set(labelCol, labelColName)
   set(featuresCol, featuresColName)

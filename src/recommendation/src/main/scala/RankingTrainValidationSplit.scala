@@ -3,10 +3,13 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.ml.{Model, _}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{collect_list, rank => r, _}

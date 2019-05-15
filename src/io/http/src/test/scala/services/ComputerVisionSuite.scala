@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive.AIResponse
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset, Row}

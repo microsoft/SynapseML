@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.schema.SparkBindings
+import com.microsoft.ml.spark.core.schema.SparkBindings
 
 case class Face(faceId: String,
                 faceRectangle: Rectangle,

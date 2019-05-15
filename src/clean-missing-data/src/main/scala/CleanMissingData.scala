@@ -2,12 +2,15 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
+import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCols, Wrappable}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+
 import reflect.runtime.universe.{TypeTag, typeTag}
 import scala.collection.mutable.ListBuffer
 

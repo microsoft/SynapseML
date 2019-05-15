@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 
 class SummarizeDataSuite extends TransformerFuzzing[SummarizeData] {
@@ -14,7 +15,7 @@ class SummarizeDataSuite extends TransformerFuzzing[SummarizeData] {
     assert(result.length > 10)
   }
 
-  test("Smoke test for summary params") {
+  test("Smoke test for summary com.microsoft.ml.spark.core.serialize.params") {
     val s = new SummarizeData()
     assert(s.params.length == 5)
     assert(s.params.map(s.isSet).toSeq == (1 to s.params.length).map(i => false))

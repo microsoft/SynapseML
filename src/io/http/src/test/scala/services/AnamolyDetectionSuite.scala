@@ -4,6 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive.{ADEntireResponse, ADLastResponse}
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, collect_list, lit, struct}

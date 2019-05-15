@@ -3,7 +3,8 @@
 
 package org.apache.spark.ml.recommendation
 
-import com.microsoft.ml.spark.Wrappable
+import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.serialize.ComplexParamsWritable
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
@@ -152,7 +153,7 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
   }
 
   /**
-    * Instrumentation logging for tuning params including the inner estimator and evaluator info.
+    * Instrumentation logging for tuning com.microsoft.ml.spark.core.serialize.params including the inner estimator and evaluator info.
     */
   protected def logTuningParams(instrumentation: Instrumentation): Unit = {
     instrumentation.logNamedValue("estimator", $(estimator).getClass.getCanonicalName)

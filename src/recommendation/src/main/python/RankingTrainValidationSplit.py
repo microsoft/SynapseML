@@ -116,7 +116,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams):
         """
         setParams(self, estimator=None, estimatorParamMaps=None, evaluator=None, numFolds=3,\
                   seed=None):
-        Sets params for cross validator.
+        Sets com.microsoft.ml.spark.core.serialize.params for cross validator.
         """
         kwargs = self._input_kwargs
         return self._set(**kwargs)
@@ -124,7 +124,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams):
     def copy(self, extra=None):
         """
         Creates a copy of this instance with a randomly generated uid
-        and some extra params. This copies creates a deep copy of
+        and some extra com.microsoft.ml.spark.core.serialize.params. This copies creates a deep copy of
         the embedded paramMap, and copies the embedded and extra parameters over.
 
         :param extra: Extra parameters to copy to the new instance

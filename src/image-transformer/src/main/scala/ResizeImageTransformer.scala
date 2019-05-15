@@ -6,6 +6,9 @@ package com.microsoft.ml.spark
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
 
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{IntParam, ParamMap}

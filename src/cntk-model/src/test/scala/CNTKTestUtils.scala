@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql._
 import com.microsoft.ml.spark.IOImplicits._
+import com.microsoft.ml.spark.core.test.base.TestBase
 
 trait CNTKTestUtils extends TestBase {
 

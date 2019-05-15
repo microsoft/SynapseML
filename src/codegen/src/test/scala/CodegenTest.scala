@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.codegen.CodeGen
+import com.microsoft.ml.spark.core.test.base.TestBase
 
 class CodegenTest extends TestBase {
 

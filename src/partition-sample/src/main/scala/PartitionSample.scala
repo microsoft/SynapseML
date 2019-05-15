@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -63,7 +64,7 @@ trait PartitionSampleParams extends Wrappable with DefaultParamsWritable {
   /** @group setParam */
   def setRandomSampleMode(value: String): this.type = set(rsMode, value)
 
-  // TODO: We need to create Option[Int] idiom for params
+  // TODO: We need to create Option[Int] idiom for com.microsoft.ml.spark.core.serialize.params
   /** Seed for random operations (RandomSplit or AssignToPartition
     * Default is -1
     * @group param

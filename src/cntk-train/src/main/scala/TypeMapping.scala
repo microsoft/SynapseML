@@ -25,7 +25,7 @@ trait TypeConversion {
 // This is the root of Featurize stage 1: type mapping, where stage 2 is assembly tactic
 // There is one problem I cannot resolve: Can type mapping be dependent on assembly strategy?
 // If so, the lines are a bit blurry and it's likely not going to a 2 stage pipeline, but
-// rather a single estimator configurable (params) by an ITypeMapping and IAssemblyStrategy, to use
+// rather a single estimator configurable (com.microsoft.ml.spark.core.serialize.params) by an ITypeMapping and IAssemblyStrategy, to use
 // C# terminology for clarity.
 abstract class SingleTypeReducer(target: DataType) extends Transformer with TypeConversion {
   private lazy val map = TypeMapping.mmlTypes.map(t => t -> target).toMap

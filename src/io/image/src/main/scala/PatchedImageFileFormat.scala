@@ -4,7 +4,8 @@
 package org.apache.spark.ml.source.image
 
 import com.google.common.io.{ByteStreams, Closeables}
-import com.microsoft.ml.spark.{ImageSchemaUtils, ImageUtils}
+import com.microsoft.ml.spark.ImageUtils
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import javax.imageio.ImageIO
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path

@@ -5,7 +5,7 @@ package com.microsoft.ml.spark
 
 import java.net.URI
 
-import com.microsoft.ml.spark.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.cognitive._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig

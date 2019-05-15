@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.SparkBindings
+import com.microsoft.ml.spark.core.schema.SparkBindings
 import spray.json.RootJsonFormat
 
 // General Text Analytics Schemas

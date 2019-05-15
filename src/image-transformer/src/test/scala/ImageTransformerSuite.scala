@@ -7,6 +7,8 @@ import java.awt.GridLayout
 import java.nio.file.Paths
 
 import com.microsoft.ml.spark.IOImplicits._
+import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, LinuxOnly}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import javax.swing._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{DataFrame, Row}

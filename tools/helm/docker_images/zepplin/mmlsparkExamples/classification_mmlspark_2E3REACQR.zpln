@@ -45,7 +45,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%spark.dep\n// include the azure mmlspark dependency\nz.reset()\nz.load(\"Azure:mmlspark:0.15\")\nz.load(\"org.apache.hadoop:hadoop-azure:2.7.0\")\nz.load(\"com.microsoft.azure:azure-storage:8.0.0\")",
@@ -85,7 +85,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%md\r\n## 101 - Training and Evaluating Classifiers with `mmlspark`\r\n\r\nIn this example, we try to predict incomes from the *Adult Census* dataset.\r\n\r\nFirst, we import the packages (use `help(mmlspark)` to view contents),",
@@ -125,7 +125,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "FINISHED",
       "text": "%pyspark\n# Zeppelin needs the path to be updated manually to find mmlspark library\nimport sys\nsys.path.extend(sc.getConf().get(\"spark.jars\").split(\",\"))\n\nimport numpy as np\nimport pandas as pd\nimport mmlspark\n\nhelp(mmlspark)\n",
@@ -165,7 +165,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%md\nNow let's read the data and split it to train and test sets:",
@@ -205,7 +205,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "FINISHED",
       "text": "%pyspark\r\ndataFilePath = \"AdultCensusIncome.csv\"\r\nimport os, urllib\r\nif not os.path.isfile(dataFilePath):\r\n    urllib.urlretrieve(\"https://mmlspark.azureedge.net/datasets/\" + dataFilePath, dataFilePath)\r\ndata = spark.createDataFrame(pd.read_csv(dataFilePath, dtype={\" hours-per-week\": np.float64}))\r\ndata = data.select([\" education\", \" marital-status\", \" hours-per-week\", \" income\"])\r\ntrain, test = data.randomSplit([0.75, 0.25], seed=452)\r\ntrain.sample(0.4).limit(100).toPandas()",
@@ -245,7 +245,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%md\n`TrainClassifier` can be used to initialize and fit a model, it wraps SparkML classifiers. You can use `help(mmlspark.TrainClassifier)` to view the different parameters.\n\nNote that it implicitly converts the data into the format expected by the algorithm: tokenize and hash strings, one-hot encodes categorical variables, assembles the features into a vector and so on.  The parameter `numFeatures` controls the number of hashed features.\n",
@@ -280,7 +280,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "FINISHED",
       "text": "%pyspark\r\nfrom mmlspark import TrainClassifier\r\nfrom pyspark.ml.classification import LogisticRegression\r\nmodel = TrainClassifier(model=LogisticRegression().setMaxIter(45), labelCol=\" income\", numFeatures=50).fit(train.limit(150))",
@@ -320,7 +320,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "%md\nAfter the model is trained, we score it against the test dataset and view metrics.\n",
@@ -360,7 +360,7 @@
       },
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "FINISHED",
       "text": "%pyspark\r\nfrom mmlspark import ComputeModelStatistics, TrainedClassifierModel\r\nprediction = model.transform(test.limit(50))\r\nmetrics = ComputeModelStatistics().transform(prediction)\r\nmetrics.limit(10).toPandas()",
@@ -389,7 +389,7 @@
       "progressUpdateIntervalMs": 500,
       "settings": {
         "forms": {},
-        "params": {}
+        "com.microsoft.ml.spark.core.serialize.params": {}
       },
       "status": "READY",
       "text": "\r\n",

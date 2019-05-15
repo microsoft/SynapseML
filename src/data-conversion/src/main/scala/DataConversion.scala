@@ -10,6 +10,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import java.sql.Timestamp
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import schema._
 
@@ -108,7 +109,7 @@ class DataConversion(override val uid: String) extends Transformer with Wrappabl
     schema
   }
 
-  /** Copy the class, with extra params
+  /** Copy the class, with extra com.microsoft.ml.spark.core.serialize.params
     * @param extra
     * @return
     */

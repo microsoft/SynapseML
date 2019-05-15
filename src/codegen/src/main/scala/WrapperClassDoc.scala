@@ -8,7 +8,7 @@ import java.nio.file.{Files, Paths}
 import org.apache.commons.lang3.StringUtils
 import scala.io.Source
 import scala.collection.mutable.ListBuffer
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
 
 /** Provide class level python help documentation for generated classes.

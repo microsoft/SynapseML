@@ -17,7 +17,7 @@
         "enabled": true
       },
       "settings": {
-        "params": {},
+        "com.microsoft.ml.spark.core.serialize.params": {},
         "forms": {}
       },
       "apps": [],
@@ -58,7 +58,7 @@
         "enabled": true
       },
       "settings": {
-        "params": {},
+        "com.microsoft.ml.spark.core.serialize.params": {},
         "forms": {}
       },
       "apps": [],
@@ -111,7 +111,7 @@
         "editorMode": "ace/mode/scala"
       },
       "settings": {
-        "params": {},
+        "com.microsoft.ml.spark.core.serialize.params": {},
         "forms": {}
       },
       "apps": [],

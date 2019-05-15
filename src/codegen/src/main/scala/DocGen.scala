@@ -7,7 +7,7 @@ import java.io.File
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.io.FilenameUtils._
 
-import com.microsoft.ml.spark.FileUtilities._
+import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
 
 /** Generate .rst file for each Python file inorder to autogenerate API documentation.

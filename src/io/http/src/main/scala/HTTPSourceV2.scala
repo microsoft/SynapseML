@@ -10,6 +10,7 @@ import java.util.{Optional, UUID}
 
 import com.jcraft.jsch.Session
 import com.microsoft.ml.spark._
+import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import javax.annotation.concurrent.GuardedBy
 import org.apache.commons.io.IOUtils

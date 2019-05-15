@@ -3,6 +3,9 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.env.EnvironmentUtils
+import com.microsoft.ml.spark.core.test.base.TestBase
+
 class ValidateEnvironmentUtils extends TestBase {
 
   // This is more of a run harness as asserting this is obviously dumb

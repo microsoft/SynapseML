@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.base.TestBase
+
 class RankingEvaluatorSpec extends TestBase {
 
   import session.implicits._

@@ -6,7 +6,10 @@ package com.microsoft.ml.spark
 import java.util.UUID
 
 import com.microsoft.ml.spark.schema._
-import com.microsoft.ml.spark.CastUtilities._
+import com.microsoft.ml.spark.core.utils.CastUtilities._
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ConstructorReadable}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._

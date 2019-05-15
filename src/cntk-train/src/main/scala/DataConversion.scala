@@ -6,12 +6,12 @@ package com.microsoft.ml.spark
 import java.io.PrintWriter
 import java.net.URI
 
+import com.microsoft.ml.spark.core.env.EnvironmentUtils
+import com.microsoft.ml.spark.core.hadoop.HadoopUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
-import FileUtilities._
-import hadoop.HadoopUtils
 import org.apache.hadoop.conf
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.UserDefinedFunction

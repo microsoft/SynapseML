@@ -4,7 +4,7 @@
 package org.apache.spark.ml.ranker
 
 // Note: a bit strange to have the mmlspark import here, but it works
-import com.microsoft.ml.spark.HasGroupCol
+import com.microsoft.ml.spark.core.contracts.HasGroupCol
 import org.apache.spark.ml.{PredictionModel, Predictor, PredictorParams}
 
 /**

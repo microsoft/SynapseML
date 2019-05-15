@@ -5,8 +5,8 @@ package com.microsoft.ml.spark
 
 import java.net.{SocketException, URI}
 
-import com.microsoft.ml.spark.StreamUtilities.using
-import com.microsoft.ml.spark.schema.SparkBindings
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.sun.net.httpserver.HttpExchange
 import org.apache.commons.io.IOUtils
 import org.apache.http._
@@ -15,7 +15,7 @@ import org.apache.http.entity.{ByteArrayEntity, StringEntity}
 import org.apache.http.message.BasicHeader
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, struct, typedLit, udf, lit}
+import org.apache.spark.sql.functions.{col, lit, struct, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StringType}
 import org.apache.spark.sql.{Column, Row}
 

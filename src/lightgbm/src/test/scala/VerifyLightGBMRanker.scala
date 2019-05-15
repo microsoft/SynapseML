@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark
 
+import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{monotonically_increasing_id, col}
+import org.apache.spark.sql.functions.{col, monotonically_increasing_id}
 import org.apache.spark.sql.functions._
 
 /** Tests to validate the functionality of LightGBM Ranker module. */

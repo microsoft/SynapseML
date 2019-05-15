@@ -5,6 +5,9 @@ package com.microsoft.ml.spark
 
 import java.net.URL
 
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
+import com.microsoft.ml.spark.core.utils.AsyncUtils
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity

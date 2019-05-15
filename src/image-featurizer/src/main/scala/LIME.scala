@@ -6,14 +6,16 @@ package com.microsoft.ml.spark
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.FluentAPI._
-import com.microsoft.ml.spark.schema.DatasetExtensions
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.feature.StandardScaler
 import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.HasPredictionCol
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.ml.{Estimator, LimeNamespaceInjections, Model, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction

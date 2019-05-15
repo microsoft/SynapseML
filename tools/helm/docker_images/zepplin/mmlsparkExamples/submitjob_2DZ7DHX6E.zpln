@@ -18,7 +18,7 @@
         "enabled": true
       },
       "settings": {
-        "params": {},
+        "com.microsoft.ml.spark.core.serialize.params": {},
         "forms": {}
       },
       "results": {
@@ -56,7 +56,7 @@
         "enabled": true
       },
       "settings": {
-        "params": {},
+        "com.microsoft.ml.spark.core.serialize.params": {},
         "forms": {}
       },
       "apps": [],

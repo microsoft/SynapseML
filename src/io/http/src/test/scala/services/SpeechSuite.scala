@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import java.net.URL
 
 import com.microsoft.ml.spark.cognitive.SpeechResponse
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame

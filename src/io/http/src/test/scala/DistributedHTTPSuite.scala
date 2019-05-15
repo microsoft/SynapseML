@@ -6,8 +6,10 @@ package com.microsoft.ml.spark
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
-import com.microsoft.ml.spark.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.HTTPSchema.string_to_response
+import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost

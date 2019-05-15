@@ -3,12 +3,15 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.ml.spark.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.ml.{Transformer, UnaryTransformer}
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{ComplexParamsReadable, Identifiable}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._

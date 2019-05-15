@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
 
+import com.microsoft.ml.spark.core.utils.AsyncUtils
 import org.apache.log4j.{LogManager, Logger}
 
 import scala.collection.JavaConversions._

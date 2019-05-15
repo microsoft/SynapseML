@@ -5,7 +5,11 @@ package com.microsoft.ml.spark
 
 import java.io.File
 
-import com.microsoft.ml.spark.schema.{CategoricalUtilities, SchemaConstants}
+import com.microsoft.ml.spark.core.schema.SchemaConstants
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.benchmarks.Benchmarks
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.schema.SchemaConstants
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
@@ -28,8 +32,8 @@ object ClassifierTestUtils {
 class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassifier] {
 
   import TrainClassifierTestUtilities._
-  import DatasetUtils._
-  import CategoricalUtilities._
+  import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils._
+  import com.microsoft.ml.spark.core.schema.CategoricalUtilities._
 
   val moduleName = "train-classifier"
   val LRName = "LogisticRegression"

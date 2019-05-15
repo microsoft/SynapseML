@@ -5,10 +5,11 @@ package com.microsoft.ml.spark
 
 import java.sql.Timestamp
 
+import com.microsoft.ml.spark.core.schema.SparkSchema
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
-import schema._
 
 class VerifyDataConversions extends TestBase {
 

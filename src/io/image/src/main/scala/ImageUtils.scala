@@ -8,6 +8,7 @@ import java.awt.image.{BufferedImage, DataBufferByte, Raster}
 import java.awt.{Color, Point}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
+import com.microsoft.ml.spark.core.env.StreamUtilities
 import javax.imageio.ImageIO
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
