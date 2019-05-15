@@ -7,6 +7,7 @@ import java.net.URL
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.utils.AsyncUtils
+import com.microsoft.ml.spark.stages.Lambda
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity

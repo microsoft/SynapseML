@@ -3,9 +3,9 @@
 
 package org.apache.spark.sql.execution.streaming
 
+import com.microsoft.ml.spark.stages.Lambda
 import javax.annotation.concurrent.GuardedBy
-
-import com.microsoft.ml.spark.{BingImage, BingImageSearch, BingImagesResponse, Lambda}
+import com.microsoft.ml.spark.{BingImage, BingImageSearch, BingImagesResponse}
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.NamespaceInjections
 import org.apache.spark.sql._

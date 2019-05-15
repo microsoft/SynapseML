@@ -6,6 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.stages.Lambda
 import org.apache.http.Consts
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.log4j.{LogManager, Logger}
