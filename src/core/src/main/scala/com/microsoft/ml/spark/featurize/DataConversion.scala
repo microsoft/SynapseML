@@ -1,24 +1,18 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See LICENSE in project root for information.
+package com.microsoft.ml.spark.featurize
 
-package com.microsoft.ml.spark
-
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param._
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 import java.sql.Timestamp
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.featurize.{IndexToValue, ValueIndexer}
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-
-/** DataConversion object. */
-object DataConversion extends DefaultParamsReadable[DataConversion]
+import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
+import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 /** Converts the specified list of columns to the specified type.
   * Returns a new DataFrame with the converted columns
+ *
   * @param uid The id of the module
   */
 class DataConversion(override val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {

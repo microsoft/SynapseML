@@ -1,14 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.featurize
 
 import java.sql.Timestamp
 
 import com.microsoft.ml.spark.core.schema.SparkSchema
 import com.microsoft.ml.spark.core.test.base.TestBase
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 
 class VerifyDataConversions extends TestBase {
