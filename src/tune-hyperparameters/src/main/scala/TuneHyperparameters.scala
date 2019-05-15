@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.metrics.MetricConstants
 import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._

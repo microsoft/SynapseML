@@ -17,7 +17,7 @@ import scala.collection.mutable.ListBuffer
 
 /** Tests to validate the functionality of Tune Hyperparameters module. */
 class VerifyTuneHyperparameters extends Benchmarks {
-  import TrainClassifierTestUtilities._
+  import com.microsoft.ml.spark.train.TrainClassifierTestUtilities._
 
   lazy val moduleName = "tune-hyperparameters"
 

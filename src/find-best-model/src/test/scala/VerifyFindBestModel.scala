@@ -12,7 +12,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 
 class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
-  import TrainClassifierTestUtilities._
+  import com.microsoft.ml.spark.train.TrainClassifierTestUtilities._
 
   val mockLabelColumn = "Label"
 

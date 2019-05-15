@@ -11,6 +11,7 @@ import org.apache.spark.sql.types._
 import java.sql.Timestamp
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.train.{IndexToValue, ValueIndexer}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 
 /** DataConversion object. */

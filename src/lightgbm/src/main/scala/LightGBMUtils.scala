@@ -10,6 +10,7 @@ import java.util.concurrent.Executors
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
 import com.microsoft.ml.spark.core.schema.SparkSchema
+import com.microsoft.ml.spark.train.{Featurize, FeaturizeUtilities}
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
@@ -22,6 +23,8 @@ import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
+import com.microsoft.ml.spark.train.FeaturizeUtilities._
+
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
