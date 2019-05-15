@@ -9,6 +9,7 @@ import java.io.File
 import java.util
 
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.io.image.ImageUtils
 import javax.imageio.ImageIO
 import javax.swing.{ImageIcon, JFrame, JLabel}
 import org.apache.spark.internal.{Logging => SpLogging}

@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.image
 
 import java.awt.Color
 import java.awt.color.ColorSpace
@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
@@ -147,9 +148,9 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
 class UnrollImage(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
-  def this() = this(Identifiable.randomUID("UnrollImage"))
+  import UnrollImage._
 
-  import com.microsoft.ml.spark.UnrollImage._
+  def this() = this(Identifiable.randomUID("UnrollImage"))
 
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
@@ -178,10 +179,9 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   */
 class UnrollBinaryImage(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  import UnrollImage._
 
   def this() = this(Identifiable.randomUID("UnrollImage"))
-
-  import com.microsoft.ml.spark.UnrollImage._
 
   val width = new IntParam(this, "width", "the width of the image")
 

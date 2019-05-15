@@ -1,13 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.image
 
-import com.microsoft.ml.spark.IOImplicits._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.opencv.{ImageTestUtils, ImageTransformer}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
+import com.microsoft.ml.spark.io.IOImplicits._
 
 class ResizeImageTransformerSuite extends TransformerFuzzing[ResizeImageTransformer]
   with ImageTestUtils {

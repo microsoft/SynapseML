@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cntk
 
 import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.image.UnrollImage
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql._
 import com.microsoft.ml.spark.io.IOImplicits._

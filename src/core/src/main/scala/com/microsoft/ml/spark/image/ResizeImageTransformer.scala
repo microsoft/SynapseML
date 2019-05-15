@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.image
 
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
@@ -9,6 +9,7 @@ import java.awt.{Image => JImage}
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{IntParam, ParamMap}

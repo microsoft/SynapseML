@@ -1,14 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.opencv
 
 import java.awt.GridLayout
 import java.nio.file.Paths
 
-import com.microsoft.ml.spark.IOImplicits._
+import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, LinuxOnly}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.image.{UnrollBinaryImage, UnrollImage}
 import javax.swing._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{DataFrame, Row}

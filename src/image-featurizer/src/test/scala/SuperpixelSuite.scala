@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage
 import java.io.File
 
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
+import com.microsoft.ml.spark.io.image.ImageUtils
 import javax.imageio.ImageIO
 
 import scala.util.Random

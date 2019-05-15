@@ -5,10 +5,12 @@ package com.microsoft.ml.spark
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
+import com.microsoft.ml.spark.cntk.CNTKModel
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.downloader.ModelSchema
+import com.microsoft.ml.spark.image.{ResizeImageTransformer, UnrollBinaryImage, UnrollImage}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._

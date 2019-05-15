@@ -7,12 +7,13 @@ import java.io.File
 import java.net.{URI, URL}
 
 import com.microsoft.ml.spark.core.env.FileUtilities.File
-import com.microsoft.ml.spark.IOImplicits._
+import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
 import com.microsoft.ml.spark.io.binary.FileReaderUtils
+import com.microsoft.ml.spark.io.powerbi.PowerBIWriter
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable

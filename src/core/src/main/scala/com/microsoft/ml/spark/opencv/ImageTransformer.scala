@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.opencv
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
@@ -131,21 +131,21 @@ object Flip {
   val flipBoth = -1
 }
 
-  /** Blurs the image using a box filter.
-    * The com.microsoft.ml.spark.core.serialize.params are a map of the dimensions of the blurring box. Please refer to
-    * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
-    * @param params
-    */
+/** Blurs the image using a box filter.
+  * The com.microsoft.ml.spark.core.serialize.params are a map of the dimensions of the blurring box. Please refer to
+  * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
+  * @param params
+  */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height = params(Blur.height).asInstanceOf[Double]
-  val width = params(Blur.width).asInstanceOf[Double]
-  override val stageName = Blur.stageName
+val height = params(Blur.height).asInstanceOf[Double]
+val width = params(Blur.width).asInstanceOf[Double]
+override val stageName = Blur.stageName
 
-  override def apply(image: Mat): Mat = {
-    val dst = new Mat()
-    Imgproc.blur(image, dst, new Size(height, width))
-    dst
-  }
+override def apply(image: Mat): Mat = {
+  val dst = new Mat()
+  Imgproc.blur(image, dst, new Size(height, width))
+  dst
+}
 }
 
 object Blur {
@@ -268,7 +268,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
 class ImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
-  import com.microsoft.ml.spark.ImageTransformer._
+  import ImageTransformer._
 
   def this() = this(Identifiable.randomUID("ImageTransformer"))
 

@@ -8,6 +8,7 @@ import java.net.URI
 
 import com.microsoft.ml.spark.CNTKLearner
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.image.UnrollImage
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.feature.OneHotEncoderEstimator
 import org.apache.spark.ml.linalg.Vectors
