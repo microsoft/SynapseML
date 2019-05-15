@@ -46,7 +46,7 @@ class DownloaderSuite extends TestBase {
     assert(d.localModels.toList.length == 1)
   }
 
-  test("A downloader should be able to get all Models " +
+  ignore("A downloader should be able to get all Models " +
     "and maybeDownload should be fast if models are downloaded", TestBase.Extended) {
     val (modTimes, modTimes2) = FaultToleranceUtils.retryWithTimeout(10, Duration.apply(500, "seconds")) {
       d.downloadModels()
