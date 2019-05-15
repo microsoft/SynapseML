@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.train
+package com.microsoft.ml.spark.featurize
 
 import java.nio.file.Files
 import java.sql.{Date, Timestamp}

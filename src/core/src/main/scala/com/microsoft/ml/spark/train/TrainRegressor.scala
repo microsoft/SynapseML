@@ -8,6 +8,7 @@ import java.util.UUID
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._

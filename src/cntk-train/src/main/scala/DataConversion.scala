@@ -8,7 +8,7 @@ import java.net.URI
 
 import com.microsoft.ml.spark.core.env.EnvironmentUtils
 import com.microsoft.ml.spark.core.hadoop.HadoopUtils
-import com.microsoft.ml.spark.train.Featurize
+import com.microsoft.ml.spark.featurize.Featurize
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._

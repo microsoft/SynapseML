@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.train
+package com.microsoft.ml.spark.featurize
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.{CategoricalColumnInfo, CategoricalUtilities}
@@ -13,6 +13,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.microsoft.ml.spark.core.schema.SchemaConstants._
+
 import scala.reflect.ClassTag
 import reflect.runtime.universe.TypeTag
 

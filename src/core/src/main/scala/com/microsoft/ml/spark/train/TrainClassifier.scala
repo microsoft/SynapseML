@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.core.utils.CastUtilities._
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._
