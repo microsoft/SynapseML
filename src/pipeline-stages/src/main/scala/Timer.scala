@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable, ConstructorReadable, ConstructorWritable}
-import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import org.apache.spark.ml._
 import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.{DataFrame, Dataset}

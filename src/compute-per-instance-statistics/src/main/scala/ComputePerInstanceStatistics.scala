@@ -6,15 +6,14 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.ml.spark.metrics.MetricUtils
 import com.microsoft.ml.spark.core.schema.SchemaConstants._
-import com.microsoft.ml.spark.schema.{SchemaConstants, SparkSchema}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.injections.MetadataUtilities
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
   val epsilon = 1e-15

@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.core.serialize
 
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.PipelineStage
+import org.apache.spark.ml.{PipelineStage, Serializer}
 import org.apache.spark.ml.util.{MLReadable, MLReader, MLWritable, MLWriter}
 
 import scala.language.existentials

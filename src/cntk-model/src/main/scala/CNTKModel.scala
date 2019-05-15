@@ -9,12 +9,10 @@ import com.microsoft.CNTK.{CNTKExtensions, DataType => CNTKDataType, Serializabl
 import com.microsoft.ml.spark.ConversionUtils.GVV
 import com.microsoft.ml.spark.core.contracts.Wrappable
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
-import com.microsoft.ml.spark.schema.DatasetExtensions.findUnusedColumnName
+import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
-import org.apache.spark.ml.Model
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._

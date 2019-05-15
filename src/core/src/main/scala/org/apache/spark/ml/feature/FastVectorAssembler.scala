@@ -1,4 +1,19 @@
-package com.microsoft.ml.spark.core.spark;
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
+package org.apache.spark.ml.feature
+
+import scala.collection.mutable.ArrayBuilder
+import org.apache.spark.SparkException
+import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.attribute.{Attribute, AttributeGroup}
+import org.apache.spark.ml.linalg.{Vector, VectorUDT, Vectors}
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.shared._
+import org.apache.spark.ml.util._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
 /** A fast vector assembler.  The columns given must be ordered such that categorical columns come first
   * (otherwise spark learners will give categorical attributes to the wrong index).
@@ -100,5 +115,39 @@ class FastVectorAssembler (override val uid: String)
   }
 
   override def copy(extra: ParamMap): FastVectorAssembler = defaultCopy(extra)
+
+}
+
+object FastVectorAssembler extends DefaultParamsReadable[FastVectorAssembler] {
+
+  override def load(path: String): FastVectorAssembler = super.load(path)
+
+  private[feature] def assemble(vv: Any*): Vector = {
+    val indices = ArrayBuilder.make[Int]
+    val values = ArrayBuilder.make[Double]
+    var cur = 0
+    vv.foreach {
+      case v: Double =>
+        if (v != 0.0) {
+          indices += cur
+          values += v
+        }
+        cur += 1
+      case vec: Vector =>
+        vec.foreachActive { case (i, v) =>
+          if (v != 0.0) {
+            indices += cur + i
+            values += v
+            ()
+          }
+        }
+        cur += vec.size
+      case null =>
+        throw new SparkException("Values to assemble cannot be null.")
+      case o =>
+        throw new SparkException(s"$o of type ${o.getClass.getName} is not supported.")
+    }
+    Vectors.sparse(cur, indices.result(), values.result()).compressed
+  }
 
 }

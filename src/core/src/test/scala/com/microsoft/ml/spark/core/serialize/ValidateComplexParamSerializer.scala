@@ -7,7 +7,7 @@ import java.io.File
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ByteArrayParam, Param, ParamMap, Params}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types.StructType

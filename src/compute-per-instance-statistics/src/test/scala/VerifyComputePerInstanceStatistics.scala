@@ -8,7 +8,6 @@ import com.microsoft.ml.spark.TrainClassifierTestUtilities._
 import com.microsoft.ml.spark.core.metrics.MetricConstants
 import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.FastVectorAssembler
 import org.apache.spark.sql._

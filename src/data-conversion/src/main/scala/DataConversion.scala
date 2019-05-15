@@ -12,7 +12,6 @@ import java.sql.Timestamp
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import schema._
 
 /** DataConversion object. */
 object DataConversion extends DefaultParamsReadable[DataConversion]

@@ -11,7 +11,6 @@ import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.{CategoricalColumnInfo, DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
-import com.microsoft.ml.spark.schema.DatasetExtensions
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.image.ImageSchema

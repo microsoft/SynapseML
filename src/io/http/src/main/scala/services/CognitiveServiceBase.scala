@@ -7,7 +7,6 @@ import java.net.URI
 
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.core.serialize.ComplexParamsWritable
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
@@ -15,7 +14,7 @@ import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}

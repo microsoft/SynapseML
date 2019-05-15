@@ -6,12 +6,12 @@ package com.microsoft.ml.spark
 import java.net.URL
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import com.microsoft.ml.spark.core.utils.AsyncUtils
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.binary.ConfUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder

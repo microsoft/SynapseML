@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.core.serialize
+package org.apache.spark.ml
 
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.param.{ParamPair, Params}
@@ -158,7 +159,7 @@ private[ml] object ComplexParamsReader {
 
   def getAndSetComplexParams(instance: Params, metadata: Metadata, basePath: String): Unit = {
     val spark = SparkSession.builder().getOrCreate()
-    implicit val format = DefaultFormats
+    implicit val format: DefaultFormats.type = DefaultFormats
     val complexParamLocs = (metadata.metadata \ "complexParamLocs") match {
       case JNothing =>
         Map[String, Path]()

@@ -8,7 +8,6 @@ import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.HandlingUtils._
 import com.microsoft.ml.spark.cognitive._
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, StringEntity}
@@ -21,6 +20,7 @@ import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import org.apache.http.entity.ContentType
+import org.apache.spark.ml.ComplexParamsReadable
 
 import scala.language.existentials
 

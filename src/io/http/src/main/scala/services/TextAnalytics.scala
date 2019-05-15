@@ -4,12 +4,11 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.param.{Param, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, _}
 import org.apache.spark.sql.{Column, Row}

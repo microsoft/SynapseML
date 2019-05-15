@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.core.serialize
 
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.Serializer
 import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.SparkSession
 

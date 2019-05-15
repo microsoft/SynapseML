@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.metrics.MetricConstants
-import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable, ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{ParamMap, TransformerArrayParam}

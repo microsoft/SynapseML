@@ -12,7 +12,7 @@ import org.apache.spark.sql.types._
 import AnomalyDetectorProtocol._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.sql.functions.{arrays_zip, col, collect_list, explode, size, struct, udf}
 import spray.json._
 import spray.json.DefaultJsonProtocol._

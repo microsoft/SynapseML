@@ -5,8 +5,8 @@ package com.microsoft.ml.spark.core.metrics
 
 import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.schema.SchemaConstants.MMLTag
-import com.microsoft.ml.spark.schema.SparkSchema
-import org.apache.spark.sql.types.{Metadata, MetadataUtilities, StructField, StructType}
+import org.apache.spark.sql.types.injections.MetadataUtilities
+import org.apache.spark.sql.types.{Metadata, StructField, StructType}
 
 /** Utilities used by modules for metrics. */
 object MetricUtils {

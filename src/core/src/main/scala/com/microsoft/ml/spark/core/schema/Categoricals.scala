@@ -10,6 +10,7 @@ import javassist.bytecode.DuplicateMemberException
 import org.apache.spark.ml.attribute._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.injections.MetadataUtilities
 
 import scala.reflect.ClassTag
 

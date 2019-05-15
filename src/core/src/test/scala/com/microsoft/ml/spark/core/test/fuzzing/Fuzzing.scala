@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.core.test.fuzzing
 
-import java.io.FileNotFoundException
+import java.io.{File, FileNotFoundException}
 import java.nio.file.Files
 
 import com.microsoft.ml.spark.core.test.base.DataFrameEquality

@@ -17,6 +17,8 @@ object Bar extends SparkBindings[Bar]
 
 class SparkBindingsTest2 extends TestBase {
 
+  import session.implicits._
+
   test("Test to make sure there are no strange memory leaks") {
     (1 to 40).foreach { i =>
       val foos = (0 to 40).map(i => Tuple1(Foo(i, i.toString, Seq(Bar(i, "foo".getBytes)))))

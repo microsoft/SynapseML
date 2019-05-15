@@ -4,12 +4,11 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.attribute.NominalAttribute
 import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
 import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{NumericType, StringType, StructType}

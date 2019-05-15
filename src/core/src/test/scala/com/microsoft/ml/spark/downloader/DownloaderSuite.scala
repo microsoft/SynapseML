@@ -1,16 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.downloader
 
 import java.nio.file.Files
 
 import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
-
-import scala.collection.JavaConversions._
 import org.apache.commons.io.FileUtils
 
+import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
 import scala.util.Random
 

@@ -4,8 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol}
-import com.microsoft.ml.spark.core.serialize.ComplexParamsWritable
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{EstimatorParam, IntParam}
 
 /** Defines common inheritance and parameters across trainers.

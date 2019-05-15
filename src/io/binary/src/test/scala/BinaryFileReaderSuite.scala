@@ -10,7 +10,7 @@ import com.microsoft.ml.spark.Binary.implicits._
 import com.microsoft.ml.spark.core.env.FileUtilities.{File, zipFolder}
 import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
-import com.microsoft.ml.spark.schema.BinaryFileSchema.isBinaryFile
+import com.microsoft.ml.spark.core.schema.BinaryFileSchema.isBinaryFile
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.sql.functions.{col, udf}

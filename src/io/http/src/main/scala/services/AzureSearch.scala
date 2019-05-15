@@ -4,14 +4,13 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive._
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import org.apache.http.Consts
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
+import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, collect_set, explode, struct, to_json, udf}
 import org.apache.spark.sql.streaming.DataStreamWriter

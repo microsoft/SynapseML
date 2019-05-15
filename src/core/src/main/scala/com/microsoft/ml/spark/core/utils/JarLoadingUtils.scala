@@ -8,9 +8,12 @@ import java.net.{URL, URLClassLoader}
 import java.util.jar.JarFile
 
 import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.env.FileUtilities.File
 import org.scalatest.exceptions.TestFailedException
 
 import scala.reflect.{ClassTag, _}
+import com.microsoft.ml.spark.core.env.FileUtilities._
+import collection.JavaConverters._
 
 /** Contains logic for loading classes. */
 object JarLoadingUtils {
@@ -25,7 +28,7 @@ object JarLoadingUtils {
     val topDir = (1 to levelsToSrc).foldLeft(thisFile) {case (f, i) => f.getParentFile}
     val rootsFile = new File(topDir, projectRoots)
     val roots = readFile(rootsFile, _.getLines.toList)
-    roots.map { root => new File(new File(topDir, root), jarRelPath)}
+    roots.map { root =>  new File(new File(topDir, root), jarRelPath)}
   }
 
   private val testOutputDirs = {

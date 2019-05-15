@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.core.test.benchmarks
 
-import java.io.PrintWriter
+import java.io.{File, PrintWriter}
 
 import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase

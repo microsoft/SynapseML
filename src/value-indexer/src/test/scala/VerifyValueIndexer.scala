@@ -6,7 +6,6 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.core.schema.{CategoricalColumnInfo, CategoricalUtilities, SparkSchema}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
-import com.microsoft.ml.spark.schema.{CategoricalColumnInfo, SparkSchema}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
 

@@ -1,15 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.core.serialize
+package org.apache.spark.ml
 
 import java.io.{InputStream, ObjectOutputStream, OutputStream}
 
+import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.utils.ContextObjectInputStream
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable
-import org.apache.spark.ml.{Pipeline, PipelineStage}
 import org.apache.spark.sql._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, render}

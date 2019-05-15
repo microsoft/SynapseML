@@ -4,12 +4,11 @@
 package org.apache.spark.ml.recommendation
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.serialize.ComplexParamsWritable
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}

@@ -7,8 +7,6 @@ import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long 
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.CategoricalMap
-import com.microsoft.ml.spark.core.serialize.{ComplexParamsReadable, ComplexParamsWritable}
-import com.microsoft.ml.spark.schema._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute

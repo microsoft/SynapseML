@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.cognitive.{Face, FaceGrouping, FoundFace, IdentifiedFace}
-import com.microsoft.ml.spark.core.serialize.ComplexParamsReadable
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row

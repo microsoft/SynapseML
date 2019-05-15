@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import java.io.PrintWriter
+import java.io.{File, PrintWriter}
 import java.net.URI
 
 import com.microsoft.ml.spark.core.env.EnvironmentUtils

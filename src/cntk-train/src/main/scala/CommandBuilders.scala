@@ -9,6 +9,7 @@ import java.net.URI
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
 import com.microsoft.ml.spark.core.env.FileUtilities._
+import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.env.ProcessUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
