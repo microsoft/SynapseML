@@ -12,6 +12,7 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.binary.FileReaderUtils
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector

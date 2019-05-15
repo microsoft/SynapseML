@@ -7,6 +7,7 @@ import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 
+import com.microsoft.ml.spark.cntk.CNTKTestUtils
 import javax.imageio.ImageIO
 
 import scala.util.Random
