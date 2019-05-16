@@ -11,7 +11,7 @@ from pyspark.ml.common import inherit_doc
 from pyspark.sql.types import *
 from pyspark.sql.types import Row, _create_row
 import numpy as np
-from mmlspark._ImageTransformer import _ImageTransformer
+from mmlspark.opencv._ImageTransformer import _ImageTransformer
 
 ImageFields = ["origin", "height", "width", "nChannels", "mode", "data"]
 

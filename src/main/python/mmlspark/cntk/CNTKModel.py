@@ -6,7 +6,7 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._CNTKModel import _CNTKModel
+from mmlspark.cntk._CNTKModel import _CNTKModel
 from pyspark.ml.common import inherit_doc, _java2py, _py2java
 from pyspark import SparkContext
 

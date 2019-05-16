@@ -2,7 +2,7 @@ import pyspark
 from pyspark import SparkContext
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType, StructField
-from mmlspark.ImageTransformer import ImageSchema
+from mmlspark.opencv.ImageTransformer import ImageSchema
 
 
 image_source = "org.apache.spark.ml.source.image.PatchedImageFileFormat"

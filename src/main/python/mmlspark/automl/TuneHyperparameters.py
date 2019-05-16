@@ -8,8 +8,8 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._TuneHyperparameters import _TuneHyperparameters
-from mmlspark._TuneHyperparameters import _TuneHyperparametersModel
+from mmlspark.automl._TuneHyperparameters import _TuneHyperparameters
+from mmlspark.automl._TuneHyperparameters import _TuneHyperparametersModel
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc
 
