@@ -17,7 +17,7 @@ class VerifyFastVectorAssembler extends TestBase {
 
   val inputCols = Array("a", "b", "c", "d", "e")
   val outputCol = "testCol"
-  val mockDataset = session.createDataFrame(Seq(
+  lazy val mockDataset = session.createDataFrame(Seq(
     (0, 2, 0.5, 0.6, 0),
     (1, 3, 0.4, 0.5, 1),
     (2, 4, 0.78, 0.99, 2),

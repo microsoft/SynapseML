@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.featurize
 
+import java.io.File
 import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
@@ -32,11 +33,17 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   val mockLabelColumn = "Label"
   val featuresColumn = "testColumn"
-  val targetDirectory = new File("target")
-  val resourceDir: File = new File(new File(getClass.getResource("/").toURI), "../../../src/test/resources")
+
+  val resourcesDirectory = new File(getClass.getResource("/").toURI)
+  val oldBenchmarkDir = new File(resourcesDirectory, "benchmarks")
+  val newBenchmarkDir = new File(resourcesDirectory, "new_benchmarks")
 
   def getResource(name: String): File ={
-    new File(resourceDir, name)
+    new File(oldBenchmarkDir, name)
+  }
+
+  private def getTempFile(name: String): File = {
+    new File(newBenchmarkDir, name)
   }
 
   val benchmarkBasicDataTypesFile = "benchmarkBasicDataTypes.json"
@@ -71,7 +78,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   val historicNoOneHotMissingsFile: File = getResource(benchmarkNoOneHotMissingsFile)
   val benchmarkNoOneHotMissingsTempFile: File = getTempFile(benchmarkNoOneHotMissingsFile)
 
-  val benchmarkStringIndexOneHotFile = "benchmarkStringIndexOneHot.json"
+  val benchmarkStringIndexOneHotFile = "benchmarks/benchmarkStringIndexOneHot.json"
   val historicStringIndexOneHotFile: File = getResource(benchmarkStringIndexOneHotFile)
   val benchmarkStringIndexOneHotTempFile: File = getTempFile(benchmarkStringIndexOneHotFile)
 
@@ -79,10 +86,6 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   val historicDateFile: File = getResource(benchmarkDateFile)
   val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
 
-  private def getTempFile(fileName: String): File = {
-    new File(targetDirectory,
-             s"${fileName}_${System.currentTimeMillis}_.json")
-  }
 
   // int label with features of:
   // long, double, boolean, int, byte, float

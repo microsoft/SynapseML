@@ -27,17 +27,22 @@ class FuzzingTest extends TestBase {
   // Note that this could make the tests pass when they should be failing
   val disableFailure = false
 
+  test("Assert things have been loaded"){
+    assert(serializationFuzzers.nonEmpty)
+    assert(pipelineStages.nonEmpty)
+    assert(readers.nonEmpty)
+  }
+
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
       "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.ValueIndexerModel",
-      "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.PowerBITransformer",
-      "com.microsoft.ml.spark.LocalNER"
+      "com.microsoft.ml.spark.featurize.ValueIndexerModel",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
+      "com.microsoft.ml.spark.automl.TuneHyperparameters",
+      "com.microsoft.ml.spark.train.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.featurize.DataConversion",
+      "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
+      "com.microsoft.ml.spark.cognitive.LocalNER"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -58,15 +63,13 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "org.apache.spark.ml.feature.FastVectorAssembler",
-      "com.microsoft.ml.spark.ValueIndexerModel",
-      "com.microsoft.ml.spark.CNTKLearner",
-      "com.microsoft.ml.spark.TrainClassifier",
-      "com.microsoft.ml.spark.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.DataConversion",
-      "com.microsoft.ml.spark.TuneHyperparameters",
-      "com.microsoft.ml.spark.PowerBITransformer",
-      "com.microsoft.ml.spark.LocalNER"
+      "com.microsoft.ml.spark.featurize.ValueIndexerModel",
+      "com.microsoft.ml.spark.automl.TuneHyperparameters",
+      "com.microsoft.ml.spark.train.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.cognitive.LocalNER",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
+      "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
+      "com.microsoft.ml.spark.featurize.DataConversion"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -133,7 +136,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all pipeline stage values match their param names") {
     val exemptions: Set[String] = Set[String](
-      "com.microsoft.ml.spark.UDFTransformer") // needs to hide setters from model
+      "com.microsoft.ml.spark.stages.UDFTransformer") // needs to hide setters from model
     pipelineStages.foreach { pipelineStage =>
       if (!exemptions(pipelineStage.getClass.getName)) {
         val paramFields =
@@ -167,10 +170,9 @@ class FuzzingTest extends TestBase {
 
     val exemptions = Set[String](
       "org.apache.spark.ml.feature.FastVectorAssembler", // In Spark namespace
-      "com.microsoft.ml.spark.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.LightGBMRanker", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.TextFeaturizer" // needs to hide setters from model
+      "com.microsoft.ml.spark.lightgbm.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.lightgbm.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.lightgbm.LightGBMRanker" // HasFeaturesCol is part of spark's base class
     )
     pipelineStages.foreach { stage =>
       if (!exemptions(stage.getClass.getName)) {
@@ -194,7 +196,7 @@ class FuzzingTest extends TestBase {
   }
 
   // set the context loader to pick up on the jars
-  Thread.currentThread().setContextClassLoader(JarLoadingUtils.classLoader)
+  //Thread.currentThread().setContextClassLoader(JarLoadingUtils.classLoader)
 
   private lazy val transformers: List[Transformer] = JarLoadingUtils.loadClass[Transformer](debug = debug)
 

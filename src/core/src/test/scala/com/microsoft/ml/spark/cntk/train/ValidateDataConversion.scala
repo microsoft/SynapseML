@@ -7,7 +7,6 @@ import java.io.File
 import java.net.URI
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.{CNTKLearner, DataTransferUtils, LocalWriter}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.sql.DataFrame
 import org.slf4j.LoggerFactory

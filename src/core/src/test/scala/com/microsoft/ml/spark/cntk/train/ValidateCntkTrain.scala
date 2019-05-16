@@ -6,7 +6,6 @@ package com.microsoft.ml.spark.cntk.train
 import java.io.File
 import java.net.URI
 
-import com.microsoft.ml.spark.CNTKLearner
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.UnrollImage
 import org.apache.commons.io.FileUtils

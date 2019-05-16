@@ -20,6 +20,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
 
   def testModel(minibatchSize: Int = 10): CNTKModel = {
+    session // make sure session is loaded
     new CNTKModel()
       .setModelLocation(modelPath)
       .setInputCol(inputCol)
@@ -27,7 +28,8 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setMiniBatchSize(minibatchSize)
       .setOutputNodeIndex(3)
   }
-  val images = testImages(session)
+
+  lazy val images = testImages(session)
   import session.implicits._
 
   private def checkParameters(minibatchSize: Int) = {

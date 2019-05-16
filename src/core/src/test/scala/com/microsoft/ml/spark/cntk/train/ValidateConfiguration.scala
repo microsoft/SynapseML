@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.cntk.train
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.{BrainScriptBuilder, CNTKCommandBuilder, InputShape}
 import org.slf4j.LoggerFactory
 
 class ValidateConfiguration extends TestBase {
