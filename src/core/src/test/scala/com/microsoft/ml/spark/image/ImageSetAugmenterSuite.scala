@@ -14,7 +14,7 @@ class ImageSetAugmenterSuite extends LinuxOnly with TransformerFuzzing[ImageSetA
   val groceriesDirectory = "/Images/CIFAR"
   private val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
 
-  private val images: DataFrame = session.read.image.load(fileLocation)
+  private lazy val images: DataFrame = session.read.image.load(fileLocation)
 
   override val sortInDataframeEquality: Boolean = true
 

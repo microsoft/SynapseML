@@ -14,7 +14,7 @@ class SimpleHTTPTransformerSuite
 
   import session.implicits._
 
-  val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
+  lazy val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
 
   def simpleTransformer: SimpleHTTPTransformer =
     new SimpleHTTPTransformer()
