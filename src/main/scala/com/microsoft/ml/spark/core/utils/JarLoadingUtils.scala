@@ -19,7 +19,7 @@ object JarLoadingUtils {
     filename.substring(0, classNameEnd).replace('/', '.')
   }
 
-  private lazy val allClasses = {
+  private[spark] val allClasses = {
     ClassPath.from(getClass.getClassLoader)
       //.getTopLevelClassesRecursive("com.microsoft").asScala.toList
       .getResources.asScala.toList

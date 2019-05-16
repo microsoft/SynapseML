@@ -4,35 +4,38 @@
 package com.microsoft.ml.spark.codegen
 
 import com.microsoft.ml.spark.core.env.FileUtilities._
-import sys.process.Process
 import com.microsoft.ml.spark.build.BuildInfo
 
 object Config {
-
   val mmlVer     = sys.env.getOrElse("MML_VERSION", BuildInfo.version)
   val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
-
-  val srcDir     = BuildInfo.baseDirectory
   val topDir     = BuildInfo.baseDirectory
-  val rootsFile  = new File(srcDir, "project/project-roots.txt")
-  val artifactsDir = new File(topDir, "BuildArtifacts")
+  val targetDir  = new File(getClass.getClassLoader.getResource("").toURI).getParent
+
+  val artifactsDir = new File(targetDir, "generated-wrappers")
+  val testResultsDir = new File(targetDir, "generated-tests")
   val outputDir  = new File(artifactsDir, "sdk")
+
   val pyDir      = new File(artifactsDir, "packages/python/mmlspark")
-  val pyZipFile  = new File(outputDir, "mmlspark.zip")
+  val pySdkDir   = new File(outputDir,"python")
+  val pyZipFile  = new File(pySdkDir, "mmlspark.zip")
+  val pyTestDir  = new File(testResultsDir, "generated_pytests")
+  val pyDocDir   = new File(artifactsDir, "pydocsrc")
+  val pyRelPath  = "src/main/python"
+
   val rDir       = new File(artifactsDir, "packages/R/mmlspark")
   val rSrcDir    = new File(rDir, "R")
-  val rZipFile   = new File(s"$rDir-$mmlVer.zip")
-  val pyTestDir  = new File(topDir, "TestResults/generated_pytests")
-  val rTestDir   = new File(topDir, "TestResults/generated_Rtests")
-  val pyDocDir   = new File(artifactsDir, "pydocsrc")
-  val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
-  val pyRelPath  = "src/main/python"
+  val rSdkDir   = new File(outputDir,"R")
+  val rZipFile   = new File(rSdkDir, s"mmlspark-$mmlVer.zip")
+  val sparklyRNamespacePath = new File(rDir, "NAMESPACE")
+  val rTestDir   = new File(testResultsDir, "generated_Rtests")
   val rRelPath   = "src/main/R"
+
+  val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
   val internalPrefix  = "_"
   val scopeDepth = " " * 4
   val tmpDocDir  = new File(pyDocDir, "tmpDoc")
   val txtRelPath = "src/main/scala"
-  val sparklyRNamespacePath = new File(rDir, "NAMESPACE")
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.

@@ -11,6 +11,7 @@ import com.microsoft.ml.spark.codegen.Config._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.core.utils.JarLoadingUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.{Estimator, Transformer}
 
@@ -112,35 +113,12 @@ abstract class WrapperGenerator {
     }
   }
 
-  def getWrappersFromJarFile(jarFilePath: String, cl2: URLClassLoader): Unit = {
-    val cld = new URLClassLoader(Array(new File(jarFilePath).toURI.toURL), cl2)
-    val jfd = new JarFile(jarFilePath)
-
-    using(Seq(cld, jfd)) { s =>
-      val cl = s(0).asInstanceOf[URLClassLoader]
-      val jarFile = s(1).asInstanceOf[JarFile]
-      val _ = jarFile.entries.asScala
-        .filter(e => e.getName.endsWith(".class"))
-        .map(e => e.getName.replace("/", ".").stripSuffix(".class"))
-        .filter(q => { val clazz = cl.loadClass(q)
-                       try {
-                         clazz.getEnclosingClass == null
-                       } catch {
-                         case _: java.lang.NoClassDefFoundError => false
-                       }})
-        .toList
-        .sorted
-        .foreach(q => writeWrappersToFile(cl.loadClass(q), q))
-    }.get
-
+  def getWrappersFromClasses(classes: Seq[Class[_]]): Unit = {
+    classes.foreach(cl => writeWrappersToFile(cl, cl.getName))
   }
 
   def generateWrappers(): Unit = {
-    val jarFiles = outputDir.listFiles.filter(_.getName.endsWith(".jar")).sortBy(_.getName)
-    val jarUrls = jarFiles.map(_.toURI.toURL)
-    using(Seq(new URLClassLoader(jarUrls, this.getClass.getClassLoader))) { s =>
-      jarFiles.foreach(f => getWrappersFromJarFile(f.getAbsolutePath, s(0)))
-    }.get
+    getWrappersFromClasses(JarLoadingUtils.allClasses)
   }
 
 }
