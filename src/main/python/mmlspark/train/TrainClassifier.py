@@ -6,8 +6,8 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._TrainClassifier import _TrainClassifier
-from mmlspark._TrainClassifier import _TrainedClassifierModel
+from mmlspark.train._TrainClassifier import _TrainClassifier
+from mmlspark.train._TrainClassifier import _TrainedClassifierModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams
 

@@ -9,7 +9,7 @@ if sys.version >= '3':
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.tuning import ValidatorParams
 from pyspark.ml.util import *
-from mmlspark._RankingTrainValidationSplitModel import _RankingTrainValidationSplitModel
+from mmlspark.recommendation._RankingTrainValidationSplitModel import _RankingTrainValidationSplitModel
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.util import *
 from pyspark.ml.common import _py2java

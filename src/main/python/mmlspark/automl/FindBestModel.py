@@ -6,8 +6,8 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._FindBestModel import _FindBestModel
-from mmlspark._FindBestModel import _BestModel
+from mmlspark.automl._FindBestModel import _FindBestModel
+from mmlspark.automl._FindBestModel import _BestModel
 from pyspark import SparkContext, SQLContext
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc

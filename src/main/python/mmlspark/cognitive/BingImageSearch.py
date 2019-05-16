@@ -6,7 +6,7 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._BingImageSearch import _BingImageSearch
+from mmlspark.cognitive._BingImageSearch import _BingImageSearch
 from mmlspark.Lambda import Lambda
 from pyspark.ml.common import inherit_doc
 

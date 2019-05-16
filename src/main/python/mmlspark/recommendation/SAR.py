@@ -10,8 +10,8 @@ if sys.version >= '3':
 from pyspark.ml.param.shared import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.Utils import *
-from mmlspark._SAR import _SAR as sar
-from mmlspark.SARModel import SARModel as sarm
+from mmlspark.recommendation._SAR import _SAR as sar
+from mmlspark.recommendation.SARModel import SARModel as sarm
 
 
 @inherit_doc

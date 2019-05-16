@@ -6,7 +6,7 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._ImageFeaturizer import _ImageFeaturizer
+from mmlspark.image._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
 from pyspark.sql import SparkSession
 
