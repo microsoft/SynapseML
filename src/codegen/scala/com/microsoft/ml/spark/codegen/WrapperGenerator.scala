@@ -4,25 +4,24 @@
 package com.microsoft.ml.spark.codegen
 
 import java.io.File
-
-import collection.JavaConverters._
-import scala.collection.Iterator.iterate
 import java.lang.reflect.{ParameterizedType, Type}
 import java.util.jar._
 
-import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
-import org.apache.spark.ml.{Estimator, Transformer}
-import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.codegen.Config._
 import com.microsoft.ml.spark.core.env.FileUtilities._
-
-import Config._
 import com.microsoft.ml.spark.core.env.InternalWrapper
-
-import scala.language.existentials
+import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.core.utils.JarLoadingUtils
 import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.{Estimator, Transformer}
 
+import scala.collection.Iterator.iterate
+import scala.collection.JavaConverters._
+import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.reflect.runtime.universe._
 
+//noinspection ScalaStyle
 abstract class WrapperGenerator {
 
   def wrapperName(myClass: Class[_]): String
@@ -70,12 +69,12 @@ abstract class WrapperGenerator {
           case t: Transformer =>
             val className = wrapperName(myClass)
             (generateTransformerWrapper(t, className, qualifiedClassName),
-             generateTransformerTestWrapper(t, className, qualifiedClassName))
+              generateTransformerTestWrapper(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
-                     .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")
-                       .contains(c.getSuperclass.getSimpleName))
-                     .get
+              .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")
+                .contains(c.getSuperclass.getSimpleName))
+              .get
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
               .getActualTypeArguments
             val getModelFromGenericType = (modelType: Type) => {
@@ -85,16 +84,16 @@ abstract class WrapperGenerator {
             val (modelClass, modelQualifiedClass) = sc.getSuperclass.getSimpleName match {
               case "Estimator" => getModelFromGenericType(typeArgs.head)
               case model if Array("ProbabilisticClassifier", "BaseRegressor", "Predictor", "Ranker").contains(model)
-                => getModelFromGenericType(typeArgs(2))
+              => getModelFromGenericType(typeArgs(2))
             }
 
             val className = wrapperName(myClass)
             (generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
-             generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
-          case ev: Evaluator   =>
+              generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
+          case ev: Evaluator =>
             val className = wrapperName(myClass)
             (generateEvaluatorWrapper(ev, className, qualifiedClassName),
-             generateEvaluatorTestWrapper(ev, className, qualifiedClassName))
+              generateEvaluatorTestWrapper(ev, className, qualifiedClassName))
           case _ => return
         }
       wrapper.writeWrapperToFile(wrapperDir)
@@ -115,35 +114,9 @@ abstract class WrapperGenerator {
     }
   }
 
-  def getWrappersFromJarFile(jarFilePath: String, cl2: URLClassLoader): Unit = {
-    val cld = new URLClassLoader(Array(new File(jarFilePath).toURI.toURL), cl2)
-    val jfd = new JarFile(jarFilePath)
-
-    using(Seq(cld, jfd)) { s =>
-      val cl = s(0).asInstanceOf[URLClassLoader]
-      val jarFile = s(1).asInstanceOf[JarFile]
-      val _ = jarFile.entries.asScala
-        .filter(e => e.getName.endsWith(".class"))
-        .map(e => e.getName.replace("/", ".").stripSuffix(".class"))
-        .filter(q => { val clazz = cl.loadClass(q)
-                       try {
-                         clazz.getEnclosingClass == null
-                       } catch {
-                         case _: java.lang.NoClassDefFoundError => false
-                       }})
-        .toList
-        .sorted
-        .foreach(q => writeWrappersToFile(cl.loadClass(q), q))
-    }.get
-
-  }
-
   def generateWrappers(): Unit = {
-    val jarFiles = outputDir.listFiles.filter(_.getName.endsWith(".jar")).sortBy(_.getName)
-    val jarUrls = jarFiles.map(_.toURI.toURL)
-    using(Seq(new URLClassLoader(jarUrls, this.getClass.getClassLoader))) { s =>
-      jarFiles.foreach(f => getWrappersFromJarFile(f.getAbsolutePath, s(0)))
-    }.get
+    JarLoadingUtils.allClasses
+      .foreach(cl => writeWrappersToFile(cl, cl.getName))
   }
 
 }
@@ -155,16 +128,17 @@ object PySparkWrapperGenerator {
 }
 
 class PySparkWrapperGenerator extends WrapperGenerator {
-  override def wrapperDir: File = pyDir
-  override def wrapperTestDir: File = pyTestDir
+  override def wrapperDir: File = new File(pySrcDir, "mmlspark")
+
+  override def wrapperTestDir: File = new File(pyTestDir, "mmlspark")
 
   // check if the class is annotated with InternalWrapper
-  private[spark] def needsInternalWrapper(myClass: Class[_]):Boolean = {
+  private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {
     val typ: ClassSymbol = runtimeMirror(myClass.getClassLoader).classSymbol(myClass)
     typ.annotations.exists(a => a.tree.tpe =:= typeOf[InternalWrapper])
   }
 
-  def wrapperName(myClass: Class[_]):String = {
+  def wrapperName(myClass: Class[_]): String = {
     val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
     prefix + myClass.getSimpleName
   }
@@ -178,16 +152,16 @@ class PySparkWrapperGenerator extends WrapperGenerator {
                                entryPointName: String,
                                entryPointQualifiedName: String): WritableWrapper = {
     new PySparkEvaluatorWrapper(entryPoint,
-                                entryPointName,
-                                entryPointQualifiedName)
+      entryPointName,
+      entryPointQualifiedName)
   }
 
   def generateEvaluatorTestWrapper(entryPoint: Evaluator,
                                    entryPointName: String,
                                    entryPointQualifiedName: String): Option[WritableWrapper] = {
     Some(new PySparkEvaluatorTestWrapper(entryPoint,
-                                         entryPointName,
-                                         entryPointQualifiedName))
+      entryPointName,
+      entryPointQualifiedName))
   }
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
@@ -196,10 +170,10 @@ class PySparkWrapperGenerator extends WrapperGenerator {
                                companionModelName: String,
                                companionModelQualifiedName: String): WritableWrapper = {
     new PySparkEstimatorWrapper(entryPoint,
-                                entryPointName,
-                                entryPointQualifiedName,
-                                companionModelName,
-                                companionModelQualifiedName)
+      entryPointName,
+      entryPointQualifiedName,
+      companionModelName,
+      companionModelQualifiedName)
   }
 
   def generateEstimatorTestWrapper(entryPoint: Estimator[_],
@@ -208,10 +182,10 @@ class PySparkWrapperGenerator extends WrapperGenerator {
                                    companionModelName: String,
                                    companionModelQualifiedName: String): Option[WritableWrapper] = {
     Some(new PySparkEstimatorWrapperTest(entryPoint,
-                                         entryPointName,
-                                         entryPointQualifiedName,
-                                         companionModelName,
-                                         companionModelQualifiedName))
+      entryPointName,
+      entryPointQualifiedName,
+      companionModelName,
+      companionModelQualifiedName))
   }
 
   def generateTransformerWrapper(entryPoint: Transformer,
@@ -228,66 +202,68 @@ class PySparkWrapperGenerator extends WrapperGenerator {
 }
 
 object SparklyRWrapperGenerator {
-  def apply(): Unit = {
-    new SparklyRWrapperGenerator().generateWrappers()
+  def apply(mmlVer: String): Unit = {
+    new SparklyRWrapperGenerator(mmlVer).generateWrappers()
   }
 }
 
-class SparklyRWrapperGenerator extends WrapperGenerator {
+class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
   override def wrapperDir: File = rSrcDir
+
   override def wrapperTestDir: File = rTestDir
 
   // description file; need to encode version as decimal
   val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
-                .format(new java.util.Date())
+    .format(new java.util.Date())
   val ver0 = "\\.dev|\\+".r.replaceAllIn(mmlVer, "-")
-  val ver  = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
-      "." + scala.math.BigInt(m.group(1), 16).toString)
+  val ver = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
+    "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
-  writeFile(new File(rDir, "DESCRIPTION"),
-            s"""|Package: mmlspark
-                |Title: Access to MMLSpark via R
-                |Description: Provides an interface to MMLSpark.
-                |Version: $ver$actualVer
-                |Date: $today
-                |Author: Microsoft Corporation
-                |Maintainer: MMLSpark Team <mmlspark-support@microsoft.com>
-                |URL: https://github.com/Azure/mmlspark
-                |BugReports: https://github.com/Azure/mmlspark/issues
-                |Depends:
-                |    R (>= 2.12.0)
-                |Imports:
-                |    sparklyr
-                |License: MIT
-                |""".stripMargin)
+  rSrcDir.mkdirs()
+  writeFile(new File(rSrcDir, "DESCRIPTION"),
+    s"""|Package: mmlspark
+        |Title: Access to MMLSpark via R
+        |Description: Provides an interface to MMLSpark.
+        |Version: $ver$actualVer
+        |Date: $today
+        |Author: Microsoft Corporation
+        |Maintainer: MMLSpark Team <mmlspark-support@microsoft.com>
+        |URL: https://github.com/Azure/mmlspark
+        |BugReports: https://github.com/Azure/mmlspark/issues
+        |Depends:
+        |    R (>= 2.12.0)
+        |Imports:
+        |    sparklyr
+        |License: MIT
+        |""".stripMargin)
 
   // generate a new namespace file, import sparklyr
   writeFile(sparklyRNamespacePath,
-            s"""|$copyrightLines
-                |import(sparklyr)
-                |
-                |export(sdf_transform)
-                |export(smd_model_downloader)
-                |export(smd_download_by_name)
-                |export(smd_local_models)
-                |export(smd_remote_models)
-                |export(smd_get_model_name)
-                |export(smd_get_model_uri)
-                |export(smd_get_model_type)
-                |export(smd_get_model_hash)
-                |export(smd_get_model_size)
-                |export(smd_get_model_input_node)
-                |export(smd_get_model_num_layers)
-                |export(smd_get_model_layer_names)
-                |""".stripMargin)
+    s"""|$copyrightLines
+        |import(sparklyr)
+        |
+        |export(sdf_transform)
+        |export(smd_model_downloader)
+        |export(smd_download_by_name)
+        |export(smd_local_models)
+        |export(smd_remote_models)
+        |export(smd_get_model_name)
+        |export(smd_get_model_uri)
+        |export(smd_get_model_type)
+        |export(smd_get_model_hash)
+        |export(smd_get_model_size)
+        |export(smd_get_model_input_node)
+        |export(smd_get_model_num_layers)
+        |export(smd_get_model_layer_names)
+        |""".stripMargin)
 
   def formatWrapperName(name: String): String =
     name.foldLeft((true, ""))((base, c) => {
       val ignoreCaps = base._1
       val partialStr = base._2
-      if (!c.isUpper)      (false, partialStr + c)
-      else if (ignoreCaps) (true,  partialStr + c.toLower)
-      else                 (true,  partialStr + "_" + c.toLower)
+      if (!c.isUpper) (false, partialStr + c)
+      else if (ignoreCaps) (true, partialStr + c.toLower)
+      else (true, partialStr + "_" + c.toLower)
     })._2
 
   def wrapperName(myClass: Class[_]): String = formatWrapperName(myClass.getSimpleName)
@@ -300,10 +276,10 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
                                companionModelName: String,
                                companionModelQualifiedName: String): WritableWrapper = {
     new SparklyREstimatorWrapper(entryPoint,
-                                 entryPointName,
-                                 entryPointQualifiedName,
-                                 companionModelName,
-                                 companionModelQualifiedName)
+      entryPointName,
+      entryPointQualifiedName,
+      companionModelName,
+      companionModelQualifiedName)
   }
 
   def generateEstimatorTestWrapper(entryPoint: Estimator[_],
@@ -317,7 +293,7 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
   def generateTransformerWrapper(entryPoint: Transformer,
                                  entryPointName: String,
                                  entryPointQualifiedName: String): WritableWrapper = {
-    new  SparklyRTransformerWrapper(entryPoint, entryPointName, entryPointQualifiedName)
+    new SparklyRTransformerWrapper(entryPoint, entryPointName, entryPointQualifiedName)
   }
 
   def generateTransformerTestWrapper(entryPoint: Transformer,

@@ -1,16 +1,17 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-import setuptools, os
+import os
+from setuptools import setup, find_packages
 
-setuptools.setup(
+setup(
     name="mmlspark",
     version=os.environ["MML_VERSION"],
     description="Microsoft ML for Spark",
     long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
                      "contributions to the Apache Spark ecosystem",
     license="MIT",
-    packages=["mmlspark"],
+    packages=find_packages(),
 
     # Project's main homepage.
     url="https://github.com/Azure/mmlspark",

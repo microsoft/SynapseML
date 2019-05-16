@@ -6,8 +6,8 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._TrainRegressor import _TrainRegressor
-from mmlspark._TrainRegressor import _TrainedRegressorModel
+from mmlspark.train._TrainRegressor import _TrainRegressor
+from mmlspark.train._TrainRegressor import _TrainedRegressorModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams
 
