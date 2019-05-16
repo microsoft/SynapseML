@@ -147,12 +147,23 @@ private object TrainUtils extends Serializable {
           log.warn("LightGBM reached early termination on one worker," +
             " stopping training on worker. This message should rarely occur")
       }
+      if (trainParams.isProvideTrainingMetric && !isFinished) {
+        val trainResults = lightgbmlib.new_doubleArray(evalNames.length)
+        val dummyEvalCountsPtr = lightgbmlib.new_intp()
+        val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 0, dummyEvalCountsPtr, trainResults)
+        lightgbmlib.delete_intp(dummyEvalCountsPtr)
+        LightGBMUtils.validate(resultEval, "Booster Get Train Eval")
+        evalNames.zipWithIndex.foreach { case (evalName, index) =>
+          val score = lightgbmlib.doubleArray_getitem(trainResults, index)
+          log.info(s"Train $evalName=$score")
+        }
+      }
       if (hasValid && !isFinished) {
         val evalResults = lightgbmlib.new_doubleArray(evalNames.length)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
-        LightGBMUtils.validate(resultEval, "Booster Get Eval")
+        LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
         evalNames.zipWithIndex.foreach { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(evalResults, index)
           val cmp =

@@ -26,8 +26,11 @@ abstract class TrainParams extends Serializable {
   def boostingType: String
   def lambdaL1: Double
   def lambdaL2: Double
+  def isProvideTrainingMetric: Boolean
 
   override def toString(): String = {
+    // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
+    // let's fetch and print training metrics in `TrainUtils.scala` through JNI.
     s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism num_iterations=$numIterations " +
       s"learning_rate=$learningRate num_leaves=$numLeaves " +
       s"max_bin=$maxBin bagging_fraction=$baggingFraction bagging_freq=$baggingFreq " +
@@ -48,7 +51,8 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val numMachines: Int, val objective: String, val modelString: Option[String],
                                  val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int],
                                  val numClass: Int, val metric: String, val boostFromAverage: Boolean,
-                                 val boostingType: String, val lambdaL1: Double, val lambdaL2: Double)
+                                 val boostingType: String, val lambdaL1: Double, val lambdaL2: Double,
+                                 val isProvideTrainingMetric: Boolean)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -68,7 +72,8 @@ case class RegressorTrainParams(val parallelism: String, val numIterations: Int,
                                 val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int,
                                 val modelString: Option[String], val verbosity: Int,
                                 val categoricalFeatures: Array[Int], val boostFromAverage: Boolean,
-                                val boostingType: String, val lambdaL1: Double, val lambdaL2: Double)
+                                val boostingType: String, val lambdaL1: Double, val lambdaL2: Double,
+                                val isProvideTrainingMetric: Boolean)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
