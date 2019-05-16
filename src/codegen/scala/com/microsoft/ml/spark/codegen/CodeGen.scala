@@ -49,10 +49,10 @@ object CodeGen {
                 |  pyDir:     $pyDir
                 |  pyTestDir: $pyTestDir
                 |  pyDocDir:  $pyDocDir
-                |  rDir:      $rDir""".stripMargin)
-    val roots = // note: excludes the toplevel project
-      if (!rootsFile.exists) sys.error(s"Could not find roots file at $rootsFile")
-      else readFile(rootsFile, _.getLines.toList).filter(_ != ".")
+                |  rDir:      $rDir
+                |  rsrcDir:   $rSrcDir
+                |  tmpDocDir: $tmpDocDir""".stripMargin)
+    val roots = List("src")
     println("Creating temp folders")
     pyDir.mkdirs
     pyTestDir.mkdirs

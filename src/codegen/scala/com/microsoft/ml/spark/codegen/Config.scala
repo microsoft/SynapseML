@@ -5,19 +5,19 @@ package com.microsoft.ml.spark.codegen
 
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import sys.process.Process
+import com.microsoft.ml.spark.build.BuildInfo
 
 object Config {
 
-  val mmlVer     = sys.env.getOrElse("MML_VERSION",
-                                     Process("../tools/runme/show-version").!!.trim)
+  val mmlVer     = sys.env.getOrElse("MML_VERSION", BuildInfo.version)
   val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
 
-  val srcDir     = new File(".").getCanonicalFile()
-  val topDir     = new File("..").getCanonicalFile()
+  val srcDir     = BuildInfo.baseDirectory
+  val topDir     = BuildInfo.baseDirectory
   val rootsFile  = new File(srcDir, "project/project-roots.txt")
   val artifactsDir = new File(topDir, "BuildArtifacts")
   val outputDir  = new File(artifactsDir, "sdk")
-  val pyDir      = new File(srcDir, "src/main/resources/mmlspark")
+  val pyDir      = new File(artifactsDir, "packages/python/mmlspark")
   val pyZipFile  = new File(outputDir, "mmlspark.zip")
   val rDir       = new File(artifactsDir, "packages/R/mmlspark")
   val rSrcDir    = new File(rDir, "R")

@@ -22,10 +22,18 @@ libraryDependencies ++= Seq(
 
 lazy val IntegrationTest2 = config("it").extend(Test)
 
-val settings = Seq((scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml") ++
-  inConfig(IntegrationTest2)(Defaults.testSettings)
+lazy val CodeGen = config("codegen").extend(Test)
+
+val settings = Seq(
+  (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
+  buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory),
+  buildInfoPackage := "com.microsoft.ml.spark.build") ++
+  inConfig(IntegrationTest2)(Defaults.testSettings) ++
+  inConfig(CodeGen)(Defaults.testSettings)
 
 lazy val mmlspark = (project in file("."))
   .configs(IntegrationTest2)
+  .configs(CodeGen)
+  .enablePlugins(BuildInfoPlugin)
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
