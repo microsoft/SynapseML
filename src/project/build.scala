@@ -69,6 +69,7 @@ object Extras {
     "-Yinline-warnings"
     // this leads to problems sometimes: "-Yinline-warnings"
   )
+  val subProjects = Seq("core")
 
   // Some convenience commands
   val sectionPrefix =
@@ -86,7 +87,7 @@ object Extras {
     Command.single("noisy-command") { (st, cmd) =>
       addCommands(st, s"show-section $cmd", cmd) },
     Command.single("on-all-subs") { (st, cmd) =>
-      addCommands(st, SubProjects.all.map("noisy-command " + _ + "/" + cmd): _*) },
+      addCommands(st, subProjects.map("noisy-command " + _ + "/" + cmd): _*) },
     Command.command("full-build") { st =>
       val steps = Seq(if (env("PUBLISH") == "all") "update" else null,
                       //"run-scalastyle",
@@ -159,7 +160,7 @@ object Extras {
     initialCommands in (ThisBuild, console) := "import com.microsoft.ml.spark._",
     // Use the above commands
     commands in ThisBuild ++= newCommands
-    ) ++ testOpts ++ Defaults.itSettings
+    ) ++ testOpts
 
   def rootSettings =
     defaultSettings ++

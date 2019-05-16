@@ -17,9 +17,6 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class FuzzingTest extends TestBase {
 
-  // Needed because the session in TB is lazy
-  session
-
   // Use this for more detailed output from the Jar Loader
   val debug = false
 
@@ -28,6 +25,8 @@ class FuzzingTest extends TestBase {
   val disableFailure = false
 
   test("Assert things have been loaded"){
+    // Needed because the session in TB is lazy
+    session
     assert(serializationFuzzers.nonEmpty)
     assert(pipelineStages.nonEmpty)
     assert(readers.nonEmpty)
