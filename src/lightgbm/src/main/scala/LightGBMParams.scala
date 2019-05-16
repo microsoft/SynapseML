@@ -167,4 +167,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getNumBatches: Int = $(numBatches)
   def setNumBatches(value: Int): this.type = set(numBatches, value)
+
+  val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
+    "Whether output metric result over training dataset.")
+  setDefault(isProvideTrainingMetric -> false)
+
+  def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
+  def setisProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
 }
