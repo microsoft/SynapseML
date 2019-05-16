@@ -166,6 +166,7 @@ private object TrainUtils extends Serializable {
         LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
         evalNames.zipWithIndex.foreach { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(evalResults, index)
+          log.info(s"Valid $evalName=$score")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
               (x: Double, y: Double) => x > y
