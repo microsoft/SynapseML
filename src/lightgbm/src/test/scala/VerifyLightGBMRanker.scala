@@ -34,7 +34,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   test("Verify LightGBM Ranker on ranking dataset") {
     // Increment port index
     portIndex += numPartitions
-    val labelColumnName = "label"
+    val labelColumnName ="label"
     val dataset = rankingDataset.repartition(numPartitions)
     // val dataset = rankingDataset
     dataset.printSchema()
