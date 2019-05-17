@@ -6,7 +6,7 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._SimpleHTTPTransformer import _SimpleHTTPTransformer
+from mmlspark.io.http._SimpleHTTPTransformer import _SimpleHTTPTransformer
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc

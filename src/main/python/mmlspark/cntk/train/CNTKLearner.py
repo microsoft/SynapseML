@@ -6,8 +6,8 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._CNTKLearner import _CNTKLearner
-from mmlspark.CNTKModel import CNTKModel as CNTKmod
+from mmlspark.cntk.train._CNTKLearner import _CNTKLearner
+from mmlspark.cntk.CNTKModel import CNTKModel as CNTKmod
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc

@@ -20,12 +20,12 @@ object Config {
   val pySdkDir   = new File(outputDir,"python")
   val pyZipFile  = new File(pySdkDir, "mmlspark.zip")
   val pyTestDir  = new File(testResultsDir, "generated_pytests")
-  val pyDocDir   = new File(artifactsDir, "pydocsrc")
-  val pyRelPath  = "src/main/python"
+  val pyDocDir     = new File(artifactsDir, "pydocsrc")
+  val pySourcePath = new File(topDir, "src/main/python/mmlspark")
 
   val rDir       = new File(artifactsDir, "packages/R/mmlspark")
   val rSrcDir    = new File(rDir, "R")
-  val rSdkDir   = new File(outputDir,"R")
+  val rSdkDir    = new File(outputDir,"R")
   val rZipFile   = new File(rSdkDir, s"mmlspark-$mmlVer.zip")
   val sparklyRNamespacePath = new File(rDir, "NAMESPACE")
   val rTestDir   = new File(testResultsDir, "generated_Rtests")

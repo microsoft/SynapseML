@@ -8,8 +8,8 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._LightGBMClassifier import _LightGBMClassifier
-from mmlspark._LightGBMClassifier import _LightGBMClassificationModel
+from mmlspark.lightgbm._LightGBMClassifier import _LightGBMClassifier
+from mmlspark.lightgbm._LightGBMClassifier import _LightGBMClassificationModel
 from pyspark import SparkContext
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams

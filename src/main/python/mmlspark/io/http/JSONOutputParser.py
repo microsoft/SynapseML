@@ -6,7 +6,7 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._JSONOutputParser import _JSONOutputParser
+from mmlspark.io.http._JSONOutputParser import _JSONOutputParser
 from pyspark.ml.common import inherit_doc
 from pyspark import SparkContext
 import json

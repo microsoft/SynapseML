@@ -15,36 +15,6 @@ import org.apache.commons.io.FileUtils
 
 object CodeGen {
 
-  def copyAllFiles(fromDir: File, rx: Regex, toDir: File): Unit = {
-    if (!fromDir.isDirectory) {
-      println(s"'$fromDir' is not a directory"); return
-    }
-    allFiles(fromDir, if (rx == null) null else f => rx.findFirstIn(f.getName).isDefined)
-      .foreach { x => copyFile(x, toDir, overwrite = true) }
-  }
-
-  def copyAllFiles(fromDir: File, extension: String, toDir: File): Unit =
-    copyAllFiles(fromDir,
-      if (extension == null || extension == "") null
-      else (Pattern.quote("." + extension) + "$").r,
-      toDir)
-
-  def copyAllFilesFromRoots(fromDir: File, roots: List[String], relPath: String,
-                            extension: String, toDir: File): Unit = {
-    roots.foreach { root =>
-      val dir = new File(new File(fromDir, root), relPath)
-      if (dir.exists && dir.isDirectory) copyAllFiles(dir, extension, toDir)
-    }
-  }
-
-  def copyAllFilesFromRoots(fromDir: File, roots: List[String], relPath: String,
-                            rx: Regex, toDir: File): Unit = {
-    roots.foreach { root =>
-      val dir = new File(new File(fromDir, root), relPath)
-      if (dir.exists && dir.isDirectory) copyAllFiles(dir, rx, toDir)
-    }
-  }
-
   def generateArtifacts(): Unit = {
     println(
       s"""|Running code generation with config:
@@ -58,6 +28,8 @@ object CodeGen {
           |  tmpDocDir: $tmpDocDir""".stripMargin)
     val roots = List("src")
     println("Creating temp folders")
+    FileUtils.forceDelete(artifactsDir)
+    FileUtils.forceDelete(testResultsDir)
     pySdkDir.mkdirs
     pyDir.mkdirs
     pyTestDir.mkdirs
@@ -66,11 +38,6 @@ object CodeGen {
     rSrcDir.mkdirs
     rSdkDir.mkdirs
 
-    println("Copying jar files to output directory")
-    copyAllFilesFromRoots(topDir, roots, jarRelPath,
-      (Pattern.quote("-" + mmlVer + ".jar") + "$").r,
-      outputDir)
-
     println("Generating python APIs")
     PySparkWrapperGenerator()
     println("Generating R APIs")
@@ -78,15 +45,15 @@ object CodeGen {
     println("Generating .rst files for the Python APIs documentation")
     genRstFiles()
 
+    FileUtils.copyDirectoryToDirectory(pySourcePath, pyDir.getParentFile)
+
     // build init file
-    val importStrings =
-      allFiles(pyDir, f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName).isDefined)
-        .map(f => s"from mmlspark.${getBaseName(f.getName)} import *\n").mkString("")
-    writeFile(new File(pyDir, "__init__.py"), packageHelp(importStrings))
+    writeFile(new File(pyDir, "__init__.py"), packageHelp)
+
     // package python+r zip files
-    println(pyZipFile)
     zipFolder(pyDir, pyZipFile)
     zipFolder(rDir, rZipFile)
+
     FileUtils.forceDelete(rDir)
     // leave the python source files, so they will be included in the super-jar
     // FileUtils.forceDelete(pyDir)

@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.SummarizeData
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 
