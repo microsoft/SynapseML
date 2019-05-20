@@ -7,35 +7,38 @@ import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.build.BuildInfo
 
 object Config {
-  val mmlVer     = sys.env.getOrElse("MML_VERSION", BuildInfo.version)
-  val debugMode  = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
-  val topDir     = BuildInfo.baseDirectory
-  val targetDir  = new File(getClass.getClassLoader.getResource("").toURI).getParent
+  val mmlVer = sys.env.getOrElse("MML_VERSION", BuildInfo.version)
+  val debugMode = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
 
-  val artifactsDir = new File(targetDir, "generated-wrappers")
-  val testResultsDir = new File(targetDir, "generated-tests")
-  val outputDir  = new File(artifactsDir, "sdk")
+  val topDir = BuildInfo.baseDirectory
+  val targetDir = new File(getClass.getClassLoader.getResource("").toURI).getParent
 
-  val pyDir      = new File(artifactsDir, "packages/python/mmlspark")
-  val pySdkDir   = new File(outputDir,"python")
-  val pyZipFile  = new File(pySdkDir, "mmlspark.zip")
-  val pyTestDir  = new File(testResultsDir, "generated_pytests")
-  val pyDocDir     = new File(artifactsDir, "pydocsrc")
-  val pySourcePath = new File(topDir, "src/main/python/mmlspark")
+  val generatedDir = new File(targetDir, "generated")
+  val packageDir = new File(generatedDir, "package")
+  val srcDir = new File(generatedDir, "src")
+  val testDir = new File(generatedDir, "test")
+  val docDir = new File(generatedDir, "doc")
 
-  val rDir       = new File(artifactsDir, "packages/R/mmlspark")
-  val rSrcDir    = new File(rDir, "R")
-  val rSdkDir    = new File(outputDir,"R")
-  val rZipFile   = new File(rSdkDir, s"mmlspark-$mmlVer.zip")
-  val sparklyRNamespacePath = new File(rDir, "NAMESPACE")
-  val rTestDir   = new File(testResultsDir, "generated_Rtests")
-  val rRelPath   = "src/main/R"
+  //Python Codegen Constant
+  val pySrcDir = new File(srcDir, "python")
+  val pyPackageDir = new File(packageDir, "python")
+  val pyTestDir = new File(testDir, "python")
+  val pyDocDir = new File(docDir, "python")
+  val pySrcOverrideDir = new File(topDir, "src/main/python")
+  val pyTestOverrideDir = new File(topDir, "src/test/python")
 
-  val jarRelPath = "target/scala-" + sys.env("SCALA_VERSION")
-  val internalPrefix  = "_"
+  //R Codegen Constants
+  val rSrcDir = new File(srcDir, "R")
+  val sparklyRNamespacePath = new File(rSrcDir, "NAMESPACE")
+  val rPackageDir = new File(packageDir, "R")
+  val rTestDir = new File(testDir, "R")
+  val rSrcOverrideDir = new File(topDir, "src/main/R")
+  val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
+
+  val internalPrefix = "_"
   val scopeDepth = " " * 4
-  val tmpDocDir  = new File(pyDocDir, "tmpDoc")
-  val txtRelPath = "src/main/scala"
+  val tmpDocDir = new File(pyDocDir, "tmpDoc")
+  val scalaSrcDir = "src/main/scala"
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.

@@ -41,12 +41,13 @@ object DocGen {
     // Generate a modules.rst file that lists all the .py files to be included in API documentation
     // Find the files to use: Must start with upper case letter, end in .py
     val pattern = "^[A-Z]\\w*[.]py$".r
-    val moduleString = allFiles(pyDir, f => pattern.findFirstIn(f.getName).isDefined)
+    val moduleString = allFiles(pySrcDir, f => pattern.findFirstIn(f.getName).isDefined)
           .map(f => s"   ${getBaseName(f.getName)}\n").mkString("")
+    pyDocDir.mkdirs()
     writeFile(new File(pyDocDir, "modules.rst"), rstFileLines(moduleString))
 
     // Generate .rst file for each PySpark wrapper - for documentation generation
-    allFiles(pyDir, f => pattern.findFirstIn(f.getName).isDefined)
+    allFiles(pySrcDir, f => pattern.findFirstIn(f.getName).isDefined)
         .foreach{x => writeFile(new File(pyDocDir, getBaseName(x.getName) + ".rst"),
           contentsString(getBaseName(x.getName)))
         }

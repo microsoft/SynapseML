@@ -25,8 +25,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   private val additionalImports = Map(
     ("complexTypes",
-      s"from ${pyDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
-    ("utils", s"from ${pyDir.getName}.Utils import *")
+      s"from ${pySrcDir.getName}.TypeConversionUtils import generateTypeConverter, complexTypeConverter"),
+    ("utils", s"from ${pySrcDir.getName}.Utils import *")
   )
 
   val importClassString = ""

@@ -3,14 +3,12 @@
 
 package com.microsoft.ml.spark.codegen
 
-import Config._
-import DocGen._
-import WrapperClassDoc._
+import java.io.File
 
-import scala.util.matching.Regex
-import java.util.regex.Pattern
+import com.microsoft.ml.spark.codegen.Config._
+import com.microsoft.ml.spark.codegen.DocGen._
+import com.microsoft.ml.spark.codegen.WrapperClassDoc._
 import com.microsoft.ml.spark.core.env.FileUtilities._
-import org.apache.commons.io.FilenameUtils._
 import org.apache.commons.io.FileUtils
 
 object CodeGen {
@@ -19,24 +17,16 @@ object CodeGen {
     println(
       s"""|Running code generation with config:
           |  topDir:    $topDir
-          |  outputDir: $outputDir
-          |  pyDir:     $pyDir
+          |  packageDir: $packageDir
+          |  pySrcDir:  $pySrcDir
           |  pyTestDir: $pyTestDir
           |  pyDocDir:  $pyDocDir
-          |  rDir:      $rDir
           |  rsrcDir:   $rSrcDir
-          |  tmpDocDir: $tmpDocDir""".stripMargin)
+          |  tmpDocDir: $tmpDocDir """.stripMargin)
+
     val roots = List("src")
     println("Creating temp folders")
-    FileUtils.forceDelete(artifactsDir)
-    FileUtils.forceDelete(testResultsDir)
-    pySdkDir.mkdirs
-    pyDir.mkdirs
-    pyTestDir.mkdirs
-    pyDocDir.mkdirs
-    tmpDocDir.mkdirs
-    rSrcDir.mkdirs
-    rSdkDir.mkdirs
+    if (generatedDir.exists()) FileUtils.forceDelete(generatedDir)
 
     println("Generating python APIs")
     PySparkWrapperGenerator()
@@ -45,20 +35,23 @@ object CodeGen {
     println("Generating .rst files for the Python APIs documentation")
     genRstFiles()
 
-    FileUtils.copyDirectoryToDirectory(pySourcePath, pyDir.getParentFile)
+    def toDir(f: File): File = new File(f, File.separator)
+
+    writeFile(new File(pySrcDir, "__init__.py"), packageHelp)
+    FileUtils.copyDirectoryToDirectory(toDir(pySrcOverrideDir), toDir(pySrcDir))
+    FileUtils.copyDirectoryToDirectory(toDir(pyTestOverrideDir), toDir(pyTestDir))
 
     // build init file
-    writeFile(new File(pyDir, "__init__.py"), packageHelp)
-
     // package python+r zip files
-    zipFolder(pyDir, pyZipFile)
-    zipFolder(rDir, rZipFile)
+    // zipFolder(pyDir, pyZipFile)
+    rPackageDir.mkdirs()
+    zipFolder(rSrcDir, rPackageFile)
 
-    FileUtils.forceDelete(rDir)
+    //FileUtils.forceDelete(rDir)
     // leave the python source files, so they will be included in the super-jar
     // FileUtils.forceDelete(pyDir)
     // delete the text files with the Python Class descriptions - truly temporary
-    FileUtils.forceDelete(tmpDocDir)
+    // FileUtils.forceDelete(tmpDocDir)
   }
 
   def main(args: Array[String]): Unit = {

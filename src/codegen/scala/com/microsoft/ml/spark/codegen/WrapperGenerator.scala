@@ -128,7 +128,7 @@ object PySparkWrapperGenerator {
 }
 
 class PySparkWrapperGenerator extends WrapperGenerator {
-  override def wrapperDir: File = pyDir
+  override def wrapperDir: File = new File(pySrcDir, "mmlspark")
 
   override def wrapperTestDir: File = pyTestDir
 
@@ -219,7 +219,8 @@ class SparklyRWrapperGenerator extends WrapperGenerator {
   val ver = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
     "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
-  writeFile(new File(rDir, "DESCRIPTION"),
+  rSrcDir.mkdirs()
+  writeFile(new File(rSrcDir, "DESCRIPTION"),
     s"""|Package: mmlspark
         |Title: Access to MMLSpark via R
         |Description: Provides an interface to MMLSpark.

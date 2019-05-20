@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.codegen
 
+import java.io.File
+
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.{Estimator, Transformer}
 import org.apache.spark.ml.PipelineStage
@@ -251,7 +253,13 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   }
 
   def writeWrapperToFile(dir: File): Unit = {
-    writeFile(new File(dir, entryPointName + "_tests.py"), pysparkWrapperTestBuilder())
+    val packageDir = entryPointQualifiedName
+      .replace("com.microsoft.ml.spark","")
+      .split(".".toCharArray.head).dropRight(1)
+      .foldLeft(dir){ case (base, folder) => new File(base, folder)}
+    packageDir.mkdirs()
+    new File(packageDir, "__init__.py").createNewFile()
+    writeFile(new File(packageDir, entryPointName + "_tests.py"), pysparkWrapperTestBuilder())
   }
 
 }

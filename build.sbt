@@ -1,3 +1,5 @@
+import scala.sys.process.Process
+
 name := "mmlspark"
 version := "0.17.1"
 scalaVersion := "2.11.12"
@@ -37,3 +39,21 @@ lazy val mmlspark = (project in file("."))
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
+
+def join(folders: String*): File = {
+  folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
+}
+
+val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
+
+packagePythonTask := {
+  val s: TaskStreams = streams.value
+  (run in CodeGen).toTask("").value
+
+  val pythonSrc = join("target", "scala-2.11", "generated", "src", "python")
+  val pythonDest = join("target", "scala-2.11", "generated", "package", "python").absolutePath
+  Process(
+    s"python setup.py bdist_wheel --universal -d $pythonDest",
+    pythonSrc,
+    "MML_VERSION" -> version.value) ! s.log
+}
