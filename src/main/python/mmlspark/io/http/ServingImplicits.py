@@ -55,7 +55,7 @@ def _parseRequest(self, apiName, schema,
                  idCol="id", requestCol="request", parsingCheck = "none"):
     ctx = SparkContext.getOrCreate()
     jvm = ctx._jvm
-    extended = jvm.com.microsoft.ml.spark.DataFrameServingExtensions(self._jdf)
+    extended = jvm.com.microsoft.ml.spark.io.http.DataFrameServingExtensions(self._jdf)
     dt = jvm.org.apache.spark.sql.types.DataType
     jResult = extended.parseRequest(apiName, dt.fromJson(schema.json()), idCol, requestCol, parsingCheck)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
@@ -66,7 +66,7 @@ setattr(pyspark.sql.DataFrame, 'parseRequest', _parseRequest)
 def _makeReply(self, replyCol, name="reply"):
     ctx = SparkContext.getOrCreate()
     jvm = ctx._jvm
-    extended = jvm.com.microsoft.ml.spark.DataFrameServingExtensions(self._jdf)
+    extended = jvm.com.microsoft.ml.spark.io.http.DataFrameServingExtensions(self._jdf)
     jResult = extended.makeReply(replyCol, name)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jResult, sql_ctx)

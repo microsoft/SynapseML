@@ -56,8 +56,6 @@ class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
 
-  session
-
   test("Complex Param serialization should work on all complex, all normal, or mixed") {
     val bytes ="foo".toCharArray.map(_.toByte)
     val s = "foo"

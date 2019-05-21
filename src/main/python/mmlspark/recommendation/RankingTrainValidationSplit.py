@@ -2,8 +2,8 @@
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
 import sys
-from mmlspark.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel as tvmodel
-from mmlspark._RankingTrainValidationSplit import _RankingTrainValidationSplit
+from mmlspark.recommendation.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel as tvmodel
+from mmlspark.recommendation._RankingTrainValidationSplit import _RankingTrainValidationSplit
 from pyspark import keyword_only
 from pyspark.ml.param import Params
 from pyspark.ml.tuning import ValidatorParams
@@ -141,7 +141,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams):
         return newCV
 
     def _create_model(self, java_model):
-        from mmlspark.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel
+        from mmlspark.recommendation.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel
         model = RankingTrainValidationSplitModel._from_java(java_model)
         return model
 
@@ -153,7 +153,7 @@ class RankingTrainValidationSplit(Estimator, ValidatorParams):
 
         estimator, epms, evaluator = super(RankingTrainValidationSplit, self)._to_java_impl()
 
-        _java_obj = JavaParams._new_java_obj("com.microsoft.ml.spark.RankingTrainValidationSplit",
+        _java_obj = JavaParams._new_java_obj("com.microsoft.ml.spark.recommendation.RankingTrainValidationSplit",
                                              self.uid)
         _java_obj.setEstimatorParamMaps(epms)
         _java_obj.setEvaluator(evaluator)
