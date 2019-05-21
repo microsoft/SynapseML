@@ -13,7 +13,15 @@ from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
+from pyspark.sql import SQLContext, SparkSession
 
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("_FindBestModel") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.17.1") \
+    .getOrCreate()
+
+sc = spark.sparkContext
 
 class RankingSpec(unittest.TestCase):
 
@@ -109,7 +117,7 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
-    def test_all_tiny(self):
+    def ignore_all_tiny(self):
         ratings = RankingSpec.getRatings()
 
         customerIndex = StringIndexer() \
