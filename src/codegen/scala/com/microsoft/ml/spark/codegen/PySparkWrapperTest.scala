@@ -24,8 +24,17 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   // general classes are imported from the mmlspark directy;
   // internal classes have to be imported from their packages
   private def importClass(entryPointName:String):String = {
-    if (entryPointName startsWith internalPrefix) s"from mmlspark.$entryPointName import $entryPointName"
-    else s"from mmlspark import $entryPointName"
+    val packageString = if (subPackages.isEmpty) {
+      "mmlspark"
+    }else{
+      "mmlspark." + subPackages.mkString(".")
+    }
+
+    if (entryPointName startsWith internalPrefix) {
+      s"from $packageString.$entryPointName import $entryPointName"
+    } else {
+      s"from $packageString import $entryPointName"
+    }
   }
 
   protected def classTemplate(classParams: String, paramGettersAndSetters: String) =
@@ -34,15 +43,22 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |import numpy as np
         |import pyspark.ml, pyspark.ml.feature
         |from pyspark import SparkContext
-        |from pyspark.sql import SQLContext
+        |from pyspark.sql import SQLContext, SparkSession
         |from pyspark.ml.classification import LogisticRegression
         |from pyspark.ml.regression import LinearRegression
         |${importClass(entryPointName)}
         |from pyspark.ml.feature import Tokenizer
-        |from mmlspark import TrainClassifier
-        |from mmlspark import ValueIndexer
+        |from mmlspark.train import TrainClassifier
+        |from mmlspark.featurize import ValueIndexer
         |
-        |sc = SparkContext()
+        |print("HEREEEEEEEE")
+        |spark = SparkSession.builder \\
+        |    .master("local[*]") \\
+        |    .appName("$entryPointName") \\
+        |    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:$version") \\
+        |    .getOrCreate()
+        |
+        |sc = spark.sparkContext
         |
         |class ${entryPointName}Test(unittest.TestCase):
         |    def test_placeholder(self):
@@ -153,7 +169,8 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |        self.assertNotEqual(bestModel, None)
         |""".stripMargin
 
-  // These com.microsoft.ml.spark.core.serialize.params are need custom handling. For now, just skip them so we have tests that pass.
+  // These com.microsoft.ml.spark.core.serialize.params are need custom handling.
+  // For now, just skip them so we have tests that pass.
   private lazy val skippedParams =  Set[String]("models", "model", "cntkModel", "stage")
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
@@ -252,14 +269,15 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     copyrightLines + getPysparkWrapperTestBase
   }
 
+  private val subPackages = entryPointQualifiedName
+    .replace("com.microsoft.ml.spark.","")
+    .split(".".toCharArray.head).dropRight(1)
+
   def writeWrapperToFile(dir: File): Unit = {
-    val packageDir = entryPointQualifiedName
-      .replace("com.microsoft.ml.spark","")
-      .split(".".toCharArray.head).dropRight(1)
-      .foldLeft(dir){ case (base, folder) => new File(base, folder)}
+    val packageDir = subPackages.foldLeft(dir){ case (base, folder) => new File(base, folder)}
     packageDir.mkdirs()
     new File(packageDir, "__init__.py").createNewFile()
-    writeFile(new File(packageDir, entryPointName + "_tests.py"), pysparkWrapperTestBuilder())
+    writeFile(new File(packageDir,"test_" + entryPointName + ".py"), pysparkWrapperTestBuilder())
   }
 
 }

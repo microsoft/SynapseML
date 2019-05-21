@@ -1,6 +1,7 @@
 import scala.sys.process.Process
 
 name := "mmlspark"
+organization := "com.microsoft.ml.spark"
 version := "0.17.1"
 scalaVersion := "2.11.12"
 
@@ -45,15 +46,36 @@ def join(folders: String*): File = {
 }
 
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
+val genDir = join("target", "scala-2.11", "generated")
+val pythonSrcDir = join(genDir.toString, "src", "python")
+val pythonPackageDir = join(genDir.toString, "package", "python")
+val pythonTestDir = join(genDir.toString, "test", "python")
 
 packagePythonTask := {
   val s: TaskStreams = streams.value
   (run in CodeGen).toTask("").value
-
-  val pythonSrc = join("target", "scala-2.11", "generated", "src", "python")
-  val pythonDest = join("target", "scala-2.11", "generated", "package", "python").absolutePath
   Process(
-    s"python setup.py bdist_wheel --universal -d $pythonDest",
-    pythonSrc,
+    s"python setup.py bdist_wheel --universal -d ${pythonPackageDir.absolutePath}",
+    pythonSrcDir,
     "MML_VERSION" -> version.value) ! s.log
+}
+
+val installPipPackageTask = TaskKey[Unit]("installPipPackage", "test python sdk")
+
+installPipPackageTask := {
+  val s: TaskStreams = streams.value
+  packagePythonTask.value
+  Process(
+    Seq("python", "-m","wheel","install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
+    pythonPackageDir) ! s.log
+}
+
+val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
+
+testPythonTask := {
+  val s: TaskStreams = streams.value
+  installPipPackageTask.value
+  Process(
+    Seq("python", "-m","unittest","discover"),
+    join(pythonTestDir.toString, "mmlspark")) ! s.log
 }

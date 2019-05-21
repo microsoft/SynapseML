@@ -7,11 +7,12 @@ import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.build.BuildInfo
 
 object Config {
-  val mmlVer = sys.env.getOrElse("MML_VERSION", BuildInfo.version)
   val debugMode = sys.env.getOrElse("DEBUGMODE", "").trim.toLowerCase == "true"
 
   val topDir = BuildInfo.baseDirectory
-  val targetDir = new File(getClass.getClassLoader.getResource("").toURI).getParent
+  val version = BuildInfo.version
+  val targetDir = new File(topDir, "target/scala-2.11")
+  val scalaSrcDir = "src/main/scala"
 
   val generatedDir = new File(targetDir, "generated")
   val packageDir = new File(generatedDir, "package")
@@ -26,6 +27,7 @@ object Config {
   val pyDocDir = new File(docDir, "python")
   val pySrcOverrideDir = new File(topDir, "src/main/python")
   val pyTestOverrideDir = new File(topDir, "src/test/python")
+  val tmpDocDir = new File(pyDocDir, "tmpDoc")
 
   //R Codegen Constants
   val rSrcDir = new File(srcDir, "R")
@@ -33,12 +35,10 @@ object Config {
   val rPackageDir = new File(packageDir, "R")
   val rTestDir = new File(testDir, "R")
   val rSrcOverrideDir = new File(topDir, "src/main/R")
-  val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
+  //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
 
   val internalPrefix = "_"
   val scopeDepth = " " * 4
-  val tmpDocDir = new File(pyDocDir, "tmpDoc")
-  val scalaSrcDir = "src/main/scala"
 
   val copyrightLines =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.

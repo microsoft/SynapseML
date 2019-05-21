@@ -30,7 +30,7 @@ object WrapperClassDoc {
   }
 
   // The __init__.py file
-  def packageHelp: String = {
+  def packageHelp(importString: String): String = {
     s"""|$copyrightLines
         |
         |"\""
@@ -43,6 +43,7 @@ object WrapperClassDoc {
         |CNTK library, images, and text.
         |"\""
         |
+        |$importString
         |""".stripMargin
   }
 

@@ -130,7 +130,7 @@ object PySparkWrapperGenerator {
 class PySparkWrapperGenerator extends WrapperGenerator {
   override def wrapperDir: File = new File(pySrcDir, "mmlspark")
 
-  override def wrapperTestDir: File = pyTestDir
+  override def wrapperTestDir: File = new File(pyTestDir, "mmlspark")
 
   // check if the class is annotated with InternalWrapper
   private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {
@@ -202,12 +202,12 @@ class PySparkWrapperGenerator extends WrapperGenerator {
 }
 
 object SparklyRWrapperGenerator {
-  def apply(): Unit = {
-    new SparklyRWrapperGenerator().generateWrappers()
+  def apply(mmlVer: String): Unit = {
+    new SparklyRWrapperGenerator(mmlVer).generateWrappers()
   }
 }
 
-class SparklyRWrapperGenerator extends WrapperGenerator {
+class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
   override def wrapperDir: File = rSrcDir
 
   override def wrapperTestDir: File = rTestDir
