@@ -46,7 +46,7 @@ class DiscreteHyperParam(object):
     def __init__(self, values, seed=0):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        self.hyperParam = self.jvm.com.microsoft.ml.spark.HyperParamUtils.getDiscreteHyperParam(values, seed)
+        self.hyperParam = self.jvm.com.microsoft.ml.spark.automl.HyperParamUtils.getDiscreteHyperParam(values, seed)
 
     def get(self):
         return self.hyperParam
@@ -58,7 +58,7 @@ class RangeHyperParam(object):
     def __init__(self, min, max, seed=0):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        self.rangeParam = self.jvm.com.microsoft.ml.spark.HyperParamUtils.getRangeHyperParam(min, max, seed)
+        self.rangeParam = self.jvm.com.microsoft.ml.spark.automl.HyperParamUtils.getRangeHyperParam(min, max, seed)
 
     def get(self):
         return self.rangeParam
@@ -70,11 +70,11 @@ class GridSpace(object):
     def __init__(self, paramValues):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.HyperparamBuilder()
+        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.automl.HyperparamBuilder()
         for k, (est, hyperparam) in paramValues:
             javaParam = est._java_obj.getParam(k.name)
             hyperparamBuilder.addHyperparam(javaParam, hyperparam.get())
-        self.gridSpace = self.jvm.com.microsoft.ml.spark.GridSpace(hyperparamBuilder.build())
+        self.gridSpace = self.jvm.com.microsoft.ml.spark.automl.GridSpace(hyperparamBuilder.build())
 
     def space(self):
         return self.gridSpace
@@ -86,11 +86,11 @@ class RandomSpace(object):
     def __init__(self, paramDistributions):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.HyperparamBuilder()
+        hyperparamBuilder = self.jvm.com.microsoft.ml.spark.automl.HyperparamBuilder()
         for k, (est, hyperparam) in paramDistributions:
             javaParam = est._java_obj.getParam(k.name)
             hyperparamBuilder.addHyperparam(javaParam, hyperparam.get())
-        self.paramSpace = self.jvm.com.microsoft.ml.spark.RandomSpace(hyperparamBuilder.build())
+        self.paramSpace = self.jvm.com.microsoft.ml.spark.automl.RandomSpace(hyperparamBuilder.build())
 
     def space(self):
         return self.paramSpace

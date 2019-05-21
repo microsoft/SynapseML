@@ -64,6 +64,7 @@ val installPipPackageTask = TaskKey[Unit]("installPipPackage", "test python sdk"
 
 installPipPackageTask := {
   val s: TaskStreams = streams.value
+  publishLocal.value
   packagePythonTask.value
   Process(
     Seq("python", "-m","wheel","install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
@@ -76,6 +77,6 @@ testPythonTask := {
   val s: TaskStreams = streams.value
   installPipPackageTask.value
   Process(
-    Seq("python", "-m","unittest","discover"),
-    join(pythonTestDir.toString, "mmlspark")) ! s.log
+    Seq("python", "tools2/run_all_tests.py"),
+    new File(".")) ! s.log
 }

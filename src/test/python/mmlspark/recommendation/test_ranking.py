@@ -3,11 +3,11 @@ import os
 import pyspark
 import unittest
 import xmlrunner
-from mmlspark.RankingAdapter import RankingAdapter
-from mmlspark.RankingEvaluator import RankingEvaluator
-from mmlspark.RankingTrainValidationSplit import RankingTrainValidationSplit
-from mmlspark.RecommendationIndexer import RecommendationIndexer
-from mmlspark.SAR import SAR
+from mmlspark.recommendation.RankingAdapter import RankingAdapter
+from mmlspark.recommendation.RankingEvaluator import RankingEvaluator
+from mmlspark.recommendation.RankingTrainValidationSplit import RankingTrainValidationSplit
+from mmlspark.recommendation.RecommendationIndexer import RecommendationIndexer
+from mmlspark.recommendation.SAR import SAR
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
@@ -59,14 +59,7 @@ class RankingSpec(unittest.TestCase):
             (3, 10, 3, 3)], cSchema)
         return ratings
 
-    @staticmethod
-    def get_pyspark():
-        return pyspark.sql.SparkSession.builder.master("local[*]").config('spark.driver.extraClassPath',
-                                                                          "../../../../../BuildArtifacts/packages/m2/com/microsoft/ml/spark/mmlspark_2.11/0.0/mmlspark_2.11-0.0.jar").getOrCreate()
-
     def test_adapter_evaluator(self):
-        self.get_pyspark()
-
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
@@ -92,8 +85,6 @@ class RankingSpec(unittest.TestCase):
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
     def test_adapter_evaluator_sar(self):
-        self.get_pyspark()
-
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
@@ -119,8 +110,6 @@ class RankingSpec(unittest.TestCase):
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
     def test_all_tiny(self):
-
-        RankingSpec.get_pyspark()
         ratings = RankingSpec.getRatings()
 
         customerIndex = StringIndexer() \

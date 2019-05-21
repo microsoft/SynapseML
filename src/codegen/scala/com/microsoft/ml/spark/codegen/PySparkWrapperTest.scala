@@ -51,11 +51,10 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |from mmlspark.train import TrainClassifier
         |from mmlspark.featurize import ValueIndexer
         |
-        |print("HEREEEEEEEE")
         |spark = SparkSession.builder \\
         |    .master("local[*]") \\
         |    .appName("$entryPointName") \\
-        |    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:$version") \\
+        |    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:$version") \\
         |    .getOrCreate()
         |
         |sc = spark.sparkContext

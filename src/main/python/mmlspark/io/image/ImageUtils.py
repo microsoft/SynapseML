@@ -13,22 +13,6 @@ from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
 
-def isImage(df, column):
-    """
-    Returns True if the column contains images
-
-    Args:
-        df (DataFrame): The DataFrame to be processed
-        column  (str): The name of the column being inspected
-
-    Returns:
-        bool: True if the colum is an image column
-    """
-
-    jvm = SparkContext.getOrCreate()._jvm
-    schema = jvm.com.microsoft.ml.spark.schema.ImageUtils
-    return schema.isImage(df._jdf.schema(column))
-
 def readFromPaths(df, pathCol, imageCol="image"):
     """
     Reads images from a column of filenames
@@ -43,7 +27,7 @@ def readFromPaths(df, pathCol, imageCol="image"):
     """
     ctx = SparkContext.getOrCreate()
     jvm = ctx.getOrCreate()._jvm
-    reader = jvm.com.microsoft.ml.spark.ImageUtils
+    reader = jvm.com.microsoft.ml.spark.io.image.ImageUtils
     jresult = reader.readFromPaths(df._jdf, pathCol, imageCol)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jresult, sql_ctx)
@@ -63,7 +47,7 @@ def readFromStrings(df, bytesCol, imageCol="image", dropPrefix=False):
     """
     ctx = SparkContext.getOrCreate()
     jvm = ctx.getOrCreate()._jvm
-    reader = jvm.com.microsoft.ml.spark.ImageUtils
+    reader = jvm.com.microsoft.ml.spark.io.image.ImageUtils
     jresult = reader.readFromStrings(df._jdf, bytesCol, imageCol, dropPrefix)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jresult, sql_ctx)
