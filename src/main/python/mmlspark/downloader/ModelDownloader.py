@@ -7,7 +7,7 @@ if sys.version >= '3':
     basestring = str
 
 from pyspark.ml.param.shared import *
-from mmlspark.Utils import *
+from mmlspark.core.schema.Utils import *
 
 DEFAULT_URL = "https://mmlspark.azureedge.net/datasets/CNTKModels/"
 
@@ -48,7 +48,7 @@ class ModelSchema:
     def toJava(self, sparkSession):
         ctx = sparkSession.sparkContext
         uri = ctx._jvm.java.net.URI(self.uri)
-        return ctx._jvm.com.microsoft.ml.spark.ModelSchema(
+        return ctx._jvm.com.microsoft.ml.spark.downloader.ModelSchema(
             self.name, self.dataset, self.modelType,
             uri, self.hash, self.size, self.inputNode,
             self.numLayers, self.layerNames)
@@ -78,7 +78,7 @@ class ModelDownloader:
 
         self._sparkSession = sparkSession
         self._ctx = sparkSession.sparkContext
-        self._model_downloader = self._ctx._jvm.com.microsoft.ml.spark.ModelDownloader(
+        self._model_downloader = self._ctx._jvm.com.microsoft.ml.spark.downloader.ModelDownloader(
             sparkSession._jsparkSession, localPath, serverURL)
 
     def _wrap(self, iter):

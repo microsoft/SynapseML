@@ -38,7 +38,7 @@ class LightGBMClassificationModel(_LightGBMClassificationModel):
         Load the model from a native LightGBM text file.
         """
         ctx = SparkContext._active_spark_context
-        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMClassificationModel
+        loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMClassificationModel
         java_model = loader.loadNativeModelFromFile(filename, labelColName,
                                                     featuresColName, predictionColName,
                                                     probColName, rawPredictionColName)
@@ -52,7 +52,7 @@ class LightGBMClassificationModel(_LightGBMClassificationModel):
         Load the model from a native LightGBM model string.
         """
         ctx = SparkContext._active_spark_context
-        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMClassificationModel
+        loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMClassificationModel
         java_model = loader.loadNativeModelFromString(model, labelColName,
                                                       featuresColName, predictionColName,
                                                       probColName, rawPredictionColName)

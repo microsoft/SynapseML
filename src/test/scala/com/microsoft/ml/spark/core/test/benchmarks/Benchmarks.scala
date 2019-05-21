@@ -34,10 +34,10 @@ object Benchmark {
 
 abstract class Benchmarks extends TestBase {
   val moduleName: String
-  val resourcesDirectory = new File(getClass.getResource("/").toURI)
-  val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"), s"benchmarks_${this}.csv")
-  val newBenchmarkFile = new File(new File(resourcesDirectory, "new_benchmarks"), s"new_benchmarks_${this}.csv")
-  val newBenchmarks: ListBuffer[Benchmark] = ListBuffer[Benchmark]()
+  lazy val resourcesDirectory = new File(getClass.getResource("/").toURI)
+  lazy val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"), s"benchmarks_${this}.csv")
+  lazy val newBenchmarkFile = new File(new File(resourcesDirectory, "new_benchmarks"), s"new_benchmarks_${this}.csv")
+  lazy val newBenchmarks: ListBuffer[Benchmark] = ListBuffer[Benchmark]()
 
   def addBenchmark(name: String,
                    value: Double,
