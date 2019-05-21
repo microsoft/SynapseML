@@ -8,8 +8,8 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark._LightGBMRegressor import _LightGBMRegressor
-from mmlspark._LightGBMRegressor import _LightGBMRegressionModel
+from mmlspark.lightgbm._LightGBMRegressor import _LightGBMRegressor
+from mmlspark.lightgbm._LightGBMRegressor import _LightGBMRegressionModel
 from pyspark import SparkContext
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams
@@ -37,7 +37,7 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Load the model from a native LightGBM text file.
         """
         ctx = SparkContext._active_spark_context
-        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMRegressionModel
+        loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel
         java_model = loader.loadNativeModelFromFile(filename, labelColName,
                                                     featuresColName, predictionColName)
         return JavaParams._from_java(java_model)
@@ -49,7 +49,7 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Load the model from a native LightGBM model string.
         """
         ctx = SparkContext._active_spark_context
-        loader = ctx._jvm.com.microsoft.ml.spark.LightGBMRegressionModel
+        loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel
         java_model = loader.loadNativeModelFromString(model, labelColName,
                                                       featuresColName, predictionColName)
         return JavaParams._from_java(java_model)

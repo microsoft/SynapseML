@@ -15,7 +15,7 @@ from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
 from pyspark.ml.common import inherit_doc
 from pyspark.sql.functions import UserDefinedFunction
 from pyspark.ml.common import inherit_doc
-from mmlspark.Utils import *
+from mmlspark.core.schema.Utils import *
 
 @inherit_doc
 class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTransformer):
@@ -128,7 +128,7 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
     @staticmethod
     def getJavaPackage():
         """ Returns package name String. """
-        return "com.microsoft.ml.spark.UDFTransformer"
+        return "com.microsoft.ml.spark.stages.UDFTransformer"
 
     @staticmethod
     def _from_java(java_stage):
