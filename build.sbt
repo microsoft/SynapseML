@@ -1,3 +1,6 @@
+import java.io.File
+import java.net.URL
+import org.apache.commons.io.FileUtils
 import scala.sys.process.Process
 
 name := "mmlspark"
@@ -23,24 +26,6 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350"
 )
 
-lazy val IntegrationTest2 = config("it").extend(Test)
-
-lazy val CodeGen = config("codegen").extend(Test)
-
-val settings = Seq(
-  (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
-  buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory),
-  buildInfoPackage := "com.microsoft.ml.spark.build") ++
-  inConfig(IntegrationTest2)(Defaults.testSettings) ++
-  inConfig(CodeGen)(Defaults.testSettings)
-
-lazy val mmlspark = (project in file("."))
-  .configs(IntegrationTest2)
-  .configs(CodeGen)
-  .enablePlugins(BuildInfoPlugin)
-  .enablePlugins(ScalaUnidocPlugin)
-  .settings(settings: _*)
-
 def join(folders: String*): File = {
   folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
 }
@@ -53,21 +38,21 @@ val pythonTestDir = join(genDir.toString, "test", "python")
 
 packagePythonTask := {
   val s: TaskStreams = streams.value
-  (run in CodeGen).toTask("").value
+  (run in IntegrationTest).toTask("").value
   Process(
     s"python setup.py bdist_wheel --universal -d ${pythonPackageDir.absolutePath}",
     pythonSrcDir,
     "MML_VERSION" -> version.value) ! s.log
 }
 
-val installPipPackageTask = TaskKey[Unit]("installPipPackage", "test python sdk")
+val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
 
 installPipPackageTask := {
   val s: TaskStreams = streams.value
   publishLocal.value
   packagePythonTask.value
   Process(
-    Seq("python", "-m","wheel","install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
+    Seq("python", "-m", "wheel", "install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
     pythonPackageDir) ! s.log
 }
 
@@ -80,3 +65,42 @@ testPythonTask := {
     Seq("python", "tools2/run_all_tests.py"),
     new File(".")) ! s.log
 }
+
+val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
+val datasetName = "datasets-2019-05-02.tgz"
+val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
+val datasetDir = settingKey[File]("The directory that holds the dataset")
+datasetDir := {
+  join(target.value.toString, "scala-2.11", "datasets", datasetName.split(".".toCharArray.head).head)
+}
+
+getDatasetsTask := {
+  val d = datasetDir.value.getParentFile
+  val f = new File(d, datasetName)
+  if (!d.exists()) d.mkdirs()
+  if (!f.exists()) {
+    FileUtils.copyURLToFile(datasetUrl, f)
+    UnzipUtils.unzip(f, d)
+  }
+}
+
+val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
+setupTask := {
+  (Test / compile).toTask.value
+  (Compile / compile).toTask.value
+  getDatasetsTask.value
+}
+
+val settings = Seq(
+  (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
+  buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
+  parallelExecution in Test := false,
+  buildInfoPackage := "com.microsoft.ml.spark.build") ++
+  Defaults.itSettings
+
+lazy val mmlspark = (project in file("."))
+  .configs(IntegrationTest)
+  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(ScalaUnidocPlugin)
+  .settings(settings: _*)
+

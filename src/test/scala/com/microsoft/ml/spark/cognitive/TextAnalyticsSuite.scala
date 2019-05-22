@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.util.MLReadable
@@ -11,7 +12,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait TextKey {
-  lazy val textKey = sys.env("TEXT_API_KEY")
+  lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.textApiKey)
 }
 
 class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with TextKey {

@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark.io.http
 
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
@@ -121,8 +122,8 @@ trait HTTPTestUtils extends WithFreeUrl {
 
   def sendFileRequest(client: CloseableHttpClient): (String, Double) = {
     val post = new HttpPost(url)
-    val e = new FileEntity(new File(
-      s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
+    val e = new FileEntity(FileUtilities.join(
+      BuildInfo.datasetDir, "Images","Grocery","testImages","WIN_20160803_11_28_42_Pro.jpg"))
     post.setEntity(e)
     val t0 = System.nanoTime()
     val res = client.execute(post)

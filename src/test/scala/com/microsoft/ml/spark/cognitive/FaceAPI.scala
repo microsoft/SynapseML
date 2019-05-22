@@ -5,14 +5,12 @@ package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
 
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.cognitive._
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -90,7 +88,7 @@ object FaceUtils {
   import RESTHelpers._
 
   val baseURL = "https://eastus2.api.cognitive.microsoft.com/face/v1.0/"
-  val faceKey = sys.env("FACE_API_KEY")
+  val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {

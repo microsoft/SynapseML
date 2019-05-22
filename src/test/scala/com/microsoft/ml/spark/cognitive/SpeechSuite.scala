@@ -5,13 +5,14 @@ package com.microsoft.ml.spark.cognitive
 
 import java.net.URL
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 trait SpeechKey {
-  lazy val speechKey = sys.env("SPEECH_API_KEY")
+  lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.speechApiKey)
 }
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]

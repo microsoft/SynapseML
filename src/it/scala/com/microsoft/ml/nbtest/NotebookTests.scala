@@ -1,12 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.core.test.fuzzing
+package com.microsoft.ml.nbtest
+//TODO temp hack because ij picks up on it test classes by mistake
 
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.DatabricksUtilities._
+import com.microsoft.ml.nbtest.DatabricksUtilities._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

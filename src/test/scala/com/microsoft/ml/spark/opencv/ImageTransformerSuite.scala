@@ -6,11 +6,15 @@ package com.microsoft.ml.spark.opencv
 import java.awt.GridLayout
 import java.nio.file.Paths
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, LinuxOnly}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{UnrollBinaryImage, UnrollImage}
 import javax.swing._
+import org.apache.hadoop.fs.Path
+import org.apache.ivy.util.FileUtil
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
@@ -21,11 +25,10 @@ import org.scalactic.Equality
 import org.scalatest.Assertion
 
 trait ImageTestUtils {
-  lazy val groceriesDirectory = "/Images/Grocery/"
-  lazy protected val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
+  lazy protected val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "Grocery")
 
   protected def selectTestImageBytes(images: DataFrame): Array[Byte] = {
-    images.filter(row => row.getString(4).endsWith("negative/5.jpg"))
+    images.filter(row => row.getString(4).contains("negative") && row.getString(4).endsWith("5.jpg"))
       .head.getAs[Array[Byte]](3)
   }
 
@@ -60,7 +63,7 @@ trait ImageTestUtils {
 
   protected def createScrollingFrame(count: Long): (JFrame, JPanel) = {
     val jframe: JFrame = new JFrame("images")
-    jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+    jframe.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
     val panel: JPanel = new JPanel()
     panel.setLayout(new GridLayout(count.toInt, 1))
     val scrPane: JScrollPane = new JScrollPane(panel)
@@ -82,8 +85,8 @@ trait ImageTestUtils {
 class UnrollImageSuite extends LinuxOnly
   with TransformerFuzzing[UnrollImage] with ImageTestUtils with DataFrameEquality {
 
-  lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-  lazy val imagePath = s"$filesRoot/Images/CIFAR"
+  lazy val filesRoot =  BuildInfo.datasetDir
+  lazy val imagePath = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
   lazy val images: DataFrame = session.read.image.load(imagePath)
 
   test("roll and unroll") {
@@ -109,8 +112,8 @@ class UnrollImageSuite extends LinuxOnly
     val unrolled = unroll.transform(images).select("image.origin", "result").collect
 
     unrolled.foreach(row => {
-      val path = Paths.get(row.getString(0))
-      val expected = firstBytes(path.getFileName.toString)
+      val path = new Path(row.getString(0))
+      val expected = firstBytes(path.getName)
       val result = row(1).asInstanceOf[DenseVector].toArray
 
       val length = result.length
@@ -129,8 +132,8 @@ class UnrollImageSuite extends LinuxOnly
 class UnrollBinaryImageSuite extends LinuxOnly
   with TransformerFuzzing[UnrollBinaryImage] with ImageTestUtils with DataFrameEquality {
 
-  lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-  lazy val imagePath = s"$filesRoot/Images/CIFAR"
+  lazy val filesRoot = BuildInfo.datasetDir
+  lazy val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
   lazy val images: DataFrame = session.read.image.load(imagePath)
   lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
     .withColumn("image", col("value.bytes"))
@@ -170,7 +173,8 @@ class ImageTransformerSuite extends LinuxOnly
     assert(true)
   }
 
-  lazy val images = session.read.image.option("dropInvalid",true).load(fileLocation + "**")
+  lazy val images = session.read.image.option("dropInvalid",true)
+    .load(FileUtilities.join(fileLocation, "**").toString)
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
@@ -199,7 +203,7 @@ class ImageTransformerSuite extends LinuxOnly
   }
 
   test("binary file input") {
-    val binaries = session.read.binary.load(fileLocation + "**")
+    val binaries = session.read.binary.load(FileUtilities.join(fileLocation,"**").toString)
     assert(binaries.count() == 31)
     binaries.printSchema()
 
@@ -221,7 +225,9 @@ class ImageTransformerSuite extends LinuxOnly
   }
 
   test("binary file input 2") {
-    val binaries = session.read.binary.load(fileLocation + "**").select("value.bytes")
+    val binaries = session.read.binary
+      .load(FileUtilities.join(fileLocation, "**").toString)
+      .select("value.bytes")
     assert(binaries.count() == 31)
     binaries.printSchema()
 

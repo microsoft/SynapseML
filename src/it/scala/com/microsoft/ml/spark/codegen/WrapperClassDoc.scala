@@ -3,11 +3,8 @@
 
 package com.microsoft.ml.spark.codegen
 
-import java.nio.file.{Files, Paths}
+import java.io.File
 
-import org.apache.commons.lang3.StringUtils
-import scala.io.Source
-import scala.collection.mutable.ListBuffer
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
 
