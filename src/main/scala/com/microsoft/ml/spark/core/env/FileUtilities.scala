@@ -1,14 +1,20 @@
 package com.microsoft.ml.spark.core.env
 
+import java.io.File
 import java.nio.file.{Files, StandardCopyOption}
 
 import scala.io.{BufferedSource, Source}
 
 object FileUtilities {
 
-  // Make `File` available to everyone who uses these utilities
-  //   (Future TODO: make it some nice type, something like `file` in SBT)
-  type File = java.io.File
+  def join(folders: String*): File = {
+    folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
+  }
+
+  def join(base: File, folders: String*): File = {
+    folders.foldLeft(base) { case (f, s) => new File(f, s) }
+  }
+
   // Same for StandardOpenOption
   type StandardOpenOption = java.nio.file.StandardOpenOption
   object StandardOpenOption {

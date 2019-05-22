@@ -3,9 +3,9 @@
 
 package com.microsoft.ml.spark.downloader
 
+import java.io.File
 import java.nio.file.Files
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
 

@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
@@ -10,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 import org.scalactic.Equality
 
 trait HasImageSearchKey {
-  lazy val imageSearchKey = sys.env("BING_IMAGE_SEARCH_KEY")
+  lazy val imageSearchKey = sys.env.getOrElse("BING_IMAGE_SEARCH_KEY", Secrets.bingImageSearchKey)
 }
 
 class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]

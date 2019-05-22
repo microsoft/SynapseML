@@ -3,10 +3,10 @@
 
 package com.microsoft.ml.spark.image
 
+import java.io.File
 import java.net.{URI, URL}
 
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}

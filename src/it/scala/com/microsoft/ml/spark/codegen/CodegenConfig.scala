@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.core.env.FileUtilities._
+import java.io.File
+
 import com.microsoft.ml.spark.build.BuildInfo
 
 object Config {

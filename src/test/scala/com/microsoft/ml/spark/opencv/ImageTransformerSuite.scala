@@ -6,11 +6,14 @@ package com.microsoft.ml.spark.opencv
 import java.awt.GridLayout
 import java.nio.file.Paths
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, LinuxOnly}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{UnrollBinaryImage, UnrollImage}
 import javax.swing._
+import org.apache.ivy.util.FileUtil
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
@@ -60,7 +63,7 @@ trait ImageTestUtils {
 
   protected def createScrollingFrame(count: Long): (JFrame, JPanel) = {
     val jframe: JFrame = new JFrame("images")
-    jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+    jframe.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
     val panel: JPanel = new JPanel()
     panel.setLayout(new GridLayout(count.toInt, 1))
     val scrPane: JScrollPane = new JScrollPane(panel)
@@ -129,8 +132,8 @@ class UnrollImageSuite extends LinuxOnly
 class UnrollBinaryImageSuite extends LinuxOnly
   with TransformerFuzzing[UnrollBinaryImage] with ImageTestUtils with DataFrameEquality {
 
-  lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-  lazy val imagePath = s"$filesRoot/Images/CIFAR"
+  lazy val filesRoot = BuildInfo.datasetDir
+  lazy val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
   lazy val images: DataFrame = session.read.image.load(imagePath)
   lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
     .withColumn("image", col("value.bytes"))

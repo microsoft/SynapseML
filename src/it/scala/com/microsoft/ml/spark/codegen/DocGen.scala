@@ -4,11 +4,10 @@
 package com.microsoft.ml.spark.codegen
 
 import java.io.File
-import org.apache.commons.lang3.StringUtils
-import org.apache.commons.io.FilenameUtils._
 
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import Config._
+import org.apache.commons.io.FilenameUtils._
 
 /** Generate .rst file for each Python file inorder to autogenerate API documentation.
   * This generation should be run before the __init__.py file is generated, and before the Python is zipped

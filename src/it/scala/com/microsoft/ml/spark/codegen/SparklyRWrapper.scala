@@ -3,17 +3,16 @@
 
 package com.microsoft.ml.spark.codegen
 
-import scala.collection.mutable.ListBuffer
+import java.io.File
 
-import org.apache.commons.lang3.StringUtils
-import org.apache.spark.ml.{Estimator, Transformer}
-import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.{Param, Params}
-import org.apache.spark.ml.evaluation.Evaluator
-
-import com.microsoft.ml.spark.core.env.FileUtilities._
-import com.microsoft.ml.spark.core.env.FileUtilities.StandardOpenOption
+import com.microsoft.ml.spark.core.env.FileUtilities.{StandardOpenOption, _}
 import Config._
+import org.apache.commons.lang3.StringUtils
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param.{Param, Params}
+import org.apache.spark.ml.{Estimator, PipelineStage, Transformer}
+
+import scala.collection.mutable.ListBuffer
 
 /** :: DeveloperApi ::
   * Abstraction for SparklyR wrapper generators.

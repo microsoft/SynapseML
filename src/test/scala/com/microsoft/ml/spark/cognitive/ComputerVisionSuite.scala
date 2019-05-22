@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
@@ -12,7 +13,7 @@ import org.scalactic.Equality
 import org.scalatest.Assertion
 
 trait VisionKey {
-  lazy val visionKey = sys.env("VISION_API_KEY")
+  lazy val visionKey = sys.env.getOrElse("VISION_API_KEY", Secrets.visionApiKey)
 }
 
 class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {

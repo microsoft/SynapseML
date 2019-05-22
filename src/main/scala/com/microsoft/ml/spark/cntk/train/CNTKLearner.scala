@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cntk.train
 
+import java.io.File
 import java.net.URI
 
 import com.microsoft.ml.spark.cntk.CNTKModel

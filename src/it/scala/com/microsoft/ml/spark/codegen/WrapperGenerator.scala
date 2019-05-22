@@ -5,20 +5,16 @@ package com.microsoft.ml.spark.codegen
 
 import java.io.File
 import java.lang.reflect.{ParameterizedType, Type}
-import java.util.jar._
 
 import com.microsoft.ml.spark.codegen.Config._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.{Estimator, Transformer}
 
 import scala.collection.Iterator.iterate
-import scala.collection.JavaConverters._
 import scala.language.existentials
-import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.reflect.runtime.universe._
 
 //noinspection ScalaStyle

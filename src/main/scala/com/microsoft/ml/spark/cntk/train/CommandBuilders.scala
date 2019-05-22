@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cntk.train
 
-import java.io.FileNotFoundException
+import java.io.{File, FileNotFoundException}
 import java.net.URI
 
 import scala.collection.mutable.ListBuffer

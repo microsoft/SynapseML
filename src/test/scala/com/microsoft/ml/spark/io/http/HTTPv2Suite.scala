@@ -3,10 +3,10 @@
 
 package com.microsoft.ml.spark.io.http
 
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.io.http.ServingImplicits._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.http.client.config.RequestConfig
@@ -17,7 +17,6 @@ import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
 import org.apache.spark.sql.types._
-import org.scalatest.Assertion
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration

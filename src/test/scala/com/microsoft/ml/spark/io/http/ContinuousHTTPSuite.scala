@@ -3,10 +3,10 @@
 
 package com.microsoft.ml.spark.io.http
 
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.http.ServingImplicits._
 import org.apache.spark.sql.functions.{col, length}

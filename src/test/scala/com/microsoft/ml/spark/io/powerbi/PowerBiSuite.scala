@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 
 class PowerBiSuite extends TestBase with FileReaderUtils {
 
-  lazy val url = sys.env("MML_POWERBI_URL")
+  lazy val url = sys.env.getOrElse("MML_POWERBI_URL", Secrets.powerbiURL)
   lazy val df = session
     .createDataFrame(Seq(
       (Some(0), "a"),
