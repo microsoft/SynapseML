@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark.train
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import java.io.File
+
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.metrics.MetricConstants
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils
@@ -129,7 +132,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
 
   test("Verify compute model statistics does not get stuck in a loop in catalyst") {
     val name = "AutomobilePriceRaw.csv"
-    val filePath = new File(s"${sys.env("DATASETS_HOME")}/MissingValuesRegression/Train/", name)
+    val filePath = FileUtilities.join(
+      BuildInfo.datasetDir, "MissingValuesRegression", "Train", name)
     val dataset =
       session.read.option("header", "true").option("inferSchema", "true")
         .option("nullValue", "?")
@@ -177,7 +181,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   }
 
   lazy val logisticRegressor: TrainClassifier = createLR.setLabelCol(labelColumn)
-  lazy val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
+  lazy val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(
+    labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 

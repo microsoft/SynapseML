@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark.cntk
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import java.io.File
+
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.UnrollImage
 import org.apache.spark.ml.linalg.DenseVector
@@ -12,9 +15,9 @@ import com.microsoft.ml.spark.io.IOImplicits._
 
 trait CNTKTestUtils extends TestBase {
 
-  val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-  val imagePath = s"$filesRoot/Images/CIFAR"
-  val modelPath = s"$filesRoot/CNTKModel/ConvNet_CIFAR10.model"
+  val filesRoot = BuildInfo.datasetDir.toString
+  val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
+  val modelPath = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
   val inputCol  = "cntk_images"
   val outputCol = "out"
   val labelCol  = "labels"

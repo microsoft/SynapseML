@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.commons.io.FileUtils
@@ -346,11 +345,11 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
                                includeFeaturesColumns: Boolean = true): DataFrame = {
     val result = featurize(dataset, oneHotEncode, includeFeaturesColumns)
     // Write out file so it is easy to compare the results
-    result.repartition(1).write.json(tempFile)
+    result.repartition(1).write.mode("overwrite").json(tempFile)
     if (!Files.exists(historicFile.toPath)) {
       // Store result in file for future
       val directory = historicFile.toString.replace(".json", "")
-      result.repartition(1).write.json(directory)
+      result.repartition(1).write.mode("overwrite").json(directory)
       val directoryFile = new File(directory)
       val jsonFile = directoryFile.listFiles().filter(file => file.toString.endsWith(".json"))(0)
       jsonFile.renameTo(historicFile)

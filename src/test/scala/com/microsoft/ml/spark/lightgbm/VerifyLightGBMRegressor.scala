@@ -16,7 +16,7 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 /** Tests to validate the functionality of LightGBM module.
   */
-class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMRegressor] {
+class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMRegressor] with OsUtils {
   lazy val moduleName = "lightgbm"
   var portIndex = 0
   val numPartitions = 2
@@ -31,11 +31,23 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
   // verifyLearnerOnRegressionCsvFile("slump_test.train.csv", "Compressive Strength (28-day)(Mpa)", 2)
   verifyLearnerOnRegressionCsvFile("Concrete_Data.train.csv", "Concrete compressive strength(MPa, megapascals)", 0)
 
+  override def testExperiments(): Unit = {
+    assume(!isWindows)
+    super.testExperiments()
+  }
+
+  override def testSerialization(): Unit = {
+    assume(!isWindows)
+    super.testSerialization()
+  }
+
   test("Compare benchmark results file to generated file", TestBase.Extended) {
+    assume(!isWindows)
     verifyBenchmarks()
   }
 
   test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "airfoil_self_noise.train.csv"
@@ -76,6 +88,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
   }
 
   test("Verify LightGBM Regressor with weight column") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "airfoil_self_noise.train.csv"
@@ -109,6 +122,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
   }
 
   test("Verify LightGBM Regressor categorical parameter") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "flare.data1.train.csv"
@@ -151,6 +165,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "airfoil_self_noise.train.csv"
@@ -207,6 +222,7 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
       val boostingText = " with boosting type " + boostingType
       val testText = "Verify LightGBMRegressor can be trained and scored on "
       test(testText + fileName + boostingText, TestBase.Extended) {
+        assume(!isWindows)
         // Increment port index
         portIndex += numPartitions
         val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString

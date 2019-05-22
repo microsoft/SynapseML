@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.core.test.base
 
+import java.io.File
 import java.nio.file.Files
 
 import org.apache.commons.io.FileUtils

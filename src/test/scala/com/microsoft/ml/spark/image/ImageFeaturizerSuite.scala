@@ -3,10 +3,13 @@
 
 package com.microsoft.ml.spark.image
 
+import java.io.File
 import java.net.{URI, URL}
 
+import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
@@ -33,7 +36,7 @@ trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
   lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
     .select(col("value.bytes").alias(inputCol))
 
-  lazy val groceriesPath = s"${sys.env("DATASETS_HOME")}/Images/Grocery/"
+  lazy val groceriesPath = FileUtilities.join(BuildInfo.datasetDir, "Images","Grocery")
   lazy val groceryImages: DataFrame = session.read.image
     .option("dropInvalid", true)
     .load(groceriesPath + "**")
@@ -70,7 +73,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
     val result = model.transform(images)
@@ -82,7 +85,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val model = new ImageFeaturizer()
       .setInputCol("image")
       .setOutputCol(outputCol)
-      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
 
@@ -178,7 +181,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .withColumn("foo", udf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result, sys.env("MML_POWERBI_URL"), Map("concurrency" -> "1"))
+    PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.powerbiURL), Map("concurrency" -> "1"))
   }
 
   test("test layers of network", TestBase.Extended) {
