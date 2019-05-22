@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.io.http
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import java.io.File
+
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
 import org.apache.http.impl.client.HttpClientBuilder

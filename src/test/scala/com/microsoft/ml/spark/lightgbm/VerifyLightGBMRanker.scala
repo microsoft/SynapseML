@@ -12,7 +12,7 @@ import org.apache.spark.sql.functions.{col, monotonically_increasing_id}
 import org.apache.spark.sql.functions._
 
 /** Tests to validate the functionality of LightGBM Ranker module. */
-class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRanker] {
+class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRanker] with OsUtils {
   lazy val moduleName = "lightgbm"
   var portIndex = 30
   val numPartitions = 2
@@ -34,7 +34,18 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     query.join(trainDF, "iid").drop("iid").cache()
   }
 
+  override def testExperiments(): Unit = {
+    assume(!isWindows)
+    super.testExperiments()
+  }
+
+  override def testSerialization(): Unit = {
+    assume(!isWindows)
+    super.testSerialization()
+  }
+
   test("Verify LightGBM Ranker on ranking dataset") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val labelColumnName ="label"

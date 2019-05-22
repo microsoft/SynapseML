@@ -5,17 +5,19 @@ package com.microsoft.ml.spark.cognitive
 
 import java.util.UUID
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.cognitive.RESTHelpers._
+
 import scala.collection.mutable
 import scala.concurrent.blocking
 
 trait HasAzureSearchKey {
-  lazy val azureSearchKey = sys.env("AZURE_SEARCH_KEY")
+  lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.azureSearchKey)
 }
 
 class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister

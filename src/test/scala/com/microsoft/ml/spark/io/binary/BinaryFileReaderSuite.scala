@@ -3,12 +3,13 @@
 
 package com.microsoft.ml.spark.io.binary
 
-import java.io.FileOutputStream
+import java.io.{File, FileOutputStream}
 import java.net.URI
 
 import com.microsoft.ml.spark.Binary.implicits._
 import com.microsoft.ml.spark.BinaryFileReader
-import com.microsoft.ml.spark.core.env.FileUtilities.{File, zipFolder}
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities.zipFolder
 import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import com.microsoft.ml.spark.core.schema.BinaryFileSchema.isBinaryFile
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
@@ -18,7 +19,7 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.StringType
 
 trait FileReaderUtils {
-  val fileLocation = s"${sys.env("DATASETS_HOME")}"
+  val fileLocation = BuildInfo.datasetDir.toString
   val imagesDirectory: String = fileLocation + "/Images"
   val groceriesDirectory: String = imagesDirectory + "/Grocery/"
   val cifarDirectory: String = imagesDirectory + "/CIFAR/"
@@ -48,7 +49,8 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   test("reads the right values"){
     val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
       .limit(1).select("value.*")
-    val data2 = BinaryFileReader.readFromPaths(data.select("path"), "path", "bytes", 2, 600000)
+    val data2 = BinaryFileReader.readFromPaths(data.select(
+      "path"), "path", "bytes", 2, 600000)
 
     val path = data.collect().head.getString(0)
     val bytes1 = data.collect().head.getAs[Array[Byte]](1)
@@ -60,7 +62,8 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
 
   test("read from paths yields same values") {
     val data = session.readBinaryFiles(groceriesDirectory, recursive = true).limit(1)
-    val df2 = BinaryFileReader.readFromPaths(data.select("value.path"), "path", "bytes", 2, 600000)
+    val df2 = BinaryFileReader.readFromPaths(data.select(
+      "value.path"), "path", "bytes", 2, 600000)
     assert(df2 === data.select("value.*"))
   }
 

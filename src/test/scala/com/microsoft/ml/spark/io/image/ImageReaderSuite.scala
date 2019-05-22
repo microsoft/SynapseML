@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.binary.FileReaderUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lightgbm.OsUtils
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.image.ImageSchema
@@ -16,7 +17,7 @@ import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql.functions.{col, to_json, udf}
 import org.apache.spark.sql.types.StringType
 
-class ImageReaderSuite extends TestBase with FileReaderUtils {
+class ImageReaderSuite extends TestBase with FileReaderUtils with OsUtils {
 
   val imageFormat: String = classOf[PatchedImageFileFormat].getName
 
@@ -59,8 +60,9 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read images from files") {
+    val prefix = if (isWindows) "" else "file://"
     val files = recursiveListFiles(new File(cifarDirectory))
-      .toSeq.map(f => Tuple1("file://" + f.toString))
+      .toSeq.map(f => Tuple1(prefix + f.toString))
     val df = session
       .createDataFrame(files)
       .toDF("filenames")

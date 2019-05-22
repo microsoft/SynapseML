@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.cognitive.Face
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
@@ -10,7 +11,7 @@ import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait FaceKey {
-  lazy val faceKey = sys.env("FACE_API_KEY")
+  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
 }
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with FaceKey {

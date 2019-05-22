@@ -7,7 +7,6 @@ import java.io._
 
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction, _}
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.test.base.LinuxOnly
 import org.apache.commons.io.IOUtils

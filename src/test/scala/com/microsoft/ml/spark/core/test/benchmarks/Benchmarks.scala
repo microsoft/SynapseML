@@ -5,7 +5,8 @@ package com.microsoft.ml.spark.core.test.benchmarks
 
 import java.io.{File, PrintWriter}
 
-import com.microsoft.ml.spark.core.env.StreamUtilities
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.{FileUtilities, StreamUtilities}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.Row
 import org.scalatest.Assertion
@@ -114,17 +115,18 @@ abstract class Benchmarks extends TestBase {
 object DatasetUtils {
 
   def binaryTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Binary/Train", name)
+    FileUtilities.join(BuildInfo.datasetDir,"Binary","Train", name)
 
   def multiclassTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Multiclass/Train", name)
+    FileUtilities.join(BuildInfo.datasetDir,"Multiclass","Train", name)
 
   def regressionTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Regression/Train", name)
+    FileUtilities.join(BuildInfo.datasetDir,"Regression","Train", name)
 
   def rankingTrainFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Ranking/Train", name)
+    FileUtilities.join(BuildInfo.datasetDir,"Ranking","Train", name)
 
   def rankingTestFile(name: String): File =
-    new File(s"${sys.env("DATASETS_HOME")}/Ranking/Test", name)
+    FileUtilities.join(BuildInfo.datasetDir,"Ranking","Test", name)
+
 }

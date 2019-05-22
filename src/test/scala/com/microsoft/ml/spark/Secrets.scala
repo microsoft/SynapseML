@@ -8,6 +8,10 @@ import spray.json._
 
 import scala.sys.process._
 
+import sys.process._
+import spray.json._
+import DefaultJsonProtocol._
+
 object Secrets {
   private val kvName = "mmlspark-keys"
   private val subscriptionID = "ca9d21ff-2a46-4e8b-bf06-8d65242342e5"

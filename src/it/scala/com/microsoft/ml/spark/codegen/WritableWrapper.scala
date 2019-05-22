@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.codegen
 
-import com.microsoft.ml.spark.core.env.FileUtilities.File
+import java.io.File
 
 /** API for writing a wrapper to file
   */

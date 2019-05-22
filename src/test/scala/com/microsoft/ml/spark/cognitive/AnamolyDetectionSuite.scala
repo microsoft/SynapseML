@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
@@ -10,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, collect_list, lit, struct}
 
 trait AnomalyKey {
-  lazy val anomalyKey = sys.env("ANOMALY_API_KEY")
+  lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.anomalyApiKey)
 }
 
 trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{

@@ -18,6 +18,7 @@
 *.exe
 *.pyc
 *.pyo
+*.iml
 
 # Generic editors
 .vscode

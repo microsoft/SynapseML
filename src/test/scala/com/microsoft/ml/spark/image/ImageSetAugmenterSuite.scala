@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.image
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.test.base.LinuxOnly
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.io.IOImplicits._
@@ -12,7 +13,7 @@ import org.apache.spark.sql.DataFrame
 class ImageSetAugmenterSuite extends LinuxOnly with TransformerFuzzing[ImageSetAugmenter] {
 
   val groceriesDirectory = "/Images/CIFAR"
-  private val fileLocation = s"${sys.env("DATASETS_HOME")}/$groceriesDirectory"
+  private val fileLocation = s"${BuildInfo.datasetDir.toString}/$groceriesDirectory"
 
   private lazy val images: DataFrame = session.read.image.load(fileLocation)
 
