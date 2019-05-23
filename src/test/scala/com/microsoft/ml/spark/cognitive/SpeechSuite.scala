@@ -16,6 +16,7 @@ trait SpeechKey {
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   with SpeechKey {
+
   import session.implicits._
 
   lazy val stt = new SpeechToText()
@@ -25,7 +26,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     .setAudioDataCol("audio")
     .setLanguage("en-US")
 
-  lazy val audioBytes:Array[Byte] = {
+  lazy val audioBytes: Array[Byte] = {
     IOUtils.toByteArray(new URL("https://mmlspark.blob.core.windows.net/datasets/Speech/test1.wav").openStream())
   }
 
@@ -33,7 +34,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     Tuple1(audioBytes)
   ).toDF("audio")
 
-  test("Basic Usage"){
+  test("Basic Usage") {
     val toObj = SpeechResponse.makeFromRowConverter
     val result = toObj(stt.setFormat("simple")
       .transform(df).select("text")
