@@ -89,9 +89,9 @@ case class RankerTrainParams(val parallelism: String, val numIterations: Int, va
                              val baggingSeed: Int, val earlyStoppingRound: Int, val featureFraction: Double,
                              val maxDepth: Int, val minSumHessianInLeaf: Double, val numMachines: Int,
                              val modelString: Option[String], val verbosity: Int,
-                             val categoricalFeatures: Array[Int],
-                             val boostingType: String, val lambdaL1: Double, val lambdaL2: Double,
-                             val maxPosition: Int, val labelGain: Array[Double])
+                             val categoricalFeatures: Array[Int], val boostingType: String,
+                             val lambdaL1: Double, val lambdaL2: Double, val maxPosition: Int,
+                             val labelGain: Array[Double], val isProvideTrainingMetric: Boolean)
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
