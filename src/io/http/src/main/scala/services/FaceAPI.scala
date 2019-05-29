@@ -16,6 +16,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.util.Try
+import scala.concurrent.blocking
 
 object RESTHelpers {
   lazy val requestTimeout = 60000
@@ -36,7 +37,7 @@ object RESTHelpers {
       case t: Throwable =>
         val waitTime = backoffs.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        Thread.sleep(waitTime.toLong)
+        blocking {Thread.sleep(waitTime.toLong)}
         retry(backoffs.tail, f)
     }
   }

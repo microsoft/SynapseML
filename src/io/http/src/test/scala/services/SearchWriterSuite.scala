@@ -11,6 +11,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable
+import scala.concurrent.blocking
 
 trait HasAzureSearchKey {
   lazy val azureSearchKey = sys.env("AZURE_SEARCH_KEY")
@@ -90,7 +91,7 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
     } catch {
       case _: Exception if timeouts.nonEmpty =>
         println(s"Sleeping for ${timeouts.head}")
-        Thread.sleep(timeouts.head)
+        blocking {Thread.sleep(timeouts.head)}
         retryWithBackoff(f, timeouts.tail)
     }
   }
