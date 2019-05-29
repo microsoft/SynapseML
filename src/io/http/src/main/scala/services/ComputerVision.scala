@@ -20,6 +20,7 @@ import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import org.apache.http.entity.ContentType
+import scala.concurrent.blocking
 
 import scala.language.existentials
 
@@ -231,7 +232,16 @@ class RecognizeText(override val uid: String)
   /** @group setParam */
   def setMaxPollingRetries(value: Int): this.type = set(maxPollingRetries, value)
 
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000)
+  val pollingDelay: IntParam = new IntParam(
+    this, "pollingDelay", "number of milliseconds to wait between polling")
+
+  /** @group getParam */
+  def getPollingDelay: Int = $(pollingDelay)
+
+  /** @group setParam */
+  def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
+
+  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay->300)
 
   val mode = new ServiceParam[String](this, "mode",
     "If this parameter is set to 'Printed', " +
@@ -279,11 +289,10 @@ class RecognizeText(override val uid: String)
     if (response.statusLine.statusCode == 202) {
       val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)
       val maxTries = getMaxPollingRetries
-      val delay = 100
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
         queryForResult(key, client, location).orElse({
-          Thread.sleep(delay.toLong)
+          blocking {Thread.sleep(getPollingDelay.toLong)}
           None
         })
       }

@@ -11,6 +11,7 @@ import org.apache.spark.ml.util.{ComplexParamsWritable, DefaultParamsReadable, I
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import scala.concurrent.blocking
 
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
 
@@ -49,7 +50,7 @@ class Consolidator[T] {
           getWorkingPartitions > 1 ||
           {
             if (recurse) {
-              Thread.sleep(gracePeriod.toLong)
+              blocking {Thread.sleep(gracePeriod.toLong)}
               hasNextHelper(false)
             } else {
               removeWorker()
