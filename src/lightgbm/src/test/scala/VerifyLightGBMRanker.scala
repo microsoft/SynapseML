@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{monotonically_increasing_id, col}
 import org.apache.spark.sql.functions._
@@ -36,9 +37,6 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     portIndex += numPartitions
     val labelColumnName ="label"
     val dataset = rankingDataset.repartition(numPartitions)
-    // val dataset = rankingDataset
-    dataset.printSchema()
-    dataset.show()
     val featuresColumn = "_features"
     val lgbm = new LightGBMRanker()
       .setLabelCol(labelColumnName)
@@ -53,6 +51,30 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     val model = lgbm.fit(featurizer.transform(dataset))
     model.transform(featurizer.transform(dataset))
     assert(model != null)
+  }
+
+  test("Verify LightGBM Ranker with int and long query column") {
+    val labelColumnName = "label"
+    val featuresColumn = "_features"
+    val dataset = session.createDataFrame(Seq(
+      (0L, 1, 1.2, 2.3),
+      (0L, 0, 3.2, 2.35),
+      (1L, 0, 1.72, 1.39),
+      (1L, 1, 1.82, 3.8)
+    )).toDF(queryCol, labelColumnName, "f1", "f2")
+    val assembler = new VectorAssembler().setInputCols(Array("f1", "f2")).setOutputCol(featuresColumn)
+    val output = assembler.transform(dataset).select(queryCol, labelColumnName, featuresColumn)
+    val lgbm = new LightGBMRanker()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setGroupCol(queryCol)
+      .setNumIterations(2)
+    val model = lgbm.fit(output)
+    model.transform(output)
+    assert(model != null)
+    val modelInt = lgbm.fit(output.withColumn(queryCol, col(queryCol).cast("Int")))
+    modelInt.transform(output)
+    assert(modelInt != null)
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
