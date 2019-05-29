@@ -21,25 +21,25 @@ private object TrainUtils extends Serializable {
 
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
                       weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
-                      referenceDataset: Option[LightGBMDataset]): Option[LightGBMDataset] = {
+                      referenceDataset: Option[LightGBMDataset], schema: StructType): Option[LightGBMDataset] = {
     val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
+    val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
     val hrow = rows.head
     var datasetPtr: Option[LightGBMDataset] = None
     datasetPtr =
-      if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-        val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+      if (hrow.get(schema.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toArray
           case sparse: SparseVector => sparse.toDense.toArray
         })
-        val slotNames = getSlotNames(rows(0).schema, featuresColumn, rowsAsDoubleArray.head.length)
+        val slotNames = getSlotNames(schema, featuresColumn, rowsAsDoubleArray.head.length)
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset, slotNames))
       } else {
-        val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
           case sparse: SparseVector => sparse
         })
-        val slotNames = getSlotNames(rows(0).schema, featuresColumn, rowsAsSparse(0).size)
+        val slotNames = getSlotNames(schema, featuresColumn, rowsAsSparse(0).size)
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames))
       }
 
@@ -47,21 +47,28 @@ private object TrainUtils extends Serializable {
     datasetPtr.get.validateDataset()
     datasetPtr.get.addFloatField(labels, "label", numRows)
     weightColumn.foreach { col =>
-      val weights = rows.map(row => row.getDouble(row.fieldIndex(col)))
+      val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
       datasetPtr.get.addFloatField(weights, "weight", numRows)
     }
-    addGroupColumn(rows, groupColumn, datasetPtr, numRows)
+    addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
     initScoreColumn.foreach { col =>
-      val initScores = rows.map(row => row.getDouble(row.fieldIndex(col)))
+      val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
       datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
     }
     datasetPtr
   }
 
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
-                     datasetPtr: Option[LightGBMDataset], numRows: Int): Unit = {
+                     datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
     groupColumn.foreach { col =>
-      val group = rows.map(row => row.getInt(row.fieldIndex(col)))
+      val datatype = schema.fields(schema.fieldIndex(col)).dataType
+      val group =
+        if (datatype == org.apache.spark.sql.types.IntegerType) {
+          rows.map(row => row.getInt(schema.fieldIndex(col)))
+        } else {
+          rows.map(row => row.getLong(schema.fieldIndex(col)).toInt)
+        }
+
       // Convert to distinct count (note ranker should have sorted within partition by group id)
       // We use a triplet of a list of cardinalities, last unqiue value and unique value count
       val cardinalityTriplet =
@@ -194,17 +201,17 @@ private object TrainUtils extends Serializable {
   def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
                 initScoreColumn: Option[String], groupColumn: Option[String],
                 validationData: Option[Broadcast[Array[Row]]],
-                log: Logger, trainParams: TrainParams,
+                log: Logger, trainParams: TrainParams, schema: StructType,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
       trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
-        weightColumn, initScoreColumn, groupColumn, None)
+        weightColumn, initScoreColumn, groupColumn, None, schema)
       if (validationData.isDefined) {
         validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr)
+          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr, schema)
       }
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
@@ -305,7 +312,7 @@ private object TrainUtils extends Serializable {
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
                     weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
-                    trainParams: TrainParams, numCoresPerExec: Int)
+                    trainParams: TrainParams, numCoresPerExec: Int, schema: StructType)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val emptyPartition = !inputRows.hasNext
     // Ideally we would start the socket connections in the C layer, this opens us up for
@@ -331,7 +338,7 @@ private object TrainUtils extends Serializable {
         val initialDelay = 1000L
         networkInit(nodes, localListenPort, log, retries, initialDelay)
         translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, groupColumn, validationData,
-          log, trainParams, inputRows)
+          log, trainParams, schema, inputRows)
       } finally {
         // Finalize network when done
         LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

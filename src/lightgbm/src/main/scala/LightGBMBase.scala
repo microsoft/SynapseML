@@ -62,9 +62,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
         Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
       else None
-    val lightGBMBooster = preprocessData(df)
+    val preprocessedDF = preprocessData(df)
+    val schema = preprocessedDF.schema
+    val lightGBMBooster = preprocessedDF
       .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec))(encoder)
+        get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec, schema))(encoder)
       .reduce((booster1, _) => booster1)
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
