@@ -19,6 +19,7 @@ import org.scalactic.source.Position
 import org.scalatest._
 
 import scala.reflect.ClassTag
+import scala.concurrent.blocking
 
 // Common test tags
 object TestBase {
@@ -119,7 +120,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
         return block()
       } catch {
         case _: Exception if (i + 1) < times.length =>
-          Thread.sleep(t.toLong)
+          blocking {Thread.sleep(t.toLong)}
       }
     }
     throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")
