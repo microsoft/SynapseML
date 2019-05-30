@@ -1,13 +1,12 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.ml.spark
 
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.sys.process._
-
-import sys.process._
-import spray.json._
-import DefaultJsonProtocol._
 
 object Secrets {
   private val kvName = "mmlspark-keys"

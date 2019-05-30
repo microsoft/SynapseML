@@ -94,8 +94,8 @@ getDatasetsTask := {
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
-  (compile in Test).toTask.value
-  (compile).toTask.value
+  (Test / compile).toTask.value
+  (Compile / compile).toTask.value
   getDatasetsTask.value
 }
 
