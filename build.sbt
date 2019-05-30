@@ -99,14 +99,15 @@ getDatasetsTask := {
 val settings = Seq(
   (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
   buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
+  parallelExecution in Test := false,
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
-  Defaults.itSettings //++
+  Defaults.itSettings
+//++
   //inConfig(IntegrationTest2)(Defaults.testSettings) ++
 //  inConfig(CodeGen)(Defaults.testSettings)
 
 lazy val mmlspark = (project in file("."))
   .configs(IntegrationTest)
-//  .configs(CodeGen)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)

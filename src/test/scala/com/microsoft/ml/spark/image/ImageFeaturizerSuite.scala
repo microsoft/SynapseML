@@ -6,7 +6,9 @@ package com.microsoft.ml.spark.image
 import java.io.File
 import java.net.{URI, URL}
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
@@ -33,7 +35,7 @@ trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
   lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
     .select(col("value.bytes").alias(inputCol))
 
-  lazy val groceriesPath = s"${sys.env("DATASETS_HOME")}/Images/Grocery/"
+  lazy val groceriesPath = FileUtilities.join(BuildInfo.datasetDir, "Images","Grocery")
   lazy val groceryImages: DataFrame = session.read.image
     .option("dropInvalid", true)
     .load(groceriesPath + "**")
@@ -70,7 +72,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
-      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
     val result = model.transform(images)
@@ -82,7 +84,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val model = new ImageFeaturizer()
       .setInputCol("image")
       .setOutputCol(outputCol)
-      .setModelLocation(s"${sys.env("DATASETS_HOME")}/CNTKModel/ConvNet_CIFAR10.model")
+      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
 

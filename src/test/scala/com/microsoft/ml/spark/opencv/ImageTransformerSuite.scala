@@ -85,8 +85,8 @@ trait ImageTestUtils {
 class UnrollImageSuite extends LinuxOnly
   with TransformerFuzzing[UnrollImage] with ImageTestUtils with DataFrameEquality {
 
-  lazy val filesRoot = s"${sys.env("DATASETS_HOME")}/"
-  lazy val imagePath = s"$filesRoot/Images/CIFAR"
+  lazy val filesRoot =  BuildInfo.datasetDir
+  lazy val imagePath = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
   lazy val images: DataFrame = session.read.image.load(imagePath)
 
   test("roll and unroll") {

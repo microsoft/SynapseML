@@ -24,8 +24,14 @@ import org.apache.spark.ml.linalg.{Vector, VectorUDT}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 
+trait OsUtils {
+
+  val isWindows: Boolean = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0
+
+}
+
 /** Tests to validate the functionality of LightGBM module. */
-class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
+class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] with OsUtils {
   lazy val moduleName = "lightgbm"
   var portIndex = 30
   val numPartitions = 2
@@ -51,10 +57,22 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     colsToVerify = Array("Diabetes pedigree function", "Age (years)"))
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
+    assume(!isWindows)
     verifyBenchmarks()
   }
 
+  override def testExperiments(): Unit = {
+    assume(!isWindows)
+    super.testExperiments()
+  }
+
+  override def testSerialization(): Unit = {
+    assume(!isWindows)
+    super.testSerialization()
+  }
+
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"
@@ -97,6 +115,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   ignore("Verify LightGBM Classifier with batch training") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"
@@ -124,6 +143,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier continued training with initial score") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"
@@ -164,6 +184,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with weight column") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"
@@ -198,6 +219,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with unbalanced dataset") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "task.train.csv"
@@ -237,6 +259,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with validation dataset") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "task.train.csv"
@@ -281,6 +304,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "bank.train.csv"
@@ -324,6 +348,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier won't get stuck on empty partitions") {
+    assume(!isWindows)
     // Increment port index
     portIndex += numPartitions
     val fileName = "PimaIndian.csv"
@@ -381,6 +406,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val boostingText = " with boosting type " + boostingType
       val testText = "Verify LightGBMClassifier can be trained and scored on "
       test(testText + fileName + boostingText, TestBase.Extended) {
+        assume(!isWindows)
         // Increment port index
         portIndex += numPartitions
         val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
@@ -425,6 +451,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val boostingText = " with boosting type " + boostingType
       val testText = "Verify LightGBMClassifier can be trained and scored on multiclass "
       test(testText + fileName + boostingText, TestBase.Extended) {
+        assume(!isWindows)
         // Increment port index
         portIndex += numPartitions
         val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
@@ -486,6 +513,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
                         labelColumnName: String,
                         colsToVerify: Array[String]): Unit = {
     test("Verify LightGBMClassifier save booster to " + fileName) {
+      assume(!isWindows)
       // Increment port index
       portIndex += numPartitions
       val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
