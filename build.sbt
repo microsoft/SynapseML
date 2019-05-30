@@ -3,9 +3,15 @@ import java.net.URL
 import org.apache.commons.io.FileUtils
 import scala.sys.process.Process
 
+def getVersion(baseVersion: String): String = {
+  sys.env.get("MMLSPARK_RELEASE").map(_ =>baseVersion)
+    .orElse(sys.env.get("BUILD_NUMBER").map(bn => baseVersion + s"_$bn"))
+    .getOrElse(baseVersion + "-SNAPSHOT")
+}
+
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
-version := "0.17.1"
+version := getVersion("0.17.1")
 scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.0"
@@ -93,6 +99,7 @@ setupTask := {
 
 val settings = Seq(
   (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
+  logBuffered in Test := false,
   buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
   parallelExecution in Test := false,
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
@@ -104,3 +111,20 @@ lazy val mmlspark = (project in file("."))
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
 
+homepage := Some(url("https://github.com/Azure/mmlspark"))
+scmInfo := Some(ScmInfo(url("https://github.com/Azure/mmlspark"), "git@github.com:Azure/mmlspark.git"))
+developers := List(Developer(
+  "mhamilton723",
+  "Mark Hamilton",
+  "mmlspark-support@microsoft.com",
+  url("https://github.com/mhamilton723")
+))
+
+licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
+publishMavenStyle := true
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
