@@ -30,10 +30,6 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350"
 )
 
-//lazy val IntegrationTest2 = config("it").extend(Test)
-
-//lazy val CodeGen = config("codegen").extend(Test)
-
 def join(folders: String*): File = {
   folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
 }
@@ -96,15 +92,19 @@ getDatasetsTask := {
   }
 }
 
+val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
+setupTask := {
+  (compile in Test).toTask.value
+  (compile).toTask.value
+  getDatasetsTask.value
+}
+
 val settings = Seq(
   (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
   buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
   parallelExecution in Test := false,
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
   Defaults.itSettings
-//++
-  //inConfig(IntegrationTest2)(Defaults.testSettings) ++
-//  inConfig(CodeGen)(Defaults.testSettings)
 
 lazy val mmlspark = (project in file("."))
   .configs(IntegrationTest)

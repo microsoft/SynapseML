@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.image
 import java.io.File
 import java.net.{URI, URL}
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cntk.CNTKTestUtils
 import com.microsoft.ml.spark.core.env.FileUtilities
@@ -180,7 +181,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .withColumn("foo", udf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result, sys.env("MML_POWERBI_URL"), Map("concurrency" -> "1"))
+    PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.powerbiURL), Map("concurrency" -> "1"))
   }
 
   test("test layers of network", TestBase.Extended) {

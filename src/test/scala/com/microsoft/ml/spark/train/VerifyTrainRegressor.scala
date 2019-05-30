@@ -5,6 +5,8 @@ package com.microsoft.ml.spark.train
 
 import java.io.File
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
@@ -16,8 +18,6 @@ import scala.collection.immutable.Seq
 
 /** Tests to validate the functionality of Train Regressor module. */
 class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
-
-  val regressionTrainFilesDirectory = "/Regression/Train/"
 
   val mockLabelColumn = "Label"
 
@@ -104,8 +104,8 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
   }
 
   test("Verify regressor can be trained and scored on airfoil_self_noise-train-csv") {
-    val fileLocation =
-      sys.env("DATASETS_HOME") + regressionTrainFilesDirectory + "airfoil_self_noise.train.csv"
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
+      "Regression", "Train", "airfoil_self_noise.train.csv").toString
     val dataset = session.read.format("com.databricks.spark.csv")
       .option("header", "true").option("inferSchema", "true")
       .option("delimiter", ",").option("treatEmptyValuesAsNulls", "false")
@@ -119,8 +119,8 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
   }
 
   test("Verify regressor can be trained and scored on CASP-train-csv") {
-    val fileLocation =
-      sys.env("DATASETS_HOME") + regressionTrainFilesDirectory + "CASP.train.csv"
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
+      "Regression", "Train", "CASP.train.csv").toString
     val dataset = session.read.format("com.databricks.spark.csv")
       .option("header", "true").option("inferSchema", "true")
       .option("delimiter", ",").option("treatEmptyValuesAsNulls", "false")

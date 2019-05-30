@@ -69,7 +69,9 @@ class DownloaderSuite extends TestBase {
   }
 
   override def afterAll(): Unit = {
-    FileUtils.forceDelete(saveDir)
+    if (saveDir.exists()) {
+      FileUtils.forceDelete(saveDir)
+    }
     super.afterAll()
   }
 
