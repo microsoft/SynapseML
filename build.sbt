@@ -1,10 +1,6 @@
 import java.io.File
 import java.net.URL
-
 import org.apache.commons.io.FileUtils
-import org.codehaus.plexus.archiver.tar.TarGZipUnArchiver
-import org.codehaus.plexus.logging.console.ConsoleLoggerManager
-
 import scala.sys.process.Process
 
 name := "mmlspark"
@@ -56,7 +52,7 @@ installPipPackageTask := {
   publishLocal.value
   packagePythonTask.value
   Process(
-    Seq("python", "-m","wheel","install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
+    Seq("python", "-m", "wheel", "install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
     pythonPackageDir) ! s.log
 }
 
@@ -84,11 +80,7 @@ getDatasetsTask := {
   if (!d.exists()) d.mkdirs()
   if (!f.exists()) {
     FileUtils.copyURLToFile(datasetUrl, f)
-    val ua = new TarGZipUnArchiver()
-    ua.enableLogging(new ConsoleLoggerManager().getLoggerForComponent("unzipper"))
-    ua.setSourceFile(f)
-    ua.setDestDirectory(d)
-    ua.extract()
+    UnzipUtils.unzip(f, d)
   }
 }
 
