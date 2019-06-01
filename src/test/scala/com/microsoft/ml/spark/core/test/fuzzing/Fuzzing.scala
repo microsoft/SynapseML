@@ -109,7 +109,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
 
   def modelReader: MLReadable[_]
 
-  val useShm = sys.env.getOrElse("MMLSPARK_TEST_USE_SHM", "false").toBoolean
+  val useShm = sys.env.getOrElse("MMLSPARK_TEST_SHM", "false").toBoolean
 
   lazy val savePath: String = {
     if (useShm){
