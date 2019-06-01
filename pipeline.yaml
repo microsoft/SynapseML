@@ -70,9 +70,9 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sudo apt-get install gnome-mplayer -y && sbt getDatasets'
+        inlineScript: 'sbt getDatasets'
     - task: AzureCLI@1
-      displayName: 'Unit Test'
+      displayName: 'Setup and test  repo'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
@@ -186,7 +186,7 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
+        inlineScript: 'pip install requests && sbt getDatasets'
     - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
@@ -284,7 +284,7 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.recommendation.**" '
+        inlineScript: 'MMLSPARK_TEST_SHM="true" && sbt "testOnly com.microsoft.ml.spark.recommendation.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:

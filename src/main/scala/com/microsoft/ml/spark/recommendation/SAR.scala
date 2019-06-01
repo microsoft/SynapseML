@@ -149,7 +149,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
     */
   private[spark] def calculateItemItemSimilarity(dataset: Dataset[_]): DataFrame = {
 
-    val itemCounts = dataset.cache
+    val itemCounts = dataset//.cache
       .groupBy(col(getItemCol)).agg(countDistinct(col(getUserCol)))
       .collect.map(r => r.get(0) -> r.getLong(1)).toMap
 

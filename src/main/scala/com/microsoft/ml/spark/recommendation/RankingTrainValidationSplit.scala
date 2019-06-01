@@ -188,7 +188,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
         .withColumn("train", sliceudf(col("shuffle")))
         .withColumn("test", dropudf(col("shuffle")))
         .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
-        .cache()
+        //.cache()
 
       val train = testds
         .select(getUserCol, "train")

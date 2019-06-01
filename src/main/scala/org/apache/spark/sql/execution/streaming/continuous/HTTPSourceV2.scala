@@ -181,7 +181,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   extends MicroBatchReader with Logging {
   implicit val defaultFormats: DefaultFormats = DefaultFormats
 
-  val numPartitions: Int = options.get(HTTPSourceV2.NUM_PARTITIONS).orElse("5").toInt
+  val numPartitions: Int = options.get(HTTPSourceV2.NUM_PARTITIONS).orElse("2").toInt
   val host: String = options.get(HTTPSourceV2.HOST).orElse("localhost")
   val port: Int = options.getInt(HTTPSourceV2.PORT, 8888)
   val path: String = options.get(HTTPSourceV2.PATH).get
