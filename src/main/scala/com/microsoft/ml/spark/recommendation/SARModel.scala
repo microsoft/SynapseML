@@ -108,8 +108,8 @@ class SARModel(override val uid: String) extends Model[SARModel]
         .map(item => MatrixEntry(item.getDouble(0).toLong, item.getInt(1).toLong, item.getFloat(2).toDouble))
     }
 
-    val sourceMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(srcFactors)).toBlockMatrix().cache()
-    val destMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(dstFactors)).toBlockMatrix().cache()
+    val sourceMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(srcFactors)).toBlockMatrix()//.cache()
+    val destMatrix = new CoordinateMatrix(dfToRDDMatrxEntry(dstFactors)).toBlockMatrix()//.cache()
 
     val userToItemMatrix = sourceMatrix
       .multiply(destMatrix)
