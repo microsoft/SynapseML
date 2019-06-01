@@ -70,9 +70,7 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sudo apt-get update && \
-        sudo apt-get install gnome-mplayer -y && \
-        sbt getDatasets'
+        inlineScript: 'sudo apt-get update && sudo apt-get install gnome-mplayer -y && sbt getDatasets'
     - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
