@@ -86,6 +86,7 @@ abstract class Benchmarks extends TestBase {
 
   def writeCSV(benchmarks: ListBuffer[Benchmark], file: File): Unit = {
     val lines = Seq(Benchmark.csvHeader) ++ benchmarks.map(_.toCSVEntry)
+    if (!file.exists()) file.getParentFile.mkdirs()
     StreamUtilities.using(new PrintWriter(file)) { pw =>
       pw.write(lines.mkString("\n"))
     }.get

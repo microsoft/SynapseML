@@ -30,8 +30,8 @@ class HTTPSuite extends TestBase with HTTPTestUtils {
       .option("checkpointLocation", new File(tmpDir.toFile, "checkpoints").toString)
       .start()
 
+    Thread.sleep(5000)
     val client = HttpClientBuilder.create().build()
-
     val p1 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"))
     val p2 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "heree"))
     val p3 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereee"))

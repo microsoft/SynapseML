@@ -20,7 +20,34 @@ import org.apache.spark.ml.ComplexParamsReadable
 
 import scala.language.existentials
 
-object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
+object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable {
+  def convertToWav(data: Array[Byte]): Array[Byte] = { // open stream
+    val sourceStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(data))
+    val sourceFormat: AudioFormat = sourceStream.getFormat
+    // create audio format object for the desired stream/audio format
+    // this is *not* the same as the file format (wav)
+    val format = new AudioFormat(
+      AudioFormat.Encoding.PCM_SIGNED,
+      sourceFormat.getSampleRate,
+      sourceFormat.getSampleSizeInBits,
+      sourceFormat.getChannels,
+      sourceFormat.getFrameSize,
+      sourceFormat.getFrameRate,
+      sourceFormat.isBigEndian)
+
+    // create stream that delivers the desired format
+    val converted: AudioInputStream = AudioSystem.getAudioInputStream(format, sourceStream)
+    // write stream into a file with file format wav
+    val os = new ByteArrayOutputStream()
+    try {
+      AudioSystem.write(converted, Type.WAVE, os)
+      os.toByteArray
+    } finally {
+      os.close()
+    }
+
+  }
+}
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser {
@@ -90,30 +117,36 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   override protected def contentType: Row => String = { _ => "audio/wav; codec=audio/pcm; samplerate=16000" }
 
   def convertToWav(data: Array[Byte]): Array[Byte] = { // open stream
-    val sourceStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(data))
-    val sourceFormat: AudioFormat = sourceStream.getFormat
-    // create audio format object for the desired stream/audio format
-    // this is *not* the same as the file format (wav)
-    val format = new AudioFormat(
-      AudioFormat.Encoding.PCM_SIGNED,
-      sourceFormat.getSampleRate,
-      sourceFormat.getSampleSizeInBits,
-      sourceFormat.getChannels,
-      sourceFormat.getFrameSize,
-      sourceFormat.getFrameRate,
-      sourceFormat.isBigEndian)
+    try{
+      val sourceStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(data))
+      val sourceFormat: AudioFormat = sourceStream.getFormat
+      // create audio format object for the desired stream/audio format
+      // this is *not* the same as the file format (wav)
+      val format = new AudioFormat(
+        AudioFormat.Encoding.PCM_SIGNED,
+        sourceFormat.getSampleRate,
+        sourceFormat.getSampleSizeInBits,
+        sourceFormat.getChannels,
+        sourceFormat.getFrameSize,
+        sourceFormat.getFrameRate,
+        sourceFormat.isBigEndian)
 
-    // create stream that delivers the desired format
-    val converted: AudioInputStream = AudioSystem.getAudioInputStream(format, sourceStream)
-    // write stream into a file with file format wav
-    val os = new ByteArrayOutputStream()
-    try {
-      AudioSystem.write(converted, Type.WAVE, os)
-      os.toByteArray
-    } finally {
-      os.close()
+      // create stream that delivers the desired format
+      val converted: AudioInputStream = AudioSystem.getAudioInputStream(format, sourceStream)
+      // write stream into a file with file format wav
+      val os = new ByteArrayOutputStream()
+      try {
+        AudioSystem.write(converted, Type.WAVE, os)
+        os.toByteArray
+      } finally {
+        os.close()
+      }
+    } catch {
+      //TODO figure out why build machines don't have proper codecs
+      case e: javax.sound.sampled.UnsupportedAudioFileException =>
+        logWarning(e.getMessage)
+        data
     }
-
   }
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
