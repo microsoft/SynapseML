@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.image
 
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.opencv.{ImageTestUtils, ImageTransformer}
 import org.apache.spark.ml.linalg.DenseVector
@@ -14,7 +15,7 @@ class ResizeImageTransformerSuite extends TransformerFuzzing[ResizeImageTransfor
   with ImageTestUtils {
 
   lazy val images = session.read.image
-    .option("dropInvalid",true).load(fileLocation + "**")
+    .option("dropInvalid",true).load(FileUtilities.join(fileLocation, "**").toString)
 
   lazy val tr = new ResizeImageTransformer()
     .setOutputCol("out")

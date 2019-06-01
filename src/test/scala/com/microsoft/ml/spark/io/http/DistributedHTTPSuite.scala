@@ -69,6 +69,7 @@ trait HTTPTestUtils extends WithFreeUrl {
       t
     } finally {
       c.stop()
+      Thread.sleep(1000)
     }
   }
 

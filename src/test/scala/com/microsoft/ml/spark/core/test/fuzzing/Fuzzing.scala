@@ -109,7 +109,17 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
 
   def modelReader: MLReadable[_]
 
-  val savePath: String = Files.createTempDirectory("SavedModels-").toString
+  val useShm = sys.env.getOrElse("MMLSPARK_TEST_SHM", "false").toBoolean
+
+  lazy val savePath: String = {
+    if (useShm){
+      val f = new File(s"/dev/shm/SavedModels-${System.currentTimeMillis()}")
+      f.mkdir()
+      f.toString
+    }else{
+      Files.createTempDirectory("SavedModels-").toString
+    }
+  }
 
   val ignoreEstimators: Boolean = false
 
@@ -134,34 +144,33 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
       }
       ()
     } finally {
-      try {
-        FileUtils.forceDelete(new File(path))
-      } catch {
-        case _: FileNotFoundException =>
-      }
-      ()
+      if (new File(path).exists()) FileUtils.forceDelete(new File(path))
     }
   }
 
   def testSerialization(): Unit = {
-    serializationTestObjects().foreach { req =>
-      val fitStage = req.stage match {
-        case stage: Estimator[_] =>
-          if (!ignoreEstimators) {
-            testSerializationHelper(savePath + "/stage", stage, reader, req.fitDF, req.transDF)
-          }
-          stage.fit(req.fitDF).asInstanceOf[PipelineStage with MLWritable]
-        case stage: Transformer => stage
-        case s => throw new IllegalArgumentException(s"$s does not have correct type")
-      }
-      testSerializationHelper(savePath + "/fitStage", fitStage, modelReader, req.transDF, req.transDF)
+    try{
+      serializationTestObjects().foreach { req =>
+        val fitStage = req.stage match {
+          case stage: Estimator[_] =>
+            if (!ignoreEstimators) {
+              testSerializationHelper(savePath + "/stage", stage, reader, req.fitDF, req.transDF)
+            }
+            stage.fit(req.fitDF).asInstanceOf[PipelineStage with MLWritable]
+          case stage: Transformer => stage
+          case s => throw new IllegalArgumentException(s"$s does not have correct type")
+        }
+        testSerializationHelper(savePath + "/fitStage", fitStage, modelReader, req.transDF, req.transDF)
 
-      val pipe = new Pipeline().setStages(Array(req.stage.asInstanceOf[PipelineStage]))
-      if (!ignoreEstimators) {
-        testSerializationHelper(savePath + "/pipe", pipe, Pipeline, req.fitDF, req.transDF)
+        val pipe = new Pipeline().setStages(Array(req.stage.asInstanceOf[PipelineStage]))
+        if (!ignoreEstimators) {
+          testSerializationHelper(savePath + "/pipe", pipe, Pipeline, req.fitDF, req.transDF)
+        }
+        val fitPipe = pipe.fit(req.fitDF)
+        testSerializationHelper(savePath + "/fitPipe", fitPipe, PipelineModel, req.transDF, req.transDF)
       }
-      val fitPipe = pipe.fit(req.fitDF)
-      testSerializationHelper(savePath + "/fitPipe", fitPipe, PipelineModel, req.transDF, req.transDF)
+    } finally {
+      if (new File(savePath).exists) FileUtils.forceDelete(new File(savePath))
     }
   }
 
