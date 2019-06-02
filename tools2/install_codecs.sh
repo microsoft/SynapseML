@@ -10,4 +10,4 @@ ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true
 ttf-mscorefonts-installer msttcorefonts/present-mscorefonts-eula note
 EOF
 
-sudo apt-get install -y ubuntu-restricted-extras
+sudo apt-get install -y ubuntu-restricted-extras vlc ffmpeg
