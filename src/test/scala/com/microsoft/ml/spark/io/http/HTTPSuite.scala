@@ -15,6 +15,8 @@ import org.apache.spark.sql.types.StringType
 class HTTPSuite extends TestBase with HTTPTestUtils {
 
   test("stream from HTTP", TestBase.Extended) {
+    port
+    Thread.sleep(1000) //Give time for port to free up on build machine
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toString)

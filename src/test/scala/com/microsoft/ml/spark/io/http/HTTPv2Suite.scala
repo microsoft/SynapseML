@@ -154,10 +154,10 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("two services can run independently") {
-    val server1 = basePipeline(numPartitions = 2, name = "q1",
+    val server1 = basePipeline(numPartitions = 1, name = "q1",
       apiPath = "foo", apiName = "n1").start()
     using(server1) {
-      val server2 = basePipeline(numPartitions = 2, name = "q2",
+      val server2 = basePipeline(numPartitions = 1, name = "q2",
         apiPath = "bar", apiName = "n2", port = port2).start()
       waitForServer(server1)
       using(server2) {
