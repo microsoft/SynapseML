@@ -64,14 +64,13 @@ trait RankingTestBase extends TestBase {
     .setItemOutputCol(itemColIndex)
     .setRatingCol(ratingCol)
 
-  val als = new ALS()
-  als
+  val als: ALS = new ALS()
     .setUserCol(recommendationIndexer.getUserOutputCol)
     .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
 
-  val sar = new SAR()
-  sar.setUserCol(recommendationIndexer.getUserOutputCol)
+  val sar: SAR = new SAR()
+    .setUserCol(recommendationIndexer.getUserOutputCol)
     .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
     .setTimeCol("timestamp")
@@ -84,7 +83,8 @@ trait RankingTestBase extends TestBase {
     .setK(3)
     .setNItems(10)
 
-  lazy val transformedDf: DataFrame = recommendationIndexer.fit(ratings).transform(ratings)
+  lazy val transformedDf: DataFrame = recommendationIndexer.fit(ratings)
+    .transform(ratings).cache()
 
   lazy val adapter: RankingAdapter = new RankingAdapter()
     .setK(evaluator.getK)
