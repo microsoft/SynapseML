@@ -156,7 +156,8 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .select("value.*")
       .withColumn("path", UDFs.rename(col("path")))
     imageDF.printSchema()
-    assert(imageDF.count() == 4)
+    val count = imageDF.count()
+    assert(count > 0 && count < 6)
     val saveDir = new File(tmpDir.toFile, "binaries").toString
     imageDF.write.mode("overwrite")
       .format(classOf[BinaryFileFormat].getName)
@@ -167,7 +168,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .read
       .format(classOf[BinaryFileFormat].getName)
       .load(saveDir)
-    assert(newImageDf.count() == 4)
+    assert(newImageDf.count() == count)
   }
 
 }
