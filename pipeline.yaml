@@ -20,17 +20,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.automl.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.automl.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -43,17 +37,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: ' sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.cntk.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.cntk.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -66,11 +54,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup and test  repo'
+      displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: './tools2/install_codecs.sh && sbt getDatasets && sbt "testOnly com.microsoft.ml.spark.cognitive.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.cognitive.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -83,17 +71,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.core.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.core.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -107,17 +89,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.downloader.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.downloader.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -130,17 +106,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.featurize.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.featurize.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -153,17 +123,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.image.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.image.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -199,17 +163,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.lightgbm.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.lightgbm.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -222,17 +180,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.lime.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.lime.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -245,17 +197,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.opencv.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.opencv.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -268,17 +214,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'MMLSPARK_TEST_SHM="true" && sbt "testOnly com.microsoft.ml.spark.recommendation.**" '
+        inlineScript: 'getDatasets sbt "testOnly com.microsoft.ml.spark.recommendation.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -291,17 +231,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.stages.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.stages.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
@@ -314,17 +248,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
       displayName: 'Unit Test'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.train.**" '
+        inlineScript: 'sbt getDatasets "testOnly com.microsoft.ml.spark.train.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
