@@ -66,17 +66,11 @@ jobs:
     vmImage: ubuntu-16.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Setup repo'
+      displayName: 'Setup and test  repo'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: './tools2/install_codecs.sh && sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.cognitive.**" '
+        inlineScript: './tools2/install_codecs.sh && sbt getDatasets && sbt "testOnly com.microsoft.ml.spark.cognitive.**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
