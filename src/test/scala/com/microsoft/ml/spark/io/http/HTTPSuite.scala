@@ -15,8 +15,6 @@ import org.apache.spark.sql.types.StringType
 class HTTPSuite extends TestBase with HTTPTestUtils {
 
   test("stream from HTTP", TestBase.Extended) {
-    port
-    Thread.sleep(1000) //Give time for port to free up on build machine
     val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toString)
@@ -32,8 +30,8 @@ class HTTPSuite extends TestBase with HTTPTestUtils {
       .option("checkpointLocation", new File(tmpDir.toFile, "checkpoints").toString)
       .start()
 
+    Thread.sleep(5000)
     val client = HttpClientBuilder.create().build()
-
     val p1 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"))
     val p2 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "heree"))
     val p3 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereee"))

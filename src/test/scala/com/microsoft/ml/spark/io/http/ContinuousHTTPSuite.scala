@@ -32,7 +32,7 @@ class ContinuousHTTPSuite extends TestBase with HTTPTestUtils {
       .option("name", apiName)
       .queryName("foo").option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .trigger(Trigger.Continuous("1 second"))  // only change in query
+      .trigger(Trigger.Continuous("10 seconds"))  // only change in query
       .start()
 
     using(server){
