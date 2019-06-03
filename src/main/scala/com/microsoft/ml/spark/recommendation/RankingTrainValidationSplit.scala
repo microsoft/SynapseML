@@ -95,14 +95,14 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
     val epm = getEstimatorParamMaps
     val numModels = epm.length
 
-    //dataset.cache()
+    dataset.cache()
     eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
     val filteredDataset = filterRatings(dataset.dropDuplicates())
 
     //Stratified Split of Dataset
     val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
-    //trainingDataset.cache()
-    //validationDataset.cache()
+    trainingDataset.cache()
+    validationDataset.cache()
 
     val executionContext = getExecutionContext
 
@@ -149,7 +149,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
       .withColumnRenamed(s"count(${getItemCol})", "nitems")
       .where(col("nitems") >= getMinRatingsU)
       .drop("nitems")
-      //.cache()
+      .cache()
   }
 
   private def filterByUserRatingCount(dataset: Dataset[_]): DataFrame = dataset
@@ -159,7 +159,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
     .where(col("ncustomers") >= getMinRatingsI)
     .join(dataset, getItemCol)
     .drop("ncustomers")
-    //.cache()
+    .cache()
 
   def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
     .join(filterByItemCount(dataset), $(userCol))
@@ -224,7 +224,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
         .withColumn("train", sliceudf(col("shuffle")))
         .withColumn("test", dropudf(col("shuffle")))
         .drop(col(s"collect_list(${getItemCol}")).drop(col("shuffle"))
-        //.cache()
+        .cache()
 
       val train = testds
         .select(getUserCol, "train")

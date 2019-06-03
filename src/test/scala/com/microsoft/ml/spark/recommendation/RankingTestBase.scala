@@ -65,6 +65,8 @@ trait RankingTestBase extends TestBase {
     .setRatingCol(ratingCol)
 
   val als: ALS = new ALS()
+    .setNumUserBlocks(1)
+    .setNumItemBlocks(1)
     .setUserCol(recommendationIndexer.getUserOutputCol)
     .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
