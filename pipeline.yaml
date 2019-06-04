@@ -15,6 +15,17 @@ jobs:
       scriptLocation: inlineScript
       inlineScript: 'sbt scalastyle test:scalastyle'
 
+- job: PythonTests
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - task: AzureCLI@1
+      displayName: 'Python Tests'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt setup testPython'
+
 - job: AutoMLTests
   pool:
     vmImage: ubuntu-16.04

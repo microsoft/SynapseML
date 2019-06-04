@@ -9,9 +9,17 @@ def getVersion(baseVersion: String): String = {
     .getOrElse(baseVersion + "-SNAPSHOT")
 }
 
-name := "mmlspark"
+def getPythonVersion(baseVersion: String): String = {
+  sys.env.get("MMLSPARK_RELEASE").map(_ =>baseVersion)
+    .orElse(sys.env.get("BUILD_NUMBER").map(bn => baseVersion + s".dev$bn"))
+    .getOrElse(baseVersion + ".dev1")
+}
+
+val baseVersion = "0.17.1"
+val condaEnvName = "mmlspark"
+name := "mmlspark-build"
 organization := "com.microsoft.ml.spark"
-version := getVersion("0.17.1")
+version := getVersion(baseVersion)
 scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.0"
@@ -32,8 +40,40 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350"
 )
 
+lazy val IntegrationTest2 = config("it").extend(Test)
+
 def join(folders: String*): File = {
   folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
+}
+
+val createCondaEnvTask = TaskKey[Unit]("createCondaEnv", "create conda env")
+createCondaEnvTask := {
+  val s = streams.value
+  val hasEnv = Process("conda env list").lineStream.toList
+    .map(_.split("\\s+").head).contains(condaEnvName)
+  if (!hasEnv){
+    Process(
+      "conda env create -f environment.yaml",
+      new File(".")) ! s.log
+  } else{
+    println("Found conda env " + condaEnvName)
+  }
+}
+
+val cleanCondaEnvTask = TaskKey[Unit]("cleanCondaEnv", "create conda env")
+cleanCondaEnvTask := {
+  val s = streams.value
+  Process(
+    s"conda env remove --name $condaEnvName -y",
+    new File(".")) ! s.log
+}
+
+def activateCondaEnv: Seq[String] = {
+  if(sys.props("os.name").toLowerCase.contains("windows")){
+    Seq("cmd", "/C", "activate", condaEnvName, "&&")
+  }else{
+    Seq("activate", condaEnvName, "&&")
+  }
 }
 
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
@@ -43,33 +83,38 @@ val pythonPackageDir = join(genDir.toString, "package", "python")
 val pythonTestDir = join(genDir.toString, "test", "python")
 
 packagePythonTask := {
-  val s: TaskStreams = streams.value
-  (run in IntegrationTest).toTask("").value
+  val s = streams.value
+  (run in IntegrationTest2).toTask("").value
+  createCondaEnvTask.value
   Process(
-    s"python setup.py bdist_wheel --universal -d ${pythonPackageDir.absolutePath}",
+    activateCondaEnv ++
+      Seq("python", "setup.py", "bdist_wheel", "--universal", "-d", pythonPackageDir.absolutePath),
     pythonSrcDir,
-    "MML_VERSION" -> version.value) ! s.log
+    "MML_PY_VERSION" -> getPythonVersion(baseVersion)) ! s.log
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
 
 installPipPackageTask := {
-  val s: TaskStreams = streams.value
+  val s = streams.value
   publishLocal.value
   packagePythonTask.value
   Process(
-    Seq("python", "-m", "wheel", "install", s"mmlspark-${version.value}-py2.py3-none-any.whl", "--force"),
+    activateCondaEnv ++ Seq("pip", "install",
+      s"mmlspark-${getPythonVersion(baseVersion)}-py2.py3-none-any.whl", "--force"),
     pythonPackageDir) ! s.log
 }
 
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 
 testPythonTask := {
-  val s: TaskStreams = streams.value
+  val s = streams.value
   installPipPackageTask.value
   Process(
-    Seq("python", "tools2/run_all_tests.py"),
-    new File(".")) ! s.log
+    activateCondaEnv ++ Seq("python", "tools2/run_all_tests.py"),
+    new File("."),
+    "MML_VERSION" -> getVersion(baseVersion)
+  ) ! s.log
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
@@ -90,10 +135,12 @@ getDatasetsTask := {
   }
 }
 
+
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
-  (Test / compile).toTask.value
   (Compile / compile).toTask.value
+  (Test / compile).toTask.value
+  (IntegrationTest2 / compile).toTask.value
   getDatasetsTask.value
 }
 
@@ -103,22 +150,24 @@ val settings = Seq(
   buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
   parallelExecution in Test := false,
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
-  Defaults.itSettings
+  inConfig(IntegrationTest2)(Defaults.testSettings)
 
 lazy val mmlspark = (project in file("."))
-  .configs(IntegrationTest)
+  .configs(IntegrationTest2)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
 
 homepage := Some(url("https://github.com/Azure/mmlspark"))
 scmInfo := Some(ScmInfo(url("https://github.com/Azure/mmlspark"), "git@github.com:Azure/mmlspark.git"))
-developers := List(Developer(
-  "mhamilton723",
-  "Mark Hamilton",
-  "mmlspark-support@microsoft.com",
-  url("https://github.com/mhamilton723")
-))
+developers := List(
+  Developer("mhamilton723", "Mark Hamilton",
+    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
+  Developer("imatiach-msft", "Ilya Matiach",
+    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
+  Developer("drdarshan", "Sudarshan Raghunathan",
+    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
+)
 
 licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
 publishMavenStyle := true
