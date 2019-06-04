@@ -8,6 +8,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{col, udf}
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
@@ -84,16 +85,66 @@ class LightGBMClassificationModel(
   set(rawPredictionCol, rawPredictionColName)
   if (thresholdValues.isDefined) set(thresholds, thresholdValues.get)
 
-  override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
-    rawPrediction match {
-      case dv: DenseVector =>
-        dv.values(0) = 1.0 / (1.0 + math.exp(-dv.values(0)))
-        dv.values(1) = 1.0 - dv.values(0)
-        dv
-      case sv: SparseVector =>
-        throw new RuntimeException("Unexpected error in LightGBMClassificationModel:" +
-          " raw2probabilityInPlace encountered SparseVector")
+  /**
+    * Implementation based on ProbabilisticClassifier with slight modifications to
+    * avoid calling raw2probabilityInPlace to defer the probability calculation
+    * to lightgbm native code.
+    *
+    * @param dataset input dataset
+    * @return transformed dataset
+    */
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    transformSchema(dataset.schema, logging = true)
+    if (isDefined(thresholds)) {
+      require($(thresholds).length == numClasses, this.getClass.getSimpleName +
+        ".transform() called with non-matching numClasses and thresholds.length." +
+        s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
     }
+
+    // Output selected columns only.
+    var outputData = dataset
+    var numColsOutput = 0
+    if ($(rawPredictionCol).nonEmpty) {
+      val predictRawUDF = udf { (features: Any) =>
+        predictRaw(features.asInstanceOf[Vector])
+      }
+      outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
+      numColsOutput += 1
+    }
+    if ($(probabilityCol).nonEmpty) {
+      val probabilityUDF = udf { (features: Any) =>
+        predictProbability(features.asInstanceOf[Vector])
+      }
+      val probUDF = probabilityUDF(col($(featuresCol)))
+      outputData = outputData.withColumn($(probabilityCol), probUDF)
+      numColsOutput += 1
+    }
+    if ($(predictionCol).nonEmpty) {
+      val predUDF = if ($(rawPredictionCol).nonEmpty && !isDefined(thresholds)) {
+        // Note: Only call raw2prediction if thresholds not defined
+        udf(raw2prediction _).apply(col($(rawPredictionCol)))
+      } else if ($(probabilityCol).nonEmpty) {
+        udf(probability2prediction _).apply(col($(probabilityCol)))
+      } else {
+        val predictUDF = udf { (features: Any) =>
+          predict(features.asInstanceOf[Vector])
+        }
+        predictUDF(col($(featuresCol)))
+      }
+      outputData = outputData.withColumn($(predictionCol), predUDF)
+      numColsOutput += 1
+    }
+
+    if (numColsOutput == 0) {
+      this.logWarning(s"$uid: LightGBMClassificationModel.transform() was called as NOOP" +
+        " since no output columns were set.")
+    }
+    outputData.toDF
+  }
+
+  override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
+    throw new NotImplementedError("Unexpected error in LightGBMClassificationModel:" +
+      " raw2probabilityInPlace should not be called!")
   }
 
   override def numClasses: Int = this.actualNumClasses
