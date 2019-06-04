@@ -106,9 +106,9 @@ RUN echo "$LOG_TAG Install essentials" && \
 RUN echo "$LOG_TAG installing python related packages" && \
     apk add --no-cache g++ python-dev python3-dev build-base wget freetype-dev libpng-dev openblas-dev && \
     pip3 install -U pip && \
-    pip install --no-cache-dir -U pip setuptools wheel && \
-    pip install --no-cache-dir numpy  matplotlib && \
-    pip uninstall -y setuptools wheel && \
+    pip3 install --no-cache-dir -U pip setuptools wheel && \
+    pip3 install --no-cache-dir numpy  matplotlib pyspark&& \
+    pip3 uninstall -y setuptools wheel && \
     echo "$LOG_TAG Cleanup" && \
     apk del g++ python-dev python3-dev build-base freetype-dev libpng-dev openblas-dev && \
     rm -rf /root/.npm && \
@@ -123,6 +123,10 @@ ADD mmlsparkExamples/ ${Z_HOME}/notebook/mmlspark/
 
 ADD spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 ADD zeppelin-env.sh ${Z_HOME}/conf/
+
+# use python3 as default since thats what's in the base image \
+RUN echo "export PYSPARK_DRIVER_PYTHON=python3" >> ${Z_HOME}/conf/zeppelin-env.sh && \
+    echo "export PYSPARK_PYTHON=python3" >> ${Z_HOME}/conf/zeppelin-env.sh
 
 EXPOSE 8080
 
