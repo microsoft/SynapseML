@@ -72,7 +72,9 @@ def activateCondaEnv: Seq[String] = {
   if(sys.props("os.name").toLowerCase.contains("windows")){
     Seq("cmd", "/C", "activate", condaEnvName, "&&")
   }else{
-    Seq("/bin/bash","source", "activate", condaEnvName, "&&")
+    Seq()
+    //TODO figure out why this doesent work
+    //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
   }
 }
 
@@ -86,11 +88,14 @@ packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
   createCondaEnvTask.value
+  println("here1")
   Process(
     activateCondaEnv ++
-      Seq("python", "setup.py", "bdist_wheel", "--universal", "-d", pythonPackageDir.absolutePath),
+      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
     pythonSrcDir,
     "MML_PY_VERSION" -> getPythonVersion(baseVersion)) ! s.log
+  println("here2")
+
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -99,10 +104,12 @@ installPipPackageTask := {
   val s = streams.value
   publishLocal.value
   packagePythonTask.value
+  println("here3")
   Process(
     activateCondaEnv ++ Seq("pip", "install",
-      s"mmlspark-${getPythonVersion(baseVersion)}-py2.py3-none-any.whl", "--force"),
+      s"mmlspark-${getPythonVersion(baseVersion)}-py2.py3-none-any.whl"),
     pythonPackageDir) ! s.log
+  println("here4")
 }
 
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
@@ -110,11 +117,13 @@ val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
+  println("here5")
   Process(
     activateCondaEnv ++ Seq("python", "tools2/run_all_tests.py"),
     new File("."),
     "MML_VERSION" -> getVersion(baseVersion)
   ) ! s.log
+  println("here6")
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
