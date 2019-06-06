@@ -52,7 +52,7 @@ trait HasActionCol extends HasServiceParams {
        | other than the key field, will be ignored. If you want to
        |  remove an individual field from a document, use merge
        |  instead and simply set the field explicitly to null.
-    """.stripMargin.replace("\n", ""))
+    """.stripMargin.replace("\n", " ").replace("\r", " "))
 
   def setActionCol(v: String): this.type = set(actionCol, v)
 
@@ -101,7 +101,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
       new FixedMiniBatchTransformer().setBuffered(false).setBatchSize(getBatchSize),
       Lambda(df =>
         df.select(struct(
-          to_json(struct(col("arr").alias("value")), Map("charset"->"UTF-8"))
+          to_json(struct(col("arr").alias("value")), Map("charset" -> "UTF-8"))
         ).alias("input"))
       ),
       new SimpleHTTPTransformer()
@@ -162,6 +162,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     def rmNull = udf[Seq[String], Seq[String]] {
       inputSeq => inputSeq.filter(_ != null)
     }
+
     df.withColumn(collectionColName, rmNull(col(collectionColName)))
   }
 
@@ -191,10 +192,12 @@ object AzureSearchWriter extends IndexParser with SLogging {
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
-          .filter(_.`type`=="Collection(Edm.String)")
+        .filter(_.`type` == "Collection(Edm.String)")
         .map(_.name)
-      collectionColumns.foldLeft(df){(ndf, c) => filterOutNulls(ndf, c)}
-    } else { df }
+      collectionColumns.foldLeft(df) { (ndf, c) => filterOutNulls(ndf, c) }
+    } else {
+      df
+    }
 
     new AddDocuments()
       .setSubscriptionKey(subscriptionKey)

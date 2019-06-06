@@ -72,7 +72,7 @@ def activateCondaEnv: Seq[String] = {
   if(sys.props("os.name").toLowerCase.contains("windows")){
     Seq("cmd", "/C", "activate", condaEnvName, "&&")
   }else{
-    Seq("activate", condaEnvName, "&&")
+    Seq("/bin/bash","source", "activate", condaEnvName, "&&")
   }
 }
 
@@ -134,7 +134,6 @@ getDatasetsTask := {
     UnzipUtils.unzip(f, d)
   }
 }
-
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {

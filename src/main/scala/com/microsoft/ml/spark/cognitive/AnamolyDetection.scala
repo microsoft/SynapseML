@@ -27,7 +27,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     """
       |Can only be one of yearly, monthly, weekly, daily, hourly or minutely.
       |Granularity is used for verify whether input series is valid.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = true
   )
@@ -39,7 +39,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
   val maxAnomalyRatio = new ServiceParam[Double](this, "maxAnomalyRatio",
     """
       |Optional argument, advanced model parameter, max anomaly ratio in a time series.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false
   )
@@ -52,7 +52,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     """
       |Optional argument, advanced model parameter, between 0-99,
       |the lower the value is, the larger the margin value will be which means less anomalies will be accepted
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false
   )
@@ -65,7 +65,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     """
       |Custom Interval is used to set non-standard time interval, for example, if the series is 5 minutes,
       | request can be set as granularity=minutely, customInterval=5.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false
   )
@@ -78,7 +78,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     """
       |Optional argument, periodic value of a time series.
       |If the value is null or does not present, the API will determine the period automatically.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false
   )
@@ -93,7 +93,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       |to match the anomaly detection result. If the data is not sorted correctly or
       |there is duplicated timestamp, the API will not work.
       |In such case, an error message will be returned.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = true
   )

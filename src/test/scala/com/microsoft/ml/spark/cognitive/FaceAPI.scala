@@ -19,7 +19,7 @@ object FaceUtils {
   import RESTHelpers._
 
   val baseURL = "https://eastus2.api.cognitive.microsoft.com/face/v1.0/"
-  val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
+  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
