@@ -88,7 +88,8 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
       .withColumn("entities",
         col("replies").getItem(0).getItem("entities").getItem("name"))
       .select("id", "entities").collect().toList
-    assert(results.head.getSeq[String](1).toSet == Set("Windows 10", "Microsoft"))
+    assert(results.head.getSeq[String](1).toSet
+      .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
   }
 
   override def testObjects(): Seq[TestObject[EntityDetector]] =
