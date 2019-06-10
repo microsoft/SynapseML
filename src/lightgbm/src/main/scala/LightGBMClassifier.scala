@@ -96,42 +96,42 @@ class LightGBMClassificationModel(
   override def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
-      require($(thresholds).length == numClasses, this.getClass.getSimpleName +
+      require(getThresholds.length == numClasses, this.getClass.getSimpleName +
         ".transform() called with non-matching numClasses and thresholds.length." +
-        s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
+        s" numClasses=$numClasses, but thresholds has length ${getThresholds.length}")
     }
 
     // Output selected columns only.
     var outputData = dataset
     var numColsOutput = 0
-    if ($(rawPredictionCol).nonEmpty) {
+    if (getRawPredictionCol.nonEmpty) {
       val predictRawUDF = udf { (features: Any) =>
         predictRaw(features.asInstanceOf[Vector])
       }
       outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
-    if ($(probabilityCol).nonEmpty) {
+    if (getProbabilityCol.nonEmpty) {
       val probabilityUDF = udf { (features: Any) =>
         predictProbability(features.asInstanceOf[Vector])
       }
-      val probUDF = probabilityUDF(col($(featuresCol)))
-      outputData = outputData.withColumn($(probabilityCol), probUDF)
+      val probUDF = probabilityUDF(col(getFeaturesCol))
+      outputData = outputData.withColumn(getProbabilityCol, probUDF)
       numColsOutput += 1
     }
-    if ($(predictionCol).nonEmpty) {
-      val predUDF = if ($(rawPredictionCol).nonEmpty && !isDefined(thresholds)) {
+    if (getPredictionCol.nonEmpty) {
+      val predUDF = if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
         // Note: Only call raw2prediction if thresholds not defined
-        udf(raw2prediction _).apply(col($(rawPredictionCol)))
-      } else if ($(probabilityCol).nonEmpty) {
-        udf(probability2prediction _).apply(col($(probabilityCol)))
+        udf(raw2prediction _).apply(col(getRawPredictionCol))
+      } else if (getProbabilityCol.nonEmpty) {
+        udf(probability2prediction _).apply(col(getProbabilityCol))
       } else {
         val predictUDF = udf { (features: Any) =>
           predict(features.asInstanceOf[Vector])
         }
-        predictUDF(col($(featuresCol)))
+        predictUDF(col(getFeaturesCol))
       }
-      outputData = outputData.withColumn($(predictionCol), predUDF)
+      outputData = outputData.withColumn(getPredictionCol, predUDF)
       numColsOutput += 1
     }
 
