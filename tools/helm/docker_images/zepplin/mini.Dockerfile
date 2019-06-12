@@ -13,9 +13,9 @@ ENV LOG_TAG="[ZEPPELIN_${Z_VERSION}]:" \
 RUN echo "$LOG_TAG setting python dependencies" && \
     apk add --no-cache python && \
     pip install --no-cache-dir --upgrade pip setuptools && \
-    rm -rf /root/.cache
+    rm -rf /root/.cache && \
 
-RUN echo "$LOG_TAG Install essentials" && \
+    echo "$LOG_TAG Install essentials" && \
     apk add --no-cache git wget curl && \
     apk add --no-cache && \
     apk --no-cache --update add ca-certificates wget && \
@@ -40,15 +40,11 @@ RUN echo "$LOG_TAG Install essentials" && \
     git checkout ${Z_COMMIT} && \
     echo '{ "allow_root": true }' > /root/.bowerrc && \
     echo "$LOG_TAG building zeppelin" && \
-    # setup \
     cd ${Z_HOME}_src && \
     git status  && \
     mv /tmp/patch_beam.patch . && \
     git apply --ignore-space-change --ignore-whitespace patch_beam.patch && \
     ./dev/change_scala_version.sh 2.11 && \
-    # dendencies
-    # apt-get install -y git libfontconfig r-base-dev r-cran-evaluate wget grep curl sed && \
-    # setup zeppelin-web
     cd ${Z_HOME}_src/zeppelin-web && \
     rm package-lock.json && \
     mkdir -p /usr/local/lib/node_modules && \
@@ -60,9 +56,6 @@ RUN echo "$LOG_TAG Install essentials" && \
     npm install && \
     mvn -e -B package -DskipTests -Pscala-2.11 -Pbuild-distr && \
     cd ${Z_HOME}_src && \
-    # && \
-    # export MAVEN_OPTS="-Xmx2g -Xss128M -XX:MetaspaceSize=512M -XX:MaxMetaspaceSize=1024M -XX:+CMSClassUnloadingEnabled" && \
-    # export MAVEN_OPTS="-Xmx2g -Xss128M -XX:MetaspaceSize=512M -XX:MaxMetaspaceSize=1024M" && \
     export MAVEN_OPTS="-Xmx2048m -XX:MaxPermSize=256m" && \
     mvn -e -B package -DskipTests -Pscala-2.11 -Pbuild-distr && \
     tar xvf ${Z_HOME}_src/zeppelin-distribution/target/zeppelin-0.9.0-SNAPSHOT.tar.gz && \
@@ -101,9 +94,9 @@ RUN echo "$LOG_TAG Install essentials" && \
     rm -rf ${Z_HOME}/interpreter/neo4j && \
     rm -rf ${Z_HOME}/interpreter/livy && \
     rm -rf ${Z_HOME}/interpreter/angular && \
-    rm -rf ${Z_HOME}/interpreter/hbase
+    rm -rf ${Z_HOME}/interpreter/hbase && \
 
-RUN echo "$LOG_TAG installing python related packages" && \
+    echo "$LOG_TAG installing python related packages" && \
     apk add --no-cache g++ python-dev python3-dev build-base wget freetype-dev libpng-dev openblas-dev && \
     pip3 install -U pip && \
     pip3 install --no-cache-dir -U pip setuptools wheel && \
