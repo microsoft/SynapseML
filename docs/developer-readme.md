@@ -6,7 +6,7 @@
     - `git clone https://github.com/Azure/mmlspark.git`
     - `git checkout build-refactor`
 3) Run sbt to compile and grab datasets
-    - `sbt compile test:compile getDatasets`
+    - `sbt setup`
 4) [Install IntelliJ](https://www.jetbrains.com/idea/download)
 5) Configure IntelliJ
     - OPEN the mmlspark directory
