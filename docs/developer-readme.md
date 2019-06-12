@@ -4,6 +4,7 @@
     - Make sure to download JDK 1.8 if you dont have it
 2) Git Clone Repository
     - `git clone https://github.com/Azure/mmlspark.git`
+    - `cd mmlspark`
     - `git checkout build-refactor`
 3) Run sbt to compile and grab datasets
     - `sbt setup`
