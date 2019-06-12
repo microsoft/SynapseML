@@ -32,11 +32,11 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'exec bash && conda activate mmlspark && sbt testPython'
     - task: PublishTestResults@2
-        displayName: 'Publish Test Results **/test-reports/*.xml'
-        inputs:
-          testResultsFiles: 'target/**/generated/test_results/python/*.xml'
-          failTaskOnFailedTests: true
-        condition: succeededOrFailed()
+      displayName: 'Publish Test Results **/test-reports/*.xml'
+      inputs:
+        testResultsFiles: 'target/**/generated/test_results/python/*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
 
 - job: AutoMLTests
   pool:
