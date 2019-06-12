@@ -54,6 +54,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |    .master("local[*]") \\
         |    .appName("$entryPointName") \\
         |    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:$version") \\
+        |    .config("spark.executor.heartbeatInterval", "60s") \\
         |    .getOrCreate()
         |
         |sc = spark.sparkContext
