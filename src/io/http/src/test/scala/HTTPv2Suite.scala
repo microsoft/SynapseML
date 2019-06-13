@@ -263,33 +263,34 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("fault tolerance") {
-    val r = scala.util.Random
-    val flakyUDF = udf({ x: Int =>
-      val d = r.nextDouble()
-      if (d < .03 && x == 1) {
-        println(s"failing on partition $x")
-        throw new RuntimeException()
-      } else {
-        println(s"passing on partition $x")
-        d
+    tryWithRetries(Array(0,100,100)){() =>
+      val r = scala.util.Random
+      val flakyUDF = udf({ x: Int =>
+        val d = r.nextDouble()
+        if (d < .02 && x == 1) {
+          println(s"failing on partition $x")
+          throw new RuntimeException()
+        } else {
+          println(s"passing on partition $x")
+          d
+        }
+      }, DoubleType)
+
+      Thread.sleep(1000)
+      val server = baseWrite(baseDF(epochLength = 1000)
+        .withColumn("foo", flakyUDF(col("id.partitionId")))
+        .makeReply("foo"))
+        .start()
+
+      using(server) {
+        waitForServer(server)
+        val responsesWithLatencies = (1 to 300).map(i =>
+          sendStringRequest(client)
+        )
+        assertLatency(responsesWithLatencies, 200)
+        println(HTTPSourceStateHolder.serviceInfoJson(apiName))
       }
-    }, DoubleType)
-
-    Thread.sleep(1000)
-    val server = baseWrite(baseDF(epochLength = 1000)
-      .withColumn("foo", flakyUDF(col("id.partitionId")))
-      .makeReply("foo"))
-      .start()
-
-    using(server) {
-      waitForServer(server)
-      val responsesWithLatencies = (1 to 300).map(i =>
-        sendStringRequest(client)
-      )
-      assertLatency(responsesWithLatencies, 200)
-      println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
-
   }
 
   test("joins") {
