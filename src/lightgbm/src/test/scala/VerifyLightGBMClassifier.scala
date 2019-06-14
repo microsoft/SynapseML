@@ -7,15 +7,15 @@ import java.io.File
 
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Encoder, Encoders, Row}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{lit, rand}
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
-import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
+import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
-import org.apache.spark.ml.linalg.{Vector, VectorUDT}
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 
@@ -443,6 +443,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
           .setBoostingType(boostingType)
           .fit(trainData)
         val scoredResult = model.transform(trainData).drop(featuresColumn)
+        scoredResult.select(lgbm.getProbabilityCol).collect().foreach(row =>
+          assert(row.getAs[DenseVector](0).values.sum === 1.0))
         val splitFeatureImportances = model.getFeatureImportances("split")
         val gainFeatureImportances = model.getFeatureImportances("gain")
         val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
