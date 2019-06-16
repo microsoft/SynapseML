@@ -149,6 +149,20 @@ Let's break this command and go over the meaning of each part:
   run.
 
 
+## Environment variables
+
+Here's a list of all MMLSpark specific environment variables (`-e`):
+
+* `ACCEPT_EULA`: Used to bypass the EULA check if set to either `y` or `yes`. By
+  default, the EULA is not bypassed. Example usage: `-e ACCEPT_EULA=y`.
+* `MMLSPARK_JUPYTER_PORT`: The port that the Jupyter server listens to. Defaults
+  is `MMLSPARK_JUPYTER_PORT=8888`. E.g. `MMLSPARK_JUPYTER_PORT=80`.
+* `MMLSPARK_PYSPARK_THREADS`: Thread count property for the SparkContext. Should
+  be either a number such as 2, 3 or 8 or an asterisk (`*`) for using all
+  'logical cores'. Defaults is `MMLSPARK_PYSPARK_THREADS=2`. Example:
+  `MMLSPARK_PYSPARK_THREADS=*` would make use of all logical CPU cores.
+
+
 ## Running the container as a server
 
 An alternative to running the Docker image interactively with `-it` is running
