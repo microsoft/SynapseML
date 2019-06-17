@@ -21,7 +21,8 @@ private object TrainUtils extends Serializable {
 
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
                       weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
-                      referenceDataset: Option[LightGBMDataset], schema: StructType): Option[LightGBMDataset] = {
+                      referenceDataset: Option[LightGBMDataset], schema: StructType,
+                      log: Logger): Option[LightGBMDataset] = {
     val numRows = rows.length
     val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
     val hrow = rows.head
@@ -32,14 +33,18 @@ private object TrainUtils extends Serializable {
           case dense: DenseVector => dense.toArray
           case sparse: SparseVector => sparse.toDense.toArray
         })
-        val slotNames = getSlotNames(schema, featuresColumn, rowsAsDoubleArray.head.length)
+        val numCols = rowsAsDoubleArray.head.length
+        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset, slotNames))
       } else {
         val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
           case sparse: SparseVector => sparse
         })
-        val slotNames = getSlotNames(schema, featuresColumn, rowsAsSparse(0).size)
+        val numCols = rowsAsSparse(0).size
+        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames))
       }
 
@@ -220,10 +225,10 @@ private object TrainUtils extends Serializable {
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
       trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
-        weightColumn, initScoreColumn, groupColumn, None, schema)
+        weightColumn, initScoreColumn, groupColumn, None, schema, log)
       if (validationData.isDefined) {
         validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr, schema)
+          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr, schema, log)
       }
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
