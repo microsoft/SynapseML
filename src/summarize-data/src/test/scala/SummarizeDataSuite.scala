@@ -2,6 +2,8 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark
+import java.io.File
+
 import org.apache.spark.ml.util.MLReadable
 
 class SummarizeDataSuite extends TransformerFuzzing[SummarizeData] {
@@ -29,6 +31,7 @@ class SummarizeDataSuite extends TransformerFuzzing[SummarizeData] {
     val result = summary.transform(input)
     assert(result.count === input.columns.length)
     assert(result.columns.length > 18)
+    result.write.parquet(tmpDir + File.separator + "summary.parquet")
   }
 
   test("Smoke test for summarizing missings DF") {
