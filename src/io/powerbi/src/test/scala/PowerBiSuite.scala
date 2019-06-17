@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import java.io.File
+
 import org.apache.spark.SparkException
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{current_timestamp, lit}
@@ -74,8 +76,8 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
   }
 
   test("stream to powerBi", TestBase.BuildServer) {
-    bigdf.write.parquet(tmpDir + "powerBI.parquet")
-    val sdf = session.readStream.schema(df.schema).parquet(tmpDir + "powerBI.parquet")
+    bigdf.write.parquet(tmpDir + File.separator + "powerBI.parquet")
+    val sdf = session.readStream.schema(df.schema).parquet(tmpDir + File.separator + "powerBI.parquet")
     val q1 = PowerBIWriter.stream(sdf, url).start()
     q1.processAllAvailable()
   }
