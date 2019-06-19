@@ -12,9 +12,12 @@ import org.apache.spark.sql.functions.{lit, rand}
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.feature.{Binarizer, StringIndexer}
+import org.apache.spark.TaskContext
+import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.types._
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] {
@@ -39,7 +42,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   verifySaveBooster(
     fileName = "PimaIndian.csv",
     labelColumnName = "Diabetes mellitus",
-    outputFileName = "model.txt")
+    outputFileName = "model.txt",
+    colsToVerify = Array("Diabetes pedigree function", "Age (years)"))
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
     verifyBenchmarks()
@@ -66,6 +70,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val paramGrid = new ParamGridBuilder()
       .addGrid(lgbm.numLeaves, Array(5, 10))
       .addGrid(lgbm.numIterations, Array(10, 20))
+      .addGrid(lgbm.lambdaL1, Array(0.1, 0.5))
+      .addGrid(lgbm.lambdaL2, Array(0.1, 0.5))
       .build()
 
     val trainValidationSplit = new TrainValidationSplit()
@@ -79,6 +85,77 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val model = trainValidationSplit.fit(featurizer.transform(dataset))
     model.transform(featurizer.transform(dataset))
     assert(model != null)
+    // Validate lambda parameters set on model
+    val modelStr = model.bestModel.asInstanceOf[LightGBMClassificationModel].getModel.model
+    assert(modelStr.contains("[lambda_l1: 0.1]") || modelStr.contains("[lambda_l1: 0.5]"))
+    assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
+  }
+
+  ignore("Verify LightGBM Classifier with batch training") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val batches = Array(0, 2, 10)
+    batches.map { numBatches =>
+      val model = lgbm.setNumBatches(numBatches).fit(featurizer.transform(dataset))
+      model.transform(featurizer.transform(dataset))
+      assert(model != null)
+    }
+  }
+
+  test("Verify LightGBM Classifier continued training with initial score") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val initScoreCol = "initScore"
+    val predictionCol = "prediction"
+    val probabilityCol = "probability"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(30)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val trainingData = featurizer.transform(dataset)
+    val model = lgbm.fit(trainingData)
+    val scoredDataWithoutInitScore = model.transform(trainingData)
+    import org.apache.spark.sql.functions.udf
+    val convertUDF = udf((vector: org.apache.spark.ml.linalg.DenseVector) => vector(1))
+    val modelFromInitScore = lgbm.setInitScoreCol(initScoreCol).fit(scoredDataWithoutInitScore
+      .withColumn(initScoreCol, convertUDF(scoredDataWithoutInitScore(rawPredCol)))
+      .drop(predictionCol, probabilityCol, rawPredCol))
+    val scoredDataWithInitScore = modelFromInitScore.transform(trainingData)
+    val eval = new BinaryClassificationEvaluator()
+      .setLabelCol(labelColumnName)
+      .setRawPredictionCol(rawPredCol)
+    val metricWithoutInitScore = eval.evaluate(scoredDataWithoutInitScore)
+    val metricWithInitScore = eval.evaluate(scoredDataWithInitScore)
+    // Verify InitScore parameter improves metric
+    assert(metricWithoutInitScore < metricWithInitScore)
   }
 
   test("Verify LightGBM Classifier with weight column") {
@@ -241,6 +318,44 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(metric > 0.8)
   }
 
+  test("Verify LightGBM Classifier won't get stuck on empty partitions") {
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "PimaIndian.csv"
+    val labelColumnName = "Diabetes mellitus"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val rawPredCol = "rawPrediction"
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setRawPredictionCol(rawPredCol)
+      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setNumLeaves(5)
+      .setNumIterations(10)
+      .setObjective(binaryObjective)
+
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val infoSchema = new StructType()
+      .add(labelColumnName, IntegerType).add(featuresColumn, org.apache.spark.ml.linalg.SQLDataTypes.VectorType)
+    val infoEnc = RowEncoder(infoSchema)
+    val trainData = featurizer.transform(dataset).select(labelColumnName, featuresColumn)
+      .mapPartitions(iter => {
+        val ctx = TaskContext.get
+        val partId = ctx.partitionId
+        // Create an empty partition
+        if (partId == 0) {
+          Iterator()
+        } else {
+          iter
+        }
+      })(infoEnc)
+    val model = lgbm.fit(trainData)
+    model.transform(trainData)
+    assert(model != null)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.
@@ -328,6 +443,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
           .setBoostingType(boostingType)
           .fit(trainData)
         val scoredResult = model.transform(trainData).drop(featuresColumn)
+        scoredResult.select(lgbm.getProbabilityCol).collect().foreach(row =>
+          assert(row.getAs[DenseVector](0).values.sum === 1.0))
         val splitFeatureImportances = model.getFeatureImportances("split")
         val gainFeatureImportances = model.getFeatureImportances("gain")
         val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
@@ -362,8 +479,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   def verifySaveBooster(fileName: String,
-                       outputFileName: String,
-                       labelColumnName: String): Unit = {
+                        outputFileName: String,
+                        labelColumnName: String,
+                        colsToVerify: Array[String]): Unit = {
     test("Verify LightGBMClassifier save booster to " + fileName) {
       // Increment port index
       portIndex += numPartitions
@@ -390,6 +508,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = model.getModel.model
+      // Verify model string contains some feature
+      colsToVerify.foreach(col => oldModelString.contains(col))
       val newModel = lgbm.setLabelCol(labelColumnName)
         .setFeaturesCol(featuresColumn)
         .setRawPredictionCol(rawPredCol)

@@ -95,9 +95,10 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
       val sliceEnd = endOrdinal - lastOffsetCommitted.offset.toInt - 1
       requests.slice(sliceStart, sliceEnd).map{ case(id, request) =>
         val row = new GenericInternalRow(2)
-        val idRow = new GenericInternalRow(2)
-        idRow.update(0, UTF8String.fromString(id.toString))
-        idRow.update(1, null)
+        val idRow = new GenericInternalRow(3)
+        idRow.update(0, null)
+        idRow.update(1, UTF8String.fromString(id.toString))
+        idRow.update(2, null)
         row.update(0, idRow)
         row.update(1, hrdToIr(HTTPRequestData.fromHTTPExchange(request)))
         row.asInstanceOf[InternalRow]
@@ -158,7 +159,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     if (!parameters.contains("port")) {
       throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
     }
-    if (!parameters.contains("name")) {
+    if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
     ("HTTP", HTTPSourceV2.SCHEMA)
@@ -171,7 +172,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
                             parameters: Map[String, String]): Source = {
     val host = parameters("host")
     val port = parameters("port").toInt
-    val name = parameters("name")
+    val name = parameters("path")
     val source = new HTTPSource(name, host, port, sqlContext)
     source
   }
@@ -199,8 +200,9 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
     assert(idType == HTTPSourceV2.ID_SCHEMA, s"id col is $idType, need ${HTTPSourceV2.ID_SCHEMA}")
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
+
     val replies = data.queryExecution.toRdd.map { ir =>
-      (ir.getStruct(idColIndex, 2).getString(0), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      (ir.getStruct(idColIndex, 3).getString(1), irToResponseData(ir.getStruct(replyColIndex, 4)))
       // 4 is the Number of fields of HTTPResponseData,
       // there does not seem to be a way to get this w/o reflection
     }.collect()

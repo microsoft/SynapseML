@@ -13,7 +13,13 @@ object LightGBMConstants {
   /** Default buffer length for model
     */
   val defaultBufferLength: Int = 10000
+  /** Lambdarank ranking objective
+    */
+  val rankObjective: String = "lambdarank"
   /** Binary classification objective
     */
   val binaryObjective: String = "binary"
+  /** Ignore worker status, used to ignore workers that get empty partitions
+    */
+  val ignoreStatus: String = "ignore"
 }

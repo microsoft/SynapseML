@@ -20,6 +20,7 @@ import StreamUtilities.using
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.sys.process.Process
+import scala.concurrent.blocking
 
 object DatabricksUtilities {
   lazy val requestTimeout = 60000
@@ -73,7 +74,7 @@ object DatabricksUtilities {
       case t: Throwable =>
         val waitTime = backoffs.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        Thread.sleep(waitTime.toLong)
+        blocking {Thread.sleep(waitTime.toLong)}
         retry(backoffs.tail, f)
     }
   }

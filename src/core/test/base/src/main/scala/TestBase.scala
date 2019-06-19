@@ -19,6 +19,7 @@ import org.scalactic.source.Position
 import org.scalatest._
 
 import scala.reflect.ClassTag
+import scala.concurrent.blocking
 
 // Common test tags
 object TestBase {
@@ -41,19 +42,20 @@ trait LinuxOnly extends TestBase {
 
 abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
 
-  println(s"\n>>>-------------------- $this --------------------<<<")
-
   // "This Is A Bad Thing" according to my research. However, this is
   // just for tests so maybe ok. A better design would be to break the
   // session stuff into TestSparkSession as a trait and have test suites
   // that need it "with TestSparkSession" instead, but that's a lot of
   // changes right now and maybe not desired.
+
+  protected val numRetries = 1
+  protected val logLevel = "WARN"
   private var sessionInitialized = false
   protected lazy val session: SparkSession = {
     info(s"Creating a spark session for suite $this")
     sessionInitialized = true
     SparkSessionFactory
-      .getSession(s"$this", logLevel = "WARN")
+      .getSession(s"$this", logLevel = logLevel, numRetries)
   }
 
   protected lazy val sc: SparkContext = session.sparkContext
@@ -118,7 +120,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
         return block()
       } catch {
         case _: Exception if (i + 1) < times.length =>
-          Thread.sleep(t.toLong)
+          blocking {Thread.sleep(t.toLong)}
       }
     }
     throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")

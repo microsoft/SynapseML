@@ -53,13 +53,16 @@ object ServerUtils {
 }
 
 trait WithFreeUrl {
-  val host              = "localhost"
-  val apiName           = "foo"
+  val host      = "localhost"
+  val apiPath   = "foo"
+  val apiName   = "service1"
   //Note this port should be used immediately to avoid race conditions
   lazy val port: Int    =
     StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
+  lazy val port2: Int    =
+    StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
   lazy val url:String   = {
-    s"http://$host:$port/$apiName"
+    s"http://$host:$port/$apiPath"
   }
 }
 
@@ -67,7 +70,7 @@ trait WithServer extends TestBase with WithFreeUrl {
   var server: Option[HttpServer] = None
 
   override def beforeAll(): Unit = {
-    server = Some(ServerUtils.createServer(host, port, apiName))
+    server = Some(ServerUtils.createServer(host, port, apiPath))
     super.beforeAll()
   }
 

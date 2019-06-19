@@ -189,7 +189,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
+      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
 
   test("Basic Usage with Bytes") {
@@ -198,7 +198,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS.ALL YOU HAVE TO DO IS WALK IN")
+      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
 
   override def testObjects(): Seq[TestObject[RecognizeText]] =

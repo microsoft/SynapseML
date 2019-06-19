@@ -38,7 +38,7 @@ object Extras {
     "com.jcraft"          % "jsch"         % "0.1.54",
     "com.jcraft"          % "jsch"         % "0.1.54",
     "org.apache.httpcomponents" % "httpclient"   % "4.5.6",
-    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.301" from "file:///home/vagrant/LightGBM/lightgbmlib.jar",
+    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.350", // from "file:///home/vagrant/LightGBM/lightgbmlib.jar",
     "org.vowpalwabbit.spark" %  "vowpalwabbit" % "8.6.1" from "file:///home/vagrant/vowpal_wabbit/java/bare/target/vw-bare-jni-8.6.1-SNAPSHOT.jar"
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
@@ -49,6 +49,7 @@ object Extras {
     // spark wants 2.2.6, but we don't use its tests anyway
     "org.scalatest" %% "scalatest" % "3.0.0" % "provided"
     )
+
 
   def artifactsDir = file(env("BUILD_ARTIFACTS", "../BuildArtifacts"))
   def testsDir     = file(env("TEST_RESULTS", "../TestResults"))

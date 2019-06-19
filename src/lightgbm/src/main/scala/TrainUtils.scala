@@ -6,82 +6,107 @@ package com.microsoft.ml.spark
 import java.io._
 import java.net._
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_float, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.StreamUtilities.using
 import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.Row
 import org.slf4j.Logger
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
 
 private object TrainUtils extends Serializable {
 
-  private def addField(field: Array[Double], fieldName: String, numRows: Int, datasetPtr: Option[SWIGTYPE_p_void]) = {
-    // Generate the column and add to dataset
-    var colArray: Option[SWIGTYPE_p_float] = None
-    try {
-      colArray = Some(lightgbmlib.new_floatArray(numRows))
-      field.zipWithIndex.foreach(ri =>
-        lightgbmlib.floatArray_setitem(colArray.get, ri._2, ri._1.toFloat))
-      val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(colArray.get)
-      val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
-      LightGBMUtils.validate(
-        lightgbmlib.LGBM_DatasetSetField(datasetPtr.get, fieldName, colAsVoidPtr, numRows, data32bitType),
-        "DatasetSetField")
-    } finally {
-      // Free column
-      colArray.foreach(lightgbmlib.delete_floatArray(_))
-    }
-  }
-
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
-                      weightColumn: Option[String],
-                      referenceDataset: Option[SWIGTYPE_p_void]): Option[SWIGTYPE_p_void] = {
+                      weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
+                      referenceDataset: Option[LightGBMDataset], schema: StructType): Option[LightGBMDataset] = {
     val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(row.fieldIndex(labelColumn)))
+    val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
     val hrow = rows.head
-    var datasetPtr: Option[SWIGTYPE_p_void] = None
+    var datasetPtr: Option[LightGBMDataset] = None
     datasetPtr =
-      if (hrow.get(hrow.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-        val rowsAsDoubleArray = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+      if (hrow.get(schema.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toArray
           case sparse: SparseVector => sparse.toDense.toArray
         })
-        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset))
+        val slotNames = getSlotNames(schema, featuresColumn, rowsAsDoubleArray.head.length)
+        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset, slotNames))
       } else {
-        val rowsAsSparse = rows.map(row => row.get(row.fieldIndex(featuresColumn)) match {
+        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
           case sparse: SparseVector => sparse
         })
-        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset))
+        val slotNames = getSlotNames(schema, featuresColumn, rowsAsSparse(0).size)
+        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames))
       }
 
     // Validate generated dataset has the correct number of rows and cols
-    validateDataset(datasetPtr.get)
-    addField(labels, "label", numRows, datasetPtr)
+    datasetPtr.get.validateDataset()
+    datasetPtr.get.addFloatField(labels, "label", numRows)
     weightColumn.foreach { col =>
-      val weights = rows.map(row => row.getDouble(row.fieldIndex(col)))
-      addField(weights, "weight", numRows, datasetPtr)
+      val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
+      datasetPtr.get.addFloatField(weights, "weight", numRows)
+    }
+    addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
+    initScoreColumn.foreach { col =>
+      val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
+      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
     }
     datasetPtr
   }
 
-  def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[SWIGTYPE_p_void],
-                    validDatasetPtr: Option[SWIGTYPE_p_void]): Option[SWIGTYPE_p_void] = {
+  def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
+                     datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
+    groupColumn.foreach { col =>
+      val datatype = schema.fields(schema.fieldIndex(col)).dataType
+      val group =
+        if (datatype == org.apache.spark.sql.types.IntegerType) {
+          rows.map(row => row.getInt(schema.fieldIndex(col)))
+        } else {
+          rows.map(row => row.getLong(schema.fieldIndex(col)).toInt)
+        }
+
+      // Convert to distinct count (note ranker should have sorted within partition by group id)
+      // We use a triplet of a list of cardinalities, last unqiue value and unique value count
+      val cardinalityTriplet =
+      group.foldLeft((List.empty[Int], -1, 0)) { (listValue, currentValue) =>
+        if (listValue._2 < 0) {
+          // Base case, keep list as empty and set cardinality to 1
+          (listValue._1, currentValue, 1)
+        }
+        else if (listValue._2 == currentValue) {
+          // Encountered same value
+          (listValue._1, currentValue, listValue._3 + 1)
+        }
+        else {
+          // New value, need to reset counter and add new cardinality to list
+          (listValue._3 :: listValue._1, currentValue, 1)
+        }
+      }
+      val groupCardinality = (cardinalityTriplet._3 :: cardinalityTriplet._1).reverse.toArray
+      datasetPtr.get.addIntField(groupCardinality, "group", groupCardinality.length)
+    }
+  }
+
+  def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[LightGBMDataset],
+                    validDatasetPtr: Option[LightGBMDataset]): Option[SWIGTYPE_p_void] = {
     // Create the booster
     val boosterOutPtr = lightgbmlib.voidpp_handle()
     val parameters = trainParams.toString()
-    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDatasetPtr.get, parameters, boosterOutPtr), "Booster")
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDatasetPtr.map(_.dataset).get,
+                                                          parameters, boosterOutPtr), "Booster")
     val boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
     trainParams.modelString.foreach { modelStr =>
       val booster = LightGBMUtils.getBoosterPtrFromModelString(modelStr)
       LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
     }
-    validDatasetPtr.foreach { dataset =>
+    validDatasetPtr.foreach { lgbmdataset =>
       LightGBMUtils.validate(lightgbmlib.LGBM_BoosterAddValidData(boosterPtr.get,
-        dataset), "Add Validation Dataset")
+        lgbmdataset.dataset), "Add Validation Dataset")
     }
     boosterPtr
   }
@@ -118,6 +143,7 @@ private object TrainUtils extends Serializable {
     val bestIter = new Array[Int](evalCounts)
     while (!isFinished && iters < trainParams.numIterations) {
       try {
+        log.info("LightGBM worker calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
         LightGBMUtils.validate(result, "Booster Update One Iter")
         isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
@@ -129,14 +155,26 @@ private object TrainUtils extends Serializable {
           log.warn("LightGBM reached early termination on one worker," +
             " stopping training on worker. This message should rarely occur")
       }
+      if (trainParams.isProvideTrainingMetric && !isFinished) {
+        val trainResults = lightgbmlib.new_doubleArray(evalNames.length)
+        val dummyEvalCountsPtr = lightgbmlib.new_intp()
+        val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 0, dummyEvalCountsPtr, trainResults)
+        lightgbmlib.delete_intp(dummyEvalCountsPtr)
+        LightGBMUtils.validate(resultEval, "Booster Get Train Eval")
+        evalNames.zipWithIndex.foreach { case (evalName, index) =>
+          val score = lightgbmlib.doubleArray_getitem(trainResults, index)
+          log.info(s"Train $evalName=$score")
+        }
+      }
       if (hasValid && !isFinished) {
         val evalResults = lightgbmlib.new_doubleArray(evalNames.length)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
-        LightGBMUtils.validate(resultEval, "Booster Get Eval")
+        LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
         evalNames.zipWithIndex.foreach { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(evalResults, index)
+          log.info(s"Valid $evalName=$score")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
               (x: Double, y: Double) => x > y
@@ -158,62 +196,52 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
-                validationData: Option[Array[Row]], log: Logger,
-                trainParams: TrainParams, inputRows: Iterator[Row]): Option[LightGBMBooster] = {
-    if (!inputRows.hasNext) {
-      // List[LightGBMBooster]().toIterator
-      None
-    } else {
-      val rows = inputRows.toArray
-      var trainDatasetPtr: Option[SWIGTYPE_p_void] = None
-      var validDatasetPtr: Option[SWIGTYPE_p_void] = None
-      try {
-        trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn, weightColumn, None)
-        if (validationData.isDefined) {
-          validDatasetPtr = generateDataset(validationData.get, labelColumn,
-            featuresColumn, weightColumn, trainDatasetPtr)
-        }
-        var boosterPtr: Option[SWIGTYPE_p_void] = None
-        try {
-          boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-          trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
-          val model = saveBoosterToString(boosterPtr, log)
-          // List[LightGBMBooster](new LightGBMBooster(model)).toIterator
-          Option(new LightGBMBooster(model))
-        } finally {
-          // Free booster
-          boosterPtr.foreach { booster =>
-            LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
-          }
-        }
-      } finally {
-        // Free datasets
-        trainDatasetPtr.foreach(dataset =>
-          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Train Dataset"))
-        validDatasetPtr.foreach(dataset =>
-          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Validation Dataset"))
+  def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int): Option[Array[String]] = {
+    val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
+    val metadata = AttributeGroup.fromStructField(featuresSchema)
+    if (metadata.attributes.isEmpty) None
+    else if (metadata.attributes.get.isEmpty) None
+    else {
+      val colnames = (0 until numCols).map(_.toString).toArray
+      metadata.attributes.get.foreach {
+        case attr =>
+          attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
       }
+      Some(colnames)
     }
   }
 
-  private def validateDataset(datasetPtr: SWIGTYPE_p_void): Unit = {
-    // Validate num rows
-    val numDataPtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
-    val numData = lightgbmlib.intp_value(numDataPtr)
-    if (numData <= 0) {
-      throw new Exception("Unexpected num data: " + numData)
-    }
-
-    // Validate num cols
-    val numFeaturePtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetGetNumFeature(datasetPtr, numFeaturePtr),
-      "DatasetGetNumFeature")
-    val numFeature = lightgbmlib.intp_value(numFeaturePtr)
-    if (numFeature <= 0) {
-      throw new Exception("Unexpected num feature: " + numFeature)
+  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
+                initScoreColumn: Option[String], groupColumn: Option[String],
+                validationData: Option[Broadcast[Array[Row]]],
+                log: Logger, trainParams: TrainParams, schema: StructType,
+                inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    val rows = inputRows.toArray
+    var trainDatasetPtr: Option[LightGBMDataset] = None
+    var validDatasetPtr: Option[LightGBMDataset] = None
+    try {
+      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
+        weightColumn, initScoreColumn, groupColumn, None, schema)
+      if (validationData.isDefined) {
+        validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
+          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr, schema)
+      }
+      var boosterPtr: Option[SWIGTYPE_p_void] = None
+      try {
+        boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
+        trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        val model = saveBoosterToString(boosterPtr, log)
+        List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+      } finally {
+        // Free booster
+        boosterPtr.foreach { booster =>
+          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
+        }
+      }
+    } finally {
+      // Free datasets
+      trainDatasetPtr.foreach(_.close())
+      validDatasetPtr.foreach(_.close())
     }
   }
 
@@ -225,8 +253,9 @@ private object TrainUtils extends Serializable {
     workerServerSocket
   }
 
-  def getNodes(networkParams: NetworkParams,
-               localListenPort: Int, log: Logger): String = {
+  def getNetworkInitNodes(networkParams: NetworkParams,
+                          localListenPort: Int, log: Logger,
+                          emptyPartition: Boolean): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
         using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
@@ -234,51 +263,84 @@ private object TrainUtils extends Serializable {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
-            val workerHost = driverSocket.getLocalAddress.getHostAddress
-            log.info(s"send current worker info to driver: $workerHost:$localListenPort ")
+            val workerStatus =
+              if (emptyPartition) {
+                log.info("send empty status to driver")
+                LightGBMConstants.ignoreStatus
+              } else {
+                val workerHost = driverSocket.getLocalAddress.getHostAddress
+                val workerInfo = s"$workerHost:$localListenPort"
+                log.info(s"send current worker info to driver: $workerInfo ")
+                workerInfo
+              }
             // Send the current host:port to the driver
-            driverOutput.write(s"$workerHost:$localListenPort\n")
+            driverOutput.write(s"$workerStatus\n")
             driverOutput.flush()
-            // Wait to get the list of nodes from the driver
-            val nodes = driverInput.readLine()
-            log.info(s"LightGBM worker got nodes for network init: $nodes")
-            nodes
+            if (workerStatus != LightGBMConstants.ignoreStatus) {
+              // Wait to get the list of nodes from the driver
+              val nodes = driverInput.readLine()
+              log.info(s"LightGBM worker got nodes for network init: $nodes")
+              nodes
+            } else {
+              workerStatus
+            }
         }.get
     }.get
   }
 
+  def networkInit(nodes: String, localListenPort: Int, log: Logger, retry: Int, delay: Long): Unit = {
+    try {
+      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
+        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
+    } catch {
+      case ex @ (_: Exception | _: Throwable) => {
+        log.info(s"NetworkInit failed with exception on local port $localListenPort with exception: $ex")
+        Thread.sleep(delay)
+        if (retry > 0) {
+          log.info(s"Retrying NetworkInit with local port $localListenPort")
+          networkInit(nodes, localListenPort, log, retry - 1, delay * 2)
+        } else {
+          log.info(s"NetworkInit reached maximum exceptions on retry: $ex")
+          throw ex
+        }
+      }
+    }
+  }
+
   def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], validationData: Option[Array[Row]], log: Logger,
-                    trainParams: TrainParams, numCoresPerExec: Int)
-                   (inputRows: Iterator[Row]): Iterator[Option[LightGBMBooster]] = {
+                    weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
+                    validationData: Option[Broadcast[Array[Row]]], log: Logger,
+                    trainParams: TrainParams, numCoresPerExec: Int, schema: StructType)
+                   (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    val emptyPartition = !inputRows.hasNext
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
     // should not be a problem
-    val (nodes, localListenPort) =
-      using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
-        openPort =>
-          val localListenPort = openPort.getLocalPort
+    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
+      openPort =>
+        val localListenPort = openPort.getLocalPort
+        // Initialize the native library
+        LightGBMUtils.initializeNativeLibrary()
+        log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
+        (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
+    }.get
 
-          // Initialize the native library
-          LightGBMUtils.initializeNativeLibrary()
-          val executorId = LightGBMUtils.getId()
-          log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-          (getNodes(networkParams, localListenPort, log), localListenPort)
-      }.get
-
-    // Initialize the network communication
-    log.info(s"LightGBM worker listening on: $localListenPort")
-    try {
-      val nodeList = nodes.split(",")
-      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMConstants.defaultListenTimeout, nodeList.length), "Network init")
-      val booster = translate(labelColumn, featuresColumn, weightColumn, validationData, log, trainParams, inputRows)
-
-      Seq(if (TaskContext.get.partitionId== 0) booster
-          else None).iterator
-    } finally {
-      // Finalize network when done
-      LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
+    if (emptyPartition) {
+      log.warn("LightGBM worker encountered empty partition, for best performance ensure no partitions empty")
+      List[LightGBMBooster]().toIterator
+    } else {
+      // Initialize the network communication
+      log.info(s"LightGBM worker listening on: $localListenPort")
+      try {
+        val retries = 3
+        val initialDelay = 1000L
+        networkInit(nodes, localListenPort, log, retries, initialDelay)
+        translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, groupColumn, validationData,
+          log, trainParams, schema, inputRows)
+      } finally {
+        // Finalize network when done
+        LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
+      }
     }
   }
 

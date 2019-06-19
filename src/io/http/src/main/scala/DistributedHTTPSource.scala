@@ -322,7 +322,7 @@ class DistributedHTTPSource(name: String,
       s.updateCurrentBatch(currentOffset.offset)
       s.getRequests(startOrdinal, endOrdinal)
         .map{ case (id, request) =>
-          Row.fromSeq(Seq(Row(id, null), toRow(request)))
+          Row.fromSeq(Seq(Row(null, id, null), toRow(request)))
         }.toIterator
     }(RowEncoder(HTTPSourceV2.SCHEMA))
   }
@@ -364,7 +364,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     if (!parameters.contains("port")) {
       throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
     }
-    if (!parameters.contains("name")) {
+    if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
     ("DistributedHTTP", HTTPSourceV2.SCHEMA)
@@ -377,13 +377,13 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
                             parameters: Map[String, String]): Source = {
     val host = parameters("host")
     val port = parameters("port").toInt
-    val name = parameters("name")
+    val name = parameters("path")
     val maxPartitions = parameters.get("maxPartitions").map(_.toInt)
     val maxAttempts = parameters.getOrElse("maxPortAttempts", "10").toInt
     val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "false").toBoolean
     val source = new DistributedHTTPSource(
       name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
-    DistributedHTTPSink.activeSinks(parameters("name")).linkWithSource(source)
+    DistributedHTTPSink.activeSinks(parameters("path")).linkWithSource(source)
 
     parameters.get("deployLoadBalancer") match {
       case Some(s) if s.toBoolean =>
@@ -434,7 +434,7 @@ class DistributedHTTPSink(val options: Map[String, String])
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     data.queryExecution.toRdd.map { ir =>
-      (ir.getStruct(idColIndex, 2).getString(0), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      (ir.getStruct(idColIndex, 3).getString(1), irToResponseData(ir.getStruct(replyColIndex, 4)))
     }.foreach { case (id, value) =>
       server.get.respond(batchId, id, value)
     }

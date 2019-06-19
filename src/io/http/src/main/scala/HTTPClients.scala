@@ -15,6 +15,7 @@ import org.apache.spark.sql.types.StringType
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.util.Try
+import scala.concurrent.blocking
 
 trait Handler {
 
@@ -80,7 +81,7 @@ object HandlingUtils extends SparkLogging {
                 case _ => request.getURI
               }
             }")
-            Thread.sleep(h.getValue.toLong * 1000)
+            blocking {Thread.sleep(h.getValue.toLong * 1000)}
           }
         false
       case 400 =>
@@ -99,7 +100,7 @@ object HandlingUtils extends SparkLogging {
       response
     } else {
       response.close()
-      Thread.sleep(retriesLeft.head.toLong)
+      blocking {Thread.sleep(retriesLeft.head.toLong)}
       sendWithRetries(client, request, retriesLeft.tail)
     }
   }

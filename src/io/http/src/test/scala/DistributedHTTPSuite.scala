@@ -9,15 +9,17 @@ import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import com.microsoft.ml.spark.FileUtilities.File
 import com.microsoft.ml.spark.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.{ByteArrayEntity, FileEntity, StringEntity}
+import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
-import org.apache.spark.sql.functions.{col, length, udf}
-import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery, Trigger}
+import org.apache.spark.sql.functions.{col, length}
+import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.scalatest.Assertion
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -36,19 +38,63 @@ trait HTTPTestUtils extends WithFreeUrl {
     throw new TimeoutException(s"Server Did not start within $maxTimeWaited ms")
   }
 
-  def sendStringRequest(client: CloseableHttpClient): (String, Long) = {
+  def sendStringRequest(client: CloseableHttpClient,
+                        url: String = url,
+                        payload: String = "foo",
+                        targetCode: Int = 200): (String, Double) = {
     val post = new HttpPost(url)
-    val e = new StringEntity("foo")
+    val e = new StringEntity(payload)
     post.setEntity(e)
+    println("request sent")
+    val t0 = System.nanoTime()
+    val res = client.execute(post)
+    val t1 = System.nanoTime()
+
+    assert(targetCode == res.getStatusLine.getStatusCode)
+    val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
+      null
+    } else {
+      new BasicResponseHandler().handleResponse(res)
+    }
+    res.close()
+    println("request suceeded")
+    (out, (t1 - t0) / 1e6)
+  }
+
+  def using(c: StreamingQuery)(t: => Unit): Unit = {
+    try {
+      t
+    } finally {
+      c.stop()
+    }
+  }
+
+  lazy val requestTimeout = 600000
+
+  lazy val requestConfig: RequestConfig = RequestConfig.custom()
+    .setConnectTimeout(requestTimeout)
+    .setConnectionRequestTimeout(requestTimeout)
+    .setSocketTimeout(requestTimeout)
+    .build()
+
+  lazy val client: CloseableHttpClient = HttpClientBuilder
+    .create().setDefaultRequestConfig(requestConfig).build()
+
+  def sendJsonRequest(client: CloseableHttpClient, payload: Int): (String, Long) = {
+    val post = new HttpPost(url)
+    val e = new StringEntity("{\"data\":" + s"$payload}")
+    post.setEntity(e)
+    println("request sent")
     val t0 = System.currentTimeMillis()
     val res = client.execute(post)
     val t1 = System.currentTimeMillis()
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
-    (out, t1-t0)
+    println("request suceeded")
+    (out, t1 - t0)
   }
 
-  def sendStringRequestAsync(client: CloseableHttpClient): Future[(String, Long)] = {
+  def sendStringRequestAsync(client: CloseableHttpClient): Future[(String, Double)] = {
     Future {
       sendStringRequest(client)
     }
@@ -71,17 +117,17 @@ trait HTTPTestUtils extends WithFreeUrl {
     }
   }
 
-  def sendFileRequest(client: CloseableHttpClient): (String, Long) = {
+  def sendFileRequest(client: CloseableHttpClient): (String, Double) = {
     val post = new HttpPost(url)
     val e = new FileEntity(new File(
       s"${sys.env("DATASETS_HOME")}/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg"))
     post.setEntity(e)
-    val t0 = System.currentTimeMillis()
+    val t0 = System.nanoTime()
     val res = client.execute(post)
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
-    val t1 = System.currentTimeMillis()
-    (out, t1-t0)
+    val t1 = System.nanoTime()
+    (out, (t1 - t0)/1e6)
   }
 
   def mean(xs: List[Int]): Double = xs match {
@@ -92,16 +138,27 @@ trait HTTPTestUtils extends WithFreeUrl {
   def stddev(xs: List[Int], avg: Double): Double = xs match {
     case Nil => 0.0
     case ys => math.sqrt((0.0 /: ys) {
-      (a,e) => a + math.pow(e - avg, 2.0)
+      (a, e) => a + math.pow(e - avg, 2.0)
     } / xs.size)
   }
 
   lazy implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
+  def assertLatency(responsesWithLatencies: Seq[(String, Double)], cutoff: Double): Unit = {
+    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
+    //responsesWithLatencies.foreach(r => println(r._1))
+    val meanLatency = mean(latencies)
+    val stdLatency = stddev(latencies, meanLatency)
+    println(s"Latency = $meanLatency +/- $stdLatency")
+    assert(meanLatency < cutoff)
+    ()
+  }
+
 }
 
 // TODO add tests for shuffles
-class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
+class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
+  import ServingImplicits._
 
   // Logger.getRootLogger.setLevel(Level.WARN)
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
@@ -112,7 +169,7 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
     session.readStream.format(classOf[DistributedHTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toLong)
-      .option("name", "foo")
+      .option("path", "foo")
       .option("maxPartitions", 5)
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
@@ -128,30 +185,24 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
 
   test("standard client", TestBase.Extended) {
     val server = createServer().start()
-    val client = HttpClientBuilder.create().build()
+    using(server){
+      waitForServer(server)
+      val responses = List(
+        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
+        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
+        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
+        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
+      )
+      val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
-    waitForServer(server)
+      assert(responses === correctResponses)
 
-    val responses = List(
-      sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
-      sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
-      sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
-      sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
-    )
-    val correctResponses = List(27, 28, 29, 30).map(_.toString)
-
-    assert(responses === correctResponses)
-
-    (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
-      .foreach(resp => assert(resp === "27"))
-
-    server.stop()
-    client.close()
+      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
+        .foreach(resp => assert(resp === "27"))
+    }
   }
 
   test("test implicits", TestBase.Extended) {
-    import ServingImplicits._
-
     val server = session.readStream.server
       .address(host, port, "foo")
       .option("maxPartitions", 3)
@@ -166,35 +217,31 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    val client = HttpClientBuilder.create().build()
+    using(server){
+      waitForServer(server)
+      val responses = List(
+        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
+        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
+        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
+        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
+      )
+      val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
-    waitForServer(server)
+      assert(responses === correctResponses)
 
-    val responses = List(
-      sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
-      sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
-      sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
-      sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
-    )
-    val correctResponses = List(27, 28, 29, 30).map(_.toString)
+      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
+        .foreach(resp => assert(resp === "27"))
+    }
 
-    assert(responses === correctResponses)
-
-    (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
-      .foreach(resp => assert(resp === "27"))
-
-    server.stop()
-    client.close()
   }
 
   test("test implicits 2", TestBase.Extended) {
-    import ServingImplicits._
 
     val server = session.readStream.server
       .address(host, port, "foo")
       .option("maxPartitions", 5)
       .load()
-      .parseRequest(BinaryType)
+      .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length")
       .writeStream
@@ -205,22 +252,18 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    val client = HttpClientBuilder.create().build()
+    using(server){
+      waitForServer(server)
+      val responsesWithLatencies = (1 to 100).map(i => sendFileRequest(client))
 
-    waitForServer(server)
+      val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
+      val meanLatency = mean(latencies)
+      val stdLatency = stddev(latencies, meanLatency)
+      println(s"Latency = $meanLatency +/- $stdLatency")
 
-    val responsesWithLatencies = (1 to 100).map( i =>
-      sendFileRequest(client)
-    )
+      responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
+    }
 
-    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
-    val meanLatency = mean(latencies)
-    val stdLatency = stddev(latencies, meanLatency)
-    println(s"Latency = $meanLatency +/- $stdLatency")
-
-    responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
-    server.stop()
-    client.close()
   }
 
   test("test implicits 2 distributed", TestBase.Extended) {
@@ -230,7 +273,7 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
       .address(host, port, "foo")
       .option("maxPartitions", 5)
       .load()
-      .parseRequest(BinaryType)
+      .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length")
       .writeStream
@@ -241,106 +284,102 @@ class DistributedHTTPSuite extends TestBase  with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    val client = HttpClientBuilder.create().build()
+    using(server){
+      waitForServer(server)
+      val responsesWithLatencies = (1 to 100).map(i =>
+        sendFileRequest(client)
+      )
 
-    waitForServer(server)
+      val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
+      val meanLatency = mean(latencies)
+      val stdLatency = stddev(latencies, meanLatency)
+      println(s"Latency = $meanLatency +/- $stdLatency")
 
-    val responsesWithLatencies = (1 to 100).map( i =>
-      sendFileRequest(client)
-    )
+      responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
+    }
 
-    val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
-    val meanLatency = mean(latencies)
-    val stdLatency = stddev(latencies, meanLatency)
-    println(s"Latency = $meanLatency +/- $stdLatency")
-
-    responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
-    server.stop()
-    client.close()
   }
 
   test("python client", TestBase.Extended) {
     val server = createServer().start()
 
-    waitForServer(server)
+    using(server){
+      waitForServer(server)
 
-    val pythonClientCode =
-      s"""import requests
-         |import threading
-         |import time
-         |
+      val pythonClientCode =
+        s"""import requests
+           |import threading
+           |import time
+           |
          |exitFlag = 0
-         |s = requests.Session()
-         |
+           |s = requests.Session()
+           |
          |class myThread(threading.Thread):
-         |    def __init__(self, threadID):
-         |        threading.Thread.__init__(self)
-         |        self.threadID = threadID
-         |
+           |    def __init__(self, threadID):
+           |        threading.Thread.__init__(self)
+           |        self.threadID = threadID
+           |
          |    def run(self):
-         |        print("Starting " + str(self.threadID))
-         |        r = s.post("$url",
-         |                          data={"number": 12524, "type": "issue", "action": "show"},
-         |                          headers = {"content-type": "application/json"},
-         |                          timeout=15)
-         |
+           |        print("Starting " + str(self.threadID))
+           |        r = s.post("$url",
+           |                          data={"number": 12524, "type": "issue", "action": "show"},
+           |                          headers = {"content-type": "application/json"},
+           |                          timeout=15)
+           |
          |        assert r.status_code==200
-         |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
-         |
+           |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
+           |
          |
          |threads = []
-         |for i in range(4):
-         |    # Create new threads
-         |    t = myThread(i)
-         |    t.start()
-         |    threads.append(t)
-         |
+           |for i in range(4):
+           |    # Create new threads
+           |    t = myThread(i)
+           |    t.start()
+           |    threads.append(t)
+           |
          |""".stripMargin
 
-    val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
-    FileUtilities.writeFile(pythonFile, pythonClientCode)
+      val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
+      FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-    val processes = (1 to 50).map(_ =>
-      Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
-    )
+      val processes = (1 to 50).map(_ =>
+        Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
+      )
 
-    processes.foreach { p =>
-      p.waitFor
-      val output = IOUtils.toString(p.getInputStream)
-      val error = IOUtils.toString(p.getErrorStream)
-      assert(error === "")
+      processes.foreach { p =>
+        p.waitFor
+        val output = IOUtils.toString(p.getInputStream)
+        val error = IOUtils.toString(p.getErrorStream)
+        assert(error === "")
+      }
     }
-
-    server.stop()
 
   }
 
   test("async client", TestBase.Extended) {
     val server = createServer().start()
-    val client = HttpClientBuilder.create().build()
 
-    waitForServer(server)
+    using(server){
+      waitForServer(server)
 
-    val futures = List(
-      sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")),
-      sendJsonRequestAsync(client, Map("foo" -> 2, "bar" -> "heree")),
-      sendJsonRequestAsync(client, Map("foo" -> 3, "bar" -> "hereee")),
-      sendJsonRequestAsync(client, Map("foo" -> 4, "bar" -> "hereeee"))
-    )
+      val futures = List(
+        sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")),
+        sendJsonRequestAsync(client, Map("foo" -> 2, "bar" -> "heree")),
+        sendJsonRequestAsync(client, Map("foo" -> 3, "bar" -> "hereee")),
+        sendJsonRequestAsync(client, Map("foo" -> 4, "bar" -> "hereeee"))
+      )
 
-    val responses = futures.map(f => Await.result(f, Duration.Inf))
-    val correctResponses = List(27, 28, 29, 30).map(_.toString)
+      val responses = futures.map(f => Await.result(f, Duration.Inf))
+      val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
-    assert(responses === correctResponses)
+      assert(responses === correctResponses)
 
-    (1 to 20).map(i => sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")))
-      .foreach { f =>
-        val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
-        assert(resp === "27")
-      }
-
-    server.stop()
-    client.close()
+      (1 to 20).map(i => sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")))
+        .foreach { f =>
+          val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+          assert(resp === "27")
+        }
+    }
   }
 
   test("State can be saved in a Shared singleton") {

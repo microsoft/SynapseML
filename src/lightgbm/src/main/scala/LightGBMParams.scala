@@ -9,7 +9,8 @@ import org.apache.spark.sql.DataFrame
 
 /** Defines common parameters across all LightGBM learners.
   */
-trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol with HasValidationIndicatorCol {
+trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
+  with HasValidationIndicatorCol with HasInitScoreCol {
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
   setDefault(parallelism->"data_parallel")
@@ -147,4 +148,30 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBoostingType: String = $(boostingType)
   def setBoostingType(value: String): this.type = set(boostingType, value)
+
+  val lambdaL1 = new DoubleParam(this, "lambdaL1", "L1 regularization")
+  setDefault(lambdaL1 -> 0.0)
+
+  def getLambdaL1: Double = $(lambdaL1)
+  def setLambdaL1(value: Double): this.type = set(lambdaL1, value)
+
+  val lambdaL2 = new DoubleParam(this, "lambdaL2", "L2 regularization")
+  setDefault(lambdaL2 -> 0.0)
+
+  def getLambdaL2: Double = $(lambdaL2)
+  def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
+
+  val numBatches = new IntParam(this, "numBatches",
+    "If greater than 0, splits data into separate batches during training")
+  setDefault(numBatches -> 0)
+
+  def getNumBatches: Int = $(numBatches)
+  def setNumBatches(value: Int): this.type = set(numBatches, value)
+
+  val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
+    "Whether output metric result over training dataset.")
+  setDefault(isProvideTrainingMetric -> false)
+
+  def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
+  def setisProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
 }
