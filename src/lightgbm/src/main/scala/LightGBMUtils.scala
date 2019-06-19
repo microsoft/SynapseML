@@ -10,7 +10,7 @@ import java.util.concurrent.Executors
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.schema.SparkSchema
 import org.apache.http.conn.util.InetAddressUtils
-import org.apache.spark.{BlockManagerUtils, ClusterUtil, SparkEnv, TaskContext}
+import org.apache.spark.{BlockManagerUtils, SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SparseVector
@@ -137,7 +137,7 @@ object LightGBMUtils {
       hostAndPorts.foreach(_._1.close())
       driverServerSocket.close()
     }
-    val host = ClusterUtil.getDriverHost(df)
+    val host = getDriverHost(df)
     val port = driverServerSocket.getLocalPort
     log.info(s"driver waiting for connections on host: ${host} and port: $port")
     (host, port, f)
@@ -156,6 +156,80 @@ object LightGBMUtils {
     idAsInt
   }
 
+  def getHostToIP(hostname: String): String = {
+    if (InetAddressUtils.isIPv4Address(hostname) || InetAddressUtils.isIPv6Address(hostname))
+      hostname
+    else
+      InetAddress.getByName(hostname).getHostAddress
+  }
+
+  /** Get number of cores from dummy dataset for 1 executor.
+    * Note: all executors have same number of cores,
+    * and this is more reliable than getting value from conf.
+    * @param dataset The dataset containing the current spark session.
+    * @return The number of cores per executor.
+    */
+  def getNumCoresPerExecutor(dataset: Dataset[_]): Int = {
+    val spark = dataset.sparkSession
+    try {
+      val confCores = spark.sparkContext.getConf
+        .get("spark.executor.cores").toInt
+      val confTaskCpus = spark.sparkContext.getConf
+        .get("spark.task.cpus", "1").toInt
+      confCores / confTaskCpus
+    } catch {
+      case _: NoSuchElementException =>
+        // If spark.executor.cores is not defined, get the cores per JVM
+        import spark.implicits._
+        val numMachineCores = spark.range(0, 1)
+          .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+        numMachineCores
+    }
+  }
+
+  private def getDriverHost(dataset: Dataset[_]): String = {
+    val blockManager = BlockManagerUtils.getBlockManager(dataset)
+    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
+      if (blockManagerId.executorId == "driver") Some(getHostToIP(blockManagerId.host))
+      else None
+    }).head
+  }
+
+  /** Returns a list of executor id and host.
+    * @param dataset The dataset containing the current spark session.
+    * @param numCoresPerExec The number of cores per executor.
+    * @return List of executors as an array of (id,host).
+    */
+  def getExecutors(dataset: Dataset[_], numCoresPerExec: Int): Array[(Int, String)] = {
+    val blockManager = BlockManagerUtils.getBlockManager(dataset)
+    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
+      if (blockManagerId.executorId == "driver") None
+      else Some((blockManagerId.executorId.toInt, getHostToIP(blockManagerId.host)))
+    }).toArray
+  }
+
+  /** Returns the number of executors * number of cores.
+    * @param dataset The dataset containing the current spark session.
+    * @param numCoresPerExec The number of cores per executor.
+    * @return The number of executors * number of cores.
+    */
+  def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int): Int = {
+    val executors = getExecutors(dataset, numCoresPerExec)
+    if (!executors.isEmpty) {
+      executors.length * numCoresPerExec
+    } else {
+      val master = dataset.sparkSession.sparkContext.master
+      val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
+      master match {
+        case rx(null)  => 1
+        case rx("*")   => Runtime.getRuntime.availableProcessors()
+        case rx(cores) => cores.toInt
+        case _         => BlockManagerUtils.getBlockManager(dataset)
+                            .master.getMemoryStatus.size
+      }
+    }
+  }
+
   /** Converts a host,id pair to the lightGBM host:port format.
     * @param hostAndId The host,id.
     * @param defaultListenPort The default listen port.
@@ -171,7 +245,7 @@ object LightGBMUtils {
     * @return List of nodes as comma separated string and count.
     */
   def getNodes(data: DataFrame, defaultListenPort: Int, numCoresPerExec: Int): Array[(Int, String)] = {
-    val nodes = ClusterUtil.getExecutors(data, numCoresPerExec)
+    val nodes = getExecutors(data, numCoresPerExec)
     val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length * numCoresPerExec
     if (nodes.isEmpty) {
       // Running in local[*]
@@ -214,7 +288,7 @@ object LightGBMUtils {
     import processedData.sparkSession.implicits._
     val blockManager = BlockManagerUtils.getBlockManager(processedData)
     val host = blockManager.master.getMemoryStatus.flatMap({ case (blockManagerId, _) =>
-      Some(ClusterUtil.getHostToIP(blockManagerId.host))
+      Some(getHostToIP(blockManagerId.host))
     }).head
     val nodes =
       processedData.mapPartitions((_: Iterator[Row]) => {
@@ -231,6 +305,16 @@ object LightGBMUtils {
     lightgbmlib.long_to_int64_t_ptr(longPtr)
   }
 
+  def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
+      (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
+    val numCols = rowsAsDoubleArray.head.length
+    val data = lightgbmlib.new_doubleArray(numCols * numRows)
+    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
+      ri._1.zipWithIndex.foreach(value =>
+        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
+    (lightgbmlib.double_to_voidp_ptr(data), data)
+  }
+
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
@@ -245,16 +329,17 @@ object LightGBMUtils {
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    var data: SWIGTYPE_p_double = null
+    var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     try {
-      data = lightgbmlib.LGBM_CreateRowMatrixFromArrayOfArray(rowsAsDoubleArray.asInstanceOf[Array[Object]])
+      data = Some(generateData(numRows, rowsAsDoubleArray))
+      // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
                                data.get._1, data64bitType,
                                numRows_int32_tPtr, numCols_int32_tPtr,
                                isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
                              "Dataset create")
     } finally {
-      lightgbmlib.LGBM_DeleteRowMatrix(data)
+      if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)

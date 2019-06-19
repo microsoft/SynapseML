@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ClusterUtil
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.Vector
@@ -65,7 +64,7 @@ class LightGBMRegressor(override val uid: String)
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
     new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
-    }
+  }
 
   def stringFromTrainedModel(model: LightGBMRegressionModel): String = {
     model.getModel.model
