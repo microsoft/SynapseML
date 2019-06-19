@@ -6,12 +6,13 @@ package com.microsoft.ml.spark
 import scala.reflect.runtime.universe.TypeTag
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
+import org.apache.spark.ml.util.MLReadable
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 import scala.io.Source
 
-class VerifyVowpalWabbitFeaturizer extends TestBase {
+class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[VowpalWabbitFeaturizer] {
 
   val defaultMask = ((1 << 30) - 1)
 
@@ -238,4 +239,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase {
     assert(vec.numNonzeros == 6)
     verifyArrays(vec.indices, Array(260933379,376953061,482756394,597851995,781002072,950998778))
   }
+
+  def testObjects(): Seq[TestObject[VowpalWabbitFeaturizer]] = List(new TestObject(
+    new VowpalWabbitFeaturizer().setInputCols(Array("words")).setOutputCol("out"), makeBasicDF()))
+
+  override def reader: MLReadable[_] = VowpalWabbitFeaturizer
 }

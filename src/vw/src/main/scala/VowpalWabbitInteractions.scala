@@ -8,11 +8,13 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types.{StructField, StructType}
 
+object VowpalWabbitInteractions extends ComplexParamsReadable[VowpalWabbitInteractions]
+
 class VowpalWabbitInteractions(override val uid: String) extends Transformer
-  with HasInputCols with HasOutputCol with HasNumBits
+  with HasInputCols with HasOutputCol with HasNumBits with Wrappable with ComplexParamsWritable
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
@@ -31,6 +33,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
       val newIndices = new Array[Int](numElems)
       val newValues = new Array[Double](numElems)
 
+      // build interaction features using FNV-1
       val fnvPrime = 16777619
       var i = 0
 
@@ -61,8 +64,6 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
     dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
   }
 
-  override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)
-
   override def transformSchema(schema: StructType): StructType = {
     val fieldNames = schema.fields.map(_.name)
     for (f <- getInputCols)
@@ -71,4 +72,6 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
 
     schema.add(new StructField(getOutputCol, VectorUDTUtil.getDataType, true))
   }
+
+  override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)
 }

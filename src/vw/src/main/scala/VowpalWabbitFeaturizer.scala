@@ -11,12 +11,14 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.bare.VowpalWabbitMurmur
 import org.apache.spark.ml.linalg.Vectors
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 
 import scala.collection.mutable.ArrayBuilder
 
+object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
+
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
-  with HasInputCols with HasOutputCol with HasNumBits
+  with HasInputCols with HasOutputCol with HasNumBits with Wrappable with ComplexParamsWritable
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 

@@ -15,6 +15,7 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.apache.spark.internal.Logging
 import org.vowpalwabbit.bare.prediction.ScalarPrediction
 import org.vowpalwabbit.bare.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
@@ -45,6 +46,7 @@ object VWUtil {
 trait VowpalWabbitBase extends Wrappable
   with DefaultParamsWritable
   with HasWeightCol
+  with Logging
 {
   // can we switch to https://docs.scala-lang.org/overviews/macros/paradise.html ?
   val args = new Param[String](this, "args", "VW command line arguments passed")
@@ -84,7 +86,7 @@ trait VowpalWabbitBase extends Wrappable
   def getInteractions: Array[String] = $(interactions)
   def setInteractions(value: Array[String]): this.type = set(interactions, value)
 
-  val ignoreNamespaces = new Param[String](this, "ignoreNamespace", "Namespaces to be ignored (first letter only)")
+  val ignoreNamespaces = new Param[String](this, "ignoreNamespaces", "Namespaces to be ignored (first letter only)")
   def getIgnoreNamespaces: String = $(ignoreNamespaces)
   def setIgnoreNamespaces(value: String): this.type = set(ignoreNamespaces, value)
 
@@ -97,7 +99,7 @@ trait VowpalWabbitBase extends Wrappable
   def getCacheRows: Boolean = $(cacheRows)
   def setCacheRows(value: Boolean): this.type = set(cacheRows, value)
 
-  val enableCacheFile = new BooleanParam(this, "cacheFile", "Enable local cache file")
+  val enableCacheFile = new BooleanParam(this, "enableCacheFile", "Enable local cache file")
   setDefault(enableCacheFile -> false)
   def getEnableCacheFile: Boolean = $(enableCacheFile)
   def setEnableCacheFile(value: Boolean): this.type = set(enableCacheFile, value)
@@ -129,7 +131,7 @@ trait VowpalWabbitBase extends Wrappable
   def getHashSeed: Int = $(hashSeed)
   def setHashSeed(value: Int): this.type = set(hashSeed, value)
 
-  val numBits = new IntParam(this, "numbits", "Number of bits used")
+  val numBits = new IntParam(this, "numBits", "Number of bits used")
   setDefault(numBits -> 18)
 
   def getNumBits: Int = $(numBits)
@@ -145,8 +147,6 @@ trait VowpalWabbitBase extends Wrappable
     }
     else
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
-
-    println(vwArgs) // TODO: properly log
 
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
@@ -176,7 +176,8 @@ trait VowpalWabbitBase extends Wrappable
         args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
       }
 
-      println(s"Final args: $args")
+      log.info(s"VowpalWabbit args: ${args}")
+
       //VWUtil.autoClose(new Socket(consoleAddr, consolePort)) { consoleSocket => {
       VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
         else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>

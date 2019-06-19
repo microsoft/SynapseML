@@ -4,8 +4,9 @@
 package com.microsoft.ml.spark
 
 import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
+import org.apache.spark.ml.util.MLReadable
 
-class VerifyVowpalWabbitInteractions extends TestBase {
+class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[VowpalWabbitInteractions] {
 
   case class Data(val v1: Vector, val v2: Vector, val v3: Vector)
 
@@ -54,4 +55,9 @@ class VerifyVowpalWabbitInteractions extends TestBase {
       3.0 * 5 * 7, 3 * 5 * 8.0
     ))
   }
+
+  def testObjects(): Seq[TestObject[VowpalWabbitInteractions]] = List(new TestObject(
+    new VowpalWabbitInteractions().setInputCols(Array("words")).setOutputCol("out"), makeBasicDF()))
+
+  override def reader: MLReadable[_] = VowpalWabbitInteractions
 }
