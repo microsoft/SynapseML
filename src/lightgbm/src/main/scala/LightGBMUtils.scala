@@ -169,21 +169,31 @@ object LightGBMUtils {
     * @param dataset The dataset containing the current spark session.
     * @return The number of cores per executor.
     */
-  def getNumCoresPerExecutor(dataset: Dataset[_]): Int = {
+  def getNumCoresPerExecutor(dataset: Dataset[_], log: Logger): Int = {
     val spark = dataset.sparkSession
+    val confTaskCpus =
+      try {
+        spark.sparkContext.getConf.get("spark.task.cpus", "1").toInt
+      } catch {
+        case _: NoSuchElementException => 1
+      }
     try {
       val confCores = spark.sparkContext.getConf
         .get("spark.executor.cores").toInt
-      val confTaskCpus = spark.sparkContext.getConf
-        .get("spark.task.cpus", "1").toInt
-      confCores / confTaskCpus
+      val coresPerExec = confCores / confTaskCpus
+      log.info(s"LightGBM calculated num cores per executor as $coresPerExec from $confCores " +
+        s"cores and $confTaskCpus task CPUs")
+      coresPerExec
     } catch {
       case _: NoSuchElementException =>
         // If spark.executor.cores is not defined, get the cores per JVM
         import spark.implicits._
         val numMachineCores = spark.range(0, 1)
           .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
-        numMachineCores
+        val coresPerExec = numMachineCores / confTaskCpus
+        log.info(s"LightGBM calculated num cores per executor as $coresPerExec from " +
+          s"$numMachineCores machine cores from JVM and $confTaskCpus task CPUs")
+        coresPerExec
     }
   }
 
@@ -197,10 +207,9 @@ object LightGBMUtils {
 
   /** Returns a list of executor id and host.
     * @param dataset The dataset containing the current spark session.
-    * @param numCoresPerExec The number of cores per executor.
     * @return List of executors as an array of (id,host).
     */
-  def getExecutors(dataset: Dataset[_], numCoresPerExec: Int): Array[(Int, String)] = {
+  def getExecutors(dataset: Dataset[_]): Array[(Int, String)] = {
     val blockManager = BlockManagerUtils.getBlockManager(dataset)
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") None
@@ -214,7 +223,7 @@ object LightGBMUtils {
     * @return The number of executors * number of cores.
     */
   def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int): Int = {
-    val executors = getExecutors(dataset, numCoresPerExec)
+    val executors = getExecutors(dataset)
     if (!executors.isEmpty) {
       executors.length * numCoresPerExec
     } else {
@@ -237,27 +246,6 @@ object LightGBMUtils {
     */
   def toAddr(hostAndId: (String, Int), defaultListenPort: Int): String =
     hostAndId._1 + ":" + (defaultListenPort + hostAndId._2)
-
-  /** Returns the executor node ips and ports.
-    * @param data The input dataframe.
-    * @param defaultListenPort The default listen port.
-    * @param numCoresPerExec The number of cores per executor.
-    * @return List of nodes as comma separated string and count.
-    */
-  def getNodes(data: DataFrame, defaultListenPort: Int, numCoresPerExec: Int): Array[(Int, String)] = {
-    val nodes = getExecutors(data, numCoresPerExec)
-    val getSubsetExecutors = data.rdd.getNumPartitions < nodes.length * numCoresPerExec
-    if (nodes.isEmpty) {
-      // Running in local[*]
-      getNodesFromPartitionsLocal(data, defaultListenPort)
-    } else if (getSubsetExecutors) {
-      // Special case when num partitions < num executors * numCoresPerExec
-      getNodesFromPartitions(data, defaultListenPort, nodes.toMap)
-    } else {
-      // Running on cluster, include all workers with driver excluded
-      nodes
-    }
-  }
 
   /** Returns the nodes from mapPartitions.
     * Only run in case when num partitions < num executors.
