@@ -23,4 +23,4 @@ fi
 
 PYSPARK_DRIVER_PYTHON="jupyter" \
 PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --port=$port --ip=*" \
-  pyspark --master "local[2]" --driver-memory 2g --executor-memory 4g --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE"
+  pyspark --master "local[${MMLSPARK_PYSPARK_THREADS:-2}]" --driver-memory 2g --executor-memory 4g --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE"
