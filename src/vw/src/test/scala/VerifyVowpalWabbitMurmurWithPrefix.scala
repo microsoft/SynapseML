@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 import java.nio.charset.StandardCharsets
 
 class VerifyVowpalWabbitMurmurWithPrefix extends TestBase {

@@ -15,9 +15,9 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
-import org.apache.spark.internal.Logging
-import org.vowpalwabbit.bare.prediction.ScalarPrediction
-import org.vowpalwabbit.bare.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
+import org.apache.spark.internal._
+import org.vowpalwabbit.spark.prediction.ScalarPrediction
+import org.vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
 import scala.math.min
 import scala.concurrent.{ExecutionContext, Future}
@@ -151,8 +151,7 @@ trait VowpalWabbitBase extends Wrappable
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
 
-    def trainIteration(inputRows: Iterator[Row], localInitialModel: Option[Array[Byte]], pass: Int,
-                       consoleAddr: InetAddress, consolePort: Int): Iterator[Option[Array[Byte]]] = {
+    def trainIteration(inputRows: Iterator[Row], localInitialModel: Option[Array[Byte]], pass: Int): Iterator[Option[Array[Byte]]] = {
       // only perform the inner-loop if we cache the inputRows
       val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
@@ -167,27 +166,25 @@ trait VowpalWabbitBase extends Wrappable
 
       val args = new StringBuilder
       args.append(vwArgs)
-      args.append(" ").append(contextArgs())
+          .append(" ").append(contextArgs())
 
+      // have to pass to get multi-pass to work
+      if (args.indexOf("--no_stdin") == -1)
+        args.append(" --no_stdin")
+
+      // need to keep reference around to prevent GC and subsequent file delete
       if (getEnableCacheFile) {
         val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
-        cacheFile.deleteOnExit
+        cacheFile.deleteOnExit()
 
         args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
       }
 
       log.info(s"VowpalWabbit args: ${args}")
 
-      //VWUtil.autoClose(new Socket(consoleAddr, consolePort)) { consoleSocket => {
       VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
         else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
           VWUtil.autoClose(vw.createExample()) { ex =>
-
-            /*
-            val writer = new BufferedWriter(new OutputStreamWriter(consoleSocket.getOutputStream))
-            writer.write("###################### Hello World\n")
-            writer.flush
-            */
 
             // loop in here to avoid
             // - passing model back and forth
@@ -213,15 +210,16 @@ trait VowpalWabbitBase extends Wrappable
 
               vw.endPass
             }
-          }
 
-          if (getEnableCacheFile)
-            vw.performRemainingPasses
+
+
+            if (getEnableCacheFile)
+              vw.performRemainingPasses
+          }
 
           // only export the model on the first partition
           Seq(if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None).iterator
         }
-    //  }}
     }
 
     val encoder = Encoders.kryo[Option[Array[Byte]]]
@@ -230,38 +228,10 @@ trait VowpalWabbitBase extends Wrappable
     val outerNumPasses = if (getEnableCacheFile) 1 else if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
     var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
-    // setup central logging server
-    /*
-    implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
-    val consoleSocket = new ServerSocket(0)
-    Future {
-      while (true) {
-        val clientSocket = consoleSocket.accept
-
-        Future {
-          val reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream))
-          var line: String = null
-          while ({ line = reader.readLine(); line != null }) {
-            println(s"Worker: ${clientSocket.getInetAddress} $line")
-          }
-        }
-      }
-    }
-    val consoleAddr = consoleSocket.getInetAddress
-    val consolePort = consoleSocket.getLocalPort
-    */
-
-    val consoleAddr = null
-    val consolePort = 0
-
     for (p <- 0 until outerNumPasses) {
-      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p,
-        consoleAddr, consolePort))(encoder)
+      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p))(encoder)
         .reduce((a, b) => if (a.isEmpty) b else a)
     }
-
-    // close logging server
-    // consoleSocket.close / use AutoClose
 
     localInitialModel
   }
@@ -285,11 +255,15 @@ trait VowpalWabbitBase extends Wrappable
       .appendParam(l1, "--l1").appendParam(l2, "--l2")
       .appendParam(ignoreNamespaces, "--ignore").appendParam(interactions, "-q")
 
+    // bfgs needs cache file
+    if (getArgs.contains("--bfgs"))
+      setEnableCacheFile(true)
+
     val binaryModel = if (numWorkers == 1)
       trainInternal(df, vwArgs.result)
     else  {
       // multiple partitions -> setup distributed coordination
-      val spanningTree = new ClusterSpanningTree(0)
+      val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
 
       try {
         spanningTree.start

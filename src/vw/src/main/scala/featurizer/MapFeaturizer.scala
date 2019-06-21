@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.featurizer
 
 import org.apache.spark.sql.Row
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable.{ArrayBuilder}
 

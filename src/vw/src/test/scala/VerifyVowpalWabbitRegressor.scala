@@ -7,10 +7,10 @@ import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
 
-class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[VowpalWabbitRegressor] {
+class VerifyVowpalWabbitRegressor extends Benchmarks {
   lazy val moduleName = "vw"
 
-  val args = Array("", "--adaptive", "--sgd")
+  val args = Array("", "--bfgs", "--adaptive", "--sgd")
 
   val numPartitions = 2
 
@@ -19,8 +19,6 @@ class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[Vowpa
   verifyLearnerOnRegressionCsvFile("airfoil_self_noise.train.csv", "Scaled sound pressure level", 1)
   verifyLearnerOnRegressionCsvFile("Buzz.TomsHardware.train.csv", "Mean Number of display (ND)", -3)
   verifyLearnerOnRegressionCsvFile("machine.train.csv", "ERP", -2)
-  // TODO: Spark doesn't seem to like the column names here because of '.', figure out how to read in the data
-  // verifyLearnerOnRegressionCsvFile("slump_test.train.csv", "Compressive Strength (28-day)(Mpa)", 2)
   verifyLearnerOnRegressionCsvFile("Concrete_Data.train.csv", "Concrete compressive strength(MPa, megapascals)", 0)
 
   /** Reads a CSV file given the file name and file location.
@@ -70,7 +68,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[Vowpa
               .setNumPasses(3)
               .setEnableCacheFile(enableCacheFile)
               .setCacheRows(cacheRows)
-              .setArgs(s" $arg") // --quiet
+              .setArgs(s" $arg --quiet")
               .fit(trainData)
             val scoredResult = model.transform(trainData).drop(featuresColumn)
 
@@ -79,7 +77,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[Vowpa
               .setPredictionCol(predCol)
               .setMetricName("rmse")
             val metric = eval.evaluate(scoredResult)
-            addBenchmark(s"VowpalWabbitRegressor_${fileName}_${arg}_${enableCacheFile}_${cacheRows}",
+            addBenchmark(s"VowpalWabbitRegressor_${fileName}_${arg}_cacheFile${enableCacheFile}_cacheRows${cacheRows}",
               metric, decimals, false)
           }
         }
@@ -125,7 +123,8 @@ class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[Vowpa
       .setFeaturesCol("a")
       .setAdditionalFeatures(Array("b"))
       .setPredictionCol(predCol)
-      //.setArgs(s"-a") // don't pass -a when using interactions...
+      //.setArgs(s"-a") // don't pass -a (audit) when using interactions...
+      .setArgs("--quiet")
       .setInteractions(Array("ab"))
       .fit(trainData)
     val scoredResult = model.transform(trainData).drop(featuresColumn)
@@ -137,41 +136,5 @@ class VerifyVowpalWabbitRegressor extends Benchmarks with EstimatorFuzzing[Vowpa
     val metric = eval.evaluate(scoredResult)
 
     assert (metric < 10.4) // w/o interaction terms it will result in 10.5
-  }
-
-  override def reader: MLReadable[_] = VowpalWabbitRegressor
-  override def modelReader: MLReadable[_] = VowpalWabbitRegressorModel
-
-  override def testObjects(): Seq[TestObject[VowpalWabbitRegressor]] = {
-    val fileName = "energyefficiency2012_data.train.csv"
-    val columnsFilter = Some("X1,X2,X3,X4,X5,X6,X7,X8,Y1,Y2")
-    val labelCol = "Y1"
-
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-    val dataset =
-      if (columnsFilter.isDefined) {
-        readDataset.select(columnsFilter.get.split(",").map(new Column(_)): _*)
-      } else {
-        readDataset
-      }
-
-    val featuresColumn = "features"
-
-    val featurizer = new VowpalWabbitFeaturizer()
-      .setInputCols(dataset.columns.filter(col => col != labelCol))
-      .setOutputCol("features")
-
-    val vw = new VowpalWabbitRegressor()
-    val predCol = "pred"
-    val trainData = featurizer.transform(dataset)
-    val model = vw.setLabelCol(labelCol)
-      .setFeaturesCol("features")
-      .setPredictionCol(predCol)
-      .fit(trainData)
-
-    Seq(new TestObject(
-      vw,
-      trainData))
   }
 }

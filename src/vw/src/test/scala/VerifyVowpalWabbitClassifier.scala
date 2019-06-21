@@ -115,7 +115,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
 
     println(labelOneCnt1)
-    // assert(labelOneCnt1 == labelOneCnt2)
   }
 
   /** Reads a CSV file given the file name and file location.

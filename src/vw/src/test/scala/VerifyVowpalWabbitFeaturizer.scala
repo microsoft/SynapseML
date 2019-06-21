@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe.TypeTag
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 import scala.io.Source

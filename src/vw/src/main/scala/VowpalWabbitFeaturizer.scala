@@ -9,7 +9,7 @@ import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
-import org.vowpalwabbit.bare.VowpalWabbitMurmur
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 
