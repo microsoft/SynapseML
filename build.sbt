@@ -1,6 +1,8 @@
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.net.URL
+
 import org.apache.commons.io.FileUtils
+
 import scala.sys.process.Process
 
 def getVersion(baseVersion: String): String = {
