@@ -28,7 +28,7 @@ class RankingTrainValidationSplitSpec extends RankingTestBase with EstimatorFuzz
     assert(items.collect()(0)(0) == 1)
 
     val users = model.recommendForAllItems(3)
-    assert(users.collect()(0)(0) == 1)
+    assert(users.collect()(0)(0) == 4)
 
   }
 
