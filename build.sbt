@@ -19,7 +19,7 @@ def getPythonVersion(baseVersion: String): String = {
 
 val baseVersion = "0.17.1"
 val condaEnvName = "mmlspark"
-name := "mmlspark-build"
+name := "mmlspark"
 organization := "com.microsoft.ml.spark"
 version := getVersion(baseVersion)
 scalaVersion := "2.11.12"
