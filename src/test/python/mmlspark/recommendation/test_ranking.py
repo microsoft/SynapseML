@@ -18,7 +18,7 @@ from pyspark.sql import SQLContext, SparkSession
 spark = SparkSession.builder \
     .master("local[*]") \
     .appName("_FindBestModel") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark-build_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
