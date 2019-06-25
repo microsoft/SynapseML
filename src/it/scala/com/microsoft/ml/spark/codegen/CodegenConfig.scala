@@ -12,6 +12,7 @@ object Config {
 
   val topDir = BuildInfo.baseDirectory
   val version = BuildInfo.version
+  val packageName = BuildInfo.name
   val targetDir = new File(topDir, "target/scala-2.11")
   val scalaSrcDir = "src/main/scala"
 

@@ -10,6 +10,8 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.scalactic.Equality
+import org.scalatest.Assertion
 
 trait SpeechKey {
   lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.speechApiKey)
@@ -34,6 +36,11 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   lazy val df: DataFrame = Seq(
     Tuple1(audioBytes)
   ).toDF("audio")
+
+  override lazy val dfEq = new Equality[DataFrame] {
+    override def areEqual(a: DataFrame, b: Any): Boolean =
+      baseDfEq.areEqual(a.drop("audio"), b.asInstanceOf[DataFrame].drop("audio"))
+  }
 
   test("Basic Usage") {
     val toObj = SpeechResponse.makeFromRowConverter
