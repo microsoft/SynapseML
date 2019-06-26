@@ -97,7 +97,8 @@ object LightGBMUtils {
     * @return The address and port of the driver socket.
     */
   def createDriverNodesThread(numWorkers: Int, df: DataFrame,
-                              log: Logger, timeout: Double): (String, Int, Future[Unit]) = {
+                              log: Logger, timeout: Double,
+                              barrierExecutionMode: Boolean): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
     implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
     val driverServerSocket = new ServerSocket(0)
@@ -109,19 +110,40 @@ object LightGBMUtils {
     val f = Future {
       var emptyWorkerCounter = 0
       val hostAndPorts = ListBuffer[(Socket, String)]()
-      log.info(s"driver expecting $numWorkers connections...")
-      while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
-        log.info("driver accepting a new connection...")
-        val driverSocket = driverServerSocket.accept()
-        val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
-        val comm = reader.readLine()
-        if (comm == LightGBMConstants.ignoreStatus) {
-          log.info("driver received ignore status from worker")
-          emptyWorkerCounter += 1
-        } else {
-          log.info(s"driver received socket from worker: $comm")
-          val socketAndComm = (driverSocket, comm)
-          hostAndPorts += socketAndComm
+      if (barrierExecutionMode) {
+        log.info(s"driver using barrier execution mode")
+        var finished = false
+        while (!finished) {
+          log.info("driver accepting a new connection...")
+          val driverSocket = driverServerSocket.accept()
+          val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
+          val comm = reader.readLine()
+          if (comm == LightGBMConstants.finishedStatus) {
+            log.info("driver received all workers from barrier stage")
+            finished = true
+          } else if (comm == LightGBMConstants.ignoreStatus) {
+            log.info("driver received ignore status from worker")
+          } else {
+            log.info(s"driver received socket from worker: $comm")
+            val socketAndComm = (driverSocket, comm)
+            hostAndPorts += socketAndComm
+          }
+        }
+      } else {
+        log.info(s"driver expecting $numWorkers connections...")
+        while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
+          log.info("driver accepting a new connection...")
+          val driverSocket = driverServerSocket.accept()
+          val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
+          val comm = reader.readLine()
+          if (comm == LightGBMConstants.ignoreStatus) {
+            log.info("driver received ignore status from worker")
+            emptyWorkerCounter += 1
+          } else {
+            log.info(s"driver received socket from worker: $comm")
+            val socketAndComm = (driverSocket, comm)
+            hostAndPorts += socketAndComm
+          }
         }
       }
       // Concatenate with commas, eg: host1:port1,host2:port2, ... etc

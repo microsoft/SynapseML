@@ -22,4 +22,8 @@ object LightGBMConstants {
   /** Ignore worker status, used to ignore workers that get empty partitions
     */
   val ignoreStatus: String = "ignore"
+  /** Barrier execution flag telling driver that all tasks have completed
+    * sending port and host information
+    */
+  val finishedStatus: String = "finished"
 }
