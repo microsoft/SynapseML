@@ -66,6 +66,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setNumLeaves(5)
       .setNumIterations(10)
       .setObjective(binaryObjective)
+      .setUseBarrierExecutionMode(true)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(lgbm.numLeaves, Array(5, 10))

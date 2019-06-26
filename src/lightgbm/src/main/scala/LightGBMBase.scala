@@ -60,7 +60,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // Reduce number of partitions to number of executor cores
     val df = dataset.select(trainingCols.map(name => col(name)):_*).toDF().coalesce(numWorkers)
     val (inetAddress, port, future) =
-      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
+      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout, getUseBarrierExecutionMode)
 
     /* Run a parallel job via map partitions to initialize the native library and network,
      * translate the data to the LightGBM in-memory representation and train the models
@@ -73,17 +73,21 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       categoricalSlotIndexesArr, categoricalSlotNamesArr)
     val trainParams = getTrainParams(numWorkers, categoricalIndexes, dataset)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
-    val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port)
+    val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
     val validationData =
       if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
         Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
       else None
     val preprocessedDF = preprocessData(df)
     val schema = preprocessedDF.schema
-    val lightGBMBooster = preprocessedDF
-      .mapPartitions(TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol, get(weightCol),
-        get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec, schema))(encoder)
-      .reduce((booster1, _) => booster1)
+    val mapPartitionsFunc = TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
+      get(weightCol), get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec, schema)(_)
+    val lightGBMBooster =
+      if (getUseBarrierExecutionMode) {
+        preprocessedDF.rdd.barrier().mapPartitions(mapPartitionsFunc).reduce((booster1, _) => booster1)
+      } else {
+        preprocessedDF.mapPartitions(mapPartitionsFunc)(encoder).reduce((booster1, _) => booster1)
+      }
     // Wait for future to complete (should be done by now)
     Await.result(future, Duration(getTimeout, SECONDS))
     getModel(trainParams, lightGBMBooster)

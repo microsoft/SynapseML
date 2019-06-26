@@ -5,12 +5,10 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
-import org.apache.spark.sql.DataFrame
 
-/** Defines common parameters across all LightGBM learners.
+/** Defines common LightGBM execution parameters.
   */
-trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol {
+trait LightGBMExecutionParams extends Wrappable {
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
   setDefault(parallelism->"data_parallel")
@@ -26,6 +24,24 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   setDefault(defaultListenPort -> LightGBMConstants.defaultLocalListenPort)
 
+  val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
+  setDefault(timeout -> 1200)
+
+  def getTimeout: Double = $(timeout)
+  def setTimeout(value: Double): this.type = set(timeout, value)
+
+  val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
+    "Use new barrier execution mode in Beta testing, off by default.")
+  setDefault(useBarrierExecutionMode -> false)
+
+  def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
+  def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
+}
+
+/** Defines common parameters across all LightGBM learners.
+  */
+trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
+  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -101,12 +117,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMinSumHessianInLeaf: Double = $(minSumHessianInLeaf)
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
-
-  val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
-  setDefault(timeout -> 1200)
-
-  def getTimeout: Double = $(timeout)
-  def setTimeout(value: Double): this.type = set(timeout, value)
 
   val modelString = new Param[String](this, "modelString", "LightGBM model to retrain")
   setDefault(modelString -> "")
