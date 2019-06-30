@@ -15,7 +15,7 @@ jobs:
       scriptLocation: inlineScript
       inlineScript: 'sbt scalastyle test:scalastyle'
 
-- job: Publish
+- job: PublishAndE2E
   pool:
     vmImage: ubuntu-16.04
   steps:
@@ -24,12 +24,25 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt publishSigned'
+        inlineScript: 'sbt packagePython && sbt publishBlob'
       env:
         BUILD_NUMBER: $(Build.BuildId)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt it:test'
+      env:
+        BUILD_NUMBER: $(Build.BuildId)
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results **/test-reports/*.xml'
+      inputs:
+        testResultsFiles: '**/test-reports/*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
 
 - job: PythonTests
-  timeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
   steps:
