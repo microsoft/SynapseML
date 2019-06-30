@@ -77,7 +77,7 @@ class ComplexParamsMixin(MLReadable):
             if self._java_obj.hasParam(param.name):
                 java_param = self._java_obj.getParam(param.name)
                 # SPARK-14931: Only check set com.microsoft.ml.spark.core.serialize.params back to avoid default com.microsoft.ml.spark.core.serialize.params mismatch.
-                complex_param_class = sc._gateway.jvm.org.apache.spark.ml.param.ComplexParam._java_lang_class
+                complex_param_class = sc._gateway.jvm.com.microsoft.ml.spark.core.serialize.ComplexParam._java_lang_class
                 is_complex_param = complex_param_class.isAssignableFrom(java_param.getClass())
                 if self._java_obj.isSet(java_param):
                     if is_complex_param:

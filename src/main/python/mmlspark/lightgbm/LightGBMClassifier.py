@@ -13,6 +13,7 @@ from mmlspark.lightgbm._LightGBMClassifier import _LightGBMClassificationModel
 from pyspark import SparkContext
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams
+from mmlspark.core.serialize.java_params_patch import *
 
 @inherit_doc
 class LightGBMClassifier(_LightGBMClassifier):

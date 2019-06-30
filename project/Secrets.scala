@@ -19,14 +19,13 @@ object Secrets {
     }
   }
 
-  
   private def getSecret(secretName: String): String = {
     println(s"fetching secret: $secretName")
-    try{
+    try {
       exec(s"az account set -s $subscriptionID")
       val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
       secretJson.parseJson.asJsObject().fields("value").convertTo[String]
-    }catch {
+    } catch {
       case _: IOException =>
         println("WARNING: Could not load secret from keyvault, defaulting to the empty string." +
           " Please install az command line to perform authorized build steps like publishing")
@@ -45,5 +44,6 @@ object Secrets {
   lazy val pgpPrivate: String = new String(Base64.getDecoder.decode(
     getSecret("pgp-private").getBytes("UTF-8")))
   lazy val pgpPassword: String = getSecret("pgp-pw")
+  lazy val storageKey: String = getSecret("storage-key")
 
 }

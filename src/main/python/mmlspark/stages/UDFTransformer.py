@@ -31,7 +31,7 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
     @keyword_only
     def __init__(self, inputCol=None, inputCols=None, outputCol=None, udf=None):
         super(UDFTransformer, self).__init__()
-        self._java_obj = self._new_java_obj("com.microsoft.ml.spark.UDFTransformer")
+        self._java_obj = self._new_java_obj("com.microsoft.ml.spark.stages.UDFTransformer")
         self.inputCol = Param(self, "inputCol", "inputCol: The name of the input column (default: )")
         self.inputCols = Param(self, "inputCols", "inputCols: The names of the input columns (default: )")
         self.outputCol = Param(self, "outputCol", "outputCol: The name of the output column")

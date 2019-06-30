@@ -33,6 +33,8 @@ class NotebookTests extends TestBase {
     assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
     println("Installing libraries")
     installLibraries(clusterId)
+    println(s"Creating folder $folder")
+    workspaceMkDir(folder)
     println(s"Submitting jobs")
     val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
     println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
