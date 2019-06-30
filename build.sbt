@@ -5,23 +5,9 @@ import org.apache.commons.io.FileUtils
 
 import scala.sys.process.Process
 
-def getVersion(baseVersion: String): String = {
-  sys.env.get("MMLSPARK_RELEASE").map(_ =>baseVersion)
-    .orElse(sys.env.get("BUILD_NUMBER").map(bn => baseVersion + s"_$bn"))
-    .getOrElse(baseVersion + "-SNAPSHOT")
-}
-
-def getPythonVersion(baseVersion: String): String = {
-  sys.env.get("MMLSPARK_RELEASE").map(_ =>baseVersion)
-    .orElse(sys.env.get("BUILD_NUMBER").map(bn => baseVersion + s".dev$bn"))
-    .getOrElse(baseVersion + ".dev1")
-}
-
-val baseVersion = "0.17.1"
 val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
-version := getVersion(baseVersion)
 scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.0"
@@ -53,11 +39,11 @@ createCondaEnvTask := {
   val s = streams.value
   val hasEnv = Process("conda env list").lineStream.toList
     .map(_.split("\\s+").head).contains(condaEnvName)
-  if (!hasEnv){
+  if (!hasEnv) {
     Process(
       "conda env create -f environment.yaml",
       new File(".")) ! s.log
-  } else{
+  } else {
     println("Found conda env " + condaEnvName)
   }
 }
@@ -70,10 +56,18 @@ cleanCondaEnvTask := {
     new File(".")) ! s.log
 }
 
+def osPrefix: Seq[String] = {
+  if (sys.props("os.name").toLowerCase.contains("windows")) {
+    Seq("cmd", "/C")
+  } else {
+    Seq()
+  }
+}
+
 def activateCondaEnv: Seq[String] = {
-  if(sys.props("os.name").toLowerCase.contains("windows")){
-    Seq("cmd", "/C", "activate", condaEnvName, "&&")
-  }else{
+  if (sys.props("os.name").toLowerCase.contains("windows")) {
+    osPrefix ++ Seq("activate", condaEnvName, "&&")
+  } else {
     Seq()
     //TODO figure out why this doesent work
     //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
@@ -86,15 +80,27 @@ val pythonSrcDir = join(genDir.toString, "src", "python")
 val pythonPackageDir = join(genDir.toString, "package", "python")
 val pythonTestDir = join(genDir.toString, "test", "python")
 
+def pythonizeVersion(v: String): String = {
+  if (v.contains("+")){
+    v.split("+".head).head + ".dev1"
+  }else{
+    v
+  }
+}
+
 packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
   createCondaEnvTask.value
+  val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
+  if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
+  FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
+  
   Process(
     activateCondaEnv ++
       Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
     pythonSrcDir,
-    "MML_PY_VERSION" -> getPythonVersion(baseVersion)) ! s.log
+    "MML_PY_VERSION" -> pythonizeVersion(version.value)) ! s.log
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -105,7 +111,7 @@ installPipPackageTask := {
   packagePythonTask.value
   Process(
     activateCondaEnv ++ Seq("pip", "install",
-      s"mmlspark-${getPythonVersion(baseVersion)}-py2.py3-none-any.whl"),
+      s"mmlspark-${pythonizeVersion(version.value)}-py2.py3-none-any.whl"),
     pythonPackageDir) ! s.log
 }
 
@@ -117,7 +123,7 @@ testPythonTask := {
   Process(
     activateCondaEnv ++ Seq("python", "tools2/run_all_tests.py"),
     new File("."),
-    "MML_VERSION" -> getVersion(baseVersion)
+    "MML_VERSION" -> version.value
   ) ! s.log
 }
 
@@ -147,10 +153,36 @@ setupTask := {
   getDatasetsTask.value
 }
 
+val publishBlob = TaskKey[Unit]("publishBlob", "publish the library to mmlspark blob")
+publishBlob := {
+  val s = streams.value
+  publishM2.value
+  val scalaVersionSuffix = scalaVersion.value.split(".".toCharArray.head).dropRight(1).mkString(".")
+  val nameAndScalaVersion = s"${name.value}_$scalaVersionSuffix"
+  
+  val localPackageFolder = join(
+    Seq(new File(new URI(Resolver.mavenLocal.root)).getAbsolutePath)
+      ++ organization.value.split(".".toCharArray.head)
+      ++ Seq(nameAndScalaVersion, version.value): _*).toString
+
+  val blobMavenFolder = organization.value.replace(".", "/") +
+    s"/$nameAndScalaVersion/${version.value}"
+  val command = Seq("az", "storage", "blob", "upload-batch",
+    "--source", localPackageFolder,
+    "--destination", "maven",
+    "--destination-path", blobMavenFolder,
+    "--account-name", "mmlspark",
+    "--account-key", Secrets.storageKey)
+  println(command.mkString(" "))
+  Process(osPrefix ++ command) ! s.log
+}
+
 val settings = Seq(
   (scalastyleConfig in Test) := baseDirectory.value / "scalastyle-test-config.xml",
   logBuffered in Test := false,
-  buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, baseDirectory, datasetDir),
+  buildInfoKeys := Seq[BuildInfoKey](
+    name, version, scalaVersion, sbtVersion,
+    baseDirectory, datasetDir),
   parallelExecution in Test := false,
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
   inConfig(IntegrationTest2)(Defaults.testSettings)
@@ -180,20 +212,25 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
 pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
 pgpSecretRing := {
   val temp = File.createTempFile("secret", ".asc")
-  new PrintWriter(temp) { write(Secrets.pgpPrivate); close() }
+  new PrintWriter(temp) {
+    write(Secrets.pgpPrivate); close()
+  }
   temp
 }
 pgpPublicRing := {
   val temp = File.createTempFile("public", ".asc")
-  new PrintWriter(temp) { write(Secrets.pgpPublic); close() }
+  new PrintWriter(temp) {
+    write(Secrets.pgpPublic); close()
+  }
   temp
 }
 
 licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
 publishMavenStyle := true
 publishTo := Some(
-  if (isSnapshot.value)
+  if (isSnapshot.value) {
     Opts.resolver.sonatypeSnapshots
-  else
+  } else {
     Opts.resolver.sonatypeStaging
+  }
 )

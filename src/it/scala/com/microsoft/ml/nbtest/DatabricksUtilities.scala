@@ -4,10 +4,15 @@
 package com.microsoft.ml.nbtest
 
 import java.io.{File, FileInputStream}
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
 
 import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.nbtest.SprayImplicits._
+import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{HttpGet, HttpPost}
@@ -22,10 +27,11 @@ import scala.sys.process.Process
 import com.microsoft.ml.spark.core.env.StreamUtilities._
 import scala.concurrent.blocking
 
+//noinspection ScalaStyle
 object DatabricksUtilities {
   lazy val requestTimeout = 60000
 
-  lazy val requestConfig = RequestConfig.custom()
+  lazy val requestConfig: RequestConfig = RequestConfig.custom()
     .setConnectTimeout(requestTimeout)
     .setConnectionRequestTimeout(requestTimeout)
     .setSocketTimeout(requestTimeout)
@@ -36,27 +42,23 @@ object DatabricksUtilities {
 
   // ADB Info
   val region = "southcentralus"
-  val token = sys.env("MML_ADB_TOKEN")
+  val token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.adbToken)
   val authValue: String = "Basic " + BaseEncoding.base64()
     .encode(("token:" + token).getBytes("UTF-8"))
   val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"
   val clusterName = "Test Cluster"
   lazy val clusterId: String = getClusterIdByName(clusterName)
-  val folder = "/MMLSparkBuild/Build1"
+
+  val folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
 
   // MMLSpark info
-  val topDir = new File(new File(getClass.getResource("/").toURI), "")
-  val showVersionScript = new File(topDir, "tools/runme/show-version")
-  val mmlVersion = sys.env.getOrElse("MML_VERSION", Process(showVersionScript.toString).!!.trim)
-  //val mmlVersion = "0.12.dev13" // Uncomment this line to test against a custom version
-  assert(mmlVersion != "0.0", s"This version $mmlVersion is only for local usage")
-  val scalaVersion = sys.env("SCALA_VERSION")
-  val version = s"com.microsoft.ml.spark:mmlspark_$scalaVersion:$mmlVersion"
+  val truncatedScalaVersion: String = BuildInfo.scalaVersion
+    .split(".".toCharArray.head).dropRight(1).mkString(".")
+  val version = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
+  val repository = "https://mmlspark.azureedge.net/maven"
 
   val libraries: String = List(
-    Map("maven" -> Map(
-      "coordinates" -> version,
-      "repo" -> "https://mmlspark.azureedge.net/maven")),
+    Map("maven" -> Map("coordinates" -> version, "repo" -> repository)),
     Map("pypi" -> Map("package" -> "nltk"))
   ).toJson.compactPrint
 
@@ -64,7 +66,7 @@ object DatabricksUtilities {
   val timeoutInMillis: Int = 25 * 60 * 1000
 
   val notebookFiles: Array[File] = Option(
-    new File(topDir, "BuildArtifacts/notebooks/hdinsight").getCanonicalFile.listFiles()
+    FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
   ).get
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
@@ -211,7 +213,7 @@ object DatabricksUtilities {
 
   def monitorJob(runId: Integer,
                  timeout: Int,
-                 interval: Int = 2000,
+                 interval: Int = 8000,
                  logLevel: Int = 1): Future[Unit] = {
     Future {
       var finalState: Option[String] = None
