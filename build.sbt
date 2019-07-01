@@ -1,6 +1,10 @@
 import java.io.File
 import java.net.URL
-import org.apache.commons.io.FileUtils
+
+import org.apache.commons.io.{FileUtils, IOUtils}
+import java.io.PrintWriter
+import java.io.File
+
 import scala.sys.process.Process
 
 def getVersion(baseVersion: String): String = {
@@ -113,12 +117,31 @@ lazy val mmlspark = (project in file("."))
 
 homepage := Some(url("https://github.com/Azure/mmlspark"))
 scmInfo := Some(ScmInfo(url("https://github.com/Azure/mmlspark"), "git@github.com:Azure/mmlspark.git"))
-developers := List(Developer(
-  "mhamilton723",
-  "Mark Hamilton",
-  "mmlspark-support@microsoft.com",
-  url("https://github.com/mhamilton723")
-))
+developers := List(
+  Developer("mhamilton723", "Mark Hamilton",
+    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
+  Developer("imatiach-msft", "Ilya Matiach",
+    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
+  Developer("drdarshan", "Sudarshan Raghunathan",
+    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
+)
+
+credentials += Credentials("Sonatype Nexus Repository Manager",
+  "oss.sonatype.org",
+  Secrets.nexusUsername,
+  Secrets.nexusPassword)
+
+pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
+pgpSecretRing := {
+  val temp = File.createTempFile("secret", ".asc")
+  new PrintWriter(temp) { write(Secrets.pgpPrivate); close() }
+  temp
+}
+pgpPublicRing := {
+  val temp = File.createTempFile("public", ".asc")
+  new PrintWriter(temp) { write(Secrets.pgpPublic); close() }
+  temp
+}
 
 licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
 publishMavenStyle := true
