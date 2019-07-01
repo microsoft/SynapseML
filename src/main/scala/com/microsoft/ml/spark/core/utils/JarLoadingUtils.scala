@@ -3,21 +3,13 @@
 
 package com.microsoft.ml.spark.core.utils
 
-import java.io.{IOException, InputStream, ObjectInputStream, ObjectStreamClass}
-import java.net.{URL, URLClassLoader}
-import java.util.jar.JarFile
+import java.io.{InputStream, ObjectInputStream, ObjectStreamClass}
 
-import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.core.env.FileUtilities.File
 import org.scalatest.exceptions.TestFailedException
-
-import scala.reflect.{ClassTag, _}
-import com.microsoft.ml.spark.core.env.FileUtilities._
 import org.spark_project.guava.reflect.ClassPath
-import org.spark_project.guava.reflect.ClassPath.ClassInfo
 
-import collection.JavaConverters._
-import scala.util.Try
+import scala.collection.JavaConverters._
+import scala.reflect.{ClassTag, _}
 
 /** Contains logic for loading classes. */
 object JarLoadingUtils {
@@ -27,10 +19,10 @@ object JarLoadingUtils {
     filename.substring(0, classNameEnd).replace('/', '.')
   }
 
-   private lazy val allClasses = {
+  private lazy val allClasses = {
     ClassPath.from(getClass.getClassLoader)
       //.getTopLevelClassesRecursive("com.microsoft").asScala.toList
-      .getResources().asScala.toList
+      .getResources.asScala.toList
       .map(ri => className(ri.getResourceName))
       .filter(_.startsWith("com.microsoft.ml"))
       .flatMap { cn =>
