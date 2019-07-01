@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark.io.powerbi
 
-import com.microsoft.ml.spark.io.http.{CustomOutputParser, HTTPResponseData, PartitionConsolidator, SimpleHTTPTransformer}
-import com.microsoft.ml.spark.stages.{DynamicMiniBatchTransformer, FixedMiniBatchTransformer, TimeIntervalMiniBatchTransformer}
+import com.microsoft.ml.spark.io.http._
+import com.microsoft.ml.spark.stages._
 import org.apache.http.client.HttpResponseException
 import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.ml.NamespaceInjections

@@ -5,7 +5,7 @@ package org.apache.spark.ml.param
 
 import com.microsoft.ml.spark.core.serialize.ComplexParam
 
-/** Param for Array of ParamMaps.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
+/** Param for Array of ParamMaps.  Needed as spark has explicit params for many different
   * types but not Array of ParamMaps.
   */
 class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Array[ParamMap] => Boolean)

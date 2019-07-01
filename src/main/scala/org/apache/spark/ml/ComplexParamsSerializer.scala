@@ -27,7 +27,7 @@ trait ComplexParamsReadable[T] extends MLReadable[T] {
 }
 
 /** Default [[MLWriter]] implementation for transformers and estimators that contain basic
-  * (json4s-serializable) com.microsoft.ml.spark.core.serialize.params and no data. This will not handle more complex com.microsoft.ml.spark.core.serialize.params or types with
+  * (json4s-serializable) params and no data. This will not handle more complex params or types with
   * data (e.g., models with coefficients).
   *
   * @param instance object to save
@@ -136,7 +136,7 @@ private[ml] object ComplexParamsWriter {
 }
 
 /** Default [[MLReader]] implementation for transformers and estimators that contain basic
-  * (json4s-serializable) com.microsoft.ml.spark.core.serialize.params and no data. This will not handle more complex com.microsoft.ml.spark.core.serialize.params or types with
+  * (json4s-serializable) params and no data. This will not handle more complex params or types with
   * data (e.g., models with coefficients).
   *
   * @tparam T ML instance type
