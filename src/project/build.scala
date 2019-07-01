@@ -89,7 +89,7 @@ object Extras {
       addCommands(st, SubProjects.all.map("noisy-command " + _ + "/" + cmd): _*) },
     Command.command("full-build") { st =>
       val steps = Seq(if (env("PUBLISH") == "all") "update" else null,
-                      "run-scalastyle",
+                      //"run-scalastyle",
                       "compile",
                       if (testSpec == "none") null else "test:compile",
                       "package",
