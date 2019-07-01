@@ -20,8 +20,6 @@ object CNTKExtensions {
   implicit def fromSerializable(in: SerializableFunction): Function = in.fvar
 }
 
-
-
 object CNTKUtils {
 
   def loadModelFromBytes(bytes: Array[Byte],
