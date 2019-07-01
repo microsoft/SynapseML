@@ -9,8 +9,10 @@ import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.commons.io.IOUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
