@@ -86,7 +86,6 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   val historicDateFile: File = getResource(benchmarkDateFile)
   val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
 
-
   // int label with features of:
   // long, double, boolean, int, byte, float
   lazy val mockDataset = session.createDataFrame(Seq(
