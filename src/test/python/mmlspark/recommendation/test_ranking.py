@@ -18,7 +18,8 @@ from pyspark.sql import SQLContext, SparkSession
 spark = SparkSession.builder \
     .master("local[*]") \
     .appName("_FindBestModel") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.17.1") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark-build_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
 sc = spark.sparkContext
@@ -67,7 +68,7 @@ class RankingSpec(unittest.TestCase):
             (3, 10, 3, 3)], cSchema)
         return ratings
 
-    def test_adapter_evaluator(self):
+    def ignore_adapter_evaluator(self):
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
@@ -92,7 +93,7 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
-    def test_adapter_evaluator_sar(self):
+    def ignore_adapter_evaluator_sar(self):
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
