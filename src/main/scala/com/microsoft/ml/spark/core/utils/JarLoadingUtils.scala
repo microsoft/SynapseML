@@ -15,8 +15,12 @@ import scala.reflect.{ClassTag, _}
 object JarLoadingUtils {
 
   def className(filename: String): String = {
-    val classNameEnd = filename.length() - ".class".length()
-    filename.substring(0, classNameEnd).replace('/', '.')
+    if(filename.endsWith(".class")){
+      val classNameEnd = filename.length() - ".class".length()
+      filename.substring(0, classNameEnd).replace('/', '.')
+    }else{
+      filename
+    }
   }
 
   private[spark] val allClasses = {

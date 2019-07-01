@@ -62,7 +62,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   val audioData = new ServiceParam[Array[Byte]](this, "audioData",
     """
       |The data sent to the service must be a .wav files
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = true,
     isURLParam = false
@@ -75,7 +75,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   val language = new ServiceParam[String](this, "language",
     """
       |Identifies the spoken language that is being recognized.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = true,
     isURLParam = true
@@ -88,7 +88,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   val format = new ServiceParam[String](this, "format",
     """
       |Specifies the result format. Accepted values are simple and detailed. Default is simple.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false,
     isURLParam = true
@@ -104,7 +104,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
       |Accepted values are masked, which replaces profanity with asterisks,
       |removed, which remove all profanity from the result, or raw,
       |which includes the profanity in the result. The default setting is masked.
-    """.stripMargin.replace("\n", ""),
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false,
     isURLParam = true
