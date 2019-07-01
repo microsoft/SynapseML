@@ -1,7 +1,0 @@
-Implements an image processing stage.  Provides an interface to OpenCV
-image processing functionality.  Use ``ImageTransform`` to set the
-parameters for the image processing stage, then use the
-``ImageTransformer`` to specify the input and output columns for
-processing and apply the tranformations.
-
-Examples can be found in the sample notebook.
