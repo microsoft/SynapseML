@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mmlspark",
-    version=os.environ["MML_VERSION"],
+    version=os.environ["MML_PY_VERSION"],
     description="Microsoft ML for Spark",
     long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
                      "contributions to the Apache Spark ecosystem",

@@ -1,9 +1,11 @@
+import java.io.IOException
 import java.util.Base64
 
 import sys.process._
 import spray.json._
 import DefaultJsonProtocol._
 import org.apache.commons.io.IOUtils
+import sbt.{SettingKey, TaskKey}
 
 object Secrets {
   private val kvName = "mmlspark-keys"
@@ -17,11 +19,23 @@ object Secrets {
     }
   }
 
+  
   private def getSecret(secretName: String): String = {
     println(s"fetching secret: $secretName")
-    exec(s"az account set -s $subscriptionID")
-    val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
-    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+    try{
+      exec(s"az account set -s $subscriptionID")
+      val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
+      secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+    }catch {
+      case _: IOException =>
+        println("WARNING: Could not load secret from keyvault, defaulting to the empty string." +
+          " Please install az command line to perform authorized build steps like publishing")
+        ""
+      case _: java.lang.RuntimeException =>
+        println("WARNING: Could not load secret from keyvault, defaulting to the empty string." +
+          " Please install az command line to perform authorized build steps like publishing")
+        ""
+    }
   }
 
   lazy val nexusUsername: String = getSecret("nexus-un")
