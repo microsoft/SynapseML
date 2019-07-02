@@ -6,8 +6,6 @@ package com.microsoft.ml.spark.codegen
 import java.io.File
 
 import com.microsoft.ml.spark.codegen.Config._
-import com.microsoft.ml.spark.codegen.DocGen._
-import com.microsoft.ml.spark.codegen.WrapperClassDoc._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
@@ -21,9 +19,7 @@ object CodeGen {
           |  packageDir: $packageDir
           |  pySrcDir:   $pySrcDir
           |  pyTestDir:  $pyTestDir
-          |  pyDocDir:   $pyDocDir
-          |  rsrcDir:    $rSrcDir
-          |  tmpDocDir:  $tmpDocDir """.stripMargin)
+          |  rsrcDir:    $rSrcDir""".stripMargin)
 
     println("Creating temp folders")
     if (generatedDir.exists()) FileUtils.forceDelete(generatedDir)
@@ -32,8 +28,6 @@ object CodeGen {
     PySparkWrapperGenerator()
     println("Generating R APIs")
     SparklyRWrapperGenerator(version)
-    println("Generating .rst files for the Python APIs documentation")
-    genRstFiles()
 
     def toDir(f: File): File = new File(f, File.separator)
 
@@ -51,8 +45,6 @@ object CodeGen {
     //FileUtils.forceDelete(rDir)
     // leave the python source files, so they will be included in the super-jar
     // FileUtils.forceDelete(pyDir)
-    // delete the text files with the Python Class descriptions - truly temporary
-    // FileUtils.forceDelete(tmpDocDir)
   }
 
   private def allTopLevelFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {

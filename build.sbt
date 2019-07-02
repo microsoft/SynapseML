@@ -2,6 +2,7 @@ import java.io.{File, PrintWriter}
 import java.net.URL
 
 import org.apache.commons.io.FileUtils
+import sbt.internal.util.ManagedLogger
 
 import scala.sys.process.Process
 
@@ -76,9 +77,54 @@ def activateCondaEnv: Seq[String] = {
 
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
 val genDir = join("target", "scala-2.11", "generated")
+val unidocDir = join("target", "scala-2.11", "unidoc")
 val pythonSrcDir = join(genDir.toString, "src", "python")
+val unifiedDocDir = join(genDir.toString, "doc")
+val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
 val pythonPackageDir = join(genDir.toString, "package", "python")
 val pythonTestDir = join(genDir.toString, "test", "python")
+
+val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
+generatePythonDoc := {
+  val s = streams.value
+  installPipPackageTask.value
+  Process( activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
+    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+  Process( activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
+    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+  
+}
+
+def uploadToBlob(source: String, dest: String,
+                 container: String, log: ManagedLogger,
+                 accountName: String="mmlspark"): Int = {
+  val command = Seq("az", "storage", "blob", "upload-batch",
+    "--source", source,
+    "--destination", container,
+    "--destination-path", dest,
+    "--account-name", accountName,
+    "--account-key", Secrets.storageKey)
+  Process(osPrefix ++ command) ! log
+}
+
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
+publishDocs := {
+  val s = streams.value
+  generatePythonDoc.value
+  (Compile / unidoc).value
+  val html =
+    """
+      |<html><body><pre style="font-size: 150%;">
+      |<a href="pyspark/index.html">pyspark/</u>
+      |<a href="scala/index.html">scala/</u>
+      |</pre></body></html>
+    """.stripMargin
+  val scalaDir = join(unifiedDocDir.toString, "scala")
+  if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
+  FileUtils.copyDirectory(unidocDir, scalaDir)
+  FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
+  uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
+}
 
 def pythonizeVersion(v: String): String = {
   if (v.contains("+")){
@@ -121,7 +167,7 @@ testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
   Process(
-    activateCondaEnv ++ Seq("python", "tools2/run_all_tests.py"),
+    activateCondaEnv ++ Seq("python", "tools2/pytest/run_all_tests.py"),
     new File("."),
     "MML_VERSION" -> version.value
   ) ! s.log
@@ -167,14 +213,7 @@ publishBlob := {
 
   val blobMavenFolder = organization.value.replace(".", "/") +
     s"/$nameAndScalaVersion/${version.value}"
-  val command = Seq("az", "storage", "blob", "upload-batch",
-    "--source", localPackageFolder,
-    "--destination", "maven",
-    "--destination-path", blobMavenFolder,
-    "--account-name", "mmlspark",
-    "--account-key", Secrets.storageKey)
-  println(command.mkString(" "))
-  Process(osPrefix ++ command) ! s.log
+  uploadToBlob(localPackageFolder, blobMavenFolder, "maven",  s.log)
 }
 
 val settings = Seq(

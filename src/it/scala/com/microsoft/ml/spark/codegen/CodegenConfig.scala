@@ -26,10 +26,8 @@ object Config {
   val pySrcDir = new File(srcDir, "python")
   val pyPackageDir = new File(packageDir, "python")
   val pyTestDir = new File(testDir, "python")
-  val pyDocDir = new File(docDir, "python")
   val pySrcOverrideDir = new File(topDir, "src/main/python")
   val pyTestOverrideDir = new File(topDir, "src/test/python")
-  val tmpDocDir = new File(pyDocDir, "tmpDoc")
 
   //R Codegen Constants
   val rSrcDir = new File(srcDir, "R")
@@ -47,4 +45,21 @@ object Config {
         |# Licensed under the MIT License. See LICENSE in project root for information.
         |""".stripMargin
 
+  // The __init__.py file
+  def packageHelp(importString: String): String = {
+    s"""|$copyrightLines
+        |
+        |"\""
+        |MicrosoftML is a library of Python classes to interface with the
+        |Microsoft scala APIs to utilize Apache Spark to create distibuted
+        |machine learning models.
+        |
+        |MicrosoftML simplifies training and scoring classifiers and
+        |regressors, as well as facilitating the creation of models using the
+        |CNTK library, images, and text.
+        |"\""
+        |
+        |$importString
+        |""".stripMargin
+  }
 }
