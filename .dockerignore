@@ -1,6 +1,6 @@
 target
 .idea
 .git
-tools2/docker/Dockerfile.dev
+tools/docker/Dockerfile.dev
 pipeline.yaml
 .dockerignore

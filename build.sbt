@@ -167,7 +167,7 @@ testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
   Process(
-    activateCondaEnv ++ Seq("python", "tools2/pytest/run_all_tests.py"),
+    activateCondaEnv ++ Seq("python", "tools/pytest/run_all_tests.py"),
     new File("."),
     "MML_VERSION" -> version.value
   ) ! s.log
