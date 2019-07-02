@@ -33,9 +33,9 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   val mockLabelColumn = "Label"
   val featuresColumn = "testColumn"
 
-  val resourcesDirectory = new File(getClass.getResource("/").toURI)
-  val oldBenchmarkDir = new File(resourcesDirectory, "benchmarks")
-  val newBenchmarkDir = new File(resourcesDirectory, "new_benchmarks")
+  lazy val resourcesDirectory = new File(getClass.getResource("/").toURI)
+  lazy val oldBenchmarkDir = new File(resourcesDirectory, "benchmarks")
+  lazy val newBenchmarkDir = new File(resourcesDirectory, "new_benchmarks")
 
   def getResource(name: String): File ={
     new File(oldBenchmarkDir, name)
@@ -45,45 +45,45 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     new File(newBenchmarkDir, name)
   }
 
-  val benchmarkBasicDataTypesFile = "benchmarkBasicDataTypes.json"
-  val historicDataTypesFile: File = getResource(benchmarkBasicDataTypesFile)
-  val benchmarkBasicDataTypesTempFile: File = getTempFile(benchmarkBasicDataTypesFile)
+  lazy val benchmarkBasicDataTypesFile = "benchmarkBasicDataTypes.json"
+  lazy val historicDataTypesFile: File = getResource(benchmarkBasicDataTypesFile)
+  lazy val benchmarkBasicDataTypesTempFile: File = getTempFile(benchmarkBasicDataTypesFile)
 
-  val benchmarkVectorsFile = "benchmarkVectors.json"
-  val historicVectorsFile: File = getResource(benchmarkVectorsFile)
-  val benchmarkVectorsTempFile: File = getTempFile(benchmarkVectorsFile)
+  lazy val benchmarkVectorsFile = "benchmarkVectors.json"
+  lazy val historicVectorsFile: File = getResource(benchmarkVectorsFile)
+  lazy val benchmarkVectorsTempFile: File = getTempFile(benchmarkVectorsFile)
 
-  val benchmarkStringFile = "benchmarkString.json"
-  val historicStringFile: File = getResource(benchmarkStringFile)
-  val benchmarkStringTempFile: File = getTempFile(benchmarkStringFile)
+  lazy val benchmarkStringFile = "benchmarkString.json"
+  lazy val historicStringFile: File = getResource(benchmarkStringFile)
+  lazy val benchmarkStringTempFile: File = getTempFile(benchmarkStringFile)
 
-  val benchmarkStringMissingsFile = "benchmarkStringMissing.json"
-  val historicStringMissingsFile: File = getResource(benchmarkStringMissingsFile)
-  val benchmarkStringMissingsTempFile: File = getTempFile(benchmarkStringMissingsFile)
+  lazy val benchmarkStringMissingsFile = "benchmarkStringMissing.json"
+  lazy val historicStringMissingsFile: File = getResource(benchmarkStringMissingsFile)
+  lazy val benchmarkStringMissingsTempFile: File = getTempFile(benchmarkStringMissingsFile)
 
-  val benchmarkOneHotFile = "benchmarkOneHot.json"
-  val historicOneHotFile: File = getResource(benchmarkOneHotFile)
-  val benchmarkOneHotTempFile: File = getTempFile(benchmarkOneHotFile)
+  lazy val benchmarkOneHotFile = "benchmarkOneHot.json"
+  lazy val historicOneHotFile: File = getResource(benchmarkOneHotFile)
+  lazy val benchmarkOneHotTempFile: File = getTempFile(benchmarkOneHotFile)
 
-  val benchmarkNoOneHotFile = "benchmarkNoOneHot.json"
-  val historicNoOneHotFile: File = getResource(benchmarkNoOneHotFile)
-  val benchmarkNoOneHotTempFile: File = getTempFile(benchmarkNoOneHotFile)
+  lazy val benchmarkNoOneHotFile = "benchmarkNoOneHot.json"
+  lazy val historicNoOneHotFile: File = getResource(benchmarkNoOneHotFile)
+  lazy val benchmarkNoOneHotTempFile: File = getTempFile(benchmarkNoOneHotFile)
 
-  val benchmarkOneHotMissingsFile = "benchmarkOneHotMissings.json"
-  val historicOneHotMissingsFile: File = getResource(benchmarkOneHotMissingsFile)
-  val benchmarkOneHotMissingsTempFile: File = getTempFile(benchmarkOneHotMissingsFile)
+  lazy val benchmarkOneHotMissingsFile = "benchmarkOneHotMissings.json"
+  lazy val historicOneHotMissingsFile: File = getResource(benchmarkOneHotMissingsFile)
+  lazy val benchmarkOneHotMissingsTempFile: File = getTempFile(benchmarkOneHotMissingsFile)
 
-  val benchmarkNoOneHotMissingsFile = "benchmarkNoOneHotMissings.json"
-  val historicNoOneHotMissingsFile: File = getResource(benchmarkNoOneHotMissingsFile)
-  val benchmarkNoOneHotMissingsTempFile: File = getTempFile(benchmarkNoOneHotMissingsFile)
+  lazy val benchmarkNoOneHotMissingsFile = "benchmarkNoOneHotMissings.json"
+  lazy val historicNoOneHotMissingsFile: File = getResource(benchmarkNoOneHotMissingsFile)
+  lazy val benchmarkNoOneHotMissingsTempFile: File = getTempFile(benchmarkNoOneHotMissingsFile)
 
-  val benchmarkStringIndexOneHotFile = "benchmarks/benchmarkStringIndexOneHot.json"
-  val historicStringIndexOneHotFile: File = getResource(benchmarkStringIndexOneHotFile)
-  val benchmarkStringIndexOneHotTempFile: File = getTempFile(benchmarkStringIndexOneHotFile)
+  lazy val benchmarkStringIndexOneHotFile = "benchmarks/benchmarkStringIndexOneHot.json"
+  lazy val historicStringIndexOneHotFile: File = getResource(benchmarkStringIndexOneHotFile)
+  lazy val benchmarkStringIndexOneHotTempFile: File = getTempFile(benchmarkStringIndexOneHotFile)
 
-  val benchmarkDateFile = "benchmarkDate.json"
-  val historicDateFile: File = getResource(benchmarkDateFile)
-  val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
+  lazy val benchmarkDateFile = "benchmarkDate.json"
+  lazy val historicDateFile: File = getResource(benchmarkDateFile)
+  lazy val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
 
   // int label with features of:
   // long, double, boolean, int, byte, float

@@ -50,7 +50,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
         |}""".stripMargin
   }
 
-  protected def header(simpleClassName: String): String = WrapperClassDoc.GenerateWrapperClassDoc(simpleClassName)
+  protected def header(simpleClassName: String): String = ""
   protected def classDocTemplate(simpleClassName: String) = s"""${header(simpleClassName)}"""
   val modelStr: String
   val moduleAcc: String

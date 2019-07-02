@@ -186,7 +186,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |""".stripMargin
   }
 
-  protected val header = WrapperClassDoc.GenerateWrapperClassDoc(entryPointName)
+  protected val header = ""
   protected def classDocTemplate(entryPointName: String) = s"""$header"""
 
   protected def paramDocTemplate(explanation: String, docType: String, indent: String): String = {
