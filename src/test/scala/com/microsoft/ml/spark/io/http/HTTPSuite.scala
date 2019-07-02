@@ -32,10 +32,10 @@ class HTTPSuite extends TestBase with HTTPTestUtils {
 
     Thread.sleep(5000)
     val client = HttpClientBuilder.create().build()
-    val p1 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"))
-    val p2 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "heree"))
-    val p3 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereee"))
-    val p4 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereeee"))
+    val p1 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url)
+    val p2 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "heree"), url)
+    val p3 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereee"), url)
+    val p4 = sendJsonRequest(client, Map("foo" -> 1, "bar" -> "hereeee"), url)
     val posts = List(p1, p2, p3, p4)
     val correctResponses = List(27, 28, 29, 30)
 

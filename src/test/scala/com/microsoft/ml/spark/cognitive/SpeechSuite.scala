@@ -42,6 +42,10 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
       baseDfEq.areEqual(a.drop("audio"), b.asInstanceOf[DataFrame].drop("audio"))
   }
 
+  override def testSerialization(): Unit = {
+    tryWithRetries(Array(0,100,100))(super.testSerialization)
+  }
+
   test("Basic Usage") {
     val toObj = SpeechResponse.makeFromRowConverter
     val result = toObj(stt.setFormat("simple")

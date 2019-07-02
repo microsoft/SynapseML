@@ -18,8 +18,10 @@ class NotebookTests extends TestBase {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    assert(listActiveJobs(clusterId).isEmpty,
-      "Cluster already has running jobs cannot change libraries safely")
+    tryWithRetries(Array.fill(200)(10000)) {() =>
+      assert(listActiveJobs(clusterId).isEmpty,
+        "Cluster already has running jobs cannot change libraries safely")
+    }
     ()
   }
 

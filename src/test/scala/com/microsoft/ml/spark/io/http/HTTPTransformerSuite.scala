@@ -64,6 +64,17 @@ trait WithFreeUrl {
     StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
   lazy val port2: Int    =
     StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
+
+  def getFreePort: Int = {
+    val p = StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
+    Thread.sleep(300)
+    p
+  }
+
+  def url(port: Int): String = {
+    s"http://$host:$port/$apiPath"
+  }
+
   lazy val url:String   = {
     s"http://$host:$port/$apiPath"
   }

@@ -39,8 +39,17 @@ trait LinuxOnly extends TestBase {
     super.test(testName, testTags.toList.::(TestBase.LinuxOnly): _*)(testFun)
 }
 
-abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+trait Flaky extends TestBase {
 
+  override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
+    super.test(testName, testTags: _*){
+      tryWithRetries(Array(0,100,100))(testFun _)
+    }
+  }
+
+}
+
+abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
   // "This Is A Bad Thing" according to my research. However, this is
   // just for tests so maybe ok. A better design would be to break the
   // session stuff into TestSparkSession as a trait and have test suites
@@ -118,7 +127,8 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
       try {
         return block()
       } catch {
-        case _: Exception if (i + 1) < times.length =>
+        case e: Exception if (i + 1) < times.length =>
+          println(s"RETRYING after $t ms:  Caught error: $e ")
           blocking {Thread.sleep(t.toLong)}
       }
     }
