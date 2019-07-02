@@ -201,25 +201,25 @@ object SummarizeData extends DefaultParamsReadable[SummarizeData] {
 
   final val percentilesQuantiles = Array(0.005, 0.01, 0.05, 0.95, 0.99, 0.995)
   final val percentilesFields = List(
-    StructField("P0.5", DoubleType, true),
+    StructField("P0_5", DoubleType, true),
     StructField("P1", DoubleType, true),
     StructField("P5", DoubleType, true),
     StructField("P95", DoubleType, true),
     StructField("P99", DoubleType, true),
-    StructField("P99.5", DoubleType, true))
+    StructField("P99_5", DoubleType, true))
 
   final val sampleFields = List(
-    StructField("Sample Variance", DoubleType, true),
-    StructField("Sample Standard Deviation", DoubleType, true),
-    StructField("Sample Skewness", DoubleType, true),
-    StructField("Sample Kurtosis", DoubleType, true))
+    StructField("Sample_Variance", DoubleType, true),
+    StructField("Sample_Standard_Deviation", DoubleType, true),
+    StructField("Sample_Skewness", DoubleType, true),
+    StructField("Sample_Kurtosis", DoubleType, true))
 
   final val basicQuantiles = Array(0, 0.25, 0.5, 0.75, 1)
   final val basicFields = List(
     StructField("Min", DoubleType, true),
-    StructField("1st Quartile", DoubleType, true),
+    StructField("1st_Quartile", DoubleType, true),
     StructField("Median", DoubleType, true),
-    StructField("3rd Quartile", DoubleType, true),
+    StructField("3rd_Quartile", DoubleType, true),
     StructField("Max", DoubleType, true)
     //TODO: StructField("Range", DoubleType, true),
     //TODO: StructField("Mean", DoubleType, true),
@@ -230,6 +230,6 @@ object SummarizeData extends DefaultParamsReadable[SummarizeData] {
 
   final val countFields = List(
     StructField("Count", DoubleType, false),
-    StructField("Unique Value Count", DoubleType, false),
-    StructField("Missing Value Count", DoubleType, false))
+    StructField("Unique_Value_Count", DoubleType, false),
+    StructField("Missing_Value_Count", DoubleType, false))
 }

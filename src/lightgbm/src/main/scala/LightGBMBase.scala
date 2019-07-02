@@ -10,7 +10,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.math.min
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
+import org.apache.spark.sql.functions._
 
+import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
@@ -38,11 +40,25 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
-    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset)
+    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset, log)
     val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    // Only get the relevant columns
+    val trainingCols = ListBuffer(getLabelCol, getFeaturesCol)
+    if (get(weightCol).isDefined) {
+      trainingCols += getWeightCol
+    }
+    if (getOptGroupCol.isDefined) {
+      trainingCols += getOptGroupCol.get
+    }
+    if (get(validationIndicatorCol).isDefined) {
+      trainingCols += getValidationIndicatorCol
+    }
+    if (get(initScoreCol).isDefined) {
+      trainingCols += getInitScoreCol
+    }
     // Reduce number of partitions to number of executor cores
-    val df = dataset.toDF().coalesce(numWorkers)
+    val df = dataset.select(trainingCols.map(name => col(name)):_*).toDF().coalesce(numWorkers)
     val (inetAddress, port, future) =
       LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout)
 
