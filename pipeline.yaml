@@ -19,14 +19,18 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   steps:
-    - task: AzureCLI@1
-      displayName: 'Publish'
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt packagePython && sbt publishBlob'
+        keyVaultName: mmlspark-keys
+    - bash: source activate mmlspark && sbt packagePython && sbt publishBlob publishDocs
+      displayName: Publish Artifacts
       env:
-        BUILD_NUMBER: $(Build.BuildId)
+        STORAGE_KEY: $(storage-key)
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:

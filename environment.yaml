@@ -6,3 +6,5 @@ dependencies:
   - pip:
     - unittest-xml-reporting
     - wheel
+    - sphinx
+    - sphinx_rtd_theme

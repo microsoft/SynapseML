@@ -44,6 +44,6 @@ object Secrets {
   lazy val pgpPrivate: String = new String(Base64.getDecoder.decode(
     getSecret("pgp-private").getBytes("UTF-8")))
   lazy val pgpPassword: String = getSecret("pgp-pw")
-  lazy val storageKey: String = getSecret("storage-key")
+  lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", getSecret("storage-key"))
 
 }
