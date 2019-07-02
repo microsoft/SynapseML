@@ -8,7 +8,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.io.http.ServingImplicits._
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.execution.streaming.ServingUDFs
@@ -22,7 +22,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-class HTTPv2Suite extends TestBase with HTTPTestUtils {
+class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   //override val logLevel: String = "INFO"
   override protected val numRetries: Int = 20
 
@@ -63,24 +63,26 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("continuous") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = newPort)
       .trigger(Trigger.Continuous("10 seconds")) // only change in query
       .start()
     using(server) {
       Thread.sleep(3000)
-      assertLatency((1 to 100).map(i => sendStringRequest(client)), 5)
+      assertLatency((1 to 100).map(i => sendStringRequest(client, url = url(newPort))), 5)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
   }
 
   test("async continuous") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = newPort)
       .trigger(Trigger.Continuous("1 seconds")) // only change in query
       .start()
 
     using(server) {
       Thread.sleep(3000)
-      val futures = (1 to 100).map(i => sendStringRequestAsync(client))
+      val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
       val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
       assertLatency(responsesWithLatencies, 2000)
     }
@@ -88,12 +90,13 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("async microbatch") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = newPort)
       .start()
 
     using(server) {
       Thread.sleep(3000)
-      val futures = (1 to 100).map(i => sendStringRequestAsync(client))
+      val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
       val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
       assertLatency(responsesWithLatencies, 2000)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
@@ -102,36 +105,38 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("double pipeline") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = newPort)
       .start()
 
     using(server) {
       waitForServer(server)
-      (1 to 100).foreach(i => sendStringRequest(client))
+      (1 to 100).foreach(i => sendStringRequest(client, url = url(newPort)))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
     Thread.sleep(5000)
-    val server2 = basePipeline()
+    val server2 = basePipeline(port = newPort)
       .start()
 
     using(server2) {
       waitForServer(server2)
-      (1 to 100).foreach(i => sendStringRequest(client))
+      (1 to 100).foreach(i => sendStringRequest(client, url = url(newPort)))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
   }
 
   test("microbatch") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = newPort)
       .start()
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client))
+      val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client, url = url(newPort)))
       Thread.sleep(1000)
-      (1 to 100).foreach(_ => sendStringRequest(client))
+      (1 to 100).foreach(_ => sendStringRequest(client, url = url(newPort)))
       assertLatency(responsesWithLatencies, 10)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -139,11 +144,12 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("errors if 2 services are made at the same time with the same name") {
-    val server1 = basePipeline(2, apiName = "n1")
+    val newPort = getFreePort
+    val server1 = basePipeline(2, apiName = "n1", port = newPort)
       .start()
 
     assertThrows[AssertionError] {
-      val server2 = basePipeline(2, "bar", apiName = "n1")
+      val server2 = basePipeline(2, "bar", apiName = "n1", port = newPort)
         .start()
       Thread.sleep(1000)
       throw server2.exception.get.cause
@@ -154,15 +160,18 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("two services can run independently") {
+    val port1 = getFreePort
+    val port2 = getFreePort
+
     val server1 = basePipeline(numPartitions = 1, name = "q1",
-      apiPath = "foo", apiName = "n1").start()
+      apiPath = "foo", apiName = "n1", port = port1).start()
     using(server1) {
       val server2 = basePipeline(numPartitions = 1, name = "q2",
         apiPath = "bar", apiName = "n2", port = port2).start()
       waitForServer(server1)
       using(server2) {
         waitForServer(server2)
-        val l1 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port/foo"))
+        val l1 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port1/foo"))
         val l2 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port2/bar"))
         assertLatency(l1, 10)
         assertLatency(l2, 10)
@@ -174,7 +183,8 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("can reply to bad requests immediately partial") {
-    val server = baseWrite(baseDF()
+    val newPort = getFreePort
+    val server = baseWrite(baseDF(port=newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "partial")
       .makeReply("value"))
       .start()
@@ -182,15 +192,15 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""")
+        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""")
+        sendStringRequest(client, payload = """{"valu111e": 1}""", url = url(newPort))
       )
 
       val r3 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -200,7 +210,8 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("can reply to bad requests immediately") {
-    val server = baseWrite(baseDF()
+    val newPort = getFreePort
+    val server = baseWrite(baseDF(port=newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "full")
       .makeReply("value"))
       .start()
@@ -208,15 +219,15 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""")
+        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400)
+        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
       )
 
       val r3 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -227,7 +238,8 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("can reply from the middle of the pipeline") {
-    val server = baseWrite(baseDF()
+    val newPort = getFreePort
+    val server = baseWrite(baseDF(port=newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType))
       .withColumn("didReply",
         when(col("value").isNull,
@@ -245,15 +257,15 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""")
+        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400)
+        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
       )
 
       val r3 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400)
+        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -265,6 +277,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
 
   test("fault tolerance") {
     tryWithRetries(Array(0,100,100)){() =>
+      val newPort = getFreePort
       val r = scala.util.Random
       val flakyUDF = udf({ x: Int =>
         val d = r.nextDouble()
@@ -278,7 +291,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       }, DoubleType)
 
       Thread.sleep(1000)
-      val server = baseWrite(baseDF(epochLength = 1000)
+      val server = baseWrite(baseDF(epochLength = 1000, port=newPort)
         .withColumn("foo", flakyUDF(col("id.partitionId")))
         .makeReply("foo"))
         .start()
@@ -286,7 +299,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       using(server) {
         waitForServer(server)
         val responsesWithLatencies = (1 to 300).map(i =>
-          sendStringRequest(client)
+          sendStringRequest(client, url=url(newPort))
         )
         assertLatency(responsesWithLatencies, 200)
         println(HTTPSourceStateHolder.serviceInfoJson(apiName))
@@ -295,6 +308,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("joins") {
+    val newPort = getFreePort
     //TODO figure out how to get spark streaming to shuffle for real
     import session.implicits._
 
@@ -302,7 +316,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       .map(i => (i, i.toString + "_foo"))
       .toDF("key", "value").cache()
 
-    val df1 = baseDF(1).parseRequest(apiName, new StructType().add("data", IntegerType))
+    val df1 = baseDF(1, port = newPort).parseRequest(apiName, new StructType().add("data", IntegerType))
 
     df1.printSchema()
 
@@ -316,7 +330,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
     using(server) {
       Thread.sleep(10000)
       val responsesWithLatencies = (1 to 100).map { i =>
-        val ret = sendJsonRequest(client, i)
+        val ret = sendJsonRequest(client, i, url = url(newPort))
         ret
       }
 
@@ -331,7 +345,8 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
   }
 
   test("flaky connection") {
-    val server = basePipeline()
+    val newPort = getFreePort
+    val server = basePipeline(port = getFreePort)
       .trigger(Trigger.Continuous("1 second")) // only change in query
       .start()
 
@@ -348,7 +363,7 @@ class HTTPv2Suite extends TestBase with HTTPTestUtils {
       lazy val client2: CloseableHttpClient = HttpClientBuilder
         .create().setDefaultRequestConfig(requestConfig2).build()
 
-      val futures = (1 to 100).map(i => Future(sendFileRequest(client2)))
+      val futures = (1 to 100).map(i => Future(sendFileRequest(client2, url = url(newPort))))
       val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, Duration(5, TimeUnit.SECONDS))).toOption)
       Thread.sleep(6000)
       assert(server.isActive)
