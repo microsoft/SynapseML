@@ -57,7 +57,7 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
   }
 
   def testObjects(): Seq[TestObject[VowpalWabbitInteractions]] = List(new TestObject(
-    new VowpalWabbitInteractions().setInputCols(Array("words")).setOutputCol("out"), makeBasicDF()))
+    new VowpalWabbitInteractions().setInputCols(Array("v1")).setOutputCol("out"), df))
 
   override def reader: MLReadable[_] = VowpalWabbitInteractions
 }

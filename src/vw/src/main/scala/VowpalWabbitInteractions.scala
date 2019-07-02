@@ -75,6 +75,12 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
     for (f <- getInputCols)
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
+      else {
+        val fieldType = schema.fields(schema.fieldIndex(f)).dataType
+
+        if (fieldType != VectorType)
+          throw new IllegalArgumentException("column " + f + " must be of type Vector but is " + fieldType.typeName)
+      }
 
     schema.add(new StructField(getOutputCol, VectorType, true))
   }
