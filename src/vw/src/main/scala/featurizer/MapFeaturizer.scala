@@ -8,14 +8,36 @@ import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable.{ArrayBuilder}
 
+/**
+  * Featurize map of type T into native VW structure. (hash(column name + k):value)
+  * @param fieldIdx input field index.
+  * @param columnName used as feature name prefix.
+  * @param namespaceHash pre-hashed namespace.
+  * @param mask bit mask applied to final hash.
+  * @param valueFeaturizer featurizer for value type.
+  * @tparam T value type.
+  */
 class MapFeaturizer[T](override val fieldIdx: Int, val columnName: String, val namespaceHash: Int,
                        val mask: Int, val valueFeaturizer: (T) => Double)
   extends Featurizer(fieldIdx) {
 
+  /**
+    * Featurize a single row.
+    * @param row input row.
+    * @param indices output indices.
+    * @param values output values.
+    * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
+    *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
+    */
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
     for ((k,v) <- row.getMap[String, T](fieldIdx).iterator) {
-      indices += mask & VowpalWabbitMurmur.hash(columnName + k, namespaceHash)
-      values += valueFeaturizer(v)
+      val value = valueFeaturizer(v)
+
+      // Note: 0 valued features are always filtered.
+      if (value != 0) {
+        indices += mask & VowpalWabbitMurmur.hash(columnName + k, namespaceHash)
+        values += value
+      }
     }
   }
 }

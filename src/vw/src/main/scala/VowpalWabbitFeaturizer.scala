@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark
 
 import com.microsoft.ml.spark.featurizer._
-import org.apache.spark.ml.{Transformer, VectorUDTUtil}
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 import scala.collection.mutable.ArrayBuilder
 
@@ -134,6 +135,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
 
-    schema.add(new StructField(getOutputCol, VectorUDTUtil.getDataType, true))
+    schema.add(new StructField(getOutputCol, VectorType, true))
   }
 }

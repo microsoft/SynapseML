@@ -38,8 +38,8 @@ object Extras {
     "com.jcraft"          % "jsch"         % "0.1.54",
     "com.jcraft"          % "jsch"         % "0.1.54",
     "org.apache.httpcomponents" % "httpclient"   % "4.5.6",
-    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.350", // from "file:///home/vagrant/LightGBM/lightgbmlib.jar",
-    "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0", // from "file:///home/vagrant/vowpal_wabbit/java/target/vw-jni-8.7.0-SNAPSHOT.jar"
+    "com.microsoft.ml.lightgbm" %  "lightgbmlib" % "2.2.350",
+    "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0",
     // needed for wasb access, but it collides with the version that comes with Spark,
     // so it gets installed manually for now (see "tools/config.sh")
 

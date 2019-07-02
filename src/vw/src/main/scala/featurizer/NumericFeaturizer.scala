@@ -8,18 +8,39 @@ import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
 
+/**
+  * Featurize numeric values into native VW structure. ((hash(column name):value)
+  * @param fieldIdx input field index.
+  * @param columnName used as feature name prefix.
+  * @param namespaceHash pre-hashed namespace.
+  * @param mask bit mask applied to final hash.
+  * @param getFieldValue lambda to unify the cast/conversion to double.
+  */
 class NumericFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int,
                         mask: Int, val getFieldValue: (Row) => Double)
   extends Featurizer(fieldIdx) {
 
-    val featureIdx = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
+  /**
+    * Pre-hashed feature index.
+    */
+  val featureIdx = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
 
-    override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
-      val value = getFieldValue(row)
-      if (value != 0) {
-          indices += featureIdx
-          values += value
-      }
-      ()
+  /**
+    * Featurize a single row.
+    * @param row input row.
+    * @param indices output indices.
+    * @param values output values.
+    * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
+    *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
+    */
+  override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
+    val value = getFieldValue(row)
+
+    // Note: 0 valued features are always filtered.
+    if (value != 0) {
+        indices += featureIdx
+        values += value
     }
+    ()
+  }
 }

@@ -5,6 +5,8 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param.{BooleanParam, IntParam}
 
+/** Controls hashing parameters such us number of bits (numbits) and how to handle collisions.
+  */
 trait HasNumBits extends Wrappable {
   val numbits = new IntParam(this, "numbits", "Number of bits used to mask")
   setDefault(numbits -> 30)
@@ -16,6 +18,9 @@ trait HasNumBits extends Wrappable {
     set(numbits, value)
   }
 
+  /**
+    * @return the bitmask used to constraint the hash feature indices.
+    */
   protected def getMask: Int = ((1 << getNumBits) - 1)
 
   val sumCollisions = new BooleanParam(this, "sumCollisions", "Sums collisions if true, otherwise removes them")

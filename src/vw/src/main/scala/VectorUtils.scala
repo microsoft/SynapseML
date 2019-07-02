@@ -4,6 +4,13 @@
 package com.microsoft.ml.spark
 
 object VectorUtils {
+  /**
+    * Sort of indices and assocated values. Either sums or ignores values for collisions.
+    * @param indices indices to be sorted.
+    * @param values associated values to each index.
+    * @param sumCollisions if true values of index collisions are summed, otherwise ignored.
+    * @return
+    */
   def sortAndDistinct(indices: Array[Int], values: Array[Double], sumCollisions: Boolean = true):
   (Array[Int], Array[Double]) = {
     if (indices.length == 0)
@@ -41,7 +48,7 @@ object VectorUtils {
       if (j == indices.length)
         (indicesSorted, valuesSorted)
       else {
-        // just in case we found duplicates, let compact the array
+        // just in case we found duplicates, lets compact the array
         val indicesCompacted = new Array[Int](j)
         val valuesCompacted = new Array[Double](j)
 

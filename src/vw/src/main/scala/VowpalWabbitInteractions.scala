@@ -3,16 +3,21 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.{Transformer, VectorUDTUtil}
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.{ComplexParamsReadable, ComplexParamsWritable, Identifiable}
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 object VowpalWabbitInteractions extends ComplexParamsReadable[VowpalWabbitInteractions]
 
+/**
+  * This transformer is not intended to be used with VW classifier or regressors, but rather to bring
+  * sparse interaction concept to other SparkML learners (e.g. LR).
+  */
 class VowpalWabbitInteractions(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with Wrappable with ComplexParamsWritable
 {
@@ -26,6 +31,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
 
     val mode = udf((r: Row) => {
 
+      // compute the final number of features
       val numElems = (0 until r.length)
         .map(r.getAs[Vector](_).numNonzeros)
         .fold(1)(_ * _)
@@ -70,7 +76,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException("missing input column " + f)
 
-    schema.add(new StructField(getOutputCol, VectorUDTUtil.getDataType, true))
+    schema.add(new StructField(getOutputCol, VectorType, true))
   }
 
   override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)

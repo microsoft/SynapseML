@@ -56,7 +56,7 @@ class VowpalWabbitClassificationModel(
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = transformImplInternal(dataset)
 
-    // which mode one once to use depends a bit on how this should be deployed
+    // which mode one wants to use depends a bit on how this should be deployed
     // 1. if you stay in spark w/o link=logistic is probably more convenient as it also returns the raw prediction
     // 2. if you want to export the model *and* get probabilities at scoring term w/ link=logistic is preferable
 
@@ -81,11 +81,11 @@ class VowpalWabbitClassificationModel(
       getPredictionCol, getProbabilityCol, getRawPredictionCol)
 
   protected override def predictRaw(features: Row): Vector = {
-    throw new NotImplementedError("Not implement")
+    throw new NotImplementedError("Not implemented")
   }
 
   protected override def raw2probabilityInPlace(rawPrediction: Vector): Vector= {
-    throw new NotImplementedError("Not implement")
+    throw new NotImplementedError("Not implemented")
   }
 
   override val ttag: TypeTag[VowpalWabbitClassificationModel] =

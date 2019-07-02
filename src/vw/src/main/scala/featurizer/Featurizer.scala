@@ -9,9 +9,13 @@ import scala.collection.mutable.ArrayBuilder
 
 abstract class Featurizer(val fieldIdx: Int) extends Serializable {
 
-  // TODO: review this, but due to SparseVector limitations we don't support 64bit indices
-
-  // this interface isn't very Scala-esce, but it avoids lots of allocation
-  // def featurize(row:Row): Seq[Feature] but this requires multiple allocations for each invocation
+  /**
+    * Featurize a single row.
+    * @param row input row.
+    * @param indices output indices.
+    * @param values output values.
+    * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
+    *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
+    */
   def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit
 }

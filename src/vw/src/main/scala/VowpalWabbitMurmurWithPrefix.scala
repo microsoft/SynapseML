@@ -6,6 +6,11 @@ package com.microsoft.ml.spark
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
 import java.nio.charset.StandardCharsets
 
+/**
+  * VW style murmur hash with pre-hashing of an initially specified prefix.
+  * @param prefix the prefix for each hashed value.
+  * @param maxSize maximum size of the string to be hashed.
+  */
 class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 1024) extends Serializable {
   // worse case is 4 bytes per character
   val ys: Array[Byte] = new Array(maxSize * 4)
@@ -17,6 +22,7 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
 
       prefixBytes.length
     }
+
   def hash(str: String, namespaceHash: Int): Int =
     hash(str, 0, str.length, namespaceHash)
 

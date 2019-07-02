@@ -8,9 +8,22 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 
 import scala.collection.mutable.ArrayBuilder
 
+/**
+  * Featurize sparse and dense vector into native VW structure. (hash(s(0)):value, hash(s(1)):value, ...)
+  * @param fieldIdx input field index.
+  * @param mask bit mask applied to final hash.
+  */
 class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
   extends Featurizer(fieldIdx) {
 
+  /**
+    * Featurize a single row.
+    * @param row input row.
+    * @param indices output indices.
+    * @param values output values.
+    * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
+    *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
+    */
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
 
     row.getAs[Vector](fieldIdx) match {
