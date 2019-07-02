@@ -14,7 +14,7 @@ class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
   override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
 
     row.getAs[Vector](fieldIdx) match {
-      case v:DenseVector => {
+      case v: DenseVector => {
         // check if we need to hash
         if (v.size < mask + 1)
           indices ++= 0 until v.size
@@ -23,7 +23,7 @@ class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
 
         values ++= v.values
       }
-      case v:SparseVector => {
+      case v: SparseVector => {
         // check if we need to hash
         if (v.size < mask + 1)
           indices ++= v.indices

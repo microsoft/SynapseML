@@ -151,7 +151,9 @@ trait VowpalWabbitBase extends Wrappable
     val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
         .toArray
 
-    def trainIteration(inputRows: Iterator[Row], localInitialModel: Option[Array[Byte]], pass: Int): Iterator[Option[Array[Byte]]] = {
+    def trainIteration(inputRows: Iterator[Row],
+                       localInitialModel: Option[Array[Byte]],
+                       pass: Int): Iterator[Option[Array[Byte]]] = {
       // only perform the inner-loop if we cache the inputRows
       val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
@@ -210,8 +212,6 @@ trait VowpalWabbitBase extends Wrappable
 
               vw.endPass
             }
-
-
 
             if (getEnableCacheFile)
               vw.performRemainingPasses
