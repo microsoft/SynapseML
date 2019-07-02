@@ -10,7 +10,7 @@ import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
 import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
@@ -84,27 +84,13 @@ trait HTTPTestUtils extends WithFreeUrl {
   lazy val client: CloseableHttpClient = HttpClientBuilder
     .create().setDefaultRequestConfig(requestConfig).build()
 
-  def sendJsonRequest(client: CloseableHttpClient, payload: Int): (String, Long) = {
-    val post = new HttpPost(url)
-    val e = new StringEntity("{\"data\":" + s"$payload}")
-    post.setEntity(e)
-    println("request sent")
-    val t0 = System.currentTimeMillis()
-    val res = client.execute(post)
-    val t1 = System.currentTimeMillis()
-    val out = new BasicResponseHandler().handleResponse(res)
-    res.close()
-    println("request suceeded")
-    (out, t1 - t0)
-  }
-
-  def sendStringRequestAsync(client: CloseableHttpClient): Future[(String, Double)] = {
+  def sendStringRequestAsync(client: CloseableHttpClient, url: String = url): Future[(String, Double)] = {
     Future {
-      sendStringRequest(client)
+      sendStringRequest(client, url = url)
     }
   }
 
-  def sendJsonRequest(client: CloseableHttpClient, map: Map[String, Any]): String = {
+  def sendJsonRequest(client: CloseableHttpClient, map: Map[String, Any], url: String): String = {
     val post = new HttpPost(url)
     val params = new StringEntity(JSONObject(map).toString())
     post.addHeader("content-type", "application/json")
@@ -115,13 +101,25 @@ trait HTTPTestUtils extends WithFreeUrl {
     out
   }
 
-  def sendJsonRequestAsync(client: CloseableHttpClient, map: Map[String, Any]): Future[String] = {
+  def sendJsonRequest(client: CloseableHttpClient, payload: Int, url:String): (String, Long) = {
+    val post = new HttpPost(url)
+    val e = new StringEntity("{\"data\":" + s"$payload}")
+    post.setEntity(e)
+    val t0 = System.currentTimeMillis()
+    val res = client.execute(post)
+    val t1 = System.currentTimeMillis()
+    val out = new BasicResponseHandler().handleResponse(res)
+    res.close()
+    (out, t1 - t0)
+  }
+
+  def sendJsonRequestAsync(client: CloseableHttpClient, map: Map[String, Any], url: String = url): Future[String] = {
     Future {
-      sendJsonRequest(client, map)
+      sendJsonRequest(client, map, url = url)
     }
   }
 
-  def sendFileRequest(client: CloseableHttpClient): (String, Double) = {
+  def sendFileRequest(client: CloseableHttpClient, url: String = url): (String, Double) = {
     val post = new HttpPost(url)
     val e = new FileEntity(FileUtilities.join(
       BuildInfo.datasetDir, "Images","Grocery","testImages","WIN_20160803_11_28_42_Pro.jpg"))
@@ -161,7 +159,7 @@ trait HTTPTestUtils extends WithFreeUrl {
 }
 
 // TODO add tests for shuffles
-class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
+class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   import ServingImplicits._
 
   // Logger.getRootLogger.setLevel(Level.WARN)
@@ -192,16 +190,16 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
     using(server){
       waitForServer(server)
       val responses = List(
-        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
-        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
-        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
-        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
+        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
+        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree"), url),
+        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee"), url),
+        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
       val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
+      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
   }
@@ -224,16 +222,16 @@ class DistributedHTTPSuite extends TestBase with HTTPTestUtils {
     using(server){
       waitForServer(server)
       val responses = List(
-        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")),
-        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree")),
-        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee")),
-        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"))
+        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
+        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree"), url),
+        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee"), url),
+        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
       val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here")))
+      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
 
