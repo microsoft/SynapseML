@@ -25,6 +25,9 @@ import scala.concurrent.{ExecutionContext, Future}
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
 
 object VWUtil {
+  /**
+    * Implementation of C# using(...) { } pattern.
+    */
   def autoClose[A <: AutoCloseable,B](closeable: A)(fun: (A) => B): B = {
     try {
       fun(closeable)
@@ -32,16 +35,13 @@ object VWUtil {
       closeable.close()
     }
   }
-
-  def generateNamespaceInfos(featuresCol: String, additionalFeatures: Seq[String], hashSeed: Int,
-                             schema: StructType): Seq[NamespaceInfo] =
-   (Seq(featuresCol) ++ additionalFeatures)
-    .map(col => new NamespaceInfo(
-      VowpalWabbitMurmur.hash(col, hashSeed),
-      col.charAt(0),
-      schema.fieldIndex(col)))
 }
 
+/**
+  * Base implementation of VowpalWabbit learners.
+  *
+  * @note parameters that regularly are swept through are exposed as proper parameters.
+  */
 @InternalWrapper
 trait VowpalWabbitBase extends Wrappable
   with DefaultParamsWritable
@@ -55,6 +55,7 @@ trait VowpalWabbitBase extends Wrappable
   def getArgs: String = $(args)
   def setArgs(value: String): this.type = set(args, value)
 
+  // VW support multiple input columns which are mapped to namespaces.
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
   setDefault(additionalFeatures -> Array())
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
@@ -137,61 +138,99 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: () => String = () => "") = {
+  private def createLabelSetter(df: DataFrame) = {
     val labelColIdx = df.schema.fieldIndex(getLabelCol)
 
-    val applyLabel = if (get(weightCol).isDefined) {
+    if (get(weightCol).isDefined) {
       val weightColIdx = df.schema.fieldIndex(getWeightCol)
       (row: Row, ex: VowpalWabbitExample) =>
         ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
     }
     else
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
+  }
 
-    val featureColIndices = VWUtil.generateNamespaceInfos(getFeaturesCol, getAdditionalFeatures, getHashSeed, df.schema)
-        .toArray
+  /**
+    * Generate namespace info (hash, feature group, field index) for supplied columns.
+    * @param schema data frame schema to lookup column indices.
+    * @return
+    */
+  private def generateNamespaceInfos(schema: StructType): Array[NamespaceInfo] =
+    (Seq(getFeaturesCol) ++ getAdditionalFeatures)
+      .map(col => new NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col)))
+      .toArray
+
+  /**
+    * If multiple passes are requested and cache file is not enabled, cache the data in-memory.
+    * @param inputRows input data.
+    * @return iterator over the potentially cached data.
+    */
+  private def createDataIterator(inputRows: Iterator[Row], numPassesInSpark: Int) = {
+    if (numPassesInSpark == 1)
+    // avoid caching inputRows
+      () => inputRows
+    else {
+      // cache all row references to be able to quickly get the iterator again
+      val inputRowsArr = inputRows.toArray
+      () => inputRowsArr.iterator
+    }
+  }
+
+  private def buildCommandLineArguments(vwArgs: String, contextArgs: () => String = () => "") = {
+    val args = new StringBuilder
+    args.append(vwArgs)
+      .append(" ").append(contextArgs())
+
+    // have to pass to get multi-pass to work
+    if (args.indexOf("--no_stdin") == -1)
+      args.append(" --no_stdin")
+
+    // need to keep reference around to prevent GC and subsequent file delete
+    if (getEnableCacheFile) {
+      val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
+      cacheFile.deleteOnExit()
+
+      args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
+    }
+
+    log.info(s"VowpalWabbit args: ${args}")
+
+    args.result
+  }
+
+  /**
+    * Internal training loop.
+    * @param df the input data frame.
+    * @param vwArgs vw command line arguments.
+    * @param contextArgs This lambda returns command line arguments that are executed in the final execution context.
+    *                    It is used to get the partition id.
+    */
+  private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: () => String = () => "") = {
+    val applyLabel = createLabelSetter(df)
+
+    val featureColIndices = generateNamespaceInfos(df.schema)
+
+    // only perform the inner-loop if we cache the inputRows
+    val numPassesInSpark = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]],
                        pass: Int): Iterator[Option[Array[Byte]]] = {
-      // only perform the inner-loop if we cache the inputRows
-      val numPasses = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
 
-      val iteratorGenerator = if (numPasses == 1)
-      // avoid caching inputRows
-        () => inputRows
-      else {
-        // cache all row references to be able to quickly get the iterator again
-        val inputRowsArr = inputRows.toArray
-        () => inputRowsArr.iterator
-      }
+      // potential cache data
+      val iteratorGenerator = createDataIterator(inputRows, numPassesInSpark)
 
-      val args = new StringBuilder
-      args.append(vwArgs)
-          .append(" ").append(contextArgs())
+      // construct command line arguments
+      val args = buildCommandLineArguments(vwArgs, contextArgs)
 
-      // have to pass to get multi-pass to work
-      if (args.indexOf("--no_stdin") == -1)
-        args.append(" --no_stdin")
-
-      // need to keep reference around to prevent GC and subsequent file delete
-      if (getEnableCacheFile) {
-        val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
-        cacheFile.deleteOnExit()
-
-        args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
-      }
-
-      log.info(s"VowpalWabbit args: ${args}")
-
-      VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
-        else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
+      VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+        else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
           VWUtil.autoClose(vw.createExample()) { ex =>
 
             // loop in here to avoid
             // - passing model back and forth
             // - re-establishing network connection
-            for (_ <- 0 until numPasses) {
+            for (_ <- 0 until numPassesInSpark) {
               // pass data to VW native part
               for (row <- iteratorGenerator()) {
                 // transfer label
@@ -229,6 +268,7 @@ trait VowpalWabbitBase extends Wrappable
     var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     for (p <- 0 until outerNumPasses) {
+      // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
       localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p))(encoder)
         .reduce((a, b) => if (a.isEmpty) b else a)
     }
@@ -236,6 +276,46 @@ trait VowpalWabbitBase extends Wrappable
     localInitialModel
   }
 
+  /**
+    * Setup spanning tree and invoke training.
+    * @param df input data.
+    * @param vwArgs VW command line arguments.
+    * @param numWorkers number of target workers.
+    * @return
+    */
+  protected def trainInternalDistributed(df: DataFrame, vwArgs: StringBuilder, numWorkers: Int) = {
+    // multiple partitions -> setup distributed coordination
+    val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
+
+    try {
+      spanningTree.start
+
+      val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt)
+      val driverHostAddress = ClusterUtil.getDriverHost(df)
+      val port = spanningTree.getPort
+
+      /*
+      --span_server specifies the network address of a little server that sets up spanning trees over the nodes.
+      --unique_id should be a number that is the same for all nodes executing a particular job and
+        different for all others.
+      --total is the total number of nodes.
+      --node should be unique for each node and range from {0,total-1}.
+      --holdout_off should be included for distributed training
+      */
+      vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
+        .append(s"--unique_id $jobUniqueId --total $numWorkers ")
+
+      trainInternal(df, vwArgs.result, () => s"--node ${TaskContext.get.partitionId}")
+    } finally {
+      spanningTree.stop
+    }
+  }
+
+  /**
+    * Main training loop
+    * @param dataset input data.
+    * @return binary VW model.
+    */
   protected def trainInternal(dataset: Dataset[_]): Array[Byte] = {
     // follow LightGBM pattern
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset)
@@ -248,54 +328,41 @@ trait VowpalWabbitBase extends Wrappable
       else
         dataset.toDF
 
+    // add exposed parameters to the final command line args
     val vwArgs = new StringBuilder()
       .append(s"${getArgs} --save_resume --preserve_performance_counters ")
-      .append(s"--hash_seed ${getHashSeed} ").append(s"-b ${getNumBits} ")
-      .appendParam(learningRate, "-l").appendParam(powerT, "--power_t")
-      .appendParam(l1, "--l1").appendParam(l2, "--l2")
-      .appendParam(ignoreNamespaces, "--ignore").appendParam(interactions, "-q")
+      .append(s"--hash_seed ${getHashSeed} ")
+      .append(s"-b ${getNumBits} ")
+      .appendParam(learningRate, "-l")
+      .appendParam(powerT, "--power_t")
+      .appendParam(l1, "--l1")
+      .appendParam(l2, "--l2")
+      .appendParam(ignoreNamespaces, "--ignore")
+      .appendParam(interactions, "-q")
 
     // bfgs needs cache file
     if (getArgs.contains("--bfgs"))
       setEnableCacheFile(true)
 
+    // call training
     val binaryModel = if (numWorkers == 1)
       trainInternal(df, vwArgs.result)
-    else  {
-      // multiple partitions -> setup distributed coordination
-      val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
-
-      try {
-        spanningTree.start
-
-        val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt)
-        val driverHostAddress = ClusterUtil.getDriverHost(dataset)
-        val port = spanningTree.getPort
-
-        /*
-        --span_server specifies the network address of a little server that sets up spanning trees over the nodes.
-        --unique_id should be a number that is the same for all nodes executing a particular job and
-          different for all others.
-        --total is the total number of nodes.
-        --node should be unique for each node and range from {0,total-1}.
-        --holdout_off should be included for distributed training
-        */
-        vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
-          .append(s"--unique_id $jobUniqueId --total $numWorkers ")
-
-        trainInternal(df, vwArgs.result, () => s"--node ${TaskContext.get.partitionId}")
-      } finally {
-        spanningTree.stop
-      }
-    }
+    else
+      trainInternalDistributed(df, vwArgs, numWorkers)
 
     binaryModel.get
   }
 }
 
+/**
+  * Base trait to wrap the model for prediction.
+  */
 trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
   with org.apache.spark.ml.param.shared.HasRawPredictionCol
 {
+  /**
+    * The serialized VW model.
+    */
   val model: Array[Byte]
 
   @transient
