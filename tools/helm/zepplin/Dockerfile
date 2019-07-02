@@ -138,7 +138,7 @@ ENV HADOOP_HOME=/opt/hadoop
 ADD jars /jars
 
 # add notebooks
-ADD mmlsparkExamples/ ${Z_HOME}/notebook/mmlspark/
+ADD mmlsparkExamples ${Z_HOME}/notebook/mmlspark/
 
 ADD spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 ADD zeppelin-env.sh ${Z_HOME}/conf/
