@@ -57,7 +57,7 @@
 
    ```python
    import mmlspark
-   from mmlspark import CNTKModel
+   from mmlspark.cntk import CNTKModel
    import pyspark
    from pyspark.sql.functions import udf, col
 
