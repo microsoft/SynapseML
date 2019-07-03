@@ -219,7 +219,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         StringUtils.capitalize(paramDefault)
       case _: DoubleParam | _:FloatParam | _:IntParam | _:LongParam =>
         paramDefault
-      case _:IntArrayParam | _:StringArrayParam =>
+      case _:IntArrayParam | _:StringArrayParam | _:DoubleArrayParam =>
         paramDefault.stripPrefix("\"").stripSuffix("\"")
       case _: MapParam[_,_] =>
         paramDefault.stripPrefix("Map(").stripSuffix(")")
@@ -239,6 +239,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       case "StringParam"      => "str"
       case "Param"            => "str"
       case "StringArrayParam" => "list"
+      case "DoubleArrayParam" => "list"
       case "IntArrayParam"    => "list"
       case "ByteArrayParam"   => "list"
       case "MapArrayParam"    => "dict"

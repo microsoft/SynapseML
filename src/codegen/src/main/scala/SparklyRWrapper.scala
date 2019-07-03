@@ -91,7 +91,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
     paramType match {
       case "BooleanParam"               => s"as.logical($paramName)"
       case "DoubleParam" | "FloatParam" => s"as.double($paramName)"
-      case "StringArrayParam"           => s"as.array($paramName)"
+      case "StringArrayParam" | "DoubleArrayParam" | "IntArrayParam" => s"as.array($paramName)"
       case "IntParam" | "LongParam"     => s"as.integer($paramName)"
       case "MapArrayParam" | "Param" | "StringParam" => paramName
       case _ => paramName
