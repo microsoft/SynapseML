@@ -80,7 +80,7 @@ takes in training data and a base SparkML classifier, maps the data into the
 format expected by the base classifier algorithm, and fits a model.
 
    ```python
-   from mmlspark.TrainClassifier import TrainClassifier
+   from mmlspark.train import TrainClassifier
    from pyspark.ml.classification import LogisticRegression
    model = TrainClassifier(model=LogisticRegression(), labelCol=" income").fit(train)
    ```
@@ -96,7 +96,7 @@ Finally, let's score the model against the test set, and use
 precision, recall — from the scored data.
 
    ```python
-   from mmlspark.ComputeModelStatistics import ComputeModelStatistics
+   from mmlspark.train import ComputeModelStatistics
    prediction = model.transform(test)
    metrics = ComputeModelStatistics().transform(prediction)
    metrics.select('accuracy').show()
@@ -107,7 +107,7 @@ package.  For help on mmlspark classes and methods, you can use Python's help()
 function, for example
 
    ```python
-   help(mmlspark.TrainClassifier)
+   help(mmlspark.train.TrainClassifier)
    ```
 
 Next, view our other tutorials to learn how to
