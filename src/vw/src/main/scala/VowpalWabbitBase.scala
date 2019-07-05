@@ -3,10 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
-import java.net.{InetAddress, ServerSocket, Socket}
 import java.util.UUID
-import java.util.concurrent.Executors
 
 import org.apache.spark.{ClusterUtil, TaskContext}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -20,22 +17,8 @@ import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import org.vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
 import scala.math.min
-import scala.concurrent.{ExecutionContext, Future}
 
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
-
-object VWUtil {
-  /**
-    * Implementation of C# using(...) { } pattern.
-    */
-  def autoClose[A <: AutoCloseable,B](closeable: A)(fun: (A) => B): B = {
-    try {
-      fun(closeable)
-    } finally {
-      closeable.close()
-    }
-  }
-}
 
 /**
   * Base implementation of VowpalWabbit learners.
@@ -223,9 +206,9 @@ trait VowpalWabbitBase extends Wrappable
       // construct command line arguments
       val args = buildCommandLineArguments(vwArgs, contextArgs)
 
-      VWUtil.autoClose(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+      StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
         else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
-          VWUtil.autoClose(vw.createExample()) { ex =>
+        StreamUtilities.using(vw.createExample()) { ex =>
 
             // loop in here to avoid
             // - passing model back and forth
@@ -258,7 +241,7 @@ trait VowpalWabbitBase extends Wrappable
 
           // only export the model on the first partition
           Seq(if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None).iterator
-        }
+        }.get // this will throw if there was an exception
     }
 
     val encoder = Encoders.kryo[Option[Array[Byte]]]
