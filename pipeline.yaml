@@ -1,7 +1,7 @@
 resources:
 - repo: self
 trigger:
-- build-refactor
+- master
 jobs:
 
 - job: Style
