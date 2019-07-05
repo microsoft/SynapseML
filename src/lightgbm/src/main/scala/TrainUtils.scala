@@ -8,6 +8,7 @@ import java.net._
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.StreamUtilities.using
+import org.apache.spark.BarrierTaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -15,7 +16,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
 
-case class NetworkParams(defaultListenPort: Int, addr: String, port: Int)
+case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 
 private object TrainUtils extends Serializable {
 
@@ -272,6 +273,20 @@ private object TrainUtils extends Serializable {
     workerServerSocket
   }
 
+  def setFinishedStatus(networkParams: NetworkParams,
+                        localListenPort: Int, log: Logger): Unit = {
+    using(new Socket(networkParams.addr, networkParams.port)) {
+      driverSocket =>
+        using(new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream))) {
+          driverOutput =>
+            log.info("sending finished status to driver")
+            // If barrier execution mode enabled, create a barrier across tasks
+            driverOutput.write(s"${LightGBMConstants.finishedStatus}\n")
+            driverOutput.flush()
+        }.get
+    }.get
+  }
+
   def getNetworkInitNodes(networkParams: NetworkParams,
                           localListenPort: Int, log: Logger,
                           emptyPartition: Boolean): String = {
@@ -295,6 +310,14 @@ private object TrainUtils extends Serializable {
             // Send the current host:port to the driver
             driverOutput.write(s"$workerStatus\n")
             driverOutput.flush()
+            // If barrier execution mode enabled, create a barrier across tasks
+            if (networkParams.barrierExecutionMode) {
+              val context = BarrierTaskContext.get()
+              context.barrier()
+              if (context.partitionId() == 0) {
+                setFinishedStatus(networkParams, localListenPort, log)
+              }
+            }
             if (workerStatus != LightGBMConstants.ignoreStatus) {
               // Wait to get the list of nodes from the driver
               val nodes = driverInput.readLine()
