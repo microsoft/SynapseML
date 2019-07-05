@@ -1,9 +1,16 @@
 resources:
 - repo: self
-trigger:
-- master
-jobs:
 
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+jobs:
 - job: Style
   pool:
     vmImage: ubuntu-16.04
