@@ -1,6 +1,15 @@
 resources:
 - repo: self
 
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
 pr:
   branches:
     include:
