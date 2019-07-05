@@ -11,7 +11,7 @@ name := "mmlspark"
 organization := "com.microsoft.ml.spark"
 scalaVersion := "2.11.12"
 
-val sparkVersion = "2.4.0"
+val sparkVersion = "2.4.3"
 val sprayVersion = "1.3.4"
 val cntkVersion = "2.4"
 
