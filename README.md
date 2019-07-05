@@ -2,8 +2,7 @@
 Microsoft Machine Learning for Apache Spark
 ===========================================
 
-<img title="Build Status" align="right"
-     src="https://mmlspark.azureedge.net/icons/BuildStatus.svg" />
+[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=74557&branchName=master)
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
