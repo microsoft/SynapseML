@@ -134,9 +134,9 @@ classify images in the CIFAR-10 dataset.  View the whole source code in notebook
    ...
    import mmlspark
    # Initialize CNTKModel and define input and output columns
-   cntkModel = mmlspark.CNTKModel() \
-                       .setInputCol("images").setOutputCol("output") \
-                       .setModelLocation(modelFile)
+   cntkModel = mmlspark.cntk.CNTKModel() \
+     .setInputCol("images").setOutputCol("output") \
+     .setModelLocation(modelFile)
    # Train on dataset with internal spark pipeline
    scoredImages = cntkModel.transform(imagesWithLabels)
    ...
