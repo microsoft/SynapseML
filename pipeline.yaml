@@ -19,8 +19,12 @@ pr:
     - README.md
     - docs/*
 
+variables:
+  runTests: True
+
 jobs:
 - job: Style
+  condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
   steps:
@@ -29,7 +33,7 @@ jobs:
     inputs:
       azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
       scriptLocation: inlineScript
-      inlineScript: 'sbt scalastyle test:scalastyle'
+      inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
 - job: PublishAndE2E
   pool:
@@ -43,7 +47,12 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         keyVaultName: mmlspark-keys
-    - bash: source activate mmlspark && sbt packagePython && sbt publishBlob publishDocs
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob publishDocs
+        sbt genBuildInfo
+        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
       env:
         STORAGE_KEY: $(storage-key)
@@ -53,16 +62,16 @@ jobs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
         inlineScript: 'sbt it:test'
-      env:
-        BUILD_NUMBER: $(Build.BuildId)
+      condition: eq(variables.runTests, 'True')
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
         testResultsFiles: '**/test-reports/*.xml'
         failTaskOnFailedTests: true
-      condition: succeededOrFailed()
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
 - job: PythonTests
+  condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
   steps:
@@ -81,171 +90,40 @@ jobs:
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
 
-- job: AutoMLTests
+- job: UnitTests
+  condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.automl.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: CNTKTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: ' sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.cntk.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: CognitiveTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Setup and test  repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.cognitive.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: CoreTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.core.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-
-- job: DownloaderTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.downloader.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: FeaturizeTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.featurize.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: ImageTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.image.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: IOTests
-  pool:
-    vmImage: ubuntu-16.04
+  strategy:
+    matrix:
+      automl:
+        PACKAGE: "automl"
+      cntk:
+        PACKAGE: "cntk"
+      cognitive:
+        PACKAGE: "cognitive"
+      core:
+        PACKAGE: "core"
+      downloader:
+        PACKAGE: "downloader"
+      featurize:
+        PACKAGE: "featurize"
+      image:
+        PACKAGE: "image"
+      io:
+        PACKAGE: "io"
+      lightgbm:
+        PACKAGE: "lightgbm"
+      lime:
+        PACKAGE: "lime"
+      opencv:
+        PACKAGE: "opencv"
+      recommendation:
+        PACKAGE: "recommendation"
+      stages:
+        PACKAGE: "stages"
+      train:
+        PACKAGE: "train"
   steps:
     - task: AzureCLI@1
       displayName: 'Setup repo'
@@ -258,149 +136,10 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.io.**" '
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
         testResultsFiles: '**/test-reports/*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-
-- job: LightGBMTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.lightgbm.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: LIMETests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.lime.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: OpenCVTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.opencv.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: RecommendationTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'MMLSPARK_TEST_SHM="true" && sbt "testOnly com.microsoft.ml.spark.recommendation.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: StagesTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.stages.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-
-- job: TrainTests
-  pool:
-    vmImage: ubuntu-16.04
-  steps:
-    - task: AzureCLI@1
-      displayName: 'Setup repo'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt getDatasets'
-    - task: AzureCLI@1
-      displayName: 'Unit Test'
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.train.**" '
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
-      inputs:
-        testResultsFiles: '**/test-reports/*.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
-

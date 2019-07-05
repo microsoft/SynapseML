@@ -191,6 +191,28 @@ getDatasetsTask := {
   }
 }
 
+val genBuildInfo = TaskKey[Unit]("genBuildInfo", "generate a build info file")
+genBuildInfo := {
+
+  val buildInfo =
+    s"""
+      |MMLSpark Build Release Info
+      |---------------
+      |
+      |### Maven Coordinates
+      | `${organization.value}:${name.value}:${version.value}`
+      | 
+      |### Documentation Uploaded:
+      |[Scala](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
+      |[Python](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
+      |
+    """.stripMargin
+
+  val infoFile = join("target", "Build.md")
+  if (infoFile.exists()) FileUtils.forceDelete(infoFile)
+  FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
+}
+
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
   (Compile / compile).toTask.value
