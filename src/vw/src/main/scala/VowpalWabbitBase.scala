@@ -31,7 +31,8 @@ trait VowpalWabbitBase extends Wrappable
   with HasWeightCol
   with Logging
 {
-  // can we switch to https://docs.scala-lang.org/overviews/macros/paradise.html ?
+  // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
+  // to generate all the parameters?
   val args = new Param[String](this, "args", "VW command line arguments passed")
   setDefault(args -> "")
 
@@ -49,6 +50,10 @@ trait VowpalWabbitBase extends Wrappable
   setDefault(numPasses -> 1)
   def getNumPasses: Int = $(numPasses)
   def setNumPasses(value: Int): this.type = set(numPasses, value)
+
+  // Note on parameters: default values are set in the C++ codebase. To avoid replication
+  // and potentially introduce conflicting default values, the Scala exposed parameters 
+  // are only passed to the native side if they're set.
 
   val learningRate = new DoubleParam(this, "learningRate", "Learning rate")
   def getLearningRate: Double = $(learningRate)
@@ -98,8 +103,10 @@ trait VowpalWabbitBase extends Wrappable
 
         param match {
           case _: StringArrayParam => {
-            for (q <- get(param).get)
-              sb.append(' ').append(option).append(' ').append(q)
+            sb.append(get(param).get.mkString(' ' + option + ' '))
+
+            // for (q <- get(param).get)
+              // sb.append(' ').append(option).append(' ').append(q)
           }
           case _ => sb.append(' ').append(option).append(' ').append(get(param).get)
         }

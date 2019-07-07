@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import com.microsoft.ml.spark.featurizer._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
-import org.apache.spark.sql.types.{ByteType, DoubleType, FloatType, IntegerType, LongType, ShortType, _}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
@@ -77,7 +77,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
         }
       }
       case m: Any =>
-        if (m.typeName == "vector") // unfortunately the type is private
+        if (m.dataType == VectorType) // unfortunately the type is private
           new VectorFeaturizer(idx, getMask)
         else
           throw new RuntimeException(s"Unsupported data type: ${dataType}")

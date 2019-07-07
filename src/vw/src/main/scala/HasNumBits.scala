@@ -19,7 +19,7 @@ trait HasNumBits extends Wrappable {
   }
 
   /**
-    * @return the bitmask used to constraint the hash feature indices.
+    * @return the bitmask used to constrain the hash feature indices.
     */
   protected def getMask: Int = ((1 << getNumBits) - 1)
 
