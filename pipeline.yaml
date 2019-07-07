@@ -139,17 +139,23 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+        inlineScript: 'sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**" coverageReport'
     - task: AzureCLI@1
       condition: and(failed(), eq(variables.flaky, 'True'))
       displayName: 'Flaky Unit Test Retry'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+        inlineScript: 'sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**" coverageReport'
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
         testResultsFiles: '**/test-reports/*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'cobertura'
+        summaryFileLocation: '**/coverage-report/*.xml'
+        reportDirectory: '**/scoverage-report'
+        failIfCoverageEmpty: true
