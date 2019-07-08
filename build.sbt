@@ -126,6 +126,15 @@ publishDocs := {
   uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
 }
 
+val uploadRawCodeCov = TaskKey[Unit]("uploadRawCodeCov",
+  "upload raw code coverage to blob for aggregation later")
+uploadRawCodeCov := {
+  val s = streams.value
+  val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
+  uploadToBlob(scoverageDir.toString, version.value, "coverage", s.log)
+}
+
+
 def pythonizeVersion(v: String): String = {
   if (v.contains("+")){
     v.split("+".head).head + ".dev1"
