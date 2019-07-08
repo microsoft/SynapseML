@@ -1,6 +1,6 @@
-import java.io.{File, PrintWriter}
+import java.io.File
 import java.net.URL
-import java.util.{Random, UUID}
+import java.util.UUID
 
 import org.apache.commons.io.FileUtils
 import sbt.internal.util.ManagedLogger
@@ -119,6 +119,17 @@ def downloadFromBlob(source: String, dest: String,
     "--account-key", Secrets.storageKey)
   Process(osPrefix ++ command) ! log
 }
+def singleUploadToBlob(source: String, dest: String,
+                 container: String, log: ManagedLogger,
+                 accountName: String="mmlspark"): Int = {
+  val command = Seq("az", "storage", "blob", "upload",
+    "--file", source,
+    "--container-name", container,
+    "--name", dest,
+    "--account-name", accountName,
+    "--account-key", Secrets.storageKey)
+  Process(osPrefix ++ command) ! log
+}
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
@@ -151,7 +162,7 @@ val downloadCloudCodeCov = TaskKey[Unit]("downloadCloudCodeCov",
   "download code coverage files from blob")
 downloadCloudCodeCov := {
   val s = streams.value
-  val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
+  val scoverageDir = join("target", "scala-2.11", "scoverage-data")
   val v = version.value
   downloadFromBlob(v + "/**/scoverage.measurements.*", scoverageDir.toString, "coverage", s.log)
   join(scoverageDir.toString, v).listFiles().foreach { d =>
@@ -165,6 +176,15 @@ downloadCloudCodeCov := {
     FileUtils.forceDelete(d)
   }
   FileUtils.forceDelete(join(scoverageDir.toString, v))
+}
+
+val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
+publishR := {
+  val s = streams.value
+  (run in IntegrationTest2).toTask("").value
+  val rPackage = join("target", "scala-2.11", "generated", "package", "R")
+    .listFiles().head
+  singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
 
 def pythonizeVersion(v: String): String = {
