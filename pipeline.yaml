@@ -71,7 +71,7 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishDocs
+        sbt publishBlob publishDocs publishR
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
