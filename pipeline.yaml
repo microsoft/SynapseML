@@ -141,7 +141,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
     - task: AzureCLI@1
-      condition: and(failed(), eq(variables.flaky, 'True'))
+      condition: and(eq(variables.Agent.JobStatus, 'SucceededWithIssues'), eq(variables.flaky, 'True'))
       displayName: 'Flaky Unit Test Retry'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
