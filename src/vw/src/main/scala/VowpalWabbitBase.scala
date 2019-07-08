@@ -40,6 +40,10 @@ trait VowpalWabbitBase extends Wrappable
   def setArgs(value: String): this.type = set(args, value)
 
   // VW support multiple input columns which are mapped to namespaces.
+  // Note: when one wants to create quadratic features within VW you'd specify additionalFeatures.
+  // Each feature column is treated as one namespace. Using -q 'uc' for columns 'user' and 'content'
+  // you'd get all quadratics for features in user/content
+  // (the first letter is called feature group and VW users are used to it... before somebody starts complaining ;)
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
   setDefault(additionalFeatures -> Array())
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
@@ -201,7 +205,7 @@ trait VowpalWabbitBase extends Wrappable
     val featureColIndices = generateNamespaceInfos(df.schema)
 
     // only perform the inner-loop if we cache the inputRows
-    val numPassesInSpark = if (getEnableCacheFile) 1 else if(getCacheRows) getNumPasses else 1
+    val numPassesInSpark = if (!getEnableCacheFile && getCacheRows) getNumPasses else 1
 
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]],
@@ -254,7 +258,7 @@ trait VowpalWabbitBase extends Wrappable
     val encoder = Encoders.kryo[Option[Array[Byte]]]
 
     // schedule multiple mapPartitions in
-    val outerNumPasses = if (getEnableCacheFile) 1 else if (getNumPasses > 1 && !getCacheRows) getNumPasses else 1
+    val outerNumPasses = if (!getEnableCacheFile && getNumPasses > 1 && !getCacheRows) getNumPasses else 1
     var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     for (p <- 0 until outerNumPasses) {
@@ -394,7 +398,7 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
           sparse.indices, sparse.values)
       }
 
-    // TODO: surface confidence
+    // TODO: surface prediction confidence
     example.predict.asInstanceOf[ScalarPrediction].getValue.toDouble
   }
 }

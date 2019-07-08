@@ -32,7 +32,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   def setSeed(value: Int): this.type = set(seed, value)
 
   val stringSplitInputCols = new StringArrayParam(this, "stringSplitInputCols",
-    "Input cols that should be split add word boundaries")
+    "Input cols that should be split at word boundaries")
   setDefault(stringSplitInputCols -> Array())
 
   def getStringSplitInputCols: Array[String] = $(stringSplitInputCols)

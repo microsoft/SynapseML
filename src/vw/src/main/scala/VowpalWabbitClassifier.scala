@@ -41,7 +41,7 @@ class VowpalWabbitClassificationModel(
     featuresColName: String, additionalFeaturesName: Array[String],
     predictionColName: String, probabilityColName: String, rawPredictionColName: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
-    with VowpalWabbitBaseModel with HasProbabilityCol // TODO: HasThresholds
+    with VowpalWabbitBaseModel // with HasProbabilityCol // TODO: HasThresholds
     with ConstructorWritable[VowpalWabbitClassificationModel]
 {
   def numClasses: Int = 2
