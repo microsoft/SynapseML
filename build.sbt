@@ -107,6 +107,18 @@ def uploadToBlob(source: String, dest: String,
   Process(osPrefix ++ command) ! log
 }
 
+def singleUploadToBlob(source: String, dest: String,
+                 container: String, log: ManagedLogger,
+                 accountName: String="mmlspark"): Int = {
+  val command = Seq("az", "storage", "blob", "upload",
+    "--file", source,
+    "--container-name", container,
+    "--name", dest,
+    "--account-name", accountName,
+    "--account-key", Secrets.storageKey)
+  Process(osPrefix ++ command) ! log
+}
+
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
   val s = streams.value
@@ -124,6 +136,15 @@ publishDocs := {
   FileUtils.copyDirectory(unidocDir, scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
   uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
+}
+
+val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
+publishR := {
+  val s = streams.value
+  (run in IntegrationTest2).toTask("").value
+  val rPackage = join("target", "scala-2.11", "generated", "package", "R")
+    .listFiles().head
+  singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
 
 def pythonizeVersion(v: String): String = {
