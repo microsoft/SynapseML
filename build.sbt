@@ -1,5 +1,6 @@
 import java.io.{File, PrintWriter}
 import java.net.URL
+import java.util.UUID
 
 import org.apache.commons.io.FileUtils
 import sbt.internal.util.ManagedLogger
@@ -107,6 +108,18 @@ def uploadToBlob(source: String, dest: String,
   Process(osPrefix ++ command) ! log
 }
 
+def downloadFromBlob(source: String, dest: String,
+                 container: String, log: ManagedLogger,
+                 accountName: String="mmlspark"): Int = {
+  val command = Seq("az", "storage", "blob", "download-batch",
+    "--destination", dest,
+    "--pattern", source,
+    "--source", container,
+    "--account-name", accountName,
+    "--account-key", Secrets.storageKey)
+  Process(osPrefix ++ command) ! log
+}
+
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
   val s = streams.value
@@ -131,9 +144,20 @@ val uploadRawCodeCov = TaskKey[Unit]("uploadRawCodeCov",
 uploadRawCodeCov := {
   val s = streams.value
   val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
-  uploadToBlob(scoverageDir.toString, version.value, "coverage", s.log)
+  uploadToBlob(scoverageDir.toString, version.value + "/" + UUID.randomUUID().toString, "coverage", s.log)
 }
 
+val downloadCloudCodeCov = TaskKey[Unit]("downloadCloudCodeCov",
+  "download code coverage files from blob")
+downloadCloudCodeCov := {
+  val s = streams.value
+  val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
+  val v = "0.17+61-356d563e"
+  downloadFromBlob(v + "/**/scoverage.measurements.*", scoverageDir.toString, "coverage", s.log)
+  join(scoverageDir.toString, v).listFiles().foreach(f =>
+    FileUtils.moveFile(f, join(scoverageDir.toString, f.getName)))
+  FileUtils.forceDelete(join(scoverageDir.toString, v))
+}
 
 def pythonizeVersion(v: String): String = {
   if (v.contains("+")){
@@ -274,6 +298,7 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
+/*
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
   Secrets.nexusUsername,
@@ -293,7 +318,7 @@ pgpPublicRing := {
     write(Secrets.pgpPublic); close()
   }
   temp
-}
+}*/
 
 licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
 publishMavenStyle := true

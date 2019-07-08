@@ -152,7 +152,7 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt coverageReport uploadRawCodeCov'
+        inlineScript: 'sbt uploadRawCodeCov'
       condition: succeededOrFailed()
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
@@ -160,9 +160,3 @@ jobs:
         testResultsFiles: '**/test-reports/*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: PublishCodeCoverageResults@1
-      inputs:
-        codeCoverageTool: 'cobertura'
-        summaryFileLocation: '**/coverage-report/*.xml'
-        reportDirectory: '**/scoverage-report'
-        failIfCoverageEmpty: true
