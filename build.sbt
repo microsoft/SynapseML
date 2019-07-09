@@ -1,6 +1,6 @@
 import java.io.{File, PrintWriter}
 import java.net.URL
-import java.util.UUID
+import java.util.{Random, UUID}
 
 import org.apache.commons.io.FileUtils
 import sbt.internal.util.ManagedLogger
@@ -152,10 +152,18 @@ val downloadCloudCodeCov = TaskKey[Unit]("downloadCloudCodeCov",
 downloadCloudCodeCov := {
   val s = streams.value
   val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
-  val v = "0.17+61-356d563e"
+  val v = version.value
   downloadFromBlob(v + "/**/scoverage.measurements.*", scoverageDir.toString, "coverage", s.log)
-  join(scoverageDir.toString, v).listFiles().foreach(f =>
-    FileUtils.moveFile(f, join(scoverageDir.toString, f.getName)))
+  join(scoverageDir.toString, v).listFiles().foreach { d =>
+    d.listFiles().foreach { f =>
+      val fileParts = f.getName.split(".".head)
+      println(fileParts.toList, s.log)
+      val newInt = fileParts.last.toInt + Math.abs(d.toString.hashCode)
+      val newName = (fileParts.dropRight(1) ++ Seq(newInt.toString)).mkString(".")
+      FileUtils.moveFile(f, join(scoverageDir.toString, newName))
+    }
+    FileUtils.forceDelete(d)
+  }
   FileUtils.forceDelete(join(scoverageDir.toString, v))
 }
 
