@@ -61,26 +61,25 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
   }
 
   //This is needed due to a multiththreading bug n the jvm
-  private def catchFlakiness[T](times: Int)(f: => Option[T]): Option[T] ={
-    try{
+  private def catchFlakiness[T](times: Int)(f: => Option[T]): Option[T] = {
+    try {
       f
-    }catch{
-      case e:NullPointerException if times>=1 =>
+    } catch {
+      case e: NullPointerException if times >= 1 =>
         logWarning("caught null pointer exception due to jvm bug", e)
-        catchFlakiness(times-1)(f)
+        catchFlakiness(times - 1)(f)
       case _: Exception =>
         None
     }
   }
 
-  override protected def buildReader(
-                                      sparkSession: SparkSession,
-                                      dataSchema: StructType,
-                                      partitionSchema: StructType,
-                                      requiredSchema: StructType,
-                                      filters: Seq[Filter],
-                                      options: Map[String, String],
-                                      hadoopConf: Configuration): (PartitionedFile) => Iterator[InternalRow] = {
+  override protected def buildReader(sparkSession: SparkSession,
+                                     dataSchema: StructType,
+                                     partitionSchema: StructType,
+                                     requiredSchema: StructType,
+                                     filters: Seq[Filter],
+                                     options: Map[String, String],
+                                     hadoopConf: Configuration): (PartitionedFile) => Iterator[InternalRow] = {
     assert(
       requiredSchema.length <= 1,
       "Image data source only produces a single data column named \"image\".")
