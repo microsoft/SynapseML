@@ -57,13 +57,14 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   // changes right now and maybe not desired.
 
   protected val numRetries = 1
+  protected val numCores: Option[Int] = None
   protected val logLevel = "WARN"
   private var sessionInitialized = false
   protected lazy val session: SparkSession = {
     info(s"Creating a spark session for suite $this")
     sessionInitialized = true
     SparkSessionFactory
-      .getSession(s"$this", logLevel = logLevel, numRetries)
+      .getSession(s"$this", logLevel = logLevel, numRetries, numCores)
   }
 
   protected lazy val sc: SparkContext = session.sparkContext
