@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.io.http.{ErrorUtils, SimpleHTTPTransformer}
+import com.microsoft.ml.spark.io.powerbi.StreamMaterializer
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, HasBatchSize, Lambda}
 import org.apache.http.Consts
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
@@ -132,16 +133,6 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def responseDataType: DataType = ASResponses.schema
 }
 
-private[ml] class StreamMaterializer2 extends ForeachWriter[Row] {
-
-  override def open(partitionId: Long, version: Long): Boolean = true
-
-  override def process(value: Row): Unit = ()
-
-  override def close(errorOrNull: Throwable): Unit = ()
-
-}
-
 object AzureSearchWriter extends IndexParser with SLogging {
 
   val logger: Logger = LogManager.getRootLogger
@@ -236,7 +227,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
   }
 
   def stream(df: DataFrame, options: Map[String, String] = Map()): DataStreamWriter[Row] = {
-    prepareDF(df, options).writeStream.foreach(new StreamMaterializer2)
+    prepareDF(df, options).writeStream.foreach(new StreamMaterializer)
   }
 
   def write(df: DataFrame, options: Map[String, String] = Map()): Unit = {

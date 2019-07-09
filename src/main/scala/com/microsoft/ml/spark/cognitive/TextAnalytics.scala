@@ -3,33 +3,19 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
-import org.apache.spark.ml.param.{Param, ServiceParam, ServiceParamData}
+import org.apache.spark.ml.param.{ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, _}
-import org.apache.spark.sql.{Column, Row}
-import spray.json.DefaultJsonProtocol._
+import org.apache.spark.sql.Row
 import spray.json._
-
-object TextAnalyticsUtils extends Serializable {
-
-  def makeDocumentsCol(idCol: String, textCol: String, languageCol: Option[String] = None): Column = {
-    array(struct(
-      languageCol.map(col(_).alias("language"))
-        .getOrElse(typedLit[Option[String]](None).alias("language")),
-      col(idCol).cast("string").alias("id"),
-      col(textCol)
-    ))
-  }
-
-}
+import spray.json.DefaultJsonProtocol._
 
 abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser {
