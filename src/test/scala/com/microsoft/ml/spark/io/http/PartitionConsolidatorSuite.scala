@@ -14,6 +14,8 @@ class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidato
 
   import session.implicits._
 
+  override val numCores: Option[Int] = Some(2)
+
   lazy val df: DataFrame = (1 to 1000).toDF("values")
 
   override val sortInDataframeEquality: Boolean = true
@@ -32,7 +34,7 @@ class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidato
     val newDF = new PartitionConsolidator().transform(df)
     val pd2 = getPartitionDist(newDF)
     assert(pd1.sum === pd2.sum)
-    assert(pd2.max === pd1.sum)
+    assert(pd2.max >= pd1.max)
     assert(pd1.length === pd2.length)
   }
 
