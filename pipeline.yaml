@@ -9,6 +9,7 @@ trigger:
     exclude:
     - README.md
     - docs/*
+    - CODEOWNERS
 
 pr:
   branches:
@@ -18,6 +19,7 @@ pr:
     exclude:
     - README.md
     - docs/*
+    - CODEOWNERS
 
 variables:
   runTests: True
