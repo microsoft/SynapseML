@@ -50,6 +50,15 @@ jobs:
           sbt coverage compile
           sbt downloadCloudCodeCov
           sbt coverageReport
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        bash <(curl -s https://codecov.io/bash)
+      displayName: Upload Coverage Report To Codecov.io
+      env:
+        CODECOV_TOKEN: $(codecov-token)
     - task: PublishCodeCoverageResults@1
       inputs:
         codeCoverageTool: 'cobertura'
@@ -134,8 +143,11 @@ jobs:
       io:
         PACKAGE: "io"
         flaky: True
-      lightgbm:
-        PACKAGE: "lightgbm"
+      lightgbm1:
+        PACKAGE: "lightgbm.split1" #TODO fix LGBM Tests so no splitting is needed
+        flaky: True
+      lightgbm2:
+        PACKAGE: "lightgbm.split2"
         flaky: True
       lime:
         PACKAGE: "lime"
