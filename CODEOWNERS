@@ -1,0 +1,14 @@
+# For general updates to the library
+*                  @mhamilton723 @drdarshan
+
+# LightGBM on Spark
+**/lightgbm        @imatiach-msft
+
+# Ilya's contributions
+**/automl          @imatiach-msft
+**/featurize       @imatiach-msft
+**/featurize/text  @mhamilton723
+**/train           @imatiach-msft
+
+# Recommendeders package
+**/recommendation  @dciborow
