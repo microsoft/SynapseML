@@ -1,14 +1,15 @@
 # For general updates to the library
-*                  @mhamilton723 @drdarshan
+*                @mhamilton723 @drdarshan
 
-# LightGBM on Spark
-**/lightgbm        @imatiach-msft
+# Ilya's Areas
+lightgbm/        @imatiach-msft
+automl/          @imatiach-msft
+featurize/       @imatiach-msft
+featurize/text/  @mhamilton723
+train/           @imatiach-msft
 
-# Ilya's contributions
-**/automl          @imatiach-msft
-**/featurize       @imatiach-msft
-**/featurize/text  @mhamilton723
-**/train           @imatiach-msft
+# Dan's Areas
+recommendation/  @dciborow
 
-# Recommendeders package
-**/recommendation  @dciborow
+# Dalitso's Areas
+/tools/helm      @dbanda
