@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.binary.FileReaderUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lightgbm.OsUtils
+import com.microsoft.ml.spark.lightgbm.split1.OsUtils
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.image.ImageSchema
