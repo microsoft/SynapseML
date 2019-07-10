@@ -1,15 +1,16 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.split2
 
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.ml.util.MLReadable
+import com.microsoft.ml.spark.lightgbm.split1.OsUtils
+import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, monotonically_increasing_id}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
 
 /** Tests to validate the functionality of LightGBM Ranker module. */
 class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRanker] with OsUtils {
