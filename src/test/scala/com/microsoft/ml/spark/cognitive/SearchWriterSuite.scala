@@ -74,7 +74,8 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
-    val successfulCleanup = getExisting(azureSearchKey, testServiceName).map { n =>
+    val successfulCleanup = getExisting(azureSearchKey, testServiceName)
+      .intersect(createdIndexes).map { n =>
       val deleteRequest = new HttpDelete(
         s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
       deleteRequest.setHeader("api-key", azureSearchKey)
@@ -257,7 +258,8 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
            |    ]
            |  }
         """.stripMargin
-    val phraseDF = Seq(("upload", "0", "file0", Array("p1", "p2", "p3")),
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array("p1", "p2", "p3")),
       ("upload", "1", "file1", Array("p4", null, "p6")))
       .toDF("searchAction", "id", "fileName", "phrases")
 
