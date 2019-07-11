@@ -90,35 +90,6 @@ object CategoricalUtilities {
     }
   }
 
-  /** Gets the number of levels from the dataset.
-    * @param dataset The dataset to get the levels count from.
-    * @param column The column to retrieve metadata levels count from.
-    * @return The number of levels.
-    */
-  def getLevelCount(dataset: DataFrame, column: String): Option[Int] = {
-    val metadata = dataset.schema(column).metadata
-
-    if (metadata.contains(MMLTag)) {
-      val dataType: Option[DataType] = CategoricalColumnInfo.getDataType(metadata, false)
-
-      if (dataType.isEmpty) None
-      else {
-        val numLevels =
-          dataType.get match {
-            case DataTypes.StringType => getMap[String](metadata).numLevels
-            case DataTypes.LongType => getMap[Long](metadata).numLevels
-            case DataTypes.IntegerType => getMap[Int](metadata).numLevels
-            case DataTypes.DoubleType => getMap[Double](metadata).numLevels
-            case DataTypes.BooleanType => getMap[Boolean](metadata).numLevels
-            case default => throw new UnsupportedOperationException("Unknown categorical type: " + default.typeName)
-          }
-        Option(numLevels)
-      }
-    } else {
-      None
-    }
-  }
-
   /** Get the map of array of T from the metadata.
     *
     * @param ct Implicit class tag.
