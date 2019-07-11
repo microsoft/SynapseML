@@ -100,19 +100,6 @@ object ImageUtils {
     Row(Row(path, height, width, nChannels, mode, decoded))
   }
 
-  /** Returns the OCV type (int) of the passed-in image */
-  def getOCVType(img: BufferedImage): Int = {
-    val isGray = img.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
-    val hasAlpha = img.getColorModel.hasAlpha
-    if (isGray) {
-      ocvTypes("CV_8UC1")
-    } else if (hasAlpha) {
-      ocvTypes("CV_8UC4")
-    } else {
-      ocvTypes("CV_8UC3")
-    }
-  }
-
   def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {
     if (bytes == null) {
       return None
@@ -169,18 +156,6 @@ object ImageUtils {
         ret
       }
     }(encoder)
-  }
-
-  def encode(row: Row, encoding: String): Array[Byte] = {
-    val bImg = ImageUtils.toBufferedImage(row)
-    val os = new ByteArrayOutputStream()
-    try {
-      val success = ImageIO.write(bImg, encoding, os)
-      assert(success, s"codec failed: $encoding")
-      os.toByteArray
-    } finally {
-      os.close()
-    }
   }
 
 }
