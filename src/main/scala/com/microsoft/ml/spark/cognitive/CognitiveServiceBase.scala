@@ -269,6 +269,10 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
 
   protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: ${badColumns} in columns: ${schema.fieldNames.toSet}")
+
     val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
       case Nil => Seq(lit(false).alias("placeholder"))
       case l => l

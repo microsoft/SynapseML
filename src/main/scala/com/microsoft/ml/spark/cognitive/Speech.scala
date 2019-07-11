@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.cognitive._
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity}
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
@@ -20,34 +19,7 @@ import org.apache.spark.ml.ComplexParamsReadable
 
 import scala.language.existentials
 
-object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable {
-  def convertToWav(data: Array[Byte]): Array[Byte] = { // open stream
-    val sourceStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(data))
-    val sourceFormat: AudioFormat = sourceStream.getFormat
-    // create audio format object for the desired stream/audio format
-    // this is *not* the same as the file format (wav)
-    val format = new AudioFormat(
-      AudioFormat.Encoding.PCM_SIGNED,
-      sourceFormat.getSampleRate,
-      sourceFormat.getSampleSizeInBits,
-      sourceFormat.getChannels,
-      sourceFormat.getFrameSize,
-      sourceFormat.getFrameRate,
-      sourceFormat.isBigEndian)
-
-    // create stream that delivers the desired format
-    val converted: AudioInputStream = AudioSystem.getAudioInputStream(format, sourceStream)
-    // write stream into a file with file format wav
-    val os = new ByteArrayOutputStream()
-    try {
-      AudioSystem.write(converted, Type.WAVE, os)
-      os.toByteArray
-    } finally {
-      os.close()
-    }
-
-  }
-}
+object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser {

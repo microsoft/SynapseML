@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 trait HasImageSearchKey {
@@ -48,6 +48,58 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     val numSucesses = bytesDF.collect().count(row =>
       Option(row.getAs[Array[Byte]](1)).getOrElse(Array()).length > 100)
     assert(numSucesses>3)
+  }
+
+  test("All Parameters") {
+    val row = (10,"microsoft", 10, "all","black","Year",0, 520192, 0, 0,2000,2000, "Face","Photo","All", "en-US")
+
+    val df = Seq(row).toDF()
+
+    val staticBis = new BingImageSearch()
+      .setSubscriptionKey(imageSearchKey)
+      .setOffset(row._1)
+      .setQuery(row._2)
+      .setCount(row._3)
+      .setAspect(row._4)
+      .setColor(row._5)
+      .setFreshness(row._6)
+      .setMinFileSize(row._7)
+      .setMaxFileSize(row._8)
+      .setMinWidth(row._9)
+      .setMinHeight(row._10)
+      .setMaxWidth(row._11)
+      .setMaxHeight(row._12)
+      .setImageContent(row._13)
+      .setImageType(row._14)
+      .setLicense(row._15)
+      .setMarket(row._16)
+      .setOutputCol("images")
+
+    val sdf = staticBis.transform(df).cache()
+    assert(sdf.collect().head.getAs[Row]("images") != null)
+
+    val dynamicBis = new BingImageSearch()
+      .setSubscriptionKey(imageSearchKey)
+      .setOffsetCol("_1")
+      .setQueryCol("_2")
+      .setCountCol("_3")
+      .setAspectCol("_4")
+      .setColorCol("_5")
+      .setFreshnessCol("_6")
+      .setMinFileSizeCol("_7")
+      .setMaxFileSizeCol("_8")
+      .setMinWidthCol("_9")
+      .setMinHeightCol("_10")
+      .setMaxWidthCol("_11")
+      .setMaxHeightCol("_12")
+      .setImageContentCol("_13")
+      .setImageTypeCol("_14")
+      .setLicenseCol("_15")
+      .setMarketCol("_16")
+      .setOutputCol("images")
+
+    val ddf = dynamicBis.transform(df).cache()
+    assert(ddf.collect().head.getAs[Row]("images") != null)
   }
 
   override lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame] {
