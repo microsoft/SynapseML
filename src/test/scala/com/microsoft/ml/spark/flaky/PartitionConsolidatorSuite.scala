@@ -1,16 +1,18 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.flaky
 
+import com.microsoft.ml.spark.core.test.base.TimeLimitedFlaky
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.http.PartitionConsolidator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{DoubleType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalatest.Assertion
 
-class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidator] {
+class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidator] with TimeLimitedFlaky {
 
   import session.implicits._
 
