@@ -16,15 +16,6 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class NotebookTests extends TestBase {
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    tryWithRetries(Array.fill(500)(10000)) {() =>
-      assert(listActiveJobs(clusterId).isEmpty,
-        "Cluster already has running jobs cannot change libraries safely")
-    }
-    ()
-  }
-
   ignore("Install libraries"){
     assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
     println("Installing libraries")
@@ -32,28 +23,37 @@ class NotebookTests extends TestBase {
   }
 
   test("Databricks Notebooks") {
-    assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
-    println("Installing libraries")
-    installLibraries(clusterId)
-    println(s"Creating folder $folder")
-    workspaceMkDir(folder)
-    println(s"Submitting jobs")
-    val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
-    println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
+    tryWithRetries(Array.fill(500)(10000)) {() =>
+      assert(listActiveJobs(clusterId).isEmpty,
+        "Cluster already has running jobs cannot change libraries safely")
+    }
     try {
-      val monitors = jobIds.map((runId: Int) => monitorJob(runId, timeoutInMillis, logLevel = 2))
-      println(s"Monitoring Jobs...")
-      val failures = monitors
-        .map(Await.ready(_, Duration(timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
-        .filter(_.isFailure)
-      assert(failures.isEmpty)
-    } catch {
-      case t: Throwable =>
-        jobIds.foreach { jid =>
-          println(s"Cancelling job $jid")
-          cancelRun(jid)
-        }
-        throw t
+      assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
+      println("Installing libraries")
+      installLibraries(clusterId)
+      println(s"Creating folder $folder")
+      workspaceMkDir(folder)
+      println(s"Submitting jobs")
+      val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
+      println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
+      try {
+        val monitors = jobIds.map((runId: Int) => monitorJob(runId, timeoutInMillis, logLevel = 2))
+        println(s"Monitoring Jobs...")
+        val failures = monitors
+          .map(Await.ready(_, Duration(timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+          .filter(_.isFailure)
+        assert(failures.isEmpty)
+      } catch {
+        case t: Throwable =>
+          jobIds.foreach { jid =>
+            println(s"Cancelling job $jid")
+            cancelRun(jid)
+          }
+          throw t
+      }
+    } finally {
+      uninstallAllLibraries(clusterId)
+      restartCluster(clusterId)
     }
   }
 
@@ -70,10 +70,10 @@ class NotebookTests extends TestBase {
     restartCluster(clusterId)
   }
 
-  override def afterAll(): Unit = {
+  ignore("Refresh cluster") {
+    restartCluster(clusterId)
     uninstallAllLibraries(clusterId)
     restartCluster(clusterId)
-    super.afterAll()
   }
 
 }
