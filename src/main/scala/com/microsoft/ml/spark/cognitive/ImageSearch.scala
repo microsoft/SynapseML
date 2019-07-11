@@ -242,7 +242,7 @@ class BingImageSearch(override val uid: String)
       "within a range of file sizes.",
     isURLParam = true)
   def setMaxFileSize(v: Int): this.type = setScalarParam(maxFileSize, v)
-  def setMaxFileSize(v: String): this.type = setVectorParam(maxFileSize, v)
+  def setMaxFileSizeCol(v: String): this.type = setVectorParam(maxFileSize, v)
 
   val maxHeight = new ServiceParam[Int](this, "maxHeight",
     "Filter images that have a height that is less than" +
@@ -252,7 +252,7 @@ class BingImageSearch(override val uid: String)
       "height filter are mutually exclusive.",
     isURLParam = true)
   def setMaxHeight(v: Int): this.type = setScalarParam(maxHeight, v)
-  def setMaxHeight(v: String): this.type = setVectorParam(maxHeight, v)
+  def setMaxHeightCol(v: String): this.type = setVectorParam(maxHeight, v)
 
   val maxWidth = new ServiceParam[Int](this, "maxWidth",
     "Filter images that have a width that is less than or equal " +
@@ -262,7 +262,7 @@ class BingImageSearch(override val uid: String)
       "filter are mutually exclusive.",
     isURLParam = true)
   def setMaxWidth(v: Int): this.type = setScalarParam(maxWidth, v)
-  def setMaxWidth(v: String): this.type = setVectorParam(maxWidth, v)
+  def setMaxWidthCol(v: String): this.type = setVectorParam(maxWidth, v)
 
   val minFileSize = new ServiceParam[Int](this, "minFileSize",
     "Filter images that are greater than or equal to the specified file size. " +
@@ -274,7 +274,7 @@ class BingImageSearch(override val uid: String)
       "within a range of file sizes.",
     isURLParam = true)
   def setMinFileSize(v: Int): this.type = setScalarParam(minFileSize, v)
-  def setMinFileSize(v: String): this.type = setVectorParam(minFileSize, v)
+  def setMinFileSizeCol(v: String): this.type = setVectorParam(minFileSize, v)
 
   val minHeight = new ServiceParam[Int](this, "minHeight",
     "Filter images that have a height that is greater than or equal" +
@@ -284,7 +284,7 @@ class BingImageSearch(override val uid: String)
       "filter are mutually exclusive.",
     isURLParam = true)
   def setMinHeight(v: Int): this.type = setScalarParam(minHeight, v)
-  def setMinHeight(v: String): this.type = setVectorParam(minHeight, v)
+  def setMinHeightCol(v: String): this.type = setVectorParam(minHeight, v)
 
   val minWidth = new ServiceParam[Int](this, "minWidth",
     "Filter images that have a width that is greater than or equal" +
@@ -294,7 +294,7 @@ class BingImageSearch(override val uid: String)
       "filter are mutually exclusive.",
     isURLParam = true)
   def setMinWidth(v: Int): this.type = setScalarParam(minWidth, v)
-  def setMinWidth(v: String): this.type = setVectorParam(minWidth, v)
+  def setMinWidthCol(v: String): this.type = setVectorParam(minWidth, v)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
 }

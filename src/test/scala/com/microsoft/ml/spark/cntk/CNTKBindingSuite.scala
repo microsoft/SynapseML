@@ -20,14 +20,6 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
       (0 until fvv.get(i).size().toInt).map(j => fvv.get(i).get(j)))
   }
 
-  def toFVV(minibatch: Seq[Seq[Float]]): FloatVectorVector = {
-    minibatch.foldLeft(new FloatVectorVector()) {
-      case (fvv, floats) =>
-        fvv.add(floats.foldLeft(new FloatVector()) { case (fv, f) => fv.add(f); fv })
-        fvv
-    }
-  }
-
   def randomSeqSeq(outerSize: Int, dim: Int, seed: Int): Seq[Seq[Float]] = {
     val r = scala.util.Random
     r.setSeed(seed.toLong)
@@ -39,7 +31,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
   }
 
   def randomFVV(batchSize: Int, dim: Int, seed: Int): FloatVectorVector = {
-    toFVV(randomSeqSeq(batchSize, dim, seed))
+    ConversionUtils.toFVV(randomSeqSeq(batchSize, dim, seed), new FloatVectorVector())
   }
 
   def evaluateRandomMinibatch(model: CNTKFunction, batchSize: Int,
@@ -100,6 +92,41 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
     evaluateRandomMinibatch(model, 1)
     evaluateRandomMinibatch(model, 3)
     evaluateRandomMinibatch(model, 2)
+  }
+
+  test("FVV/DVV translation"){
+    val fvv = new FloatVectorVector()
+    val fv1 = new FloatVector()
+    val fv2 = new FloatVector()
+    fv1.add(1)
+    fv1.add(2)
+    fv1.add(3)
+    fv2.add(3)
+    fv2.add(4)
+    fvv.add(fv1)
+    fvv.add(fv2)
+
+    val dvv = new DoubleVectorVector()
+    val dv1 = new DoubleVector()
+    val dv2 = new DoubleVector()
+    dv1.add(1)
+    dv1.add(2)
+    dv1.add(3)
+    dv2.add(3)
+    dv2.add(4)
+    dvv.add(dv1)
+    dvv.add(dv2)
+
+    val sd1 = Seq(1,2,3).map(_.toDouble)
+    val sd2 = Seq(3,4).map(_.toDouble)
+    val sf1 = sd1.map(_.toFloat)
+    val sf2 = sd2.map(_.toFloat)
+    val ssd = Seq(sd1, sd2)
+    val ssf = Seq(sf1, sf2)
+
+    assert(ConversionUtils.toDVV(ssd, dvv).get(0).get(0)==1)
+    assert(ConversionUtils.toDV(sd1).get(0) == 1)
+    assert(ConversionUtils.toDV(sd1, dv1).get(0) == 1)
   }
 
 }
