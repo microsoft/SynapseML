@@ -8,6 +8,7 @@ import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 
+import scala.concurrent.blocking
 import scala.util.Try
 
 object RESTHelpers {
@@ -29,7 +30,7 @@ object RESTHelpers {
       case t: Throwable =>
         val waitTime = backoffs.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        Thread.sleep(waitTime.toLong)
+        blocking {Thread.sleep(waitTime.toLong)}
         retry(backoffs.tail, f)
     }
   }
