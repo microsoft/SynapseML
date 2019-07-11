@@ -47,7 +47,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
     .setDetectOrientation(true)
     .setOutputCol("bocr")
 
-  test("Getters"){
+  test("Getters") {
     assert(ocr.getDetectOrientation)
     assert(ocr.getImageUrlCol === "url")
     assert(ocr.getSubscriptionKey == visionKey)
@@ -116,8 +116,8 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
     )
     .setDetails(Seq("Celebrities", "Landmarks"))
 
-  test("full parametization"){
-    val row = (Seq("Categories"),"en", Seq("Celebrities"),
+  test("full parametrization") {
+    val row = (Seq("Categories"), "en", Seq("Celebrities"),
       "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg")
     val df = Seq(row).toDF()
 
@@ -133,6 +133,14 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
       .setDetailsCol("_3")
       .setImageUrlCol("_4")
 
+    assert(dynamicAi.getVisualFeaturesCol == "_1")
+    assert(dynamicAi.getLanguageCol == "_2")
+    assert(dynamicAi.getDetailsCol == "_3")
+    assert(dynamicAi.getImageUrlCol == "_4")
+    assert(staticAi.getVisualFeatures == row._1)
+    assert(staticAi.getLanguage == row._2)
+    assert(staticAi.getDetails == row._3)
+    assert(staticAi.getImageUrl == row._4)
     assert(staticAi.transform(df).collect().head.getAs[Row]("features") != null)
     assert(dynamicAi.transform(df).collect().head.getAs[Row]("features") != null)
   }
