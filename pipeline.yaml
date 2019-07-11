@@ -144,13 +144,12 @@ jobs:
         PACKAGE: "image"
       io:
         PACKAGE: "io"
-        flaky: True
+      flaky:
+        PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
       lightgbm1:
-        PACKAGE: "lightgbm.split1" #TODO fix LGBM Tests so no splitting is needed
-        flaky: True
+        PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
       lightgbm2:
         PACKAGE: "lightgbm.split2"
-        flaky: True
       lime:
         PACKAGE: "lime"
       opencv:
@@ -170,15 +169,6 @@ jobs:
         inlineScript: 'pip install requests && sbt getDatasets'
     - task: AzureCLI@1
       displayName: 'Unit Test'
-      continueOnError: True
-      timeoutInMinutes: 20
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**"'
-    - task: AzureCLI@1
-      condition: and(eq(variables.Agent.JobStatus, 'SucceededWithIssues'), eq(variables.flaky, 'True'))
-      displayName: 'Flaky Unit Test Retry'
       timeoutInMinutes: 20
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
