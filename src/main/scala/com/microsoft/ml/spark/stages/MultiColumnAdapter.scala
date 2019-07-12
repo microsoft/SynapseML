@@ -107,13 +107,13 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  private def verifyCols(df: DataFrame,
+  private def verifyCols(schema: StructType,
                          inputOutputPairs: List[(String, String)]): Unit = {
     inputOutputPairs.foreach {
-      case (s1, s2) if !df.columns.contains(s1) =>
+      case (s1, _) if !schema.fieldNames.contains(s1) =>
         throw new IllegalArgumentException(
           s"DataFrame does not contain specified column: $s1")
-      case (s1, s2) if df.columns.contains(s2) =>
+      case (_, s2) if schema.fieldNames.contains(s2) =>
         throw new IllegalArgumentException(
           s"DataFrame already contains specified column: $s2")
       case _ =>
@@ -121,6 +121,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    verifyCols(schema, getInputOutputPairs)
     getInputOutputPairs.foldLeft(schema) { (schema, pair) =>
       getInOutPairStage(pair).transformSchema(schema)
     }
