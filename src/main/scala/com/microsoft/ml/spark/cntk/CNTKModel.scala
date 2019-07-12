@@ -70,6 +70,19 @@ private object CNTKModelUtils extends java.io.Serializable {
     out
   }
 
+  private def makeInputExtractors(inputMapVar: Map[Int, Variable]) = {
+    inputMapVar.map {
+      case (colnum, variable) => variable -> {
+        variable.getDataType match {
+          case CNTKDataType.Float =>
+            r: Row => Left(r.getAs[Seq[Seq[Float]]](colnum))
+          case CNTKDataType.Double =>
+            r: Row => Right(r.getAs[Seq[Seq[Double]]](colnum))
+        }
+      }
+    }
+  }
+
   def applyModel(inputMap: Map[String, Int],
                  broadcastedModel: Broadcast[CNTKFunction],
                  outputMap: Map[String, String],
@@ -85,19 +98,9 @@ private object CNTKModelUtils extends java.io.Serializable {
       val m = CNTKExtensions.fromSerializable(broadcastedModel.value).clone(ParameterCloningMethod.Share)
 
       val inputMapVar = inputMap.map { case (k, v) => v -> m.getInputVar(k) }
-
       val outputMapVar = outputMap.map { case (k, v) => m.getOutputVar(v) -> k }
+      val inputExtractors = makeInputExtractors(inputMapVar)
 
-      val inputExtractors = inputMapVar.map {
-        case (colnum, variable) => variable -> {
-          variable.getDataType match {
-            case CNTKDataType.Float =>
-              r: Row => Left(r.getAs[Seq[Seq[Float]]](colnum))
-            case CNTKDataType.Double =>
-              r: Row => Right(r.getAs[Seq[Seq[Double]]](colnum))
-          }
-        }
-      }
       val inputGVVs = inputMapVar.map {
         case (colnum, variable) => variable -> {
           variable.getDataType match {
