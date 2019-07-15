@@ -145,52 +145,12 @@ class JVMSharedServer(name: String, host: String,
     logDebug(s"trimming ${(start to batch).toList} on $address")
   }
 
-  private def responseHelper(request: HttpExchange, code: Int, response: String): Unit = synchronized {
-    val bytes = response.getBytes("UTF-8")
-    request.synchronized {
-      request.getResponseHeaders.add("Content-Type", "application/json")
-      request.getResponseHeaders.add("Access-Control-Allow-Origin", "*")
-      request.getResponseHeaders.add("Access-Control-Allow-Method", "GET, PUT, POST, DELETE, HEAD")
-      request.getResponseHeaders.add("Access-Control-Allow-Headers", "*")
-      request.sendResponseHeaders(code, 0)
-      using(request.getResponseBody){os =>
-        os.write(bytes)
-        os.flush()
-      }
-      request.close()
-    }
-    requestsAnswered += 1
-  }
-
-  private def respond(request: HttpExchange, code: Int, response: String): Unit = synchronized {
-    logDebug(s"responding $response batch: $currentBatch ip: $address")
-    if (handleResponseErrors) {
-      try {
-        responseHelper(request, code, response)
-      } catch {
-        case e: Exception =>
-          logError(s"ERROR on server $address: " + e.getMessage)
-          logError("TRACEBACK: " + e.getStackTrace.mkString("\n"))
-      }
-    } else {
-      responseHelper(request, code, response)
-    }
-    logDebug(s"responding $response batch: $currentBatch ip: $address")
-    ()
-  }
-
   def respond(batch: Long, uuid: String, response: HTTPResponseData): Unit = synchronized {
     val request = batchesToRequests(batch).get(uuid)._2
     response.respondToHTTPExchange(request)
   }
 
   private class RequestHandler extends HttpHandler {
-
-    private def getBody(request: HttpExchange) = synchronized {
-      using(request.getRequestBody) {
-        IOUtils.toString(_, "UTF-8")
-      }.get
-    }
 
     override def handle(request: HttpExchange): Unit = synchronized {
       requestsSeen += 1

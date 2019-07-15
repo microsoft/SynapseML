@@ -17,23 +17,6 @@ import org.apache.spark.util.ThreadUtils
 trait RecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with hasK with ComplexParamsWritable
 
-object SparkHelper {
-  def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
-    import ratings.sparkSession.implicits._
-
-    val topKAggregator = new TopByKeyAggregator[Int, Int, Float](num, Ordering.by(_._2))
-    val recs = ratings.as[(Int, Int, Float)].groupByKey(_._1).agg(topKAggregator.toColumn)
-      .toDF("id", "recommendations")
-
-    val arrayType = ArrayType(
-      new StructType()
-        .add(dstOutputColumn, IntegerType)
-        .add("rating", FloatType)
-    )
-    recs.select(col("id").as(srcOutputColumn), col("recommendations").cast(arrayType))
-  }
-}
-
 trait RecommendationParams extends ALSParams
 
 trait BaseRecommendationModel extends Params with ALSModelParams with HasPredictionCol {
@@ -164,6 +147,21 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
 object SparkHelpers {
   def getThreadUtils(): ThreadUtils.type = {
     ThreadUtils
+  }
+
+  def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
+    import ratings.sparkSession.implicits._
+
+    val topKAggregator = new TopByKeyAggregator[Int, Int, Float](num, Ordering.by(_._2))
+    val recs = ratings.as[(Int, Int, Float)].groupByKey(_._1).agg(topKAggregator.toColumn)
+      .toDF("id", "recommendations")
+
+    val arrayType = ArrayType(
+      new StructType()
+        .add(dstOutputColumn, IntegerType)
+        .add("rating", FloatType)
+    )
+    recs.select(col("id").as(srcOutputColumn), col("recommendations").cast(arrayType))
   }
 }
 

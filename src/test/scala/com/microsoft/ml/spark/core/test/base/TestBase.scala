@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.core.test.base
 
-import java.io.File
 import java.nio.file.Files
 
 import org.apache.commons.io.FileUtils
@@ -12,13 +11,15 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, _}
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.{Seconds=>SparkSeconds,StreamingContext}
 import org.scalactic.source.Position
 import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest._
+import org.scalatest.concurrent.TimeLimits
+import org.scalatest.time.{Seconds, Span}
 
+import scala.concurrent._
 import scala.reflect.ClassTag
-import scala.concurrent.blocking
 
 // Common test tags
 object TestBase {
@@ -41,9 +42,29 @@ trait LinuxOnly extends TestBase {
 
 trait Flaky extends TestBase {
 
+  val retyMillis: Array[Int] = Array(0,100,100)
+
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*){
-      tryWithRetries(Array(0,100,100))(testFun _)
+      tryWithRetries(retyMillis)(testFun _)
+    }
+  }
+
+}
+
+trait TimeLimitedFlaky extends TestBase with TimeLimits {
+
+  val timeoutInSeconds: Int = 5*60
+
+  val retyMillis: Array[Int] = Array(0,100,100)
+
+  override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
+    super.test(testName, testTags: _*){
+      tryWithRetries(retyMillis) {
+        failAfter(Span(timeoutInSeconds, Seconds)){
+          println("Executing time-limited flaky function")
+          testFun _}
+      }
     }
   }
 
@@ -57,17 +78,18 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   // changes right now and maybe not desired.
 
   protected val numRetries = 1
+  protected val numCores: Option[Int] = None
   protected val logLevel = "WARN"
   private var sessionInitialized = false
   protected lazy val session: SparkSession = {
     info(s"Creating a spark session for suite $this")
     sessionInitialized = true
     SparkSessionFactory
-      .getSession(s"$this", logLevel = logLevel, numRetries)
+      .getSession(s"$this", logLevel = logLevel, numRetries, numCores)
   }
 
   protected lazy val sc: SparkContext = session.sparkContext
-  protected lazy val ssc: StreamingContext = new StreamingContext(sc, Seconds(1))
+  protected lazy val ssc: StreamingContext = new StreamingContext(sc, SparkSeconds(1))
 
   protected lazy val dir = SparkSessionFactory.workingDir
 

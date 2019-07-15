@@ -47,6 +47,13 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
     .setDetectOrientation(true)
     .setOutputCol("bocr")
 
+  test("Getters") {
+    assert(ocr.getDetectOrientation)
+    assert(ocr.getImageUrlCol === "url")
+    assert(ocr.getSubscriptionKey == visionKey)
+    assert(bytesOCR.getImageBytesCol === "imageBytes")
+  }
+
   test("Basic Usage with URL") {
     val model = pipelineModel(Array(
       ocr,
@@ -82,25 +89,25 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
   ).toDF("url", "language")
 
-  lazy val ai: AnalyzeImage = new AnalyzeImage()
+  def baseAI: AnalyzeImage = new AnalyzeImage()
     .setSubscriptionKey(visionKey)
     .setLocation("eastus")
+    .setOutputCol("features")
+
+  lazy val ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
     .setLanguageCol("language")
     .setDefaultLanguage("en")
     .setVisualFeatures(
       Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"))
     .setDetails(Seq("Celebrities", "Landmarks"))
-    .setOutputCol("features")
 
   lazy val bytesDF: DataFrame = BingImageSearch
     .downloadFromUrls("url", "imageBytes", 4, 10000)
     .transform(df)
     .drop("url")
 
-  lazy val bytesAI: AnalyzeImage = new AnalyzeImage()
-    .setSubscriptionKey(visionKey)
-    .setLocation("eastus")
+  lazy val bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
     .setLanguageCol("language")
     .setDefaultLanguage("en")
@@ -108,7 +115,35 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
       Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult")
     )
     .setDetails(Seq("Celebrities", "Landmarks"))
-    .setOutputCol("features")
+
+  test("full parametrization") {
+    val row = (Seq("Categories"), "en", Seq("Celebrities"),
+      "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg")
+    val df = Seq(row).toDF()
+
+    val staticAi = baseAI
+      .setVisualFeatures(row._1)
+      .setLanguage(row._2)
+      .setDetails(row._3)
+      .setImageUrl(row._4)
+
+    val dynamicAi = baseAI
+      .setVisualFeaturesCol("_1")
+      .setLanguageCol("_2")
+      .setDetailsCol("_3")
+      .setImageUrlCol("_4")
+
+    assert(dynamicAi.getVisualFeaturesCol == "_1")
+    assert(dynamicAi.getLanguageCol == "_2")
+    assert(dynamicAi.getDetailsCol == "_3")
+    assert(dynamicAi.getImageUrlCol == "_4")
+    assert(staticAi.getVisualFeatures == row._1)
+    assert(staticAi.getLanguage == row._2)
+    assert(staticAi.getDetails == row._3)
+    assert(staticAi.getImageUrl == row._4)
+    assert(staticAi.transform(df).collect().head.getAs[Row]("features") != null)
+    assert(dynamicAi.transform(df).collect().head.getAs[Row]("features") != null)
+  }
 
   test("Basic Usage with URL") {
     val fromRow = AIResponse.makeFromRowConverter

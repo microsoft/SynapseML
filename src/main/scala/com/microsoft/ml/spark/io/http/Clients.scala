@@ -3,66 +3,11 @@
 
 package com.microsoft.ml.spark.io.http
 
-import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
-
 import com.microsoft.ml.spark.core.utils.AsyncUtils
 import org.apache.log4j.{LogManager, Logger}
 
-import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
-
-class BatchIterator[T](val it: Iterator[T],
-                       maxNum: Int = Integer.MAX_VALUE)
-  extends Iterator[List[T]] {
-
-  val queue: BlockingQueue[T] = new LinkedBlockingQueue[T](maxNum)
-  var hasStarted = false
-  val finishedLatch = new CountDownLatch(1)
-
-  private val thread: Thread = new Thread {
-    override def run(): Unit = {
-      while (it.synchronized(it.hasNext)) {
-        val datum = it.synchronized(it.next())
-        queue.put(datum)
-      }
-      finishedLatch.countDown()
-    }
-  }
-
-  override def hasNext: Boolean = {
-    if (!hasStarted) {
-      it.hasNext
-    } else {
-      it.synchronized(it.hasNext) ||
-      !queue.isEmpty ||
-      { finishedLatch.await()
-        !queue.isEmpty }
-      // Final clause needed to ensure the fetching thread
-      // can finish before the iterator is exhausted.
-      // This blocking should be kept in the final clause
-      // To optimize performance
-    }
-  }
-
-  def start(): Unit = {
-    hasStarted = true
-    thread.start()
-  }
-
-  def close(): Unit = {
-    thread.interrupt()
-  }
-
-  override def next(): List[T] = {
-    if (!hasStarted) start()
-    assert(hasNext)
-    val results = new java.util.ArrayList[T]()
-    queue.drainTo(results)
-    if (results.isEmpty) List(queue.take()) else results.toList
-  }
-
-}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[ml] trait BaseClient {
 

@@ -36,10 +36,12 @@ object SparkSessionFactory {
   }
   def currentDir(): String = System.getProperty("user.dir")
 
-  def getSession(name: String, logLevel: String = "WARN", numRetries: Int): SparkSession = {
+  def getSession(name: String, logLevel: String = "WARN",
+                 numRetries: Int, numCores: Option[Int] = None): SparkSession = {
+    val cores = numCores.map(_.toString).getOrElse("*")
     val conf = new SparkConf()
         .setAppName(name)
-        .setMaster(if (numRetries == 1){"local[*]"}else{s"local[*, $numRetries]"})
+        .setMaster(if (numRetries == 1){s"local[$cores]"}else{s"local[$cores, $numRetries]"})
         .set("spark.logConf", "true")
         .set("spark.sql.shuffle.partitions", "20")
         .set("spark.sql.warehouse.dir", SparkSessionFactory.localWarehousePath)

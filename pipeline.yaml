@@ -9,6 +9,7 @@ trigger:
     exclude:
     - README.md
     - docs/*
+    - CODEOWNERS
 
 pr:
   branches:
@@ -18,6 +19,7 @@ pr:
     exclude:
     - README.md
     - docs/*
+    - CODEOWNERS
 
 variables:
   runTests: True
@@ -35,6 +37,36 @@ jobs:
       scriptLocation: inlineScript
       inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
+- job: CodeCoverage
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-16.04
+  dependsOn: UnitTests
+  steps:
+    - task: AzureCLI@1
+      displayName: 'Codecov Aggregate'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: |
+          sbt coverage compile
+          sbt downloadCloudCodeCov
+          sbt coverageReport
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        bash <(curl -s https://codecov.io/bash)
+      displayName: Upload Coverage Report To Codecov.io
+      env:
+        CODECOV_TOKEN: $(codecov-token)
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'cobertura'
+        summaryFileLocation: '**/coverage-report/*.xml'
+        failIfCoverageEmpty: true
+
 - job: PublishAndE2E
   pool:
     vmImage: ubuntu-16.04
@@ -50,7 +82,7 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishDocs
+        sbt publishBlob publishDocs publishR
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
@@ -112,10 +144,12 @@ jobs:
         PACKAGE: "image"
       io:
         PACKAGE: "io"
-        flaky: True
-      lightgbm:
-        PACKAGE: "lightgbm"
-        flaky: True
+      flaky:
+        PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
+      lightgbm1:
+        PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
+      lightgbm2:
+        PACKAGE: "lightgbm.split2"
       lime:
         PACKAGE: "lime"
       opencv:
@@ -135,18 +169,18 @@ jobs:
         inlineScript: 'pip install requests && sbt getDatasets'
     - task: AzureCLI@1
       displayName: 'Unit Test'
-      continueOnError: True
+      timeoutInMinutes: 20
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+        inlineScript: 'sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**"'
     - task: AzureCLI@1
-      condition: and(failed(), eq(variables.flaky, 'True'))
-      displayName: 'Flaky Unit Test Retry'
+      displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+        inlineScript: 'sbt uploadRawCodeCov'
+      condition: succeededOrFailed()
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:

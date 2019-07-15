@@ -15,12 +15,6 @@ import com.microsoft.ml.spark.core.contracts.ConvenienceTypes._
 
 // One option
 case class TypedMetric[T](name: UniqueName, value: T) extends Metric
-case class MetricGroup(name: UniqueName, metrics: MetricTable) {
-    require ({
-        val len = metrics.values.head.length
-        metrics.values.forall(col => col.length == len)
-    }, s"All metric lists in the table must be the same length")
-}
 
 // Other option (reflection friendly - do we need reflection?)
 sealed abstract class TypenameMetric
@@ -37,10 +31,10 @@ case class MetricData(data: Map[String, Seq[Double]], metricType: String, modelN
 
 object MetricData {
   def create(data: Map[String, Double], metricType: String, modelName: String): MetricData = {
-    return new MetricData(data.map(kvp => (kvp._1, List(kvp._2))), metricType, modelName)
+    new MetricData(data.map(kvp => (kvp._1, List(kvp._2))), metricType, modelName)
   }
 
   def createTable(data: Map[String, Seq[Double]], metricType: String, modelName: String): MetricData = {
-    return new MetricData(data, metricType, modelName)
+    new MetricData(data, metricType, modelName)
   }
 }

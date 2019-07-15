@@ -29,17 +29,18 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
     val width = getWidth(row)
     val height = getHeight(row)
     val bytes = getData(row)
+    val nChannels = getNChannels(row)
 
     val area = width * height
     require(area >= 0 && area < 1e8, "image has incorrect dimensions")
-    require(bytes.length == width * height * 3, "image has incorrect number of bytes")
+    require(bytes.length == width * height * nChannels, "image has incorrect number of bytes")
 
-    val rearranged = Array.fill[Double](area * 3)(0.0)
+    val rearranged = Array.fill[Double](area * nChannels)(0.0)
     var count = 0
-    for (c <- 0 until 3) {
+    for (c <- 0 until nChannels) {
       for (h <- 0 until height) {
         for (w <- 0 until width) {
-          val index = h * width * 3 + w * 3 + c
+          val index = h * width * nChannels + w * nChannels + c
           val b = bytes(index).toDouble
 
           //TODO: is there a better way to convert to unsigned byte?

@@ -32,6 +32,16 @@ class SimpleHTTPTransformerSuite
     assert(results(0).schema.fields.length == 3)
   }
 
+  test("Basic Handling") {
+    val results = simpleTransformer
+      .setHandler(HandlingUtils.basic)
+      .transform(df).collect
+    assert(results.length == 10)
+    results.foreach(r =>
+      assert(r.getStruct(2).getString(0) === "more blah"))
+    assert(results(0).schema.fields.length == 3)
+  }
+
   test("Concurrent HttpTransformerTest") {
     val results =
       new SimpleHTTPTransformer()
