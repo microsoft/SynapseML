@@ -24,7 +24,7 @@
 
    ```python
    import mmlspark
-   from mmlspark import SimpleHTTPTransformer, JSONOutputParser
+   from mmlspark.io.http import SimpleHTTPTransformer, JSONOutputParser
    from pyspark.sql.types import StructType, StringType
 
    df = sc.parallelize([(x, ) for x in range(100)]).toDF("data")

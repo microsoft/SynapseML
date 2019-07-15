@@ -1,0 +1,155 @@
+resources:
+- repo: self
+
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+variables:
+  runTests: True
+
+jobs:
+- job: Style
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+  - task: AzureCLI@1
+    displayName: 'Style Check'
+    inputs:
+      azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+      scriptLocation: inlineScript
+      inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
+
+- job: PublishAndE2E
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob publishDocs
+        sbt genBuildInfo
+        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+      displayName: Publish Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt it:test'
+      condition: eq(variables.runTests, 'True')
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results **/test-reports/*.xml'
+      inputs:
+        testResultsFiles: '**/test-reports/*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: PythonTests
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - bash: |
+        source activate mmlspark
+        sbt testPython
+      displayName: Test Python Code
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results **/test-reports/*.xml'
+      inputs:
+        testResultsFiles: 'target/**/generated/test_results/python/*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+
+- job: UnitTests
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-16.04
+  strategy:
+    matrix:
+      automl:
+        PACKAGE: "automl"
+      cntk:
+        PACKAGE: "cntk"
+      cognitive:
+        PACKAGE: "cognitive"
+      core:
+        PACKAGE: "core"
+      downloader:
+        PACKAGE: "downloader"
+      featurize:
+        PACKAGE: "featurize"
+      image:
+        PACKAGE: "image"
+      io:
+        PACKAGE: "io"
+        flaky: True
+      lightgbm:
+        PACKAGE: "lightgbm"
+        flaky: True
+      lime:
+        PACKAGE: "lime"
+      opencv:
+        PACKAGE: "opencv"
+      recommendation:
+        PACKAGE: "recommendation"
+      stages:
+        PACKAGE: "stages"
+      train:
+        PACKAGE: "train"
+  steps:
+    - task: AzureCLI@1
+      displayName: 'Setup repo'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'pip install requests && sbt getDatasets'
+    - task: AzureCLI@1
+      displayName: 'Unit Test'
+      continueOnError: True
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+    - task: AzureCLI@1
+      condition: and(failed(), eq(variables.flaky, 'True'))
+      displayName: 'Flaky Unit Test Retry'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.$(PACKAGE).**" '
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results **/test-reports/*.xml'
+      inputs:
+        testResultsFiles: '**/test-reports/*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()

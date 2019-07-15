@@ -2,8 +2,7 @@
 Microsoft Machine Learning for Apache Spark
 ===========================================
 
-<img title="Build Status" align="right"
-     src="https://mmlspark.azureedge.net/icons/BuildStatus.svg" />
+[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=74557&branchName=master)
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
@@ -135,9 +134,9 @@ classify images in the CIFAR-10 dataset.  View the whole source code in notebook
    ...
    import mmlspark
    # Initialize CNTKModel and define input and output columns
-   cntkModel = mmlspark.CNTKModel() \
-                       .setInputCol("images").setOutputCol("output") \
-                       .setModelLocation(modelFile)
+   cntkModel = mmlspark.cntk.CNTKModel() \
+     .setInputCol("images").setOutputCol("output") \
+     .setModelLocation(modelFile)
    # Train on dataset with internal spark pipeline
    scoredImages = cntkModel.transform(imagesWithLabels)
    ...
@@ -249,10 +248,14 @@ your `build.sbt`:
 
 ### Building from source
 
-You can also easily create your own build by cloning this repo and use the main
-build script: `./runme`.  Run it once to install the needed dependencies, and
-again to do a build.  See [this guide](docs/developer-readme.md) for more
-information.
+
+MMLSpark has recently transitioned to a new build infrastructure. 
+For detailed developer docs please see the [Developer Readme](docs/developer-readme.md)
+
+If you are an existing mmlspark developer, you will need to reconfigure your 
+development setup. We now support platform independent development and 
+better integrate with intellij and SBT.
+ If you encounter issues please reach out to our support email!
 
 ### R (Beta)
 
@@ -307,22 +310,20 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 
 ## Other relevant projects
-
-* [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
-
 * [LightGBM](https://github.com/Microsoft/LightGBM)
 
 * [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
 
 * [Recommenders](https://github.com/Microsoft/Recommenders)
 
-* [Azure Machine Learning
-  preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
-
 * [JPMML-SparkML plugin for converting MMLSpark LightGBM models to
 PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
 
-* [Azure Machine Learning Studio](https://studio.azureml.net/)
+* [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
+
+* [Azure Machine Learning
+  preview features](https://docs.microsoft.com/en-us/azure/machine-learning/preview)
+
 
 *Apache®, Apache Spark, and Spark® are either registered trademarks or
 trademarks of the Apache Software Foundation in the United States and/or other
