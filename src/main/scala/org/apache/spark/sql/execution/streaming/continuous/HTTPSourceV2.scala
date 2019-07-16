@@ -541,7 +541,10 @@ private[streaming] class WorkerServer(val name: String,
     ()
   }
 
-  private def tryCreateServer(host: String, startingPort: Int, triesLeft: Int): (HttpServer, Int) = {
+  private def tryCreateServer(host: String,
+                              startingPort: Int,
+                              triesLeft: Int,
+                              increment: Boolean = true): (HttpServer, Int) = {
     if (triesLeft == 0) {
       throw new java.net.BindException("Could not find open ports in the range," +
         " try increasing the number of ports to try")
@@ -551,7 +554,8 @@ private[streaming] class WorkerServer(val name: String,
       (server, startingPort)
     } catch {
       case _: java.net.BindException =>
-        tryCreateServer(host, startingPort + 1, triesLeft - 1)
+        val inc = if (increment) 1 else 0
+        tryCreateServer(host, startingPort + inc, triesLeft - 1)
     }
   }
 
@@ -626,7 +630,7 @@ private[streaming] class WorkerServer(val name: String,
   }
 
   logInfo(s"starting server at ${config.host}:${config.port}")
-  val (server, foundPort) = tryCreateServer(config.host, config.port, 1)
+  val (server, foundPort) = tryCreateServer(config.host, config.port, 3, increment = false)
   server.createContext(s"/${config.path}", new PublicHandler)
   server.setExecutor(null)
   server.start()

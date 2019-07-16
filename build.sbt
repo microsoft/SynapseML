@@ -151,34 +151,6 @@ publishDocs := {
   uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
 }
 
-val uploadRawCodeCov = TaskKey[Unit]("uploadRawCodeCov",
-  "upload raw code coverage to blob for aggregation later")
-uploadRawCodeCov := {
-  val s = streams.value
-  val scoverageDir = join("target",  "scala-2.11", "scoverage-data")
-  uploadToBlob(scoverageDir.toString, version.value + "/" + UUID.randomUUID().toString, "coverage", s.log)
-}
-
-val downloadCloudCodeCov = TaskKey[Unit]("downloadCloudCodeCov",
-  "download code coverage files from blob")
-downloadCloudCodeCov := {
-  val s = streams.value
-  val scoverageDir = join("target", "scala-2.11", "scoverage-data")
-  val v = version.value
-  downloadFromBlob(v + "/**/scoverage.measurements.*", scoverageDir.toString, "coverage", s.log)
-  join(scoverageDir.toString, v).listFiles().foreach { d =>
-    d.listFiles().foreach { f =>
-      val fileParts = f.getName.split(".".head)
-      println(fileParts.toList, s.log)
-      val newInt = fileParts.last.toInt + Math.abs(d.toString.hashCode)
-      val newName = (fileParts.dropRight(1) ++ Seq(newInt.toString)).mkString(".")
-      FileUtils.moveFile(f, join(scoverageDir.toString, newName))
-    }
-    FileUtils.forceDelete(d)
-  }
-  FileUtils.forceDelete(join(scoverageDir.toString, v))
-}
-
 val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
@@ -262,7 +234,7 @@ genBuildInfo := {
       |---------------
       |
       |### Maven Coordinates
-      | `${organization.value}:${name.value}:${version.value}`
+      | `${organization.value}:${name.value}_2.11:${version.value}`
       | 
       |### Documentation Uploaded:
       |[Scala](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)

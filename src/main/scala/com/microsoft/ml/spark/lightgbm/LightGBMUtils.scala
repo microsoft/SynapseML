@@ -180,54 +180,6 @@ object LightGBMUtils {
     idAsInt
   }
 
-  /** Converts a host,id pair to the lightGBM host:port format.
-    * @param hostAndId The host,id.
-    * @param defaultListenPort The default listen port.
-    * @return The string lightGBM representation of host:port.
-    */
-  def toAddr(hostAndId: (String, Int), defaultListenPort: Int): String =
-    hostAndId._1 + ":" + (defaultListenPort + hostAndId._2)
-
-  /** Returns the nodes from mapPartitions.
-    * Only run in case when num partitions < num executors.
-    * @param processedData The input data.
-    * @param defaultListenPort The default listening port.
-    * @param executorToHost Map from executor id to host name.
-    * @return The list of nodes in host:port format.
-    */
-  def getNodesFromPartitions(processedData: DataFrame, defaultListenPort: Int,
-                             executorToHost: Map[Int, String]): Array[(Int, String)] = {
-    import processedData.sparkSession.implicits._
-    val nodes =
-      processedData.mapPartitions((_: Iterator[Row]) => {
-        val id = getId()
-        Array((id, executorToHost(id))).toIterator
-      }).collect()
-    nodes
-  }
-
-  /** Returns the nodes from mapPartitions.
-    * Only run in local[*] case.
-    * @param processedData The input data.
-    * @param defaultListenPort The default listening port.
-    * @return The list of nodes in host:port format.
-    */
-  def getNodesFromPartitionsLocal(processedData: DataFrame,
-                                  defaultListenPort: Int): Array[(Int, String)] = {
-    import processedData.sparkSession.implicits._
-    val blockManager = BlockManagerUtils.getBlockManager(processedData)
-    val host = blockManager.master.getMemoryStatus.flatMap({ case (blockManagerId, _) =>
-      Some(ClusterUtil.getHostToIP(blockManagerId.host))
-    }).head
-    val nodes =
-      processedData.mapPartitions((_: Iterator[Row]) => {
-        // The logic below is to get it to run in local[*] spark context
-        val id = getId()
-        Array((id, host)).toIterator
-      }).collect()
-    nodes
-  }
-
   def intToPtr(value: Int): SWIGTYPE_p_int64_t = {
     val longPtr = lightgbmlib.new_longp()
     lightgbmlib.longp_assign(longPtr, value)

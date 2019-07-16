@@ -3,8 +3,14 @@
 
 package com.microsoft.ml.spark.cntk
 
+import java.io.File
+import java.net.URL
+
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.LinuxOnly
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -29,11 +35,31 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputNodeIndex(3)
   }
 
+  lazy val doubleModelFile: File = {
+    val f = FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "CNNDouble_untrained.model")
+    if (!f.exists()) {
+      FileUtils.copyURLToFile(new URL(
+        "https://mmlspark.blob.core.windows.net/datasets/CNTKModels/CNNDouble_untrained.model"), f)
+    }
+    f
+  }
+
+  def testModelDouble(minibatchSize: Int = 10): CNTKModel = {
+    session // make sure session is loaded
+    new CNTKModel()
+      .setModelLocation(doubleModelFile.toString)
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+      .setMiniBatchSize(minibatchSize)
+      .setOutputNodeIndex(0)
+  }
+
   lazy val images = testImages(session)
+
   import session.implicits._
 
   private def checkParameters(minibatchSize: Int) = {
-    val model  = testModel(minibatchSize)
+    val model = testModel(minibatchSize)
     val result = model.transform(images)
     compareToTestModel(result)
   }
@@ -52,7 +78,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputCol(outputCol)
       .setOutputNode("z")
 
-    val data   = makeFakeData(session, 10, featureVectorLength).coalesce(1)
+    val data = makeFakeData(session, 10, featureVectorLength).coalesce(1)
     val result = model.transform(data)
     assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
     assert(result.select(outputCol).count() == 10)
@@ -66,25 +92,48 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setModelLocation(modelPath)
 
     val data = makeFakeData(session, 3, featureVectorLength)
-    intercept[IllegalArgumentException] { model.transform(data).collect() }
+    intercept[IllegalArgumentException] {
+      model.transform(data).collect()
+    }
+  }
+
+  def testCNN(model: CNTKModel, doubleInput: Boolean, shape: Int = featureVectorLength): Unit = {
+    val data = makeFakeData(session, 3, shape, doubleInput)
+    val result = model.transform(data)
+    assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
+    assert(result.count() == 3)
+  }
+
+  test("getters") {
+    val m = testModel()
+    assert(m.getBatchInput === true)
+    assert(m.getFeedDict === Map("ARGUMENT_0" -> inputCol))
+    assert(m.getFetchDict === Map(outputCol -> "OUTPUT_3"))
+    assert(m.getConvertOutputToDenseVector === true)
+    assert(m.getInputNode === "ARGUMENT_0")
+    assert(m.getInputNodeIndex === 0)
+    assert(m.getInputShapes.map(_.toList) === List(List(32, 32, 3), List(10)))
+    assert(m.getOutputNode === "OUTPUT_3")
+    assert(m.getOutputNodeIndex === 3)
+    assert(m.getShapeOutput === false)
+    assert(m.getInputCol === inputCol)
+    assert(m.getOutputCol === outputCol)
   }
 
   test("should work on floats") {
-    val model = testModel()
-    val data = makeFakeData(session, 3, featureVectorLength)
-    val result = model.transform(data)
-    result.printSchema()
-    assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
-    assert(result.count() == 3)
+    testCNN(testModel(), false)
   }
 
   test("should work on doubles") {
-    val model = testModel()
-    val data = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
-    val result = model.transform(data)
-    result.printSchema()
-    assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
-    assert(result.count() == 3)
+    testCNN(testModel(), true)
+  }
+
+  test("double model float input") {
+    testCNN(testModelDouble(), false, shape = 784)
+  }
+
+  test("double model double input") {
+    testCNN(testModelDouble(), true, shape = 784)
   }
 
   test("A CNTK model should output Vectors and interop with other estimators") {
@@ -152,7 +201,11 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   test("multi in multi out model") {
     val df = Seq.fill(10) {
-      (Seq.fill(32 * 32 * 3) {Random.nextFloat()}, Seq.fill(10) {Random.nextFloat()})
+      (Seq.fill(32 * 32 * 3) {
+        Random.nextFloat()
+      }, Seq.fill(10) {
+        Random.nextFloat()
+      })
     }.toDF("input0", "input1").coalesce(1)
     val model = new CNTKModel()
       .setModelLocation(modelPath)
