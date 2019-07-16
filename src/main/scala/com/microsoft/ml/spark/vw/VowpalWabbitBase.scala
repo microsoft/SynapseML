@@ -187,9 +187,9 @@ trait VowpalWabbitBase extends Wrappable
       .append(" ").append(contextArgs)
 
     // have to pass to get multi-pass to work
-    val no_stdin = "--no_stdin"
-    if (args.indexOf(no_stdin) == -1)
-      args.append(" ").append(no_stdin)
+    val noStdin = "--no_stdin"
+    if (args.indexOf(noStdin) == -1)
+      args.append(" ").append(noStdin)
 
     // need to keep reference around to prevent GC and subsequent file delete
     if (getEnableCacheFile) {

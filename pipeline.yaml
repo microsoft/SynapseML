@@ -160,6 +160,8 @@ jobs:
         PACKAGE: "stages"
       train:
         PACKAGE: "train"
+      vw:
+        PACKAGE: "vw"
   steps:
     - task: AzureCLI@1
       displayName: 'Setup repo'
