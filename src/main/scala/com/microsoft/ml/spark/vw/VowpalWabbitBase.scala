@@ -98,16 +98,6 @@ trait VowpalWabbitBase extends Wrappable
   def getInitialModel: Array[Byte] = $(initialModel)
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
-  val cacheRows = new BooleanParam(this, "cacheRows", "Cache rows in multi-pass mode")
-  setDefault(cacheRows -> false)
-  def getCacheRows: Boolean = $(cacheRows)
-  def setCacheRows(value: Boolean): this.type = set(cacheRows, value)
-
-  val enableCacheFile = new BooleanParam(this, "enableCacheFile", "Enable local cache file")
-  setDefault(enableCacheFile -> false)
-  def getEnableCacheFile: Boolean = $(enableCacheFile)
-  def setEnableCacheFile(value: Boolean): this.type = set(enableCacheFile, value)
-
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
   def getLabelCol: String
   def getFeaturesCol: String
@@ -163,24 +153,6 @@ trait VowpalWabbitBase extends Wrappable
       .map(col => new NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col)))
       .toArray
 
-  /**
-    * If multiple passes are requested and cache file is not enabled, cache the data in-memory.
-    * @param inputRows input data.
-    * @return iterator over the potentially cached data.
-    */
-  private def createDataIterator(inputRows: Iterator[Row], numPassesInSpark: Int) = {
-    if (numPassesInSpark == 1)
-      // avoid caching inputRows
-      () => inputRows
-    else {
-      // cache all row references to be able to quickly get the iterator again
-      // TODO: based on Mark's comment use Spark dataframe caching instead of materializing
-      // row reference into memory
-      val inputRowsArr = inputRows.toArray
-      () => inputRowsArr.iterator
-    }
-  }
-
   private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = "") = {
     val args = new StringBuilder
     args.append(vwArgs)
@@ -192,7 +164,7 @@ trait VowpalWabbitBase extends Wrappable
       args.append(" ").append(noStdin)
 
     // need to keep reference around to prevent GC and subsequent file delete
-    if (getEnableCacheFile) {
+    if (getNumPasses > 1) {
       val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
       cacheFile.deleteOnExit()
 
@@ -216,15 +188,8 @@ trait VowpalWabbitBase extends Wrappable
 
     val featureColIndices = generateNamespaceInfos(df.schema)
 
-    // only perform the inner-loop if we cache the inputRows
-    val numPassesInSpark = if (!getEnableCacheFile && getCacheRows) getNumPasses else 1
-
     def trainIteration(inputRows: Iterator[Row],
-                       localInitialModel: Option[Array[Byte]],
-                       pass: Int): Iterator[Option[Array[Byte]]] = {
-
-      // potential cache data
-      val iteratorGenerator = createDataIterator(inputRows, numPassesInSpark)
+                       localInitialModel: Option[Array[Byte]]): Iterator[Option[Array[Byte]]] = {
 
       // construct command line arguments
       val args = buildCommandLineArguments(vwArgs, contextArgs)
@@ -232,33 +197,27 @@ trait VowpalWabbitBase extends Wrappable
       StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
         else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
         StreamUtilities.using(vw.createExample()) { ex =>
+            // pass data to VW native part
+            for (row <- inputRows) {
+              // transfer label
+              applyLabel(row, ex)
 
-            // loop in here to avoid
-            // - passing model back and forth
-            // - re-establishing network connection
-            for (_ <- 0 until numPassesInSpark) {
-              // pass data to VW native part
-              for (row <- iteratorGenerator()) {
-                // transfer label
-                applyLabel(row, ex)
+              // transfer features
+              for (ns <- featureColIndices)
+                row.get(ns.colIdx) match {
+                  case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+                    ns.hash, dense.values)
+                  case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+                    sparse.indices, sparse.values)
+                }
 
-                // transfer features
-                for (ns <- featureColIndices)
-                  row.get(ns.colIdx) match {
-                    case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-                      ns.hash, dense.values)
-                    case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-                      sparse.indices, sparse.values)
-                  }
-
-                ex.learn
-                ex.clear
-              }
-
-              vw.endPass
+              ex.learn
+              ex.clear
             }
 
-            if (getEnableCacheFile)
+            vw.endPass
+
+            if (getNumPasses > 1)
               vw.performRemainingPasses
           }
 
@@ -270,16 +229,11 @@ trait VowpalWabbitBase extends Wrappable
     val encoder = Encoders.kryo[Option[Array[Byte]]]
 
     // schedule multiple mapPartitions in
-    val outerNumPasses = if (!getEnableCacheFile && getNumPasses > 1 && !getCacheRows) getNumPasses else 1
     var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
-    for (p <- 0 until outerNumPasses) {
-      // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
-      localInitialModel = df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel, p))(encoder)
-        .reduce((a, b) => if (a.isEmpty) b else a)
-    }
-
-    localInitialModel
+    // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
+    df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
+      .reduce((a, b) => if (a.isEmpty) b else a)
   }
 
   /**
@@ -352,10 +306,6 @@ trait VowpalWabbitBase extends Wrappable
       .appendParam(l2, "--l2")
       .appendParam(ignoreNamespaces, "--ignore")
       .appendParam(interactions, "-q")
-
-    // bfgs needs cache file
-    if (getArgs.contains("--bfgs"))
-      setEnableCacheFile(true)
 
     // call training
     val binaryModel = if (numWorkers == 1)
