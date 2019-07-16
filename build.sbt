@@ -233,7 +233,7 @@ genBuildInfo := {
       |---------------
       |
       |### Maven Coordinates
-      | `${organization.value}:${name.value}:${version.value}`
+      | `${organization.value}:${name.value}_2.11:${version.value}`
       | 
       |### Documentation Uploaded:
       |[Scala](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
