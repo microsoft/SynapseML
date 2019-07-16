@@ -1,10 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.featurizer._
+import com.microsoft.ml.spark.vw.featurizer._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{IntParam, ParamMap, StringArrayParam}
 import org.apache.spark.sql.types._

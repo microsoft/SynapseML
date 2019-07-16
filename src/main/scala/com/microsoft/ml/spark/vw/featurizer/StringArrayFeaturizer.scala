@@ -1,13 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.featurizer
+package com.microsoft.ml.spark.vw.featurizer
 
-import com.microsoft.ml.spark.VowpalWabbitMurmurWithPrefix
+import com.microsoft.ml.spark.vw.VowpalWabbitMurmurWithPrefix
 import org.apache.spark.sql.Row
-import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
-import scala.collection.mutable.{ArrayBuffer, ArrayBuilder}
+import scala.collection.mutable.ArrayBuilder
 
 /**
   * Featurize array of strings into native VW structure. (hash(column name + k):1)
