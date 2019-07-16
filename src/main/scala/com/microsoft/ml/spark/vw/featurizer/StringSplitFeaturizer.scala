@@ -25,6 +25,8 @@ class StringSplitFeaturizer(override val fieldIdx: Int, val columnName: String, 
     * we could follow
     * https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
     * but that strips single character words...
+    *
+    * TODO: expose as user configurable parameter
     */
   val nonWhiteSpaces = "(?U)\\w+".r
 

@@ -111,7 +111,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       indices.sizeHint(featurizers.length)
       values.sizeHint(featurizers.length)
 
-        // apply all featurizers
+      // apply all featurizers
       for (f <- featurizers)
         if (!r.isNullAt(f.fieldIdx))
           f.featurize(r, indices, values)
@@ -134,7 +134,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     val fieldNames = schema.fields.map(_.name)
     for (f <- getAllInputCols)
       if (!fieldNames.contains(f))
-        throw new IllegalArgumentException("missing input column " + f)
+        throw new IllegalArgumentException(s"missing input column $f")
 
     schema.add(new StructField(getOutputCol, VectorType, true))
   }

@@ -119,9 +119,9 @@ trait VowpalWabbitBase extends Wrappable
         param match {
           case _: StringArrayParam => {
             for (q <- get(param).get)
-              sb.append(' ').append(option).append(' ').append(q)
+              sb.append(s" $option $q")
           }
-          case _ => sb.append(' ').append(option).append(' ').append(get(param).get)
+          case _ => sb.append(s" $option ${get(param).get}")
         }
       }
 
@@ -170,11 +170,12 @@ trait VowpalWabbitBase extends Wrappable
     */
   private def createDataIterator(inputRows: Iterator[Row], numPassesInSpark: Int) = {
     if (numPassesInSpark == 1)
-    // avoid caching inputRows
+      // avoid caching inputRows
       () => inputRows
     else {
       // cache all row references to be able to quickly get the iterator again
-      // TODO: switch dataframe.cache()
+      // TODO: based on Mark's comment use Spark dataframe caching instead of materializing
+      // row reference into memory
       val inputRowsArr = inputRows.toArray
       () => inputRowsArr.iterator
     }
