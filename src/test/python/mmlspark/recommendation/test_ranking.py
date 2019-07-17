@@ -2,7 +2,6 @@
 import os
 import pyspark
 import unittest
-import xmlrunner
 from mmlspark.recommendation.RankingAdapter import RankingAdapter
 from mmlspark.recommendation.RankingEvaluator import RankingEvaluator
 from mmlspark.recommendation.RankingTrainValidationSplit import RankingTrainValidationSplit
@@ -166,5 +165,4 @@ class RankingSpec(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS", "TestResults")),
-                           failfast=False, buffer=False, catchbreak=False)
+    result = unittest.main()

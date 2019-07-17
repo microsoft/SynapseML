@@ -69,10 +69,8 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
 
   protected val unittestString =
     s"""|
-        |import os, xmlrunner
         |if __name__ == "__main__":
-        |    result = unittest.main(testRunner=xmlrunner.XMLTestRunner(output=os.getenv("TEST_RESULTS","TestResults")),
-        |                           failfast=False, buffer=False, catchbreak=False)
+        |    result = unittest.main()
         |""".stripMargin
 
   protected def setAndGetTemplate(paramName: String, value: String) =
@@ -275,7 +273,6 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   def writeWrapperToFile(dir: File): Unit = {
     val packageDir = subPackages.foldLeft(dir){ case (base, folder) => new File(base, folder)}
     packageDir.mkdirs()
-    new File(packageDir, "__init__.py").createNewFile()
     writeFile(new File(packageDir,"test_" + entryPointName + ".py"), pysparkWrapperTestBuilder())
   }
 

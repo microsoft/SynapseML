@@ -47,20 +47,14 @@ object CodeGen {
     // FileUtils.forceDelete(pyDir)
   }
 
-  private def allTopLevelFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
-    def loop(dir: File): Array[File] = {
-      val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
-      if (pred == null) files else files.filter(pred)
-    }
-    loop(dir)
-  }
-
   private def makeInitFiles(packageFolder: String = ""): Unit = {
     val dir = new File(new File(pySrcDir,"mmlspark"), packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/",".") else ""
     val importStrings =
-      allTopLevelFiles(dir, f => "^[a-zA-Z]\\w*[.]py$".r.findFirstIn(f.getName).isDefined)
-        .map(f => s"from mmlspark$packageString.${getBaseName(f.getName)} import *\n").mkString("")
+      dir.listFiles.filter(_.isFile).sorted
+        .map(_.getName)
+        .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
+        .map(name => s"from mmlspark$packageString.${getBaseName(name)} import *\n").mkString("")
     writeFile(new File(dir, "__init__.py"), packageHelp(importStrings))
     dir.listFiles().filter(_.isDirectory).foreach(f =>
       makeInitFiles(packageFolder +"/" + f.getName)

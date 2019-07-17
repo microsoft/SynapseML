@@ -4,7 +4,9 @@ dependencies:
   - pyspark=2.4.3
   - requests
   - pip:
-    - unittest-xml-reporting
     - wheel
     - sphinx
     - sphinx_rtd_theme
+    - coverage
+    - pytest
+    - pytest-cov
