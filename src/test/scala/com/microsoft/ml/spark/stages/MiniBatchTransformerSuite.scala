@@ -76,6 +76,10 @@ class FixedMiniBatchTransformerSuite
     basicTest(new FixedMiniBatchTransformer().setBatchSize(3))
   }
 
+  test("buffered functionality") {
+    basicTest(new FixedMiniBatchTransformer().setBuffered(true).setBatchSize(3))
+  }
+
   override def testObjects(): Seq[TestObject[FixedMiniBatchTransformer]] = Seq(
     new TestObject(
       new FixedMiniBatchTransformer().setBatchSize(3),

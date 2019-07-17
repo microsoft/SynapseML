@@ -27,6 +27,7 @@ import org.scalatest.Assertion
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.parsing.json.JSONObject
+import com.microsoft.ml.spark.io.IOImplicits._
 
 trait HTTPTestUtils extends WithFreeUrl {
 
@@ -101,7 +102,7 @@ trait HTTPTestUtils extends WithFreeUrl {
     out
   }
 
-  def sendJsonRequest(client: CloseableHttpClient, payload: Int, url:String): (String, Long) = {
+  def sendJsonRequest(client: CloseableHttpClient, payload: Int, url: String): (String, Long) = {
     val post = new HttpPost(url)
     val e = new StringEntity("{\"data\":" + s"$payload}")
     post.setEntity(e)
@@ -122,14 +123,14 @@ trait HTTPTestUtils extends WithFreeUrl {
   def sendFileRequest(client: CloseableHttpClient, url: String = url): (String, Double) = {
     val post = new HttpPost(url)
     val e = new FileEntity(FileUtilities.join(
-      BuildInfo.datasetDir, "Images","Grocery","testImages","WIN_20160803_11_28_42_Pro.jpg"))
+      BuildInfo.datasetDir, "Images", "Grocery", "testImages", "WIN_20160803_11_28_42_Pro.jpg"))
     post.setEntity(e)
     val t0 = System.nanoTime()
     val res = client.execute(post)
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     val t1 = System.nanoTime()
-    (out, (t1 - t0)/1e6)
+    (out, (t1 - t0) / 1e6)
   }
 
   def mean(xs: List[Int]): Double = xs match {
@@ -160,8 +161,6 @@ trait HTTPTestUtils extends WithFreeUrl {
 
 // TODO add tests for shuffles
 class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
-  import ServingImplicits._
-
   // Logger.getRootLogger.setLevel(Level.WARN)
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
   // Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
@@ -187,7 +186,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   test("standard client", TestBase.Extended) {
     val server = createServer().start()
-    using(server){
+    using(server) {
       waitForServer(server)
       val responses = List(
         sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
@@ -219,7 +218,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    using(server){
+    using(server) {
       waitForServer(server)
       val responses = List(
         sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
@@ -254,7 +253,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    using(server){
+    using(server) {
       waitForServer(server)
       val responsesWithLatencies = (1 to 100).map(i => sendFileRequest(client))
 
@@ -269,7 +268,6 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("test implicits 2 distributed", TestBase.Extended) {
-    import ServingImplicits._
 
     val server = session.readStream.distributedServer
       .address(host, port, "foo")
@@ -286,7 +284,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
       .start()
 
-    using(server){
+    using(server) {
       waitForServer(server)
       val responsesWithLatencies = (1 to 100).map(i =>
         sendFileRequest(client)
@@ -305,7 +303,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   test("python client", TestBase.Extended) {
     val server = createServer().start()
 
-    using(server){
+    using(server) {
       waitForServer(server)
 
       val pythonClientCode =
@@ -361,7 +359,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   test("async client", TestBase.Extended) {
     val server = createServer().start()
 
-    using(server){
+    using(server) {
       waitForServer(server)
 
       val futures = List(

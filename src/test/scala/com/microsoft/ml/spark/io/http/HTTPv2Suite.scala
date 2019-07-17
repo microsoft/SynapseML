@@ -7,7 +7,7 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import com.microsoft.ml.spark.io.http.ServingImplicits._
+import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
@@ -182,9 +182,35 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     }
   }
 
+  test("forwarding ports to vm error check") {
+    val newPort = getFreePort
+    try {
+      val server = baseWrite(session
+        .readStream
+        .format(classOf[HTTPSourceProviderV2].getName)
+        .address(host, newPort, apiPath)
+        .option("name", apiName)
+        .option("epochLength", 5000)
+        .option("numPartitions", 2)
+        .option("forwarding.enabled", true)
+        .option("forwarding.sshHost", host)
+        .option("forwarding.keySas", "bad key")
+        .option("forwarding.username", "sshuser")
+        .load()
+        .withColumn("foo", col("id.requestId"))
+        .makeReply("foo")).start()
+
+      using(server) {
+        Thread.sleep(10000)
+      }
+    } catch {
+      case _: java.net.URISyntaxException => ()
+    }
+  }
+
   test("can reply to bad requests immediately partial") {
     val newPort = getFreePort
-    val server = baseWrite(baseDF(port=newPort)
+    val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "partial")
       .makeReply("value"))
       .start()
@@ -211,7 +237,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
   test("can reply to bad requests immediately") {
     val newPort = getFreePort
-    val server = baseWrite(baseDF(port=newPort)
+    val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "full")
       .makeReply("value"))
       .start()
@@ -239,7 +265,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
   test("can reply from the middle of the pipeline") {
     val newPort = getFreePort
-    val server = baseWrite(baseDF(port=newPort)
+    val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType))
       .withColumn("didReply",
         when(col("value").isNull,
@@ -276,7 +302,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("fault tolerance") {
-    tryWithRetries(Array(0,100,100)){() =>
+    tryWithRetries(Array(0, 100, 100)) { () =>
       val newPort = getFreePort
       val r = scala.util.Random
       val flakyUDF = udf({ x: Int =>
@@ -291,7 +317,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       }, DoubleType)
 
       Thread.sleep(1000)
-      val server = baseWrite(baseDF(epochLength = 1000, port=newPort)
+      val server = baseWrite(baseDF(epochLength = 1000, port = newPort)
         .withColumn("foo", flakyUDF(col("id.partitionId")))
         .makeReply("foo"))
         .start()
@@ -299,7 +325,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       using(server) {
         waitForServer(server)
         val responsesWithLatencies = (1 to 300).map(i =>
-          sendStringRequest(client, url=url(newPort))
+          sendStringRequest(client, url = url(newPort))
         )
         assertLatency(responsesWithLatencies, 200)
         println(HTTPSourceStateHolder.serviceInfoJson(apiName))

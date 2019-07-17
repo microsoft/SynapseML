@@ -8,7 +8,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.io.http.ServingImplicits._
+import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.BinaryType
