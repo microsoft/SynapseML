@@ -3,12 +3,14 @@
 
 package com.microsoft.ml.spark.vw
 
+import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.TaskContext
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"
@@ -59,6 +61,33 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     assert(labelOneCnt < dataset.count)
     assert(labelOneCnt > 10)
+  }
+
+  test("Verify VowpalWabbit Classifier can deal with empty partitions") {
+    val fileName = "a1a.train.svmlight"
+
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+
+    val vw = new VowpalWabbitClassifier()
+      .setPowerT(0.3)
+      .setNumPasses(3)
+
+    val infoEnc = RowEncoder(dataset.schema)
+    val trainData = dataset
+      .mapPartitions(iter => {
+        val ctx = TaskContext.get
+        val partId = ctx.partitionId
+        // Create an empty partition
+        if (partId == 0) {
+          Iterator()
+        } else {
+          iter
+        }
+      })(infoEnc)
+
+    val classifier = vw.fit(trainData)
+    assert(classifier.getModel.length > 400)
   }
 
   test("Verify VowpalWabbit Classifier w/ and w/o link=logistic produce same results") {
