@@ -9,7 +9,6 @@ import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.sql.{Column, DataFrame}
 
 class VerifyVowpalWabbitRegressor extends Benchmarks {
-  lazy val moduleName = "vw"
 
   val args = Array("", "--bfgs", "--adaptive")
 

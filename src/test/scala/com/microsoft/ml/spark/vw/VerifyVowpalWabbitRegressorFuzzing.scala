@@ -12,7 +12,8 @@ class VerifyVowpalWabbitRegressorFuzzing extends EstimatorFuzzing[VowpalWabbitRe
   val numPartitions = 2
 
   /** Reads a CSV file given the file name and file location.
-    * @param fileName The name of the csv file.
+    *
+    * @param fileName     The name of the csv file.
     * @param fileLocation The full path to the csv file.
     * @return A dataframe from read CSV file.
     */
@@ -25,6 +26,7 @@ class VerifyVowpalWabbitRegressorFuzzing extends EstimatorFuzzing[VowpalWabbitRe
   }
 
   override def reader: MLReadable[_] = VowpalWabbitRegressor
+
   override def modelReader: MLReadable[_] = VowpalWabbitRegressorModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitRegressor]] = {

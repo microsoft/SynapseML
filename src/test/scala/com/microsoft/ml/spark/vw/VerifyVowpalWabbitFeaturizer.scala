@@ -5,23 +5,23 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
-
-import scala.reflect.runtime.universe.TypeTag
-import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg.{SparseVector, Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
-import org.vowpalwabbit.spark.VowpalWabbitMurmur
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
-import scala.io.Source
+import scala.reflect.runtime.universe.TypeTag
 
 class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[VowpalWabbitFeaturizer] {
 
-  val defaultMask = ((1 << 30) - 1)
+  val defaultMask = (1 << 30) - 1
 
-  case class Sample1(val str: String, val seq: Seq[String])
-  case class Input[T] (val in: T)
-  case class Input2[T, S] (val in1: T, val in2: S)
+  case class Sample1(str: String, seq: Seq[String])
+
+  case class Input[T](in: T)
+
+  case class Input2[T, S](in1: T, in2: S)
 
   test("Verify VowpalWabbit Featurizer can be run with seq and string") {
     val featurizer1 = new VowpalWabbitFeaturizer()
@@ -170,8 +170,8 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   test("Verify VowpalWabbit Featurizer output VectorUDT schema type") {
     val newSchema = new VowpalWabbitFeaturizer()
-        .setInputCols(Array("data"))
-        .setOutputCol("features")
+      .setInputCols(Array("data"))
+      .setOutputCol("features")
       .transformSchema(new StructType(Array(new StructField("data", DataTypes.DoubleType, true))))
 
     assert(newSchema.fields(1).name == "features")
@@ -181,7 +181,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
   private def verifyArrays[T](actual: Array[T], expected: Array[T])(implicit ord: Ordering[T]) = {
     assert(actual.length == expected.length)
 
-    (actual.sorted zip expected.sorted).forall{ case (x,y) => x == y }
+    (actual.sorted zip expected.sorted).forall { case (x, y) => x == y }
   }
 
   test("Verify VowpalWabbit Featurizer can combine vectors") {
@@ -202,7 +202,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     assert(output.size == 262144)
     assert(output.numNonzeros == 4)
 
-    verifyArrays(output.values, Array(1.0,7.0,3.0,8.0))
+    verifyArrays(output.values, Array(1.0, 7.0, 3.0, 8.0))
   }
 
   test("Verify VowpalWabbit Featurizer can combine vectors and remask") {
@@ -223,13 +223,13 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     assert(output.size == 4)
     assert(output.numNonzeros == 3)
 
-    verifyArrays(output.values, Array(9.0,7.0,3.0))
+    verifyArrays(output.values, Array(9.0, 7.0, 3.0))
   }
 
   test("Check tamil encoding") {
-    val row = Source.fromURL(getClass.getResource("/utf-input.txt")).mkString
+    //noinspection ScalaStyle
     val df = session.createDataFrame(Seq(
-      (row, "output")))
+      ("ஜெய்-அஞ்சலி காதல் பற்றி ராய் லட்சுமி!", "output")))
       .toDF("a", "normalized")
 
     val featurizer = new VowpalWabbitFeaturizer()
@@ -240,7 +240,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val vec = result.head().getAs[SparseVector](2)
 
     assert(vec.numNonzeros == 6)
-    verifyArrays(vec.indices, Array(260933379,376953061,482756394,597851995,781002072,950998778))
+    verifyArrays(vec.indices, Array(260933379, 376953061, 482756394, 597851995, 781002072, 950998778))
   }
 
   def testObjects(): Seq[TestObject[VowpalWabbitFeaturizer]] = List(new TestObject(
