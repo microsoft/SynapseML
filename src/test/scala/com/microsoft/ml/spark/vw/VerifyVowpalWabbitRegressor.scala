@@ -11,7 +11,7 @@ import org.apache.spark.sql.{Column, DataFrame}
 class VerifyVowpalWabbitRegressor extends Benchmarks {
   lazy val moduleName = "vw"
 
-  val args = Array("", "--bfgs", "--adaptive", "--sgd")
+  val args = Array("", "--bfgs", "--adaptive")
 
   val numPartitions = 2
 
