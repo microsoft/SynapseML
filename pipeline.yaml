@@ -83,13 +83,33 @@ jobs:
       displayName: Create Anaconda environment
     - bash: |
         source activate mmlspark
-        sbt testPython
+        sbt coverage testPython
       displayName: Test Python Code
     - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
+      displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: 'target/**/generated/test_results/python/*.xml'
+        testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'bash <(curl -s https://codecov.io/bash) -t $(codecov-token)'
+      displayName: Upload Coverage Report To Codecov.io
+      timeoutInMinutes: 5
       condition: succeededOrFailed()
 
 - job: UnitTests
@@ -161,9 +181,12 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         keyVaultName: mmlspark-keys
-    - bash: |
-        bash <(curl -s https://codecov.io/bash)
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: 'bash <(curl -s https://codecov.io/bash) -t $(codecov-token)'
       displayName: Upload Coverage Report To Codecov.io
       timeoutInMinutes: 5
-      env:
-        CODECOV_TOKEN: $(codecov-token)
+      condition: succeededOrFailed()
