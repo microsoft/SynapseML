@@ -59,17 +59,17 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     assert(recs.count == 2)
   }
 
-  val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
-  val sim_count1: String = getClass.getResource("/sim_count1.csv.gz").getPath
-  val sim_lift1: String = getClass.getResource("/sim_lift1.csv.gz").getPath
-  val sim_jac1: String = getClass.getResource("/sim_jac1.csv.gz").getPath
-  val sim_count3: String = getClass.getResource("/sim_count3.csv.gz").getPath
-  val sim_lift3: String = getClass.getResource("/sim_lift3.csv.gz").getPath
-  val sim_jac3: String = getClass.getResource("/sim_jac3.csv.gz").getPath
-  val user_aff: String = getClass.getResource("/user_aff.csv.gz").getPath
-  val userpred_count3: String = getClass.getResource("/userpred_count3_userid_only.csv.gz").getPath
-  val userpred_lift3: String = getClass.getResource("/userpred_lift3_userid_only.csv.gz").getPath
-  val userpred_jac3: String = getClass.getResource("/userpred_jac3_userid_only.csv.gz").getPath
+  lazy val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
+  lazy val sim_count1: String = getClass.getResource("/sim_count1.csv.gz").getPath
+  lazy val sim_lift1: String = getClass.getResource("/sim_lift1.csv.gz").getPath
+  lazy val sim_jac1: String = getClass.getResource("/sim_jac1.csv.gz").getPath
+  lazy val sim_count3: String = getClass.getResource("/sim_count3.csv.gz").getPath
+  lazy val sim_lift3: String = getClass.getResource("/sim_lift3.csv.gz").getPath
+  lazy val sim_jac3: String = getClass.getResource("/sim_jac3.csv.gz").getPath
+  lazy val user_aff: String = getClass.getResource("/user_aff.csv.gz").getPath
+  lazy val userpred_count3: String = getClass.getResource("/userpred_count3_userid_only.csv.gz").getPath
+  lazy val userpred_lift3: String = getClass.getResource("/userpred_lift3_userid_only.csv.gz").getPath
+  lazy val userpred_jac3: String = getClass.getResource("/userpred_jac3_userid_only.csv.gz").getPath
 
   private lazy val tlcSampleData: DataFrame = session.read
     .option("header", "true") //reading the headers
