@@ -200,7 +200,12 @@ testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
   Process(
-    activateCondaEnv ++ Seq("python", "tools/pytest/run_all_tests.py"),
+    activateCondaEnv ++ Seq("pytest",
+      "--cov=mmlspark",
+      "--junitxml=target/python-test-results.xml",
+      "--cov-report=xml",
+      "target/scala-2.11/generated/test/python/mmlspark"
+    ),
     new File("."),
     "MML_VERSION" -> version.value
   ) ! s.log

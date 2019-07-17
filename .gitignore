@@ -32,3 +32,8 @@
 
 # Target dir
 **/target/*
+
+# python test coverage
+.coverage
+coverage.xml
+htmlcov
