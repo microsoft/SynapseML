@@ -46,7 +46,7 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
           i = i + 1
           j = j + 2
         } else if (Character.isHighSurrogate(c)) {
-          if (end - i < 2) throw new Exception("overflow")
+          if (end - i < 2) throw new Exception("overflow") // this is not reachable due to maxSize * 4, so just in case
           val d = str.charAt(i + 1)
           val uc: Int =
             if (Character.isLowSurrogate(d))

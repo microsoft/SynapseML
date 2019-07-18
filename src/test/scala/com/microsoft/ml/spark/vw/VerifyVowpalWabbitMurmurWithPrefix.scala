@@ -54,4 +54,28 @@ class VerifyVowpalWabbitMurmurWithPrefix extends TestBase {
     println(s"Java String to UTF8: $time2")
     println(s"Java to C++:         $time3")
   }
+
+  test("Verify VowpalWabbitMurmurWithPrefix verify max-size exceed") {
+    val fastStringHash = new VowpalWabbitMurmurWithPrefix("a", 2)
+
+    val longStr = (1 to 32).mkString("_")
+
+    assert(fastStringHash.hash(longStr, 0) == VowpalWabbitMurmur.hash("a" + longStr, 0))
+  }
+
+  def verifyHashesAreTheSame(): Unit = {
+    Seq("\u0900def", "\ud800\udc00def").foreach { unicodeString =>
+      test(s"Verify VowpalWabbitMurmurWithPrefix verify unicode $unicodeString") {
+        val fastStringHash = new VowpalWabbitMurmurWithPrefix("abc")
+
+        assert(fastStringHash.hash(unicodeString, 0) == VowpalWabbitMurmur.hash("abc" + unicodeString, 0))
+      }
+    }
+  }
+
+  test("VowpalWabbitMurmurWithPrefix invalid unicode string") {
+    assertThrows[Exception] {
+      new VowpalWabbitMurmurWithPrefix("abc").hash("\ud800def", 0)
+    }
+  }
 }
