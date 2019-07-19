@@ -108,8 +108,10 @@ jobs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
         inlineScript: |
-          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -f coverage.xml -F python
-          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -f target/** -F python
+          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+            -f coverage.xml -F python
+          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+            -f target/scala-2.11/coverage-report/cobertura.xml -F scala
 
       displayName: Upload Coverage Report To Codecov.io
       timeoutInMinutes: 5
