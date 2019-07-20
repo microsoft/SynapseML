@@ -3,8 +3,6 @@
 
 package com.microsoft.ml.spark.core.utils
 
-import java.io.{InputStream, ObjectInputStream, ObjectStreamClass}
-
 import org.scalatest.exceptions.TestFailedException
 import org.spark_project.guava.reflect.ClassPath
 
@@ -101,12 +99,3 @@ object JarLoadingUtils {
 
 }
 
-class ContextObjectInputStream(input: InputStream) extends ObjectInputStream(input) {
-  protected override def resolveClass(desc: ObjectStreamClass): Class[_] = {
-    try {
-      Class.forName(desc.getName, false, Thread.currentThread().getContextClassLoader)
-    } catch {
-      case _: ClassNotFoundException => super.resolveClass(desc)
-    }
-  }
-}

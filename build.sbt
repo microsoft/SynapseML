@@ -27,7 +27,8 @@ libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
-  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350"
+  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350",
+  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0"
 )
 
 lazy val IntegrationTest2 = config("it").extend(Test)

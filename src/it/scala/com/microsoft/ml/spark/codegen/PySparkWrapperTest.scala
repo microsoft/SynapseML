@@ -172,14 +172,18 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
   protected def isSkippedParam(paramName: String): Boolean = skippedParams.contains(paramName)
   protected def isModel(paramName: String): Boolean = paramName.toLowerCase() == "model"
   protected def isBaseTransformer(paramName: String): Boolean = paramName.toLowerCase() == "basetransformer"
-  protected def tryFitString(entryPointName: String): String =
-    if (entryPointName.contains("Regressor") && !entryPointName.contains("LightGBM"))
+  protected def tryFitString(entryPointName: String): String = {
+    //TODO Remove all of this and refactor codegen
+    if (entryPointName.contains("LightGBM") || entryPointName.contains("VowpalWabbit"))
+      ""
+    else if (entryPointName.contains("Regressor"))
       tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
-    else if (entryPointName.contains("Classifier") && !entryPointName.contains("LightGBM"))
+    else if (entryPointName.contains("Classifier"))
       tryFitTemplate(entryPointName, "LogisticRegression()")
     else if (entryPointName.contains("MultiColumnAdapter"))
       tryMultiColumnFitTemplate(entryPointName, "ValueIndexer()")
     else ""
+  }
   protected def computeStatisticsString(entryPointName: String): String = computeStatisticsTemplate(entryPointName)
   protected def evaluateString(entryPointName: String): String          = evaluateTemplate(entryPointName)
   protected def indexToValueString(entryPointName: String): String      = indexToValueTemplate(entryPointName)
