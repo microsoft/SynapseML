@@ -34,7 +34,7 @@ object Benchmark {
 }
 
 abstract class Benchmarks extends TestBase {
-  val moduleName: String
+
   lazy val resourcesDirectory = new File(getClass.getResource("/").toURI)
   lazy val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"), s"benchmarks_${this}.csv")
   lazy val newBenchmarkFile = new File(new File(resourcesDirectory, "new_benchmarks"), s"new_benchmarks_${this}.csv")
@@ -93,9 +93,6 @@ abstract class Benchmarks extends TestBase {
   }
 
   def verifyBenchmarks(): Unit = {
-    import session.implicits._
-    val newBenchmarkDF = newBenchmarks.toDF()
-
     if (newBenchmarkFile.exists()) newBenchmarkFile.delete()
     writeCSV(newBenchmarks, newBenchmarkFile)
 

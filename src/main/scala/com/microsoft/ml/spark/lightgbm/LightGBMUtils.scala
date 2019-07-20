@@ -4,13 +4,13 @@
 package com.microsoft.ml.spark.lightgbm
 
 import java.io._
-import java.net.{InetAddress, ServerSocket, Socket}
+import java.net.{ServerSocket, Socket}
 import java.util.concurrent.Executors
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
+import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
-import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.lightgbm.BlockManagerUtils
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
@@ -161,7 +161,7 @@ object LightGBMUtils {
       hostAndPorts.foreach(_._1.close())
       driverServerSocket.close()
     }
-    val host = getDriverHost(df)
+    val host = ClusterUtil.getDriverHost(df)
     val port = driverServerSocket.getLocalPort
     log.info(s"driver waiting for connections on host: ${host} and port: $port")
     (host, port, f)
@@ -178,89 +178,6 @@ object LightGBMUtils {
     val id = if (executorId == "driver") partId else executorId
     val idAsInt = id.toString.toInt
     idAsInt
-  }
-
-  def getHostToIP(hostname: String): String = {
-    if (InetAddressUtils.isIPv4Address(hostname) || InetAddressUtils.isIPv6Address(hostname))
-      hostname
-    else
-      InetAddress.getByName(hostname).getHostAddress
-  }
-
-  /** Get number of cores from dummy dataset for 1 executor.
-    * Note: all executors have same number of cores,
-    * and this is more reliable than getting value from conf.
-    * @param dataset The dataset containing the current spark session.
-    * @return The number of cores per executor.
-    */
-  def getNumCoresPerExecutor(dataset: Dataset[_], log: Logger): Int = {
-    val spark = dataset.sparkSession
-    val confTaskCpus =
-      try {
-        spark.sparkContext.getConf.get("spark.task.cpus", "1").toInt
-      } catch {
-        case _: NoSuchElementException => 1
-      }
-    try {
-      val confCores = spark.sparkContext.getConf
-        .get("spark.executor.cores").toInt
-      val coresPerExec = confCores / confTaskCpus
-      log.info(s"LightGBM calculated num cores per executor as $coresPerExec from $confCores " +
-        s"cores and $confTaskCpus task CPUs")
-      coresPerExec
-    } catch {
-      case _: NoSuchElementException =>
-        // If spark.executor.cores is not defined, get the cores per JVM
-        import spark.implicits._
-        val numMachineCores = spark.range(0, 1)
-          .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
-        val coresPerExec = numMachineCores / confTaskCpus
-        log.info(s"LightGBM calculated num cores per executor as $coresPerExec from " +
-          s"$numMachineCores machine cores from JVM and $confTaskCpus task CPUs")
-        coresPerExec
-    }
-  }
-
-  private def getDriverHost(dataset: Dataset[_]): String = {
-    val blockManager = BlockManagerUtils.getBlockManager(dataset)
-    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
-      if (blockManagerId.executorId == "driver") Some(getHostToIP(blockManagerId.host))
-      else None
-    }).head
-  }
-
-  /** Returns a list of executor id and host.
-    * @param dataset The dataset containing the current spark session.
-    * @return List of executors as an array of (id,host).
-    */
-  def getExecutors(dataset: Dataset[_]): Array[(Int, String)] = {
-    val blockManager = BlockManagerUtils.getBlockManager(dataset)
-    blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
-      if (blockManagerId.executorId == "driver") None
-      else Some((blockManagerId.executorId.toInt, getHostToIP(blockManagerId.host)))
-    }).toArray
-  }
-
-  /** Returns the number of executors * number of cores.
-    * @param dataset The dataset containing the current spark session.
-    * @param numCoresPerExec The number of cores per executor.
-    * @return The number of executors * number of cores.
-    */
-  def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int): Int = {
-    val executors = getExecutors(dataset)
-    if (!executors.isEmpty) {
-      executors.length * numCoresPerExec
-    } else {
-      val master = dataset.sparkSession.sparkContext.master
-      val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
-      master match {
-        case rx(null)  => 1
-        case rx("*")   => Runtime.getRuntime.availableProcessors()
-        case rx(cores) => cores.toInt
-        case _         => BlockManagerUtils.getBlockManager(dataset)
-                            .master.getMemoryStatus.size
-      }
-    }
   }
 
   def intToPtr(value: Int): SWIGTYPE_p_int64_t = {
