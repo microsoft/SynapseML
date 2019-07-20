@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.core.utils.ClusterUtil
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 
@@ -40,8 +41,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
-    val numCoresPerExec = LightGBMUtils.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = LightGBMUtils.getNumExecutorCores(dataset, numCoresPerExec)
+    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
+    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Only get the relevant columns
     val trainingCols = ListBuffer(getLabelCol, getFeaturesCol)

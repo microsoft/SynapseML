@@ -54,7 +54,7 @@ object DatabricksUtilities {
   // MMLSpark info
   val truncatedScalaVersion: String = BuildInfo.scalaVersion
     .split(".".toCharArray.head).dropRight(1).mkString(".")
-  val version = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:0.17+85-1d8f34cf"
+  val version = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
   val repository = "https://mmlspark.azureedge.net/maven"
 
   val libraries: String = List(
