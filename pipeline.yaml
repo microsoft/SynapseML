@@ -103,19 +103,24 @@ jobs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: |
-          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
-            -f coverage.xml -F python
-          bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
-            -f target/scala-2.11/coverage-report/cobertura.xml -F scala
-
+    - bash: |
+        echo '##vso[task.setvariable variable=retry]true'
+        (bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+          -f coverage.xml -F python
+        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+          -f target/scala-2.11/coverage-report/cobertura.xml -F scala) &&
+        echo '##vso[task.setvariable variable=retry]false'
       displayName: Upload Coverage Report To Codecov.io
       timeoutInMinutes: 5
       condition: succeededOrFailed()
+    - bash: |
+        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+          -f coverage.xml -F python
+        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) \
+          -f target/scala-2.11/coverage-report/cobertura.xml -F scala
+      displayName: Retry Upload Coverage Report To Codecov.io
+      timeoutInMinutes: 5
+      condition: eq(variables.retry, 'true')
 
 - job: UnitTests
   condition: eq(variables.runTests, 'True')
@@ -187,11 +192,15 @@ jobs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: 'bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -F scala'
+    - bash: |
+        echo '##vso[task.setvariable variable=retry]true'
+        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -F scala \
+         && echo '##vso[task.setvariable variable=retry]false'
       displayName: Upload Coverage Report To Codecov.io
       timeoutInMinutes: 5
       condition: succeededOrFailed()
+    - bash: |
+        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -F scala
+      displayName: Upload Coverage Report To Codecov.io
+      timeoutInMinutes: 5
+      condition: eq(variables.retry, 'true')
