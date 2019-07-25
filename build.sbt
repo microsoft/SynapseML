@@ -234,15 +234,18 @@ genBuildInfo := {
 
   val buildInfo =
     s"""
-      |MMLSpark Build Release Info
+      |MMLSpark Build and Release Information
       |---------------
       |
       |### Maven Coordinates
       | `${organization.value}:${name.value}_2.11:${version.value}`
       | 
-      |### Documentation Uploaded:
-      |[Scala](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
-      |[Python](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
+      |### Maven Resolver
+      | `https://mmlspark.azureedge.net/maven`
+      | 
+      |### Documentation Pages:
+      |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
+      |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
       |
     """.stripMargin
 
