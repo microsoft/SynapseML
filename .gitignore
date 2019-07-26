@@ -24,6 +24,9 @@
 .vscode
 .idea
 
+# Vagrant configuration
+/tools/vagrant/.vagrant
+
 # Common things
 *~
 .#*
