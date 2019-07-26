@@ -131,12 +131,16 @@ jobs:
         PACKAGE: "image"
       io:
         PACKAGE: "io"
+        FLAKY: "true"
       flaky:
         PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
+        FLAKY: "true"
       lightgbm1:
         PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
+        FLAKY: "true"
       lightgbm2:
         PACKAGE: "lightgbm.split2"
+        FLAKY: "true"
       lime:
         PACKAGE: "lime"
       opencv:
@@ -162,7 +166,20 @@ jobs:
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
-        inlineScript: 'sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**"'
+        inlineScript: |
+          echo '##vso[task.setvariable variable=retry]true'
+          sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**" && \
+            echo '##vso[task.setvariable variable=retry]false'
+      continueOnError: True
+    - task: AzureCLI@1
+      displayName: 'Unit Test Retry'
+      timeoutInMinutes: 20
+      inputs:
+        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        scriptLocation: inlineScript
+        inlineScript: |
+          sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**"
+      condition: and(eq(variables.retry, 'true'), eq(variables.FLAKY, 'true'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results **/test-reports/*.xml'
       inputs:
