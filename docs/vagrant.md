@@ -4,7 +4,7 @@
 
 You will need to a few dependencies before we get started. These instructions are for using Vagrant on Windows OS.
 
-1. Ensure [Hyper-V]((https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/) is enabled or install [Virtualbox](https://www.virtualbox.org/)
+1. Ensure [Hyper-V](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/) is enabled or install [Virtualbox](https://www.virtualbox.org/)
 2. Install a X Server for Windows, [VcXsrv](https://sourceforge.net/projects/vcxsrv/) is a lightweight option.
 3. Install the Vagrant version for your OS [here](https://www.vagrantup.com/downloads.html)
 
