@@ -66,9 +66,9 @@ jobs:
         inlineScript: 'sbt it:test'
       condition: eq(variables.runTests, 'True')
     - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
+      displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: '**/test-reports/*.xml'
+        testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
@@ -164,28 +164,17 @@ jobs:
           (timeout 200 sbt setup) || (echo "retrying" && timeout 200 sbt setup)
     - task: AzureCLI@1
       displayName: 'Unit Test'
-      timeoutInMinutes: 20
+      timeoutInMinutes: 40
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
         inlineScript: |
-          echo '##vso[task.setvariable variable=retry]true'
-          sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**" && \
-            echo '##vso[task.setvariable variable=retry]false'
-      continueOnError: True
-    - task: AzureCLI@1
-      displayName: 'Unit Test Retry'
-      timeoutInMinutes: 20
-      inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
-        scriptLocation: inlineScript
-        inlineScript: |
-          sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**"
-      condition: and(eq(variables.retry, 'true'), eq(variables.FLAKY, 'true'))
+          (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
     - task: PublishTestResults@2
-      displayName: 'Publish Test Results **/test-reports/*.xml'
+      displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: '**/test-reports/*.xml'
+        testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
     - task: AzureCLI@1
