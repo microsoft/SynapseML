@@ -24,11 +24,14 @@ class NotebookTests extends TestBase {
 
   test("Databricks Notebooks") {
     tryWithRetries(Array.fill(500)(10000)) {() =>
+      println("Checking Cluster Availibility...")
       assert(listActiveJobs(clusterId).isEmpty,
         "Cluster already has running jobs cannot change libraries safely")
+      assert(listInstalledLibraries(clusterId).isEmpty,
+        "Cluster already has libraries installed")
+      println("Cluster now Availible")
     }
     try {
-      assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
       println("Installing libraries")
       installLibraries(clusterId)
       println(s"Creating folder $folder")
