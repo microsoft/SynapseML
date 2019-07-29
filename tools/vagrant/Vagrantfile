@@ -107,9 +107,9 @@ SHELL
 
 config.vm.provision "shell", privileged: false, inline: <<-SHELL
   # Install mmlspark
-	cd ${HOME_DIR}
-	git clone https://github.com/Azure/mmlspark.git 
-	cd mmlspark
+  cd ${HOME_DIR}
+  git clone https://github.com/Azure/mmlspark.git
+  cd mmlspark
   sbt setup
 SHELL
 
