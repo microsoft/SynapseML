@@ -90,11 +90,11 @@ val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs
 generatePythonDoc := {
   val s = streams.value
   installPipPackageTask.value
-  Process( activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
+  Process(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
     join(pythonSrcDir.toString, "mmlspark")) ! s.log
-  Process( activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
+  Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
     join(pythonSrcDir.toString, "mmlspark")) ! s.log
-  
+
 }
 
 def uploadToBlob(source: String, dest: String,
@@ -175,7 +175,7 @@ packagePythonTask := {
   val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
   FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
-  
+
   Process(
     activateCondaEnv ++
       Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
@@ -240,10 +240,10 @@ genBuildInfo := {
       |
       |### Maven Coordinates
       | `${organization.value}:${name.value}_2.11:${version.value}`
-      | 
+      |
       |### Maven Resolver
       | `https://mmlspark.azureedge.net/maven`
-      | 
+      |
       |### Documentation Pages:
       |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
       |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
@@ -269,7 +269,7 @@ publishBlob := {
   publishM2.value
   val scalaVersionSuffix = scalaVersion.value.split(".".toCharArray.head).dropRight(1).mkString(".")
   val nameAndScalaVersion = s"${name.value}_$scalaVersionSuffix"
-  
+
   val localPackageFolder = join(
     Seq(new File(new URI(Resolver.mavenLocal.root)).getAbsolutePath)
       ++ organization.value.split(".".toCharArray.head)
