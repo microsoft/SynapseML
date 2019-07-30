@@ -1,0 +1,29 @@
+style: github
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/Azure/mmlspark
+options:
+  commit_groups:
+    title_maps:
+      build: Build 🏭
+      chore: Maintenance 🔧
+      ci: Continuous Integration 💜
+      docs: Documentation 📘
+      feat: Features 🌈
+      fix: Bug Fixes 🐞
+      perf: Performance Improvements 🚀
+      refactor: Code Refactoring 💎
+      revert: Revert Change ◀️
+      security: Security Fix 🛡️
+      style: Code Style 🎶
+      test: Testing 💚
+  header:
+    pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE
