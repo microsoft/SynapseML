@@ -77,6 +77,29 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
+- job: Release
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - bash: |
+        echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
+      displayName: 'Get Git Tag'
+    - bash: |
+        wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
+        chmod +x git-chglog_linux_amd64
+        ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
+      condition: startsWith(variables['tag'], 'v')
+    - task: GitHubRelease@0
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        gitHubConnection: 'MMLSPark Github via PAT'
+        repositoryName: '$(Build.Repository.Name)'
+        action: 'create'
+        target: '$(Build.SourceVersion)'
+        tagSource: 'auto'
+        releaseNotesFile: 'CHANGELOG.md'
+        isDraft: true
+
 - job: PythonTests
   condition: eq(variables.runTests, 'True')
   pool:
