@@ -104,8 +104,11 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
-        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -f coverage.xml -F python
-        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml -F scala
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token) -f coverage.xml -F python
+        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml -F scala
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -190,6 +193,9 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
-        bash <(curl -s https://codecov.io/bash) -t $(codecov-token) -F scala
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token) -F scala
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
