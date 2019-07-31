@@ -27,7 +27,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
 
   private def verifySchema(schema: StructType): Unit = {
     val target = ImageSchema.imageSchema.add("filenames", StringType)
-    val targetNullable = ImageSchemaUtils.imageSchemaNullable.add("filenames", StringType)
+    val targetNullable = ImageSchemaUtils.ImageSchemaNullable.add("filenames", StringType)
     if (schema != target && schema != targetNullable) {
       throw new IllegalArgumentException(
         s"Image data source supports: " +

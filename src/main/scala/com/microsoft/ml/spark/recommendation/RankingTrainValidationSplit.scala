@@ -283,11 +283,11 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
         .withColumnRenamed("collect_list(" + itemColumn + ")", "label")
         .select(userColumn, "label")
     }
-    val joined_rec_actual = perUserRecommendedItemsDF
+    val joinedRecActual = perUserRecommendedItemsDF
       .join(perUserActualItemsDF, userColumn)
       .drop(userColumn)
 
-    joined_rec_actual
+    joinedRecActual
   }
 }
 

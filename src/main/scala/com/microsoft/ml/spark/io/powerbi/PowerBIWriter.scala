@@ -26,7 +26,7 @@ private[ml] class StreamMaterializer extends ForeachWriter[Row] {
 
 object PowerBIWriter {
 
-  val logger: Logger = LogManager.getRootLogger
+  val Logger: Logger = LogManager.getRootLogger
 
   private def prepareDF(df: DataFrame, url: String, options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(

@@ -28,7 +28,7 @@ object Binary {
         BinaryFileReader.read(path, recursive, sparkSession, sampleRatio, inspectZip, seed)
     }
 
-    implicit def ImplicitSession(sparkSession: SparkSession):Session = new Session(sparkSession)
+    implicit def implicitSession(sparkSession: SparkSession): Session = new Session(sparkSession)
 
   }
 

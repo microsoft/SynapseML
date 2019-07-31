@@ -3,13 +3,13 @@
 
 package com.microsoft.ml.spark.automl
 
-import com.microsoft.ml.spark._
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param.Param
 
 /** Provides good default hyperparameter ranges and values for sweeping.
   * Publicly visible to users so they can easily select the parameters for sweeping.
   */
+// scalastyle:off magic.number
 object DefaultHyperparams {
 
   /** Defines the default hyperparameter range for logistic regression.

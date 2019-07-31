@@ -83,7 +83,7 @@ private[spark] object SchemaJsonProtocol extends DefaultJsonProtocol {
     def read(value: JsValue): URI = new URI(value.asInstanceOf[JsString].value)
   }
 
-  implicit val modelSchemaFormat: RootJsonFormat[ModelSchema] =
+  implicit val ModelSchemaFormat: RootJsonFormat[ModelSchema] =
     jsonFormat(ModelSchema.apply,
       "name", "dataset", "modelType", "uri", "hash", "size", "inputNode", "numLayers", "layerNames")
 

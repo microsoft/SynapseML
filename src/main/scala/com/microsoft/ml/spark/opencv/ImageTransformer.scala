@@ -18,6 +18,7 @@ import org.opencv.imgproc.Imgproc
 
 import scala.collection.mutable.ListBuffer
 
+//scalastyle:off field.name
 /** Image processing stage.
   * @param params Map of parameters
   */
@@ -35,9 +36,9 @@ abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializa
   * @param params ParameterMap of the parameters
   */
 class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height = params(ResizeImage.height).asInstanceOf[Int].toDouble
-  val width = params(ResizeImage.width).asInstanceOf[Int].toDouble
-  override val stageName = ResizeImage.stageName
+  val height: Double = params(ResizeImage.height).asInstanceOf[Int].toDouble
+  val width: Double = params(ResizeImage.width).asInstanceOf[Int].toDouble
+  override val stageName: String = ResizeImage.stageName
 
   override def apply(image: Mat): Mat = {
     var resized = new Mat()
@@ -379,3 +380,4 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
 }
+//scalastyle:on field.name

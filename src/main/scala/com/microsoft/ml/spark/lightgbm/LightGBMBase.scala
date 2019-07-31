@@ -27,7 +27,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def train(dataset: Dataset[_]): TrainedModel = {
     if (getNumBatches > 0) {
       val ratio = 1.0 / getNumBatches
-      val datasets = dataset.randomSplit((0 until getNumBatches).map(_=> ratio).toArray)
+      val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
       datasets.foldLeft(None: Option[TrainedModel]) { (model, dataset) =>
         if (!model.isEmpty) {
           setModelString(stringFromTrainedModel(model.get))
@@ -59,7 +59,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       trainingCols += getInitScoreCol
     }
     // Reduce number of partitions to number of executor cores
-    val df = dataset.select(trainingCols.map(name => col(name)):_*).toDF().coalesce(numWorkers)
+    val df = dataset.select(trainingCols.map(name => col(name)): _*).toDF().coalesce(numWorkers)
     val (inetAddress, port, future) =
       LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout, getUseBarrierExecutionMode)
 
@@ -95,16 +95,19 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   }
 
   /** Optional group column for Ranking, set to None by default.
+    *
     * @return None
     */
   protected def getOptGroupCol: Option[String] = None
 
   /** Gets the trained model given the train parameters and booster.
+    *
     * @return trained model.
     */
   protected def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
 
   /** Gets the training parameters.
+    *
     * @return train parameters.
     */
   protected def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
@@ -112,6 +115,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def stringFromTrainedModel(model: TrainedModel): String
 
   /** Allow algorithm specific preprocessing of dataset.
+    *
     * @param dataset The dataset to preprocess prior to training.
     * @return The preprocessed data.
     */

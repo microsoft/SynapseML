@@ -124,16 +124,16 @@ class SARModel(override val uid: String) extends Model[SARModel]
     })
 
     val recommendationArrayType =
-      ArrayType(new StructType(Array(SF(dstOutputColumn, IntegerType), SF(Constants.ratingCol, FloatType))))
+      ArrayType(new StructType(Array(SF(dstOutputColumn, IntegerType), SF(Constants.RatingCol, FloatType))))
 
     getUserDataFrame.sparkSession.createDataFrame(userToItemMatrix)
       .toDF(id, ratings).withColumn(recommendations, orderAndTakeTopK(col(ratings))).select(id, recommendations)
       .select(col(id).as(getUserCol), col(recommendations).cast(recommendationArrayType))
   }
 
-  private val id = Constants.idCol
-  private val ratings = Constants.ratingCol + "s"
-  private val recommendations = Constants.recommendations
+  private val id = Constants.IdCol
+  private val ratings = Constants.RatingCol + "s"
+  private val recommendations = Constants.Recommendations
 
   override def copy(extra: ParamMap): SARModel = {
     val copied = new SARModel(uid)

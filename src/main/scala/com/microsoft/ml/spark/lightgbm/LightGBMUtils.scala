@@ -29,7 +29,7 @@ object LightGBMUtils {
   def validate(result: Int, component: String): Unit = {
     if (result == -1) {
       throw new Exception(component + " call failed in LightGBM with error: "
-                            + lightgbmlib.LGBM_GetLastError())
+        + lightgbmlib.LGBM_GetLastError())
     }
   }
 
@@ -45,7 +45,7 @@ object LightGBMUtils {
                     weightColumn: Option[String] = None, groupColumn: Option[String] = None): PipelineModel = {
     // Create pipeline model to featurize the dataset
     val oneHotEncodeCategoricals = true
-    val featuresToHashTo = FeaturizeUtilities.numFeaturesTreeOrNNBased
+    val featuresToHashTo = FeaturizeUtilities.NumFeaturesTreeOrNNBased
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
       weightColumn.forall(_ != col) && groupColumn.forall(_ != col)).toSeq
     val featurizer = new Featurize()
@@ -67,7 +67,7 @@ object LightGBMUtils {
   def getCategoricalIndexes(df: DataFrame,
                             featuresCol: String,
                             categoricalColumnIndexes: Array[Int],
-                            categoricalColumnSlotNames: Array[String]): Array[Int]  = {
+                            categoricalColumnSlotNames: Array[String]): Array[Int] = {
     val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
     val featuresSchema = df.schema(featuresCol)
     val metadata = AttributeGroup.fromStructField(featuresSchema)
@@ -95,6 +95,7 @@ object LightGBMUtils {
     * Opens a socket communications channel on the driver, starts a thread that
     * waits for the host:port from the executors, and then sends back the
     * information to the executors.
+    *
     * @param numWorkers The total number of training workers to wait for.
     * @return The address and port of the driver socket.
     */
@@ -120,10 +121,10 @@ object LightGBMUtils {
           val driverSocket = driverServerSocket.accept()
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
-          if (comm == LightGBMConstants.finishedStatus) {
+          if (comm == LightGBMConstants.FinishedStatus) {
             log.info("driver received all workers from barrier stage")
             finished = true
-          } else if (comm == LightGBMConstants.ignoreStatus) {
+          } else if (comm == LightGBMConstants.IgnoreStatus) {
             log.info("driver received ignore status from worker")
           } else {
             log.info(s"driver received socket from worker: $comm")
@@ -138,7 +139,7 @@ object LightGBMUtils {
           val driverSocket = driverServerSocket.accept()
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
-          if (comm == LightGBMConstants.ignoreStatus) {
+          if (comm == LightGBMConstants.IgnoreStatus) {
             log.info("driver received ignore status from worker")
             emptyWorkerCounter += 1
           } else {
@@ -168,6 +169,7 @@ object LightGBMUtils {
   }
 
   /** Returns an integer ID for the current node.
+    *
     * @return In cluster, returns the executor id.  In local case, returns the worker id.
     */
   def getId(): Int = {
@@ -187,7 +189,7 @@ object LightGBMUtils {
   }
 
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-      (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
+  (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
     val numCols = rowsAsDoubleArray.head.length
     val data = lightgbmlib.new_doubleArray(numCols * numRows)
     rowsAsDoubleArray.zipWithIndex.foreach(ri =>
@@ -201,12 +203,12 @@ object LightGBMUtils {
                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
     val numRowsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numRowsIntPtr, numRows)
-    val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr)
+    val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr) //scalastyle:ignore field.name
     val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
     val numColsIntPtr = lightgbmlib.new_intp()
     lightgbmlib.intp_assign(numColsIntPtr, numCols)
-    val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr)
+    val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr) //scalastyle:ignore field.name
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -215,10 +217,10 @@ object LightGBMUtils {
       data = Some(generateData(numRows, rowsAsDoubleArray))
       // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
-                               data.get._1, data64bitType,
-                               numRows_int32_tPtr, numCols_int32_tPtr,
-                               isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
-                             "Dataset create")
+        data.get._1, data64bitType,
+        numRows_int32_tPtr, numCols_int32_tPtr,
+        isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
+        "Dataset create")
     } finally {
       if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
     }
@@ -228,6 +230,7 @@ object LightGBMUtils {
   }
 
   /** Generates a sparse dataset in CSR format.
+    *
     * @param sparseRows The rows of sparse vector.
     * @return
     */
@@ -241,11 +244,11 @@ object LightGBMUtils {
 
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
-                             sparseRows.asInstanceOf[Array[Object]],
-                             sparseRows.length,
-                             intToPtr(numCols), datasetParams, referenceDataset.map(_.dataset).orNull,
-                             datasetOutPtr),
-                           "Dataset create")
+      sparseRows.asInstanceOf[Array[Object]],
+      sparseRows.length,
+      intToPtr(numCols), datasetParams, referenceDataset.map(_.dataset).orNull,
+      datasetOutPtr),
+      "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)
     dataset

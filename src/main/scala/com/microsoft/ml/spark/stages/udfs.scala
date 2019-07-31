@@ -12,6 +12,7 @@ import org.apache.spark.sql.types.DoubleType
 
 import scala.collection.mutable
 
+//scalastyle:off
 object udfs {
 
   def get_value_at(colname: String, i: Int): Column = {

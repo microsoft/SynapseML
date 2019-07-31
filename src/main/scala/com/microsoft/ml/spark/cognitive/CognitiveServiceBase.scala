@@ -97,17 +97,16 @@ trait HasServiceParams extends Params {
 
   protected def emptyParamData[T](row: Row, p: ServiceParam[T]): Boolean = {
     if (get(p).isEmpty && getDefault(p).isEmpty) {
-      return true
-    }
-
-    val value = get(p).orElse(getDefault(p)).get
-
-    value match {
-      case ServiceParamData(_, Some(_)) => false
-      case ServiceParamData(Some(Left(_)), _) => false
-      case ServiceParamData(Some(Right(colname)), _) =>
-        Option(row.get(row.fieldIndex(colname))).isEmpty
-      case _ => true
+      true
+    } else {
+      val value = get(p).orElse(getDefault(p)).get
+      value match {
+        case ServiceParamData(_, Some(_)) => false
+        case ServiceParamData(Some(Left(_)), _) => false
+        case ServiceParamData(Some(Right(colname)), _) =>
+          Option(row.get(row.fieldIndex(colname))).isEmpty
+        case _ => true
+      }
     }
   }
 
@@ -308,7 +307,7 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
 
 abstract class CognitiveServicesBase(uid: String) extends
   CognitiveServicesBaseWithoutHandler(uid) with HasHandler {
-  setDefault(handler -> HandlingUtils.advancedUDF(100))
+  setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
 
   override def handlingFunc(client: CloseableHttpClient,
                             request: HTTPRequestData): HTTPResponseData =

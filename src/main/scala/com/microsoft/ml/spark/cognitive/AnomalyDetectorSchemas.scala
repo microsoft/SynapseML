@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import spray.json.DefaultJsonProtocol._
+import spray.json.RootJsonFormat
 
 object TimeSeriesPoint extends SparkBindings[TimeSeriesPoint]
 
@@ -61,6 +62,6 @@ case class ADEntireResponse(isAnomaly: Seq[Boolean],
 object ADEntireResponse extends SparkBindings[ADEntireResponse]
 
 object AnomalyDetectorProtocol {
-  implicit val tspEnc = jsonFormat2(TimeSeriesPoint.apply)
-  implicit val adreqEnc = jsonFormat6(ADRequest.apply)
+  implicit val TspEnc: RootJsonFormat[TimeSeriesPoint] = jsonFormat2(TimeSeriesPoint.apply)
+  implicit val AdreqEnc: RootJsonFormat[ADRequest] = jsonFormat6(ADRequest.apply)
 }

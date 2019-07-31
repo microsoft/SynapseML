@@ -96,12 +96,11 @@ object TextPreprocessor extends ComplexParamsReadable[TextPreprocessor]
 class TextPreprocessor(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("TextPreprocessor"))
-  val IDENTITY = """identity"""
 
   val normFuncs: Map[String, Char => Char] = Map[String, Char => Char] (
-    IDENTITY         -> identity,
-    """lowerCase"""  -> Character.toLowerCase,
-    """upperCase"""  -> Character.toUpperCase
+    "identity"   -> identity,
+    "lowerCase"  -> Character.toLowerCase,
+    "upperCase"  -> Character.toUpperCase
   )
 
   val map = new MapParam[String, String](this, "map", "Map of substring match to replacement")

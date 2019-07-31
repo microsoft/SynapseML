@@ -107,12 +107,12 @@ private[spark] class HDFSRepo[S <: Schema](val uri: URI, val hconf: HadoopConf)
     val newSchema = schema.updateURI(location)
     val schemaPath = new Path(location.getPath + ".meta")
     val osSchema = fs.create(schemaPath)
-    val SchemaIs = IOUtils.toInputStream(newSchema.toJson.prettyPrint)
+    val schemaIs = IOUtils.toInputStream(newSchema.toJson.prettyPrint)
     try {
-      HUtils.copyBytes(SchemaIs, osSchema, hconf)
+      HUtils.copyBytes(schemaIs, osSchema, hconf)
     } finally {
       osSchema.close()
-      SchemaIs.close()
+      schemaIs.close()
     }
     newSchema
   }
@@ -198,7 +198,7 @@ private[spark] abstract class Client {
 }
 
 private[spark] object ModelDownloader {
-  private[spark] val defaultURL = new URL("https://mmlspark.azureedge.net/datasets/CNTKModels/")
+  private[spark] val DefaultURL = new URL("https://mmlspark.azureedge.net/datasets/CNTKModels/")
 }
 
 /** Class for downloading models from a server to Local or HDFS
@@ -209,7 +209,7 @@ private[spark] object ModelDownloader {
   */
 class ModelDownloader(val spark: SparkSession,
                       val localPath: URI,
-                      val serverURL: URL = ModelDownloader.defaultURL) extends Client {
+                      val serverURL: URL = ModelDownloader.DefaultURL) extends Client {
 
   import SchemaJsonProtocol._
 

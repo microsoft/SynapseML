@@ -13,7 +13,7 @@ import org.scalactic.Equality
 import org.scalatest.Assertion
 
 trait VisionKey {
-  lazy val visionKey = sys.env.getOrElse("VISION_API_KEY", Secrets.visionApiKey)
+  lazy val visionKey = sys.env.getOrElse("VISION_API_KEY", Secrets.VisionApiKey)
 }
 
 class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
@@ -85,7 +85,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
 
   lazy val df: DataFrame = Seq(
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null),
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null), //scalastyle:ignore null
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
   ).toDF("url", "language")
 
@@ -164,7 +164,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   test("Basic Usage with Bytes and null col") {
     val fromRow = AIResponse.makeFromRowConverter
     val responses = bytesAI.setImageUrlCol("url")
-      .transform(bytesDF.withColumn("url", typedLit(null: String)))
+      .transform(bytesDF.withColumn("url", typedLit(null: String))) //scalastyle:ignore null
       .select("features")
       .collect().toList.map(r => fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")

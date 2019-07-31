@@ -187,12 +187,12 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     val numFeatures: Int = getModel match {
       case _: DecisionTreeClassifier | _: GBTClassifier | _: RandomForestClassifier =>
         oneHotEncodeCategoricals = false
-        FeaturizeUtilities.numFeaturesTreeOrNNBased
+        FeaturizeUtilities.NumFeaturesTreeOrNNBased
       case _: MultilayerPerceptronClassifier =>
         modifyInputLayer = true
-        FeaturizeUtilities.numFeaturesTreeOrNNBased
+        FeaturizeUtilities.NumFeaturesTreeOrNNBased
       case _ =>
-        FeaturizeUtilities.numFeaturesDefault
+        FeaturizeUtilities.NumFeaturesDefault
     }
     (oneHotEncodeCategoricals, modifyInputLayer, numFeatures)
   }

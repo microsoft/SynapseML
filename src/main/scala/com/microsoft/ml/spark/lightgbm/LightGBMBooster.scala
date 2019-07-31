@@ -42,7 +42,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   var scoredDataLengthLongPtr: SWIGTYPE_p_long = null
 
   @transient
-  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = null
+  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = null //scalastyle:ignore field.name
 
   def ensureScoredDataCreated(): Unit = {
     if (scoredDataLengthLongPtr != null)

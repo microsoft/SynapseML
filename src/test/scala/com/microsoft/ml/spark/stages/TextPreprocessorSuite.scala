@@ -11,17 +11,17 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
   val toMap1 = "The happy sad boy drank sap"
   val toMap2 = "The hater sad doy drank sap"
   val toMap3 = "The hater sad doy"
-  val INPUT_COL = "words1"
-  val OUTPUT_COL = "out"
+  val inputCol = "words1"
+  val outputCol = "out"
 
   lazy val expectedResult = session.createDataFrame(Seq(
     (toMap1, "The sad sap boy drank sap"),
     (toMap2, "The sap sap drank sap"),
     ("foo", "foo"),
     (s"$toMap3 aABc0123456789Zz_", "The sap sap")))
-    .toDF(INPUT_COL, OUTPUT_COL)
+    .toDF(inputCol, outputCol)
 
-  lazy val wordDF = expectedResult.drop(OUTPUT_COL)
+  lazy val wordDF = expectedResult.drop(outputCol)
 
   lazy val testMap = Map[String, String] (
     "happy"   -> "sad",
@@ -85,16 +85,16 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
   test("Check TextPreprocessor text normalizers valid") {
     new TextPreprocessor()
       .setMap(testMap)
-      .setInputCol(INPUT_COL)
-      .setOutputCol(OUTPUT_COL)
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
     new TextPreprocessor()
-      .setMap(testMap).setInputCol(INPUT_COL)
-      .setOutputCol(OUTPUT_COL)
+      .setMap(testMap).setInputCol(inputCol)
+      .setOutputCol(outputCol)
       .setNormFunc("identity")
     new TextPreprocessor()
       .setMap(testMap)
-      .setInputCol(INPUT_COL)
-      .setOutputCol(OUTPUT_COL)
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
       .setNormFunc("lowerCase")
   }
 
@@ -103,8 +103,8 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
       new TextPreprocessor()
         .setMap(testMap)
         .setNormFunc("p")
-        .setInputCol(INPUT_COL)
-        .setOutputCol(OUTPUT_COL)
+        .setInputCol(inputCol)
+        .setOutputCol(outputCol)
     }
   }
 
@@ -112,8 +112,8 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
     val textPreprocessor = new TextPreprocessor()
       .setNormFunc("lowerCase")
       .setMap(testMap)
-      .setInputCol(INPUT_COL)
-      .setOutputCol(OUTPUT_COL)
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
     val result = textPreprocessor.transform(wordDF)
     assert(verifyResult(result, expectedResult))
   }

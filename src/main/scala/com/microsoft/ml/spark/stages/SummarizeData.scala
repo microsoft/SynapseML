@@ -79,11 +79,11 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
   def setErrorThreshold(value: Double): this.type = set(errorThreshold, value)
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
-    val columns = ListBuffer(SummarizeData.featureColumn)
-    if ($(counts)) columns ++= SummarizeData.countFields
-    if ($(basic)) columns ++= SummarizeData.basicFields
-    if ($(sample)) columns ++= SummarizeData.sampleFields
-    if ($(percentiles)) columns ++= SummarizeData.percentilesFields
+    val columns = ListBuffer(SummarizeData.FeatureColumn)
+    if ($(counts)) columns ++= SummarizeData.CountFields
+    if ($(basic)) columns ++= SummarizeData.BasicFields
+    if ($(sample)) columns ++= SummarizeData.SampleFields
+    if ($(percentiles)) columns ++= SummarizeData.PercentilesFields
     StructType(columns)
   }
 }
@@ -105,8 +105,6 @@ class SummarizeData(override val uid: String)
 
   def this() = this(Identifiable.randomUID("SummarizeData"))
 
-  def setStatistics(stats: List[Statistic]): Unit = ???
-
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     val df = dataset.toDF()
@@ -122,7 +120,7 @@ class SummarizeData(override val uid: String)
     df.unpersist(false)
 
     val base = createJoinBase(df)
-    subFrames.foldLeft(base) { (z, dfi) => z.join(dfi, SummarizeData.featureColumnName) }
+    subFrames.foldLeft(base) { (z, dfi) => z.join(dfi, SummarizeData.FeatureColumnName) }
   }
 
   def transformSchema(schema: StructType): StructType = {
@@ -131,7 +129,7 @@ class SummarizeData(override val uid: String)
 
   def copy(extra: ParamMap): SummarizeData = defaultCopy(extra)
 
-  private def computeCounts = computeOnAll(computeCountsImpl, SummarizeData.countFields)
+  private def computeCounts = computeOnAll(computeCountsImpl, SummarizeData.CountFields)
 
   private def computeCountsImpl(col: String, df: DataFrame): Array[Double] = {
     val column = df.col(col)
@@ -145,7 +143,7 @@ class SummarizeData(override val uid: String)
     Array(df.count() - countMissings, distinctCount, countMissings)
   }
 
-  private def sampleStats = computeOnNumeric(sampleStatsImpl, SummarizeData.sampleFields)
+  private def sampleStats = computeOnNumeric(sampleStatsImpl, SummarizeData.SampleFields)
 
   private def sampleStatsImpl(col: String, df: DataFrame): Array[Double] = {
     val column = df.col(col)
@@ -157,13 +155,13 @@ class SummarizeData(override val uid: String)
   }
 
   private def curriedBasic = {
-    val quants = SummarizeData.basicQuantiles
-    computeOnNumeric(quantStub(quants, $(errorThreshold)), SummarizeData.basicFields)
+    val quants = SummarizeData.BasicQuantiles
+    computeOnNumeric(quantStub(quants, $(errorThreshold)), SummarizeData.BasicFields)
   }
 
   private def curriedPerc = {
-    val quants = SummarizeData.percentilesQuantiles
-    computeOnNumeric(quantStub(quants, $(errorThreshold)), SummarizeData.percentilesFields)
+    val quants = SummarizeData.PercentilesQuantiles
+    computeOnNumeric(quantStub(quants, $(errorThreshold)), SummarizeData.PercentilesFields)
   }
 
   private def quantStub(vals: Array[Double], err: Double) =
@@ -184,7 +182,7 @@ class SummarizeData(override val uid: String)
     val emptyRow = allNaNs(newColumns.length)
     val outList = df.schema.map(col => (col.name, if (p(col)) statFunc(col.name, df) else emptyRow))
     val rows = outList.map { case (n, r) => Row.fromSeq(n +: r) }
-    val schema = SummarizeData.featureColumn +: newColumns
+    val schema = SummarizeData.FeatureColumn +: newColumns
     df.sparkSession.createDataFrame(rows.asJava, StructType(schema))
   }
 
@@ -197,11 +195,11 @@ object SummarizeData extends DefaultParamsReadable[SummarizeData] {
     val Counts, Basic, Sample, Percentiles = Value
   }
 
-  final val featureColumnName = "Feature"
-  final val featureColumn = StructField(featureColumnName, StringType, false)
+  final val FeatureColumnName = "Feature"
+  final val FeatureColumn = StructField(FeatureColumnName, StringType, false)
 
-  final val percentilesQuantiles = Array(0.005, 0.01, 0.05, 0.95, 0.99, 0.995)
-  final val percentilesFields = List(
+  final val PercentilesQuantiles = Array(0.005, 0.01, 0.05, 0.95, 0.99, 0.995)
+  final val PercentilesFields = List(
     StructField("P0_5", DoubleType, true),
     StructField("P1", DoubleType, true),
     StructField("P5", DoubleType, true),
@@ -209,14 +207,14 @@ object SummarizeData extends DefaultParamsReadable[SummarizeData] {
     StructField("P99", DoubleType, true),
     StructField("P99_5", DoubleType, true))
 
-  final val sampleFields = List(
+  final val SampleFields = List(
     StructField("Sample_Variance", DoubleType, true),
     StructField("Sample_Standard_Deviation", DoubleType, true),
     StructField("Sample_Skewness", DoubleType, true),
     StructField("Sample_Kurtosis", DoubleType, true))
 
-  final val basicQuantiles = Array(0, 0.25, 0.5, 0.75, 1)
-  final val basicFields = List(
+  final val BasicQuantiles = Array(0, 0.25, 0.5, 0.75, 1)
+  final val BasicFields = List(
     StructField("Min", DoubleType, true),
     StructField("1st_Quartile", DoubleType, true),
     StructField("Median", DoubleType, true),
@@ -229,7 +227,7 @@ object SummarizeData extends DefaultParamsReadable[SummarizeData] {
     //TODO: StructField("Mode", StringType, true))
   )
 
-  final val countFields = List(
+  final val CountFields = List(
     StructField("Count", DoubleType, false),
     StructField("Unique_Value_Count", DoubleType, false),
     StructField("Missing_Value_Count", DoubleType, false))

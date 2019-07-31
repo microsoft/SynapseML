@@ -9,32 +9,34 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 class UnicodeNormalizeSuite extends TestBase with TransformerFuzzing[UnicodeNormalize] {
-  val INPUT_COL = "words1"
-  val OUTPUT_COL = "norm1"
+  val inputCol = "words1"
+  val outputCol = "norm1"
 
+  //scalastyle:off null
   lazy val wordDF = session.createDataFrame(Seq(
     ("Schön", 1),
     ("Scho\u0308n", 1),
     (null, 1)))
-    .toDF(INPUT_COL, "dummy")
+    .toDF(inputCol, "dummy")
 
   lazy val expectedResultComposed = session.createDataFrame(Seq(
     ("Schön", 1, "schön"),
     ("Scho\u0308n", 1, "schön"),
     (null, 1, null)))
-    .toDF(INPUT_COL, "dummy", OUTPUT_COL)
+    .toDF(inputCol, "dummy", outputCol)
 
   lazy val expectedResultDecomposed = session.createDataFrame(Seq(
     ("Schön", 1, "sch\u0308n"),
     ("Scho\u0308n", 1, "sch\u0308n"),
     (null, 1, null)))
-    .toDF(INPUT_COL, "dummy", OUTPUT_COL)
+    .toDF(inputCol, "dummy", outputCol)
+  //scalastyle:on null
 
   private def testForm(form: String, expected: DataFrame) = {
     val unicodeNormalize = new UnicodeNormalize()
       .setForm(form)
-      .setInputCol(INPUT_COL)
-      .setOutputCol(OUTPUT_COL)
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
     val result = unicodeNormalize.transform(wordDF)
     assert(verifyResult(result, expected))
   }

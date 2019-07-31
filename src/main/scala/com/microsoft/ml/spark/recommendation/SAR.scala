@@ -105,14 +105,14 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
     })
 
     dataset
-      .withColumn(C.affinityCol, (dataset.columns.contains(getTimeCol), dataset.columns.contains(getRatingCol)) match {
+      .withColumn(C.AffinityCol, (dataset.columns.contains(getTimeCol), dataset.columns.contains(getRatingCol)) match {
         case (true, true)   => blendWeights(timeDecay(col(getTimeCol)), col(getRatingCol))
         case (true, false)  => timeDecay(col(getTimeCol))
         case (false, true)  => col(getRatingCol)
         case (false, false) => fillOne(col(getUserCol))
-      }).select(getUserCol, getItemCol, C.affinityCol)
-      .groupBy(getUserCol, getItemCol).agg(sum(col(C.affinityCol)) as C.affinityCol)
-      .withColumn("itemUserAffinityPair", columnsToArray(col(getItemCol), col(C.affinityCol)))
+      }).select(getUserCol, getItemCol, C.AffinityCol)
+      .groupBy(getUserCol, getItemCol).agg(sum(col(C.AffinityCol)) as C.AffinityCol)
+      .withColumn("itemUserAffinityPair", columnsToArray(col(getItemCol), col(C.AffinityCol)))
       .groupBy(getUserCol).agg(collect_list(col("itemUserAffinityPair")))
       .withColumn("flatList", seqToArray(col("collect_list(itemUserAffinityPair)")))
       .select(col(getUserCol), col("flatList"))
@@ -198,10 +198,10 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
     dataset
       .select(col(getItemCol), col(getUserCol))
       .groupBy(getItemCol).agg(collect_list(getUserCol) as "collect_list")
-      .withColumn(C.featuresCol, createItemFeaturesVector(col("collect_list")))
-      .select(col(getItemCol), col(C.featuresCol))
-      .withColumn(C.itemAffinities, calculateFeature(col(getItemCol), col(C.featuresCol)))
-      .select(col(getItemCol), col(C.itemAffinities))
+      .withColumn(C.FeaturesCol, createItemFeaturesVector(col("collect_list")))
+      .select(col(getItemCol), col(C.FeaturesCol))
+      .withColumn(C.ItemAffinities, calculateFeature(col(getItemCol), col(C.FeaturesCol)))
+      .select(col(getItemCol), col(C.ItemAffinities))
   }
 }
 
@@ -253,6 +253,6 @@ trait SARParams extends Wrappable with RecommendationParams {
   val startTimeFormat = new Param[String](this, "startTimeFormat", "Format for start time")
 
   setDefault(timeDecayCoeff -> 30, activityTimeFormat -> "yyyy/MM/dd'T'h:mm:ss", supportThreshold -> 4,
-    ratingCol -> C.ratingCol, userCol -> C.userCol, itemCol -> C.itemCol, similarityFunction ->
+    ratingCol -> C.RatingCol, userCol -> C.UserCol, itemCol -> C.ItemCol, similarityFunction ->
       "jaccard", timeCol -> "time", startTimeFormat -> "EEE MMM dd HH:mm:ss Z yyyy")
 }

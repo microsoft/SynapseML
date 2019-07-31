@@ -19,14 +19,14 @@ trait ParserUtils extends WithServer {
     val df2 = new JSONInputParser().setInputCol("data")
       .setOutputCol("parsedInput").setUrl(url)
       .transform(df)
-      .withColumn("unparsedOutput", udf({x: Int =>
+      .withColumn("unparsedOutput", udf({ x: Int =>
         HTTPResponseData(
           Array(),
           Some(EntityData(
             "{\"foo\": \"here\"}".getBytes, None, None, None, false, false, false)),
-          StatusLineData(ProtocolVersionData("foo",1,1),200, "bar"),
+          StatusLineData(ProtocolVersionData("foo", 1, 1), 200, "bar"),
           "en")
-        }).apply(col("data"))
+      }).apply(col("data"))
       )
 
     new JSONOutputParser()
@@ -46,6 +46,7 @@ class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with Pars
   override def testObjects(): Seq[TestObject[JSONInputParser]] = makeTestObject(
     new JSONInputParser().setInputCol("data").setOutputCol("out")
       .setUrl(url), session)
+
   override def reader: MLReadable[_] = JSONInputParser
 }
 
@@ -53,12 +54,14 @@ class JsonOutputParserSuite extends TransformerFuzzing[JSONOutputParser] with Pa
   override def testObjects(): Seq[TestObject[JSONOutputParser]] = makeTestObject(
     new JSONOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setDataType(new StructType().add("foo", StringType)), session)
+
   override def reader: MLReadable[_] = JSONOutputParser
 }
 
 class StringOutputParserSuite extends TransformerFuzzing[StringOutputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[StringOutputParser]] = makeTestObject(
     new StringOutputParser().setInputCol("unparsedOutput").setOutputCol("out"), session)
+
   override def reader: MLReadable[_] = StringOutputParser
 }
 
@@ -66,6 +69,7 @@ class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with 
   override def testObjects(): Seq[TestObject[CustomInputParser]] = makeTestObject(
     new CustomInputParser().setInputCol("data").setOutputCol("out")
       .setUDF({ x: Int => new HttpPost(s"http://$x") }), session)
+
   override def reader: MLReadable[_] = CustomInputParser
 }
 
@@ -73,5 +77,6 @@ class CustomOutputParserSuite extends TransformerFuzzing[CustomOutputParser] wit
   override def testObjects(): Seq[TestObject[CustomOutputParser]] = makeTestObject(
     new CustomOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setUDF({ x: HTTPResponseData => x.locale }), session)
+
   override def reader: MLReadable[_] = CustomOutputParser
 }

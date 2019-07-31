@@ -89,8 +89,8 @@ object LIMEUtils extends SLogging {
 
         val it1 = it
           .flatMap(row => enqueueAndMaybeReturn(row))
-          .map(r => Left(r): Either[Row, Null])
-          .++(Seq(Right(null): Either[Row, Null]))
+          .map(r => Left(r): Either[Row, Null]) //scalastyle:ignore null
+          .++(Seq(Right(null): Either[Row, Null])) //scalastyle:ignore null
 
         val ret = it1.map {
           case Left(r) => r: Row
@@ -287,8 +287,8 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
     // Indices of the columns containing each image and image's superpixels
     val inputType = df.schema(getInputCol).dataType
     val maskUDF = inputType match {
-      case BinaryType => Superpixel.maskBinaryUDF
-      case t if ImageSchemaUtils.isImage(t) => Superpixel.maskImageUDF
+      case BinaryType => Superpixel.MaskBinaryUDF
+      case t if ImageSchemaUtils.isImage(t) => Superpixel.MaskImageUDF
     }
 
     val mapped = spDF.withColumn(idCol, monotonically_increasing_id())
@@ -312,7 +312,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getSuperpixelCol, SuperpixelData.schema).add(getOutputCol, VectorType)
+    schema.add(getSuperpixelCol, SuperpixelData.Schema).add(getOutputCol, VectorType)
   }
 
 }

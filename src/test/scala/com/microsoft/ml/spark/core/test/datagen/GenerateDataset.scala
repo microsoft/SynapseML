@@ -15,27 +15,29 @@ import scala.util.Random
 object GenerateDataset {
 
   /** Generates a random Spark DataFrame given a set of dataset generation constraints.
-    * @param sparkSession The spark session.
+    *
+    * @param sparkSession                 The spark session.
     * @param datasetGenerationConstraints The dataset generation constraints to use.
-    * @param seed The random seed.
+    * @param seed                         The random seed.
     * @return A randomly generated dataset.
     */
   def generateDataset(sparkSession: SparkSession,
-                      datasetGenerationConstraints: HasDatasetGenerationConstraints,
+                      datasetGenerationConstraints: HasDatasetGenConstraints,
                       seed: Long): DataFrame = {
     generateDatasetFromOptions(sparkSession, Map[Int, DatasetOptions](), datasetGenerationConstraints, seed)
   }
 
   /** Generates a random Spark DataFrame given a map of index to DataGenerationOptions.
-    * @param sparkSession The spark session.
-    * @param indexToOptions The map of indexes to DataGenerationOptions.
+    *
+    * @param sparkSession                 The spark session.
+    * @param indexToOptions               The map of indexes to DataGenerationOptions.
     * @param datasetGenerationConstraints The constraints for generating the dataset.
-    * @param seed The random seed.
+    * @param seed                         The random seed.
     * @return The randomly generated dataset.
     */
   def generateDatasetFromOptions(sparkSession: SparkSession,
                                  indexToOptions: Map[Int, DatasetOptions],
-                                 datasetGenerationConstraints: HasDatasetGenerationConstraints,
+                                 datasetGenerationConstraints: HasDatasetGenConstraints,
                                  seed: Long): DataFrame = {
 
     val random = new Random(seed)
@@ -44,12 +46,12 @@ object GenerateDataset {
       map(index =>
         if (indexToOptions.contains(index)) indexToOptions(index)
         else new DatasetOptions(ColumnOptions.values,
-                                          DataOptions.values,
-                                          new DatasetMissingValuesGenerationOptions(0.5,
-                                                                                    ColumnOptions.values,
-                                                                                    DataOptions.values)))
+          DataOptions.values,
+          new DatasetMissingValuesGenOptions(0.5,
+            ColumnOptions.values,
+            DataOptions.values)))
     // Get random options chosen from given valid space-dimension complex
-    val chosenOptions:Array[(ColumnOptions, DataOptions)] =
+    val chosenOptions: Array[(ColumnOptions, DataOptions)] =
       datasetGenerationOptions.toArray.map(option => chooseOptions(option, random))
 
     val rdd = RandomRDDs.randomRDD[Row](sparkSession.sparkContext,
@@ -78,7 +80,7 @@ object GenerateDataset {
         .map(dataType => StructField(generateDataType.nextString, dataType)))
   }
 
-  lazy val dataTypeToOptions: Map[DataOptions, DataType] = Map(
+  lazy val DataTypeToOptions: Map[DataOptions, DataType] = Map(
     DataOptions.String -> StringType,
     DataOptions.Timestamp -> TimestampType,
     DataOptions.Short -> ShortType,
@@ -89,19 +91,19 @@ object GenerateDataset {
     DataOptions.Double -> DoubleType
   )
 
-  lazy val optionsToDataType: Map[DataType, DataOptions] = dataTypeToOptions.map(kvp => (kvp._2, kvp._1))
+  lazy val OptionsToDataType: Map[DataType, DataOptions] = DataTypeToOptions.map(kvp => (kvp._2, kvp._1))
 
   private def getDataTypeFromOptions(data: DataOptions): DataType = {
-    if (dataTypeToOptions.contains(data)) {
-      dataTypeToOptions(data)
+    if (DataTypeToOptions.contains(data)) {
+      DataTypeToOptions(data)
     } else {
       throw new Exception("The type does not exist in spark: " + data)
     }
   }
 
   private def getOptionsFromDataType(data: DataType): DataOptions = {
-    if (optionsToDataType.contains(data)) {
-      optionsToDataType(data)
+    if (OptionsToDataType.contains(data)) {
+      OptionsToDataType(data)
     } else {
       throw new Exception("The corresponding option does not exist for spark data type: " + data)
     }

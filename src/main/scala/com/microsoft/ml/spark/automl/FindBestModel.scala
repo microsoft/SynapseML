@@ -19,9 +19,9 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object FindBestModel extends ComplexParamsReadable[FindBestModel] {
-  val modelNameCol = "model_name"
-  val metricsCol = "metric"
-  val paramsCol = "parameters"
+  val ModelNameCol = "model_name"
+  val MetricsCol = "metric"
+  val ParamsCol = "parameters"
 }
 
 trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasEvaluationMetric {
@@ -83,7 +83,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     if (trainedModels.isEmpty) {
       throw new Exception("No trained models to evaluate.")
     }
-    if (!(MetricConstants.findBestModelMetrics contains getEvaluationMetric)) {
+    if (!(MetricConstants.FindBestModelMetrics contains getEvaluationMetric)) {
       throw new Exception("Invalid evaluation metric")
     }
     val evaluator = new ComputeModelStatistics()
@@ -128,9 +128,9 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     selectedROCCurve = evaluator.rocCurve
 
     val spark = dataset.sparkSession
-    val allModelMetricsSchema = StructType(Seq(StructField(FindBestModel.modelNameCol, StringType, true),
-      StructField(FindBestModel.metricsCol, DoubleType, true),
-      StructField(FindBestModel.paramsCol, StringType, true)))
+    val allModelMetricsSchema = StructType(Seq(StructField(FindBestModel.ModelNameCol, StringType, true),
+      StructField(FindBestModel.MetricsCol, DoubleType, true),
+      StructField(FindBestModel.ParamsCol, StringType, true)))
     var allModelMetrics = spark.createDataFrame(spark.sparkContext.parallelize(models.zip(modelMetrics).zip(parameters)
         .map(mmp => Row(mmp._1._1, mmp._1._2, mmp._2))), allModelMetricsSchema)
     new BestModel(uid,

@@ -37,8 +37,12 @@ package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com
     <parameter name="regex">^[A-Za-z][A-Za-z0-9]*$</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.PackageObjectNamesChecker" enabled="true"><parameters>
     <parameter name="regex">^[a-z][A-Za-z]*$</parameter></parameters></check>
-  <check level="warning" class="org.scalastyle.scalariform.FieldNamesChecker" enabled="true"><parameters>
-    <parameter name="regex">^([a-z][A-Za-z0-9]*| *\( *)$</parameter></parameters></check>
+  <check level="error" class="org.scalastyle.scalariform.FieldNamesChecker" enabled="true" >
+    <parameters>
+      <parameter name="regex">^[a-z][A-Za-z0-9]*$</parameter>
+      <parameter name="objectFieldRegex">^[A-Z][A-Za-z0-9]*$</parameter>
+    </parameters>
+  </check>
   <check level="warning" class="org.scalastyle.scalariform.MethodNamesChecker" enabled="true"><parameters>
     <parameter name="regex">^[a-z][A-Za-z0-9]*(_=)?$</parameter></parameters></check>
   <check level="warning" class="org.scalastyle.scalariform.ClassTypeParameterChecker" enabled="true"><parameters>

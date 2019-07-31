@@ -13,9 +13,9 @@ import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.regression._
 
 object EvaluationUtils {
-  val modelTypeUnsupportedErr = "Model type not supported for evaluation"
+  val ModelTypeUnsupportedErr = "Model type not supported for evaluation"
   // Find type of trained models
-  def getModelType(model: PipelineStage):String = {
+  def getModelType(model: PipelineStage): String = {
     model match {
       case _: TrainRegressor => SchemaConstants.RegressionKind
       case _: TrainClassifier => SchemaConstants.ClassificationKind
@@ -29,7 +29,7 @@ object EvaluationUtils {
       case evm: BestModel => getModelType(evm.getBestModel)
       case _: ClassificationModel[_, _] => SchemaConstants.ClassificationKind
       case _: RegressionModel[_, _] => SchemaConstants.RegressionKind
-      case _ => throw new Exception(modelTypeUnsupportedErr)
+      case _ => throw new Exception(ModelTypeUnsupportedErr)
     }
   }
 

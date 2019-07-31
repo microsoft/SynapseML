@@ -39,13 +39,13 @@ class SharedSingleton[T: ClassTag](constructor: => T) extends AnyRef with Serial
   val singletonUUID: String = UUID.randomUUID().toString
 
   @transient private lazy val instance: T = {
-    SharedSingleton.singletonPool.synchronized {
-      val singletonOption = SharedSingleton.singletonPool.get(singletonUUID)
+    SharedSingleton.SingletonPool.synchronized {
+      val singletonOption = SharedSingleton.SingletonPool.get(singletonUUID)
       if (singletonOption.isEmpty) {
-        SharedSingleton.singletonPool.put(singletonUUID, constructor)
+        SharedSingleton.SingletonPool.put(singletonUUID, constructor)
       }
     }
-    SharedSingleton.singletonPool(singletonUUID).asInstanceOf[T]
+    SharedSingleton.SingletonPool(singletonUUID).asInstanceOf[T]
   }
 
   def get: T = instance
@@ -54,12 +54,12 @@ class SharedSingleton[T: ClassTag](constructor: => T) extends AnyRef with Serial
 
 object SharedSingleton {
 
-  private val singletonPool = new TrieMap[String, Any]()
+  private val SingletonPool = new TrieMap[String, Any]()
 
   def apply[T: ClassTag](constructor: => T): SharedSingleton[T] = new SharedSingleton[T](constructor)
 
-  def poolSize: Int = singletonPool.size
+  def poolSize: Int = SingletonPool.size
 
-  def poolClear(): Unit = singletonPool.clear()
+  def poolClear(): Unit = SingletonPool.clear()
 
 }

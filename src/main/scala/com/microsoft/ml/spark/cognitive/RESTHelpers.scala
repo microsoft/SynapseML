@@ -12,16 +12,16 @@ import scala.concurrent.blocking
 import scala.util.Try
 
 object RESTHelpers {
-  lazy val requestTimeout = 60000
+  lazy val RequestTimeout = 60000
 
-  lazy val requestConfig: RequestConfig = RequestConfig.custom()
-    .setConnectTimeout(requestTimeout)
-    .setConnectionRequestTimeout(requestTimeout)
-    .setSocketTimeout(requestTimeout)
+  lazy val RequestConfigVal: RequestConfig = RequestConfig.custom()
+    .setConnectTimeout(RequestTimeout)
+    .setConnectionRequestTimeout(RequestTimeout)
+    .setSocketTimeout(RequestTimeout)
     .build()
 
-  lazy val client: CloseableHttpClient = HttpClientBuilder
-    .create().setDefaultRequestConfig(requestConfig).build()
+  lazy val Client: CloseableHttpClient = HttpClientBuilder
+    .create().setDefaultRequestConfig(RequestConfigVal).build()
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
     try {
@@ -42,7 +42,7 @@ object RESTHelpers {
                close: Boolean = true): CloseableHttpResponse = {
 
     retry(List(100, 500, 1000), { () =>
-      val response = client.execute(request)
+      val response = Client.execute(request)
       try {
         if (response.getStatusLine.getStatusCode.toString.startsWith("2") ||
           expectedCodes(response.getStatusLine.getStatusCode)

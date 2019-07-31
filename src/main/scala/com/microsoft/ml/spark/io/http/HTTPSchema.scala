@@ -229,10 +229,11 @@ object HTTPRequestData extends SparkBindings[HTTPRequestData] {
 
 object HTTPSchema {
 
-  val response: DataType = HTTPResponseData.schema
-  val request: DataType = HTTPRequestData.schema
+  val Response: DataType = HTTPResponseData.schema
+  val Request: DataType = HTTPRequestData.schema
 
   //Convenience Functions for making and parsing HTTP objects
+  //scalastyle:off
 
   private def stringToEntity(s: String): EntityData = {
     new EntityData(new StringEntity(s, "UTF-8"))
@@ -329,11 +330,11 @@ object HTTPSchema {
         typedLit(pvd).alias("protocolVersion")).alias("requestLine"),
       headersCol.alias("headers"),
       string_to_entity(jsonEntityCol).alias("entity")
-    ).cast(request)
+    ).cast(Request)
   }
 
   def to_http_request(urlCol: String, headersCol: String, methodCol: String, jsonEntityCol: String): Column = {
     to_http_request(col(urlCol), col(headersCol), col(methodCol), col(jsonEntityCol))
   }
-
+  //scalastyle:on
 }

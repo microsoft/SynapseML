@@ -92,20 +92,20 @@ private[streaming] case class HTTPOffset(partitionToValue: Map[Int, Long])
 private[streaming] case class HTTPPartitionOffset(partition: Int, epoch: Long) extends PartitionOffset
 
 object HTTPSourceV2 {
-  val NUM_PARTITIONS = "numPartitions"
-  val HOST = "host"
-  val PORT = "port"
-  val PATH = "path"
+  val NumPartitions = "numPartitions"
+  val Host = "host"
+  val Port = "port"
+  val Path = "path"
   val NAME = "name"
-  val EPOCH_LENGTH = "epochLength" // in millis
+  val EpochLength = "epochLength" // in millis
 
-  val ID_SCHEMA: StructType = new StructType()
+  val IdSchema: StructType = new StructType()
     .add("originatingService", StringType)
     .add("requestId", StringType)
     .add("partitionId", IntegerType)
 
-  val SCHEMA: StructType = {
-    new StructType().add("id", ID_SCHEMA).add("request", HTTPSchema.request)
+  val Schema: StructType = {
+    new StructType().add("id", IdSchema).add("request", HTTPSchema.Request)
   }
 
 }
@@ -127,6 +127,8 @@ private[streaming] object DriverServiceUtils {
 
     implicit val defaultFormats: DefaultFormats = DefaultFormats
 
+    //scalastyle:off magic.number
+    //scalastyle:off null
     override def handle(request: HttpExchange): Unit = {
       try {
         val info = Serialization.read[ServiceInfo](
@@ -145,6 +147,8 @@ private[streaming] object DriverServiceUtils {
         )
       }
     }
+    //scalastyle:on magic.number
+    //scalastyle:on null
   }
 
   private def getHostToIP(hostname: String): String = {
@@ -181,12 +185,12 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   extends MicroBatchReader with Logging {
   implicit val defaultFormats: DefaultFormats = DefaultFormats
 
-  val numPartitions: Int = options.get(HTTPSourceV2.NUM_PARTITIONS).orElse("2").toInt
-  val host: String = options.get(HTTPSourceV2.HOST).orElse("localhost")
-  val port: Int = options.getInt(HTTPSourceV2.PORT, 8888)
-  val path: String = options.get(HTTPSourceV2.PATH).get
+  val numPartitions: Int = options.get(HTTPSourceV2.NumPartitions).orElse("2").toInt
+  val host: String = options.get(HTTPSourceV2.Host).orElse("localhost")
+  val port: Int = options.getInt(HTTPSourceV2.Port, 8888)
+  val path: String = options.get(HTTPSourceV2.Path).get
   val name: String = options.get(HTTPSourceV2.NAME).get
-  val epochLength: Long = options.get(HTTPSourceV2.EPOCH_LENGTH).orElse("30000").toLong
+  val epochLength: Long = options.get(HTTPSourceV2.EpochLength).orElse("30000").toLong
 
   val forwardingOptions: collection.Map[String, String] = options.asMap().asScala
     .filter { case (k, v) => k.startsWith("forwarding") }
@@ -201,7 +205,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   }
 
   override def readSchema(): StructType = {
-    HTTPSourceV2.SCHEMA
+    HTTPSourceV2.Schema
   }
 
   protected var startOffset: HTTPOffset = _
@@ -313,49 +317,49 @@ private[streaming] case class HTTPInputPartition(continuous: Boolean,
 
 object HTTPSourceStateHolder {
 
-  private val serviceInformation: mutable.Map[String, ParHashSet[ServiceInfo]] = mutable.Map()
+  private val ServiceInformation: mutable.Map[String, ParHashSet[ServiceInfo]] = mutable.Map()
 
   private[streaming] def initServiceInfo(name: String, path: String): Unit = {
-    assert(HTTPSourceStateHolder.serviceInformation.get(name).isEmpty,
+    assert(HTTPSourceStateHolder.ServiceInformation.get(name).isEmpty,
       "Cannot make 2 services with the same name")
-    HTTPSourceStateHolder.serviceInformation.update(name, new ParHashSet[ServiceInfo]())
+    HTTPSourceStateHolder.ServiceInformation.update(name, new ParHashSet[ServiceInfo]())
   }
 
   private[streaming] def addServiceInfo(name: String, info: ServiceInfo): Unit = {
-    val infoSet = HTTPSourceStateHolder.serviceInformation
+    val infoSet = HTTPSourceStateHolder.ServiceInformation
       .getOrElse(info.path, new ParHashSet[ServiceInfo]())
     infoSet += info
-    HTTPSourceStateHolder.serviceInformation.update(info.name, infoSet)
+    HTTPSourceStateHolder.ServiceInformation.update(info.name, infoSet)
   }
 
   private[streaming] def removeServiceInfo(name: String): Unit = {
-    HTTPSourceStateHolder.serviceInformation.remove(name)
+    HTTPSourceStateHolder.ServiceInformation.remove(name)
     ()
   }
 
   @GuardedBy("this")
-  private val clients: mutable.Map[String, WorkerClient] = mutable.Map()
+  private val Clients: mutable.Map[String, WorkerClient] = mutable.Map()
 
   private[streaming] def getOrCreateClient(name: String): WorkerClient = synchronized {
-    HTTPSourceStateHolder.clients.getOrElse(name, {
+    HTTPSourceStateHolder.Clients.getOrElse(name, {
       val client = new WorkerClient
-      HTTPSourceStateHolder.clients.update(name, client)
+      HTTPSourceStateHolder.Clients.update(name, client)
       client
     })
   }
 
   private[streaming] def removeClient(name: String): Unit = synchronized {
-    HTTPSourceStateHolder.clients.get(name).foreach { c =>
+    HTTPSourceStateHolder.Clients.get(name).foreach { c =>
       c.close()
-      HTTPSourceStateHolder.clients.remove(name)
+      HTTPSourceStateHolder.Clients.remove(name)
     }
   }
 
   @GuardedBy("this")
-  private val servers: mutable.Map[String, WorkerServer] = mutable.Map()
+  private val Servers: mutable.Map[String, WorkerServer] = mutable.Map()
 
   private[streaming] def getServer(name: String): WorkerServer = {
-    HTTPSourceStateHolder.servers(name)
+    HTTPSourceStateHolder.Servers(name)
   }
 
   private[streaming] def getOrCreateServer(name: String,
@@ -365,9 +369,9 @@ object HTTPSourceStateHolder {
                                            client: WorkerClient,
                                            config: WorkerServiceConfig
                                           ): WorkerServer = synchronized {
-    val s = HTTPSourceStateHolder.servers.getOrElse(name, {
+    val s = HTTPSourceStateHolder.Servers.getOrElse(name, {
       val server = new WorkerServer(name, isContinuous, client, config)
-      HTTPSourceStateHolder.servers.update(name, server)
+      HTTPSourceStateHolder.Servers.update(name, server)
       server
     })
     s.registerPartition(epoch, partitionId)
@@ -375,20 +379,26 @@ object HTTPSourceStateHolder {
   }
 
   private[streaming] def removeServer(name: String): Unit = synchronized {
-    HTTPSourceStateHolder.servers.get(name).foreach { c =>
+    HTTPSourceStateHolder.Servers.get(name).foreach { c =>
       c.close()
-      HTTPSourceStateHolder.servers.remove(name)
+      HTTPSourceStateHolder.Servers.remove(name)
     }
   }
 
-  private[streaming] implicit val defaultFormats: DefaultFormats = DefaultFormats
+  private[streaming] implicit val defaultFormats: DefaultFormats = DefaultFormats // scalastyle:ignore field.name
 
   def serviceInfoJson(name: String): String = {
-    Serialization.write(serviceInformation(name).toArray)
+    try{
+      Serialization.write(ServiceInformation(name).toArray)
+    } catch {
+      case e: Throwable =>
+        println(e)
+        throw e
+    }
   }
 
   def serviceInfo(name: String): Array[ServiceInfo] = {
-    serviceInformation(name).toArray
+    ServiceInformation(name).toArray
   }
 
   def cleanUp(name: String): Unit = {
@@ -632,7 +642,7 @@ private[streaming] class WorkerServer(val name: String,
   logInfo(s"starting server at ${config.host}:${config.port}")
   val (server, foundPort) = tryCreateServer(config.host, config.port, 3, increment = false)
   server.createContext(s"/${config.path}", new PublicHandler)
-  server.setExecutor(null)
+  server.setExecutor(null) //scalastyle:ignore null
   server.start()
   logInfo(s"successfully started server at ${config.host}:$foundPort")
 

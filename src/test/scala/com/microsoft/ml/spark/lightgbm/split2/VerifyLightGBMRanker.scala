@@ -56,7 +56,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .setLabelCol(labelColumnName)
       .setFeaturesCol(featuresColumn)
       .setGroupCol(queryCol)
-      .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
       .setNumLeaves(5)
       .setNumIterations(10)
 
@@ -103,7 +103,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
         .setLabelCol(labelCol)
         .setFeaturesCol(featuresCol)
         .setGroupCol(queryCol)
-        .setDefaultListenPort(LightGBMConstants.defaultLocalListenPort + portIndex)
+        .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
         .setNumLeaves(5)
         .setNumIterations(10),
       train))

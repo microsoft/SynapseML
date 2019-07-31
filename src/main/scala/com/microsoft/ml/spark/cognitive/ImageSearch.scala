@@ -55,7 +55,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
         AsyncUtils.bufferedAwaitSafeWithContext(
           futures, concurrency, Duration.fromNanos(timeout * 1e6.toLong))(ExecutionContext.global)
           .map {
-            case (bytesOpt, row) => Row.merge(row, Row(bytesOpt.getOrElse(null)))
+            case (bytesOpt, row) => Row.merge(row, Row(bytesOpt.getOrElse(null))) //scalastyle:ignore null
           }
       }(encoder)
     })

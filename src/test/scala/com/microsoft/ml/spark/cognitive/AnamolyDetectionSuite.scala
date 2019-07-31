@@ -11,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, collect_list, lit, struct}
 
 trait AnomalyKey {
-  lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.anomalyApiKey)
+  lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
 }
 
 trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{

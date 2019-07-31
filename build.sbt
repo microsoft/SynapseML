@@ -282,8 +282,6 @@ publishBlob := {
   uploadToBlob(localPackageFolder, blobMavenFolder, "maven",  s.log)
 }
 
-
-
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
 publishBadges := {
   val s = streams.value

@@ -12,6 +12,7 @@ import spire.implicits.cfor
 This is a copy of the LassoCalculator class in Breeze,
  the only difference is the removal of one requirement check
  */
+//scalastyle: off
 private case class LassoCalculator2(data: DenseMatrix[Double],
                                     outputs: DenseVector[Double],
                                     lambda: Double,

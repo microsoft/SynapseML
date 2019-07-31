@@ -112,7 +112,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       // If levels exist, use the extra information they give to get better performance
       getEvaluationMetric match {
         case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
-                           allMetrics == MetricConstants.ClassificationMetrics => {
+                           allMetrics == MetricConstants.ClassificationMetricsName => {
           resultDF = addConfusionMatrixToResult(labels, confusionMatrix, resultDF)
           resultDF = addAllClassificationMetrics(
               modelName, dataset, labelColumnName, predictionAndLabels,
@@ -391,14 +391,14 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   }
 
   private def getBinaryAccuracyPrecisionRecall(confusionMatrix: Matrix): (Double, Double, Double) = {
-    val TP: Double = confusionMatrix(1, 1)
-    val FP: Double = confusionMatrix(0, 1)
-    val TN: Double = confusionMatrix(0, 0)
-    val FN: Double = confusionMatrix(1, 0)
+    val tp: Double = confusionMatrix(1, 1)
+    val fp: Double = confusionMatrix(0, 1)
+    val tn: Double = confusionMatrix(0, 0)
+    val fn: Double = confusionMatrix(1, 0)
 
-    val accuracy: Double = (TP + TN) / (TP + TN + FP + FN)
-    val precision: Double = TP / (TP + FP)
-    val recall: Double = TP / (TP + FN)
+    val accuracy: Double = (tp + tn) / (tp + tn + fp + fn)
+    val precision: Double = tp / (tp + fp)
+    val recall: Double = tp / (tp + fn)
     (accuracy, precision, recall)
   }
 
@@ -436,8 +436,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
         if (isDefined(labelCol)) Some(getLabelCol) else None,
         getEvaluationMetric)
     val columns =
-      if (scoreValueKind == SchemaConstants.ClassificationKind) MetricConstants.classificationColumns
-      else if (scoreValueKind == SchemaConstants.RegressionKind) MetricConstants.regressionColumns
+      if (scoreValueKind == SchemaConstants.ClassificationKind) MetricConstants.ClassificationColumns
+      else if (scoreValueKind == SchemaConstants.RegressionKind) MetricConstants.RegressionColumns
       else throwOnInvalidScoringKind(scoreValueKind)
     getTransformedSchema(columns, scoreValueKind)
 
@@ -450,12 +450,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   private def getTransformedSchema(columns: List[String], metricType: String) = {
     getEvaluationMetric match {
       case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
-                         allMetrics == MetricConstants.ClassificationMetrics ||
-                         allMetrics == MetricConstants.RegressionMetrics =>
+                         allMetrics == MetricConstants.ClassificationMetricsName ||
+                         allMetrics == MetricConstants.RegressionMetricsName =>
         StructType(columns.map(StructField(_, DoubleType)))
-      case metric: String if MetricConstants.metricToColumnName.contains(metric) &&
-                             columns.contains(MetricConstants.metricToColumnName(metric)) =>
-        StructType(Array(StructField(MetricConstants.metricToColumnName(metric), DoubleType)))
+      case metric: String if MetricConstants.MetricToColumnName.contains(metric) &&
+                             columns.contains(MetricConstants.MetricToColumnName(metric)) =>
+        StructType(Array(StructField(MetricConstants.MetricToColumnName(metric), DoubleType)))
       case default =>
         throw new Exception(s"Error: $default is not a $metricType metric")
     }

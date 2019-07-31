@@ -83,10 +83,8 @@ private[spark] class BinaryRecordReader(val subsample: Double, val inspectZip: B
 
   override def nextKeyValue(): Boolean = {
     if (done) {
-      return false
-    }
-
-    if (zipIterator != null) {
+      false
+    } else if (zipIterator != null) {
       if (zipIterator.hasNext) {
         val (fn, barr) = zipIterator.next
         filename = fn
@@ -123,7 +121,7 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
                             sparkSession: SparkSession,
                             options: Map[String, String],
                             files: Seq[FileStatus]): Option[StructType] = {
-    Some(BinaryFileSchema.schema)
+    Some(BinaryFileSchema.Schema)
   }
 
   override def prepareWrite(sparkSession: SparkSession,

@@ -50,8 +50,8 @@ class ImageReaderSuite extends TestBase with FileReaderUtils with OsUtils {
   }
 
   object UDFs extends Serializable {
-    val cifarDirectoryVal = cifarDirectory
-    val rename = udf({ x: String => x.split("/").last }, StringType)
+    val CifarDirectoryVal = cifarDirectory
+    val Rename = udf({ x: String => x.split("/").last }, StringType)
   }
 
   def recursiveListFiles(f: File): Array[File] = {
@@ -140,7 +140,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils with OsUtils {
       .format(imageFormat)
       .load(cifarDirectory)
       .sample(.5,0)
-      .withColumn("filenames", UDFs.rename(col("image.origin")))
+      .withColumn("filenames", UDFs.Rename(col("image.origin")))
 
     imageDF.printSchema()
     assert(imageDF.count() == 4)

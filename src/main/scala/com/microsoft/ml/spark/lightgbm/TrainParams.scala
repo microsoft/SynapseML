@@ -56,7 +56,7 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
-      if (objective != LightGBMConstants.binaryObjective) s"num_class=$numClass"
+      if (objective != LightGBMConstants.BinaryObjective) s"num_class=$numClass"
       else s"is_unbalance=${isUnbalance.toString}"
     s"metric=$metric boost_from_average=${boostFromAverage.toString} ${super.toString} $extraStr"
   }
