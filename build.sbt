@@ -1,11 +1,13 @@
 import java.io.File
-import java.net.URL
-import java.util.UUID
+import java.net.{URL, URLEncoder}
 
-import org.apache.commons.io.FileUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
 import sbt.internal.util.ManagedLogger
 
 import scala.sys.process.Process
+import sys.process._
+import java.net.URL
+import java.io.File
 
 val condaEnvName = "mmlspark"
 name := "mmlspark"
@@ -122,13 +124,13 @@ def downloadFromBlob(source: String, dest: String,
 }
 def singleUploadToBlob(source: String, dest: String,
                  container: String, log: ManagedLogger,
-                 accountName: String="mmlspark"): Int = {
+                 accountName: String="mmlspark", extraArgs: Seq[String] = Seq()): Int = {
   val command = Seq("az", "storage", "blob", "upload",
     "--file", source,
     "--container-name", container,
     "--name", dest,
     "--account-name", accountName,
-    "--account-key", Secrets.storageKey)
+    "--account-key", Secrets.storageKey) ++ extraArgs
   Process(osPrefix ++ command) ! log
 }
 
@@ -278,6 +280,29 @@ publishBlob := {
   val blobMavenFolder = organization.value.replace(".", "/") +
     s"/$nameAndScalaVersion/${version.value}"
   uploadToBlob(localPackageFolder, blobMavenFolder, "maven",  s.log)
+}
+
+
+
+val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
+publishBadges := {
+  val s = streams.value
+  def enc(s: String): String = {
+    s.replaceAllLiterally("_", "__").replaceAllLiterally(" ", "_").replaceAllLiterally("-", "--")
+  }
+
+  def uploadBadge(left: String, right: String, color: String, filename: String): Unit = {
+    val badgeDir = join(baseDirectory.value.toString, "target", "badges")
+    if (!badgeDir.exists()) badgeDir.mkdirs()
+    Process(Seq("curl",
+      "-o", join(badgeDir.toString, filename).toString,
+      s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}")
+    , new File(".")) ! s.log
+    singleUploadToBlob(
+      join(badgeDir.toString, filename).toString,
+      s"badges/$filename", "icons",  s.log, extraArgs=Seq("--content-cache-control", "no-cache"))
+  }
+  uploadBadge("master version", version.value,"blue", "master_version3.svg")
 }
 
 val settings = Seq(
