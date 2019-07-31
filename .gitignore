@@ -40,3 +40,7 @@
 .coverage
 coverage.xml
 htmlcov
+
+# Files created by remark-link
+package-lock.json
+node_modules/
