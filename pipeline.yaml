@@ -61,7 +61,7 @@ jobs:
       env:
         STORAGE_KEY: $(storage-key)
     - bash: sbt publishBadges
-      #condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
         STORAGE_KEY: $(storage-key)
@@ -115,6 +115,7 @@ jobs:
       displayName: Create Anaconda environment
     - bash: |
         source activate mmlspark
+        (timeout 5m sbt setup) || (timeout 5m sbt setup)
         sbt coverage testPython
       displayName: Test Python Code
     - task: PublishTestResults@2
@@ -196,8 +197,8 @@ jobs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
         inlineScript: |
-          (timeout 30 pip install requests) || (echo "retrying" && timeout 30 pip install requests)
-          (timeout 200 sbt setup) || (echo "retrying" && timeout 200 sbt setup)
+          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@1
       displayName: 'Unit Test'
       timeoutInMinutes: 40
