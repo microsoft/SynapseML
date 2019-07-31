@@ -26,6 +26,7 @@ variables:
 
 jobs:
 - job: Style
+  cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
@@ -38,6 +39,7 @@ jobs:
       inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
 - job: PublishAndE2E
+  cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
   steps:
@@ -78,6 +80,7 @@ jobs:
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
 - job: Release
+  cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
   steps:
@@ -101,6 +104,7 @@ jobs:
         isDraft: true
 
 - job: PythonTests
+  cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
@@ -141,6 +145,7 @@ jobs:
       condition: succeededOrFailed()
 
 - job: UnitTests
+  cancelTimeoutInMinutes: 1
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
