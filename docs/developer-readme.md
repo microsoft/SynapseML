@@ -1,17 +1,17 @@
 # MMLSpark Development Setup
 
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-    - Make sure to download JDK 1.8 if you don't have it
+    \- Make sure to download JDK 1.8 if you don't have it
 2) Git Clone Repository
-    - `git clone https://github.com/Azure/mmlspark.git`
+    \- `git clone https://github.com/Azure/mmlspark.git`
 3) Run sbt to compile and grab datasets
-    - `cd mmlspark`
-    - `sbt setup`
+    \- `cd mmlspark`
+    \- `sbt setup`
 4) [Install IntelliJ](https://www.jetbrains.com/idea/download)
-    - Install Scala plugins during install
+    \- Install Scala plugins during install
 5) Configure IntelliJ
-    - **OPEN** the mmlspark directory
-    - If the project does not automatically import,click on `build.sbt` and import project
+    \- **OPEN** the mmlspark directory
+    \- If the project does not automatically import,click on `build.sbt` and import project
 
 # Publishing and Using Build Secrets
 
@@ -72,7 +72,7 @@ Generates and runs python tests
 
 Downloads all datasets used in tests to target folder
 
-### `setup` 
+### `setup`
 
 Combination of `compile`, `test:compile`, `it:compile`, `getDatasets`
 
