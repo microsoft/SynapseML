@@ -58,6 +58,11 @@ jobs:
       displayName: Publish Artifacts
       env:
         STORAGE_KEY: $(storage-key)
+    - bash: sbt publishBadges
+      #condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      displayName: Publish Badges
+      env:
+        STORAGE_KEY: $(storage-key)
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
