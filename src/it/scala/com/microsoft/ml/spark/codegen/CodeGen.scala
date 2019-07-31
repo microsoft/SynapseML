@@ -15,32 +15,32 @@ object CodeGen {
   def generateArtifacts(): Unit = {
     println(
       s"""|Running code generation with config:
-          |  topDir:     $topDir
-          |  packageDir: $packageDir
-          |  pySrcDir:   $pySrcDir
-          |  pyTestDir:  $pyTestDir
-          |  rsrcDir:    $rSrcDir""".stripMargin)
+          |  topDir:     $TopDir
+          |  packageDir: $PackageDir
+          |  pySrcDir:   $PySrcDir
+          |  pyTestDir:  $PyTestDir
+          |  rsrcDir:    $RSrcDir""".stripMargin)
 
     println("Creating temp folders")
-    if (generatedDir.exists()) FileUtils.forceDelete(generatedDir)
+    if (GeneratedDir.exists()) FileUtils.forceDelete(GeneratedDir)
 
     println("Generating python APIs")
     PySparkWrapperGenerator()
     println("Generating R APIs")
-    SparklyRWrapperGenerator(version)
+    SparklyRWrapperGenerator(Version)
 
     def toDir(f: File): File = new File(f, File.separator)
 
     //writeFile(new File(pySrcDir, "__init__.py"), packageHelp(""))
-    FileUtils.copyDirectoryToDirectory(toDir(pySrcOverrideDir), toDir(pySrcDir))
-    FileUtils.copyDirectoryToDirectory(toDir(pyTestOverrideDir), toDir(pyTestDir))
+    FileUtils.copyDirectoryToDirectory(toDir(PySrcOverrideDir), toDir(PySrcDir))
+    FileUtils.copyDirectoryToDirectory(toDir(PyTestOverrideDir), toDir(PyTestDir))
     makeInitFiles()
 
     // build init file
     // package python+r zip files
     // zipFolder(pyDir, pyZipFile)
-    rPackageDir.mkdirs()
-    zipFolder(rSrcDir, new File(rPackageDir, s"mmlspark-$version.zip"))
+    RPackageDir.mkdirs()
+    zipFolder(RSrcDir, new File(RPackageDir, s"mmlspark-$Version.zip"))
 
     //FileUtils.forceDelete(rDir)
     // leave the python source files, so they will be included in the super-jar
@@ -48,7 +48,7 @@ object CodeGen {
   }
 
   private def makeInitFiles(packageFolder: String = ""): Unit = {
-    val dir = new File(new File(pySrcDir,"mmlspark"), packageFolder)
+    val dir = new File(new File(PySrcDir,"mmlspark"), packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/",".") else ""
     val importStrings =
       dir.listFiles.filter(_.isFile).sorted

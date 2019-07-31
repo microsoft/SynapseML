@@ -28,7 +28,7 @@ trait HasErrorCol extends Params {
 }
 
 object ErrorUtils extends Serializable {
-  val errorSchema: StructType = new StructType()
+  val ErrorSchema: StructType = new StructType()
     .add("response", StringType, nullable = true)
     .add("status", StatusLineData.schema, nullable = true)
 
@@ -53,10 +53,10 @@ object ErrorUtils extends Serializable {
 
   def addErrorUDF: UserDefinedFunction = {
     val fromRow = HTTPResponseData.makeFromRowConverter
-    udf(addError(fromRow) _, errorSchema)
+    udf(addError(fromRow) _, ErrorSchema)
   }
 
-  val nullifyResponseUDF: UserDefinedFunction = udf(nullifyResponse _, HTTPSchema.response)
+  val NullifyResponseUDF: UserDefinedFunction = udf(nullifyResponse _, HTTPSchema.Response)
 
 }
 
@@ -129,7 +129,7 @@ class SimpleHTTPTransformer(val uid: String)
 
     val parseErrors = Some(Lambda(_
       .withColumn(getErrorCol, ErrorUtils.addErrorUDF(col(unparsedOutputCol)))
-      .withColumn(unparsedOutputCol, ErrorUtils.nullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
+      .withColumn(unparsedOutputCol, ErrorUtils.NullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
     ))
 
     val outputParser =

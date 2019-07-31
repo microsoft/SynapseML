@@ -41,7 +41,7 @@ object SearchIndex extends IndexParser with IndexLister {
 
   import AzureSearchProtocol._
 
-  val logger: Logger = LogManager.getRootLogger
+  val Logger: Logger = LogManager.getRootLogger
 
   def createIfNoneExists(key: String,
                          serviceName: String,
@@ -104,7 +104,7 @@ object SearchIndex extends IndexParser with IndexLister {
     } else Failure(new IllegalArgumentException("Invalid fields"))
   }
 
-  private val validFieldTypes = Seq("Edm.String",
+  private val ValidFieldTypes = Seq("Edm.String",
     "Collection(Edm.String)",
     "Edm.Int32",
     "Edm.Int64",
@@ -120,7 +120,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validType(t: String): Try[String] = {
-    if (validFieldTypes.contains(t)) {
+    if (ValidFieldTypes.contains(t)) {
       Success(t)
     } else Failure(new IllegalArgumentException("Invalid field type"))
   }

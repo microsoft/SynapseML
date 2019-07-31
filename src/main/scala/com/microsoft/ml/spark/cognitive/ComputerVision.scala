@@ -244,7 +244,9 @@ class RecognizeText(override val uid: String)
   /** @group setParam */
   def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
 
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay->300)
+  //scalastyle:off magic.number
+  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
+  //scalastyle:on magic.number
 
   val mode = new ServiceParam[String](this, "mode",
     "If this parameter is set to 'Printed', " +

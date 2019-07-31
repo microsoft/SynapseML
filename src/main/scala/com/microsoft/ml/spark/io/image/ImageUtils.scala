@@ -101,11 +101,9 @@ object ImageUtils {
   }
 
   def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {
-    if (bytes == null) {
-      return None
-    }
-    Try(Option(ImageIO.read(new ByteArrayInputStream(bytes))))
-      .toOption.flatten
+    Option(bytes).flatMap(b =>
+      Try(Option(ImageIO.read(new ByteArrayInputStream(b))))
+        .toOption.flatten)
   }
 
   def readFromPaths(df: DataFrame, pathCol: String, imageCol: String = "image"): DataFrame = {
@@ -118,7 +116,7 @@ object ImageUtils {
         val fs = path.getFileSystem(hconf.value)
         val bytes = StreamUtilities.using(fs.open(path)) { is => IOUtils.toByteArray(is) }.get
         val imageRow = ImageInjections.decode(path.toString, bytes)
-          .getOrElse(Row(null))
+          .getOrElse(Row(null)) //scalastyle:ignore null
         val ret = Row.merge(Seq(row, imageRow): _*)
         ret
       }
@@ -132,7 +130,7 @@ object ImageUtils {
       rows.map { row =>
         val path = row.getAs[String](pathCol)
         val bytes = row.getAs[Array[Byte]](bytesCol)
-        val imageRow = ImageInjections.decode(path, bytes).getOrElse(Row(null))
+        val imageRow = ImageInjections.decode(path, bytes).getOrElse(Row(null)) //scalastyle:ignore null
         val ret = Row.merge(Seq(row, imageRow): _*)
         ret
       }
@@ -151,7 +149,7 @@ object ImageUtils {
         val bytes = new Base64().decode(
           if (dropPrefix) encoded.split(",")(1) else encoded
         )
-        val imageRow = ImageInjections.decode(null, bytes).getOrElse(Row(null))
+        val imageRow = ImageInjections.decode(null, bytes).getOrElse(Row(null)) //scalastyle:ignore null
         val ret = Row.merge(Seq(row, imageRow): _*)
         ret
       }

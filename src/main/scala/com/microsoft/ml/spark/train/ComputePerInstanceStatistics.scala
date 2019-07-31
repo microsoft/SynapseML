@@ -16,10 +16,10 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.injections.MetadataUtilities
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
-  val epsilon = 1e-15
+  val Epsilon = 1e-15
 }
 
-trait ComputePerInstanceStatisticsParams extends Wrappable with DefaultParamsWritable
+trait CPISParams extends Wrappable with DefaultParamsWritable
   with HasLabelCol with HasScoresCol with HasScoredLabelsCol with HasScoredProbabilitiesCol with HasEvaluationMetric {
   /** Param "evaluationMetric" is the metric to evaluate the models with. Default is "all"
     *
@@ -42,7 +42,7 @@ trait ComputePerInstanceStatisticsParams extends Wrappable with DefaultParamsWri
   * - log_loss
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer
-  with ComputePerInstanceStatisticsParams {
+  with CPISParams {
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
@@ -73,10 +73,10 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
 
       val logLossFunc = udf((scoredLabel: Double, scores: org.apache.spark.ml.linalg.Vector) =>
         if (scoredLabel < numLevels) {
-          -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.epsilon, scores(scoredLabel.toInt))))
+          -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.Epsilon, scores(scoredLabel.toInt))))
         } else {
           // penalize if no label seen in training
-          -Math.log(ComputePerInstanceStatistics.epsilon)
+          -Math.log(ComputePerInstanceStatistics.Epsilon)
         })
       val probabilitiesColumnName =
         if (isDefined(scoredProbabilitiesCol)) getScoredProbabilitiesCol
@@ -92,8 +92,8 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
         dataset.select(col(scoresColumnName), col(labelColumnName).cast(DoubleType)).rdd.map {
           case Row(prediction: Double, label: Double) => (prediction, label)
         }
-      val l1LossFunc = udf((trueLabel:Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
-      val l2LossFunc = udf((trueLabel:Double, scoredLabel: Double) =>
+      val l1LossFunc = udf((trueLabel: Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
+      val l2LossFunc = udf((trueLabel: Double, scoredLabel: Double) =>
         {
           val loss = math.abs(trueLabel - scoredLabel)
           loss * loss

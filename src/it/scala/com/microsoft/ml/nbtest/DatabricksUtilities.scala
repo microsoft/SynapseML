@@ -42,7 +42,7 @@ object DatabricksUtilities {
 
   // ADB Info
   val region = "southcentralus"
-  val token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.adbToken)
+  val token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
   val authValue: String = "Basic " + BaseEncoding.base64()
     .encode(("token:" + token).getBytes("UTF-8"))
   val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"

@@ -21,7 +21,7 @@ object BinaryFileReader {
 
   private def recursePath(fileSystem: FileSystem,
                           path: Path,
-                          pathFilter:FileStatus => Boolean,
+                          pathFilter: FileStatus => Boolean,
                           visitedSymlinks: Set[Path]): Array[Path] ={
     val filteredPaths = fileSystem.listStatus(path).filter(pathFilter)
     val filteredDirs = filteredPaths.filter(fs => fs.isDirectory & !visitedSymlinks(fs.getPath))
@@ -30,7 +30,7 @@ object BinaryFileReader {
       .flatMap(p => recursePath(fileSystem, p, pathFilter, symlinksFound))
   }
 
-  def recursePath(fileSystem: FileSystem, path: Path, pathFilter:FileStatus => Boolean): Array[Path] ={
+  def recursePath(fileSystem: FileSystem, path: Path, pathFilter: FileStatus => Boolean): Array[Path] ={
     recursePath(fileSystem, path, pathFilter, Set())
   }
 
@@ -52,7 +52,7 @@ object BinaryFileReader {
     spark.read.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
       .option("seed", seed)
-      .option("inspectZip",inspectZip).load(globs.map(g => g.toString):_*)
+      .option("inspectZip",inspectZip).load(globs.map(g => g.toString): _*)
   }
 
   /** Read the directory of binary files from the local or remote source
@@ -66,7 +66,7 @@ object BinaryFileReader {
     spark.readStream.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
       .option("seed", seed)
-      .option("inspectZip",inspectZip).schema(BinaryFileSchema.schema).load(p.toString)
+      .option("inspectZip",inspectZip).schema(BinaryFileSchema.Schema).load(p.toString)
   }
 
   /**

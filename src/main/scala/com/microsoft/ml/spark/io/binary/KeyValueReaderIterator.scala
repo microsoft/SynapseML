@@ -42,11 +42,11 @@ private class KeyValueReaderIterator[K, V] (
   }
 
   override def close(): Unit = {
-    if (rowReader != null) {
+    if (rowReader != null) { //scalastyle:ignore null
       try {
         rowReader.close()
       } finally {
-        rowReader = null
+        rowReader = null //scalastyle:ignore null
       }
     }
   }

@@ -51,7 +51,7 @@ class SuperpixelTransformer(val uid: String) extends Transformer
   override def transformSchema(schema: StructType): StructType = {
     val inputType = schema(getInputCol).dataType
     assert(ImageSchemaUtils.isImage(inputType) || inputType == BinaryType)
-    schema.add(getOutputCol, SuperpixelData.schema)
+    schema.add(getOutputCol, SuperpixelData.Schema)
   }
 
 }

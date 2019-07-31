@@ -64,12 +64,12 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val dataset: DataFrame = createMockDataset
     val logisticRegressor = createLR.setLabelCol(mockLabelColumn)
     val decisionTreeClassifier = createDT.setLabelCol(mockLabelColumn)
-    val GBTClassifier = createGBT.setLabelCol(mockLabelColumn)
+    val gbtClassifier = createGBT.setLabelCol(mockLabelColumn)
     val naiveBayesClassifier = createNB.setLabelCol(mockLabelColumn)
     val randomForestClassifier = createRF.setLabelCol(mockLabelColumn)
     val model1 = logisticRegressor.fit(dataset)
     val model2 = decisionTreeClassifier.fit(dataset)
-    val model3 = GBTClassifier.fit(dataset)
+    val model3 = gbtClassifier.fit(dataset)
     val model4 = naiveBayesClassifier.fit(dataset)
     val model5 = randomForestClassifier.fit(dataset)
 
@@ -79,14 +79,14 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val bestModel = findBestModel.fit(dataset)
     // validate schema is as expected
     assert(bestModel.getAllModelMetrics.schema ==
-      StructType(Seq(StructField(FindBestModel.modelNameCol, StringType, true),
-        StructField(FindBestModel.metricsCol, DoubleType, true),
-        StructField(FindBestModel.paramsCol, StringType, true))))
+      StructType(Seq(StructField(FindBestModel.ModelNameCol, StringType, true),
+        StructField(FindBestModel.MetricsCol, DoubleType, true),
+        StructField(FindBestModel.ParamsCol, StringType, true))))
     // validate we got metrics for every model
     assert(bestModel.getAllModelMetrics.count() == 5)
     // validate AUC looks valid
     bestModel.getAllModelMetrics
-      .select(FindBestModel.metricsCol)
+      .select(FindBestModel.MetricsCol)
       .collect()
       .foreach(value => assert(value.getDouble(0) >= 0.5))
   }

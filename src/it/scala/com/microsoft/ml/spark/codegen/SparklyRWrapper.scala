@@ -103,7 +103,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
 
   private def invokeParamStrTemplate(pname: String, param: Param[_]): String = {
     val convertedParam = getParamConversion(param.getClass.getSimpleName, pname)
-    s"""${scopeDepth}invoke(\"set${StringUtils.capitalize(pname)}\", $convertedParam)""".stripMargin
+    s"""${ScopeDepth}invoke(\"set${StringUtils.capitalize(pname)}\", $convertedParam)""".stripMargin
   }
 
   protected def getSparklyRWrapperBase: String = {
@@ -126,7 +126,7 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
                            additionalParams
     val setParams = setParamsList.mkString(" %>%\n")
     val simpleClassName = entryPoint.getClass.getSimpleName
-    val classDocString  = classDocTemplate(simpleClassName).replace("\n", s"\n#' ${scopeDepth}")
+    val classDocString  = classDocTemplate(simpleClassName).replace("\n", s"\n#' ${ScopeDepth}")
     val paramDocString  = paramDocList.mkString("\n#' ")
 
     val docString =
@@ -145,10 +145,10 @@ abstract class SparklyRParamsWrapper(entryPoint: Params,
   }
 
   def writeWrapperToFile(dir: File): Unit = {
-    writeFile(sparklyRNamespacePath, s"export(ml_$entryPointName)\n",
+    writeFile(SparklyRNamespacePath, s"export(ml_$entryPointName)\n",
               StandardOpenOption.APPEND)
     writeFile(new File(dir, s"$entryPointName.R"),
-              copyrightLines + sparklyRWrapperBuilder())
+              CopyrightLines + sparklyRWrapperBuilder())
   }
 
 }

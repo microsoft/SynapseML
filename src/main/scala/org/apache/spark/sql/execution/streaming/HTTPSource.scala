@@ -32,7 +32,7 @@ object HTTPSource {
 
   // Global datastructure that holds the callbacks (function taking request ID and data and sends response)
   // for the server (keys are server names)
-  var replyCallbacks: mutable.Map[String, (String, HTTPResponseData) => Unit] = mutable.Map()
+  var ReplyCallbacks: mutable.Map[String, (String, HTTPResponseData) => Unit] = mutable.Map()
 
 }
 
@@ -68,12 +68,12 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
   @GuardedBy("this")
   private val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), port), 0)
   server.createContext(s"/$name", new QueueHandler)
-  server.setExecutor(null)
+  server.setExecutor(null) //scalastyle:ignore null
   server.start()
-  HTTPSource.replyCallbacks.update(name, reply)
+  HTTPSource.ReplyCallbacks.update(name, reply)
 
   /** Returns the schema of the data from this source */
-  override def schema: StructType = HTTPSourceV2.SCHEMA
+  override def schema: StructType = HTTPSourceV2.Schema
 
   override def getOffset: Option[Offset] = synchronized {
     if (currentOffset.offset == -1) None else Some(currentOffset)
@@ -93,9 +93,9 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
       requests.slice(sliceStart, sliceEnd).map{ case(id, request) =>
         val row = new GenericInternalRow(2)
         val idRow = new GenericInternalRow(3)
-        idRow.update(0, null)
+        idRow.update(0, null) //scalastyle:ignore null
         idRow.update(1, UTF8String.fromString(id.toString))
-        idRow.update(2, null)
+        idRow.update(2, null) //scalastyle:ignore null
         row.update(0, idRow)
         row.update(1, hrdToIr(HTTPRequestData.fromHTTPExchange(request)))
         row.asInstanceOf[InternalRow]
@@ -133,7 +133,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
   /** Stop this source. */
   override def stop(): Unit = synchronized {
     server.stop(0)
-    HTTPSource.replyCallbacks.remove(name)
+    HTTPSource.ReplyCallbacks.remove(name)
     ()
   }
 
@@ -159,7 +159,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
-    ("HTTP", HTTPSourceV2.SCHEMA)
+    ("HTTP", HTTPSourceV2.Schema)
   }
 
   override def createSource(sqlContext: SQLContext,
@@ -194,17 +194,20 @@ class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
     val replyType = data.schema(replyCol).dataType
     val idType = data.schema(idCol).dataType
     assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
-    assert(idType == HTTPSourceV2.ID_SCHEMA, s"id col is $idType, need ${HTTPSourceV2.ID_SCHEMA}")
+    assert(idType == HTTPSourceV2.IdSchema, s"id col is $idType, need ${HTTPSourceV2.IdSchema}")
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
 
     val replies = data.queryExecution.toRdd.map { ir =>
+      //scalastyle:off magic.number
       (ir.getStruct(idColIndex, 3).getString(1), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      //scalastyle:on magic.number
+
       // 4 is the Number of fields of HTTPResponseData,
       // there does not seem to be a way to get this w/o reflection
     }.collect()
 
-    val callback = HTTPSource.replyCallbacks(options("name"))
+    val callback = HTTPSource.ReplyCallbacks(options("name"))
     replies.foreach(callback.tupled)
   }
 

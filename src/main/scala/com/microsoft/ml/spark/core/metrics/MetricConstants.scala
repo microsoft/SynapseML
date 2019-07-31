@@ -10,10 +10,10 @@ object MetricConstants {
   val RmseSparkMetric = "rmse"
   val R2SparkMetric   = "r2"
   val MaeSparkMetric  = "mae"
-  val RegressionMetrics = "regression"
+  val RegressionMetricsName = "regression"
 
-  val regressionMetrics = Set(MseSparkMetric, RmseSparkMetric, R2SparkMetric,
-    MaeSparkMetric, RegressionMetrics)
+  val RegressionMetrics = Set(MseSparkMetric, RmseSparkMetric, R2SparkMetric,
+    MaeSparkMetric, RegressionMetricsName)
 
   // Binary Classification metrics
   val AreaUnderROCMetric   = "areaUnderROC"
@@ -21,10 +21,10 @@ object MetricConstants {
   val AccuracySparkMetric  = "accuracy"
   val PrecisionSparkMetric = "precision"
   val RecallSparkMetric    = "recall"
-  val ClassificationMetrics = "classification"
+  val ClassificationMetricsName = "classification"
 
-  val classificationMetrics = Set(AreaUnderROCMetric, AucSparkMetric, AccuracySparkMetric,
-    PrecisionSparkMetric, RecallSparkMetric, ClassificationMetrics)
+  val ClassificationMetrics = Set(AreaUnderROCMetric, AucSparkMetric, AccuracySparkMetric,
+    PrecisionSparkMetric, RecallSparkMetric, ClassificationMetricsName)
 
   val AllSparkMetrics      = "all"
 
@@ -50,7 +50,7 @@ object MetricConstants {
   val ConfusionMatrix = "confusion_matrix"
 
   // Metric to column name
-  val metricToColumnName = Map(AccuracySparkMetric -> AccuracyColumnName,
+  val MetricToColumnName = Map(AccuracySparkMetric -> AccuracyColumnName,
     PrecisionSparkMetric -> PrecisionColumnName,
     RecallSparkMetric    -> RecallColumnName,
     MseSparkMetric       -> MseColumnName,
@@ -58,9 +58,9 @@ object MetricConstants {
     R2SparkMetric        -> R2ColumnName,
     MaeSparkMetric       -> MaeColumnName)
 
-  val classificationColumns = List(AccuracyColumnName, PrecisionColumnName, RecallColumnName)
+  val ClassificationColumns = List(AccuracyColumnName, PrecisionColumnName, RecallColumnName)
 
-  val regressionColumns = List(MseColumnName, RmseColumnName, R2ColumnName, MaeColumnName)
+  val RegressionColumns = List(MseColumnName, RmseColumnName, R2ColumnName, MaeColumnName)
 
   val ClassificationEvaluationType = "Classification"
   val EvaluationType = "evaluation_type"
@@ -77,14 +77,14 @@ object MetricConstants {
   val L1LossMetric  = "L1_loss"
   val L2LossMetric  = "L2_loss"
 
-  val regressionPerInstanceMetrics = Set(RegressionMetrics)
+  val RegressionPerInstanceMetrics = Set(RegressionMetricsName)
 
   // Classification per instance metrics
   val LogLossMetric = "log_loss"
 
-  val classificationPerInstanceMetrics = Set(ClassificationMetrics)
+  val ClassificationPerInstanceMetrics = Set(ClassificationMetricsName)
 
-  val findBestModelMetrics =
+  val FindBestModelMetrics =
     Set(MetricConstants.MseSparkMetric,
         MetricConstants.RmseSparkMetric,
         MetricConstants.R2SparkMetric,

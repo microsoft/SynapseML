@@ -185,9 +185,9 @@ class ImageTransformerSuite extends LinuxOnly
 
     val preprocessed = tr.transform(images)
 
-    val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
+    val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
-    out_sizes.foreach { row: Row =>
+    outSizes.foreach { row: Row =>
         assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
     }
 
@@ -215,9 +215,9 @@ class ImageTransformerSuite extends LinuxOnly
     val preprocessed = tr.transform(binaries).na.drop
     assert(preprocessed.count() == 30)
 
-    val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
+    val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
-    out_sizes.foreach(
+    outSizes.foreach(
       (row: Row) => {
         assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
       }
@@ -239,9 +239,9 @@ class ImageTransformerSuite extends LinuxOnly
     val preprocessed = tr.transform(binaries).na.drop
     assert(preprocessed.count() == 30)
 
-    val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
+    val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
-    out_sizes.foreach(
+    outSizes.foreach(
       (row: Row) => {
         assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
       }
@@ -257,9 +257,9 @@ class ImageTransformerSuite extends LinuxOnly
 
     val preprocessed = tr.transform(images)
 
-    val out_sizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
+    val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
-    out_sizes.foreach(
+    outSizes.foreach(
       (row: Row) => {
         assert(row.getInt(0) == 22 && row.getInt(1) == 26, "output images have incorrect size")
       }

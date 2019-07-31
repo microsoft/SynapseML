@@ -21,7 +21,7 @@ object JarLoadingUtils {
     }
   }
 
-  private[spark] val allClasses = {
+  private[spark] val AllClasses = {
     ClassPath.from(getClass.getClassLoader)
       //.getTopLevelClassesRecursive("com.microsoft").asScala.toList
       .getResources.asScala.toList
@@ -72,7 +72,7 @@ object JarLoadingUtils {
   }
 
   def load[T: ClassTag](instantiate: Class[_] => Any, debug: Boolean): List[T] = {
-    allClasses.filter(lc => classTag[T].runtimeClass.isAssignableFrom(lc)).flatMap { lc =>
+    AllClasses.filter(lc => classTag[T].runtimeClass.isAssignableFrom(lc)).flatMap { lc =>
       catchInstantiationErrors(lc, instantiate, debug)
     }.asInstanceOf[List[T]]
   }
@@ -80,7 +80,7 @@ object JarLoadingUtils {
   def loadClass[T: ClassTag](debug: Boolean): List[T] = load[T](lc => lc.newInstance(), debug)
 
   def loadTest[T: ClassTag](instantiate: Class[_] => Any, debug: Boolean): List[T] = {
-    val testClasses = allClasses.filter(lc => classTag[T].runtimeClass.isAssignableFrom(lc))
+    val testClasses = AllClasses.filter(lc => classTag[T].runtimeClass.isAssignableFrom(lc))
     testClasses.flatMap { lc =>
       catchInstantiationErrors(lc, instantiate, debug)
     }.asInstanceOf[List[T]]

@@ -58,9 +58,9 @@ object CNTKUtils {
     ArrayType(variableToElementType(v))
   }
 
-  val argumentPrefix = "ARGUMENT_" // used for indexing into the arguments array of the model
+  val ArgumentPrefix = "ARGUMENT_" // used for indexing into the arguments array of the model
 
-  val outputPrefix = "OUTPUT_" // used for indexing into the outputs array of the modes
+  val OutputPrefix = "OUTPUT_" // used for indexing into the outputs array of the modes
 
 }
 
@@ -113,16 +113,16 @@ class SerializableFunction(f: Function) extends Serializable {
   }
 
   def getInputVar(name: String): Variable = {
-    if (name.startsWith(CNTKUtils.argumentPrefix)){
-      fvar.getArguments.get(name.stripPrefix(CNTKUtils.argumentPrefix).toInt)
+    if (name.startsWith(CNTKUtils.ArgumentPrefix)){
+      fvar.getArguments.get(name.stripPrefix(CNTKUtils.ArgumentPrefix).toInt)
     }else{
       findByNameSafe(name)
     }
   }
 
   def getOutputVar(name: String): Variable = {
-    if (name.startsWith(CNTKUtils.outputPrefix)){
-      fvar.getOutputs.get(name.stripPrefix(CNTKUtils.outputPrefix).toInt)
+    if (name.startsWith(CNTKUtils.OutputPrefix)){
+      fvar.getOutputs.get(name.stripPrefix(CNTKUtils.OutputPrefix).toInt)
     }else{
       findByNameSafe(name)
     }

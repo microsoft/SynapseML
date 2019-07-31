@@ -83,7 +83,7 @@ private[streaming] class HTTPDataWriter(partitionId: Int,
     val mid = id.getString(0)
     val rid = id.getString(1)
     val pid = id.getInt(2)
-    val reply = fromRow(row.getStruct(replyColIndex, 4))
+    val reply = fromRow(row.getStruct(replyColIndex, 4)) //scalastyle:ignore magic.number
     HTTPSourceStateHolder.getServer(name).replyTo(mid, rid, reply)
     ids.append((rid, pid))
   }

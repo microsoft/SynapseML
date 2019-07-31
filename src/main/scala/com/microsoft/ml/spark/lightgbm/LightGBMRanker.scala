@@ -28,7 +28,7 @@ class LightGBMRanker(override val uid: String)
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
   // Set default objective to be ranking classification
-  setDefault(objective -> LightGBMConstants.rankObjective)
+  setDefault(objective -> LightGBMConstants.RankObjective)
 
   val maxPosition = new IntParam(this, "maxPosition", "optimized NDCG at this position")
   setDefault(maxPosition -> 20)

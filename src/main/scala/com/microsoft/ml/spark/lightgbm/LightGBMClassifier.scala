@@ -29,7 +29,7 @@ class LightGBMClassifier(override val uid: String)
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
-  setDefault(objective -> LightGBMConstants.binaryObjective)
+  setDefault(objective -> LightGBMConstants.BinaryObjective)
 
   val isUnbalance = new BooleanParam(this, "isUnbalance",
     "Set to true if training data is unbalanced in binary classification scenario")
@@ -44,7 +44,7 @@ class LightGBMClassifier(override val uid: String)
      */
     val actualNumClasses = getNumClasses(dataset)
     val metric =
-      if (getObjective == LightGBMConstants.binaryObjective) "binary_logloss,auc"
+      if (getObjective == LightGBMConstants.BinaryObjective) "binary_logloss,auc"
       else "multiclass"
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
@@ -107,18 +107,13 @@ class LightGBMClassificationModel(
     var outputData = dataset
     var numColsOutput = 0
     if (getRawPredictionCol.nonEmpty) {
-      val predictRawUDF = udf { (features: Any) =>
-        predictRaw(features.asInstanceOf[Vector])
-      }
+      val predictRawUDF = udf(predictRaw _)
       outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
     if (getProbabilityCol.nonEmpty) {
-      val probabilityUDF = udf { (features: Any) =>
-        predictProbability(features.asInstanceOf[Vector])
-      }
-      val probUDF = probabilityUDF(col(getFeaturesCol))
-      outputData = outputData.withColumn(getProbabilityCol, probUDF)
+      val probabilityUDF = udf(predictProbability _)
+      outputData = outputData.withColumn(getProbabilityCol,  probabilityUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
     if (getPredictionCol.nonEmpty) {
@@ -128,10 +123,7 @@ class LightGBMClassificationModel(
       } else if (getProbabilityCol.nonEmpty) {
         udf(probability2prediction _).apply(col(getProbabilityCol))
       } else {
-        val predictUDF = udf { (features: Any) =>
-          predict(features.asInstanceOf[Vector])
-        }
-        predictUDF(col(getFeaturesCol))
+        udf(predict _).apply(col(getFeaturesCol))
       }
       outputData = outputData.withColumn(getPredictionCol, predUDF)
       numColsOutput += 1

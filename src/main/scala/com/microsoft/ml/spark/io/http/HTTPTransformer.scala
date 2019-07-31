@@ -81,7 +81,7 @@ class HTTPTransformer(val uid: String)
     with HasOutputCol with HasHandler
     with ComplexParamsWritable {
 
-  setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000))
+  setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000)) //scalastyle:ignore magic.number
 
   def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
@@ -89,7 +89,7 @@ class HTTPTransformer(val uid: String)
     getConcurrency match {
       case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout*1000).toInt)
       case n if n > 1 =>
-        val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong)
+        val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong) //scalastyle:ignore magic.number
         val ec = ExecutionContext.global
         new AsyncHTTPClient(getHandler,n, dur, (getTimeout*1000).toInt)(ec)
     }
@@ -122,8 +122,8 @@ class HTTPTransformer(val uid: String)
   def copy(extra: ParamMap): HTTPTransformer = defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {
-    assert(schema(getInputCol).dataType == HTTPSchema.request)
-    schema.add(getOutputCol, HTTPSchema.response, nullable=true)
+    assert(schema(getInputCol).dataType == HTTPSchema.Request)
+    schema.add(getOutputCol, HTTPSchema.Response, nullable=true)
   }
 
 }

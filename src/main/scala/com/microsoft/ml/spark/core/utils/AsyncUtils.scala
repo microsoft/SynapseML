@@ -14,7 +14,7 @@ object AsyncUtils {
                                 (implicit ec: ExecutionContext): Iterator[T] = {
     bufferedAwaitSafe(it, concurrency, timeout).map{
       case Success(data) => data
-      case f:Failure[T] => throw f.exception
+      case f: Failure[T] => throw f.exception
     }
   }
 

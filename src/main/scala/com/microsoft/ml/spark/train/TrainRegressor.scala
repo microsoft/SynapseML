@@ -48,9 +48,9 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     val numFeatures: Int = getModel match {
       case _: DecisionTreeRegressor | _: GBTRegressor | _: RandomForestRegressor =>
         oneHotEncodeCategoricals = false
-        FeaturizeUtilities.numFeaturesTreeOrNNBased
+        FeaturizeUtilities.NumFeaturesTreeOrNNBased
       case _ =>
-        FeaturizeUtilities.numFeaturesDefault
+        FeaturizeUtilities.NumFeaturesDefault
     }
 
     val regressor = getModel match {

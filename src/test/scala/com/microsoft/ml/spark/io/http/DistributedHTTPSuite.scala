@@ -393,25 +393,25 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         }
       }
 
-      val foo = SharedSingleton {
+      val Foo = SharedSingleton {
         new FooHolder
       }
 
       import session.sqlContext.implicits._
 
-      val df: DataFrame = session.sparkContext.parallelize(Seq(Tuple1("placeholder")))
+      val DF: DataFrame = session.sparkContext.parallelize(Seq(Tuple1("placeholder")))
         .toDF("plcaholder")
         .mapPartitions { _ =>
-          foo.get.increment()
-          Iterator(Row(foo.get.state))
+          Foo.get.increment()
+          Iterator(Row(Foo.get.state))
         }(RowEncoder(new StructType().add("state", IntegerType))).cache()
-      val states1: Array[Row] = df.collect()
+      val States1: Array[Row] = DF.collect()
 
-      val df2: DataFrame = df.mapPartitions { _ =>
-        Iterator(Row(foo.get.state))
+      val DF2: DataFrame = DF.mapPartitions { _ =>
+        Iterator(Row(Foo.get.state))
       }(RowEncoder(new StructType().add("state", IntegerType)))
-      val states2: Array[Row] = df2.collect()
-      assert(states2.forall(_.getInt(0) === states2.length))
+      val States2: Array[Row] = DF2.collect()
+      assert(States2.forall(_.getInt(0) === States2.length))
     }
   }
 

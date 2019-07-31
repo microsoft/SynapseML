@@ -23,7 +23,7 @@ import scala.reflect.runtime.universe.TypeTag
 abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol {
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  override def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, HTTPSchema.request)
+  override def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, HTTPSchema.Request)
 
 }
 
@@ -88,11 +88,11 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
 
   val udfScala = new UDFParam(
       this, "udfScala", "User Defined Function to be applied to the DF input col",
-      { x: UserDefinedFunction => x.dataType == HTTPSchema.request })
+      { x: UserDefinedFunction => x.dataType == HTTPSchema.Request })
 
   val udfPython = new UDPyFParam(
       this, "udfPython", "User Defined Python Function to be applied to the DF input col",
-      { x: UserDefinedPythonFunction => x.dataType == HTTPSchema.request })
+      { x: UserDefinedPythonFunction => x.dataType == HTTPSchema.Request })
 
   val udfParams = Seq(udfScala, udfPython)
 
@@ -115,11 +115,11 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
   }
 
   def setUDF[T](f: T => HttpRequestBase): this.type = {
-    setUDF(udf({ x: T => new HTTPRequestData(f(x)) }, HTTPSchema.request))
+    setUDF(udf({ x: T => new HTTPRequestData(f(x)) }, HTTPSchema.Request))
   }
 
   def setNullableUDF[T](f: T => Option[HttpRequestBase]): this.type = {
-    setUDF(udf({ x: T => f(x).map(new HTTPRequestData(_)) }, HTTPSchema.request))
+    setUDF(udf({ x: T => f(x).map(new HTTPRequestData(_)) }, HTTPSchema.Request))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -185,7 +185,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    assert(schema(getInputCol).dataType == HTTPSchema.response)
+    assert(schema(getInputCol).dataType == HTTPSchema.Response)
     schema.add(getOutputCol, getDataType)
   }
 
@@ -203,7 +203,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    assert(schema(getInputCol).dataType == HTTPSchema.response)
+    assert(schema(getInputCol).dataType == HTTPSchema.Response)
     schema.add(getOutputCol, StringType)
   }
 
@@ -257,7 +257,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    assert(schema(getInputCol).dataType == HTTPSchema.response)
+    assert(schema(getInputCol).dataType == HTTPSchema.Response)
     schema.add(getOutputCol, {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => f.dataType

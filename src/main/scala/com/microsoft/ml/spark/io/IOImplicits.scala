@@ -107,7 +107,7 @@ case class DataFrameExtensions(df: DataFrame) {
     a match {
       case s: Seq[_] => s.forall(fullJsonParsingSuccess)
       case a: Row => a.toSeq.forall(fullJsonParsingSuccess)
-      case null => false
+      case null => false //scalastyle:ignore null
       case _ => true
     }
   }
@@ -128,7 +128,7 @@ case class DataFrameExtensions(df: DataFrame) {
                    idCol: String = "id",
                    requestCol: String = "request",
                    parsingCheck: String = "none"): DataFrame = {
-    assert(df.schema(idCol).dataType == HTTPSourceV2.ID_SCHEMA &&
+    assert(df.schema(idCol).dataType == HTTPSourceV2.IdSchema &&
       df.schema(requestCol).dataType == HTTPRequestData.schema)
     schema match {
       case BinaryType =>
@@ -155,12 +155,12 @@ case class DataFrameExtensions(df: DataFrame) {
                   ServingUDFs.makeReplyUDF(
                     udf(jsonParsingError(schema) _, StringType)(col("body")),
                     StringType,
-                    code = lit(400),
+                    code = lit(400), //scalastyle:ignore magic.number
                     reason = lit("JSON Parsing Failure")),
                   col("id")
                 )
               )
-                .otherwise(lit(null)))
+                .otherwise(lit(null))) //scalastyle:ignore null
             .filter(col("didReply").isNull)
 
           df1.withColumn("parsed", udf({ x: Row =>

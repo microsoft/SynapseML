@@ -14,7 +14,7 @@ class VerifyGenerateDataset extends TestBase {
     val numSlotsPerVectorCol = Array(15, 15)
     val seed = 1337
     val df = GenerateDataset
-      .generateDataset(session, new BasicDatasetGenerationConstraints(numRows, numCols, numSlotsPerVectorCol),
+      .generateDataset(session, new BasicDatasetGenConstraints(numRows, numCols, numSlotsPerVectorCol),
         seed.toLong)
     assert(df.columns.length == numCols)
     assert(df.count == numRows)
@@ -27,7 +27,7 @@ class VerifyGenerateDataset extends TestBase {
     val seed = 1337
 
     val datasets = (0 to 10).map(i => GenerateDataset
-      .generateDataset(session, new BasicDatasetGenerationConstraints(numRows, numCols, numSlotsPerVectorCol),
+      .generateDataset(session, new BasicDatasetGenConstraints(numRows, numCols, numSlotsPerVectorCol),
         seed.toLong))
 
     assert(datasets.forall(df => verifyResult(df, datasets(0))), "Datasets must be equal")
@@ -38,7 +38,7 @@ class VerifyGenerateDataset extends TestBase {
     val numCols = 10
 
     val datasets = (0 to 10).map(i => GenerateDataset
-      .generateDataset(session, new BasicDatasetGenerationConstraints(numRows, numCols, Array()), i.toLong))
+      .generateDataset(session, new BasicDatasetGenConstraints(numRows, numCols, Array()), i.toLong))
 
     assert(!datasets.forall(df => verifyResult(df, datasets(0))), "Datasets must not be equal for different seeds")
   }

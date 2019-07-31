@@ -12,8 +12,8 @@ import org.apache.spark.sql.types.{Metadata, StructField, StructType}
 object MetricUtils {
 
   def isClassificationMetric(metric: String): Boolean = {
-    if (MetricConstants.regressionMetrics.contains(metric)) false
-    else if (MetricConstants.classificationMetrics.contains(metric)) true
+    if (MetricConstants.RegressionMetrics.contains(metric)) false
+    else if (MetricConstants.ClassificationMetrics.contains(metric)) true
     else throw new Exception("Invalid metric specified")
   }
 
@@ -27,7 +27,7 @@ object MetricUtils {
         throw new Exception("Please score the model prior to evaluating")
       } else if (evaluationMetric == MetricConstants.AllSparkMetrics) {
         throw new Exception("Please specify whether you are using evaluation for " +
-          MetricConstants.ClassificationMetrics + " or " + MetricConstants.RegressionMetrics +
+          MetricConstants.ClassificationMetricsName + " or " + MetricConstants.RegressionMetricsName +
           " instead of " + MetricConstants.AllSparkMetrics)
       }
       ("custom model", labelCol.get,

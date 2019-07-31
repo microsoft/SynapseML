@@ -36,12 +36,12 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils._
 
   val moduleName = "train-classifier"
-  val LRName = "LogisticRegression"
-  val DTName = "DecisionTreeClassification"
-  val RFName = "RandomForestClassification"
-  val GBTName = "GradientBoostedTreesClassification"
-  val NBName = "NaiveBayesClassifier"
-  val MLPName = "MultilayerPerceptronClassifier"
+  val lrName = "LogisticRegression"
+  val dtName = "DecisionTreeClassification"
+  val rfName = "RandomForestClassification"
+  val gbtName = "GradientBoostedTreesClassification"
+  val nbName = "NaiveBayesClassifier"
+  val mlpName = "MultilayerPerceptronClassifier"
   val mockLabelCol = "Label"
 
   def createMockDataset: DataFrame = {
@@ -166,7 +166,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
       val fileLocation = binaryTrainFile(fileName).toString
       val results = readAndScoreDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
       results.foreach { case (name, result) =>
-        val probCol = if (Set(GBTName, MLPName)(name)) {
+        val probCol = if (Set(gbtName, mlpName)(name)) {
           SchemaConstants.ScoredLabelsColumn
         } else {
           SchemaConstants.ScoresColumn
@@ -185,7 +185,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
       val results =
         readAndScoreDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
 
-      val multiClassModelResults = results.filter(Set(LRName, DTName, RFName, NBName))
+      val multiClassModelResults = results.filter(Set(lrName, dtName, rfName, nbName))
       multiClassModelResults.foreach { case (name, result) =>
         evalMulticlass(name + s"_${fileName}_", result,
           labelCol, SchemaConstants.ScoredLabelsColumn, decimals)
@@ -210,13 +210,13 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
         .load(fileLocation)
 
     val modelsToExclude = List(
-      if (!includeNaiveBayes) List(NBName) else Nil,
-      if (!includeNonProb) List(GBTName, MLPName) else Nil)
+      if (!includeNaiveBayes) List(nbName) else Nil,
+      if (!includeNonProb) List(gbtName, mlpName) else Nil)
       .flatten.toSet
 
-    Map(LRName -> createLR, DTName -> createDT,
-      GBTName -> createGBT, RFName -> createRF,
-      MLPName -> createMLP, NBName -> createNB)
+    Map(lrName -> createLR, dtName -> createDT,
+      gbtName -> createGBT, rfName -> createRF,
+      mlpName -> createMLP, nbName -> createNB)
       .mapValues(creator => creator.setLabelCol(labelColumnName))
       .filterKeys(!modelsToExclude(_))
       .mapValues(trainScoreDataset(labelColumnName, dataset, _))
@@ -293,7 +293,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
 
 /** Test helper methods for Train Classifier module. */
 object TrainClassifierTestUtilities {
-  val defaultFeaturesCol = "mlfeatures"
+  val DefaultFeaturesCol = "mlfeatures"
 
   //TODO none of these functions should require a label name,
   //TODO thats the whole point of the .setLabelColumn call
@@ -352,7 +352,7 @@ object TrainClassifierTestUtilities {
   private def wrap(est: Estimator[_ <: Model[_]]): TrainClassifier = {
     new TrainClassifier()
       .setModel(est)
-      .setFeaturesCol(defaultFeaturesCol)
+      .setFeaturesCol(DefaultFeaturesCol)
   }
 
   def trainScoreDataset(labelColumn: String, dataset: DataFrame,

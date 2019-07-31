@@ -11,7 +11,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, _}
-import org.apache.spark.streaming.{Seconds=>SparkSeconds,StreamingContext}
+import org.apache.spark.streaming.{Seconds => SparkSeconds, StreamingContext}
 import org.scalactic.source.Position
 import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest._
@@ -42,10 +42,10 @@ trait LinuxOnly extends TestBase {
 
 trait Flaky extends TestBase {
 
-  val retyMillis: Array[Int] = Array(0,100,100)
+  val retyMillis: Array[Int] = Array(0, 100, 100)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
-    super.test(testName, testTags: _*){
+    super.test(testName, testTags: _*) {
       tryWithRetries(retyMillis)(testFun _)
     }
   }
@@ -54,16 +54,17 @@ trait Flaky extends TestBase {
 
 trait TimeLimitedFlaky extends TestBase with TimeLimits {
 
-  val timeoutInSeconds: Int = 5*60
+  val timeoutInSeconds: Int = 5 * 60
 
-  val retyMillis: Array[Int] = Array(0,100,100)
+  val retyMillis: Array[Int] = Array(0, 100, 100)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
-    super.test(testName, testTags: _*){
+    super.test(testName, testTags: _*) {
       tryWithRetries(retyMillis) {
-        failAfter(Span(timeoutInSeconds, Seconds)){
+        failAfter(Span(timeoutInSeconds, Seconds)) {
           println("Executing time-limited flaky function")
-          testFun _}
+          testFun _
+        }
       }
     }
   }
@@ -91,7 +92,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   protected lazy val sc: SparkContext = session.sparkContext
   protected lazy val ssc: StreamingContext = new StreamingContext(sc, SparkSeconds(1))
 
-  protected lazy val dir = SparkSessionFactory.workingDir
+  protected lazy val dir = SparkSessionFactory.WorkingDir
 
   private var tmpDirCreated = false
   protected lazy val tmpDir = {
@@ -151,7 +152,9 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
       } catch {
         case e: Exception if (i + 1) < times.length =>
           println(s"RETRYING after $t ms:  Caught error: $e ")
-          blocking {Thread.sleep(t.toLong)}
+          blocking {
+            Thread.sleep(t.toLong)
+          }
       }
     }
     throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")
@@ -166,18 +169,18 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   def interceptWithoutLogging[E <: Throwable: ClassTag](e: => Any): Unit = {
-    withoutLogging { intercept[E] { e }; () }
+    withoutLogging{intercept[E]{e}; ()}
   }
 
   def assertSparkException[E <: Throwable: ClassTag](stage: PipelineStage, data: DataFrame): Unit = {
     withoutLogging {
       intercept[E] {
         val transformer = stage match {
-            case e: Estimator[_] => e.fit(data)
-            case t: Transformer  => t
-            case _ => sys.error(s"Unknown PipelineStage value: $stage")
-          }
-        transformer.transform(data).foreachPartition {it => it.toList; ()}
+          case e: Estimator[_] => e.fit(data)
+          case t: Transformer => t
+          case _ => sys.error(s"Unknown PipelineStage value: $stage")
+        }
+        transformer.transform(data).foreachPartition { it => it.toList; () }
       }
       ()
     }
@@ -204,7 +207,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def verifyResult(expected: DataFrame, result: DataFrame): Boolean = {
     assert(expected.count == result.count)
     assert(expected.schema.length == result.schema.length)
-    (expected.columns zip result.columns).forall{ case (x,y) => x == y }
+    (expected.columns zip result.columns).forall { case (x, y) => x == y }
   }
 
   def time[R](block: => R): R = {
@@ -214,17 +217,17 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   def getTime[R](block: => R): (R, Long) = {
-    val t0     = System.nanoTime()
+    val t0 = System.nanoTime()
     val result = block
-    val t1     = System.nanoTime()
-    (result, t1-t0)
+    val t1 = System.nanoTime()
+    (result, t1 - t0)
   }
 
   def getTime[R](n: Int)(block: => R): (Seq[R], Long) = {
-    val t0     = System.nanoTime()
+    val t0 = System.nanoTime()
     val results = (1 to n).map(i => block)
-    val t1     = System.nanoTime()
-    (results, (t1-t0)/n)
+    val t1 = System.nanoTime()
+    (results, (t1 - t0) / n)
   }
 
   private def logTime(name: String, time: Long, threshold: Long) = {
@@ -242,18 +245,20 @@ trait DataFrameEquality extends TestBase {
   val epsilon = 1e-4
   implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
 
-  implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector]{
+  implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
     def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr:DenseVector =>
-        a.values.zip(bArr.values).forall {case (x, y) => doubleEq.areEqual(x, y)}
+      case bArr: DenseVector =>
+        a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
     }
   }
 
-  implicit lazy val rowEq: Equality[Row] = new Equality[Row]{
+  implicit lazy val rowEq: Equality[Row] = new Equality[Row] {
     def areEqual(a: Row, bAny: Any): Boolean = bAny match {
-      case b:Row =>
-        if (a.length != b.length) { return false }
-        (0 until a.length).forall(j =>{
+      case b: Row =>
+        if (a.length != b.length) {
+          return false
+        }
+        (0 until a.length).forall(j => {
           a(j) match {
             case lhs: DenseVector =>
               lhs === b(j)
@@ -272,21 +277,21 @@ trait DataFrameEquality extends TestBase {
 
   val sortInDataframeEquality = false
 
-  val baseDfEq: Equality[DataFrame] = new Equality[DataFrame]{
+  val baseDfEq: Equality[DataFrame] = new Equality[DataFrame] {
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
-      case ds:Dataset[_] =>
+      case ds: Dataset[_] =>
         val b = ds.toDF()
         if (a.columns !== b.columns) {
           return false
         }
         val (aList, bList) = if (sortInDataframeEquality) {
-          (a.sort(a.columns.sorted.map(col):_*).collect(),
-            b.sort(b.columns.sorted.map(col):_*).collect())
+          (a.sort(a.columns.sorted.map(col): _*).collect(),
+            b.sort(b.columns.sorted.map(col): _*).collect())
         } else {
           (a.collect(), b.collect())
         }
 
-        if (aList.length != bList.length){
+        if (aList.length != bList.length) {
           return false
         }
         aList.zip(bList).forall { case (rowA, rowB) =>
@@ -299,7 +304,7 @@ trait DataFrameEquality extends TestBase {
 
   def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
     val result = eq.areEqual(df1, df2)
-    if(!result){
+    if (!result) {
       println("df1:")
       df1.show(10000, false)
       println("df2:")

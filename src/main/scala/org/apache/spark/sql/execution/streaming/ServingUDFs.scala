@@ -35,10 +35,11 @@ object ServingUDFs {
 
   private def sendReplyHelper(mapper: Row => HTTPResponseData)(serviceName: String, reply: Row, id: Row): Boolean = {
     if (Option(reply).isEmpty || Option(id).isEmpty) {
-      return null.asInstanceOf[Boolean]
+      null.asInstanceOf[Boolean] //scalastyle:ignore null
+    } else {
+      Try(HTTPSourceStateHolder.getServer(serviceName).replyTo(id.getString(0), id.getString(1), mapper(reply)))
+        .toOption.isDefined
     }
-    Try(HTTPSourceStateHolder.getServer(serviceName).replyTo(id.getString(0), id.getString(1), mapper(reply)))
-      .toOption.isDefined
   }
 
   def sendReplyUDF: UserDefinedFunction = {

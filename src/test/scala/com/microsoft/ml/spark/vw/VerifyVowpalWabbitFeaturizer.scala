@@ -172,7 +172,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val newSchema = new VowpalWabbitFeaturizer()
       .setInputCols(Array("data"))
       .setOutputCol("features")
-      .transformSchema(new StructType(Array(new StructField("data", DataTypes.DoubleType, true))))
+      .transformSchema(new StructType(Array(StructField("data", DataTypes.DoubleType, true))))
 
     assert(newSchema.fields(1).name == "features")
     assert(newSchema.fields(1).dataType.typeName == "vector")

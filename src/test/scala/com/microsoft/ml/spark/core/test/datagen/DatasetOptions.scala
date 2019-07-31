@@ -27,25 +27,25 @@ object DataOptions extends Enumeration {
   */
 case class DatasetOptions(columnTypes: ColumnOptions.ValueSet,
                           dataTypes: DataOptions.ValueSet,
-                          missingValuesOptions: DatasetMissingValuesGenerationOptions)
+                          missingValuesOptions: DatasetMissingValuesGenOptions)
 
 object DatasetOptions {
   def apply(columnOptions: ColumnOptions.ValueSet, dataOptions: DataOptions.ValueSet): DatasetOptions = {
-    val missingValueOptions = DatasetMissingValuesGenerationOptions(0.0, columnOptions, dataOptions)
+    val missingValueOptions = DatasetMissingValuesGenOptions(0.0, columnOptions, dataOptions)
     new DatasetOptions(columnOptions, dataOptions, missingValueOptions)
   }
 
   def apply(columnOption: ColumnOptions, dataOption: DataOptions): DatasetOptions = {
     val colOptions = ColumnOptions.ValueSet(columnOption)
     val dataOptions = DataOptions.ValueSet(dataOption)
-    val missingValueOptions = DatasetMissingValuesGenerationOptions(0.0, colOptions, dataOptions)
+    val missingValueOptions = DatasetMissingValuesGenOptions(0.0, colOptions, dataOptions)
     new DatasetOptions(colOptions, dataOptions, missingValueOptions)
   }
 }
 
-case class DatasetMissingValuesGenerationOptions(percentMissing: Double,
-                                                 columnTypesWithMissings: ColumnOptions.ValueSet,
-                                                 dataTypesWithMissings: DataOptions.ValueSet) {
+case class DatasetMissingValuesGenOptions(percentMissing: Double,
+                                          columnTypesWithMissings: ColumnOptions.ValueSet,
+                                          dataTypesWithMissings: DataOptions.ValueSet) {
   def hashMissing(): Boolean = {
     !columnTypesWithMissings.isEmpty && !dataTypesWithMissings.isEmpty
   }
