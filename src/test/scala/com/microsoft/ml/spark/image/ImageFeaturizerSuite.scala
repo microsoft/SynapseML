@@ -181,7 +181,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .withColumn("foo", udf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.powerbiURL), Map("concurrency" -> "1"))
+    PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
   }
 
   test("test layers of network", TestBase.Extended) {

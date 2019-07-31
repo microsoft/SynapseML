@@ -70,7 +70,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
       .setScoredLabelsCol(scoredLabelsCol)
       .setScoresCol(scoresCol)
       .setScoredProbabilitiesCol(probCol)
-      .setEvaluationMetric(MetricConstants.ClassificationMetrics)
+      .setEvaluationMetric(MetricConstants.ClassificationMetricsName)
     val evaluatedData = cms.transform(scoredData)
     validatePerInstanceClassificationStatistics(evaluatedData)
   }
@@ -151,7 +151,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
       val probabilities = row.get(row.length - 3).asInstanceOf[org.apache.spark.ml.linalg.Vector]
       val scoredLabel = row.getDouble(row.length - 2).toInt
       val logLoss = row.getDouble(row.length - 1)
-      val computedLogLoss = -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.epsilon,
+      val computedLogLoss = -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.Epsilon,
         probabilities(scoredLabel.toInt))))
       assert(computedLogLoss === logLoss)
     })

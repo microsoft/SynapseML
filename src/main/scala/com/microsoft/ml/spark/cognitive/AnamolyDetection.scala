@@ -190,7 +190,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     { case (result, count) =>
       Option(result)
         .map(res => fromRow(res).explode.map(toRow))
-        .getOrElse(Seq.fill[Row](count)(null))
+        .getOrElse(Seq.fill[Row](count)(null)) // scalastyle:ignore null
     }
   }
 
@@ -241,7 +241,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   override def responseDataType: DataType = ADEntireResponse.schema
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getErrorCol, ErrorUtils.errorSchema)
+    schema.add(getErrorCol, ErrorUtils.ErrorSchema)
       .add(getOutputCol, ADSingleResponse.schema)
   }
 }

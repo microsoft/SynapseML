@@ -117,7 +117,7 @@ private object TrainUtils extends Serializable {
   }
 
   def saveBoosterToString(boosterPtr: Option[SWIGTYPE_p_void], log: Logger): String = {
-    val bufferLength = LightGBMConstants.defaultBufferLength
+    val bufferLength = LightGBMConstants.DefaultBufferLength
     val bufferLengthPtr = lightgbmlib.new_longp()
     lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
     val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
@@ -281,7 +281,7 @@ private object TrainUtils extends Serializable {
           driverOutput =>
             log.info("sending finished status to driver")
             // If barrier execution mode enabled, create a barrier across tasks
-            driverOutput.write(s"${LightGBMConstants.finishedStatus}\n")
+            driverOutput.write(s"${LightGBMConstants.FinishedStatus}\n")
             driverOutput.flush()
         }.get
     }.get
@@ -300,7 +300,7 @@ private object TrainUtils extends Serializable {
             val workerStatus =
               if (emptyPartition) {
                 log.info("send empty status to driver")
-                LightGBMConstants.ignoreStatus
+                LightGBMConstants.IgnoreStatus
               } else {
                 val workerHost = driverSocket.getLocalAddress.getHostAddress
                 val workerInfo = s"$workerHost:$localListenPort"
@@ -318,7 +318,7 @@ private object TrainUtils extends Serializable {
                 setFinishedStatus(networkParams, localListenPort, log)
               }
             }
-            if (workerStatus != LightGBMConstants.ignoreStatus) {
+            if (workerStatus != LightGBMConstants.IgnoreStatus) {
               // Wait to get the list of nodes from the driver
               val nodes = driverInput.readLine()
               log.info(s"LightGBM worker got nodes for network init: $nodes")
@@ -333,7 +333,7 @@ private object TrainUtils extends Serializable {
   def networkInit(nodes: String, localListenPort: Int, log: Logger, retry: Int, delay: Long): Unit = {
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
-        LightGBMConstants.defaultListenTimeout, nodes.split(",").length), "Network init")
+        LightGBMConstants.DefaultListenTimeout, nodes.split(",").length), "Network init")
     } catch {
       case ex @ (_: Exception | _: Throwable) => {
         log.info(s"NetworkInit failed with exception on local port $localListenPort with exception: $ex")

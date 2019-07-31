@@ -21,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 abstract class PySparkParamsWrapper(entryPoint: Params,
                                     entryPointName: String,
                                     entryPointQualifiedName: String)
-    extends WritableWrapper {
+  extends WritableWrapper {
 
   private val additionalImports = Map(
     ("complexTypes",
@@ -30,6 +30,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   )
 
   val importClassString = ""
+
   // Note: in the get/set with kwargs, there is an if/else that is due to the fact that since 2.1.1,
   //   kwargs is an instance attribute.  Once support for 2.1.0 is dropped, the else part of the
   //   if/else can be removed
@@ -39,7 +40,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
                               paramGettersAndSettersString: String,
                               classDocString: String, paramDocString: String,
                               classParamDocString: String): String = {
-    s"""|$copyrightLines
+    s"""|$CopyrightLines
         |
         |import sys
         |if sys.version >= '3':
@@ -94,6 +95,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   // Complex parameters need type converters
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
     s"""        self.$pname = Param(self, \"$pname\", \"$explanation\", $other)"""
+
   protected def setTemplate(capName: String, pname: String, explanation: String): String = {
     s"""|    def set$capName(self, value):
         |        "\""
@@ -181,12 +183,14 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |    def _from_java(java_stage):
         |        module_name=${entryPointName}.__module__
         |        module_name=module_name.rsplit(".", 1)[0] + ".${
-      if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName}"
+      if (entryPointName.startsWith("_")) entryPointName.tail else entryPointName
+    }"
         |        return from_java(java_stage, module_name)
         |""".stripMargin
   }
 
   protected val header = ""
+
   protected def classDocTemplate(entryPointName: String) = s"""$header"""
 
   protected def paramDocTemplate(explanation: String, docType: String, indent: String): String = {
@@ -199,7 +203,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   private lazy val autoInheritedClasses =
     Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", objectBaseClass)
   // Complex types are not easily recognized by Py4j. They need special processing.
-  private lazy val complexTypes =  Set[String](
+  private lazy val complexTypes = Set[String](
     "TransformerParam",
     "TransformerArrayParam",
     "EstimatorParam",
@@ -219,13 +223,13 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   protected def getPythonizedDefault(paramDefault: String, param: Param[_],
                                      defaultStringIsParsable: Boolean): String =
     param match {
-      case _:BooleanParam =>
+      case _: BooleanParam =>
         StringUtils.capitalize(paramDefault)
-      case _: DoubleParam | _:FloatParam | _:IntParam | _:LongParam =>
+      case _: DoubleParam | _: FloatParam | _: IntParam | _: LongParam =>
         paramDefault
-      case _:IntArrayParam | _:StringArrayParam | _:DoubleArrayParam =>
+      case _: IntArrayParam | _: StringArrayParam | _: DoubleArrayParam =>
         paramDefault.stripPrefix("\"").stripSuffix("\"")
-      case _: MapParam[_,_] =>
+      case _: MapParam[_, _] =>
         paramDefault.stripPrefix("Map(").stripSuffix(")")
       case _ if defaultStringIsParsable =>
         "\"" + paramDefault + "\""
@@ -235,26 +239,26 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   protected def getPythonizedDataType(paramType: String): String =
     paramType match {
-      case "BooleanParam"     => "bool"
-      case "IntParam"         => "int"
-      case "LongParam"        => "long"
-      case "FloatParam"       => "float"
-      case "DoubleParam"      => "double"
-      case "StringParam"      => "str"
-      case "Param"            => "str"
+      case "BooleanParam" => "bool"
+      case "IntParam" => "int"
+      case "LongParam" => "long"
+      case "FloatParam" => "float"
+      case "DoubleParam" => "double"
+      case "StringParam" => "str"
+      case "Param" => "str"
       case "StringArrayParam" => "list"
       case "DoubleArrayParam" => "list"
-      case "IntArrayParam"    => "list"
-      case "ByteArrayParam"   => "list"
-      case "MapArrayParam"    => "dict"
-      case "MapParam"         => "dict"
-      case _                  => "object"
+      case "IntArrayParam" => "list"
+      case "ByteArrayParam" => "list"
+      case "MapArrayParam" => "dict"
+      case "MapParam" => "dict"
+      case _ => "object"
     }
 
   protected def getParamDefault(param: Param[_]): (String, String) = {
-    var paramDefault:   String = null
+    var paramDefault: String = null
     var pyParamDefault: String = "None"
-    var autogenSuffix:  String = null
+    var autogenSuffix: String = null
     var defaultStringIsParsable: Boolean = true
 
     param match {
@@ -263,12 +267,12 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       case p if entryPoint.hasDefault(param) =>
         val paramParent: String = param.parent
         paramDefault = param match {
-          case p: MapParam[_,_] => p.jsonEncode(entryPoint.getDefault(p).get)
+          case p: MapParam[_, _] => p.jsonEncode(entryPoint.getDefault(p).get)
           case p: Param[_] =>
             val paramValue = entryPoint.getDefault(param).get
             paramValue match {
-                case a: Array[_] => p.asInstanceOf[Param[Array[_]]].jsonEncode(a)
-                case v => v.toString
+              case a: Array[_] => p.asInstanceOf[Param[Array[_]]].jsonEncode(a)
+              case v => v.toString
             }
         }
         if (paramDefault.toLowerCase.contains(paramParent.toLowerCase))
@@ -294,11 +298,11 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     val imports = ListBuffer[String](additionalImports("utils"))
     val inheritedClasses = ListBuffer[String]()
     inheritedClasses ++= autoInheritedClasses
-    val paramsAndDefaults           = ListBuffer[String]()
+    val paramsAndDefaults = ListBuffer[String]()
     val paramDefinitionsAndDefaults = ListBuffer[String]()
-    val paramGettersAndSetters      = ListBuffer[String]()
-    val paramDocList                = ListBuffer[String]()
-    val classParamDocList           = ListBuffer[String]()
+    val paramGettersAndSetters = ListBuffer[String]()
+    val paramDocList = ListBuffer[String]()
+    val classParamDocList = ListBuffer[String]()
 
     // Iterate over the com.microsoft.ml.spark.core.serialize.params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
@@ -307,19 +311,19 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
       // Add special imports
       imports += additionalImports("complexTypes")
       // Add cache
-      paramDefinitionsAndDefaults += scopeDepth * 2 + "self._cache = {}"
+      paramDefinitionsAndDefaults += ScopeDepth * 2 + "self._cache = {}"
     }
     for (param <- allParams) {
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
-      if (param.isInstanceOf[ServiceParam[_]]){
+      if (param.isInstanceOf[ServiceParam[_]]) {
         paramGettersAndSetters +=
           setServiceTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
-      }else{
+            paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3))
+      } else {
         paramGettersAndSetters +=
           setTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3))
+            paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3))
       }
 
       if (isComplexType(param.getClass.getSimpleName)) {
@@ -329,41 +333,41 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
         classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
       } else if (param.isInstanceOf[ServiceParam[_]]) {
         paramDefinitionsAndDefaults +=
-          s"""${scopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
+          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
         paramGettersAndSetters +=
           getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
         classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
       } else {
         paramDefinitionsAndDefaults +=
-          s"""${scopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
+          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
         paramGettersAndSetters +=
           getTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
         paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 3)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
         classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, scopeDepth * 2)
+          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
       }
 
       val (pyParamDefault, autogenSuffix) = getParamDefault(param)
       paramsAndDefaults += pname + "=" + pyParamDefault
 
       if (pyParamDefault != "None")
-        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
+        paramDefinitionsAndDefaults += s"""${ScopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
-        paramDefinitionsAndDefaults += s"""${scopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
+        paramDefinitionsAndDefaults += s"""${ScopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
 
     }
 
     // Build strings
-    val importsString     = imports.mkString("\n")
+    val importsString = imports.mkString("\n")
     val inheritanceString = inheritedClasses.mkString(", ")
     val classParamsString = paramsAndDefaults.mkString(", ")
     val paramDefinitionsAndDefaultsString = paramDefinitionsAndDefaults.mkString("\n")
@@ -373,14 +377,14 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     //val classParamDocString = classParamDocList.mkString("\n")
     val classParamDocString = {
       if (classParamDocList.isEmpty) ""
-      else scopeDepth + "Args:\n\n" + classParamDocList.mkString("\n")
+      else ScopeDepth + "Args:\n\n" + classParamDocList.mkString("\n")
     }
 
     classTemplate(importsString, inheritanceString,
-                    classParamsString,
-                    paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
-                    classDocString, paramDocString, classParamDocString) + "\n" +
-           saveLoadTemplate(entryPointQualifiedName, entryPointName)
+      classParamsString,
+      paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
+      classDocString, paramDocString, classParamDocString) + "\n" +
+      saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 
   def pysparkWrapperBuilder(): String = {
@@ -389,9 +393,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   def writeWrapperToFile(dir: File): Unit = {
     val packageDir = entryPointQualifiedName
-      .replace("com.microsoft.ml.spark","")
+      .replace("com.microsoft.ml.spark", "")
       .split(".".toCharArray.head).dropRight(1)
-      .foldLeft(dir){ case (base, folder) => new File(base, folder)}
+      .foldLeft(dir) { case (base, folder) => new File(base, folder) }
     packageDir.mkdirs()
     new File(packageDir, "__init__.py").createNewFile()
     writeFile(new File(packageDir, entryPointName + ".py"), pysparkWrapperBuilder())
@@ -403,17 +407,17 @@ abstract class PySparkWrapper(entryPoint: PipelineStage,
                               entryPointName: String,
                               entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
-                               entryPointName,
-                               entryPointQualifiedName) {
+    entryPointName,
+    entryPointQualifiedName) {
   override val importClassString = "from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel"
 }
 
 class PySparkTransformerWrapper(entryPoint: Transformer,
                                 entryPointName: String,
                                 entryPointQualifiedName: String)
-    extends PySparkWrapper(entryPoint,
-                           entryPointName,
-                           entryPointQualifiedName) {
+  extends PySparkWrapper(entryPoint,
+    entryPointName,
+    entryPointQualifiedName) {
   override val psType = "Transformer"
 }
 
@@ -423,8 +427,8 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
                               companionModelName: String,
                               companionModelQualifiedName: String)
   extends PySparkWrapper(entryPoint,
-                         entryPointName,
-                         entryPointQualifiedName) {
+    entryPointName,
+    entryPointQualifiedName) {
 
   private val createModelStringTemplate =
     s"""|    def _create_model(self, java_model):
@@ -445,10 +449,10 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
 
   override def pysparkWrapperBuilder(): String = {
     Seq(super.pysparkWrapperBuilder,
-        createModelStringTemplate,
-        modelClassString(companionModelName, entryPointName),
-        saveLoadTemplate(companionModelQualifiedName, companionModelName),
-        "").mkString("\n")
+      createModelStringTemplate,
+      modelClassString(companionModelName, entryPointName),
+      saveLoadTemplate(companionModelQualifiedName, companionModelName),
+      "").mkString("\n")
   }
 
   override val psType = "Estimator"
@@ -459,8 +463,8 @@ class PySparkEvaluatorWrapper(entryPoint: Evaluator,
                               entryPointName: String,
                               entryPointQualifiedName: String)
   extends PySparkParamsWrapper(entryPoint,
-                               entryPointName,
-                               entryPointQualifiedName) {
+    entryPointName,
+    entryPointQualifiedName) {
   override val psType = "Evaluator"
   override val importClassString = "from pyspark.ml.evaluation import JavaEvaluator"
 }

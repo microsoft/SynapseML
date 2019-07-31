@@ -94,24 +94,24 @@ abstract class WrapperGenerator {
         }
       wrapper.writeWrapperToFile(wrapperDir)
       if (wrapperTests.isDefined) wrapperTests.get.writeWrapperToFile(wrapperTestDir)
-      if (debugMode) println(s"Generated wrapper for class ${myClass.getSimpleName}")
+      if (DebugMode) println(s"Generated wrapper for class ${myClass.getSimpleName}")
     } catch {
       // Classes without default constructor
       case ie: InstantiationException =>
-        if (debugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ie")
+        if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ie")
       // Classes with "private" modifiers on constructors
       case iae: IllegalAccessException =>
-        if (debugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $iae")
+        if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $iae")
       // Classes that require runtime library loading
       case ule: UnsatisfiedLinkError =>
-        if (debugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ule")
+        if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ule")
       case e: Exception =>
         println(s"Could not generate wrapper for class ${myClass.getSimpleName}: ${e.printStackTrace}")
     }
   }
 
   def generateWrappers(): Unit = {
-    JarLoadingUtils.allClasses
+    JarLoadingUtils.AllClasses
       .foreach(cl => writeWrappersToFile(cl, cl.getName))
   }
 
@@ -124,9 +124,9 @@ object PySparkWrapperGenerator {
 }
 
 class PySparkWrapperGenerator extends WrapperGenerator {
-  override def wrapperDir: File = new File(pySrcDir, "mmlspark")
+  override def wrapperDir: File = new File(PySrcDir, "mmlspark")
 
-  override def wrapperTestDir: File = new File(pyTestDir, "mmlspark")
+  override def wrapperTestDir: File = new File(PyTestDir, "mmlspark")
 
   // check if the class is annotated with InternalWrapper
   private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {
@@ -135,12 +135,12 @@ class PySparkWrapperGenerator extends WrapperGenerator {
   }
 
   def wrapperName(myClass: Class[_]): String = {
-    val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
+    val prefix = if (needsInternalWrapper(myClass)) InternalPrefix else ""
     prefix + myClass.getSimpleName
   }
 
   def modelWrapperName(myClass: Class[_], modelName: String): String = {
-    val prefix = if (needsInternalWrapper(myClass)) internalPrefix else ""
+    val prefix = if (needsInternalWrapper(myClass)) InternalPrefix else ""
     prefix + modelName
   }
 
@@ -204,9 +204,9 @@ object SparklyRWrapperGenerator {
 }
 
 class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
-  override def wrapperDir: File = rSrcDir
+  override def wrapperDir: File = RSrcDir
 
-  override def wrapperTestDir: File = rTestDir
+  override def wrapperTestDir: File = RTestDir
 
   // description file; need to encode version as decimal
   val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
@@ -215,8 +215,8 @@ class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
   val ver = "\\.g([0-9a-f]+)".r.replaceAllIn(ver0, m =>
     "." + scala.math.BigInt(m.group(1), 16).toString)
   val actualVer = if (ver == mmlVer) "" else s"\nMMLSparkVersion: $mmlVer"
-  rSrcDir.mkdirs()
-  writeFile(new File(rSrcDir, "DESCRIPTION"),
+  RSrcDir.mkdirs()
+  writeFile(new File(RSrcDir, "DESCRIPTION"),
     s"""|Package: mmlspark
         |Title: Access to MMLSpark via R
         |Description: Provides an interface to MMLSpark.
@@ -234,8 +234,8 @@ class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
         |""".stripMargin)
 
   // generate a new namespace file, import sparklyr
-  writeFile(sparklyRNamespacePath,
-    s"""|$copyrightLines
+  writeFile(SparklyRNamespacePath,
+    s"""|$CopyrightLines
         |import(sparklyr)
         |
         |export(sdf_transform)

@@ -15,6 +15,8 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
 
   override val epsilon: Double = 0.01
   import session.implicits._
+
+  //scalastyle:off null
   def createMockDataset: DataFrame = {
     Seq[(JInt, JInt, JDouble, JDouble, JInt)](
       (0,    2,    0.50, 0.60, 0),
@@ -57,13 +59,14 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
       (1, false))
       .toDF("col1", "col2")
   }
+  //scalastyle:on null
 
   test("Test for cleaning missing data with mean") {
     val dataset = createMockDataset
     val cmd = new CleanMissingData()
       .setInputCols(dataset.columns)
       .setOutputCols(dataset.columns)
-      .setCleaningMode(CleanMissingData.meanOpt)
+      .setCleaningMode(CleanMissingData.MeanOpt)
     val cmdModel = cmd.fit(dataset)
     val result = cmdModel.transform(dataset)
     // Calculate mean of column values
@@ -100,7 +103,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
     val cmd = new CleanMissingData()
       .setInputCols(dataset.columns)
       .setOutputCols(dataset.columns)
-      .setCleaningMode(CleanMissingData.medianOpt)
+      .setCleaningMode(CleanMissingData.MedianOpt)
     val cmdModel = cmd.fit(dataset)
     val result = cmdModel.transform(dataset)
     val medianValues = Array[Double](0, 3, 0.4, 0.6, 2)
@@ -113,7 +116,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
     val cmd = new CleanMissingData()
       .setInputCols(dataset.columns)
       .setOutputCols(dataset.columns)
-      .setCleaningMode(CleanMissingData.customOpt)
+      .setCleaningMode(CleanMissingData.CustomOpt)
       .setCustomValue(customValue.toString)
     val cmdModel = cmd.fit(dataset)
     val result = cmdModel.transform(dataset)
@@ -133,7 +136,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
     val cmd = new CleanMissingData()
       .setInputCols(Array("col2"))
       .setOutputCols(Array("col2"))
-      .setCleaningMode(CleanMissingData.customOpt)
+      .setCleaningMode(CleanMissingData.CustomOpt)
       .setCustomValue(customValue)
     val cmdModel = cmd.fit(dataset)
     val result = cmdModel.transform(dataset)
@@ -147,7 +150,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
     val cmd = new CleanMissingData()
       .setInputCols(Array("col2"))
       .setOutputCols(Array("col2"))
-      .setCleaningMode(CleanMissingData.customOpt)
+      .setCleaningMode(CleanMissingData.CustomOpt)
       .setCustomValue(customValue.toString)
     val cmdModel = cmd.fit(dataset)
     val result = cmdModel.transform(dataset)

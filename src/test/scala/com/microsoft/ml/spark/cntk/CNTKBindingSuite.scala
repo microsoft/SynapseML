@@ -52,7 +52,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
 
     val outputDataMap = new UnorderedMapVariableValuePtr()
     val outputVar = model.getOutputs.get(outputNum)
-    outputDataMap.add(outputVar, null)
+    outputDataMap.add(outputVar, null) //scalastyle:ignore null
 
     println(s"evaluating shape ${inputVal.getShape.getDimensions.toList}")
     model.evaluate(inputDataMap, outputDataMap, DeviceDescriptor.getCPUDevice)

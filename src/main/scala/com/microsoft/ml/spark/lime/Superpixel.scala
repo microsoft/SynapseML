@@ -26,7 +26,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 case class SuperpixelData(clusters: Seq[Seq[(Int, Int)]])
 
 object SuperpixelData {
-  val schema: DataType = ScalaReflection.schemaFor[SuperpixelData].dataType
+  val Schema: DataType = ScalaReflection.schemaFor[SuperpixelData].dataType
 
   def fromRow(r: Row): SuperpixelData = {
     val clusters = r.getAs[mutable.WrappedArray[mutable.WrappedArray[Row]]](0)
@@ -51,14 +51,14 @@ object Superpixel {
         SuperpixelData.fromSuperpixel(
           new Superpixel(ImageUtils.toBufferedImage(row), cellSize, modifier)
         )
-      }, SuperpixelData.schema)
+      }, SuperpixelData.Schema)
     } else if (inputType == BinaryType) {
       udf({ bytes: Array[Byte] =>
         val biOpt = ImageUtils.safeRead(bytes)
         biOpt.map(bi => SuperpixelData.fromSuperpixel(
           new Superpixel(bi, cellSize, modifier)
         ))
-      }, SuperpixelData.schema)
+      }, SuperpixelData.Schema)
     } else {
       throw new IllegalArgumentException(s"Input type $inputType needs to be image or binary type")
     }
@@ -69,14 +69,14 @@ object Superpixel {
     ImageUtils.toSparkImage(bi).getStruct(0)
   }
 
-  val maskImageUDF: UserDefinedFunction = udf(maskImageHelper _, ImageSchema.columnSchema)
+  val MaskImageUDF: UserDefinedFunction = udf(maskImageHelper _, ImageSchema.columnSchema)
 
   def maskBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
     val biOpt = maskBinary(img, SuperpixelData.fromRow(sp), states.toArray)
     biOpt.map(ImageUtils.toSparkImage(_).getStruct(0)).orNull
   }
 
-  val maskBinaryUDF: UserDefinedFunction = udf(maskBinaryHelper _, ImageSchema.columnSchema)
+  val MaskBinaryUDF: UserDefinedFunction = udf(maskBinaryHelper _, ImageSchema.columnSchema)
 
   def displayImage(img: BufferedImage): JFrame = {
     val frame: JFrame = new JFrame()
@@ -179,17 +179,17 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
     for (c <- clusters) {
       // for each pixel i in 2S region around
       // cluster center
-      val xs = Math.max((c.avg_x - cellSize).toInt, 0)
-      val ys = Math.max((c.avg_y - cellSize).toInt, 0)
-      val xe = Math.min((c.avg_x + cellSize).toInt, width)
-      val ye = Math.min((c.avg_y + cellSize).toInt, height)
+      val xs = Math.max((c.avgX - cellSize).toInt, 0)
+      val ys = Math.max((c.avgY - cellSize).toInt, 0)
+      val xe = Math.min((c.avgX + cellSize).toInt, width)
+      val ye = Math.min((c.avgY + cellSize).toInt, height)
       for (y <- ys until ye; x <- xs until xe) {
         val pos = x + width * y
-        val D = c.distance(x, y,
+        val d = c.distance(x, y,
           reds(pos), greens(pos), blues(pos),
           cellSize, modifier, width, height)
-        if ((D < distances(pos)) && (labels(pos) != c.id)) {
-          distances.update(pos, D)
+        if ((d < distances(pos)) && (labels(pos) != c.id)) {
+          distances.update(pos, d)
           labels.update(pos, c.id)
           pixelChangedCluster = true
         }
@@ -265,16 +265,16 @@ class Cluster(var id: Int, val in_red: Int, val in_green: Int, val in_blue: Int,
               val x: Int, val y: Int, val cellSize: Double, val modifier: Double) {
   private val inv: Double = 1.0 / ((cellSize / modifier) * (cellSize / modifier)) // inv variable for optimization
   private var pixelCount = .0 // pixels in this cluster
-  private var avg_red = .0 // average red value
-  private var avg_green = .0 // average green value
-  private var avg_blue = .0 // average blue value
-  private var sum_red = .0 // sum red values
-  private var sum_green = .0 // sum green values
-  private var sum_blue = .0 // sum blue values
-  private var sum_x = .0 // sum x
-  private var sum_y = .0 // sum y
-  var avg_x = .0 // average x
-  var avg_y = .0 // average y
+  private var avgRed = .0 // average red value
+  private var avgGreen = .0 // average green value
+  private var avgBlue = .0 // average blue value
+  private var sumRed = .0 // sum red values
+  private var sumGreen = .0 // sum green values
+  private var sumBlue = .0 // sum blue values
+  private var sumX = .0 // sum x
+  private var sumY = .0 // sum y
+  var avgX = .0 // average x
+  var avgY = .0 // average y
   val pixels = new ArrayBuffer[(Int, Int)]
 
   addPixel(x, y, in_red, in_green, in_blue)
@@ -282,26 +282,26 @@ class Cluster(var id: Int, val in_red: Int, val in_green: Int, val in_blue: Int,
   calculateCenter()
 
   def reset(): Unit = {
-    avg_red = 0
-    avg_green = 0
-    avg_blue = 0
-    sum_red = 0
-    sum_green = 0
-    sum_blue = 0
+    avgRed = 0
+    avgGreen = 0
+    avgBlue = 0
+    sumRed = 0
+    sumGreen = 0
+    sumBlue = 0
     pixelCount = 0
-    avg_x = 0
-    avg_y = 0
-    sum_x = 0
-    sum_y = 0
+    avgX = 0
+    avgY = 0
+    sumX = 0
+    sumY = 0
     pixels.clear()
   }
 
   def addPixel(x: Int, y: Int, in_red: Int, in_green: Int, in_blue: Int): Unit = {
-    sum_x += x
-    sum_y += y
-    sum_red += in_red
-    sum_green += in_green
-    sum_blue += in_blue
+    sumX += x
+    sumY += y
+    sumRed += in_red
+    sumGreen += in_green
+    sumBlue += in_blue
     pixelCount += 1
     pixels.append((x, y))
   }
@@ -310,20 +310,20 @@ class Cluster(var id: Int, val in_red: Int, val in_green: Int, val in_blue: Int,
     // Optimization: using "inverse"
     // to change divide to multiply
     val inv = 1 / pixelCount
-    avg_red = sum_red * inv
-    avg_green = sum_green * inv
-    avg_blue = sum_blue * inv
-    avg_x = sum_x * inv
-    avg_y = sum_y * inv
+    avgRed = sumRed * inv
+    avgGreen = sumGreen * inv
+    avgBlue = sumBlue * inv
+    avgX = sumX * inv
+    avgY = sumY * inv
   }
 
   def distance(x: Int, y: Int, red: Int, green: Int, blue: Int, S: Double, m: Double, w: Int, h: Int): Double = {
     // power of color difference between given pixel and cluster center
-    val dx_color = (avg_red - red) * (avg_red - red) +
-      (avg_green - green) * (avg_green - green) + (avg_blue - blue) * (avg_blue - blue)
+    val dxColor = (avgRed - red) * (avgRed - red) +
+      (avgGreen - green) * (avgGreen - green) + (avgBlue - blue) * (avgBlue - blue)
     // power of spatial difference between
-    val dx_spatial = (avg_x - x) * (avg_x - x) + (avg_y - y) * (avg_y - y)
+    val dxSpatial = (avgX - x) * (avgX - x) + (avgY - y) * (avgY - y)
     // Calculate approximate distance with squares to get more accurate results
-    Math.sqrt(dx_color) + Math.sqrt(dx_spatial * inv)
+    Math.sqrt(dxColor) + Math.sqrt(dxSpatial * inv)
   }
 }

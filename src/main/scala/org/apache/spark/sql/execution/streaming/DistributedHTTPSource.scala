@@ -169,6 +169,7 @@ class JVMSharedServer(name: String, host: String,
     }
   }
 
+  //scalastyle:off magic.number
   private def tryCreateServer(host: String, startingPort: Int, triesLeft: Int): (HttpServer, Int) = {
     if (triesLeft == 0) {
       throw new java.net.BindException("Could not find open ports in the range," +
@@ -182,6 +183,7 @@ class JVMSharedServer(name: String, host: String,
         tryCreateServer(host, startingPort + 1, triesLeft - 1)
     }
   }
+  //scalastyle:on magic.number
 
   @GuardedBy("this")
   private val (server, serverPort) = tryCreateServer(host, port, maxAttempts)
@@ -262,7 +264,7 @@ class DistributedHTTPSource(name: String,
   protected var lastOffsetCommitted: LongOffset = new LongOffset(-1)
 
   /** Returns the schema of the data from this source */
-  override def schema: StructType = HTTPSourceV2.SCHEMA
+  override def schema: StructType = HTTPSourceV2.Schema
 
   // Note we assume that this function is only called once during the polling of a new batch
   override def getOffset: Option[Offset] = synchronized {
@@ -284,7 +286,7 @@ class DistributedHTTPSource(name: String,
         .map{ case (id, request) =>
           Row.fromSeq(Seq(Row(null, id, null), toRow(request)))
         }.toIterator
-    }(RowEncoder(HTTPSourceV2.SCHEMA))
+    }(RowEncoder(HTTPSourceV2.Schema))
   }
 
   override def commit(end: Offset): Unit = synchronized {
@@ -327,7 +329,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     if (!parameters.contains("path")) {
       throw new AnalysisException("Set a name of the API which is used for routing")
     }
-    ("DistributedHTTP", HTTPSourceV2.SCHEMA)
+    ("DistributedHTTP", HTTPSourceV2.Schema)
   }
 
   override def createSource(sqlContext: SQLContext,
@@ -343,7 +345,7 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
     val handleResponseErrors = parameters.getOrElse("handleResponseErrors", "false").toBoolean
     val source = new DistributedHTTPSource(
       name, host, port, maxAttempts, maxPartitions, handleResponseErrors, sqlContext)
-    DistributedHTTPSink.activeSinks(parameters("path")).linkWithSource(source)
+    DistributedHTTPSink.ActiveSinks(parameters("path")).linkWithSource(source)
 
     parameters.get("deployLoadBalancer") match {
       case Some(s) if s.toBoolean =>
@@ -367,7 +369,7 @@ class DistributedHTTPSink(val options: Map[String, String])
   }
   val name = options("name")
 
-  DistributedHTTPSink.activeSinks.update(name, this)
+  DistributedHTTPSink.ActiveSinks.update(name, this)
 
   private var source: DistributedHTTPSource = _
 
@@ -390,11 +392,13 @@ class DistributedHTTPSink(val options: Map[String, String])
     val replyType = data.schema(replyCol).dataType
     val idType = data.schema(idCol).dataType
     assert(replyType == HTTPResponseData.schema, s"Reply col is $replyType, need HTTPResponseData Type")
-    assert(idType == HTTPSourceV2.ID_SCHEMA, s"id col is $idType, need ${HTTPSourceV2.ID_SCHEMA}")
+    assert(idType == HTTPSourceV2.IdSchema, s"id col is $idType, need ${HTTPSourceV2.IdSchema}")
 
     val irToResponseData = HTTPResponseData.makeFromInternalRowConverter
     data.queryExecution.toRdd.map { ir =>
+      //scalastyle:off magic.number
       (ir.getStruct(idColIndex, 3).getString(1), irToResponseData(ir.getStruct(replyColIndex, 4)))
+      //scalastyle:on magic.number
     }.foreach { case (id, value) =>
       server.get.respond(batchId, id, value)
     }
@@ -417,6 +421,6 @@ class DistributedHTTPSinkProvider extends StreamSinkProvider with DataSourceRegi
 
 object DistributedHTTPSink {
 
-  val activeSinks: mutable.Map[String, DistributedHTTPSink] = mutable.Map()
+  val ActiveSinks: mutable.Map[String, DistributedHTTPSink] = mutable.Map()
 
 }

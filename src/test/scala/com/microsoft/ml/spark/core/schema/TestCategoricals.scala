@@ -33,7 +33,7 @@ class TestCategoricalMap extends TestBase {
     assert(map.getLevel(1) == levels(1), "getLevel" + s)
     assert(map.getLevelOption(1) == Some(levels(1)) & map.getLevelOption(-1) == None, "getLevelOption" + s)
 
-    val mml_meta = map.toMetadata(mmlStyle) //TODO: check metadata for correctness
+    val mmlMeta = map.toMetadata(mmlStyle) //TODO: check metadata for correctness
   }
 
   /** Test CategoricalMap for different undelying types */

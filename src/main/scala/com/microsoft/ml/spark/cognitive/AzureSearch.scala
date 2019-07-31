@@ -135,7 +135,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
 
 object AzureSearchWriter extends IndexParser with SLogging {
 
-  val logger: Logger = LogManager.getRootLogger
+  val Logger: Logger = LogManager.getRootLogger
 
   private def checkForErrors(fatal: Boolean)(errorRow: Row, inputRow: Row): Option[Row] = {
     Option(errorRow).map { r =>
@@ -199,10 +199,10 @@ object AzureSearchWriter extends IndexParser with SLogging {
       .setOutputCol("out")
       .setErrorCol("error")
       .transform(df1)
-      .withColumn("error", udf(checkForErrors(fatalErrors) _, ErrorUtils.errorSchema)(col("error"), col("input")))
+      .withColumn("error", udf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }
 
-  private val edmTypes = Map("Edm.String" -> StringType,
+  private val EdmTypes = Map("Edm.String" -> StringType,
     "Collection(Edm.String)" -> ArrayType(StringType),
     "Edm.Boolean" -> BooleanType,
     "Edm.Int64" -> LongType,
@@ -213,7 +213,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
 
   private def checkSchemaParity(schema: StructType, indexJson: String, searchActionCol: String): Unit = {
     val indexInfo = parseIndexJson(indexJson)
-    val indexFields = indexInfo.fields.map(f => (f.name, edmTypes(f.`type`))).toMap
+    val indexFields = indexInfo.fields.map(f => (f.name, EdmTypes(f.`type`))).toMap
 
     assert(schema(searchActionCol).dataType == StringType)
     schema.toList.filter(_.name != searchActionCol).foreach { field =>

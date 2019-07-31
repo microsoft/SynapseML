@@ -11,7 +11,7 @@ import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait FaceKey {
-  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
+  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.FaceApiKey)
 }
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with FaceKey {

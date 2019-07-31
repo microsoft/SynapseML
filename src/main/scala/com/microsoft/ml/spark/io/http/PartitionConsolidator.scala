@@ -42,22 +42,23 @@ class Consolidator[T] {
     wp
   }
 
-  private def chosenIterator(it: Iterator[T], gracePeriod:Int = 1000) = {
+  private def chosenIterator(it: Iterator[T], gracePeriod: Int = 1000) = {
     new Iterator[Option[T]] {
 
       private def hasNextHelper(recurse: Boolean): Boolean = {
         !buffer.isEmpty ||
           it.hasNext ||
-          getWorkingPartitions > 1 ||
-          {
-            if (recurse) {
-              blocking {Thread.sleep(gracePeriod.toLong)}
-              hasNextHelper(false)
-            } else {
-              removeWorker()
-              false
+          getWorkingPartitions > 1 || {
+          if (recurse) {
+            blocking {
+              Thread.sleep(gracePeriod.toLong)
             }
+            hasNextHelper(false)
+          } else {
+            removeWorker()
+            false
           }
+        }
       }
 
       override def hasNext: Boolean = {
@@ -79,7 +80,9 @@ class Consolidator[T] {
   private def regularIterator(it: Iterator[T]) = {
     new Iterator[Option[T]] {
       private var isDone = false
+
       override def hasNext: Boolean = !isDone
+
       override def next(): Option[T] = {
         assert(!isDone)
         it.foreach(add)
@@ -93,7 +96,7 @@ class Consolidator[T] {
   def registerAndReceive(it: Iterator[T]): Iterator[Option[T]] = {
     val chosen = chosenPartition()
     addWorker()
-    if (chosen){
+    if (chosen) {
       chosenIterator(it)
     } else {
       regularIterator(it)

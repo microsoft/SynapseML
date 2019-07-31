@@ -41,7 +41,7 @@ abstract class ConstructorWriter[S <: PipelineStage](val uid: String, objectsToS
   override protected def saveImpl(path: String): Unit = {
     val baseDir = Serializer.makeQualifiedPath(sc, path)
     // Required in order to allow this to be part of an ML pipeline
-    val ctag = ClassTag(Serializer.mirror.runtimeClass(ttag.tpe))
+    val ctag = ClassTag(Serializer.Mirror.runtimeClass(ttag.tpe))
     Serializer.saveMetadata(uid, ctag, new Path(baseDir, "metadata").toString, sc, shouldOverwrite)
     Serializer.writeToHDFS[TypeTag[_]](sc, ttag, new Path(baseDir, "ttag"), shouldOverwrite)
 
@@ -71,7 +71,7 @@ class ConstructorReader[T]()
     def types: List[Type] = Serializer.getConstructorTypes(ttag)
 
     def instantiate[S](ttag: TypeTag[S], ctor: Int = 0)(args: AnyRef*): S = {
-      Serializer.mirror.reflectClass(ttag.tpe.typeSymbol.asClass).reflectConstructor(
+      Serializer.Mirror.reflectClass(ttag.tpe.typeSymbol.asClass).reflectConstructor(
         ttag.tpe.members.filter(m =>
           m.isMethod && m.asMethod.isConstructor
         ).iterator.toSeq(ctor).asMethod

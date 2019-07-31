@@ -17,7 +17,7 @@ import scala.collection.mutable
 import scala.concurrent.blocking
 
 trait HasAzureSearchKey {
-  lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.azureSearchKey)
+  lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
 class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister

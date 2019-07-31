@@ -22,7 +22,7 @@ class DownloaderSuite extends TestBase {
     (1 to 20).foreach { i =>
       val result = FaultToleranceUtils.retryWithTimeout(20, Duration.apply(2, "seconds")) {
         val r = Random.nextDouble()
-        if ( r > .5) {
+        if (r > .5) {
           println(s"$r failed")
           throw new IllegalArgumentException("Flakiness")
         } else if (r < .1){

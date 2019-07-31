@@ -67,6 +67,7 @@ object HandlingUtils extends SparkLogging {
                                   retriesLeft: Array[Int]): CloseableHttpResponse = {
     val response = client.execute(request)
     val code = response.getStatusLine.getStatusCode
+    //scalastyle:off magic.number
     val succeeded = code match {
       case 200 => true
       case 201 => true
@@ -96,6 +97,7 @@ object HandlingUtils extends SparkLogging {
         }")
         false
     }
+    //scalastyle:on magic.number
     if (succeeded || retriesLeft.isEmpty) {
       response
     } else {

@@ -23,8 +23,8 @@ object FaceUtils {
 
   import RESTHelpers._
 
-  val baseURL = "https://eastus2.api.cognitive.microsoft.com/face/v1.0/"
-  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.faceApiKey)
+  val BaseURL = "https://eastus2.api.cognitive.microsoft.com/face/v1.0/"
+  lazy val FaceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.FaceApiKey)
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -34,12 +34,12 @@ object FaceUtils {
     } else {
       "?" + URLEncodingUtils.format(params)
     }
-    request.setURI(new URI(baseURL + path + paramString))
+    request.setURI(new URI(BaseURL + path + paramString))
 
     retry(List(100, 500, 1000), { () =>
-      request.addHeader("Ocp-Apim-Subscription-Key", faceKey)
+      request.addHeader("Ocp-Apim-Subscription-Key", FaceKey)
       request.addHeader("Content-Type", "application/json")
-      using(client.execute(request)) { response =>
+      using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
           val bodyOpt = request match {
             case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent)
@@ -88,9 +88,9 @@ object FaceUtils {
 import com.microsoft.ml.spark.cognitive.FaceUtils._
 
 object FaceListProtocol {
-  implicit val pfiEnc = jsonFormat2(PersistedFaceInfo.apply)
-  implicit val flcEnc = jsonFormat4(FaceListContents.apply)
-  implicit val fliEnc = jsonFormat3(FaceListInfo.apply)
+  implicit val PfiEnc = jsonFormat2(PersistedFaceInfo.apply)
+  implicit val FlcEnc = jsonFormat4(FaceListContents.apply)
+  implicit val FliEnc = jsonFormat3(FaceListInfo.apply)
 }
 
 object FaceList {
@@ -142,8 +142,8 @@ object FaceList {
 }
 
 object PersonGroupProtocol {
-  implicit val pgiEnc = jsonFormat3(PersonGroupInfo.apply)
-  implicit val pgtsEnc = jsonFormat4(PersonGroupTrainingStatus.apply)
+  implicit val PgiEnc = jsonFormat3(PersonGroupInfo.apply)
+  implicit val PgtsEnc = jsonFormat4(PersonGroupTrainingStatus.apply)
 }
 
 object PersonGroup {
@@ -187,7 +187,7 @@ object PersonGroup {
 }
 
 object PersonProtocol {
-  implicit val piEnc = jsonFormat4(PersonInfo.apply)
+  implicit val PiEnc = jsonFormat4(PersonInfo.apply)
 }
 
 object Person {

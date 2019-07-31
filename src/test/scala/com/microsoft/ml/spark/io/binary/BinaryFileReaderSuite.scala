@@ -35,8 +35,8 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   object UDFs extends Serializable {
-    val cifarDirectoryVal = cifarDirectory
-    val rename = udf({ x: String => new Path(x).getName}, StringType)
+    val CifarDirectoryVal = cifarDirectory
+    val Rename = udf({ x: String => new Path(x).getName}, StringType)
   }
 
   test("binary dataframe") {
@@ -132,7 +132,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
     val imageDF = session
       .readStream
       .format(classOf[BinaryFileFormat].getName)
-      .schema(BinaryFileSchema.schema)
+      .schema(BinaryFileSchema.Schema)
       .load(cifarDirectory)
 
     val q1 = imageDF.writeStream
@@ -154,7 +154,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .load(cifarDirectory)
       .sample(.5,0)
       .select("value.*")
-      .withColumn("path", UDFs.rename(col("path")))
+      .withColumn("path", UDFs.Rename(col("path")))
     imageDF.printSchema()
     val count = imageDF.count()
     assert(count > 0 && count < 6)

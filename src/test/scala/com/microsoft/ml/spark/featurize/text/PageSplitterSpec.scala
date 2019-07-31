@@ -17,7 +17,7 @@ class PageSplitterSpec extends TransformerFuzzing[PageSplitter] {
     "hsjbhjhnskjhndwjnbvckjbnwkjwenbvfkjhbnwevkjhbnwejhkbnvjkhnbndjkbnd " +
       "190872340870271091309831097813097130i3u709781",
     "",
-    null
+    null //scalastyle:ignore null
   ).toDF("text")
 
   lazy val t = new PageSplitter()

@@ -26,8 +26,8 @@ object TAJSONFormat {
 
   import spray.json.DefaultJsonProtocol._
 
-  implicit val documentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
-  implicit val requestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
+  implicit val DocumentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
+  implicit val RequestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
 
 }
 

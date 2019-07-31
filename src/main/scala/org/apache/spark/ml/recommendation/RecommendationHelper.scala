@@ -21,7 +21,7 @@ trait RecommendationParams extends ALSParams
 
 trait BaseRecommendationModel extends Params with ALSModelParams with HasPredictionCol {
 
-  private val id = Constants.idCol
+  private val id = Constants.IdCol
 
   def getALSModel(uid: String,
     rank: Int,
@@ -35,7 +35,7 @@ trait BaseRecommendationModel extends Params with ALSModelParams with HasPredict
   def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]): DataFrame = {
     getALSModel(uid, rank,
       userDataFrame.withColumnRenamed(getUserCol, id).withColumnRenamed("flatList", "features"),
-      itemDataFrame.withColumnRenamed(getItemCol, id).withColumnRenamed(Constants.itemAffinities, "features"))
+      itemDataFrame.withColumnRenamed(getItemCol, id).withColumnRenamed(Constants.ItemAffinities, "features"))
       .setUserCol(getUserCol)
       .setItemCol(getItemCol)
       .setColdStartStrategy("drop")
@@ -166,16 +166,16 @@ object SparkHelpers {
 }
 
 object Constants {
-  val idCol = "id"
-  val userCol = "user"
-  val itemCol = "item"
-  val ratingCol = "rating"
-  val recommendations = "recommendations"
-  val featuresCol = "features"
-  val tagId = "tagId"
-  val relevance = "relevance"
-  val affinityCol = "affinity"
-  val prediction = "prediction"
-  val itemAffinities = "itemAffinities"
-  val label = "label"
+  val IdCol = "id"
+  val UserCol = "user"
+  val ItemCol = "item"
+  val RatingCol = "rating"
+  val Recommendations = "recommendations"
+  val FeaturesCol = "features"
+  val TagId = "tagId"
+  val Relevance = "relevance"
+  val AffinityCol = "affinity"
+  val Prediction = "prediction"
+  val ItemAffinities = "itemAffinities"
+  val Label = "label"
 }

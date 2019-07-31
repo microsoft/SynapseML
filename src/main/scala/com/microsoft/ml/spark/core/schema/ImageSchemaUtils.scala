@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
 
 object ImageSchemaUtils {
 
-  val columnSchemaNullable = {
+  val ColumnSchemaNullable = {
     StructType(
       StructField("origin", StringType, true) ::
         StructField("height", IntegerType, true) ::
@@ -20,11 +20,11 @@ object ImageSchemaUtils {
         StructField("data", BinaryType, true) :: Nil)
   }
 
-  val imageSchemaNullable = StructType(StructField("image", columnSchemaNullable, true) :: Nil)
+  val ImageSchemaNullable = StructType(StructField("image", ColumnSchemaNullable, true) :: Nil)
 
   def isImage(dataType: DataType): Boolean = {
     dataType == ImageSchema.columnSchema ||
-      dataType == columnSchemaNullable
+      dataType == ColumnSchemaNullable
   }
 
   def isImage(dataType: StructField): Boolean = {

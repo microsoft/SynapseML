@@ -9,20 +9,18 @@ import com.microsoft.ml.spark.core.contracts.HasGroupCol
 /**
   * Ranker base class
   *
-  * @tparam FeaturesType  Type of input features.  E.g., org.apache.spark.mllib.linalg.Vector
-  * @tparam Learner  Concrete Estimator type
-  * @tparam M  Concrete Model type
+  * @tparam FeaturesType Type of input features.  E.g., org.apache.spark.mllib.linalg.Vector
+  * @tparam Learner      Concrete Estimator type
+  * @tparam M            Concrete Model type
   */
-abstract class Ranker[FeaturesType,
-Learner <: Ranker[FeaturesType, Learner, M],
-M <: RankerModel[FeaturesType, M]]
+abstract class Ranker[FeaturesType, Learner <: Ranker[FeaturesType, Learner, M], M <: RankerModel[FeaturesType, M]]
   extends Predictor[FeaturesType, Learner, M] with PredictorParams with HasGroupCol
 
 /**
   * Model produced by a `Ranker`.
   *
-  * @tparam FeaturesType  Type of input features.  E.g., org.apache.spark.mllib.linalg.Vector
-  * @tparam M  Concrete Model type.
+  * @tparam FeaturesType Type of input features.  E.g., org.apache.spark.mllib.linalg.Vector
+  * @tparam M            Concrete Model type.
   */
 abstract class RankerModel[FeaturesType, M <: RankerModel[FeaturesType, M]]
   extends PredictionModel[FeaturesType, M] with PredictorParams

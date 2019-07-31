@@ -25,9 +25,9 @@ abstract class Serializer[O] {
 
 object Serializer {
 
-  val contextClassLoader: ClassLoader = Thread.currentThread().getContextClassLoader
+  val ContextClassLoader: ClassLoader = Thread.currentThread().getContextClassLoader
 
-  val mirror: Mirror = runtimeMirror(Serializer.contextClassLoader)
+  val Mirror: Mirror = runtimeMirror(Serializer.ContextClassLoader)
 
   def getConstructorTypes(ttag: TypeTag[_]): List[Type] = {
     ttag.tpe.
@@ -41,9 +41,9 @@ object Serializer {
   }
 
   def typeToTypeTag[T](tpe: Type): TypeTag[T] = {
-    TypeTag(mirror, new reflect.api.TypeCreator {
+    TypeTag(Mirror, new reflect.api.TypeCreator {
       def apply[U <: reflect.api.Universe with Singleton](m: reflect.api.Mirror[U]) = {
-        assert(m eq mirror, s"TypeTag[$tpe] defined in $mirror cannot be migrated to $m.")
+        assert(m eq Mirror, s"TypeTag[$tpe] defined in $Mirror cannot be migrated to $m.")
         tpe.asInstanceOf[U#Type]
       }
     })

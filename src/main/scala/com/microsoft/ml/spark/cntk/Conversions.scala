@@ -145,7 +145,7 @@ object ConversionUtils {
     fvv
   }
 
-  def toGVV(garr: SSG, existingGVV:GVV): GVV = {
+  def toGVV(garr: SSG, existingGVV: GVV): GVV = {
     (garr, existingGVV) match {
       case (Left(arr), Left(fvv)) =>
         Left(toFVV(arr,fvv))

@@ -157,7 +157,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
                   .setScoredLabelsCol(classificationModel.getPredictionCol)
                   .setScoresCol(classificationModel.getRawPredictionCol)
                 if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(MetricConstants.ClassificationMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.ClassificationMetricsName)
               }
               case regressionModel: RegressionModel[_, _] => {
                 logDebug(s"Evaluating SparkML ${model.uid} regression model.")
@@ -165,7 +165,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
                   .setLabelCol(regressionModel.getLabelCol)
                   .setScoredLabelsCol(regressionModel.getPredictionCol)
                 if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(MetricConstants.RegressionMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.RegressionMetricsName)
               }
             }
             val metrics = evaluator.transform(scoredDataset)

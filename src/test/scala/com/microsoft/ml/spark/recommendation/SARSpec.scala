@@ -60,16 +60,16 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
   }
 
   lazy val testFile: String = getClass.getResource("/demoUsage.csv.gz").getPath
-  lazy val sim_count1: String = getClass.getResource("/sim_count1.csv.gz").getPath
-  lazy val sim_lift1: String = getClass.getResource("/sim_lift1.csv.gz").getPath
-  lazy val sim_jac1: String = getClass.getResource("/sim_jac1.csv.gz").getPath
-  lazy val sim_count3: String = getClass.getResource("/sim_count3.csv.gz").getPath
-  lazy val sim_lift3: String = getClass.getResource("/sim_lift3.csv.gz").getPath
-  lazy val sim_jac3: String = getClass.getResource("/sim_jac3.csv.gz").getPath
-  lazy val user_aff: String = getClass.getResource("/user_aff.csv.gz").getPath
-  lazy val userpred_count3: String = getClass.getResource("/userpred_count3_userid_only.csv.gz").getPath
-  lazy val userpred_lift3: String = getClass.getResource("/userpred_lift3_userid_only.csv.gz").getPath
-  lazy val userpred_jac3: String = getClass.getResource("/userpred_jac3_userid_only.csv.gz").getPath
+  lazy val simCount1: String = getClass.getResource("/sim_count1.csv.gz").getPath
+  lazy val simLift1: String = getClass.getResource("/sim_lift1.csv.gz").getPath
+  lazy val simJac1: String = getClass.getResource("/sim_jac1.csv.gz").getPath
+  lazy val simCount3: String = getClass.getResource("/sim_count3.csv.gz").getPath
+  lazy val simLift3: String = getClass.getResource("/sim_lift3.csv.gz").getPath
+  lazy val simJac3: String = getClass.getResource("/sim_jac3.csv.gz").getPath
+  lazy val userAff: String = getClass.getResource("/user_aff.csv.gz").getPath
+  lazy val userpredCount3: String = getClass.getResource("/userpred_count3_userid_only.csv.gz").getPath
+  lazy val userpredLift3: String = getClass.getResource("/userpred_lift3_userid_only.csv.gz").getPath
+  lazy val userpredJac3: String = getClass.getResource("/userpred_jac3_userid_only.csv.gz").getPath
 
   private lazy val tlcSampleData: DataFrame = session.read
     .option("header", "true") //reading the headers
@@ -77,31 +77,31 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     .csv(testFile).na.drop.cache
 
   test("tlc test sim count1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "cooc", sim_count1, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "cooc", simCount1, userAff))
 
   test("tlc test sim lift1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "lift", sim_lift1, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "lift", simLift1, userAff))
 
   test("tlc test sim jac1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "jaccard", sim_jac1, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "jaccard", simJac1, userAff))
 
   test("tlc test sim count3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "cooc", sim_count3, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "cooc", simCount3, userAff))
 
   test("tlc test sim lift3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "lift", sim_lift3, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "lift", simLift3, userAff))
 
   test("tlc test sim jac3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "jaccard", sim_jac3, user_aff))
+    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "jaccard", simJac3, userAff))
 
   test("tlc test userpred count3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "cooc", sim_count3, user_aff, userpred_count3))
+    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "cooc", simCount3, userAff, userpredCount3))
 
   test("tlc test userpred lift3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "lift", sim_lift3, user_aff, userpred_lift3))
+    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "lift", simLift3, userAff, userpredLift3))
 
   test("tlc test userpred jac3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "jaccard", sim_jac3, user_aff, userpred_jac3))
+    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "jaccard", simJac3, userAff, userpredJac3))
 
 }
 
@@ -120,12 +120,13 @@ class SARModelSpec extends RankingTestBase with TransformerFuzzing[SARModel] {
 }
 
 object SarTLCSpec extends RankingTestBase {
+  //scalastyle:off field.name
   override lazy val userCol = "userId"
   override lazy val itemCol = "productId"
   override lazy val ratingCol = "rating"
-
   override lazy val userColIndex = "customerID"
   override lazy val itemColIndex = "itemID"
+  //scalastyle:on field.name
 
   def test_affinity_matrices(tlcSampleData: DataFrame, threshold: Int, similarityFunction: String, simFile: String,
                              user_aff: String):

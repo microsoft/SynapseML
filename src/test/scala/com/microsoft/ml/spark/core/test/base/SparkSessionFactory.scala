@@ -17,17 +17,14 @@ import org.apache.spark.sql.SparkSession
 object SparkSessionFactory {
 
   // Default spark warehouse = ./spark-warehouse
-  private val defaultWarehouseDirName = "spark-warehouse"
-  private val testDir = System.currentTimeMillis.toString
+  private val DefaultWarehouseDirName = "spark-warehouse"
+  private val TestDir = System.currentTimeMillis.toString
 
-  private lazy val localWarehousePath =
-    "file:" +
-    customNormalize(new File(currentDir, defaultWarehouseDirName)
-                        .getAbsolutePath())
-  val workingDir =
-    "file:" +
-    customNormalize(new File(currentDir, testDir)
-                        .getAbsolutePath())
+  private lazy val LocalWarehousePath =
+    "file:" + customNormalize(new File(currentDir, DefaultWarehouseDirName).getAbsolutePath())
+  val WorkingDir =
+    "file:" + customNormalize(new File(currentDir, TestDir).getAbsolutePath())
+
   // On NTFS-like systems, normalize path
   //   (solves the problem of sending a path from spark to hdfs on Windows)
   def customNormalize(path: String): String = {
@@ -44,7 +41,7 @@ object SparkSessionFactory {
         .setMaster(if (numRetries == 1){s"local[$cores]"}else{s"local[$cores, $numRetries]"})
         .set("spark.logConf", "true")
         .set("spark.sql.shuffle.partitions", "20")
-        .set("spark.sql.warehouse.dir", SparkSessionFactory.localWarehousePath)
+        .set("spark.sql.warehouse.dir", SparkSessionFactory.LocalWarehousePath)
     val sess = SparkSession.builder()
       .config(conf)
       .getOrCreate()

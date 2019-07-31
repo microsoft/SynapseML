@@ -9,7 +9,7 @@ import org.apache.commons.math3.random.MersenneTwister
 import scala.util.Random
 
 /** Specifies the trait for constraints on generating a dataset. */
-trait HasDatasetGenerationConstraints {
+trait HasDatasetGenConstraints {
   var numRows: Int
   var numCols: Int
   var numSlotsPerCol: Array[Int]
@@ -17,8 +17,8 @@ trait HasDatasetGenerationConstraints {
 }
 
 /** Basic constraints for generating a dataset. */
-class BasicDatasetGenerationConstraints(numberOfRows: Int, numberOfColumns: Int, numberOfSlotsPerColumn: Array[Int])
-  extends HasDatasetGenerationConstraints {
+class BasicDatasetGenConstraints(numberOfRows: Int, numberOfColumns: Int, numberOfSlotsPerColumn: Array[Int])
+  extends HasDatasetGenConstraints {
   override var numRows: Int = numberOfRows
   override var numCols: Int = numberOfColumns
   override var numSlotsPerCol: Array[Int] = numberOfSlotsPerColumn
@@ -33,13 +33,13 @@ class BasicDatasetGenerationConstraints(numberOfRows: Int, numberOfColumns: Int,
   * @param minSlots The min number of slots.
   * @param maxSlots The max number of slots.
   */
-class RandomDatasetGenerationConstraints(minRows: Int,
-                                         maxRows: Int,
-                                         minCols: Int,
-                                         maxCols: Int,
-                                         minSlots: Int,
-                                         maxSlots: Int)
-  extends HasDatasetGenerationConstraints {
+class RandomDatasetGenConstraints(minRows: Int,
+                                  maxRows: Int,
+                                  minCols: Int,
+                                  maxCols: Int,
+                                  minSlots: Int,
+                                  maxSlots: Int)
+  extends HasDatasetGenConstraints {
 
   override var numRows: Int = _
   override var numCols: Int = _

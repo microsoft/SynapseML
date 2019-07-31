@@ -14,7 +14,7 @@ import org.scalactic.Equality
 import org.scalatest.Assertion
 
 trait SpeechKey {
-  lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.speechApiKey)
+  lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
 }
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]

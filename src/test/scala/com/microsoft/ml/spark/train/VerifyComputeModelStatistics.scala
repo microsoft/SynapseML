@@ -48,7 +48,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     import session.implicits._
     val rand = new Random(1337)
     val labelCol = "label"
-    val evaluationMetric = MetricConstants.ClassificationMetrics
+    val evaluationMetric = MetricConstants.ClassificationMetricsName
     val predCol = SchemaConstants.SparkPredictionColumn
     val df = Seq.fill(numRows)(rand.nextDouble())
       .zip(Seq.fill(numRows)(rand.nextDouble()))
@@ -97,7 +97,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(2) === 1.0)
     assert(firstRow.getDouble(3) === 0.0)
 
-    assert(evaluatedSchema == StructType(MetricConstants.regressionColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema == StructType(MetricConstants.RegressionColumns.map(StructField(_, DoubleType))))
   }
 
   test("Evaluate a dataset with missing values") {
@@ -187,7 +187,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
-    assert(evaluatedSchema == StructType(MetricConstants.classificationColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema == StructType(MetricConstants.ClassificationColumns.map(StructField(_, DoubleType))))
   }
 
   test("Verify computing statistics on generic spark ML estimators is supported") {
@@ -212,7 +212,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setLabelCol(labelColumn)
       .setScoredLabelsCol(scoredLabelsCol)
       .setScoresCol(scoresCol)
-      .setEvaluationMetric(MetricConstants.ClassificationMetrics)
+      .setEvaluationMetric(MetricConstants.ClassificationMetricsName)
     val evaluatedData = cms.transform(scoredData)
     val firstRow = evaluatedData.select(col("accuracy"), col("precision"), col("recall"), col("AUC")).first()
     assert(firstRow.getDouble(0) === 1.0)

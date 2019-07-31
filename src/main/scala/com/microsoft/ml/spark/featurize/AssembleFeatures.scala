@@ -30,20 +30,20 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 private object AssembleFeaturesUtilities {
-  private val tokenizedColumnName = "tokenizedFeatures"
-  private val hashedFeaturesColumnName = "hashedFeatures"
-  private val selectedFeaturesColumnName = "selectedFeatures"
+  private val TokenizedColumnName = "tokenizedFeatures"
+  private val HashedFeaturesColumnName = "hashedFeatures"
+  private val SelectedFeaturesColumnName = "selectedFeatures"
 
-  def getTokenizedColumnName(dataset:DataFrame): String = {
-    dataset.withDerivativeCol(tokenizedColumnName)
+  def getTokenizedColumnName(dataset: DataFrame): String = {
+    dataset.withDerivativeCol(TokenizedColumnName)
   }
 
-  def getHashedFeaturesColumnName(dataset:DataFrame): String = {
-    dataset.withDerivativeCol(hashedFeaturesColumnName)
+  def getHashedFeaturesColumnName(dataset: DataFrame): String = {
+    dataset.withDerivativeCol(HashedFeaturesColumnName)
   }
 
-  def getSelectedFeaturesColumnName(dataset:DataFrame): String = {
-    dataset.withDerivativeCol(selectedFeaturesColumnName)
+  def getSelectedFeaturesColumnName(dataset: DataFrame): String = {
+    dataset.withDerivativeCol(SelectedFeaturesColumnName)
   }
 
   def hashStringColumns(nonMissingDataset: DataFrame, colNamesToHash: ListBuffer[String],

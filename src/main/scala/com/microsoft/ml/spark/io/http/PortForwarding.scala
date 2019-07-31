@@ -11,7 +11,7 @@ import org.apache.commons.io.IOUtils
 
 object PortForwarding {
 
-  lazy val jsch = new JSch()
+  lazy val Jsch = new JSch()
 
   def forwardPortToRemote(username: String,
                           sshHost: String,
@@ -27,8 +27,10 @@ object PortForwarding {
                          ): (Session, Int) = {
     keyDir.foreach(kd =>
       new File(kd).listFiles().foreach(f =>
-        try {jsch.addIdentity(f.getAbsolutePath)} catch {
-          case e:com.jcraft.jsch.JSchException =>
+        try {
+          Jsch.addIdentity(f.getAbsolutePath)
+        } catch {
+          case e: com.jcraft.jsch.JSchException =>
           case e: Exception => throw e
         }
       )
@@ -36,10 +38,10 @@ object PortForwarding {
 
     keySas.foreach { ks =>
       val privateKeyBytes = IOUtils.toByteArray(new URI(ks))
-      jsch.addIdentity("forwardingKey", privateKeyBytes, null, null)
+      Jsch.addIdentity("forwardingKey", privateKeyBytes, null, null) //scalastyle:ignore null
     }
 
-    val session = jsch.getSession(username, sshHost, sshPort)
+    val session = Jsch.getSession(username, sshHost, sshPort)
     session.setConfig("StrictHostKeyChecking", "no")
     session.setTimeout(timeout)
     session.connect()

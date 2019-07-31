@@ -21,6 +21,6 @@ case class Field(name: String,
                  synonymMaps: Option[String])
 
 object IndexJsonProtocol extends DefaultJsonProtocol {
-  implicit val fieldFormat = jsonFormat12(Field)
-  implicit val indexFormat = jsonFormat2(IndexSchema)
+  implicit val FieldFormat = jsonFormat12(Field)
+  implicit val IndexFormat = jsonFormat2(IndexSchema)
 }

@@ -14,9 +14,9 @@ import org.apache.spark.sql.types._
 private[spark] object FeaturizeUtilities
 {
   // 2^18 features by default
-  val numFeaturesDefault = 262144
+  val NumFeaturesDefault = 262144
   // 2^12 features for tree-based or NN-based learners
-  val numFeaturesTreeOrNNBased = 4096
+  val NumFeaturesTreeOrNNBased = 4096
 }
 
 object Featurize extends DefaultParamsReadable[Featurize]
@@ -58,7 +58,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     */
   val numberOfFeatures: IntParam = new IntParam(this, "numberOfFeatures",
       "Number of features to hash string columns to")
-  setDefault(numberOfFeatures -> FeaturizeUtilities.numFeaturesDefault)
+  setDefault(numberOfFeatures -> FeaturizeUtilities.NumFeaturesDefault)
 
   /** @group getParam */
   final def getNumberOfFeatures: Int = $(numberOfFeatures)

@@ -33,7 +33,7 @@ object ResizeUtils {
     val resizedImage = image.getScaledInstance(width, height, JImage.SCALE_DEFAULT)
     val bufferedImage = new BufferedImage(width, height, imgType)
     val g = bufferedImage.createGraphics()
-    g.drawImage(resizedImage, 0, 0, null)
+    g.drawImage(resizedImage, 0, 0, null) //scalastyle:ignore null
     g.dispose()
     bufferedImage
   }

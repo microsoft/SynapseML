@@ -46,7 +46,7 @@ private object CNTKModelUtils extends java.io.Serializable {
 
     val outputDataMap = new UnorderedMapVariableValuePtr()
 
-    outputVars.foreach(ov => outputDataMap.add(ov, null))
+    outputVars.foreach(ov => outputDataMap.add(ov, null)) //scalastyle:ignore null
     model.evaluate(inputDataMap, outputDataMap, device)
 
     val out = outputVars.map { ov: Variable =>
@@ -211,7 +211,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   val feedDict: MapParam[String, String] = new MapParam[String, String](this, "feedDict",
     " Map of CNTK Variable names (keys) and Column Names (values)")
 
-  setDefault(feedDict -> Map((argumentPrefix + 0) -> (argumentPrefix + 0)))
+  setDefault(feedDict -> Map((ArgumentPrefix + 0) -> (ArgumentPrefix + 0)))
 
   def setFeedDict(value: Map[String, String]): this.type = set(feedDict, value)
 
@@ -221,7 +221,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   val fetchDict: MapParam[String, String] = new MapParam[String, String](this, "fetchDict",
     " Map of Column Names (keys) and CNTK Variable names (values)")
-  setDefault(fetchDict -> Map((outputPrefix + 0) -> (outputPrefix + 0)))
+  setDefault(fetchDict -> Map((OutputPrefix + 0) -> (OutputPrefix + 0)))
 
   def setFetchDict(value: Map[String, String]): this.type = set("fetchDict", value)
 
@@ -234,9 +234,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   def setInputNodeIndex(value: Int): this.type = {
     val fd = getFeedDict
     if (fd.isEmpty) {
-      setFeedDict(argumentPrefix + value, argumentPrefix + value)
+      setFeedDict(ArgumentPrefix + value, ArgumentPrefix + value)
     } else if (fd.size == 1) {
-      setFeedDict(argumentPrefix + value, fd.values.head)
+      setFeedDict(ArgumentPrefix + value, fd.values.head)
     } else {
       throw new IllegalArgumentException("existing feed dict has too many elements," +
         " consider using the more expressive feedDict param directly")
@@ -247,8 +247,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     val fd = getFeedDict
     if (fd.size == 1) {
       fd.keys.head match {
-        case node if node.startsWith(argumentPrefix) =>
-          node.stripPrefix(argumentPrefix).toInt
+        case node if node.startsWith(ArgumentPrefix) =>
+          node.stripPrefix(ArgumentPrefix).toInt
         case _ => throw new RuntimeException("Feed dict did not have the proper structure")
       }
     } else {
@@ -306,9 +306,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   def setOutputNodeIndex(value: Int): this.type = {
     val fd = getFetchDict
     if (fd.isEmpty) {
-      setFetchDict(outputPrefix + value, outputPrefix + value)
+      setFetchDict(OutputPrefix + value, OutputPrefix + value)
     } else if (fd.size == 1) {
-      setFetchDict(fd.keys.head, outputPrefix + value)
+      setFetchDict(fd.keys.head, OutputPrefix + value)
     } else {
       throw new IllegalArgumentException("existing fetch dict has too many elements," +
         " consider using the more expressive fetchDict param directly")
@@ -319,8 +319,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     val fd = getFetchDict
     if (fd.size == 1) {
       fd.values.head match {
-        case node if node.startsWith(outputPrefix) =>
-          node.stripPrefix(outputPrefix).toInt
+        case node if node.startsWith(OutputPrefix) =>
+          node.stripPrefix(OutputPrefix).toInt
         case _ => throw new RuntimeException("Fetch dict did not have the proper structure")
       }
     } else {
@@ -378,7 +378,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     getModel.getArguments.toList.map(_.getShape.getDimensions.map(_.toInt))
   }
 
-  setDefault(miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10))
+  setDefault(miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10)) //scalastyle:ignore magic.number
 
   private def getElementType(t: DataType): DataType = {
     t match {
