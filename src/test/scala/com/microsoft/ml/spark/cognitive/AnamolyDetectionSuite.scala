@@ -33,7 +33,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{
     ("1972-12-01T00:00:00Z", 924.0),
     ("1973-01-01T00:00:00Z", 881.0),
     ("1973-02-01T00:00:00Z", 837.0),
-    ("1973-03-01T00:00:00Z", 9000.0)
+    ("1973-03-01T00:00:00Z", 90000.0)
   ).toDF("timestamp","value")
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
@@ -55,7 +55,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{
     ("2000-01-24T08:57:00Z", 924.0),
     ("2000-01-24T08:58:00Z", 881.0),
     ("2000-01-24T08:59:00Z", 837.0),
-    ("2000-01-24T09:00:00Z", 9000.0)
+    ("2000-01-24T09:00:00Z", 90000.0)
   ).toDF("timestamp","value")
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
