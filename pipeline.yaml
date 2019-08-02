@@ -79,6 +79,75 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
+- job: PublishDocker
+  displayName: PublishDocker
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - bash: |
+        VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+        echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=tag]'$(echo $VERSION | tr '+' '-')
+        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+      displayName: 'Get Docker Tag + Version'
+    - task: Docker@2
+      displayName: Demo Image Build
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/build-demo'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: $(tag)
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      displayName: Demo Image Push
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/build-demo'
+        command: 'push'
+        tags: $(tag)
+    - task: Docker@2
+      displayName: Minimal Image Build + Push
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/minimal/Dockerfile'
+        tags: $(tag)
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      displayName: Minimal Image Build + Push
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'push'
+        tags: $(tag)
+    - task: Docker@2
+      condition: startsWith(variables['gittag'], 'v')
+      displayName: Release Image Build
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/release'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: |
+          $(tag)
+          latest
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      condition: startsWith(variables['gittag'], 'v')
+      displayName: Release Image Push
+      inputs:
+        containerRegistry: 'mmlsparkmcr-connection'
+        repository: 'public/mmlspark/release'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
+
 - job: Release
   cancelTimeoutInMinutes: 0
   pool:
@@ -115,7 +184,7 @@ jobs:
       displayName: Create Anaconda environment
     - bash: |
         source activate mmlspark
-        (timeout 5m sbt setup) || (timeout 5m sbt setup)
+        (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         sbt coverage testPython
       displayName: Test Python Code
     - task: PublishTestResults@2
@@ -147,6 +216,7 @@ jobs:
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1
+  timeoutInMinutes: 80
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-16.04
@@ -198,16 +268,18 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@1
       displayName: 'Unit Test'
-      timeoutInMinutes: 40
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
+
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
