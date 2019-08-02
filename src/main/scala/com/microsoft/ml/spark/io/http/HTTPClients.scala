@@ -109,18 +109,24 @@ object HandlingUtils extends SparkLogging {
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
-    val req = request.toHTTPCore
-    val message = req match {
-      case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
-      case r => r.getURI
+    try{
+      val req = request.toHTTPCore
+      val message = req match {
+        case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
+        case r => r.getURI
+      }
+      logInfo(s"sending $message")
+      val start = System.currentTimeMillis()
+      val resp = sendWithRetries(client, req, retryTimes.toArray)
+      logInfo(s"finished sending (${System.currentTimeMillis() - start}ms) $message")
+      val respData = convertAndClose(resp)
+      req.releaseConnection()
+      respData
+    } catch {
+      case e: java.net.SocketTimeoutException =>
+        logWarning(s"Encountered Socket Timeout: ${e.getMessage}")
+        null //scalastyle:ignore null
     }
-    logInfo(s"sending $message")
-    val start = System.currentTimeMillis()
-    val resp = sendWithRetries(client, req, retryTimes.toArray)
-    logInfo(s"finished sending (${System.currentTimeMillis() - start}ms) $message")
-    val respData = convertAndClose(resp)
-    req.releaseConnection()
-    respData
   }
 
   def advancedUDF(retryTimes: Int*): UserDefinedFunction =
