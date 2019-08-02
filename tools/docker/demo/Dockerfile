@@ -29,10 +29,10 @@ RUN conda install jupyter \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
     && conda clean --all --yes
 
-ADD tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup
-ADD notebooks/samples notebooks
+COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup
+COPY notebooks/samples notebooks
 WORKDIR notebooks
 
-ARG MMLSPARK_VERSION=0.17
+ARG MMLSPARK_VERSION
 ENV MMLSPARK_VERSION=${MMLSPARK_VERSION}
 EXPOSE 8888
