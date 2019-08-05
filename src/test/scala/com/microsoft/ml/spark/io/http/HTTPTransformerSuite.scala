@@ -30,8 +30,13 @@ object ServerUtils {
   }
 
   private class RequestHandler extends HttpHandler {
-    override def handle(request: HttpExchange): Unit = synchronized {
-      respond(request, 200, "{\"blah\": \"more blah\"}")
+    override def handle(request: HttpExchange): Unit = {
+      if (request.getRequestURI.toString.endsWith("/flaky")){
+        Thread.sleep(60000)
+        respond(request, 200, "{\"blah\": \"more blah\"}")
+      }else{
+        respond(request, 200, "{\"blah\": \"more blah\"}")
+      }
     }
   }
 
