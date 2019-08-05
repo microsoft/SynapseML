@@ -32,6 +32,15 @@ class SimpleHTTPTransformerSuite
     assert(results(0).schema.fields.length == 3)
   }
 
+  test("HttpTransformerTest with Flaky Connection") {
+    lazy val df2: DataFrame = sc.parallelize((1 to 5).map(Tuple1(_))).toDF("data")
+    val results = simpleTransformer
+      .setUrl(url + "/flaky")
+      .setTimeout(1)
+      .transform(df2).collect
+    assert(results.length == 5)
+  }
+
   test("Basic Handling") {
     val results = simpleTransformer
       .setHandler(HandlingUtils.basic)
