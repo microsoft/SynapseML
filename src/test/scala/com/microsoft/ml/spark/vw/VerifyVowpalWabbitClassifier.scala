@@ -92,7 +92,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
   test("Verify VowpalWabbit Classifier w/ and w/o link=logistic produce same results") {
     val fileName = "a1a.train.svmlight"
-    val labelColumnName = "Diabetes mellitus"
 
     val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
     val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
@@ -115,7 +114,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
   test("Verify VowpalWabbit Classifier w/ bfgs and cache file") {
     val fileName = "a1a.train.svmlight"
-    val labelColumnName = "Diabetes mellitus"
 
     val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
     val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
