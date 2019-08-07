@@ -63,9 +63,34 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     assert(labelOneCnt > 10)
   }
 
+  test("Verify VowpalWabbit Classifier does not generate duplicate options (short)") {
+    val fileName = "a1a.train.svmlight"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+
+    val vw = new VowpalWabbitClassifier()
+      .setArgs("-b 15")
+      .setNumBits(22)
+
+    // command line args take precedence
+    assert(vw.fit(dataset).vwArgs.getNumBits == 15)
+  }
+
+  test("Verify VowpalWabbit Classifier does not generate duplicate options (long)") {
+    val fileName = "a1a.train.svmlight"
+    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
+    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+
+    val vw = new VowpalWabbitClassifier()
+      .setArgs("-b 4")
+      .setNumBits(22)
+
+    // command line args take precedence
+    assert(vw.fit(dataset).vwArgs.getNumBits == 4)
+  }
+
   test("Verify VowpalWabbit Classifier can deal with empty partitions") {
     val fileName = "a1a.train.svmlight"
-
     val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
     val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
 
@@ -104,7 +129,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val vw2 = new VowpalWabbitClassifier()
         .setArgs("--link=logistic")
         .setNumPasses(2)
-    val classifier2 = vw1.fit(dataset)
+    val classifier2 = vw2.fit(dataset)
 
     val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
     val labelOneCnt2 = classifier2.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()

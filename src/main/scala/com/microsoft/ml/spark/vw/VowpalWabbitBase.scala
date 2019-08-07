@@ -103,16 +103,20 @@ trait VowpalWabbitBase extends Wrappable
   def getFeaturesCol: String
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
-    def appendParam[T](param: Param[T], option: String): StringBuilder = {
-      if (!get(param).isEmpty) {
+    def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
 
-        param match {
-          case _: StringArrayParam => {
-            for (q <- get(param).get)
-              sb.append(s" $option $q")
-          }
-          case _ => sb.append(s" $option ${get(param).get}")
+      if (get(param).isEmpty ||
+        // boost allow space or =
+          s"-${optionShort}[ =]".r.findAllIn(sb.toString).hasNext ||
+          s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext)
+        return sb
+
+      param match {
+        case _: StringArrayParam => {
+          for (q <- get(param).get)
+            sb.append(s" $optionShort $q")
         }
+        case _ => sb.append(s" $optionShort ${get(param).get}")
       }
 
       sb
@@ -298,14 +302,14 @@ trait VowpalWabbitBase extends Wrappable
     // add exposed parameters to the final command line args
     val vwArgs = new StringBuilder()
       .append(s"${getArgs} --save_resume --preserve_performance_counters ")
-      .append(s"--hash_seed ${getHashSeed} ")
-      .append(s"-b ${getNumBits} ")
-      .appendParam(learningRate, "-l")
-      .appendParam(powerT, "--power_t")
-      .appendParam(l1, "--l1")
-      .appendParam(l2, "--l2")
-      .appendParam(ignoreNamespaces, "--ignore")
-      .appendParam(interactions, "-q")
+      .appendParamIfNotThere("hash_seed", "hash_seed", hashSeed)
+      .appendParamIfNotThere("b", "bit_precision", numBits)
+      .appendParamIfNotThere("l", "learning_rate", learningRate)
+      .appendParamIfNotThere("power_t", "power_t", powerT)
+      .appendParamIfNotThere("l1", "l1", l1)
+      .appendParamIfNotThere("l2", "l2", l2)
+      .appendParamIfNotThere("ignore", "ignore", ignoreNamespaces)
+      .appendParamIfNotThere("q", "quadratic", interactions)
 
     // call training
     val binaryModel = if (numWorkers == 1)
