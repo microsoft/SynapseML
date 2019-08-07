@@ -104,22 +104,23 @@ trait VowpalWabbitBase extends Wrappable
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
-
       if (get(param).isEmpty ||
         // boost allow space or =
           s"-${optionShort}[ =]".r.findAllIn(sb.toString).hasNext ||
-          s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext)
-        return sb
-
-      param match {
-        case _: StringArrayParam => {
-          for (q <- get(param).get)
-            sb.append(s" $optionShort $q")
-        }
-        case _ => sb.append(s" $optionShort ${get(param).get}")
+          s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext) {
+        sb
       }
+      else {
+        param match {
+          case _: StringArrayParam => {
+            for (q <- get(param).get)
+              sb.append(s" $optionShort $q")
+          }
+          case _ => sb.append(s" $optionShort ${get(param).get}")
+        }
 
-      sb
+        sb
+      }
     }
   }
 
