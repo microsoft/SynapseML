@@ -54,7 +54,8 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishDocs publishR
+        sbt publishBlob publishSigned publishDocs publishR
+        sbt sonatypeRelease
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
@@ -209,8 +210,8 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml -F python
-        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml -F scala
+        ./.codecov -t $(codecov-token) -f coverage.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -302,6 +303,6 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -F scala
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
