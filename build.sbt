@@ -17,10 +17,13 @@ scalaVersion := "2.11.12"
 val sparkVersion = "2.4.3"
 val sprayVersion = "1.3.4"
 val cntkVersion = "2.4"
+val accumuloVersion = "2.0.0"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-avro" % sparkVersion,
+  "org.apache.accumulo" % "accumulo-core" % accumuloVersion,
   "org.scalactic" %% "scalactic" % "3.0.5",
   "org.scalatest" %% "scalatest" % "3.0.5",
   "io.spray" %% "spray-json" % "1.3.2",
