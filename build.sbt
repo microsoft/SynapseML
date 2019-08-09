@@ -1,5 +1,4 @@
-import java.io.File
-import java.net.{URL, URLEncoder}
+import java.io.{File, PrintWriter}
 
 import org.apache.commons.io.{FileUtils, IOUtils}
 import sbt.internal.util.ManagedLogger
@@ -33,6 +32,7 @@ libraryDependencies ++= Seq(
   "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.1"
 )
 
+//noinspection ScalaStyle
 lazy val IntegrationTest2 = config("it").extend(Test)
 
 def join(folders: String*): File = {
@@ -330,7 +330,6 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
-/*
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
   Secrets.nexusUsername,
@@ -350,7 +349,7 @@ pgpPublicRing := {
     write(Secrets.pgpPublic); close()
   }
   temp
-}*/
+}
 
 licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
 publishMavenStyle := true
