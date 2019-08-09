@@ -53,7 +53,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
     // 2. if you want to export the model *and* get probabilities at scoring term w/ link=logistic is preferable
 
     // convert raw prediction to probability (if needed)
-    val probabilityUdf = if (vwArgs.getArgs.contains("--link=logistic"))
+    val probabilityUdf = if (vwArgs.getArgs.contains("--link logistic"))
       udf { (pred: Double) => Vectors.dense(Array(1 - pred, pred)) }
     else
       udf { (pred: Double) => {
