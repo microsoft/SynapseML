@@ -60,7 +60,7 @@ Azure Cognitive Services on Spark enable working with Azure’s Intelligent Serv
 ## Usage
 To see an example of Cognitive Services on Spark in action, take a look at [this sample notebook](../notebooks/samples/CognitiveServices%20-%20Celebrity%20Quote%20Analysis.ipynb).
 
-## Cognitive Services on Apache Spark
+## Cognitive Services on Apache Spark™
 Currently, the following Cognitive Services are available on Apache Spark™ through MMLSpark:
 ### Vision
 [**Computer Vision**](https://azure.microsoft.com/en-us/services/cognitive-services/computer-vision/)
@@ -75,8 +75,8 @@ Currently, the following Cognitive Services are available on Apache Spark™ thr
 - Detect: detects human faces in an image
 - Verify: verifies whether two faces belong to a same person, or a face belongs to a person
 - Identify: finds the closest matches of the specific query person face from a person group
-- Find similar: given a query face, finds similar faces in a face list
-- Group: given a number of faces, divides them into disjoint groups based on similarity
+- Find similar: finds similar faces to the query face in a face list
+- Group: divides a group of faces into disjoint groups based on similarity
 
 ### Speech
 [**Speech Services**](https://azure.microsoft.com/en-us/services/cognitive-services/speech-services/)
