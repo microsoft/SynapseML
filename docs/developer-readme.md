@@ -91,3 +91,11 @@ Publishes library to local maven repo
 ### `publishDocs`
 
 Publishes scala and python doc to mmlspark's build azure storage account. (Requires Keys)
+
+### `publishSigned`
+
+Publishes the library to sonatype staging repo
+
+### `sonatypeRelease`
+
+Promotes the published sonatype artifact
