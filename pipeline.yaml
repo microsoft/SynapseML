@@ -54,6 +54,7 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
+        sbt "sonatypeOpen \"com.microsoft.ml.spark\" \"mmlspark\""
         sbt publishBlob publishSigned publishDocs publishR
         sbt sonatypeRelease
         sbt genBuildInfo
@@ -88,7 +89,6 @@ jobs:
     - bash: |
         VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
         echo '##vso[task.setvariable variable=version]'$VERSION
-        echo '##vso[task.setvariable variable=tag]'$(echo $VERSION | tr '+' '-')
         echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
     - task: Docker@2
@@ -99,7 +99,7 @@ jobs:
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: $(tag)
+        tags: $(version)
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
       displayName: Demo Image Push
@@ -107,7 +107,7 @@ jobs:
         containerRegistry: 'mmlsparkmcr-connection'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
-        tags: $(tag)
+        tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
@@ -116,7 +116,7 @@ jobs:
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/minimal/Dockerfile'
-        tags: $(tag)
+        tags: $(version)
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
@@ -124,7 +124,7 @@ jobs:
         containerRegistry: 'mmlsparkmcr-connection'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
-        tags: $(tag)
+        tags: $(version)
     - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
@@ -135,7 +135,7 @@ jobs:
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
         tags: |
-          $(tag)
+          $(version)
           latest
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
@@ -146,7 +146,7 @@ jobs:
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
-          $(tag)
+          $(version)
           latest
 
 - job: Release
