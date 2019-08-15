@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.automl
 
 import java.util.concurrent._
 
-import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.metrics.MetricConstants
@@ -13,18 +13,18 @@ import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWr
 import com.microsoft.ml.spark.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification.ClassificationModel
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
+import org.apache.spark.ml.util._
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.control.NonFatal
 
@@ -40,50 +40,70 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
   /** Estimators to run
+    *
     * @group param
     */
   val models = new EstimatorArrayParam(this, "models", "Estimators to run")
+
   /** @group getParam */
   def getModels: Array[Estimator[_]] = $(models)
+
   /** @group setParam */
   def setModels(value: Array[Estimator[_]]): this.type = set(models, value)
 
   val numFolds = new IntParam(this, "numFolds", "Number of folds")
+
   /** @group getParam */
   def getNumFolds: Int = $(numFolds)
+
   /** @group setParam */
   def setNumFolds(value: Int): this.type = set(numFolds, value)
 
   val seed = new LongParam(this, "seed", "Random number generator seed")
+
   /** @group getParam */
   def getSeed: Long = $(seed)
+
   /** @group setParam */
   def setSeed(value: Long): this.type = set(seed, value)
+
   setDefault(seed -> 0)
 
   val numRuns = new IntParam(this, "numRuns", "Termination criteria for randomized search")
+
   /** @group getParam */
   def getNumRuns: Int = $(numRuns)
+
   /** @group setParam */
   def setNumRuns(value: Int): this.type = set(numRuns, value)
 
   val parallelism = new IntParam(this, "parallelism", "The number of models to run in parallel")
+
   /** @group getParam */
   def getParallelism: Int = $(parallelism)
+
   /** @group setParam */
   def setParallelism(value: Int): this.type = set(parallelism, value)
 
   val paramSpace: ParamSpaceParam =
     new ParamSpaceParam(this, "paramSpace", "Parameter space for generating hyperparameters")
+
   /** @group getParam */
   def getParamSpace: ParamSpace = $(paramSpace)
+
   /** @group setParam */
-  def setParamSpace(value: ParamSpace): this.type  = set(paramSpace, value)
+  def setParamSpace(value: ParamSpace): this.type = set(paramSpace, value)
+
+  private class CurrentThreadExecutor extends Executor {
+    def execute(r: Runnable): Unit = {
+      r.run()
+    }
+  }
 
   private def getExecutionContext: ExecutionContext = {
     getParallelism match {
       case 1 =>
-        ExecutionContext.fromExecutorService(MoreExecutors.sameThreadExecutor())
+        ExecutionContext.fromExecutor(new CurrentThreadExecutor())
       case n =>
         val keepAliveSeconds = 60L
         val prefix = s"${this.getClass.getSimpleName}-thread-pool"
@@ -138,41 +158,41 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
         modelParams += params
       }
       val foldMetricFutures = modelParams.zipWithIndex.map { case (paramMap, paramIndex) =>
-          Future[Double] {
-            val model = getModels(paramIndex % numModels).fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
-            val scoredDataset = model.transform(validationDataset, paramMap)
-            val evaluator = new ComputeModelStatistics()
-            evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
-            model match {
-              case _: TrainedRegressorModel => {
-                logDebug("Evaluating trained regressor model.")
-              }
-              case _: TrainedClassifierModel => {
-                logDebug("Evaluating trained classifier model.")
-              }
-              case classificationModel: ClassificationModel[_, _] => {
-                logDebug(s"Evaluating SparkML ${model.uid} classification model.")
-                evaluator
-                  .setLabelCol(classificationModel.getLabelCol)
-                  .setScoredLabelsCol(classificationModel.getPredictionCol)
-                  .setScoresCol(classificationModel.getRawPredictionCol)
-                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(MetricConstants.ClassificationMetricsName)
-              }
-              case regressionModel: RegressionModel[_, _] => {
-                logDebug(s"Evaluating SparkML ${model.uid} regression model.")
-                evaluator
-                  .setLabelCol(regressionModel.getLabelCol)
-                  .setScoredLabelsCol(regressionModel.getPredictionCol)
-                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                  evaluator.setEvaluationMetric(MetricConstants.RegressionMetricsName)
-              }
+        Future[Double] {
+          val model = getModels(paramIndex % numModels).fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
+          val scoredDataset = model.transform(validationDataset, paramMap)
+          val evaluator = new ComputeModelStatistics()
+          evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
+          model match {
+            case _: TrainedRegressorModel => {
+              logDebug("Evaluating trained regressor model.")
             }
-            val metrics = evaluator.transform(scoredDataset)
-            val metric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
-            logDebug(s"Got metric $metric for model trained with $paramMap.")
-            metric
-          } (executionContext)
+            case _: TrainedClassifierModel => {
+              logDebug("Evaluating trained classifier model.")
+            }
+            case classificationModel: ClassificationModel[_, _] => {
+              logDebug(s"Evaluating SparkML ${model.uid} classification model.")
+              evaluator
+                .setLabelCol(classificationModel.getLabelCol)
+                .setScoredLabelsCol(classificationModel.getPredictionCol)
+                .setScoresCol(classificationModel.getRawPredictionCol)
+              if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                evaluator.setEvaluationMetric(MetricConstants.ClassificationMetricsName)
+            }
+            case regressionModel: RegressionModel[_, _] => {
+              logDebug(s"Evaluating SparkML ${model.uid} regression model.")
+              evaluator
+                .setLabelCol(regressionModel.getLabelCol)
+                .setScoredLabelsCol(regressionModel.getPredictionCol)
+              if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                evaluator.setEvaluationMetric(MetricConstants.RegressionMetricsName)
+            }
+          }
+          val metrics = evaluator.transform(scoredDataset)
+          val metric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
+          logDebug(s"Got metric $metric for model trained with $paramMap.")
+          metric
+        }(executionContext)
       }
       val foldMetrics = foldMetricFutures.toArray.map(awaitResult(_, Duration.Inf))
 
@@ -200,9 +220,10 @@ object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 class TuneHyperparametersModel(val uid: String,
                                val model: Transformer,
                                val bestMetric: Double)
-    extends Model[TuneHyperparametersModel] with ConstructorWritable[TuneHyperparametersModel] {
+  extends Model[TuneHyperparametersModel] with ConstructorWritable[TuneHyperparametersModel] {
 
   override val ttag: TypeTag[TuneHyperparametersModel] = typeTag[TuneHyperparametersModel]
+
   override def objectsToSave: List[Any] = List(uid, model, bestMetric)
 
   override def copy(extra: ParamMap): TuneHyperparametersModel =
