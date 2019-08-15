@@ -10,6 +10,7 @@ trigger:
     - README.md
     - docs/*
     - CODEOWNERS
+    - .github
 
 pr:
   branches:
@@ -20,6 +21,7 @@ pr:
     - README.md
     - docs/*
     - CODEOWNERS
+    - .github
 
 variables:
   runTests: True
