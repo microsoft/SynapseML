@@ -14,14 +14,15 @@ newPRWelcomeComment: >
   This helps us to create release messages and credit you for your hard work!
 
   Examples of commit messages with semantic prefixes:
-  - `fix: Fix LightGBM crashes with empty partitions`
-  - `feat: Make HTTP on Spark back-offs configurable`
-  - `docs: Update Spark Serving usage`
-  - `build: Add codecov support`
-  - `perf: improve LightGBM memory usage`
-  - `refactor: make python code generation rely on classes`
-  - `style: Remove nulls from CNTKModel`
-  - `test: Add test coverage for CNTKModel`
+  
+    - `fix: Fix LightGBM crashes with empty partitions`
+    - `feat: Make HTTP on Spark back-offs configurable`
+    - `docs: Update Spark Serving usage`
+    - `build: Add codecov support`
+    - `perf: improve LightGBM memory usage`
+    - `refactor: make python code generation rely on classes`
+    - `style: Remove nulls from CNTKModel`
+    - `test: Add test coverage for CNTKModel`
 
   Make sure to check out the [developer guide](https://github.com/Azure/mmlspark/blob/master/CONTRIBUTING.md) for guidance on testing your change.
 
