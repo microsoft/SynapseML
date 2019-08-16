@@ -2,7 +2,10 @@
 
 # Microsoft Machine Learning for Apache Spark
 
-[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)
+[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Release Notes](https://img.shields.io/badge/version-0.17-blue)](https://github.com/Azure/mmlspark/releases) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
@@ -21,9 +24,6 @@ MMLSpark requires Scala 2.11, Spark 2.3+, and either Python 2.7 or Python 3.5+.
 See the API documentation [for
 Scala](http://mmlspark.azureedge.net/docs/scala/) and [for
 PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
-
-[<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
-  />](https://github.com/Azure/mmlspark/releases)
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -47,7 +47,7 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 ## Projects
 
-|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
+|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
 | **Vopal Wabbit on Spark**  | **The Cognitive Services on Spark**| **LightGBM on Spark** |  **Spark Serving** |
 | State of the Art Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
