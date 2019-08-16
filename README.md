@@ -47,38 +47,16 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 ## Projects
 
-<table style="width:70%">
-   <tr align="center">
-    <td><b>The Cognitive Services on Spark:</b><img height="40" /></td>
-    <td><b>LIME on Spark:</b><img height="40" /></b></td>
-    <td><b>Spark Serving:</b><img height="40" /></b></td>
-  </tr>
-  <tr align="center">
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png" width="200" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg" width="180" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
-  </tr>
-  <tr align="center">
-    <td>Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines</td>
-    <td>Distributed, Model Agnostic, Interpretations for Image Classifiers</td>
-    <td>Serve any Spark Computation as a Web Service with Sub-Millisecond Latency</td>
-  </tr>
-   <tr align="center">
-    <td><b>LightGBM on Spark:</b><img height="40" /></b></td>
-    <td><b>CNTK on Spark:</b><img height="40" /></b></td>
-    <td><b>HTTP on Spark:</b><img height="40" /></b></td>
-  </tr>
-  <tr align="center">
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png" width="250" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png" width="250" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png" width="150" /></td>
-  </tr>
-  <tr align="center">
-    <td>Train Gradient Boosted Machines with LightGBM</td>
-    <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
-    <td>An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
-  </tr>
-</table>
+|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+| **Vopal Wabbit on Spark**  | **The Cognitive Services on Spark**| **LightGBM on Spark** |  **Spark Serving** |
+| State of the Art Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
+
+|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+|  **HTTP on Spark** | **CNTK on Spark** |  **Lime on Spark**| **Spark Binding Autogeneration** |
+| An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration|Distributed Deep Learning with the Microsoft Cognitive Toolkit | Distributed, Model Agnostic, Interpretations for Classifiers | Automatically Generate Spark bindings for PySpark and SparklyR|
+
 
 ## Examples
 
