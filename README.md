@@ -2,7 +2,7 @@
 
 # Microsoft Machine Learning for Apache Spark
 
-[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)
+[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
