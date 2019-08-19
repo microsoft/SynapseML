@@ -64,6 +64,12 @@ jobs:
       displayName: Publish Artifacts
       env:
         STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+
     - bash: sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
