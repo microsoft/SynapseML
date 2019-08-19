@@ -190,8 +190,6 @@ spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
 import mmlspark
 ```
 
-<img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
-
 ### SBT
 
 If you are building a Spark application in Scala, add the following lines to
