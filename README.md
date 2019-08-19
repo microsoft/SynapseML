@@ -49,8 +49,8 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
-| **Vopal Wabbit on Spark**  | **The Cognitive Services on Spark**| **LightGBM on Spark** |  **Spark Serving** |
-| State of the Art Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
+| **Vowpal Wabbit on Spark**  | **The Cognitive Services on Spark**| **LightGBM on Spark** |  **Spark Serving** |
+| Fast, Sparse, and Effective Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
 
 |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
