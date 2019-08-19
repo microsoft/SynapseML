@@ -37,13 +37,13 @@ object Secrets {
     }
   }
 
-  lazy val nexusUsername: String = getSecret("nexus-un")
-  lazy val nexusPassword: String = getSecret("nexus-pw")
+  lazy val nexusUsername: String = sys.env.getOrElse("NEXUS-UN", getSecret("nexus-un"))
+  lazy val nexusPassword: String = sys.env.getOrElse("NEXUS-PW", getSecret("nexus-pw"))
   lazy val pgpPublic: String = new String(Base64.getDecoder.decode(
-    getSecret("pgp-public").getBytes("UTF-8")))
+    sys.env.getOrElse("PGP-PUBLIC", getSecret("pgp-public")).getBytes("UTF-8")))
   lazy val pgpPrivate: String = new String(Base64.getDecoder.decode(
-    getSecret("pgp-private").getBytes("UTF-8")))
-  lazy val pgpPassword: String = getSecret("pgp-pw")
+    sys.env.getOrElse("PGP-PRIVATE", getSecret("pgp-private")).getBytes("UTF-8")))
+  lazy val pgpPassword: String = sys.env.getOrElse("PGP-PW", getSecret("pgp-pw"))
   lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", getSecret("storage-key"))
 
 }
