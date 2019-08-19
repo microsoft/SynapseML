@@ -1,8 +1,10 @@
+<img width="200" src="https://mmlspark.blob.core.windows.net/graphics/emails/vw-blue-dark-orange.svg">
+
 # VowpalWabbit on Apache Spark
 
 ### Overview
 
-[VowpalWabbit](https://github.com/VowpalWabbit/vowpal_wabbit)(VW) is a machine learning system which
+[VowpalWabbit](https://github.com/VowpalWabbit/vowpal_wabbit) (VW) is a machine learning system which
 pushes the frontier of machine learning with techniques such as online, hashing, allreduce,
 reductions, learning2search, active, and interactive learning. 
 VowpalWabbit is a popular choice in ad-tech due to it's speed and cost efficacy. 
@@ -81,25 +83,25 @@ Java bindings can be found in the [VW GitHub repo](https://github.com/VowpalWabb
 VWs command line tool uses a 2-thread architecture (1x parsing/hashing, 1x learning) for learning and inference.
 To fluently embed VW into the Spark ML eco system the following adaptions were made:
 
-* VW classifier/regressor operates on Spark's dense/sparse vectors
-- Pro: best composability with existing Spark ML components.
-- Cons: due to type restrictions (e.g. feature indicies are Java integers) the maximum model size is limited to 30-bits. 
-       One could overcome this restriction by adding additional type support to the classifier/regressor to directly operate on input features (e.g. strings, int, double, ...).
-* VW hashing is separated out into the [VowpalWabbitFeaturizer](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/ml/spark/vw/VerifyVowpalWabbitFeaturizer.scala#L34) transformer. It supports mapping Spark Dataframe schema into VWs namespaces and sparse 
+- VW classifier/regressor operates on Spark's dense/sparse vectors
+    - Pro: best composability with existing Spark ML components.
+    - Cons: due to type restrictions (e.g. feature indicies are Java integers) the maximum model size is limited to 30-bits. One could overcome this restriction by adding additional type support to the classifier/regressor to directly operate on input features (e.g. strings, int, double, ...).
+
+- VW hashing is separated out into the [VowpalWabbitFeaturizer](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/ml/spark/vw/VerifyVowpalWabbitFeaturizer.scala#L34) transformer. It supports mapping Spark Dataframe schema into VWs namespaces and sparse 
 features.
-- Pro: featurization can be scaled to many nodes, scale independent of distributed learning.
-- Pro: hashed features can be cached and efficiently re-used when performing hyper-parameter sweeps.
-- Pro: featurization can be used for other Spark ML learning algorithms.
-- Cons: due to type restrictions (e.g. sparse indicies are Java integers) the hash space is limited by 30-bits.
-* VW multi-pass training can be enabled using '--passes 4' argument or setNumPasses method. Cache file is automatically named.
-- Pro: simplified usage.
-- Pro: certain algorithms (e.g. l-bfgs) require a cache file when running in multi-pass node.
-- Cons: The cache file is created in the Java temp directory. Depending on your nodes i/o and the location of the temp directory
-    this can be a bottleneck.
-* VW distributed training is transparently setup and can be controlled through the input dataframes number of partitions. 
+    - Pro: featurization can be scaled to many nodes, scale independent of distributed learning.
+    - Pro: hashed features can be cached and efficiently re-used when performing hyper-parameter sweeps.
+    - Pro: featurization can be used for other Spark ML learning algorithms.
+    - Cons: due to type restrictions (e.g. sparse indicies are Java integers) the hash space is limited by 30-bits.
+
+- VW multi-pass training can be enabled using '--passes 4' argument or setNumPasses method. Cache file is automatically named.
+    - Pro: simplified usage.
+    - Pro: certain algorithms (e.g. l-bfgs) require a cache file when running in multi-pass node.
+    - Cons: The cache file is created in the Java temp directory. Depending on your nodes i/o and the location of the temp directory this can be a bottleneck.
+- VW distributed training is transparently setup and can be controlled through the input dataframes number of partitions. 
   Similar to LightGBM all training instances must be running at the same time, thus the maxium parallelism is restricted by the 
   number of executors available in the cluster. Under the hoods VWs built-in spanning tree functionality is used to coordinate allreduce.
   Required parameters are automatically determined and supplied to VW. The spanning tree coordination process is run on the driver node.
-- Pro: seamless parallelization.
-- Cons: currently barrier execution mode is not implemented and thus if one node crashes the complete job needs to be manually restarted.
+    - Pro: seamless parallelization.
+    - Cons: currently barrier execution mode is not implemented and thus if one node crashes the complete job needs to be manually restarted.
 
