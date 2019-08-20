@@ -32,7 +32,7 @@ Furthermore it includes many advances in the area of reinforcement learning (e.g
 
 ### Limitations of VowpalWabbit on Spark
 
--  **Linux only** The native binaries included with the published jar are built for Linux only (Ubuntu 18.04).
+-  **Linux and CentOS only** The native binaries included with the published jar are built Linux and CentOS only.
     We're working on creating a more portable version by statically linking Boost and lib C++.
 -  **Limited Parsing** Features implemented in the native VW parser (e.g. ngrams, skips, ...) are not yet implemented in
     VowpalWabbitFeaturizer.
