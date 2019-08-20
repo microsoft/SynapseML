@@ -270,6 +270,7 @@ To give feedback and/or report an issue, open a [GitHub
 Issue](https://help.github.com/articles/creating-an-issue/).
 
 ## Other relevant projects
+-   [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit)
 
 -   [LightGBM](https://github.com/Microsoft/LightGBM)
 
