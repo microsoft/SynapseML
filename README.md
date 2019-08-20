@@ -226,6 +226,8 @@ and some necessary custom wrappers may be missing.
 
 -   See how MMLSpark is used to [help endangered species].
 
+-   Explore generative adversarial artwork in [our collaboration with The MET and MIT].
+
 -   Explore [our collaboration with Apache Spark] on image analysis.
 
 -   Use [MMLSpark in Azure Machine Learning].
@@ -241,7 +243,9 @@ and some necessary custom wrappers may be missing.
 
 [our paper]: https://arxiv.org/abs/1804.04031 "Flexible and Scalable Deep Learning with MMLSpark"
 
-[help endangered species]: https://customers.microsoft.com/en-us/story/snow-leopard-trust-nonprofit-azure "Saving snow leopards with deep learning and computer vision on Spark"
+[help endangered species]: https://www.microsoft.com/en-us/ai/ai-lab-stories?activetab=pivot1:primaryr3 "Identifying snow leopards with AI"
+
+[our collaboration with The MET and MIT]: https://www.microsoft.com/en-us/ai/ai-lab-stories?activetab=pivot1:primaryr4 "Generative art at the MET"
 
 [our collaboration with Apache Spark]: https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/ "Image Data Support in Apache Spark"
 
