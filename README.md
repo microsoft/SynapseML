@@ -4,7 +4,9 @@
 
 [![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Release Notes](https://img.shields.io/badge/version-0.18.1-blue)](https://github.com/Azure/mmlspark/releases) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/badge/api_docs-scala-blue)](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/badge/api_docs-python-blue)](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html)
+
+[![Version](https://img.shields.io/badge/version-0.18.1-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
