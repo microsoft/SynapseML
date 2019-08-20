@@ -172,13 +172,13 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
-        (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+        (r: Seq[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
 
-      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
+      val shuffle = udf((r: Seq[Array[Double]]) =>
         if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
       )
-      val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
+      val dropudf = udf((r: Seq[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
         .withColumn("itemIDRating", wrapColumn(col(getItemCol), col(getRatingCol)))
@@ -209,13 +209,13 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
       Array(train, test)
     }
     else {
-      val shuffle = udf((r: mutable.WrappedArray[Double]) =>
+      val shuffle = udf((r: Seq[Double]) =>
         if (shuffleBC.value) Random.shuffle(r.toSeq)
         else r
       )
       val sliceudf = udf(
-        (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-      val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
+        (r: Seq[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+      val dropudf = udf((r: Seq[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
         .groupBy(col(getUserCol))

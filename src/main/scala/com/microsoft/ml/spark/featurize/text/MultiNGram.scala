@@ -51,7 +51,7 @@ class MultiNGram(override val uid: String)
     val intermediateDF = NamespaceInjections.pipelineModel(models).transform(df)
     intermediateDF.map { row =>
       val mergedNGrams = intermediateOutputCols
-        .map(col => row.getAs[mutable.WrappedArray[String]](col))
+        .map(col => row.getAs[Seq[String]](col))
         .reduce(_ ++ _)
       Row.merge(row, Row(mergedNGrams))
     }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))

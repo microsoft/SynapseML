@@ -4,9 +4,8 @@
 package com.microsoft.ml.spark.cntk
 
 import com.microsoft.CNTK.{DoubleVector, DoubleVectorVector, FloatVector, FloatVectorVector}
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.{Vector=>SVector, Vectors}
 
-import scala.collection.mutable
 import scala.language.implicitConversions
 
 object ConversionUtils {
@@ -14,6 +13,11 @@ object ConversionUtils {
   type GVV = Either[FloatVectorVector, DoubleVectorVector]
 
   type SSG = Either[Seq[Seq[Float]], Seq[Seq[Double]]]
+
+  def convertGVV(gvv: GVV): Seq[Seq[_]] = {
+    val ssg =toSSG(gvv)
+    ssg.left.toOption.getOrElse(ssg.right.get)
+  }
 
   def toSSG(gvv: GVV): SSG = {
     gvv match {
@@ -41,19 +45,19 @@ object ConversionUtils {
     }
   }
 
-  def toDV(gvv: GVV): Seq[DenseVector] = {
+  def toDV(gvv: GVV): Seq[SVector] = {
     gvv match {
       case Left(vv) =>
         (0 until vv.size.toInt).map { i =>
           val v = vv.get(i)
-          new DenseVector((0 until v.size.toInt).map { j =>
+          Vectors.dense((0 until v.size.toInt).map { j =>
             v.get(j).toDouble
           }.toArray)
         }
       case Right(vv) =>
         (0 until vv.size.toInt).map { i =>
           val v = vv.get(i)
-          new DenseVector((0 until v.size.toInt).map { j =>
+          Vectors.dense((0 until v.size.toInt).map { j =>
             v.get(j)
           }.toArray)
         }

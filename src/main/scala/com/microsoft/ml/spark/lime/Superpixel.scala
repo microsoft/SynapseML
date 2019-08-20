@@ -29,7 +29,7 @@ object SuperpixelData {
   val Schema: DataType = ScalaReflection.schemaFor[SuperpixelData].dataType
 
   def fromRow(r: Row): SuperpixelData = {
-    val clusters = r.getAs[mutable.WrappedArray[mutable.WrappedArray[Row]]](0)
+    val clusters = r.getAs[Seq[Seq[Row]]](0)
     SuperpixelData(clusters.map(cluster => cluster.map(r => (r.getInt(0), r.getInt(1)))))
   }
 
@@ -64,14 +64,14 @@ object Superpixel {
     }
   }
 
-  def maskImageHelper(img: Row, sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
+  def maskImageHelper(img: Row, sp: Row, states: Seq[Boolean]): Row = {
     val bi = maskImage(img, SuperpixelData.fromRow(sp), states.toArray)
     ImageUtils.toSparkImage(bi).getStruct(0)
   }
 
   val MaskImageUDF: UserDefinedFunction = udf(maskImageHelper _, ImageSchema.columnSchema)
 
-  def maskBinaryHelper(img: Array[Byte], sp: Row, states: mutable.WrappedArray[Boolean]): Row = {
+  def maskBinaryHelper(img: Array[Byte], sp: Row, states: Seq[Boolean]): Row = {
     val biOpt = maskBinary(img, SuperpixelData.fromRow(sp), states.toArray)
     biOpt.map(ImageUtils.toSparkImage(_).getStruct(0)).orNull
   }

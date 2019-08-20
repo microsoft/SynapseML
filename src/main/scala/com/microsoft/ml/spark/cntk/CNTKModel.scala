@@ -14,7 +14,7 @@ import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, H
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vectors, Vector => SVector}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -53,13 +53,13 @@ private object CNTKModelUtils extends java.io.Serializable {
       ov.getDataType match {
         case CNTKDataType.Float =>
           val fvv = new FloatVectorVector() //TODO try re-using
-          val value = outputDataMap.getitem(ov)
+        val value = outputDataMap.getitem(ov)
           value.copyVariableValueToFloat(ov, fvv)
           value.delete()
           Left(fvv)
         case CNTKDataType.Double =>
           val dvv = new DoubleVectorVector() //TODO try re-using
-          val value = outputDataMap.getitem(ov)
+        val value = outputDataMap.getitem(ov)
           value.copyVariableValueToDouble(ov, dvv)
           value.delete()
           Right(dvv)
@@ -85,9 +85,7 @@ private object CNTKModelUtils extends java.io.Serializable {
 
   def applyModel(inputMap: Map[String, Int],
                  broadcastedModel: Broadcast[CNTKFunction],
-                 outputMap: Map[String, String],
-                 convertToDenseVector: Boolean
-                )
+                 outputMap: Map[String, String])
                 (inputRows: Iterator[Row]): Iterator[Row] = {
 
     if (!inputRows.hasNext) {
@@ -102,7 +100,7 @@ private object CNTKModelUtils extends java.io.Serializable {
       val inputExtractors = makeInputExtractors(inputMapVar)
 
       val inputGVVs = inputMapVar.map {
-        case (colnum, variable) => variable -> {
+        case (_, variable) => variable -> {
           variable.getDataType match {
             case CNTKDataType.Float =>
               Left(new FloatVectorVector())
@@ -114,20 +112,15 @@ private object CNTKModelUtils extends java.io.Serializable {
 
       // WARNING: DO NOT simplify this to mapValues,
       // for some reason it calls the inner function more than it should
-      val preprocessFunction: (Row) => Map[Variable, GVV] = {
-        { row: Row => inputExtractors.map { case (k,f) =>
-          k -> ConversionUtils.toGVV(f(row), inputGVVs(k)) }}
+      val preprocessFunction: Row => Map[Variable, GVV] = {
+        { row: Row =>
+          inputExtractors.map { case (k, f) =>
+            k -> ConversionUtils.toGVV(f(row), inputGVVs(k))
+          }
+        }
       }
 
       val outputVars = outputMapVar.keys.toList
-      val converter = if (convertToDenseVector) {
-        { gvv: GVV => ConversionUtils.toDV(gvv) }
-      } else {
-        { gvv: GVV => ConversionUtils.toSSG(gvv) match {
-          case Left(ssf) => ssf
-          case Right(ssd) => ssd
-        }}
-      }
 
       val outputVarVector = new VariableVector()
       outputVars.foreach(outputVarVector.add)
@@ -136,7 +129,7 @@ private object CNTKModelUtils extends java.io.Serializable {
       inputRows.map { row =>
         val feedDict = preprocessFunction(row)
         val outputGVVs = applyCNTKFunction(of, feedDict, outputVars, device)
-        val resultRow = Row(outputGVVs.map(converter): _*)
+        val resultRow = Row(outputGVVs.map(ConversionUtils.convertGVV): _*)
         val outputRow = Row.merge(row, resultRow)
         outputGVVs.foreach(ConversionUtils.deleteGVV)
         outputRow
@@ -429,9 +422,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     val funcOpt = (colType, targetElementType) match {
       case (VectorType, DoubleType) =>
-        Some({ av: Seq[DenseVector] => av.map(_.toArray) })
+        Some({ av: Seq[SVector] => av.map(_.toArray) })
       case (VectorType, FloatType) =>
-        Some({ av: Seq[DenseVector] => av.map(_.toArray.map(_.toFloat)) })
+        Some({ av: Seq[SVector] => av.map(_.toArray.map(_.toFloat)) })
       case (ArrayType(FloatType, _), DoubleType) =>
         Some({ av: Seq[Seq[Float]] => av.map(_.map(_.toDouble)) })
       case (ArrayType(DoubleType, _), FloatType) =>
@@ -466,6 +459,29 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     }
   }
 
+  private def coerceOutputDF(unbatchedDF: DataFrame): DataFrame = {
+    val floatToDV = udf({ v: Seq[Float] => Vectors.dense(v.map(_.toDouble).toArray) }, SQLDataTypes.VectorType)
+    val doubleToDV = udf({ v: Seq[Double] => Vectors.dense(v.toArray) }, SQLDataTypes.VectorType)
+
+    if (getConvertOutputToDenseVector) {
+      val outputSchema = getModel.getOutputSchema(getFetchDict)
+      val outputColumnNames = outputSchema.map(_.name).toSet
+      val colsToSelect = unbatchedDF.schema.map {
+        case sf if outputColumnNames(sf.name) =>
+          sf match {
+            case StructField(name, ArrayType(FloatType, _), _, _) =>
+              floatToDV(col(name)).alias(name)
+            case StructField(name, ArrayType(DoubleType, _), _, _) =>
+              doubleToDV(col(name)).alias(name)
+          }
+        case sf => col(sf.name)
+      }
+      unbatchedDF.select(colsToSelect: _*)
+    } else {
+      unbatchedDF
+    }
+  }
+
   /** Evaluate the model
     *
     * @param dataset the dataset to featurize
@@ -487,24 +503,20 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
       coerceDFAndFeedDict(batchedDF, getFeedDict)
 
     val columnIndexToVar = coercedFeedDict.map { case (k, v) =>
-      k -> preprocessedDF.schema.fieldIndex(v) }
+      k -> preprocessedDF.schema.fieldIndex(v)
+    }
 
     if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
 
     val encoder = RowEncoder(getModel.getOutputSchema(getFetchDict)
-      .foldLeft(preprocessedDF.schema) { case (st, sf) =>
-        if (getConvertOutputToDenseVector)
-          st.add(sf.name, ArrayType(VectorType))
-        else
-          st.add(sf.name, ArrayType(sf.dataType))
-      })
+      .foldLeft(preprocessedDF.schema) { case (st, sf) => st.add(sf.name, ArrayType(sf.dataType)) }
+    )
 
     val outputDF = preprocessedDF.mapPartitions { it =>
       CNTKModelUtils.applyModel(
         columnIndexToVar,
         broadcastedModelOption.get,
-        getFetchDict,
-        getConvertOutputToDenseVector)(it)
+        getFetchDict)(it)
     }(encoder)
 
     val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
@@ -514,8 +526,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     } else {
       droppedDF
     }
-
-    unbatchedDF
+    coerceOutputDF(unbatchedDF)
   }
 
 }
