@@ -4,7 +4,7 @@
 
 [![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Release Notes](https://img.shields.io/badge/version-0.18.0-blue)](https://github.com/Azure/mmlspark/releases) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Release Notes](https://img.shields.io/badge/version-0.18.1-blue)](https://github.com/Azure/mmlspark/releases) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
@@ -129,9 +129,9 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.0
-pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.0
-spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.0 MyApp.jar
+spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1
+pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1
+spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use MMLSpark
@@ -146,14 +146,14 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:0.18.0`.  Ensure this library is
+For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:0.18.1`.  Ensure this library is
 attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.18.0.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.18.1.dbc`
 
 ### Docker
 
@@ -185,7 +185,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.18.0") \
+            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.18.1") \
             .getOrCreate()
 import mmlspark
 ```
@@ -196,7 +196,7 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.18.0"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.18.1"
 ```
 
 ### Building from source
