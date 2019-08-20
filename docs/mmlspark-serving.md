@@ -92,7 +92,7 @@ In brief you can use the following:
 `spark.readStream.distributedServer()`: For custom load balanced services
 `spark.readStream.continuousServer()`: For a custom load balanced, sub-millisecond latency continuous server
 
-To create the various different serving dataframes and use the equivalent statements after `df.writeSteam` 
+To create the various different serving dataframes and use the equivalent statements after `df.writeStream` 
 for replying to the web requests
 
 ### Head Node Load Balanced
