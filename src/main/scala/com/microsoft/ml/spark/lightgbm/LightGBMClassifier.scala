@@ -38,6 +38,13 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
+  val generateMissingLabels = new BooleanParam(this, "generateMissingLabels",
+    "Instead of failing in lightgbm, generates dummy rows with missing labels within partitions")
+  setDefault(generateMissingLabels -> false)
+
+  def getGenerateMissingLabels: Boolean = $(generateMissingLabels)
+  def setGenerateMissingLabels(value: Boolean): this.type = set(generateMissingLabels, value)
+
   def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
@@ -45,13 +52,13 @@ class LightGBMClassifier(override val uid: String)
     val actualNumClasses = getNumClasses(dataset)
     val metric =
       if (getObjective == LightGBMConstants.BinaryObjective) "binary_logloss,auc"
-      else "multiclass"
+      else LightGBMConstants.MulticlassObjective
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, metric, getBoostFromAverage,
-      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric)
+      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getGenerateMissingLabels)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
