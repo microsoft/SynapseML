@@ -22,7 +22,7 @@ object udfs {
   }
 
   val to_vector: UserDefinedFunction = udf({
-    arr: mutable.WrappedArray[Double] => Vectors.dense(arr.toArray)
+    arr: Seq[Double] => Vectors.dense(arr.toArray)
   }, VectorType)
 
   def to_vector(colName: String): Column = to_vector(col(colName))

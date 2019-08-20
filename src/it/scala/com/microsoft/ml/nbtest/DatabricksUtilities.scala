@@ -46,7 +46,7 @@ object DatabricksUtilities {
   val authValue: String = "Basic " + BaseEncoding.base64()
     .encode(("token:" + token).getBytes("UTF-8"))
   val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"
-  val clusterName = "Test Cluster"
+  val clusterName = "Test Cluster 2"
   lazy val clusterId: String = getClusterIdByName(clusterName)
 
   val folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
