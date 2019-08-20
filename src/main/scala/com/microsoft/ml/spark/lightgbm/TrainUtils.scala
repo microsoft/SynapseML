@@ -15,6 +15,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
 import org.apache.spark.BarrierTaskContext
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 
@@ -23,9 +24,38 @@ private object TrainUtils extends Serializable {
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
                       weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
-                      log: Logger): Option[LightGBMDataset] = {
+                      log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val numRows = rows.length
     val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
+    if (trainParams.objective == LightGBMConstants.MulticlassObjective ||
+      trainParams.objective == LightGBMConstants.BinaryObjective) {
+      val distinctLabels = labels.distinct.map(_.toInt).sorted
+      // TODO: Temporary hack to append missing labels for debugging, off by default
+      //  try to figure out a better fix in lightgbm
+      if (trainParams.asInstanceOf[ClassifierTrainParams].generateMissingLabels) {
+        val (count, missingLabels) =
+          distinctLabels.foldLeft((-1, List[Int]())) {
+            case ((baseCount, baseLabels), newLabel) => {
+              if (newLabel == baseCount + 1) (newLabel, baseLabels)
+              else (baseCount + 1, baseCount + 1 :: baseLabels)
+            }
+          }
+        if (!missingLabels.isEmpty) {
+          // Append missing labels to rows
+          val newRows = rows.take(missingLabels.size).zip(missingLabels).map { case (row, label) =>
+            val rowAsArray = row.toSeq.toArray
+            rowAsArray.update(schema.fieldIndex(labelColumn), label.toDouble)
+            new GenericRowWithSchema(rowAsArray, row.schema) }
+          return generateDataset(rows ++ newRows, labelColumn, featuresColumn, weightColumn, initScoreColumn,
+            groupColumn, referenceDataset, schema, log, trainParams)
+        }
+      } else {
+        val errMsg = "For classification, label values must start from 0 and increase " +
+          "by 1 to n for each partition."
+        distinctLabels.foldLeft(-1)((base, newLabel) => if (newLabel == base + 1) newLabel else
+          throw new Exception(s"$errMsg  Missing label ${base + 1}, unique labels ${distinctLabels.mkString(",")}"))
+      }
+    }
     val hrow = rows.head
     var datasetPtr: Option[LightGBMDataset] = None
     datasetPtr =
@@ -226,10 +256,11 @@ private object TrainUtils extends Serializable {
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
       trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
-        weightColumn, initScoreColumn, groupColumn, None, schema, log)
+        weightColumn, initScoreColumn, groupColumn, None, schema, log, trainParams)
       if (validationData.isDefined) {
         validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr, schema, log)
+          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr,
+          schema, log, trainParams)
       }
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {

@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.ml.spark.featurize.ValueIndexer
 import com.microsoft.ml.spark.lightgbm._
-import com.microsoft.ml.spark.stages.MultiColumnAdapter
+import com.microsoft.ml.spark.stages.{MultiColumnAdapter, SPConstants, StratifiedRepartition}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
@@ -384,6 +384,73 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       })(infoEnc)
     val model = lgbm.fit(trainData)
     model.transform(trainData)
+    assert(model != null)
+  }
+
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
+    assume(!isWindows)
+    // Increment port index
+    portIndex += numPartitions
+    val fileName = "BreastTissue.csv"
+    val labelColumnName = "Class"
+    val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
+    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val featuresColumn = "_features"
+    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
+    val predCol = "pred"
+    val tmpTrainData = featurizer.transform(dataset)
+    val labelizer = new ValueIndexer().setInputCol(labelColumnName).setOutputCol(labelColumnName).fit(tmpTrainData)
+    val labelizedData = labelizer.transform(tmpTrainData).select(labelColumnName, featuresColumn)
+    val lgbm = new LightGBMClassifier()
+      .setLabelCol(labelColumnName)
+      .setFeaturesCol(featuresColumn)
+      .setPredictionCol(predCol)
+      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
+      .setObjective(multiclassObject)
+
+    val infoSchema = new StructType()
+      .add(labelColumnName, IntegerType).add(featuresColumn, org.apache.spark.ml.linalg.SQLDataTypes.VectorType)
+    val infoEnc = RowEncoder(infoSchema)
+    val labelColumnIndex = labelizedData.schema.fieldIndex(labelColumnName)
+    val trainData = labelizedData
+      .mapPartitions(iter => {
+        val ctx = TaskContext.get
+        val partId = ctx.partitionId
+        // Remove all instances of some classes
+        if (partId == 1) {
+          iter.flatMap(row => {
+            if (row.getInt(labelColumnIndex) <= 2)
+              None
+            else Some(row)
+          })
+        } else {
+          iter
+        }
+      })(infoEnc)
+    // Validate fit fails and doesn't get stuck
+    assertThrows[Exception] {
+      lgbm.fit(trainData)
+    }
+    // Validate using special mode works
+    val missingModel = lgbm.setGenerateMissingLabels(true).fit(trainData)
+    missingModel.transform(trainData)
+
+    val stratifiedTrainData = new StratifiedRepartition().setLabelCol(labelColumnName)
+      .setMode(SPConstants.Equal).transform(trainData)
+    // Assert stratified train data contains all keys across all partitions, with extra count
+    // for it to be evaluated
+    stratifiedTrainData.select(labelColumnName, featuresColumn)
+      .mapPartitions(iter => {
+        val actualLabels = iter.map(row => row.getInt(labelColumnIndex))
+          .toArray.distinct.sorted.toList
+        val expectedLabels = (0 to 5).toList
+        if (actualLabels != expectedLabels)
+          throw new Exception(s"Missing labels, actual: $actualLabels, expected: $expectedLabels")
+        iter
+      })(infoEnc).count()
+    // Validate with stratified repartitioned dataset fit passes
+    val model = lgbm.setGenerateMissingLabels(false).fit(stratifiedTrainData)
+    model.transform(stratifiedTrainData)
     assert(model != null)
   }
 
