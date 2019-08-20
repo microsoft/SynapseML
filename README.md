@@ -4,7 +4,7 @@
 
 [![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/badge/api_docs-scala-blue)](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/badge/api_docs-python-blue)](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html)
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-lightblue)](https://arxiv.org/abs/1810.08744)
 
 [![Version](https://img.shields.io/badge/version-0.18.1-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
@@ -24,8 +24,8 @@ sub-millisecond latency web services, backed by your Spark cluster.
 
 MMLSpark requires Scala 2.11, Spark 2.3+, and either Python 2.7 or Python 3.5+.
 See the API documentation [for
-Scala](http://mmlspark.azureedge.net/docs/scala/) and [for
-PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
+Scala](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -37,7 +37,6 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
     -   [GPU VM Setup](#gpu-vm-setup)
     -   [Spark package](#spark-package)
     -   [Python](#python)
-    -   [HDInsight](#hdinsight)
     -   [Databricks cloud](#databricks-cloud)
     -   [SBT](#sbt)
     -   [Building from source](#building-from-source)
@@ -221,7 +220,7 @@ and some necessary custom wrappers may be missing.
 
 -   Visit our [new website].
 
--   Watch [our keynote demo in the Spark+AI Summit 2018].
+-   Watch our keynote demos at [the Spark+AI Summit 2019], [the Spark+AI European Summit 2018], and [the Spark+AI Summit 2018].
 
 -   Read [our paper] for a deep dive on MMLSpark.
 
@@ -231,11 +230,14 @@ and some necessary custom wrappers may be missing.
 
 -   Use [MMLSpark in Azure Machine Learning].
 
--   Watch [MMLSpark at the Spark Summit].
 
 [new website]: https://mmlspark.blob.core.windows.net/website/index.html "aka.ms/spark"
 
-[our keynote demo in the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
+[the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
+
+[the Spark+AI Summit 2019]: https://youtu.be/T_fs4C0aqD0?t=425
+
+[the Spark+AI European Summit 2018]: https://youtu.be/N3ozCZXeOeU?t=472
 
 [our paper]: https://arxiv.org/abs/1804.04031 "Flexible and Scalable Deep Learning with MMLSpark"
 
