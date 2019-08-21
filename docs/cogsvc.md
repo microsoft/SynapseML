@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 <img width="200"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg">
 
 # The Azure Cognitive Services on Apache Spark™
@@ -49,6 +50,8 @@ Currently, the following Cognitive Services are available on Apache Spark™ thr
 ### Web Search
 - [Bing Image search](https://azure.microsoft.com/en-us/services/cognitive-services/bing-image-search-api/)
 =======
+=======
+>>>>>>> 513d35e7fac38de8c95859cc3feccc64259cc40c
 # Azure Cognitive Services on Apache Spark™
 
 ## Azure Cognitive Services
@@ -95,6 +98,7 @@ Currently, the following Cognitive Services are available on Apache Spark™ thr
 - Find anomalies: generates a model using an entire series and finds anomalies in the series
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ### Search
 - Bing Image search
 >>>>>>> First draft - cog svc on spark docs
@@ -102,3 +106,7 @@ Currently, the following Cognitive Services are available on Apache Spark™ thr
 ### Web Search
 - [Bing Image search](https://azure.microsoft.com/en-us/services/cognitive-services/bing-image-search-api/)
 >>>>>>> Fixed typos, added links and short descriptions
+=======
+### Web Search
+- [Bing Image search](https://azure.microsoft.com/en-us/services/cognitive-services/bing-image-search-api/)
+>>>>>>> 513d35e7fac38de8c95859cc3feccc64259cc40c
