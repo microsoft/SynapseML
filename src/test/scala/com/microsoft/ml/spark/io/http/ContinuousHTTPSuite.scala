@@ -9,109 +9,90 @@ import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.io.IOImplicits._
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, length}
-import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.streaming.{DataStreamReader, StreamingQuery, Trigger}
 import org.apache.spark.sql.types.BinaryType
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+// scalastyle:off magic.number
 class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
-  test("continuous mode"){
-    val server = session
+  def baseReader: DataStreamReader ={
+    session
       .readStream
       .continuousServer
       .address(host, port, apiPath)
       .option("name", apiName)
-      .load()
-      .withColumn("foo", col("id.requestId"))
-      .makeReply("foo")
-      .writeStream
+  }
+
+  def baseWrite(df: DataFrame, continuous: Boolean = true): StreamingQuery = {
+    val writer = df.writeStream
       .continuousServer
       .option("name", apiName)
-      .queryName("foo").option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .trigger(Trigger.Continuous("10 seconds"))  // only change in query
-      .start()
+      .queryName("foo")
+      .option("checkpointLocation", new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+
+     if (continuous){
+       writer.trigger(Trigger.Continuous("10 seconds")).start()
+     } else{
+       writer.start()
+     }
+  }
+
+  test("continuous mode"){
+    val server = baseWrite(baseReader
+      .load()
+      .withColumn("foo", col("id.requestId"))
+      .makeReply("foo"))
 
     using(server){
       Thread.sleep(10000)
-      val responsesWithLatencies = (1 to 100).map(i => sendStringRequest(client))
+      val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client))
       assertLatency(responsesWithLatencies, 5)
     }
   }
 
   test("continuous mode with files"){
-    val server = session
-      .readStream
-      .continuousServer
-      .address(host, port, apiPath)
-      .option("name", apiName)
+    val server = baseWrite(baseReader
       .load()
       .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
-      .makeReply("length")
-      .writeStream
-      .continuousServer
-      .option("name", apiName)
-      .queryName("foo").option("checkpointLocation",
-      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .trigger(Trigger.Continuous("1 second"))  // only change in query
-      .start()
+      .makeReply("length"))
 
     using(server){
       Thread.sleep(5000)
-      val responsesWithLatencies = (1 to 10).map(i =>  sendFileRequest(client))
+      val responsesWithLatencies = (1 to 10).map(_ =>  sendFileRequest(client))
       assertLatency(responsesWithLatencies, 100)
     }
 
   }
 
   ignore("forwarding ports to vm"){
-    val server = session
-      .readStream
-      .continuousServer
+    val server = baseWrite(baseReader
       .address("0.0.0.0", 9010, apiPath)
-      .option("name", apiName)
-      .option("forwarding.enabled", true)
+      .option("forwarding.enabled", value = true)
       .option("forwarding.sshHost", "")
       .option("forwarding.keySas", "")
       .option("forwarding.username", "")
       .load()
       .withColumn("foo", col("id.requestId"))
-      .makeReply("foo")
-      .writeStream
-      .continuousServer
-      .option("name", apiName)
-      .queryName("foo").option("checkpointLocation",
-      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .trigger(Trigger.Continuous("1 second"))
-      .start()
+      .makeReply("foo"))
 
     using(server){Thread.sleep(10000)}
   }
 
   test("async"){
-    val server = session
-      .readStream
-      .continuousServer
-      .address(host, port, apiPath)
-      .option("name", apiName)
+    val server = baseWrite(baseReader
       .load()
       .withColumn("foo", col("id.requestId"))
-      .makeReply("foo")
-      .writeStream
-      .continuousServer
-      .option("name", apiName)
-      .queryName("foo").option("checkpointLocation",
-      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .trigger(Trigger.Continuous("1 second"))  // only change in query
-      .start()
+      .makeReply("foo"))
 
     using(server){
       Thread.sleep(5000)
-      val futures = (1 to 10).map(i =>
+      val futures = (1 to 10).map(_ =>
         sendStringRequestAsync(client)
       )
       futures.foreach { f =>
@@ -122,30 +103,18 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("non continuous mode"){
-    val server = session
-      .readStream
-      .continuousServer
-      .address(host, port, apiPath)
-      .option("name", apiName)
+    val server = baseWrite(baseReader
       .option("numPartitions", 1)
       .load()
       .withColumn("foo", col("id.requestId"))
-      .makeReply("foo")
-      .writeStream
-      .format("console")
-      .continuousServer
-      .option("name", apiName)
-      .queryName("foo").option("checkpointLocation",
-      new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
-      .start()
+      .makeReply("foo"), continuous = false)
 
     using(server){
       Thread.sleep(10000)
       println(server.status)
-      val responsesWithLatencies = (1 to 100).map(i => sendStringRequest(client))
+      val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client))
       assertLatency(responsesWithLatencies, 5)
     }
-
   }
 
 }
