@@ -25,20 +25,12 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.sys.process.Process
 import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.io.http.{HTTPTestUtils, HasHttpClient}
+
 import scala.concurrent.blocking
 
 //noinspection ScalaStyle
-object DatabricksUtilities {
-  lazy val requestTimeout = 60000
-
-  lazy val requestConfig: RequestConfig = RequestConfig.custom()
-    .setConnectTimeout(requestTimeout)
-    .setConnectionRequestTimeout(requestTimeout)
-    .setSocketTimeout(requestTimeout)
-    .build()
-
-  lazy val client: CloseableHttpClient = HttpClientBuilder
-    .create().setDefaultRequestConfig(requestConfig).build()
+object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val region = "southcentralus"

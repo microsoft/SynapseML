@@ -8,28 +8,40 @@ import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 
 import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
+import com.microsoft.ml.spark.io.IOImplicits._
+import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.execution.streaming.{DistributedHTTPSinkProvider, DistributedHTTPSourceProvider}
+import org.apache.spark.sql.execution.streaming.DistributedHTTPSourceProvider
 import org.apache.spark.sql.functions.{col, length}
-import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
+import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalatest.Assertion
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.parsing.json.JSONObject
-import com.microsoft.ml.spark.io.IOImplicits._
 
-trait HTTPTestUtils extends WithFreeUrl {
+trait HasHttpClient {
+  lazy val requestTimeout = 600000
+
+  lazy val requestConfig: RequestConfig = RequestConfig.custom()
+    .setConnectTimeout(requestTimeout)
+    .setConnectionRequestTimeout(requestTimeout)
+    .setSocketTimeout(requestTimeout)
+    .build()
+
+  lazy val client: CloseableHttpClient = HttpClientBuilder
+    .create().setDefaultRequestConfig(requestConfig).build()
+}
+
+trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
 
   def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
@@ -73,17 +85,6 @@ trait HTTPTestUtils extends WithFreeUrl {
       Thread.sleep(1000)
     }
   }
-
-  lazy val requestTimeout = 600000
-
-  lazy val requestConfig: RequestConfig = RequestConfig.custom()
-    .setConnectTimeout(requestTimeout)
-    .setConnectionRequestTimeout(requestTimeout)
-    .setSocketTimeout(requestTimeout)
-    .build()
-
-  lazy val client: CloseableHttpClient = HttpClientBuilder
-    .create().setDefaultRequestConfig(requestConfig).build()
 
   def sendStringRequestAsync(client: CloseableHttpClient, url: String = url): Future[(String, Double)] = {
     Future {
@@ -165,23 +166,42 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
   // Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
 
-  def createServer(): DataStreamWriter[Row] = {
-    println(classOf[DistributedHTTPSourceProvider].getName)
-    session.readStream.format(classOf[DistributedHTTPSourceProvider].getName)
-      .option("host", host)
-      .option("port", port.toLong)
-      .option("path", "foo")
-      .option("maxPartitions", 5)
-      .load()
-      .withColumn("contentLength", col("request.entity.contentLength"))
-      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
-      .writeStream
-      .format(classOf[DistributedHTTPSinkProvider].getName)
+  def baseReaderDist: DataStreamReader = {
+    session.readStream.distributedServer
+      .address(host, port, "foo")
+      .option("maxPartitions", 3)
+  }
+
+  def baseReader: DataStreamReader = {
+    session.readStream.server
+      .address(host, port, "foo")
+      .option("maxPartitions", 3)
+  }
+
+  def baseWriterDist(df: DataFrame): DataStreamWriter[Row] = {
+    df.writeStream
+      .distributedServer
       .option("name", "foo")
       .queryName("foo")
-      .option("replyCol", "reply")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+  }
+
+  def baseWriter(df: DataFrame): DataStreamWriter[Row] = {
+    df.writeStream
+      .server
+      .option("name", "foo")
+      .queryName("foo")
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+  }
+
+  def createServer(): DataStreamWriter[Row] = {
+    println(classOf[DistributedHTTPSourceProvider].getName)
+    baseWriterDist(baseReaderDist
+      .load()
+      .withColumn("contentLength", col("request.entity.contentLength"))
+      .withColumn("reply", string_to_response(col("contentLength").cast(StringType))))
   }
 
   test("standard client", TestBase.Extended) {
@@ -204,18 +224,10 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("test implicits", TestBase.Extended) {
-    val server = session.readStream.server
-      .address(host, port, "foo")
-      .option("maxPartitions", 3)
+    val server = baseWriter(baseReader
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
-      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
-      .writeStream
-      .server
-      .option("name", "foo")
-      .queryName("foo")
-      .option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .withColumn("reply", string_to_response(col("contentLength").cast(StringType))))
       .start()
 
     using(server) {
@@ -238,19 +250,11 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   test("test implicits 2", TestBase.Extended) {
 
-    val server = session.readStream.server
-      .address(host, port, "foo")
-      .option("maxPartitions", 5)
+    val server = baseWriter(baseReader
       .load()
       .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
-      .makeReply("length")
-      .writeStream
-      .server
-      .replyTo("foo")
-      .queryName("foo")
-      .option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .makeReply("length"))
       .start()
 
     using(server) {
@@ -264,24 +268,15 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       responsesWithLatencies.foreach(s => assert(s._1 === "{\"length\":279186}"))
     }
-
   }
 
   test("test implicits 2 distributed", TestBase.Extended) {
 
-    val server = session.readStream.distributedServer
-      .address(host, port, "foo")
-      .option("maxPartitions", 5)
+    val server = baseWriterDist(baseReaderDist
       .load()
       .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
-      .makeReply("length")
-      .writeStream
-      .distributedServer
-      .replyTo("foo")
-      .queryName("foo")
-      .option("checkpointLocation",
-        new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
+      .makeReply("length"))
       .start()
 
     using(server) {
@@ -348,7 +343,6 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       processes.foreach { p =>
         p.waitFor
-        val output = IOUtils.toString(p.getInputStream)
         val error = IOUtils.toString(p.getErrorStream)
         assert(error === "")
       }
