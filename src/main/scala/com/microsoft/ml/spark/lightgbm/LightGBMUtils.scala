@@ -41,13 +41,13 @@ object LightGBMUtils {
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
 
-  def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
+  def getFeaturizer(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
                     weightColumn: Option[String] = None, groupColumn: Option[String] = None): PipelineModel = {
     // Create pipeline model to featurize the dataset
     val oneHotEncodeCategoricals = true
     val featuresToHashTo = FeaturizeUtilities.NumFeaturesTreeOrNNBased
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
-      weightColumn.forall(_ != col) && groupColumn.forall(_ != col)).toSeq
+      !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
     val featurizer = new Featurize()
       .setFeatureColumns(Map(featuresColumn -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
