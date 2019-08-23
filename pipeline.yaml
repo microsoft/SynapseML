@@ -36,7 +36,7 @@ jobs:
   - task: AzureCLI@1
     displayName: 'Style Check'
     inputs:
-      azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+      azureSubscription: 'MMLSpark Connection'
       scriptLocation: inlineScript
       inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
@@ -51,7 +51,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -78,7 +78,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription:  'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt it:test'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -205,13 +205,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
@@ -273,7 +273,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
@@ -282,7 +282,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
@@ -298,13 +298,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Azure Search DEV Service Layer (susudars,kmort,miwelsh,mikaels)(ce1dee05-8cf6-4ad6-990a-9c80868800ba)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
