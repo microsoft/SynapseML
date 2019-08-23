@@ -20,10 +20,12 @@ import scala.collection.mutable.ListBuffer
 
 //scalastyle:off field.name
 /** Image processing stage.
+  *
   * @param params Map of parameters
   */
 abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializable {
   def apply(image: Mat): Mat
+
   val stageName: String
 }
 
@@ -33,6 +35,7 @@ abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializa
   * "stageName"
   * Please refer to [[http://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#resize OpenCV]]
   * for more information
+  *
   * @param params ParameterMap of the parameters
   */
 class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
@@ -41,7 +44,7 @@ class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params
   override val stageName: String = ResizeImage.stageName
 
   override def apply(image: Mat): Mat = {
-    var resized = new Mat()
+    val resized = new Mat()
     val sz = new Size(width, height)
     Imgproc.resize(image, resized, sz)
     resized
@@ -65,14 +68,15 @@ object ResizeImage {
   * "height" -height of cropped image
   * "width" - width of cropped image
   * "stageName" - "crop"
+  *
   * @param params ParameterMap of the dimensions for cropping
   */
 class CropImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val x = params(CropImage.x).asInstanceOf[Int]
-  val y = params(CropImage.y).asInstanceOf[Int]
-  val height = params(CropImage.height).asInstanceOf[Int]
-  val width = params(CropImage.width).asInstanceOf[Int]
-  override val stageName = CropImage.stageName
+  val x: Int = params(CropImage.x).asInstanceOf[Int]
+  val y: Int = params(CropImage.y).asInstanceOf[Int]
+  val height: Int = params(CropImage.height).asInstanceOf[Int]
+  val width: Int = params(CropImage.width).asInstanceOf[Int]
+  override val stageName: String = CropImage.stageName
 
   override def apply(image: Mat): Mat = {
     val rect = new Rect(x, y, width, height)
@@ -91,11 +95,12 @@ object CropImage {
 /** Converts an image from one color space to another, eg COLOR_BGR2GRAY. Refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#cvtcolor OpenCV]]
   * for more information.
+  *
   * @param params Map of parameters and values
   */
 class ColorFormat(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val format = params(ColorFormat.format).asInstanceOf[Int]
-  override val stageName = ColorFormat.stageName
+  val format: Int = params(ColorFormat.format).asInstanceOf[Int]
+  override val stageName: String = ColorFormat.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
@@ -110,6 +115,7 @@ object ColorFormat {
 }
 
 /** Flips the image
+  *
   * @param params
   */
 class Flip(params: Map[String, Any]) extends ImageTransformerStage(params) {
@@ -124,48 +130,50 @@ class Flip(params: Map[String, Any]) extends ImageTransformerStage(params) {
 }
 
 object Flip {
-  val stageName = "flip"
-  val flipCode = "flipCode"
+  val stageName: String = "flip"
+  val flipCode: String = "flipCode"
 
-  val flipUpDown = 0
-  val flipLeftRight = 1
-  val flipBoth = -1
+  val flipUpDown: Int = 0
+  val flipLeftRight: Int = 1
+  val flipBoth: Int = -1
 }
 
 /** Blurs the image using a box filter.
   * The com.microsoft.ml.spark.core.serialize.params are a map of the dimensions of the blurring box. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
+  *
   * @param params
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
-val height = params(Blur.height).asInstanceOf[Double]
-val width = params(Blur.width).asInstanceOf[Double]
-override val stageName = Blur.stageName
+  val height: Double = params(Blur.height).asInstanceOf[Double]
+  val width: Double = params(Blur.width).asInstanceOf[Double]
+  override val stageName: String = Blur.stageName
 
-override def apply(image: Mat): Mat = {
-  val dst = new Mat()
-  Imgproc.blur(image, dst, new Size(height, width))
-  dst
-}
+  override def apply(image: Mat): Mat = {
+    val dst = new Mat()
+    Imgproc.blur(image, dst, new Size(height, width))
+    dst
+  }
 }
 
 object Blur {
-  val stageName = "blur"
-  val height = "height"
-  val width = "width"
+  val stageName: String = "blur"
+  val height: String = "height"
+  val width: String = "width"
 }
 
 /** Applies a threshold to each element of the image. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#threshold threshold]] for
   * more information
+  *
   * @param params
   */
 class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val threshold = params(Threshold.threshold).asInstanceOf[Double]
-  val maxVal = params(Threshold.maxVal).asInstanceOf[Double]
+  val threshold: Double = params(Threshold.threshold).asInstanceOf[Double]
+  val maxVal: Double = params(Threshold.maxVal).asInstanceOf[Double]
   // EG Imgproc.THRESH_BINARY
-  val thresholdType = params(Threshold.thresholdType).asInstanceOf[Int]
-  override val stageName = Threshold.stageName
+  val thresholdType: Int = params(Threshold.thresholdType).asInstanceOf[Int]
+  override val stageName: String = Threshold.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
@@ -175,19 +183,20 @@ class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) 
 }
 
 object Threshold {
-  val stageName = "threshold"
-  val threshold = "threshold"
-  val maxVal = "maxVal"
-  val thresholdType = "type"
+  val stageName: String = "threshold"
+  val threshold: String = "threshold"
+  val maxVal: String = "maxVal"
+  val thresholdType: String = "type"
 }
 
 /** Applies gaussian kernel to blur the image. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#gaussianblur OpenCV]] for detailed information
   * about the parameters and their allowable values.
+  *
   * @param params Map of parameter values containg the aperture and sigma for the kernel.
   */
 class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val appertureSize: Int = params(GaussianKernel.appertureSize).asInstanceOf[Int]
+  val appertureSize: Int = params(GaussianKernel.apertureSize).asInstanceOf[Int]
   val sigma: Double = params(GaussianKernel.sigma) match {
     case d: Double => d
     case i: Int => i.toDouble
@@ -203,9 +212,9 @@ class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(par
 }
 
 object GaussianKernel {
-  val stageName = "gaussiankernel"
-  val appertureSize = "appertureSize"
-  val sigma = "sigma"
+  val stageName: String = "gaussiankernel"
+  val apertureSize: String = "apertureSize"
+  val sigma: String = "sigma"
 }
 
 /** Pipelined image processing. */
@@ -215,21 +224,21 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
 
   /** Convert Spark image representation to OpenCV format. */
   private def row2mat(row: Row): (String, Mat) = {
-    val path    = ImageSchema.getOrigin(row)
-    val height  = ImageSchema.getHeight(row)
-    val width   = ImageSchema.getWidth(row)
+    val path = ImageSchema.getOrigin(row)
+    val height = ImageSchema.getHeight(row)
+    val width = ImageSchema.getWidth(row)
     val ocvType = ImageSchema.getMode(row)
-    val bytes   = ImageSchema.getData(row)
+    val bytes = ImageSchema.getData(row)
 
     val img = new Mat(height, width, ocvType)
-    img.put(0,0,bytes)
+    img.put(0, 0, bytes)
     (path, img)
   }
 
-  /**  Convert from OpenCV format to Dataframe Row; unroll if needed. */
+  /** Convert from OpenCV format to Dataframe Row; unroll if needed. */
   private def mat2row(img: Mat, path: String = ""): Row = {
-    var ocvBytes = new Array[Byte](img.total.toInt*img.elemSize.toInt)
-    img.get(0,0,ocvBytes)         //extract OpenCV bytes
+    val ocvBytes = new Array[Byte](img.total.toInt * img.elemSize.toInt)
+    img.get(0, 0, ocvBytes) //extract OpenCV bytes
     Row(path, img.height, img.width, img.channels(), img.`type`, ocvBytes)
   }
 
@@ -242,27 +251,29 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     if (r == null) return None
 
     val decoded = (r, decodeMode) match {
-      case (row: Row,"binaryfile") =>
+      case (row: Row, "binaryfile") =>
         val path = BinaryFileSchema.getPath(row)
         val bytes = BinaryFileSchema.getBytes(row)
 
         //early return if the image can't be decompressed
         ImageInjections.decode(path, bytes).getOrElse(return None).getStruct(0)
-      case (bytes: Array[Byte],"binary") =>
+      case (bytes: Array[Byte], "binary") =>
         ImageInjections.decode(null, bytes).getOrElse(return None).getStruct(0)
-      case (row: Row,"image") =>
+      case (row: Row, "image") =>
         row
     }
 
     val (path, img) = row2mat(decoded)
-    val result = stages.foldLeft(img){
-      case (imgInternal, stage) => stage.apply(imgInternal)}
+    val result = stages.foldLeft(img) {
+      case (imgInternal, stage) => stage.apply(imgInternal)
+    }
     Some(mat2row(result, path))
   }
 
 }
 
 /** Image processing stage. Please refer to OpenCV for additional information
+  *
   * @param uid The id of the module
   */
 @InternalWrapper
@@ -274,9 +285,13 @@ class ImageTransformer(val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("ImageTransformer"))
 
   val stages: ArrayMapParam = new ArrayMapParam(this, "stages", "Image transformation stages")
+
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
+
   val emptyStages = Array[Map[String, Any]]()
+
   def getStages: Array[Map[String, Any]] = if (isDefined(stages)) $(stages) else emptyStages
+
   private def addStage(stage: Map[String, Any]): this.type = set(stages, getStages :+ stage)
 
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
@@ -288,18 +303,18 @@ class ImageTransformer(val uid: String) extends Transformer
     require(width >= 0 && height >= 0, "width and height should be nonnegative")
 
     addStage(Map(stageName -> ResizeImage.stageName,
-                 ResizeImage.width -> width,
-                 ResizeImage.height -> height))
+      ResizeImage.width -> width,
+      ResizeImage.height -> height))
   }
 
   def crop(x: Int, y: Int, height: Int, width: Int): this.type = {
     require(x >= 0 && y >= 0 && width >= 0 && height >= 0, "crop values should be nonnegative")
 
     addStage(Map(stageName -> CropImage.stageName,
-                 CropImage.width -> width,
-                 CropImage.height -> height,
-                 CropImage.x -> x,
-                 CropImage.y -> y))
+      CropImage.width -> width,
+      CropImage.height -> height,
+      CropImage.x -> x,
+      CropImage.y -> y))
   }
 
   def colorFormat(format: Int): this.type = {
@@ -312,39 +327,35 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def threshold(threshold: Double, maxVal: Double, thresholdType: Int): this.type = {
     addStage(Map(stageName -> Threshold.stageName,
-                 Threshold.maxVal -> maxVal,
-                 Threshold.threshold -> threshold,
-                 Threshold.thresholdType -> thresholdType))
+      Threshold.maxVal -> maxVal,
+      Threshold.threshold -> threshold,
+      Threshold.thresholdType -> thresholdType))
   }
 
   /** Flips the image
+    *
     * @param flipCode is a flag to specify how to flip the image:
     * - 0 means flipping around the x-axis (i.e. up-down)
     * - positive value (for example, 1) means flipping around y-axis (left-right)
     * - negative value (for example, -1) means flipping around both axes (diagonally)
-    * See OpenCV documentation for details.
+    *                 See OpenCV documentation for details.
     * @return
     */
   def flip(flipCode: Int): this.type = {
     addStage(Map(stageName -> Flip.stageName, Flip.flipCode -> flipCode))
   }
 
-  def gaussianKernel(appertureSize: Int, sigma: Double): this.type = {
+  def gaussianKernel(apertureSize: Int, sigma: Double): this.type = {
     addStage(Map(stageName -> GaussianKernel.stageName,
-                 GaussianKernel.appertureSize -> appertureSize,
-                 GaussianKernel.sigma -> sigma))
+      GaussianKernel.apertureSize -> apertureSize,
+      GaussianKernel.sigma -> sigma))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     //  load native OpenCV library on each partition
     // TODO: figure out more elegant way
-    val spark = dataset.sqlContext
-
-    val schema = dataset.toDF.schema
-
     val df = OpenCVUtils.loadOpenCV(dataset.toDF)
-
     val decodeMode = df.schema(getInputCol).dataType match {
       case s if ImageSchemaUtils.isImage(s) => "image"
       case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
@@ -356,14 +367,14 @@ class ImageTransformer(val uid: String) extends Transformer
 
     val transforms = ListBuffer[ImageTransformerStage]()
     for (stage <- getStages) {
-      stage(stageName) match  {
-        case ResizeImage.stageName    => transforms += new ResizeImage(stage)
-        case CropImage.stageName      => transforms += new CropImage(stage)
-        case ColorFormat.stageName    => transforms += new ColorFormat(stage)
-        case Blur.stageName           => transforms += new Blur(stage)
-        case Threshold.stageName      => transforms += new Threshold(stage)
+      stage(stageName) match {
+        case ResizeImage.stageName => transforms += new ResizeImage(stage)
+        case CropImage.stageName => transforms += new CropImage(stage)
+        case ColorFormat.stageName => transforms += new ColorFormat(stage)
+        case Blur.stageName => transforms += new Blur(stage)
+        case Threshold.stageName => transforms += new Threshold(stage)
         case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
-        case Flip.stageName           => transforms += new Flip(stage)
+        case Flip.stageName => transforms += new Flip(stage)
         case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
       }
     }
@@ -380,4 +391,5 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
 }
+
 //scalastyle:on field.name

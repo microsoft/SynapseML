@@ -52,7 +52,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
 
   def setColName(value: String): this.type = set(colNames, Array(value))
 
-  val allowedStrategies = Set("mean")
+  val allowedStrategies: Set[String] = Set("mean")
   val strategy = new Param[String](this, "strategy", "How to ensemble the scores, ex: mean",
                 { x: String => allowedStrategies(x) })
 
@@ -94,7 +94,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
       "mean" -> { (x: String, y: String) =>
         val dim = getVectorDims.getOrElse(x,
           dataset.select(x).take(1)(0).getAs[DenseVector](0).size)
-        new VectorAvg(dim)(dataset(x)).asInstanceOf[Column].alias(y)
+        new VectorAvg(dim)(dataset(x)).alias(y)
       }
     )
 

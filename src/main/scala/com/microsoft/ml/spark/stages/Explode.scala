@@ -27,8 +27,7 @@ class Explode(val uid: String) extends Transformer
   def transformSchema(schema: StructType): StructType = {
     val innerType = schema(getInputCol).dataType match {
       case ArrayType(it, _) => it
-      case dt =>
-        throw new IllegalArgumentException("Explode only accepts array columns")
+      case _ => throw new IllegalArgumentException("Explode only accepts array columns")
     }
    schema.add(getOutputCol, innerType)
   }

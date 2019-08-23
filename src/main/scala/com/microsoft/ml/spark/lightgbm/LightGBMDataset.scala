@@ -47,7 +47,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
         "DatasetSetField")
     } finally {
       // Free column
-      colArray.foreach(lightgbmlib.delete_floatArray(_))
+      colArray.foreach(lightgbmlib.delete_floatArray)
     }
   }
 
@@ -65,7 +65,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
         "DatasetSetField")
     } finally {
       // Free column
-      colArray.foreach(lightgbmlib.delete_doubleArray(_))
+      colArray.foreach(lightgbmlib.delete_doubleArray)
     }
   }
 
@@ -83,7 +83,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
         "DatasetSetField")
     } finally {
       // Free column
-      colArray.foreach(lightgbmlib.delete_intArray(_))
+      colArray.foreach(lightgbmlib.delete_intArray)
     }
   }
 

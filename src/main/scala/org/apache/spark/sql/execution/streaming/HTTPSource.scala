@@ -32,7 +32,7 @@ object HTTPSource {
 
   // Global datastructure that holds the callbacks (function taking request ID and data and sends response)
   // for the server (keys are server names)
-  var ReplyCallbacks: mutable.Map[String, (String, HTTPResponseData) => Unit] = mutable.Map()
+  val ReplyCallbacks: mutable.Map[String, (String, HTTPResponseData) => Unit] = mutable.Map()
 
 }
 

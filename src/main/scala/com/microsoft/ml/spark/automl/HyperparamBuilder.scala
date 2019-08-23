@@ -67,8 +67,7 @@ object HyperParamUtils {
       case (minF: Float, maxF: Float) => new FloatRangeHyperParam(minF, maxF, seed)
       case (minL: Long, maxL: Long) => new LongRangeHyperParam(minL, maxL, seed)
       case (minI: Int, maxI: Int) => new IntRangeHyperParam(minI, maxI, seed)
-      case default =>
-        throw new Exception("Could not match RangeHyperParam constructor to the given type")
+      case _ => throw new Exception("Could not match RangeHyperParam constructor to the given type")
     }
   }
 
