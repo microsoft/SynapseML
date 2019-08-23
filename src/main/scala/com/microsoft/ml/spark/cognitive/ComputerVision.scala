@@ -466,10 +466,10 @@ class TagImage(override val uid: String)
   override def responseDataType: DataType = TagImagesResponse.schema
 
   private def validateLanguage(spd: ServiceParamData[String]): Boolean = {
-    spd.data.map {
+    spd.data.forall {
       case Left(lang) => Set("en", "es", "ja", "pt", "zh")(lang)
       case _ => true
-    }.getOrElse(true)
+    }
   }
 
   val language = new ServiceParam[String](this, "language",
@@ -508,10 +508,10 @@ class DescribeImage(override val uid: String)
 
   val language = new ServiceParam[String](this, "language", "Language of image description",
     isValid = { spd: ServiceParamData[String] =>
-      spd.data.map {
+      spd.data.forall {
         case Left(lang) => Set("en", "ja", "pt", "zh")(lang)
         case _ => true
-      }.getOrElse(true)
+      }
     },
     isURLParam = true
   )

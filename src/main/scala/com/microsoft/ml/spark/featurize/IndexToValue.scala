@@ -19,8 +19,8 @@ import reflect.runtime.universe.TypeTag
 
 object IndexToValue extends DefaultParamsReadable[IndexToValue]
 
-/** This class takes in a categorical column with MML style attibutes and then transforms
-  * it back to the original values.  This extends MLLIB IndexToString by allowing the transformation
+/** This class takes in a categorical column with MML style attributes and then transforms
+  * it back to the original values.  This extends sparkML IndexToString by allowing the transformation
   * back to any types of values.
   */
 
@@ -35,7 +35,7 @@ class IndexToValue(val uid: String) extends Transformer
     val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
     require(info.isCategorical, "column " + getInputCol + "is not Categorical")
     val dataType = info.dataType
-    var getLevel =
+    val getLevel =
       dataType match {
         case _: IntegerType => getLevelUDF[Int](dataset)
         case _: LongType => getLevelUDF[Long](dataset)
@@ -67,7 +67,7 @@ class IndexToValue(val uid: String) extends Transformer
     val metadata = schema(getInputCol).metadata
     val dataType =
       if (metadata.contains(MMLTag)) {
-        CategoricalColumnInfo.getDataType(metadata, true).get
+        CategoricalColumnInfo.getDataType(metadata, throwOnInvalid = true).get
       } else {
         schema(getInputCol).dataType
       }

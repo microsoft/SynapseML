@@ -32,7 +32,7 @@ object ImageUtils {
     case 3 => BufferedImage.TYPE_3BYTE_BGR
     case 4 => BufferedImage.TYPE_4BYTE_ABGR
     case c => throw new UnsupportedOperationException("Image resize: number of output  " +
-      s"channels must be 1, 3, or 4, got ${c}.")
+      s"channels must be 1, 3, or 4, got $c.")
   }
 
   def toBufferedImage(row: InternalRow): BufferedImage = {

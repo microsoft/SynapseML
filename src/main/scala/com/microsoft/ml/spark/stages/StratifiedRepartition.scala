@@ -48,11 +48,10 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     val labelToFraction =
       getMode match {
         case SPConstants.Equal => getEqualLabelCount(labelToCount, dataset)
-        case SPConstants.Mixed => {
+        case SPConstants.Mixed =>
           val equalLabelToCount = getEqualLabelCount(labelToCount, dataset)
-          val normalizedRatio = equalLabelToCount.map { case (label, count) => count }.sum / labelToCount.size
+          val normalizedRatio = equalLabelToCount.map { case (label, count) => count }.sum / labelToCount.length
           labelToCount.map { case (label, count) => (label, count / normalizedRatio)}.toMap
-        }
         case SPConstants.Original => labelToCount.map { case (label, count) => (label, 1.0) }.toMap
         case _ => throw new Exception(s"Unknown mode specified to StratifiedRepartition: $getMode")
       }

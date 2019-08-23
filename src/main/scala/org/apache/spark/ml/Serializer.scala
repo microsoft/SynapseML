@@ -42,7 +42,7 @@ object Serializer {
 
   def typeToTypeTag[T](tpe: Type): TypeTag[T] = {
     TypeTag(Mirror, new reflect.api.TypeCreator {
-      def apply[U <: reflect.api.Universe with Singleton](m: reflect.api.Mirror[U]) = {
+      def apply[U <: reflect.api.Universe with Singleton](m: reflect.api.Mirror[U]): U#Type = {
         assert(m eq Mirror, s"TypeTag[$tpe] defined in $Mirror cannot be migrated to $m.")
         tpe.asInstanceOf[U#Type]
       }

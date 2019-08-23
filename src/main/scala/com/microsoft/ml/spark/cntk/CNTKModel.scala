@@ -72,12 +72,12 @@ private object CNTKModelUtils extends java.io.Serializable {
 
   private def makeInputExtractors(inputMapVar: Map[Int, Variable]) = {
     inputMapVar.map {
-      case (colnum, variable) => variable -> {
+      case (colNum, variable) => variable -> {
         variable.getDataType match {
           case CNTKDataType.Float =>
-            r: Row => Left(r.getAs[Seq[Seq[Float]]](colnum))
+            r: Row => Left(r.getAs[Seq[Seq[Float]]](colNum))
           case CNTKDataType.Double =>
-            r: Row => Right(r.getAs[Seq[Seq[Double]]](colnum))
+            r: Row => Right(r.getAs[Seq[Seq[Double]]](colNum))
         }
       }
     }
@@ -381,7 +381,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   }
 
   def transformSchema(schema: StructType): StructType = {
-    getFeedDict.foreach { case (varName, colName) =>
+    getFeedDict.foreach { case (_, colName) =>
       val colType = schema(colName).dataType
       val innerTypes = Set(VectorType,
         ArrayType(DoubleType, true),
@@ -398,7 +398,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
     if (getConvertOutputToDenseVector) {
       getFetchDict.toList.sorted
-        .foldLeft(schema) { case (st, (varname, colname)) => st.add(colname, VectorType) }
+        .foldLeft(schema) { case (st, (_, colName)) => st.add(colName, VectorType) }
     } else {
       getModel.getOutputSchema(getFetchDict)
         .foldLeft(schema) { case (st, sf) => st.add(sf) }
@@ -414,9 +414,9 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   private val coercionPrefix = s"coerced_$uid"
 
-  private def coerceType(schema: StructType, colname: String, targetElementType: DataType):
+  private def coerceType(schema: StructType, colName: String, targetElementType: DataType):
   (Option[(UserDefinedFunction, String)]) = {
-    val colType = schema(colname).dataType match {
+    val colType = schema(colName).dataType match {
       case ArrayType(dt, _) => dt
     }
 
@@ -445,13 +445,13 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
                                   feedDict: Map[String, String]
                                  ): (DataFrame, Map[String, String]) = {
     feedDict.foldLeft((df, feedDict)) {
-      case ((dfInternal, fdInternal), (varname, colname)) =>
-        val elementType = variableToElementType(getModel.getInputVar(varname))
-        coerceType(dfInternal.schema, colname, elementType) match {
+      case ((dfInternal, fdInternal), (varName, colName)) =>
+        val elementType = variableToElementType(getModel.getInputVar(varName))
+        coerceType(dfInternal.schema, colName, elementType) match {
           case Some((udfVal, newColName)) =>
             (
-              dfInternal.withColumn(newColName, udfVal(col(colname))),
-              fdInternal.updated(varname, newColName)
+              dfInternal.withColumn(newColName, udfVal(col(colName))),
+              fdInternal.updated(varName, newColName)
             )
           case None =>
             (dfInternal, feedDict)

@@ -32,7 +32,7 @@ private[ml] trait HTTPClient extends BaseClient
 
   protected val requestTimeout: Int
 
-  protected val requestConfig = RequestConfig.custom()
+  protected val requestConfig: RequestConfig = RequestConfig.custom()
     .setConnectTimeout(requestTimeout)
     .setConnectionRequestTimeout(requestTimeout)
     .setSocketTimeout(requestTimeout)

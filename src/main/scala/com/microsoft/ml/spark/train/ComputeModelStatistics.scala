@@ -57,12 +57,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
   /** The ROC curve evaluated for a binary classifier. */
-  var rocCurve: DataFrame = null
+  var rocCurve: DataFrame = _
 
   lazy val metricsLogger = new MetricsLogger(uid)
 
   /** Calculates the metrics for the given dataset and model.
-    * @param dataset
+    * @param dataset the dataset to calculate the metrics for
     * @return DataFrame whose columns contain the calculated metrics
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -112,18 +112,16 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       // If levels exist, use the extra information they give to get better performance
       getEvaluationMetric match {
         case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
-                           allMetrics == MetricConstants.ClassificationMetricsName => {
+                           allMetrics == MetricConstants.ClassificationMetricsName =>
           resultDF = addConfusionMatrixToResult(labels, confusionMatrix, resultDF)
           resultDF = addAllClassificationMetrics(
               modelName, dataset, labelColumnName, predictionAndLabels,
               confusionMatrix, scoresAndLabels, resultDF)
-        }
         case simpleMetric if simpleMetric == MetricConstants.AccuracySparkMetric ||
                              simpleMetric == MetricConstants.PrecisionSparkMetric ||
-                             simpleMetric == MetricConstants.RecallSparkMetric => {
+                             simpleMetric == MetricConstants.RecallSparkMetric =>
           resultDF = addSimpleMetric(simpleMetric, predictionAndLabels, resultDF)
-        }
-        case MetricConstants.AucSparkMetric => {
+        case MetricConstants.AucSparkMetric =>
           val numLevels = if (levelsExist) levels.get.length
           else confusionMatrix.numRows
           if (numLevels <= 2) {
@@ -133,10 +131,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
           } else {
             throw new Exception("Error: AUC is not available for multiclass case")
           }
-        }
-        case default => {
+        case default =>
           throw new Exception(s"Error: $default is not a classification metric")
-        }
       }
       resultDF
     } else if (scoreValueKind == SchemaConstants.RegressionKind) {
@@ -168,7 +164,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
                               resultDF: DataFrame): DataFrame = {
-    val (labels: Array[Double], confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
+    val (_, confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
     // Compute metrics for binary classification
     if (confusionMatrix.numCols == 2) {
       val (accuracy: Double, precision: Double, recall: Double) =
@@ -182,7 +178,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
           resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(precision))
         case MetricConstants.RecallSparkMetric =>
           resultDF.withColumn(MetricConstants.RecallColumnName, lit(recall))
-        case default => resultDF
+        case _ => resultDF
       }
     } else {
       val (microAvgAccuracy: Double, microAvgPrecision: Double, microAvgRecall: Double, _, _, _) =
@@ -196,7 +192,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
           resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(microAvgPrecision))
         case MetricConstants.RecallSparkMetric =>
           resultDF.withColumn(MetricConstants.RecallColumnName, lit(microAvgRecall))
-        case default => resultDF
+        case _ => resultDF
       }
     }
   }
@@ -266,7 +262,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       .rdd
       .map {
         case Row(prediction: Double, label: Double) => (prediction, label)
-        case default => throw new Exception(s"Error: prediction and label columns invalid or missing")
+        case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
       }
   }
 
@@ -284,7 +280,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       .rdd
       .map {
         case Row(prediction: Double, label) => (prediction, levelsToIndexMap(label))
-        case default => throw new Exception(s"Error: prediction and label columns invalid or missing")
+        case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
     }
   }
 
@@ -295,7 +291,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       .rdd
       .map {
         case Row(prediction: Vector, label: Double) => (prediction(1), label)
-        case default => throw new Exception(s"Error: prediction and label columns invalid or missing")
+        case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
       }
   }
 
@@ -312,7 +308,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
       .rdd
       .map {
         case Row(prediction: Vector, label) => (prediction(1), levelsToIndexMap(label))
-        case default => throw new Exception(s"Error: prediction and label columns invalid or missing")
+        case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
       }
   }
 
@@ -467,7 +463,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   */
 class MetricsLogger(uid: String) {
 
-  lazy val logger = Logger.getLogger(this.getClass.getName)
+  lazy val logger: Logger = Logger.getLogger(this.getClass.getName)
 
   def logClassificationMetrics(accuracy: Double, precision: Double, recall: Double): Unit = {
     val metrics = MetricData.create(

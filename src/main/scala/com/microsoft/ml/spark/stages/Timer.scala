@@ -45,7 +45,7 @@ trait TimerParams extends Wrappable {
       case Some(i) => s"$i rows"
       case _ => ""
     }
-    s"${stage} took ${time}s to $action $amount"
+    s"$stage took ${time}s to $action $amount"
   }
 
   protected def log(str: String): Unit = {
@@ -67,7 +67,7 @@ class Timer(val uid: String) extends Estimator[TimerModel]
 
   def fitWithTime(dataset: Dataset[_]): (TimerModel, String) = {
     val cachedDatasetBefore = if (getDisableMaterialization) dataset else dataset.cache()
-    val countBeforeVal = if (getDisableMaterialization) None else Some(dataset.count())
+    val countBeforeVal = if (getDisableMaterialization) None else Some(cachedDatasetBefore.count())
     getStage match {
       case t: Transformer => (new TimerModel(uid, t).setParent(this), "")
       case e: Estimator[_] =>
@@ -101,7 +101,7 @@ class TimerModel(val uid: String, t: Transformer)
 
   def transformWithTime(dataset: Dataset[_]): (DataFrame, String) = {
     val cachedDatasetBefore = if (getDisableMaterialization) dataset else dataset.cache()
-    val countBeforeVal = if (getDisableMaterialization) None else Some(dataset.count())
+    val countBeforeVal = if (getDisableMaterialization) None else Some(cachedDatasetBefore.count())
 
     val t0 = System.nanoTime()
 

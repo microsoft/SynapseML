@@ -82,7 +82,7 @@ trait HasServiceParams extends Params {
   protected def getVectorParamMap: Map[String, String] = this.params.flatMap {
     case p: ServiceParam[_] =>
       get(p).orElse(getDefault(p)).flatMap(v =>
-        v.data.flatMap(_.right.toOption.map(colname => (p.name, colname))))
+        v.data.flatMap(_.right.toOption.map(colName => (p.name, colName))))
     case _ => None
   }.toMap
 
@@ -104,8 +104,8 @@ trait HasServiceParams extends Params {
       value match {
         case ServiceParamData(_, Some(_)) => false
         case ServiceParamData(Some(Left(_)), _) => false
-        case ServiceParamData(Some(Right(colname)), _) =>
-          Option(row.get(row.fieldIndex(colname))).isEmpty
+        case ServiceParamData(Some(Right(colName)), _) =>
+          Option(row.get(row.fieldIndex(colName))).isEmpty
         case _ => true
       }
     }
@@ -271,7 +271,7 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
     val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
     assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: ${badColumns} in columns: ${schema.fieldNames.toSet}")
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
     val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
       case Nil => Seq(lit(false).alias("placeholder"))

@@ -6,14 +6,12 @@ package com.microsoft.ml.spark.train
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.ml.spark.core.schema.SchemaConstants._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.types.injections.MetadataUtilities
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
   val Epsilon = 1e-15
@@ -64,7 +62,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
       // Get levels if categorical
       val levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumnName)
       val numLevels =
-        if (!levels.isEmpty && levels.get != null) {
+        if (levels.isDefined && levels.get != null) {
           if (levels.get.length > 2) levels.get.length else 2
         } else {
           // Otherwise compute unique levels
@@ -88,10 +86,6 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
         if (isDefined(scoresCol)) getScoresCol
         else SparkSchema.getScoresColumnName(dataframe, modelName)
       // Compute the L1 and L2 loss for regression case
-      val scoresAndLabels =
-        dataset.select(col(scoresColumnName), col(labelColumnName).cast(DoubleType)).rdd.map {
-          case Row(prediction: Double, label: Double) => (prediction, label)
-        }
       val l1LossFunc = udf((trueLabel: Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
       val l2LossFunc = udf((trueLabel: Double, scoredLabel: Double) =>
         {
@@ -105,20 +99,11 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
     }
   }
 
-  private def getFirstModelName(colMetadata: Metadata): Option[String] = {
-    if (!colMetadata.contains(MMLTag)) null
-    else {
-      val mlTagMetadata = colMetadata.getMetadata(MMLTag)
-      val metadataKeys = MetadataUtilities.getMetadataKeys(mlTagMetadata)
-      metadataKeys.find(key => key.startsWith(SchemaConstants.ScoreModelPrefix))
-    }
-  }
-
   override def copy(extra: ParamMap): Transformer = new ComputePerInstanceStatistics()
 
   // TODO: This should be based on the retrieved score value kind
   override def transformSchema(schema: StructType): StructType =
-    schema.add(new StructField(MetricConstants.L1LossMetric, DoubleType))
-          .add(new StructField(MetricConstants.L2LossMetric, DoubleType))
+    schema.add(StructField(MetricConstants.L1LossMetric, DoubleType))
+          .add(StructField(MetricConstants.L2LossMetric, DoubleType))
 
 }

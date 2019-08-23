@@ -15,7 +15,7 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
   // worst case is 4 bytes per character
   val ys: Array[Byte] = new Array(maxSize * 4)
 
-  val ysStart = {
+  val ysStart: Int = {
       // pre-populate the string with the prefix - we could go so-far as keep the intermediate hash state :)
       val prefixBytes = prefix.getBytes(StandardCharsets.UTF_8)
       Array.copy(prefixBytes, 0, ys, 0, prefixBytes.length)

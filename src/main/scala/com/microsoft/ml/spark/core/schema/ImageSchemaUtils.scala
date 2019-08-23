@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
 
 object ImageSchemaUtils {
 
-  val ColumnSchemaNullable = {
+  val ColumnSchemaNullable: StructType = {
     StructType(
       StructField("origin", StringType, true) ::
         StructField("height", IntegerType, true) ::

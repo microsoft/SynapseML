@@ -90,7 +90,7 @@ private[streaming] class HTTPDataWriter(partitionId: Int,
 
   override def commit(): HTTPCommitMessage = {
     val msg = HTTPCommitMessage(ids.toArray)
-    ids.foreach { case (rid, pid) =>
+    ids.foreach { case (rid, _) =>
       HTTPSourceStateHolder.getServer(name).commit(rid)
     }
     ids.clear()
