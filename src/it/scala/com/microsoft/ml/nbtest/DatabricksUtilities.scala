@@ -33,12 +33,12 @@ import scala.concurrent.blocking
 object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
-  val region = "southcentralus"
+  val region = "eastus2"
   val token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
   val authValue: String = "Basic " + BaseEncoding.base64()
     .encode(("token:" + token).getBytes("UTF-8"))
   val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"
-  val clusterName = "Test Cluster 2"
+  val clusterName = "Test Cluster"
   lazy val clusterId: String = getClusterIdByName(clusterName)
 
   val folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
