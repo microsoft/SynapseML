@@ -145,7 +145,7 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
 }
 
 object SparkHelpers {
-  def getThreadUtils(): ThreadUtils.type = {
+  def getThreadUtils: ThreadUtils.type = {
     ThreadUtils
   }
 

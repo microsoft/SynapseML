@@ -17,7 +17,7 @@ object VectorUtils {
       (indices, values)
     else {
       // get a sorted list of indices
-      val argsort = (0 until indices.length)
+      val argsort = indices.indices
         .sortWith(indices(_) < indices(_))
         .toArray
 

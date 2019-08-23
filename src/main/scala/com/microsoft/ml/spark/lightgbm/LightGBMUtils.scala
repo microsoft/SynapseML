@@ -22,7 +22,7 @@ import org.slf4j.Logger
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -36,7 +36,7 @@ object LightGBMUtils {
   /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
     */
   def initializeNativeLibrary(): Unit = {
-    val osPrefix = NativeLoader.getOSPrefix()
+    val osPrefix = NativeLoader.getOSPrefix
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
@@ -82,8 +82,8 @@ object LightGBMUtils {
             } else {
               attr match {
                 case _: NumericAttribute | UnresolvedAttribute => Iterator()
-                case binAttr: BinaryAttribute => Iterator(idx)
-                case nomAttr: NominalAttribute => Iterator(idx)
+                case _: BinaryAttribute => Iterator(idx)
+                case _: NominalAttribute => Iterator(idx)
               }
             }
         }
@@ -103,7 +103,8 @@ object LightGBMUtils {
                               log: Logger, timeout: Double,
                               barrierExecutionMode: Boolean): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
-    implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    implicit val context: ExecutionContextExecutor =
+      ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
     val driverServerSocket = new ServerSocket(0)
     // Set timeout on socket
     val duration = Duration(timeout, SECONDS)
@@ -164,7 +165,7 @@ object LightGBMUtils {
     }
     val host = ClusterUtil.getDriverHost(df)
     val port = driverServerSocket.getLocalPort
-    log.info(s"driver waiting for connections on host: ${host} and port: $port")
+    log.info(s"driver waiting for connections on host: $host and port: $port")
     (host, port, f)
   }
 

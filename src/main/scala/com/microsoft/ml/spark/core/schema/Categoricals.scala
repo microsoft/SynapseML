@@ -150,14 +150,14 @@ object CategoricalUtilities {
 class CategoricalMap[T](val levels: Array[T],
                         val isOrdinal: Boolean = false,
                         val hasNullLevel: Boolean = false) extends Serializable {
-  require(levels.distinct.size == levels.size, "Categorical levels are not unique.")
+  require(levels.distinct.length == levels.length, "Categorical levels are not unique.")
   require(!levels.isEmpty, "Levels should not be empty")
 
   /** Total number of levels */
-  val numLevels = levels.length //TODO: add the maximum possible number of levels?
+  val numLevels: Int = levels.length //TODO: add the maximum possible number of levels?
 
   /** Spark DataType corresponding to type T */
-  val dataType = CategoricalUtilities.getCategoricalTypeForValue(levels.find(_ != null).head)
+  val dataType: DataType = CategoricalUtilities.getCategoricalTypeForValue(levels.find(_ != null).head)
 
   /** Maps levels to the corresponding integer index */
   private lazy val levelToIndex: Map[T, Int] = levels.zipWithIndex.toMap
@@ -185,7 +185,7 @@ class CategoricalMap[T](val levels: Array[T],
 
     // Currently, MLlib converts all non-string categorical values to string;
     // see org.apache.spark.ml.feature.StringIndexer
-    val strLevels = levels.filter(_ != null).map(_.toString).asInstanceOf[Array[String]]
+    val strLevels = levels.filter(_ != null).map(_.toString)
 
     NominalAttribute.defaultAttr.withValues(strLevels).toMetadata(existingMetadata)
   }
@@ -203,10 +203,10 @@ class CategoricalMap[T](val levels: Array[T],
   def toMetadata(existingMetadata: Metadata, mmlStyle: Boolean): Metadata = {
 
     // assert that metadata does not have data with this tag
-    def assertNoTag(tag: String) =
+    def assertNoTag(tag: String): Unit =
       assert(!existingMetadata.contains(tag),
              //TODO: add tests to ensure
-             s"Metadata already contains the tag $tag; all the data are eraised")
+             s"Metadata already contains the tag $tag; all the data are erased")
 
     if (mmlStyle) {
       assertNoTag(MMLTag)

@@ -6,14 +6,14 @@ package com.microsoft.ml.spark.vw.featurizer
 import org.apache.spark.sql.Row
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable
 
 /**
   * Featurize sparse and dense vector into native VW structure. (hash(s(0)):value, hash(s(1)):value, ...)
   * @param fieldIdx input field index.
   * @param mask bit mask applied to final hash.
   */
-class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
+class VectorFeaturizer(override val fieldIdx: Int, override val columnName: String, val mask: Int)
   extends Featurizer(fieldIdx) {
 
   /**
@@ -24,10 +24,12 @@ class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
     * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
-  override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
+  override def featurize(row: Row,
+                         indices: mutable.ArrayBuilder[Int],
+                         values: mutable.ArrayBuilder[Double]): Unit = {
 
     row.getAs[Vector](fieldIdx) match {
-      case v: DenseVector => {
+      case v: DenseVector =>
         // check if we need to hash
         if (v.size < mask + 1)
           indices ++= 0 until v.size
@@ -35,8 +37,7 @@ class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
           indices ++= (0 until v.size).map { mask & _ }
 
         values ++= v.values
-      }
-      case v: SparseVector => {
+      case v: SparseVector =>
         // check if we need to hash
         if (v.size < mask + 1)
           indices ++= v.indices
@@ -44,9 +45,7 @@ class VectorFeaturizer(override val fieldIdx: Int, val mask: Int)
           indices ++= v.indices.map { mask & _ }
 
         values ++= v.values
-      }
     }
-
     ()
   }
 }

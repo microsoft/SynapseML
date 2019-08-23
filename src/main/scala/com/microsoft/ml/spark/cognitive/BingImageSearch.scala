@@ -45,7 +45,6 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
     Lambda({ df =>
       val outputSchema = df.schema.add(bytesCol, BinaryType, nullable = true)
       val encoder = RowEncoder(outputSchema)
-      val hconf = ConfUtils.getHConf(df.toDF())
       df.toDF().mapPartitions { rows =>
         val futures = rows.map { row: Row =>
           (Future {

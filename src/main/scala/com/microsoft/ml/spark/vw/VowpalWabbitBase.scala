@@ -14,7 +14,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.internal._
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import org.vowpalwabbit.spark.{ClusterSpanningTree, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
+import org.vowpalwabbit.spark._
 import com.microsoft.ml.spark.core.contracts.{HasWeightCol, Wrappable}
 import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
 import com.microsoft.ml.spark.core.utils.ClusterUtil
@@ -112,10 +112,9 @@ trait VowpalWabbitBase extends Wrappable
       }
       else {
         param match {
-          case _: StringArrayParam => {
+          case _: StringArrayParam =>
             for (q <- get(param).get)
               sb.append(s" $optionShort $q")
-          }
           case _ => sb.append(s" $optionShort ${get(param).get}")
         }
 
@@ -155,7 +154,7 @@ trait VowpalWabbitBase extends Wrappable
     */
   private def generateNamespaceInfos(schema: StructType): Array[NamespaceInfo] =
     (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .map(col => new NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col)))
+      .map(col => NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col)))
       .toArray
 
   private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = "") = {
@@ -216,14 +215,14 @@ trait VowpalWabbitBase extends Wrappable
                     sparse.indices, sparse.values)
                 }
 
-              ex.learn
-              ex.clear
+              ex.learn()
+              ex.clear()
             }
 
-            vw.endPass
+            vw.endPass()
 
             if (getNumPasses > 1)
-              vw.performRemainingPasses
+              vw.performRemainingPasses()
           }
 
           // only export the model on the first partition
@@ -234,7 +233,7 @@ trait VowpalWabbitBase extends Wrappable
     val encoder = Encoders.kryo[Option[Array[Byte]]]
 
     // schedule multiple mapPartitions in
-    var localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
+    val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
     df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
@@ -248,12 +247,14 @@ trait VowpalWabbitBase extends Wrappable
     * @param numWorkers number of target workers.
     * @return
     */
-  protected def trainInternalDistributed(df: DataFrame, vwArgs: StringBuilder, numWorkers: Int) = {
+  protected def trainInternalDistributed(df: DataFrame,
+                                         vwArgs: StringBuilder,
+                                         numWorkers: Int): Option[Array[Byte]] = {
     // multiple partitions -> setup distributed coordination
     val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
 
     try {
-      spanningTree.start
+      spanningTree.start()
 
       val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt)
       val driverHostAddress = ClusterUtil.getDriverHost(df)
@@ -272,7 +273,7 @@ trait VowpalWabbitBase extends Wrappable
 
       trainInternal(df, vwArgs.result, s"--node ${TaskContext.get.partitionId}")
     } finally {
-      spanningTree.stop
+      spanningTree.stop()
     }
   }
 
@@ -334,14 +335,14 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   lazy val vw = new VowpalWabbitNative("--testonly --quiet", getModel)
 
   @transient
-  lazy val example = vw.createExample()
+  lazy val example: VowpalWabbitExample = vw.createExample()
 
   @transient
-  lazy val vwArgs = vw.getArguments
+  lazy val vwArgs: VowpalWabbitArguments = vw.getArguments
 
   protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
     val featureColIndices = (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .zipWithIndex.map { case (col, index) => new NamespaceInfo(
+      .zipWithIndex.map { case (col, index) => NamespaceInfo(
         VowpalWabbitMurmur.hash(col, vwArgs.getHashSeed),
         col.charAt(0),
         index)
@@ -361,7 +362,7 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   def getModel: Array[Byte] = $(model)
 
   protected def predictInternal(featureColIndices: Seq[NamespaceInfo], namespaces: Row): Double = {
-    example.clear
+    example.clear()
 
     for (ns <- featureColIndices)
       namespaces.get(ns.colIdx) match {

@@ -118,7 +118,7 @@ object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with S
 
 class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) {
 
-  def this() = this(Identifiable.randomUID("DetectLastAnomoly"))
+  def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
   def setSeries(v: Seq[TimeSeriesPoint]): this.type = setScalarParam(series, v)
 

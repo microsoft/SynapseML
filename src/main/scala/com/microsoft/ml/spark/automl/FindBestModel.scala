@@ -66,13 +66,13 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
 
-  var selectedModel: Transformer = null
+  var selectedModel: Transformer = _
 
-  var selectedScoredDataset: Dataset[_] = null
+  var selectedScoredDataset: Dataset[_] = _
 
-  var selectedROCCurve: DataFrame = null
+  var selectedROCCurve: DataFrame = _
 
-  var selectedBestModelMetrics: Dataset[_] = null
+  var selectedBestModelMetrics: Dataset[_] = _
 
   /** @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
@@ -131,7 +131,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     val allModelMetricsSchema = StructType(Seq(StructField(FindBestModel.ModelNameCol, StringType, true),
       StructField(FindBestModel.MetricsCol, DoubleType, true),
       StructField(FindBestModel.ParamsCol, StringType, true)))
-    var allModelMetrics = spark.createDataFrame(spark.sparkContext.parallelize(models.zip(modelMetrics).zip(parameters)
+    val allModelMetrics = spark.createDataFrame(spark.sparkContext.parallelize(models.zip(modelMetrics).zip(parameters)
         .map(mmp => Row(mmp._1._1, mmp._1._2, mmp._2))), allModelMetricsSchema)
     new BestModel(uid,
       selectedModel,

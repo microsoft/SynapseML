@@ -60,7 +60,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
     }
   }
 
-  //This is needed due to a multiththreading bug n the jvm
+  //This is needed due to a multi-threading bug n the jvm
   private def catchFlakiness[T](times: Int)(f: => Option[T]): Option[T] = {
     try {
       f

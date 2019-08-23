@@ -193,7 +193,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   val epochLength: Long = options.get(HTTPSourceV2.EpochLength).orElse("30000").toLong
 
   val forwardingOptions: collection.Map[String, String] = options.asMap().asScala
-    .filter { case (k, v) => k.startsWith("forwarding") }
+    .filter { case (k, _) => k.startsWith("forwarding") }
 
   HTTPSourceStateHolder.initServiceInfo(name, path)
 
@@ -212,11 +212,11 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Data
   protected var endOffset: HTTPOffset = _
   protected var currentOffset: HTTPOffset = _
 
-  override def getStartOffset(): Offset = {
+  override def getStartOffset: Offset = {
     Option(startOffset).getOrElse(throw new IllegalStateException("start offset not set"))
   }
 
-  override def getEndOffset(): Offset = {
+  override def getEndOffset: Offset = {
     Option(endOffset).getOrElse(throw new IllegalStateException("end offset not set"))
   }
 
@@ -501,8 +501,8 @@ private[streaming] class WorkerServer(val name: String,
   private class PublicHandler extends HttpHandler {
     override def handle(request: HttpExchange): Unit = {
       logDebug(s"handling epoch: $epoch")
-      val creq = new CachedRequest(request, UUID.randomUUID().toString)
-      requestQueues(epoch).put(creq)
+      val cReq = new CachedRequest(request, UUID.randomUUID().toString)
+      requestQueues(epoch).put(cReq)
     }
   }
 
@@ -608,7 +608,7 @@ private[streaming] class WorkerServer(val name: String,
         case Right(t) =>
           Option(queue.poll(t, TimeUnit.MILLISECONDS)).orElse {
             synchronized {
-              //If the queue times out then we move to the next epoc
+              //If the queue times out then we move to the next epoch
               epoch += 1
               val lbq = new LinkedBlockingQueue[CachedRequest]()
               requestQueues.update(epoch, lbq)
@@ -656,7 +656,7 @@ private[streaming] class WorkerServer(val name: String,
 
   var forwardingSession: Option[Session] = None
   if (config.forwardingOptions.getOrElse("forwarding.enabled", "false").toBoolean) {
-    val (session, forwardedPort) = PortForwarding.forwardPortToRemote(
+    val (session, _) = PortForwarding.forwardPortToRemote(
       config.forwardingOptions.toMap
         .updated("forwarding.localport", foundPort.toString)
         .updated("forwarding.localhost", config.host)

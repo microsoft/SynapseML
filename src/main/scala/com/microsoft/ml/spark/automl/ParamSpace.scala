@@ -10,10 +10,10 @@ import org.apache.spark.ml.param.{Param, ParamMap, ParamPair, ParamSpace}
   */
 abstract class Dist[T] {
 
-  def getNext(): T
+  def getNext: T
 
   def getParamPair(param: Param[_]): ParamPair[_] = {
-    ParamPair(param.asInstanceOf[Param[T]], getNext())
+    ParamPair(param.asInstanceOf[Param[T]], getNext)
   }
 
 }
@@ -33,7 +33,7 @@ class GridSpace(val paramValues: Array[ParamMap]) extends ParamSpace {
   */
 class RandomSpace(paramDistributions: Array[(Param[_], Dist[_])]) extends ParamSpace {
 
-  val paramMaps = new Iterator[ParamMap] {
+  val paramMaps: Iterator[ParamMap] = new Iterator[ParamMap] {
     override def hasNext: Boolean = true
 
     override def next(): ParamMap =

@@ -104,7 +104,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     val (oneHotEncodeCategoricals, modifyInputLayer, numFeatures) = getFeaturizeParams
 
     var classifier: Estimator[_ <: PipelineStage] = getModel match {
-      case logisticRegressionClassifier: LogisticRegression => {
+      case logisticRegressionClassifier: LogisticRegression =>
         if (levels.isDefined && levels.get.length > 2) {
           new OneVsRest()
             .setClassifier(
@@ -116,30 +116,25 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         } else {
           logisticRegressionClassifier
         }
-      }
-      case gradientBoostedTreesClassifier: GBTClassifier => {
+      case gradientBoostedTreesClassifier: GBTClassifier =>
         if (levels.isDefined && levels.get.length > 2) {
           throw new Exception("Multiclass Gradient Boosted Tree Classifier not supported yet")
         } else {
           gradientBoostedTreesClassifier
         }
-      }
-      case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
+      case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] =>
         default
-      }
       case _ => throw new Exception("Unsupported learner type " + getModel.getClass.toString)
     }
 
     classifier = classifier match {
-      case predictor: Predictor[_, _, _] => {
+      case predictor: Predictor[_, _, _] =>
         predictor
           .setLabelCol(getLabelCol)
           .setFeaturesCol(getFeaturesCol).asInstanceOf[Estimator[_ <: PipelineStage]]
-      }
-      case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
+      case default @ defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] =>
         // assume label col and features col already set
         default
-      }
     }
 
     val featuresToHashTo =

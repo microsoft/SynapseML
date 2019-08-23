@@ -15,7 +15,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable
 
 object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
 
@@ -56,15 +56,14 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
         if (stringSplitInputCols.contains(name))
           new StringSplitFeaturizer(idx, name, namespaceHash, getMask)
       else new StringFeaturizer(idx, name, namespaceHash, getMask)
-      case arr: ArrayType => {
+      case arr: ArrayType =>
         if (arr.elementType != DataTypes.StringType)
-          throw new RuntimeException(s"Unsupported array element type: ${dataType}")
-
+          throw new RuntimeException(s"Unsupported array element type: $dataType")
         new StringArrayFeaturizer(idx, name, namespaceHash, getMask)
-      }
-      case m: MapType => {
+
+      case m: MapType =>
         if (m.keyType != DataTypes.StringType)
-          throw new RuntimeException(s"Unsupported map key type: ${dataType}")
+          throw new RuntimeException(s"Unsupported map key type: $dataType")
 
         m.valueType match {
           case StringType => new MapStringFeaturizer(idx, name, namespaceHash, getMask)
@@ -74,14 +73,13 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
           case LongType => new MapFeaturizer[Long](idx, name, namespaceHash, getMask, v => v.toDouble)
           case ShortType => new MapFeaturizer[Short](idx, name, namespaceHash, getMask, v => v.toDouble)
           case ByteType => new MapFeaturizer[Byte](idx, name, namespaceHash, getMask, v => v.toDouble)
-          case _ => throw new RuntimeException(s"Unsupported map value type: ${dataType}")
+          case _ => throw new RuntimeException(s"Unsupported map value type: $dataType")
         }
-      }
       case m: Any =>
         if (m == VectorType) // unfortunately the type is private
-          new VectorFeaturizer(idx, getMask)
+          new VectorFeaturizer(idx, name, getMask)
         else
-          throw new RuntimeException(s"Unsupported data type: ${dataType}")
+          throw new RuntimeException(s"Unsupported data type: $dataType")
     }
   }
 
@@ -104,8 +102,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
         // getStruct
 
     val mode = udf((r: Row) => {
-      val indices = ArrayBuilder.make[Int]
-      val values = ArrayBuilder.make[Double]
+      val indices = mutable.ArrayBuilder.make[Int]
+      val values = mutable.ArrayBuilder.make[Double]
 
       // educated guess on size
       indices.sizeHint(featurizers.length)
@@ -136,6 +134,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException(s"missing input column $f")
 
-    schema.add(new StructField(getOutputCol, VectorType, true))
+    schema.add(StructField(getOutputCol, VectorType, true))
   }
 }
