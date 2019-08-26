@@ -99,6 +99,12 @@ private object TrainUtils extends Serializable {
                      datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
     groupColumn.foreach { col =>
       val datatype = schema.fields(schema.fieldIndex(col)).dataType
+
+      if (datatype != org.apache.spark.sql.types.IntegerType
+        && datatype != org.apache.spark.sql.types.LongType) {
+        throw new IllegalArgumentException(s"group column $col must be of type Long or Int but is ${datatype.typeName}")
+      }
+
       val group =
         if (datatype == org.apache.spark.sql.types.IntegerType) {
           rows.map(row => row.getInt(schema.fieldIndex(col)))
