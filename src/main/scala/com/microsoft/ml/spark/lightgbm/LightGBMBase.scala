@@ -39,12 +39,45 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
-    val sc = dataset.sparkSession.sparkContext
-    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
-    // Only get the relevant columns
+  protected def prepareDataframe(dataset: Dataset[_], trainingCols: ListBuffer[String],
+                                 numWorkers: Int): DataFrame = {
+    // Reduce number of partitions to number of executor cores
+    val df = dataset.select(trainingCols.map(name => col(name)): _*).toDF()
+    /* Note: with barrier execution mode we must use repartition instead of coalesce when
+     * running on spark standalone.
+     * Using coalesce, we get the error:
+     *
+     * org.apache.spark.scheduler.BarrierJobUnsupportedRDDChainException:
+     * [SPARK-24820][SPARK-24821]: Barrier execution mode does not allow the following
+     * pattern of RDD chain within a barrier stage:
+     * 1. Ancestor RDDs that have different number of partitions from the resulting
+     * RDD (eg. union()/coalesce()/first()/take()/PartitionPruningRDD). A workaround
+     * for first()/take() can be barrierRdd.collect().head (scala) or barrierRdd.collect()[0] (python).
+     * 2. An RDD that depends on multiple barrier RDDs (eg. barrierRdd1.zip(barrierRdd2)).
+     *
+     * Without repartition, we may hit the error:
+     * org.apache.spark.scheduler.BarrierJobSlotsNumberCheckFailed: [SPARK-24819]:
+     * Barrier execution mode does not allow run a barrier stage that requires more
+     * slots than the total number of slots in the cluster currently. Please init a
+     * new cluster with more CPU cores or repartition the input RDD(s) to reduce the
+     * number of slots required to run this barrier stage.
+     *
+     * Hence we still need to estimate the number of workers and repartition even when using
+     * barrier execution, which is unfortunate as repartiton is more expensive than coalesce.
+     */
+    if (getUseBarrierExecutionMode) {
+      val numPartitions = df.rdd.getNumPartitions
+      if (numPartitions > numWorkers) {
+        df.repartition(numWorkers)
+      } else {
+        df
+      }
+    } else {
+      df.coalesce(numWorkers)
+    }
+  }
+
+  protected def getTrainingCols(): ListBuffer[String] = {
     val trainingCols = ListBuffer(getLabelCol, getFeaturesCol)
     if (get(weightCol).isDefined) {
       trainingCols += getWeightCol
@@ -58,8 +91,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     if (get(initScoreCol).isDefined) {
       trainingCols += getInitScoreCol
     }
-    // Reduce number of partitions to number of executor cores
-    val df = dataset.select(trainingCols.map(name => col(name)): _*).toDF().coalesce(numWorkers)
+    trainingCols
+  }
+
+  protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
+    val sc = dataset.sparkSession.sparkContext
+    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
+    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
+    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    // Only get the relevant columns
+    val trainingCols = getTrainingCols()
+    val df = prepareDataframe(dataset, trainingCols, numWorkers)
+
     val (inetAddress, port, future) =
       LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout, getUseBarrierExecutionMode)
 
