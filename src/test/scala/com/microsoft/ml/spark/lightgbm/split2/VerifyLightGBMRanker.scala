@@ -7,10 +7,12 @@ import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.ml.spark.lightgbm.split1.{LightGBMTestUtils, OsUtils}
 import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
+import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
+import org.apache.spark.sql.types.StringType
 
 //scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM Ranker module. */
@@ -70,6 +72,18 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   test("Verify LightGBM Ranker on ranking dataset") {
     assume(!isWindows)
     assertFitWithoutErrors(baseModel, rankingDF)
+  }
+
+  test("Throws error when group column is not long or int") {
+    assume(!isWindows)
+
+    val df = rankingDF.withColumn(queryCol, col(queryCol).cast(StringType))
+
+    // Throws SparkException instead of IllegalArgumentException because the type
+    // inspection is part of the spark job instead of before it
+    assertThrows[SparkException] {
+      baseModel.fit(df).transform(df).collect()
+    }
   }
 
   test("Verify LightGBM Ranker with int and long query column") {
