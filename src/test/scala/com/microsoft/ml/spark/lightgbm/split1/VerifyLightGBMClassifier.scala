@@ -286,10 +286,12 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setValidationIndicatorCol(validationCol)
       .setEarlyStoppingRound(2)
 
-    assertBinaryImprovement(
-      model1, train, test,
-      model2, trainAndValid, test
-    )
+    Array("auc", "binary_error", "binary_logloss").foreach { metric =>
+      assertBinaryImprovement(
+        model1, train, test,
+        model2.setMetric(metric), trainAndValid, test
+      )
+    }
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
@@ -322,7 +324,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertFitWithoutErrors(baseModel, df)
   }
 
-  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
+  ignore("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
     assume(!isWindows)
     val baseDF = breastTissueDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions({ rows =>
