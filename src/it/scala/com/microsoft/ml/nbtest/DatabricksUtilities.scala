@@ -33,31 +33,36 @@ import scala.concurrent.blocking
 object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
-  val region = "eastus2"
-  val token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
-  val authValue: String = "Basic " + BaseEncoding.base64()
-    .encode(("token:" + token).getBytes("UTF-8"))
-  val baseURL = s"https://$region.azuredatabricks.net/api/2.0/"
-  val clusterName = "Test Cluster"
-  lazy val clusterId: String = getClusterIdByName(clusterName)
+  val Region = "eastus2"
+  val PoolName = "mmlspark-build"
+  val AdbRuntime = "5.5.x-scala2.11"
+  val NumWorkers = 5
+  val AutoTerminationMinutes = 15
 
-  val folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
+  lazy val Token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
+  lazy val AuthValue: String = "Basic " + BaseEncoding.base64()
+    .encode(("token:" + Token).getBytes("UTF-8"))
+  val BaseURL = s"https://$Region.azuredatabricks.net/api/2.0/"
+  lazy val PoolId: String = getPoolIdByName(PoolName)
+  lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
+
+  val Folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
 
   // MMLSpark info
-  val truncatedScalaVersion: String = BuildInfo.scalaVersion
+  val TruncatedScalaVersion: String = BuildInfo.scalaVersion
     .split(".".toCharArray.head).dropRight(1).mkString(".")
-  val version = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
-  val repository = "https://mmlspark.azureedge.net/maven"
+  val Version = s"com.microsoft.ml.spark:${BuildInfo.name}_$TruncatedScalaVersion:${BuildInfo.version}"
+  val Repository = "https://mmlspark.azureedge.net/maven"
 
-  val libraries: String = List(
-    Map("maven" -> Map("coordinates" -> version, "repo" -> repository)),
+  val Libraries: String = List(
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
     Map("pypi" -> Map("package" -> "nltk"))
   ).toJson.compactPrint
 
   // Execution Params
-  val timeoutInMillis: Int = 25 * 60 * 1000
+  val TimeoutInMillis: Int = 25 * 60 * 1000
 
-  val notebookFiles: Array[File] = Option(
+  val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
   ).get
 
@@ -68,15 +73,17 @@ object DatabricksUtilities extends HasHttpClient {
       case t: Throwable =>
         val waitTime = backoffs.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        blocking {Thread.sleep(waitTime.toLong)}
+        blocking {
+          Thread.sleep(waitTime.toLong)
+        }
         retry(backoffs.tail, f)
     }
   }
 
   def databricksGet(path: String): JsValue = {
     retry(List(100, 500, 1000), { () =>
-      val request = new HttpGet(baseURL + path)
-      request.addHeader("Authorization", authValue)
+      val request = new HttpGet(BaseURL + path)
+      request.addHeader("Authorization", AuthValue)
       using(client.execute(request)) { response =>
         if (response.getStatusLine.getStatusCode != 200) {
           throw new RuntimeException(s"Failed: response: $response")
@@ -89,8 +96,8 @@ object DatabricksUtilities extends HasHttpClient {
   //TODO convert all this to typed code
   def databricksPost(path: String, body: String): JsValue = {
     retry(List(100, 500, 1000), { () =>
-      val request = new HttpPost(baseURL + path)
-      request.addHeader("Authorization", authValue)
+      val request = new HttpPost(BaseURL + path)
+      request.addHeader("Authorization", AuthValue)
       request.setEntity(new StringEntity(body))
       using(client.execute(request)) { response =>
         if (response.getStatusLine.getStatusCode != 200) {
@@ -107,6 +114,13 @@ object DatabricksUtilities extends HasHttpClient {
     val cluster = jsonObj.select[Array[JsValue]]("clusters")
       .filter(_.select[String]("cluster_name") == name).head
     cluster.select[String]("cluster_id")
+  }
+
+  def getPoolIdByName(name: String): String = {
+    val jsonObj = databricksGet("instance-pools/list")
+    val cluster = jsonObj.select[Array[JsValue]]("instance_pools")
+      .filter(_.select[String]("instance_pool_name") == name).head
+    cluster.select[String]("instance_pool_id")
   }
 
   def workspaceMkDir(dir: String): Unit = {
@@ -137,12 +151,29 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
+  def createClusterInPool(clusterName: String, poolId: String): String = {
+    val body =
+      s"""
+         |{
+         |  "cluster_name": "$clusterName",
+         |  "spark_version": "$AdbRuntime",
+         |  "num_workers": $NumWorkers,
+         |  "autotermination_minutes": $AutoTerminationMinutes,
+         |  "instance_pool_id": "$poolId",
+         |  "spark_env_vars": {
+         |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+         |   }
+         |}
+      """.stripMargin
+    databricksPost("clusters/create", body).select[String]("cluster_id")
+  }
+
   def installLibraries(clusterId: String): Unit = {
     databricksPost("libraries/install",
       s"""
          |{
          | "cluster_id": "$clusterId",
-         | "libraries": $libraries
+         | "libraries": $Libraries
          |}
       """.stripMargin)
     ()
@@ -153,7 +184,7 @@ object DatabricksUtilities extends HasHttpClient {
       s"""
          |{
          | "cluster_id": "$clusterId",
-         | "libraries": $libraries
+         | "libraries": $Libraries
          |}
       """.stripMargin
     println(body)
@@ -166,21 +197,33 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
-  def submitRun(notebookPath: String, timeout: Int = 10 * 60): Int = {
+  def deleteCluster(clusterId: String): Unit = {
+    databricksPost("clusters/delete", s"""{"cluster_id":"$clusterId"}""")
+    ()
+  }
+
+  def submitRun(clusterId: String, notebookPath: String, timeout: Int = 10 * 60): Int = {
     val body =
       s"""
          |{
          |  "run_name": "test1",
          |  "existing_cluster_id": "$clusterId",
-         |  "timeout_seconds": ${timeoutInMillis / 1000},
+         |  "timeout_seconds": ${TimeoutInMillis / 1000},
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
          |  },
-         |  "libraries": $libraries
+         |  "libraries": $Libraries
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Int]("run_id")
+  }
+
+  def isClusterActive(clusterId: String): Boolean = {
+    val clusterObj = databricksGet(s"clusters/get?cluster_id=$clusterId")
+    val state = clusterObj.select[String]("state")
+    println(s"Cluster State: $state")
+    state == "RUNNING"
   }
 
   private def getRunStatuses(runId: Int): (String, Option[String]) = {
@@ -198,7 +241,7 @@ object DatabricksUtilities extends HasHttpClient {
   def getRunUrlAndNBName(runId: Int): (String, String) = {
     val runObj = databricksGet(s"jobs/runs/get?run_id=$runId").asJsObject()
     val url = runObj.select[String]("run_page_url")
-      .replaceAll("westus", region) //TODO this seems like an ADB bug
+      .replaceAll("westus", Region) //TODO this seems like an ADB bug
     val nbName = runObj.select[String]("task.notebook_task.notebook_path")
     (url, nbName)
   }
@@ -251,9 +294,9 @@ object DatabricksUtilities extends HasHttpClient {
     }(ExecutionContext.global)
   }
 
-  def uploadAndSubmitNotebook(notebookFile: File): Int = {
-    uploadNotebook(notebookFile, folder + "/" + notebookFile.getName)
-    submitRun(folder + "/" + notebookFile.getName)
+  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): Int = {
+    uploadNotebook(notebookFile, Folder + "/" + notebookFile.getName)
+    submitRun(clusterId, Folder + "/" + notebookFile.getName)
   }
 
   def cancelRun(runId: Int): Unit = {
