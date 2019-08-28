@@ -1,13 +1,10 @@
-import java.io.File
-import java.net.{URL, URLEncoder}
+import java.io.{File, PrintWriter}
+import java.net.URL
 
-import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.io.FileUtils
 import sbt.internal.util.ManagedLogger
 
 import scala.sys.process.Process
-import sys.process._
-import java.net.URL
-import java.io.File
 
 val condaEnvName = "mmlspark"
 name := "mmlspark"
@@ -15,8 +12,6 @@ organization := "com.microsoft.ml.spark"
 scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.3"
-val sprayVersion = "1.3.4"
-val cntkVersion = "2.4"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
@@ -24,15 +19,16 @@ libraryDependencies ++= Seq(
   "org.scalactic" %% "scalactic" % "3.0.5",
   "org.scalatest" %% "scalatest" % "3.0.5",
   "io.spray" %% "spray-json" % "1.3.2",
-  "com.microsoft.cntk" % "cntk" % cntkVersion,
+  "com.microsoft.cntk" % "cntk" % "2.4",
   "org.openpnp" % "opencv" % "3.2.0-1",
   "com.jcraft" % "jsch" % "0.1.54",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.350",
-  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0"
+  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.2"
 )
 
+//noinspection ScalaStyle
 lazy val IntegrationTest2 = config("it").extend(Test)
 
 def join(folders: String*): File = {
@@ -163,8 +159,8 @@ publishR := {
 }
 
 def pythonizeVersion(v: String): String = {
-  if (v.contains("+")){
-    v.split("+".head).head + ".dev1"
+  if (v.contains("-")){
+    v.split("-".head).head + ".dev1"
   }else{
     v
   }
@@ -319,8 +315,10 @@ lazy val mmlspark = (project in file("."))
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
 
+import xerial.sbt.Sonatype._
+sonatypeProjectHosting := Some(
+  GitHubHosting("Azure", "MMLSpark", "mmlspark-support@microsot.com"))
 homepage := Some(url("https://github.com/Azure/mmlspark"))
-scmInfo := Some(ScmInfo(url("https://github.com/Azure/mmlspark"), "git@github.com:Azure/mmlspark.git"))
 developers := List(
   Developer("mhamilton723", "Mark Hamilton",
     "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
@@ -330,7 +328,9 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
-/*
+licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
+publishMavenStyle := true
+
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
   Secrets.nexusUsername,
@@ -350,10 +350,10 @@ pgpPublicRing := {
     write(Secrets.pgpPublic); close()
   }
   temp
-}*/
+}
 
-licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
-publishMavenStyle := true
+dynverSonatypeSnapshots in ThisBuild := true
+dynverSeparator in ThisBuild := "-"
 publishTo := Some(
   if (isSnapshot.value) {
     Opts.resolver.sonatypeSnapshots

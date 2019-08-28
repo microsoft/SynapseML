@@ -27,6 +27,7 @@ abstract class TrainParams extends Serializable {
   def lambdaL1: Double
   def lambdaL2: Double
   def isProvideTrainingMetric: Boolean
+  def metric: String
 
   override def toString(): String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -37,7 +38,7 @@ abstract class TrainParams extends Serializable {
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
       s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
-      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  " +
+      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  metric=$metric " +
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")}")
   }
 }
@@ -50,15 +51,16 @@ case class ClassifierTrainParams(val parallelism: String, val numIterations: Int
                                  val maxDepth: Int, val minSumHessianInLeaf: Double,
                                  val numMachines: Int, val objective: String, val modelString: Option[String],
                                  val isUnbalance: Boolean, val verbosity: Int, val categoricalFeatures: Array[Int],
-                                 val numClass: Int, val metric: String, val boostFromAverage: Boolean,
+                                 val numClass: Int, val boostFromAverage: Boolean,
                                  val boostingType: String, val lambdaL1: Double, val lambdaL2: Double,
-                                 val isProvideTrainingMetric: Boolean)
+                                 val isProvideTrainingMetric: Boolean, val generateMissingLabels: Boolean,
+                                 val metric: String)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
       if (objective != LightGBMConstants.BinaryObjective) s"num_class=$numClass"
       else s"is_unbalance=${isUnbalance.toString}"
-    s"metric=$metric boost_from_average=${boostFromAverage.toString} ${super.toString} $extraStr"
+    s"boost_from_average=${boostFromAverage.toString} ${super.toString} $extraStr"
   }
 }
 
@@ -73,7 +75,7 @@ case class RegressorTrainParams(val parallelism: String, val numIterations: Int,
                                 val modelString: Option[String], val verbosity: Int,
                                 val categoricalFeatures: Array[Int], val boostFromAverage: Boolean,
                                 val boostingType: String, val lambdaL1: Double, val lambdaL2: Double,
-                                val isProvideTrainingMetric: Boolean)
+                                val isProvideTrainingMetric: Boolean, val metric: String)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -91,7 +93,8 @@ case class RankerTrainParams(val parallelism: String, val numIterations: Int, va
                              val modelString: Option[String], val verbosity: Int,
                              val categoricalFeatures: Array[Int], val boostingType: String,
                              val lambdaL1: Double, val lambdaL2: Double, val maxPosition: Int,
-                             val labelGain: Array[Double], val isProvideTrainingMetric: Boolean)
+                             val labelGain: Array[Double], val isProvideTrainingMetric: Boolean,
+                             val metric: String)
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =

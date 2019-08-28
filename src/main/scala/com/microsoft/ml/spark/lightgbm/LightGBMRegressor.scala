@@ -62,7 +62,7 @@ class LightGBMRegressor(override val uid: String)
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
       getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2,
-      getIsProvideTrainingMetric)
+      getIsProvideTrainingMetric, getMetric)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
@@ -78,9 +78,13 @@ class LightGBMRegressor(override val uid: String)
 
 /** Model produced by [[LightGBMRegressor]]. */
 @InternalWrapper
-class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, labelColName: String,
-                                  featuresColName: String, predictionColName: String)
+class LightGBMRegressionModel(override val uid: String,
+                              override val model: LightGBMBooster,
+                              labelColName: String,
+                              featuresColName: String,
+                              predictionColName: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
+    with HasFeatureImportanceGetters
     with ConstructorWritable[LightGBMRegressionModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -103,10 +107,6 @@ class LightGBMRegressionModel(override val uid: String, model: LightGBMBooster, 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
     model.saveNativeModel(session, filename, overwrite)
-  }
-
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
   }
 
   def getModel: LightGBMBooster = this.model

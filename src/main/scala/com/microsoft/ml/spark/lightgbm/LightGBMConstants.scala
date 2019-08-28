@@ -19,6 +19,9 @@ object LightGBMConstants {
   /** Binary classification objective
     */
   val BinaryObjective: String = "binary"
+  /** Multiclass classification objective
+    */
+  val MulticlassObjective: String = "multiclass"
   /** Ignore worker status, used to ignore workers that get empty partitions
     */
   val IgnoreStatus: String = "ignore"

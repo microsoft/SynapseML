@@ -10,6 +10,7 @@ trigger:
     - README.md
     - docs/*
     - CODEOWNERS
+    - .github
 
 pr:
   branches:
@@ -20,6 +21,7 @@ pr:
     - README.md
     - docs/*
     - CODEOWNERS
+    - .github
 
 variables:
   runTests: True
@@ -34,7 +36,7 @@ jobs:
   - task: AzureCLI@1
     displayName: 'Style Check'
     inputs:
-      azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+      azureSubscription: 'MMLSpark Connection'
       scriptLocation: inlineScript
       inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
@@ -49,17 +51,25 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishDocs publishR
+        sbt "sonatypeOpen \"com.microsoft.ml.spark\" \"mmlspark\""
+        sbt publishBlob publishSigned publishDocs publishR
+        sbt sonatypeRelease
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
       env:
         STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+
     - bash: sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
@@ -68,10 +78,10 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription:  'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt it:test'
-      condition: eq(variables.runTests, 'True')
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -87,65 +97,64 @@ jobs:
     - bash: |
         VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
         echo '##vso[task.setvariable variable=version]'$VERSION
-        echo '##vso[task.setvariable variable=tag]'$(echo $VERSION | tr '+' '-')
         echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: $(tag)
+        tags: $(version)
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
-        tags: $(tag)
+        tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/build-minimal'
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/minimal/Dockerfile'
-        tags: $(tag)
+        tags: $(version)
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
-        tags: $(tag)
+        tags: $(version)
     - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/release'
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
         tags: |
-          $(tag)
+          $(version)
           latest
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection'
+        containerRegistry: 'mmlsparkmcr-connection-new'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
-          $(tag)
+          $(version)
           latest
 
 - job: Release
@@ -196,21 +205,21 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml -F python
-        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml -F scala
+        ./.codecov -t $(codecov-token) -f coverage.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -264,7 +273,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
@@ -273,7 +282,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
@@ -289,19 +298,19 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'Findable Incubation(ca9d21ff-2a46-4e8b-bf06-8d65242342e5)'
+        azureSubscription: 'MMLSpark Connection'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -F scala
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()

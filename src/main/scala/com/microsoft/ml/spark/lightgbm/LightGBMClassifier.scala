@@ -38,20 +38,25 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
+  val generateMissingLabels = new BooleanParam(this, "generateMissingLabels",
+    "Instead of failing in lightgbm, generates dummy rows with missing labels within partitions")
+  setDefault(generateMissingLabels -> false)
+
+  def getGenerateMissingLabels: Boolean = $(generateMissingLabels)
+  def setGenerateMissingLabels(value: Boolean): this.type = set(generateMissingLabels, value)
+
   def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
-    val metric =
-      if (getObjective == LightGBMConstants.BinaryObjective) "binary_logloss,auc"
-      else "multiclass"
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
-      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, metric, getBoostFromAverage,
-      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric)
+      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
+      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getGenerateMissingLabels,
+      getMetric)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
@@ -68,14 +73,24 @@ class LightGBMClassifier(override val uid: String)
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
 }
 
+trait HasFeatureImportanceGetters {
+  val model: LightGBMBooster
+
+  def getFeatureImportances(importanceType: String): Array[Double] = {
+    model.getFeatureImportances(importanceType)
+  }
+
+}
+
 /** Model produced by [[LightGBMClassifier]]. */
 @InternalWrapper
 class LightGBMClassificationModel(
-  override val uid: String, model: LightGBMBooster, labelColName: String,
+  override val uid: String, override val model: LightGBMBooster, labelColName: String,
   featuresColName: String, predictionColName: String, probColName: String,
   rawPredictionColName: String, thresholdValues: Option[Array[Double]],
   actualNumClasses: Int)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
+    with HasFeatureImportanceGetters
     with ConstructorWritable[LightGBMClassificationModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -165,10 +180,6 @@ class LightGBMClassificationModel(
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
     model.saveNativeModel(session, filename, overwrite)
-  }
-
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
   }
 
   def getModel: LightGBMBooster = this.model

@@ -6,26 +6,25 @@ package com.microsoft.ml.spark.lightgbm.split2
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.ml.spark.lightgbm.split1.OsUtils
-import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMRegressionModel, LightGBMRegressor, LightGBMUtils}
+import com.microsoft.ml.spark.lightgbm.split1.{LightGBMTestUtils, OsUtils}
+import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegressor, LightGBMUtils}
 import com.microsoft.ml.spark.stages.MultiColumnAdapter
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.feature.StringIndexer
-import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{avg, col, lit, when}
 
+// scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module.
   */
-class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMRegressor] with OsUtils {
-  lazy val moduleName = "lightgbm"
-  var portIndex = 0
-  val numPartitions = 2
-  val boostingTypes = Array("gbdt", "rf", "dart", "goss")
+class VerifyLightGBMRegressor extends Benchmarks
+  with EstimatorFuzzing[LightGBMRegressor] with OsUtils with LightGBMTestUtils {
+  override val startingPortIndex = 30
 
   verifyLearnerOnRegressionCsvFile("energyefficiency2012_data.train.csv", "Y1", 0,
-    Some("X1,X2,X3,X4,X5,X6,X7,X8,Y1,Y2"))
+    Some(Seq("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "Y2")))
   verifyLearnerOnRegressionCsvFile("airfoil_self_noise.train.csv", "Scaled sound pressure level", 1)
   verifyLearnerOnRegressionCsvFile("Buzz.TomsHardware.train.csv", "Mean Number of display (ND)", -3)
   verifyLearnerOnRegressionCsvFile("machine.train.csv", "ERP", -2)
@@ -48,236 +47,147 @@ class VerifyLightGBMRegressor extends Benchmarks with EstimatorFuzzing[LightGBMR
     verifyBenchmarks()
   }
 
-  test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
-    assume(!isWindows)
-    // Increment port index
-    portIndex += numPartitions
-    val fileName = "airfoil_self_noise.train.csv"
-    val labelColumnName = "Scaled sound pressure level"
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-    val featuresColumn = "_features"
-    val rawPredCol = "rawPrediction"
-    val lgbm = new LightGBMRegressor()
-      .setLabelCol(labelColumnName)
-      .setFeaturesCol(featuresColumn)
-      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
+  lazy val airfoilDF: DataFrame = loadRegression(
+    "airfoil_self_noise.train.csv", "Scaled sound pressure level").cache()
+
+  def baseModel: LightGBMRegressor = {
+    new LightGBMRegressor()
+      .setLabelCol(labelCol)
+      .setFeaturesCol(featuresCol)
+      .setDefaultListenPort(getAndIncrementPort())
       .setNumLeaves(5)
       .setNumIterations(10)
+  }
+
+  test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
+    assume(!isWindows)
+    val model = baseModel
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(lgbm.numLeaves, Array(5, 10))
-      .addGrid(lgbm.numIterations, Array(10, 20))
-      .addGrid(lgbm.lambdaL1, Array(0.1, 0.5))
-      .addGrid(lgbm.lambdaL2, Array(0.1, 0.5))
+      .addGrid(model.numLeaves, Array(5, 10))
+      .addGrid(model.numIterations, Array(10, 20))
+      .addGrid(model.lambdaL1, Array(0.1, 0.5))
+      .addGrid(model.lambdaL2, Array(0.1, 0.5))
       .build()
 
     val trainValidationSplit = new TrainValidationSplit()
-      .setEstimator(lgbm)
-      .setEvaluator(new RegressionEvaluator().setLabelCol(labelColumnName))
+      .setEstimator(model)
+      .setEvaluator(new RegressionEvaluator().setLabelCol(labelCol))
       .setEstimatorParamMaps(paramGrid)
       .setTrainRatio(0.8)
       .setParallelism(2)
 
-    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
-    val model = trainValidationSplit.fit(featurizer.transform(dataset))
-    model.transform(featurizer.transform(dataset))
-    assert(model != null)
+    val fitModel = trainValidationSplit.fit(airfoilDF)
+    fitModel.transform(airfoilDF)
+    assert(fitModel != null)
+
     // Validate lambda parameters set on model
-    val modelStr = model.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.model
+    val modelStr = fitModel.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.model
     assert(modelStr.contains("[lambda_l1: 0.1]") || modelStr.contains("[lambda_l1: 0.5]"))
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
   test("Verify LightGBM Regressor with weight column") {
     assume(!isWindows)
-    // Increment port index
-    portIndex += numPartitions
-    val fileName = "airfoil_self_noise.train.csv"
-    val labelColumnName = "Scaled sound pressure level"
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-    val featuresColumn = "_features"
-    val rawPredCol = "rawPrediction"
-    val weightColName = "weight"
-    val lgbm = new LightGBMRegressor()
-      .setLabelCol(labelColumnName)
-      .setFeaturesCol(featuresColumn)
-      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
-      .setNumLeaves(5)
-      .setNumIterations(10)
-      .setWeightCol(weightColName)
 
-    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
-    val transformedData = featurizer.transform(dataset)
-    import org.apache.spark.sql.functions._
-    val datasetWithNoWeight = transformedData.withColumn(weightColName, lit(1.0))
-    val datasetWithWeight = transformedData.withColumn(weightColName,
-      when(col(labelColumnName) <= 120, 1000.0).otherwise(1.0))
-    datasetWithNoWeight.show()
-    // Verify changing weight to be higher on instances with lower sound pressure causes labels to decrease on average
-    val avglabelNoWeight = lgbm.fit(datasetWithNoWeight)
-      .transform(datasetWithNoWeight).select(avg("prediction")).first().getDouble(0)
-    val avglabelWeight = lgbm.fit(datasetWithWeight)
-      .transform(datasetWithWeight).select(avg("prediction")).first().getDouble(0)
-    assert(avglabelWeight < avglabelNoWeight)
+    val df = airfoilDF.withColumn(weightCol, lit(1.0))
+
+    val model = baseModel.setWeightCol(weightCol)
+    val dfWeight = df.withColumn(weightCol, when(col(labelCol) > 120, 1000.0).otherwise(1.0))
+
+    def avgPredictions(df: DataFrame): Double = {
+      model.fit(df).transform(df).select(avg("prediction")).first().getDouble(0)
+    }
+
+    assert(avgPredictions(df) < avgPredictions(dfWeight))
+  }
+
+  lazy val flareDF: DataFrame = {
+    val categoricalColumns = Array("Zurich class", "largest spot size", "spot distribution")
+
+    val newCategoricalColumns: Array[String] = categoricalColumns.map("c_" + _)
+    val df = readCSV(DatasetUtils.regressionTrainFile("flare.data1.train.csv").toString)
+      .repartition(numPartitions)
+
+    val df2 = new MultiColumnAdapter().setInputCols(categoricalColumns).setOutputCols(newCategoricalColumns)
+      .setBaseStage(new StringIndexer())
+      .fit(df)
+      .transform(df).drop(categoricalColumns: _*)
+      .withColumnRenamed("M-class flares production by this region", labelCol)
+
+    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
+  }.cache()
+
+  def regressionEvaluator: RegressionEvaluator = {
+    new RegressionEvaluator()
+      .setLabelCol(labelCol)
+      .setPredictionCol(predCol)
+      .setMetricName("rmse")
   }
 
   test("Verify LightGBM Regressor categorical parameter") {
     assume(!isWindows)
-    // Increment port index
-    portIndex += numPartitions
-    val fileName = "flare.data1.train.csv"
-    val categoricalColumns = Array("Zurich class", "largest spot size", "spot distribution")
-    val newCategoricalColumns = categoricalColumns.map("c_" + _)
-    val labelColumnName = "M-class flares production by this region"
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-    val mca = new MultiColumnAdapter().setInputCols(categoricalColumns).setOutputCols(newCategoricalColumns)
-      .setBaseStage(new StringIndexer())
-    val mcaModel = mca.fit(readDataset)
-    val categoricalDataset = mcaModel.transform(readDataset).drop(categoricalColumns: _*)
-    val seed = 42
-    val data = categoricalDataset.randomSplit(Array(0.8, 0.2), seed.toLong)
-    val trainData = data(0)
-    val testData = data(1)
+    val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed.toLong)
+    val model = baseModel.setCategoricalSlotNames(flareDF.columns.filter(_.startsWith("c_")))
+    val metric = regressionEvaluator.evaluate(model.fit(train).transform(test))
 
-    val featuresColumn = "_features"
-    val predCol = "prediction"
-    val lgbm = new LightGBMRegressor()
-      .setCategoricalSlotNames(newCategoricalColumns)
-      .setLabelCol(labelColumnName)
-      .setFeaturesCol(featuresColumn)
-      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
-      .setNumLeaves(5)
-      .setNumIterations(10)
-      .setPredictionCol(predCol)
-
-    val featurizer = LightGBMUtils.featurizeData(trainData, labelColumnName, featuresColumn)
-    val transformedData = featurizer.transform(trainData)
-    val scoredData = featurizer.transform(testData)
-    val eval = new RegressionEvaluator()
-      .setLabelCol(labelColumnName)
-      .setPredictionCol(predCol)
-      .setMetricName("rmse")
-    val metric = eval.evaluate(
-      lgbm.fit(transformedData).transform(scoredData))
     // Verify we get good result
     assert(metric < 0.6)
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
     assume(!isWindows)
-    // Increment port index
-    portIndex += numPartitions
-    val fileName = "airfoil_self_noise.train.csv"
-    val labelColumnName = "Scaled sound pressure level"
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val dataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-    val featuresColumn = "_features"
-    val rawPredCol = "rawPrediction"
-    val lgbm = new LightGBMRegressor()
-      .setLabelCol(labelColumnName)
-      .setFeaturesCol(featuresColumn)
-      .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
-      .setNumLeaves(5)
-      .setNumIterations(10)
-      .setObjective("tweedie")
-      .setTweedieVariancePower(1.5)
+    val model = baseModel.setObjective("tweedie").setTweedieVariancePower(1.5)
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(lgbm.tweedieVariancePower, Array(1.0, 1.2, 1.4, 1.6, 1.8, 1.99))
+      .addGrid(model.tweedieVariancePower, Array(1.0, 1.2, 1.4, 1.6, 1.8, 1.99))
       .build()
 
     val cv = new CrossValidator()
-      .setEstimator(lgbm)
-      .setEvaluator(new RegressionEvaluator().setLabelCol(labelColumnName))
+      .setEstimator(model)
+      .setEvaluator(new RegressionEvaluator().setLabelCol(labelCol))
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(3)
       .setParallelism(2)
 
-    val featurizer = LightGBMUtils.featurizeData(dataset, labelColumnName, featuresColumn)
     // Choose the best model for tweedie distribution
-    val model = cv.fit(featurizer.transform(dataset))
-    model.transform(featurizer.transform(dataset))
-    assert(model != null)
-  }
-
-  /** Reads a CSV file given the file name and file location.
-    * @param fileName The name of the csv file.
-    * @param fileLocation The full path to the csv file.
-    * @return A dataframe from read CSV file.
-    */
-  def readCSV(fileName: String, fileLocation: String): DataFrame = {
-    session.read
-      .option("header", "true").option("inferSchema", "true")
-      .option("treatEmptyValuesAsNulls", "false")
-      .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
-      .csv(fileLocation)
+    assertFitWithoutErrors(cv, airfoilDF)
   }
 
   def verifyLearnerOnRegressionCsvFile(fileName: String,
                                        labelCol: String,
                                        decimals: Int,
-                                       columnsFilter: Option[String] = None): Unit = {
+                                       columnsFilter: Option[Seq[String]] = None): Unit = {
+    val df = loadRegression(fileName, labelCol, columnsFilter).cache()
     boostingTypes.foreach { boostingType =>
-      val boostingText = " with boosting type " + boostingType
-      val testText = "Verify LightGBMRegressor can be trained and scored on "
-      test(testText + fileName + boostingText, TestBase.Extended) {
+      test(s"Verify LightGBMRegressor can be trained " +
+        s"and scored on $fileName with boosting type $boostingType") {
         assume(!isWindows)
-        // Increment port index
-        portIndex += numPartitions
-        val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-        val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
-        val dataset =
-          if (columnsFilter.isDefined) {
-            readDataset.select(columnsFilter.get.split(",").map(new Column(_)): _*)
-          } else {
-            readDataset
-          }
-        val lgbm = new LightGBMRegressor()
-        val featuresColumn = lgbm.uid + "_features"
-        val featurizer = LightGBMUtils.featurizeData(dataset, labelCol, featuresColumn)
-        val predCol = "pred"
-        val trainData = featurizer.transform(dataset)
+        val model = baseModel.setBoostingType(boostingType)
+
         if (boostingType == "rf") {
-          lgbm.setBaggingFraction(0.9)
-          lgbm.setBaggingFreq(1)
+          model.setBaggingFraction(0.9)
+          model.setBaggingFreq(1)
         }
-        val model = lgbm.setLabelCol(labelCol)
-          .setFeaturesCol(featuresColumn)
-          .setDefaultListenPort(LightGBMConstants.DefaultLocalListenPort + portIndex)
-          .setNumLeaves(5)
-          .setNumIterations(10)
-          .setPredictionCol(predCol)
-          .setBoostingType(boostingType)
-          .fit(trainData)
-        val scoredResult = model.transform(trainData).drop(featuresColumn)
-        val splitFeatureImportances = model.getFeatureImportances("split")
-        val gainFeatureImportances = model.getFeatureImportances("gain")
-        val featuresLength = trainData.select(featuresColumn).first().getAs[Vector](featuresColumn).size
-        assert(splitFeatureImportances.length == gainFeatureImportances.length)
-        assert(featuresLength == splitFeatureImportances.length)
-        val eval = new RegressionEvaluator()
-          .setLabelCol(labelCol)
-          .setPredictionCol(predCol)
-          .setMetricName("rmse")
-        val metric = eval.evaluate(scoredResult)
-        addBenchmark(s"LightGBMRegressor_${fileName}_${boostingType}", metric, decimals, false)
+
+        val fitModel = model.fit(df)
+        assertImportanceLengths(fitModel, df)
+        addBenchmark(s"LightGBMRegressor_${fileName}_$boostingType",
+          regressionEvaluator.evaluate(fitModel.transform(df)), decimals, higherIsBetter = false)
       }
     }
+    df.unpersist()
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRegressor]] = {
-    val fileName = "machine.train.csv"
     val labelCol = "ERP"
     val featuresCol = "feature"
-    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
-    val dataset = readCSV(fileName, fileLocation)
-    val featurizer = LightGBMUtils.featurizeData(dataset, labelCol, featuresCol)
+    val dataset = readCSV(DatasetUtils.regressionTrainFile("machine.train.csv").toString)
+    val featurizer = LightGBMUtils.getFeaturizer(dataset, labelCol, featuresCol)
     val train = featurizer.transform(dataset)
 
-    Seq(new TestObject(new LightGBMRegressor().setLabelCol(labelCol).setFeaturesCol(featuresCol).setNumLeaves(5),
+    Seq(new TestObject(new LightGBMRegressor()
+      .setLabelCol(labelCol).setFeaturesCol(featuresCol).setNumLeaves(5),
       train))
   }
 

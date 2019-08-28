@@ -28,7 +28,7 @@ You can now select one of the sample notebooks and run it, or create your own.
 In the above, `mcr.microsoft.com/mmlspark/release` specifies the project and image name that you
 want to run.  There is another component implicit here which is the _tag_ (=
 version) that you want to use — specifying it explicitly looks like
-`mcr.microsoft.com/mmlspark/release:0.17` for the `0.17` tag.
+`mcr.microsoft.com/mmlspark/release:0.18.1` for the `0.18.1` tag.
 
 Leaving `mcr.microsoft.com/mmlspark/release` by itself has an implicit `latest` tag, so it is
 equivalent to `mcr.microsoft.com/mmlspark/release:latest`.  The `latest` tag is identical to the
@@ -42,10 +42,9 @@ that you will probably want to use can look as follows:
 
 ```bash
 docker run -it --rm \
-           -e ACCEPT_EULA=y \
            -p 127.0.0.1:80:8888 \
            -v ~/myfiles:/notebooks/myfiles \
-           mcr.microsoft.com/mmlspark/release:0.17
+           mcr.microsoft.com/mmlspark/release:0.18.1
 ```
 
 In this example, backslashes are used to break things up for readability; you
@@ -53,10 +52,9 @@ can enter it as one long like.  Note that in powershell, the `myfiles` local
 path and line breaks looks a little different:
 
     docker run -it --rm `
-               -e ACCEPT_EULA=y `
                -p 127.0.0.1:80:8888 `
                -v C:\myfiles:/notebooks/myfiles `
-               mcr.microsoft.com/mmlspark/release:0.17
+               mcr.microsoft.com/mmlspark/release:0.18.1
 
 Let's break this command and go over the meaning of each part:
 
@@ -139,7 +137,7 @@ Let's break this command and go over the meaning of each part:
     model.write().overwrite().save('myfiles/myTrainedModel.mml')
     ```
 
--   **`mcr.microsoft.com/mmlspark/release:0.17`**
+-   **`mcr.microsoft.com/mmlspark/release:0.18.1`**
 
     Finally, this specifies an explicit version tag for the image that we want to
     run.

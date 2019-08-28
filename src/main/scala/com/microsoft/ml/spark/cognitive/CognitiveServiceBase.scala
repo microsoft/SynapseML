@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http._
@@ -179,7 +180,7 @@ object URLEncodingUtils {
 object CognitiveServiceUtils {
 
   def setUA(req: HttpRequestBase): Unit = {
-    req.setHeader("User-Agent", "mmlspark/0.17")
+    req.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}")
   }
 }
 
