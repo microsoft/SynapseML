@@ -183,12 +183,6 @@ object LightGBMUtils {
     idAsInt
   }
 
-  def intToPtr(value: Int): SWIGTYPE_p_int64_t = {
-    val longPtr = lightgbmlib.new_longp()
-    lightgbmlib.longp_assign(longPtr, value)
-    lightgbmlib.long_to_int64_t_ptr(longPtr)
-  }
-
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
   (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
     val numCols = rowsAsDoubleArray.head.length
@@ -202,14 +196,8 @@ object LightGBMUtils {
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
-    val numRowsIntPtr = lightgbmlib.new_intp()
-    lightgbmlib.intp_assign(numRowsIntPtr, numRows)
-    val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr) //scalastyle:ignore field.name
     val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
-    val numColsIntPtr = lightgbmlib.new_intp()
-    lightgbmlib.intp_assign(numColsIntPtr, numCols)
-    val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr) //scalastyle:ignore field.name
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -219,7 +207,7 @@ object LightGBMUtils {
       // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
         data.get._1, data64bitType,
-        numRows_int32_tPtr, numCols_int32_tPtr,
+        numRows, numCols,
         isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
@@ -247,7 +235,7 @@ object LightGBMUtils {
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],
       sparseRows.length,
-      intToPtr(numCols), datasetParams, referenceDataset.map(_.dataset).orNull,
+      numCols, datasetParams, referenceDataset.map(_.dataset).orNull,
       datasetOutPtr),
       "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
