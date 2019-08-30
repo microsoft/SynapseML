@@ -1,4 +1,4 @@
 The ``IndexToValue`` class takes in a categorical column with MML-style
 attributes and then transforms it back to the original values.  This
-extends MLLIB ``IndexToString`` by allowing the transformation back to
+extends sparkML ``IndexToString`` by allowing the transformation back to
 any types of values.

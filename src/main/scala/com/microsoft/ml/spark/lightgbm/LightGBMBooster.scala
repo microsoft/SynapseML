@@ -16,7 +16,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   /** Transient variable containing local machine's pointer to native booster
     */
   @transient
-  var boosterPtr: SWIGTYPE_p_void = null
+  var boosterPtr: SWIGTYPE_p_void = _
 
   def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     // Reload booster on each node
@@ -36,13 +36,13 @@ class LightGBMBooster(val model: String) extends Serializable {
   lazy val numClasses: Int = getNumClasses()
 
   @transient
-  var scoredDataOutPtr: SWIGTYPE_p_double = null
+  var scoredDataOutPtr: SWIGTYPE_p_double = _
 
   @transient
-  var scoredDataLengthLongPtr: SWIGTYPE_p_long = null
+  var scoredDataLengthLongPtr: SWIGTYPE_p_long = _
 
   @transient
-  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = null //scalastyle:ignore field.name
+  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = _ //scalastyle:ignore field.name
 
   def ensureScoredDataCreated(): Unit = {
     if (scoredDataLengthLongPtr != null)
@@ -68,7 +68,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
-    ensureScoredDataCreated
+    ensureScoredDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForCSRSingle(
@@ -89,7 +89,7 @@ class LightGBMBooster(val model: String) extends Serializable {
 
     val datasetParams = "max_bin=255"
 
-    ensureScoredDataCreated
+    ensureScoredDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(
@@ -102,7 +102,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   def saveNativeModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    if (filename == null || filename.isEmpty()) {
+    if (filename == null || filename.isEmpty) {
       throw new IllegalArgumentException("filename should not be empty or null.")
     }
     val rdd = session.sparkContext.parallelize(Seq(model))

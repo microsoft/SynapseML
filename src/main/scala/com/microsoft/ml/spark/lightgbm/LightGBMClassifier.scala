@@ -50,15 +50,13 @@ class LightGBMClassifier(override val uid: String)
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
-    val metric =
-      if (getObjective == LightGBMConstants.BinaryObjective) "binary_logloss,auc"
-      else LightGBMConstants.MulticlassObjective
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
-      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, metric, getBoostFromAverage,
-      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getGenerateMissingLabels)
+      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
+      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getGenerateMissingLabels,
+      getMetric)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {

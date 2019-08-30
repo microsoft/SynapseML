@@ -269,7 +269,7 @@ class TextFeaturizer(override val uid: String)
     try {
       getUseTokenizer
     } catch {
-      case e: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
+      case _: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
     }
 
     transformSchema(dataset.schema)
@@ -346,7 +346,7 @@ class TextFeaturizer(override val uid: String)
     inputType == StringType
   }
 
-  private def validateInputType(inputType: DataType) = {
+  private def validateInputType(inputType: DataType): Unit = {
     if (getUseTokenizer) {
       if (inputType == ArrayType(StringType)) {
         require(

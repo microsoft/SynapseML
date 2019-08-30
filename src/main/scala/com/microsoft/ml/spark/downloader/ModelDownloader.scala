@@ -123,8 +123,8 @@ private[spark] class HDFSRepo[S <: Schema](val uri: URI, val hconf: HadoopConf)
   * the repo.
   */
 private[spark] class DefaultModelRepo(val baseURL: URL) extends Repository[ModelSchema] {
-  var connectTimeout = 15000
-  var readTimeout = 5000
+  val connectTimeout = 15000
+  val readTimeout = 5000
 
   import SchemaJsonProtocol._
 
@@ -232,7 +232,7 @@ class ModelDownloader(val spark: SparkSession,
 
   /** Function for querying the remote server for its registered models
     *
-    * @return the model schemas found in remote reposiory accessed through the serverURL
+    * @return the model schemas found in remote repository accessed through the serverURL
     */
   def remoteModels: util.Iterator[ModelSchema] =
     FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {

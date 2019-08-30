@@ -67,7 +67,7 @@ private object AssembleFeaturesUtilities {
 /** Class containing the list of column names to perform special featurization steps for.
   * colNamesToHash - List of column names to hash.
   * colNamesToDuplicateForMissings - List of column names containing doubles to duplicate
-  *                                   so we can remove missing values from them.
+  * so we can remove missing values from them.
   * colNamesToTypes - Map of column names to their types.
   * colNamesToCleanMissings - List of column names to clean missing values from (ignore).
   * colNamesToVectorize - List of column names to vectorize using FastVectorAssembler.
@@ -77,19 +77,20 @@ private object AssembleFeaturesUtilities {
   */
 @SerialVersionUID(0L)
 class ColumnNamesToFeaturize extends Serializable {
-  val colNamesToHash                  = ListBuffer[String]()
-  val colNamesToDuplicateForMissings  = ListBuffer[String]()
-  val colNamesToTypes                 = mutable.Map[String, DataType]()
-  val vectorColumnsToAdd              = ListBuffer[String]()
-  val colNamesToCleanMissings         = ListBuffer[String]()
-  val colNamesToVectorize             = ListBuffer[String]()
-  val categoricalColumns              = mutable.Map[String, String]()
-  val conversionColumnNamesMap        = mutable.Map[String, String]()
+  val colNamesToHash: ListBuffer[String] = ListBuffer[String]()
+  val colNamesToDuplicateForMissings: ListBuffer[String] = ListBuffer[String]()
+  val colNamesToTypes: mutable.Map[String, DataType] = mutable.Map[String, DataType]()
+  val vectorColumnsToAdd: ListBuffer[String] = ListBuffer[String]()
+  val colNamesToCleanMissings: ListBuffer[String] = ListBuffer[String]()
+  val colNamesToVectorize: ListBuffer[String] = ListBuffer[String]()
+  val categoricalColumns: mutable.Map[String, String] = mutable.Map[String, String]()
+  val conversionColumnNamesMap: mutable.Map[String, String] = mutable.Map[String, String]()
 }
 
 object AssembleFeatures extends DefaultParamsReadable[AssembleFeatures]
 
 /** Creates a vector column of features from a collection of feature columns
+  *
   * @param uid The id of the module
   */
 class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeaturesModel]
@@ -100,10 +101,11 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   setDefault(featuresCol -> "features")
 
   /** Columns to featurize
+    *
     * @group param
     */
   val columnsToFeaturize: StringArrayParam =
-    new StringArrayParam(this, "columnsToFeaturize", "Columns to featurize", array => true)
+    new StringArrayParam(this, "columnsToFeaturize", "Columns to featurize", _ => true)
 
   /** @group getParam */
   final def getColumnsToFeaturize: Array[String] = $(columnsToFeaturize)
@@ -112,6 +114,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   def setColumnsToFeaturize(value: Array[String]): this.type = set(columnsToFeaturize, value)
 
   /** Categorical columns are one-hot encoded when true; default is true
+    *
     * @group param
     */
   val oneHotEncodeCategoricals: Param[Boolean] = new BooleanParam(this,
@@ -126,6 +129,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
   def setOneHotEncodeCategoricals(value: Boolean): this.type = set(oneHotEncodeCategoricals, value)
 
   /** Number of features to has string columns tos
+    *
     * @group param
     */
   val numberOfFeatures: IntParam =
@@ -166,72 +170,74 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
 
     // Remap and convert columns prior to training
     columns.foreach {
-      col => if (columnsToFeaturize.contains(col)) {
-        val unusedColumnName = DatasetExtensions.findUnusedColumnName(col)(allIntermediateCols)
-        allIntermediateCols += unusedColumnName
+      col =>
+        if (columnsToFeaturize.contains(col)) {
+          val unusedColumnName = DatasetExtensions.findUnusedColumnName(col)(allIntermediateCols)
+          allIntermediateCols += unusedColumnName
 
-        // Find out if column is categorical
-        // If using non-tree learner, one-hot encode them
-        // Otherwise, pass attributes directly to train classifier,
-        // but move categoricals to beginning for superior
-        // runtime and to avoid spark bug
-        val categoricalInfo = new CategoricalColumnInfo(datasetAsDf, col)
-        val isCategorical = categoricalInfo.isCategorical
-        if (isCategorical) {
-          val oheColumnName = DatasetExtensions.findUnusedColumnName("TmpOHE_" + unusedColumnName)(allIntermediateCols)
-          columnNamesToFeaturize.categoricalColumns += unusedColumnName -> oheColumnName
-        }
+          // Find out if column is categorical
+          // If using non-tree learner, one-hot encode them
+          // Otherwise, pass attributes directly to train classifier,
+          // but move categoricals to beginning for superior
+          // runtime and to avoid spark bug
+          val categoricalInfo = new CategoricalColumnInfo(datasetAsDf, col)
+          val isCategorical = categoricalInfo.isCategorical
+          if (isCategorical) {
+            val oheColumnName = DatasetExtensions
+              .findUnusedColumnName("TmpOHE_" + unusedColumnName)(allIntermediateCols)
+            columnNamesToFeaturize.categoricalColumns += unusedColumnName -> oheColumnName
+          }
 
-        dataset.schema(col).dataType match {
-          case _ @ (dataType: DataType) if dataType == DoubleType
-            || dataType == FloatType => {
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
-            // For double and float columns, will always need to remove possibly NaN values
-            columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
-            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
-          }
-          case _ @ (dataType: DataType) if AssembleFeaturesUtilities.isNumeric(dataType) =>
-            // Convert all numeric columns to same type double to feed them as a vector to the learner
-            if (dataset.schema(col).nullable) {
+          dataset.schema(col).dataType match {
+            case _@(dataType: DataType) if dataType == DoubleType
+              || dataType == FloatType => {
+              columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
+              // For double and float columns, will always need to remove possibly NaN values
               columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
+              columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
             }
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
-            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
-          case _: StringType =>
-            // Hash string columns
-            columnNamesToFeaturize.colNamesToHash += col
-            columnNamesToFeaturize.colNamesToTypes += col -> StringType
-          case _ @ (dataType: DataType) if dataType.typeName == "vector" || dataType.isInstanceOf[VectorUDT] => {
-            columnNamesToFeaturize.vectorColumnsToAdd += unusedColumnName
-            // For double columns, will always need to remove possibly NaN values
-            columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
-            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
-          }
-          case _ @ (dataType: DataType) if dataType == DateType || dataType == TimestampType => {
-            // For datetime, featurize as several different column types based on extracted information
-            if (dataset.schema(col).nullable) {
+            case _@(dataType: DataType) if AssembleFeaturesUtilities.isNumeric(dataType) =>
+              // Convert all numeric columns to same type double to feed them as a vector to the learner
+              if (dataset.schema(col).nullable) {
+                columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
+              }
+              columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
+              columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+            case _: StringType =>
+              // Hash string columns
+              columnNamesToFeaturize.colNamesToHash += col
+              columnNamesToFeaturize.colNamesToTypes += col -> StringType
+            case _@(dataType: DataType) if dataType.typeName == "vector" || dataType.isInstanceOf[VectorUDT] => {
+              columnNamesToFeaturize.vectorColumnsToAdd += unusedColumnName
+              // For double columns, will always need to remove possibly NaN values
               columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
+              columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
+              columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
             }
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
-            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+            case _@(dataType: DataType) if dataType == DateType || dataType == TimestampType => {
+              // For datetime, featurize as several different column types based on extracted information
+              if (dataset.schema(col).nullable) {
+                columnNamesToFeaturize.colNamesToCleanMissings += unusedColumnName
+              }
+              columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> dataType
+              columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+            }
+            case _ if ImageSchemaUtils.isImage(datasetAsDf.schema(col)) =>
+              if (!getAllowImages) {
+                throw new UnsupportedOperationException("Featurization of images columns disabled")
+              }
+              columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.columnSchema
+              columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
+            case default => throw new Exception(s"Unsupported type for assembly: $default")
           }
-          case _ if ImageSchemaUtils.isImage(datasetAsDf.schema(col)) =>
-            if (!getAllowImages) {
-              throw new UnsupportedOperationException("Featurization of images columns disabled")
-            }
-            columnNamesToFeaturize.colNamesToTypes += unusedColumnName -> ImageSchema.columnSchema
-            columnNamesToFeaturize.conversionColumnNamesMap += col -> unusedColumnName
-          case default => throw new Exception(s"Unsupported type for assembly: $default")
         }
-      }
     }
-    val colNamesToVectorizeWithoutHashOneHot: List[String] = getColumnsToVectorize(columnNamesToFeaturize)
+    val colNamesNoHashOneHot: List[String] = getColumnsToVectorize(columnNamesToFeaturize)
 
     // Tokenize the string columns
     val (transform: Option[HashingTF], colNamesToVectorize: List[String], nonZeroColumns: Option[Array[Int]]) =
       if (columnNamesToFeaturize.colNamesToHash.isEmpty)
-        (None, colNamesToVectorizeWithoutHashOneHot, None)
+        (None, colNamesNoHashOneHot, None)
       else {
         val hashingTransform = new HashingTF()
           .setInputCol(AssembleFeaturesUtilities.getTokenizedColumnName(datasetAsDf))
@@ -250,7 +256,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
         val nonZeroColumns: Array[Int] = bitset.toArray
 
         val colsToVectorize =
-          colNamesToVectorizeWithoutHashOneHot :+ AssembleFeaturesUtilities.getSelectedFeaturesColumnName(datasetAsDf)
+          colNamesNoHashOneHot :+ AssembleFeaturesUtilities.getSelectedFeaturesColumnName(datasetAsDf)
 
         (Some(hashingTransform),
           colsToVectorize,
@@ -327,7 +333,7 @@ class AssembleFeaturesModel(val uid: String,
   /** @group getParam */
   final def getFeaturesColumn: String = vectorAssembler.getOutputCol
 
-    override def copy(extra: ParamMap): AssembleFeaturesModel =
+  override def copy(extra: ParamMap): AssembleFeaturesModel =
     new AssembleFeaturesModel(uid,
       columnNamesToFeaturize,
       hashingTransform,
@@ -356,32 +362,32 @@ class AssembleFeaturesModel(val uid: String,
 
             // Convert all columns to same type double to feed them as a vector to the learner
             dataType match {
-              case _ @ (dataType: DataType) if AssembleFeaturesUtilities.isNumeric(dataType) =>
+              case _@(dataType: DataType) if AssembleFeaturesUtilities.isNumeric(dataType) =>
                 Seq(dataset(col),
                   dataset(col).cast(DoubleType).as(tmpRenamedCols, dataset.schema(col).metadata))
               case _: DoubleType =>
                 Seq(dataset(col),
                   dataset(col).as(tmpRenamedCols, dataset.schema(col).metadata))
-              case _ @ (dataType: DataType) if dataType.typeName == "vector" || dataType.isInstanceOf[VectorUDT] =>
+              case _@(dataType: DataType) if dataType.typeName == "vector" || dataType.isInstanceOf[VectorUDT] =>
                 Seq(dataset(col),
                   dataset(col).as(tmpRenamedCols, dataset.schema(col).metadata))
-              case _ @ (dataType: DataType) if dataType == TimestampType =>
+              case _@(dataType: DataType) if dataType == TimestampType =>
                 val extractTimeFeatures =
                   udf((col: Timestamp) => {
-                        val localDate = col.toLocalDateTime
-                        Vectors.dense(Array[Double](
-                                        col.getTime.toDouble,
-                                        localDate.getYear.toDouble,
-                                        localDate.getDayOfWeek.getValue.toDouble,
-                                        localDate.getMonth.getValue.toDouble,
-                                        localDate.getDayOfMonth.toDouble,
-                                        localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
-                                        localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
-                                        localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
-                      })
+                    val localDate = col.toLocalDateTime
+                    Vectors.dense(Array[Double](
+                      col.getTime.toDouble,
+                      localDate.getYear.toDouble,
+                      localDate.getDayOfWeek.getValue.toDouble,
+                      localDate.getMonth.getValue.toDouble,
+                      localDate.getDayOfMonth.toDouble,
+                      localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
+                      localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
+                      localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
+                  })
                 Seq(dataset(col),
-                    extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
-              case _ @ (dataType: DataType) if dataType == DateType =>
+                  extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
+              case _@(dataType: DataType) if dataType == DateType =>
                 val extractTimeFeatures = udf((col: Date) => {
                   // Local date has time information masked out, so we don't generate those columns
                   val localDate = col.toLocalDate
@@ -395,13 +401,13 @@ class AssembleFeaturesModel(val uid: String,
                   extractTimeFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
               case t if ImageSchemaUtils.isImage(t) =>
                 val extractImageFeatures = udf((row: Row) => {
-                  val image  = ImageSchema.getData(row).map(_.toDouble)
+                  val image = ImageSchema.getData(row).map(_.toDouble)
                   val height = ImageSchema.getHeight(row).toDouble
-                  val width  = ImageSchema.getWidth(row).toDouble
+                  val width = ImageSchema.getWidth(row).toDouble
                   Vectors.dense((height :: (width :: image.toList)).toArray)
                 })
                 Seq(dataset(col),
-                    extractImageFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
+                  extractImageFeatures(dataset(col)).as(tmpRenamedCols, dataset.schema(col).metadata))
               case _ => Seq(dataset(col))
             }
           }

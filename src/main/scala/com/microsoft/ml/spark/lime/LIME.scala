@@ -59,9 +59,9 @@ object LIMEUtils extends SLogging {
 
         def returnState(accumulated: List[Seq[Any]], prevRow: Row): Row = {
           Row.fromSeq(prevRow.toSeq.zipWithIndex.map {
-            case (v, i) if indiciesToSquish.contains(i) =>
+            case (_, i) if indiciesToSquish.contains(i) =>
               accumulated.map(_.apply(indiciesToSquish.indexOf(i)))
-            case (v, i) => v
+            case (v, _) => v
           })
         }
 

@@ -88,7 +88,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   // Parameters for just the ImageFeaturizer
 
-  /** The number of layer to cut off the endof the network; 0 leaves the network intact, 1 rmoves
+  /** The number of layer to cut off the end of the network; 0 leaves the network intact, 1 removes
     * the output layer, etc.
     *
     * @group param
@@ -131,8 +131,6 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val spark = dataset.sparkSession
-
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel
@@ -140,7 +138,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
       .setInputCol(resizedCol)
       .setOutputCol(getOutputCol)
 
-    val requiredSize = cntkModel.getModel.getArguments.get(0).getShape().getDimensions
+    val requiredSize = cntkModel.getModel.getArguments.get(0).getShape.getDimensions
 
     val inputSchema = dataset.schema(getInputCol).dataType
 

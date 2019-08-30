@@ -16,34 +16,23 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class NotebookTests extends TestBase {
 
-  ignore("Install libraries"){
-    assert(listInstalledLibraries(clusterId).isEmpty, "Cluster already has libraries installed")
-    println("Installing libraries")
-    installLibraries(clusterId)
-  }
-
   test("Databricks Notebooks") {
-    tryWithRetries(Array.fill(500)(10000)) {() =>
-      println("Checking Cluster Availibility...")
-      assert(listActiveJobs(clusterId).isEmpty,
-        "Cluster already has running jobs cannot change libraries safely")
-      assert(listInstalledLibraries(clusterId).isEmpty,
-        "Cluster already has libraries installed")
-      println("Cluster now Availible")
-    }
+    val clusterId = createClusterInPool(ClusterName, PoolId)
     try {
       println("Installing libraries")
       installLibraries(clusterId)
-      println(s"Creating folder $folder")
-      workspaceMkDir(folder)
+      println(s"Creating folder $Folder")
+      workspaceMkDir(Folder)
+      tryWithRetries(Seq.fill(60*15)(1000).toArray){() =>
+        assert(isClusterActive(clusterId))}
       println(s"Submitting jobs")
-      val jobIds = notebookFiles.map(uploadAndSubmitNotebook)
+      val jobIds = NotebookFiles.map(uploadAndSubmitNotebook(clusterId, _))
       println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
       try {
-        val monitors = jobIds.map((runId: Int) => monitorJob(runId, timeoutInMillis, logLevel = 2))
+        val monitors = jobIds.map((runId: Int) => monitorJob(runId, TimeoutInMillis, logLevel = 2))
         println(s"Monitoring Jobs...")
         val failures = monitors
-          .map(Await.ready(_, Duration(timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+          .map(Await.ready(_, Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
           .filter(_.isFailure)
         assert(failures.isEmpty)
       } catch {
@@ -55,28 +44,13 @@ class NotebookTests extends TestBase {
           throw t
       }
     } finally {
-      uninstallAllLibraries(clusterId)
-      restartCluster(clusterId)
+      deleteCluster(clusterId)
     }
   }
 
   ignore("list running jobs for convenievce") {
     val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
     println(obj)
-  }
-
-  ignore("Clean libraries") {
-    uninstallAllLibraries(clusterId)
-  }
-
-  ignore("Restart cluster") {
-    restartCluster(clusterId)
-  }
-
-  ignore("Refresh cluster") {
-    restartCluster(clusterId)
-    uninstallAllLibraries(clusterId)
-    restartCluster(clusterId)
   }
 
 }

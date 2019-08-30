@@ -113,7 +113,7 @@ class DataConversion(override val uid: String) extends Transformer with Wrappabl
   def copy(extra: ParamMap): DataConversion = defaultCopy(extra)
 
   /** Convert to a numeric type or a string. If the input type was a TimestampType,
-    * tnen do a different conversion?
+    * then do a different conversion?
     */
   private def numericTransform(df: DataFrame, outType: DataType, columnName: String): DataFrame = {
     val inType = df.schema(columnName).dataType

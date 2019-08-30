@@ -184,5 +184,39 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   setDefault(isProvideTrainingMetric -> false)
 
   def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
-  def setisProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
+  def setIsProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
+
+  val metric = new Param[String](this, "metric",
+    "Metrics to be evaluated on the evaluation data.  Options are: " +
+     "empty string or not specified means that metric corresponding to specified " +
+      "objective will be used (this is possible only for pre-defined objective functions, " +
+      "otherwise no evaluation metric will be added). " +
+      "None (string, not a None value) means that no metric will be registered, a" +
+      "liases: na, null, custom. " +
+      "l1, absolute loss, aliases: mean_absolute_error, mae, regression_l1. " +
+      "l2, square loss, aliases: mean_squared_error, mse, regression_l2, regression. " +
+      "rmse, root square loss, aliases: root_mean_squared_error, l2_root. " +
+      "quantile, Quantile regression. " +
+      "mape, MAPE loss, aliases: mean_absolute_percentage_error. " +
+      "huber, Huber loss. " +
+      "fair, Fair loss. " +
+      "poisson, negative log-likelihood for Poisson regression. " +
+      "gamma, negative log-likelihood for Gamma regression. " +
+      "gamma_deviance, residual deviance for Gamma regression. " +
+      "tweedie, negative log-likelihood for Tweedie regression. " +
+      "ndcg, NDCG, aliases: lambdarank. " +
+      "map, MAP, aliases: mean_average_precision. " +
+      "auc, AUC. " +
+      "binary_logloss, log loss, aliases: binary. " +
+      "binary_error, for one sample: 0 for correct classification, 1 for error classification. " +
+      "multi_logloss, log loss for multi-class classification, aliases: multiclass, softmax, " +
+      "multiclassova, multiclass_ova, ova, ovr. " +
+      "multi_error, error rate for multi-class classification. " +
+      "cross_entropy, cross-entropy (with optional linear weights), aliases: xentropy. " +
+      "cross_entropy_lambda, intensity-weighted cross-entropy, aliases: xentlambda. " +
+      "kullback_leibler, Kullback-Leibler divergence, aliases: kldiv. ")
+  setDefault(metric -> "")
+
+  def getMetric: String = $(metric)
+  def setMetric(value: String): this.type = set(metric, value)
 }

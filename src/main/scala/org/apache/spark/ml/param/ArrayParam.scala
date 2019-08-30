@@ -3,12 +3,11 @@
 
 package org.apache.spark.ml.param
 
-import org.json4s._
-import org.json4s.DefaultFormats
-import org.json4s.jackson.JsonMethods.{compact, parse, render}
-import scala.collection.JavaConverters._
-
 import org.apache.spark.annotation.DeveloperApi
+import org.json4s.{DefaultFormats, _}
+import org.json4s.jackson.JsonMethods.{compact, parse, render}
+
+import scala.collection.JavaConverters._
 
 /** :: DeveloperApi ::
   * Specialized generic version of `Param[Array[_]]` for Java.
@@ -29,7 +28,7 @@ class ArrayParam(parent: Params, name: String, doc: String, isValid: Array[_] =>
         case intArr: Array[Int] => compact(render(intArr.toSeq))
         case dbArr: Array[Double] => compact(render(dbArr.toSeq))
         case strArr: Array[String] => compact(render(strArr.toSeq))
-        case blArry: Array[Boolean] => compact(render(blArry.toSeq))
+        case blArr: Array[Boolean] => compact(render(blArr.toSeq))
         case intArr: Array[Integer] => compact(render(intArr.map(_.toLong).toSeq))
         case _ =>
           throw new IllegalArgumentException("Internal type not json serializable")
@@ -37,7 +36,7 @@ class ArrayParam(parent: Params, name: String, doc: String, isValid: Array[_] =>
     }
 
     override def jsonDecode(json: String): Array[_] = {
-      implicit val formats = DefaultFormats
+      implicit val formats: DefaultFormats.type = DefaultFormats
       parse(json).extract[Seq[_]].toArray
     }
   }

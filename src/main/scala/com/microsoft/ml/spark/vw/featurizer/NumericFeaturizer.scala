@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.vw.featurizer
 import org.apache.spark.sql.Row
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable
 
 /**
   * Featurize numeric values into native VW structure. ((hash(column name):value)
@@ -16,8 +16,8 @@ import scala.collection.mutable.ArrayBuilder
   * @param mask bit mask applied to final hash.
   * @param getFieldValue lambda to unify the cast/conversion to double.
   */
-class NumericFeaturizer(override val fieldIdx: Int, columnName: String, namespaceHash: Int,
-                        mask: Int, val getFieldValue: (Row) => Double)
+class NumericFeaturizer(override val fieldIdx: Int, override val columnName: String, namespaceHash: Int,
+                        mask: Int, val getFieldValue: Row => Double)
   extends Featurizer(fieldIdx) {
 
   /**
@@ -33,7 +33,9 @@ class NumericFeaturizer(override val fieldIdx: Int, columnName: String, namespac
     * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
-  override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
+  override def featurize(row: Row,
+                         indices: mutable.ArrayBuilder[Int],
+                         values: mutable.ArrayBuilder[Double]): Unit = {
     val value = getFieldValue(row)
 
     // Note: 0 valued features are always filtered.

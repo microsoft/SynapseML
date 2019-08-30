@@ -25,12 +25,12 @@ object DatasetExtensions {
     }
 
     /** Gets the column values as the given type.
-      * @param colname The column name to retrieve from.
+      * @param colName The column name to retrieve from.
       * @tparam T The type to retrieve.
       * @return The sequence of values in the column.
       */
-    def getColAs[T](colname: String): Seq[T] = {
-      df.select(colname).collect.map(_.getAs[T](0))
+    def getColAs[T](colName: String): Seq[T] = {
+      df.select(colName).collect.map(_.getAs[T](0))
     }
 
     /** Gets the spark sparse vector column.

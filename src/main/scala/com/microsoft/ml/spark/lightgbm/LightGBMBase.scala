@@ -29,7 +29,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       val ratio = 1.0 / getNumBatches
       val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
       datasets.foldLeft(None: Option[TrainedModel]) { (model, dataset) =>
-        if (!model.isEmpty) {
+        if (model.isDefined) {
           setModelString(stringFromTrainedModel(model.get))
         }
         Some(innerTrain(dataset))

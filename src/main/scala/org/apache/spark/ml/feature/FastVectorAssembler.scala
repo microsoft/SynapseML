@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.feature
 
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable
 import org.apache.spark.SparkException
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.attribute.{Attribute, AttributeGroup}
@@ -34,13 +34,11 @@ class FastVectorAssembler (override val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = {
     // Schema transformation.
     val schema = dataset.schema
-    lazy val first = dataset.toDF.first()
     var addedNumericField = false
 
     // Propagate only nominal (categorical) attributes (others only slow down the code)
     val attrs: Array[Attribute] = $(inputCols).flatMap { c =>
       val field = schema(c)
-      val index = schema.fieldIndex(c)
       field.dataType match {
         case _: NumericType | BooleanType =>
           val attr = Attribute.fromStructField(field)
@@ -111,7 +109,7 @@ class FastVectorAssembler (override val uid: String)
     if (schema.fieldNames.contains(outputColName)) {
       throw new IllegalArgumentException(s"Output column $outputColName already exists.")
     }
-    StructType(schema.fields :+ new StructField(outputColName, new VectorUDT, true))
+    StructType(schema.fields :+ StructField(outputColName, new VectorUDT, true))
   }
 
   override def copy(extra: ParamMap): FastVectorAssembler = defaultCopy(extra)
@@ -123,8 +121,8 @@ object FastVectorAssembler extends DefaultParamsReadable[FastVectorAssembler] {
   override def load(path: String): FastVectorAssembler = super.load(path)
 
   private[feature] def assemble(vv: Any*): Vector = {
-    val indices = ArrayBuilder.make[Int]
-    val values = ArrayBuilder.make[Double]
+    val indices = mutable.ArrayBuilder.make[Int]
+    val values = mutable.ArrayBuilder.make[Double]
     var cur = 0
     vv.foreach {
       case v: Double =>
