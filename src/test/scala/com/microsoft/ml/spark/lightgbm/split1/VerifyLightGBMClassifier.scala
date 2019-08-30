@@ -75,6 +75,16 @@ trait LightGBMTestUtils extends TestBase {
     indexedDF
   }
 
+  def assertProbabilities(tdf: DataFrame, model: LightGBMClassifier): Unit = {
+    tdf.select(model.getRawPredictionCol, model.getProbabilityCol)
+      .collect()
+      .foreach(row => {
+        val probabilities = row.getAs[DenseVector](1).values
+        assert((probabilities.sum - 1.0).abs < 0.001)
+        assert(probabilities.forall(probability => probability >= 0 && probability <= 1))
+      })
+  }
+
   def assertFitWithoutErrors(model: Estimator[_ <: Model[_]], df: DataFrame): Unit = {
     assert(model.fit(df).transform(df).collect().length > 0)
   }
@@ -391,9 +401,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         val fitModel = model.fit(df)
         val tdf = fitModel.transform(df)
 
-        tdf.select(model.getProbabilityCol)
-          .collect()
-          .foreach(row => assert(row.getAs[DenseVector](0).values.sum === 1.0))
+        assertProbabilities(tdf, model)
 
         assertImportanceLengths(fitModel, df)
         addBenchmark(s"LightGBMClassifier_${fileName}_$boostingType",
@@ -429,9 +437,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         val fitModel = model.fit(df)
         val tdf = fitModel.transform(df)
 
-        tdf.select(model.getProbabilityCol)
-          .collect()
-          .foreach(row => assert(row.getAs[DenseVector](0).values.sum === 1.0))
+        assertProbabilities(tdf, model)
+
         assertImportanceLengths(fitModel, df)
         addBenchmark(s"LightGBMClassifier_${fileName}_$boostingType",
           multiclassEvaluator.evaluate(tdf), precision)

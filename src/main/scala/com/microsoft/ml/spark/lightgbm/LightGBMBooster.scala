@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{getBoosterPtrFromModelString, intToPtr}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelString
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -39,24 +39,20 @@ class LightGBMBooster(val model: String) extends Serializable {
   var scoredDataOutPtr: SWIGTYPE_p_double = _
 
   @transient
-  var scoredDataLengthLongPtr: SWIGTYPE_p_long = _
-
-  @transient
-  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = _ //scalastyle:ignore field.name
+  var scoredDataLengthLongPtr: SWIGTYPE_p_long_long = _
 
   def ensureScoredDataCreated(): Unit = {
     if (scoredDataLengthLongPtr != null)
       return
 
     scoredDataOutPtr = lightgbmlib.new_doubleArray(numClasses)
-    scoredDataLengthLongPtr = lightgbmlib.new_longp()
-    lightgbmlib.longp_assign(scoredDataLengthLongPtr, 1 /* numRows */)
-    scoredDataLength_int64_tPtr = lightgbmlib.long_to_int64_t_ptr(scoredDataLengthLongPtr)
+    scoredDataLengthLongPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.int64_tp_assign(scoredDataLengthLongPtr, 1)
   }
 
   override protected def finalize(): Unit = {
     if (scoredDataLengthLongPtr != null)
-      lightgbmlib.delete_longp(scoredDataLengthLongPtr)
+      lightgbmlib.delete_int64_tp(scoredDataLengthLongPtr)
     if (scoredDataOutPtr == null)
       lightgbmlib.delete_doubleArray(scoredDataOutPtr)
   }
@@ -74,9 +70,9 @@ class LightGBMBooster(val model: String) extends Serializable {
       lightgbmlib.LGBM_BoosterPredictForCSRSingle(
         sparseVector.indices, sparseVector.values,
         sparseVector.numNonzeros,
-        boosterPtr, dataInt32bitType, data64bitType, intToPtr(1 + 1), intToPtr(numCols),
-      kind, -1, datasetParams,
-      scoredDataLength_int64_tPtr, scoredDataOutPtr), "Booster Predict")
+        boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
+        kind, -1, datasetParams,
+        scoredDataLengthLongPtr, scoredDataOutPtr), "Booster Predict")
 
     predToArray(classification, scoredDataOutPtr, kind)
   }
@@ -96,7 +92,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         row, boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        -1, datasetParams, scoredDataLength_int64_tPtr, scoredDataOutPtr),
+        -1, datasetParams, scoredDataLengthLongPtr, scoredDataOutPtr),
       "Booster Predict")
     predToArray(classification, scoredDataOutPtr, kind)
   }
