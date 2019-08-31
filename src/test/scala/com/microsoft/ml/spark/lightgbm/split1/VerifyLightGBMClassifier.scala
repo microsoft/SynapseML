@@ -26,10 +26,6 @@ import org.apache.spark.sql.functions._
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
-trait OsUtils {
-  val isWindows: Boolean = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0
-}
-
 // scalastyle:off magic.number
 trait LightGBMTestUtils extends TestBase {
 
@@ -121,7 +117,7 @@ trait LightGBMTestUtils extends TestBase {
 // scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier]
-  with OsUtils with LightGBMTestUtils {
+  with LightGBMTestUtils {
 
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()
   lazy val taskDF: DataFrame = loadBinary("task.train.csv", "TaskFailed10").cache()
@@ -174,17 +170,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     colsToVerify = Array("Diabetes pedigree function", "Age (years)"))
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
-    assume(!isWindows)
     verifyBenchmarks()
   }
 
   override def testExperiments(): Unit = {
-    assume(!isWindows)
     super.testExperiments()
   }
 
   override def testSerialization(): Unit = {
-    assume(!isWindows)
     super.testSerialization()
   }
 
@@ -200,7 +193,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
-    assume(!isWindows)
     val model = baseModel.setUseBarrierExecutionMode(true)
 
     val paramGrid = new ParamGridBuilder()
@@ -228,7 +220,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   ignore("Verify LightGBM Classifier with batch training") {
-    assume(!isWindows)
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
   }
@@ -244,7 +235,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier continued training with initial score") {
-    assume(!isWindows)
     val convertUDF = udf((vector: DenseVector) => vector(1))
     val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
     val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
@@ -255,7 +245,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with weight column") {
-    assume(!isWindows)
     val model = baseModel.setWeightCol(weightCol)
 
     val df = pimaDF.withColumn(weightCol, lit(1.0))
@@ -270,7 +259,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with unbalanced dataset") {
-    assume(!isWindows)
     val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
     assertBinaryImprovement(
       baseModel, train, test,
@@ -279,7 +267,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with validation dataset") {
-    assume(!isWindows)
     val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
 
     val Array(train, validIntermediate, test) = df.randomSplit(Array(0.6, 0.2, 0.2), seed)
@@ -294,7 +281,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setNumLeaves(100)
       .setIsUnbalance(true)
       .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(2)
+      .setEarlyStoppingRound(5)
 
     Array("auc", "binary_error", "binary_logloss").foreach { metric =>
       assertBinaryImprovement(
@@ -305,8 +292,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
-    assume(!isWindows)
-
     val Array(train, test) = bankTrainDF.randomSplit(Array(0.8, 0.2), seed)
 
     val model = baseModel
@@ -320,7 +305,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier won't get stuck on empty partitions") {
-    assume(!isWindows)
     val baseDF = pimaDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions { rows =>
       // Create an empty partition
@@ -335,7 +319,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   ignore("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
-    assume(!isWindows)
     val baseDF = breastTissueDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions({ rows =>
       // Remove all instances of some classes
@@ -388,7 +371,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     boostingTypes.foreach { boostingType =>
       test("Verify LightGBMClassifier can be trained " +
         s"and scored on $fileName with boosting type $boostingType", TestBase.Extended) {
-        assume(!isWindows)
         val df = loadBinary(fileName, labelColumnName)
         val model = baseModel
           .setBoostingType(boostingType)
@@ -423,8 +405,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     boostingTypes.foreach { boostingType =>
       test(s"Verify LightGBMClassifier can be trained and scored " +
         s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {
-        assume(!isWindows)
-
         val model = baseModel
           .setObjective(multiclassObject)
           .setBoostingType(boostingType)
@@ -456,8 +436,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
                         labelColumnName: String,
                         colsToVerify: Array[String]): Unit = {
     test("Verify LightGBMClassifier save booster to " + fileName) {
-      assume(!isWindows)
-
       val model = baseModel
       val df = loadBinary(fileName, labelColumnName)
       val fitModel = model.fit(df)

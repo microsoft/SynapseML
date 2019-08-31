@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.lightgbm.split2
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.ml.spark.lightgbm.split1.{LightGBMTestUtils, OsUtils}
+import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
 import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegressor, LightGBMUtils}
 import com.microsoft.ml.spark.stages.MultiColumnAdapter
 import org.apache.spark.ml.evaluation.RegressionEvaluator
@@ -20,7 +20,7 @@ import org.apache.spark.sql.functions.{avg, col, lit, when}
 /** Tests to validate the functionality of LightGBM module.
   */
 class VerifyLightGBMRegressor extends Benchmarks
-  with EstimatorFuzzing[LightGBMRegressor] with OsUtils with LightGBMTestUtils {
+  with EstimatorFuzzing[LightGBMRegressor] with LightGBMTestUtils {
   override val startingPortIndex = 30
 
   verifyLearnerOnRegressionCsvFile("energyefficiency2012_data.train.csv", "Y1", 0,
@@ -33,17 +33,14 @@ class VerifyLightGBMRegressor extends Benchmarks
   verifyLearnerOnRegressionCsvFile("Concrete_Data.train.csv", "Concrete compressive strength(MPa, megapascals)", 0)
 
   override def testExperiments(): Unit = {
-    assume(!isWindows)
     super.testExperiments()
   }
 
   override def testSerialization(): Unit = {
-    assume(!isWindows)
     super.testSerialization()
   }
 
   test("Compare benchmark results file to generated file", TestBase.Extended) {
-    assume(!isWindows)
     verifyBenchmarks()
   }
 
@@ -60,7 +57,6 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
-    assume(!isWindows)
     val model = baseModel
 
     val paramGrid = new ParamGridBuilder()
@@ -88,8 +84,6 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor with weight column") {
-    assume(!isWindows)
-
     val df = airfoilDF.withColumn(weightCol, lit(1.0))
 
     val model = baseModel.setWeightCol(weightCol)
@@ -126,7 +120,6 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor categorical parameter") {
-    assume(!isWindows)
     val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed.toLong)
     val model = baseModel.setCategoricalSlotNames(flareDF.columns.filter(_.startsWith("c_")))
     val metric = regressionEvaluator.evaluate(model.fit(train).transform(test))
@@ -136,7 +129,6 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
-    assume(!isWindows)
     val model = baseModel.setObjective("tweedie").setTweedieVariancePower(1.5)
 
     val paramGrid = new ParamGridBuilder()
@@ -162,7 +154,6 @@ class VerifyLightGBMRegressor extends Benchmarks
     boostingTypes.foreach { boostingType =>
       test(s"Verify LightGBMRegressor can be trained " +
         s"and scored on $fileName with boosting type $boostingType") {
-        assume(!isWindows)
         val model = baseModel.setBoostingType(boostingType)
 
         if (boostingType == "rf") {
