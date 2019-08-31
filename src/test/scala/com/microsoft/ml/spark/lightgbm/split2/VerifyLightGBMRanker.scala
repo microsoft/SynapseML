@@ -100,8 +100,9 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .transform(baseDF)
       .select(queryCol, labelCol, featuresCol)
 
-    assertFitWithoutErrors(baseModel, df)
-    assertFitWithoutErrors(baseModel, df.withColumn(queryCol, col(queryCol).cast("Int")))
+    assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray), df)
+    assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
+      df.withColumn(queryCol, col(queryCol).cast("Int")))
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
