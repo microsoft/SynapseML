@@ -93,11 +93,13 @@ case class RankerTrainParams(parallelism: String, numIterations: Int, learningRa
                              categoricalFeatures: Array[Int], boostingType: String,
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
-                             metric: String)
+                             metric: String, evalAt: Array[Int])
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
       if (labelGain.isEmpty) "" else s"label_gain=${labelGain.mkString(",")}"
-    s"max_position=$maxPosition $labelGainStr ${super.toString()}"
+    val evalAtStr =
+      if (evalAt.isEmpty) "" else s"eval_at=${evalAt.mkString(",")}"
+    s"max_position=$maxPosition $labelGainStr $evalAtStr ${super.toString()}"
   }
 }
