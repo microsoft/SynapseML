@@ -32,7 +32,7 @@ trait RankingParams extends HasRecommenderCols with HasLabelCol with hasK {
   /** @group getParam */
   def getMinRatingsPerItem: Int = $(minRatingsPerItem)
 
-  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { x: Estimator[_] => true })
+  val recommender = new EstimatorParam(this, "recommender", "estimator for selection", { _: Estimator[_] => true })
 
   /** @group getParam */
   def getRecommender: Estimator[_ <: Model[_]] = $(recommender)
@@ -107,7 +107,7 @@ class RankingAdapterModel private[ml](val uid: String)
 
   def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
-  val recommenderModel = new TransformerParam(this, "recommenderModel", "recommenderModel", { x: Transformer => true })
+  val recommenderModel = new TransformerParam(this, "recommenderModel", "recommenderModel", { _: Transformer => true })
 
   def setRecommenderModel(m: Model[_]): this.type = set(recommenderModel, m)
 
@@ -126,12 +126,11 @@ class RankingAdapterModel private[ml](val uid: String)
       .select(getUserCol, getLabelCol)
 
     val recs = getMode match {
-      case "allUsers" => {
+      case "allUsers" =>
         this.getRecommenderModel match {
           case als: ALSModel => als.asInstanceOf[ALSModel].recommendForAllUsers(getK)
           case sar: SARModel => sar.asInstanceOf[SARModel].recommendForAllUsers(getK)
         }
-      }
       case "normal"   => SparkHelpers.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
     }
 

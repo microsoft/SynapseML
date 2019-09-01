@@ -40,9 +40,8 @@ object MetricUtils {
   private def tryGetSchemaInfo(schema: StructType): Option[(String, String, String)] = {
     // TODO: evaluate all models; for now, get first model name found
     val firstModelName = schema.collectFirst {
-      case StructField(c, t, _, m) if getFirstModelName(m) != null && !getFirstModelName(m).isEmpty => {
+      case StructField(_, _, _, m) if getFirstModelName(m) != null && getFirstModelName(m).isDefined =>
           getFirstModelName(m).get
-      }
     }
     if (firstModelName.isEmpty) None
     else {

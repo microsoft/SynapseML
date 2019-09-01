@@ -18,7 +18,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 /** An estimator that calculates the weights for balancing a dataset.
   * For example, if the negative class is half the size of the positive class, the weights will be
   * 2 for rows with negative classes and 1 for rows with positive classes.
-  * these weights can be used in weighted classifiers and regressors to correct for heavilty
+  * these weights can be used in weighted classifiers and regressors to correct for heavily
   * skewed datasets. The inputCol should be the labels of the classes, and the output col will
   * be the requisite weights.
   *

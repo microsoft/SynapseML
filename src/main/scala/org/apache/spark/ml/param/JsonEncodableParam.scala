@@ -3,8 +3,6 @@
 
 package org.apache.spark.ml.param
 
-import java.lang.IllegalArgumentException
-
 import spray.json._
 import spray.json.JsonFormat
 

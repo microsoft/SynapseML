@@ -100,8 +100,6 @@ class JVMSharedServer(name: String, host: String,
   @GuardedBy("this")
   private var requestsAccepted = 0L
   @GuardedBy("this")
-  private var requestsAnswered = 0L
-  @GuardedBy("this")
   private var currentBatch = 0L
   @GuardedBy("this")
   private var earliestBatch = 0L
@@ -367,7 +365,7 @@ class DistributedHTTPSink(val options: Map[String, String])
   if (!options.contains("name")) {
     throw new AnalysisException("Set a name of an API to reply to")
   }
-  val name = options("name")
+  val name: String = options("name")
 
   DistributedHTTPSink.ActiveSinks.update(name, this)
 

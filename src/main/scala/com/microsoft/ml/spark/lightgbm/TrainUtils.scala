@@ -33,19 +33,20 @@ private object TrainUtils extends Serializable {
       // TODO: Temporary hack to append missing labels for debugging, off by default
       //  try to figure out a better fix in lightgbm
       if (trainParams.asInstanceOf[ClassifierTrainParams].generateMissingLabels) {
-        val (count, missingLabels) =
+        val (_, missingLabels) =
           distinctLabels.foldLeft((-1, List[Int]())) {
             case ((baseCount, baseLabels), newLabel) => {
               if (newLabel == baseCount + 1) (newLabel, baseLabels)
               else (baseCount + 1, baseCount + 1 :: baseLabels)
             }
           }
-        if (!missingLabels.isEmpty) {
+        if (missingLabels.nonEmpty) {
           // Append missing labels to rows
           val newRows = rows.take(missingLabels.size).zip(missingLabels).map { case (row, label) =>
             val rowAsArray = row.toSeq.toArray
             rowAsArray.update(schema.fieldIndex(labelColumn), label.toDouble)
-            new GenericRowWithSchema(rowAsArray, row.schema) }
+            new GenericRowWithSchema(rowAsArray, row.schema)
+          }
           return generateDataset(rows ++ newRows, labelColumn, featuresColumn, weightColumn, initScoreColumn,
             groupColumn, referenceDataset, schema, log, trainParams)
         }
@@ -98,6 +99,12 @@ private object TrainUtils extends Serializable {
                      datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
     groupColumn.foreach { col =>
       val datatype = schema.fields(schema.fieldIndex(col)).dataType
+
+      if (datatype != org.apache.spark.sql.types.IntegerType
+        && datatype != org.apache.spark.sql.types.LongType) {
+        throw new IllegalArgumentException(s"group column $col must be of type Long or Int but is ${datatype.typeName}")
+      }
+
       val group =
         if (datatype == org.apache.spark.sql.types.IntegerType) {
           rows.map(row => row.getInt(schema.fieldIndex(col)))
@@ -133,7 +140,7 @@ private object TrainUtils extends Serializable {
     val boosterOutPtr = lightgbmlib.voidpp_handle()
     val parameters = trainParams.toString()
     LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDatasetPtr.map(_.dataset).get,
-                                                          parameters, boosterOutPtr), "Booster")
+      parameters, boosterOutPtr), "Booster")
     val boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
     trainParams.modelString.foreach { modelStr =>
       val booster = LightGBMUtils.getBoosterPtrFromModelString(modelStr)
@@ -148,14 +155,11 @@ private object TrainUtils extends Serializable {
 
   def saveBoosterToString(boosterPtr: Option[SWIGTYPE_p_void], log: Logger): String = {
     val bufferLength = LightGBMConstants.DefaultBufferLength
-    val bufferLengthPtr = lightgbmlib.new_longp()
-    lightgbmlib.longp_assign(bufferLengthPtr, bufferLength)
-    val bufferLengthPtrInt64 = lightgbmlib.long_to_int64_t_ptr(bufferLengthPtr)
     val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, bufferLengthPtrInt64, bufferOutLengthPtr)
+    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, bufferLength, bufferOutLengthPtr)
   }
 
-  def getEvalNames(boosterPtr: Option[SWIGTYPE_p_void]): Array[String]  = {
+  def getEvalNames(boosterPtr: Option[SWIGTYPE_p_void]): Array[String] = {
     // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
     val evalCountsPtr = lightgbmlib.new_intp()
     val resultCounts = lightgbmlib.LGBM_BoosterGetEvalCounts(boosterPtr.get, evalCountsPtr)
@@ -292,7 +296,7 @@ private object TrainUtils extends Serializable {
         workerServerSocket.bind(new InetSocketAddress(localListenPort))
         foundPort = true
       } catch {
-        case ex: IOException =>
+        case _: IOException =>
           log.warn(s"Could not bind to port $localListenPort...")
           localListenPort += 1
           if (localListenPort - basePort > 1000) {
@@ -366,7 +370,7 @@ private object TrainUtils extends Serializable {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(nodes, localListenPort,
         LightGBMConstants.DefaultListenTimeout, nodes.split(",").length), "Network init")
     } catch {
-      case ex @ (_: Exception | _: Throwable) => {
+      case ex@(_: Exception | _: Throwable) =>
         log.info(s"NetworkInit failed with exception on local port $localListenPort with exception: $ex")
         Thread.sleep(delay)
         if (retry > 0) {
@@ -376,7 +380,6 @@ private object TrainUtils extends Serializable {
           log.info(s"NetworkInit reached maximum exceptions on retry: $ex")
           throw ex
         }
-      }
     }
   }
 

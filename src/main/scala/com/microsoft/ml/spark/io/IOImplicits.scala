@@ -100,7 +100,7 @@ case class DataFrameWriterExtensions[T](dsw: DataFrameWriter[T]) {
 case class DataFrameExtensions(df: DataFrame) {
 
   private def jsonParsingError(schema: DataType)(body: String): String = {
-    s"JSON Parsing error, expected schema:\n ${schema.simpleString}\n recieved:\n $body"
+    s"JSON Parsing error, expected schema:\n ${schema.simpleString}\n received:\n $body"
   }
 
   private def fullJsonParsingSuccess(a: Any): Boolean = {
@@ -119,7 +119,7 @@ case class DataFrameExtensions(df: DataFrame) {
     * @param idCol
     * @param requestCol
     * @param parsingCheck "none": to accept all requests,
-    *                     "full": to ensure all fields and subfields are non-null,
+    *                     "full": to ensure all fields and sub-fields are non-null,
     *                     "partial": to ensure the root structure was parsed correctly
     * @return
     */

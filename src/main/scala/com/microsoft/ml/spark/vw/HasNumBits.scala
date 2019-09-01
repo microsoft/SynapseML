@@ -9,14 +9,14 @@ import com.microsoft.ml.spark.core.contracts.Wrappable
 /** Controls hashing parameters such us number of bits (numbits) and how to handle collisions.
   */
 trait HasNumBits extends Wrappable {
-  val numbits = new IntParam(this, "numbits", "Number of bits used to mask")
-  setDefault(numbits -> 30)
+  val numBits = new IntParam(this, "numBits", "Number of bits used to mask")
+  setDefault(numBits -> 30)
 
-  def getNumBits: Int = $(numbits)
+  def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = {
     if (value < 1 || value > 30)
       throw new IllegalArgumentException("Number of bits must be between 1 and 30 bits")
-    set(numbits, value)
+    set(numBits, value)
   }
 
   /**

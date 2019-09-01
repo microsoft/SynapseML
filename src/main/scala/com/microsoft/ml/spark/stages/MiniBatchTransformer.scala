@@ -179,7 +179,7 @@ class FlattenBatch(val uid: String)
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
     val innerLength = nestedSeq.head.length
     assert(nestedSeq.forall(_.lengthCompare(innerLength) == 0))
-    (0 until innerLength).map(i => nestedSeq.map(inneSeq => inneSeq(i)))
+    (0 until innerLength).map(i => nestedSeq.map(innerSeq => innerSeq(i)))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {

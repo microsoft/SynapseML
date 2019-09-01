@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import spray.json.DefaultJsonProtocol._
+import spray.json.RootJsonFormat
 
 object ASResponses extends SparkBindings[ASResponses]
 
@@ -46,9 +47,9 @@ case class IndexList(`@odata.context`: String, value: Seq[IndexName])
 case class IndexName(name: String)
 
 object AzureSearchProtocol {
-  implicit val IfEnc = jsonFormat12(IndexField.apply)
-  implicit val IiEnc = jsonFormat10(IndexInfo.apply)
-  implicit val IsEnc = jsonFormat2(IndexStats.apply)
-  implicit val InEnc = jsonFormat1(IndexName.apply)
-  implicit val IlEnc = jsonFormat2(IndexList.apply)
+  implicit val IfEnc: RootJsonFormat[IndexField] = jsonFormat12(IndexField.apply)
+  implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat10(IndexInfo.apply)
+  implicit val IsEnc: RootJsonFormat[IndexStats] = jsonFormat2(IndexStats.apply)
+  implicit val InEnc: RootJsonFormat[IndexName] = jsonFormat1(IndexName.apply)
+  implicit val IlEnc: RootJsonFormat[IndexList] = jsonFormat2(IndexList.apply)
 }

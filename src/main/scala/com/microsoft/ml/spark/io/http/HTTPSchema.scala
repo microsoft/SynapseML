@@ -146,7 +146,7 @@ object ProtocolVersionData extends SparkBindings[ProtocolVersionData]
 
 case class RequestLineData(method: String,
                            uri: String,
-                           protoclVersion: Option[ProtocolVersionData]) {
+                           protocolVersion: Option[ProtocolVersionData]) {
 
   def this(l: RequestLine) = {
     this(l.getMethod,
@@ -190,7 +190,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
       case _ =>
     }
     request.setURI(new URI(requestLine.uri))
-    requestLine.protoclVersion.foreach(pv =>
+    requestLine.protocolVersion.foreach(pv =>
       request.setProtocolVersion(pv.toHTTPCore))
     request.setHeaders(headers.map(_.toHTTPCore))
     request
@@ -199,23 +199,23 @@ case class HTTPRequestData(requestLine: RequestLineData,
 }
 
 object HTTPRequestData extends SparkBindings[HTTPRequestData] {
-  def fromHTTPExchange(httpe: HttpExchange): HTTPRequestData = {
-    val requestHeaders = httpe.getRequestHeaders
+  def fromHTTPExchange(httpEx: HttpExchange): HTTPRequestData = {
+    val requestHeaders = httpEx.getRequestHeaders
     val isChunked = Option(requestHeaders.getFirst("Transfer-Encoding")=="chunked").getOrElse(false)
     HTTPRequestData(
       RequestLineData(
-        httpe.getRequestMethod,
-        httpe.getRequestURI.toString,
-        Option(httpe.getProtocol).map{p =>
+        httpEx.getRequestMethod,
+        httpEx.getRequestURI.toString,
+        Option(httpEx.getProtocol).map{ p =>
           val Array(v, n) = p.split("/".toCharArray.head)
           val Array(major, minor) = n.split(".".toCharArray.head)
           ProtocolVersionData(v, major.toInt, minor.toInt)
         }),
-      httpe.getRequestHeaders.asScala.flatMap {
+      httpEx.getRequestHeaders.asScala.flatMap {
         case (k, vs) => vs.map(v => HeaderData(k,v))
       }.toArray,
       Some(EntityData(
-        IOUtils.toByteArray(httpe.getRequestBody),
+        IOUtils.toByteArray(httpEx.getRequestBody),
         Option(requestHeaders.getFirst("Content-Encoding")).map(HeaderData("Content-Encoding", _)),
         Option(requestHeaders.getFirst("Content-Length")).map(_.toLong),
         Option(requestHeaders.getFirst("Content-Type")).map(HeaderData("Content-Type", _)),

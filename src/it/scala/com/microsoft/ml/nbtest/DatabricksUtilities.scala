@@ -5,29 +5,22 @@ package com.microsoft.ml.nbtest
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
 
-import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.nbtest.SprayImplicits._
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.io.http.HasHttpClient
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.spark_project.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.sys.process.Process
-import com.microsoft.ml.spark.core.env.StreamUtilities._
-import com.microsoft.ml.spark.io.http.{HTTPTestUtils, HasHttpClient}
-
-import scala.concurrent.blocking
 
 //noinspection ScalaStyle
 object DatabricksUtilities extends HasHttpClient {

@@ -26,7 +26,7 @@ private case class LassoCalculator2(data: DenseMatrix[Double],
    */
   require(data.rows == outputs.size)
   require(data.rows == outputs.size)
-  require(workArray.size >= 2 * data.rows * data.cols)
+  require(workArray.length >= 2 * data.rows * data.cols)
 
   private val outputCopy = DenseVector.zeros[Double](outputs.size)
   private val singleColumnMatrix = new DenseMatrix[Double](data.rows, 1)

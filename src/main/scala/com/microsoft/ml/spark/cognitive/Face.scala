@@ -331,7 +331,7 @@ class VerifyFaces(override val uid: String)
   val largePersonGroupId = new ServiceParam[String](this,
     "largePersonGroupId",
     "Using existing largePersonGroupId and personId for fast " +
-      "ading a specified person. largePersonGroupId is created in " +
+      "adding a specified person. largePersonGroupId is created in " +
       "LargePersonGroup - Create. Parameter personGroupId and largePersonGroupId" +
       " should not be provided at the same time."
   )

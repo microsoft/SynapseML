@@ -208,7 +208,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     "Edm.Int64" -> LongType,
     "Edm.Int32" -> IntegerType,
     "Edm.Double" -> DoubleType,
-    "Edm.DateTimeOffset" -> StringType, //See if theres a way to use spark datetimes
+    "Edm.DateTimeOffset" -> StringType, //See if there's a way to use spark datetimes
     "Edm.GeographyPoint" -> StringType)
 
   private def checkSchemaParity(schema: StructType, indexJson: String, searchActionCol: String): Unit = {
