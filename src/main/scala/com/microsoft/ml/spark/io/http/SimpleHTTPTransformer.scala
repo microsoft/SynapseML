@@ -88,13 +88,13 @@ class SimpleHTTPTransformer(val uid: String)
 
   setDefault(
     inputParser -> new JSONInputParser(),
-    handler->HandlingUtils.advancedUDF(0,50,100,500),
+    handler -> HandlingUtils.advancedUDF(0, 50, 100, 500),
     errorCol -> (this.uid + "_errors"))
 
   def setUrl(url: String): SimpleHTTPTransformer.this.type = {
     getInputParser match {
       case jip: JSONInputParser => setInputParser(jip.setUrl(url))
-      case _ => throw new IllegalArgumentException("this setting is only availible when using a JSONInputParser")
+      case _ => throw new IllegalArgumentException("this setting is only available when using a JSONInputParser")
     }
   }
 

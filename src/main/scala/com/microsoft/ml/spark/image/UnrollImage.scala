@@ -12,7 +12,7 @@ import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.ml.linalg.{Vectors, Vector => SVector}
 import org.apache.spark.ml.param.{IntParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.udf
@@ -25,7 +25,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
 
   import org.apache.spark.ml.image.ImageSchema._
 
-  private[ml] def unroll(row: Row): DenseVector = {
+  private[ml] def unroll(row: Row): SVector = {
     val width = getWidth(row)
     val height = getHeight(row)
     val bytes = getData(row)
@@ -49,10 +49,10 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
         }
       }
     }
-    new DenseVector(rearranged)
+    Vectors.dense(rearranged)
   }
 
-  private[ml] def roll(values: Vector, originalImage: Row): Row = {
+  private[ml] def roll(values: SVector, originalImage: Row): Row = {
     roll(
       values.toArray.map(d => math.max(0, math.min(255, round(d))).toInt),
       originalImage.getString(0),
@@ -85,7 +85,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
     Row(path, height, width, nChannels, mode, rearranged.map(_.toByte))
   }
 
-  private[ml] def unrollBI(image: BufferedImage): DenseVector = {
+  private[ml] def unrollBI(image: BufferedImage): SVector = {
     val nChannels = image.getColorModel.getNumComponents
     val isGray = image.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
     val hasAlpha = image.getColorModel.hasAlpha
@@ -120,13 +120,13 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
       }
     }
 
-    new DenseVector(unrolled)
+    Vectors.dense(unrolled)
   }
 
   private[ml] def unrollBytes(bytes: Array[Byte],
                               width: Option[Int],
                               height: Option[Int],
-                              nChannels: Option[Int]): Option[DenseVector] = {
+                              nChannels: Option[Int]): Option[SVector] = {
     val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
       (height, width) match {

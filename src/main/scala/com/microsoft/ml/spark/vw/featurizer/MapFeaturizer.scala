@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.vw.featurizer
 import org.apache.spark.sql.Row
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
-import scala.collection.mutable.{ArrayBuilder}
+import scala.collection.mutable
 
 /**
   * Featurize map of type T into native VW structure. (hash(column name + k):value)
@@ -17,8 +17,8 @@ import scala.collection.mutable.{ArrayBuilder}
   * @param valueFeaturizer featurizer for value type.
   * @tparam T value type.
   */
-class MapFeaturizer[T](override val fieldIdx: Int, val columnName: String, val namespaceHash: Int,
-                       val mask: Int, val valueFeaturizer: (T) => Double)
+class MapFeaturizer[T](override val fieldIdx: Int, override val columnName: String, val namespaceHash: Int,
+                       val mask: Int, val valueFeaturizer: T => Double)
   extends Featurizer(fieldIdx) {
 
   /**
@@ -26,10 +26,12 @@ class MapFeaturizer[T](override val fieldIdx: Int, val columnName: String, val n
     * @param row input row.
     * @param indices output indices.
     * @param values output values.
-    * @note this interface isn't very Scala-esce, but it avoids lots of allocation.
+    * @note this interface isn't very Scala idiomatic, but it avoids lots of allocation.
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
-  override def featurize(row: Row, indices: ArrayBuilder[Int], values: ArrayBuilder[Double]): Unit = {
+  override def featurize(row: Row,
+                         indices: mutable.ArrayBuilder[Int],
+                         values: mutable.ArrayBuilder[Double]): Unit = {
     for ((k,v) <- row.getMap[String, T](fieldIdx).iterator) {
       val value = valueFeaturizer(v)
 

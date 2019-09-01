@@ -34,8 +34,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
 
       // compute the final number of features
       val numElems = (0 until r.length)
-        .map(r.getAs[Vector](_).numNonzeros)
-        .fold(1)(_ * _)
+        .map(r.getAs[Vector](_).numNonzeros).product
 
       val newIndices = new Array[Int](numElems)
       val newValues = new Array[Double](numElems)
@@ -83,7 +82,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
           throw new IllegalArgumentException("column " + f + " must be of type Vector but is " + fieldType.typeName)
       }
 
-    schema.add(new StructField(getOutputCol, VectorType, true))
+    schema.add(StructField(getOutputCol, VectorType, true))
   }
 
   override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)

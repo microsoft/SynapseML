@@ -16,6 +16,6 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
   extends ComplexParam[SerializableFunction](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, {x => true})
+    this(parent, name, doc, {_ => true})
 
 }

@@ -54,15 +54,13 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     }
 
     val regressor = getModel match {
-      case predictor: Predictor[_, _, _] => {
+      case predictor: Predictor[_, _, _] =>
         predictor
           .setLabelCol(getLabelCol)
           .setFeaturesCol(getFeaturesCol).asInstanceOf[Estimator[_ <: PipelineStage]]
-      }
-      case default@defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] => {
+      case default@defaultType if defaultType.isInstanceOf[Estimator[_ <: PipelineStage]] =>
         // assume label col and features col already set
         default
-      }
       case _ => throw new Exception("Unsupported learner type " + getModel.getClass.toString)
     }
 
@@ -82,15 +80,12 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
              _: FloatType |
              _: ByteType |
              _: LongType |
-             _: ShortType => {
+             _: ShortType =>
           dataset(labelColumn).cast(DoubleType)
-        }
-        case _: StringType => {
+        case _: StringType =>
           throw new Exception("Invalid type: Regressors are not able to train on a string label column: " + labelColumn)
-        }
-        case _: DoubleType => {
+        case _: DoubleType =>
           dataset(labelColumn)
-        }
         case default => throw new Exception("Unknown type: " + default.typeName + ", for label column: " + labelColumn)
       }
     ).na.drop(Seq(labelColumn))

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasInputCols, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
 import org.apache.spark.ml.util.Identifiable
@@ -12,6 +13,7 @@ import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset}
+import org.apache.spark.sql.functions.col
 
 object UDFTransformer extends ComplexParamsReadable[UDFTransformer]
 
@@ -42,7 +44,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   val udfScala = new UDFParam(this, udfScalaKey, "User Defined Function to be applied to the DF input col")
   val udfPython = new UDPyFParam(this, udfPythonKey,
     "User Defined Python Function to be applied to the DF input col")
-  val udfParams = Seq(udfScala, udfPython)
+  val udfParams: Seq[ComplexParam[_]] = Seq(udfScala, udfPython)
 
   /** @group getParam */
   def getUDF: UserDefinedFunction = $(udfScala)
@@ -85,7 +87,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
     if (isSet(inputCol)) {
       dataset.withColumn(getOutputCol, applyUDF(dataset.col(getInputCol)))
     } else {
-      dataset.withColumn(getOutputCol, applyUDFOnCols(getInputCols.map(dataset.col(_)): _*))
+      dataset.withColumn(getOutputCol, applyUDFOnCols(getInputCols.map(col): _*))
     }
   }
 

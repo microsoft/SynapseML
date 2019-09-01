@@ -80,9 +80,9 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
 
     getParallelism match {
       case 1 =>
-        SparkHelpers.getThreadUtils().sameThread
+        SparkHelpers.getThreadUtils.sameThread
       case n =>
-        ExecutionContext.fromExecutorService(SparkHelpers.getThreadUtils()
+        ExecutionContext.fromExecutorService(SparkHelpers.getThreadUtils
           .newDaemonCachedThreadPool(s"${this.getClass.getSimpleName}-thread-pool", n))
     }
   }
@@ -93,7 +93,6 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
     val est = getEstimator
     val eval = getEvaluator.asInstanceOf[RankingEvaluator]
     val epm = getEstimatorParamMaps
-    val numModels = epm.length
 
     dataset.cache()
     eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
@@ -107,35 +106,34 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
     val executionContext = getExecutionContext
 
     def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
-      case p: PipelineModel =>
+      case pm: PipelineModel =>
         //Assume Rec Algo is last stage of pipeline
-        val modelTemp = model.asInstanceOf[PipelineModel].stages.last
+        val modelTemp =pm.stages.last
         calculateMetrics(modelTemp, validationDataset)
-      case a: ALSModel      =>
-        val recs = model.asInstanceOf[ALSModel].recommendForAllUsers(eval.getK)
+      case alsm: ALSModel      =>
+        val recs = alsm.recommendForAllUsers(eval.getK)
         val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
         eval.evaluate(preparedTest)
     }
 
-    val metricFutures = epm.zipWithIndex.map { case (paramMap, paramIndex) =>
+    val metricFutures = epm.zipWithIndex.map { case (paramMap, _) =>
       Future[Double] {
-        val model = est.fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
+        val model = est.fit(trainingDataset, paramMap)
         calculateMetrics(model, validationDataset)
       }(executionContext)
     }
 
-    val metrics = metricFutures.map(SparkHelpers.getThreadUtils().awaitResult(_, Duration.Inf))
+    val metrics = metricFutures.map(SparkHelpers.getThreadUtils.awaitResult(_, Duration.Inf))
 
     trainingDataset.unpersist()
     validationDataset.unpersist()
 
-    val (bestMetric, bestIndex) =
+    val (_, bestIndex) =
       if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
       else metrics.zipWithIndex.minBy(_._1)
 
-    val bestModel = est.fit(dataset, epm(bestIndex)).asInstanceOf[Model[_]]
     copyValues(new RankingTrainValidationSplitModel(uid)
-      .setBestModel(bestModel)
+      .setBestModel(est.fit(dataset, epm(bestIndex)))
       .setValidationMetrics(metrics)
       .setParent(this))
   }
@@ -146,7 +144,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
     dataset
       .groupBy(getUserCol)
       .agg(col(getUserCol), count(col(getItemCol)))
-      .withColumnRenamed(s"count(${getItemCol})", "nitems")
+      .withColumnRenamed(s"count($getItemCol)", "nitems")
       .where(col("nitems") >= getMinRatingsU)
       .drop("nitems")
       .cache()
@@ -154,8 +152,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
 
   private def filterByUserRatingCount(dataset: Dataset[_]): DataFrame = dataset
     .groupBy(getItemCol)
-    .agg(col(getItemCol), count(col(getUserCol)))
-    .withColumnRenamed(s"count(${getUserCol})", "ncustomers")
+    .agg(col(getItemCol), count(col(getUserCol)).alias("ncustomers"))
     .where(col("ncustomers") >= getMinRatingsI)
     .join(dataset, getItemCol)
     .drop("ncustomers")
@@ -172,13 +169,13 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
       val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
 
       val sliceudf = udf(
-        (r: mutable.WrappedArray[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+        (r: Seq[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
 
-      val shuffle = udf((r: mutable.WrappedArray[Array[Double]]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
+      val shuffle = udf((r: Seq[Array[Double]]) =>
+        if (shuffleBC.value) Random.shuffle(r)
         else r
       )
-      val dropudf = udf((r: mutable.WrappedArray[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
+      val dropudf = udf((r: Seq[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
       val testds = dataset
         .withColumn("itemIDRating", wrapColumn(col(getItemCol), col(getRatingCol)))
@@ -209,29 +206,24 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
       Array(train, test)
     }
     else {
-      val shuffle = udf((r: mutable.WrappedArray[Double]) =>
-        if (shuffleBC.value) Random.shuffle(r.toSeq)
-        else r
-      )
       val sliceudf = udf(
-        (r: mutable.WrappedArray[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-      val dropudf = udf((r: mutable.WrappedArray[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
+        (r: Seq[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
+      val dropudf = udf((r: Seq[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
-      val testds = dataset
+      val testDS = dataset
         .groupBy(col(getUserCol))
-        .agg(collect_list(col(getItemCol)))
-        .withColumn("shuffle", shuffle(col(s"collect_list(${getItemCol})")))
+        .agg(collect_list(col(getItemCol)).alias("shuffle"))
         .withColumn("train", sliceudf(col("shuffle")))
         .withColumn("test", dropudf(col("shuffle")))
-        .drop(col(s"collect_list(${getItemCol}")).drop(col("shuffle"))
+        .drop(col(s"collect_list($getItemCol")).drop(col("shuffle"))
         .cache()
 
-      val train = testds
+      val train = testDS
         .select(getUserCol, "train")
         .withColumn(getItemCol, explode(col("train")))
         .drop("train")
 
-      val test = testds
+      val test = testDS
         .select(getUserCol, "test")
         .withColumn(getItemCol, explode(col("test")))
         .drop("test")
@@ -241,16 +233,13 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {
-    val est = $(estimator) match {
+    val est = getEstimator match {
       case p: Pipeline =>
         //Assume Rec is last stage of pipeline
-        val pipe = $(estimator).asInstanceOf[Pipeline].getStages.last
-        pipe match {
-          case a: ALS =>
-            pipe.asInstanceOf[ALS]
+        p.getStages.last match {
+          case a: ALS => a
         }
-      case a: ALS =>
-        $(estimator).asInstanceOf[ALS]
+      case a: ALS => a
     }
 
     val userColumn = est.getUserCol

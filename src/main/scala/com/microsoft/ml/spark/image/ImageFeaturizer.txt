@@ -5,7 +5,7 @@ standard "layers" structure of a feed forward neural net, one needs to
 supply a list of node names that range from the output node, back
 towards the input node of the CNTK Function.  This list does not need to
 be exhaustive, and is provided to you if you use a model downloaded
-fromt ``ModelDownloader``.  One can find this layer list in the schema
+from ``ModelDownloader``.  One can find this layer list in the schema
 of the downloaded model.
 
 The ``ImageFeaturizer`` takes an input column of images (the type

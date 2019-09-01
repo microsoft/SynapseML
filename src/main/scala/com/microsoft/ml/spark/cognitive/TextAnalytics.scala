@@ -107,10 +107,10 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
     val reshapeCols = Seq(reshapeToArray("text"), reshapeToArray("language")).flatten
 
     val newColumnMapping = reshapeCols.map {
-      case (lambda, oldCol, newCol) => (oldCol, newCol)
+      case (_, oldCol, newCol) => (oldCol, newCol)
     }.toMap
 
-    val columnsToGroup = getVectorParamMap.map { case (paramName, oldCol) =>
+    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
       val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
       col(newCol).alias(oldCol)
     }.toSeq

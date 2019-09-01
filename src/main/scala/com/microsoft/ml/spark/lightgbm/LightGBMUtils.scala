@@ -22,7 +22,7 @@ import org.slf4j.Logger
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -36,18 +36,18 @@ object LightGBMUtils {
   /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
     */
   def initializeNativeLibrary(): Unit = {
-    val osPrefix = NativeLoader.getOSPrefix()
+    val osPrefix = NativeLoader.getOSPrefix
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
     new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
   }
 
-  def featurizeData(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
+  def getFeaturizer(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
                     weightColumn: Option[String] = None, groupColumn: Option[String] = None): PipelineModel = {
     // Create pipeline model to featurize the dataset
     val oneHotEncodeCategoricals = true
     val featuresToHashTo = FeaturizeUtilities.NumFeaturesTreeOrNNBased
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
-      weightColumn.forall(_ != col) && groupColumn.forall(_ != col)).toSeq
+      !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
     val featurizer = new Featurize()
       .setFeatureColumns(Map(featuresColumn -> featureColumns))
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
@@ -82,8 +82,8 @@ object LightGBMUtils {
             } else {
               attr match {
                 case _: NumericAttribute | UnresolvedAttribute => Iterator()
-                case binAttr: BinaryAttribute => Iterator(idx)
-                case nomAttr: NominalAttribute => Iterator(idx)
+                case _: BinaryAttribute => Iterator(idx)
+                case _: NominalAttribute => Iterator(idx)
               }
             }
         }
@@ -103,7 +103,8 @@ object LightGBMUtils {
                               log: Logger, timeout: Double,
                               barrierExecutionMode: Boolean): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
-    implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    implicit val context: ExecutionContextExecutor =
+      ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
     val driverServerSocket = new ServerSocket(0)
     // Set timeout on socket
     val duration = Duration(timeout, SECONDS)
@@ -164,7 +165,7 @@ object LightGBMUtils {
     }
     val host = ClusterUtil.getDriverHost(df)
     val port = driverServerSocket.getLocalPort
-    log.info(s"driver waiting for connections on host: ${host} and port: $port")
+    log.info(s"driver waiting for connections on host: $host and port: $port")
     (host, port, f)
   }
 
@@ -182,12 +183,6 @@ object LightGBMUtils {
     idAsInt
   }
 
-  def intToPtr(value: Int): SWIGTYPE_p_int64_t = {
-    val longPtr = lightgbmlib.new_longp()
-    lightgbmlib.longp_assign(longPtr, value)
-    lightgbmlib.long_to_int64_t_ptr(longPtr)
-  }
-
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
   (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
     val numCols = rowsAsDoubleArray.head.length
@@ -201,14 +196,8 @@ object LightGBMUtils {
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
-    val numRowsIntPtr = lightgbmlib.new_intp()
-    lightgbmlib.intp_assign(numRowsIntPtr, numRows)
-    val numRows_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numRowsIntPtr) //scalastyle:ignore field.name
     val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
-    val numColsIntPtr = lightgbmlib.new_intp()
-    lightgbmlib.intp_assign(numColsIntPtr, numCols)
-    val numCols_int32_tPtr = lightgbmlib.int_to_int32_t_ptr(numColsIntPtr) //scalastyle:ignore field.name
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -218,7 +207,7 @@ object LightGBMUtils {
       // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
         data.get._1, data64bitType,
-        numRows_int32_tPtr, numCols_int32_tPtr,
+        numRows, numCols,
         isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
@@ -246,7 +235,7 @@ object LightGBMUtils {
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],
       sparseRows.length,
-      intToPtr(numCols), datasetParams, referenceDataset.map(_.dataset).orNull,
+      numCols, datasetParams, referenceDataset.map(_.dataset).orNull,
       datasetOutPtr),
       "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))

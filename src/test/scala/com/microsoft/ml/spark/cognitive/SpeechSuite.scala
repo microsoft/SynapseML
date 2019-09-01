@@ -43,7 +43,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   }
 
   override def testSerialization(): Unit = {
-    tryWithRetries(Array(0,100,100))(super.testSerialization)
+    tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
   }
 
   test("Basic Usage") {

@@ -30,7 +30,7 @@ object PortForwarding {
         try {
           Jsch.addIdentity(f.getAbsolutePath)
         } catch {
-          case e: com.jcraft.jsch.JSchException =>
+          case _: com.jcraft.jsch.JSchException =>
           case e: Exception => throw e
         }
       )
@@ -53,7 +53,7 @@ object PortForwarding {
           bindAddress, remotePortStart + attempt, localHost, localPort)
         foundPort = Some(remotePortStart + attempt)
       } catch {
-        case e: Exception =>
+        case _: Exception =>
           println(s"failed to forward port. Attempt: $attempt")
           attempt += 1
       }

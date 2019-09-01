@@ -14,7 +14,7 @@ import DefaultJsonProtocol._
 
 object Secrets {
   private val KvName = "mmlspark-keys"
-  private val SubscriptionID = "ca9d21ff-2a46-4e8b-bf06-8d65242342e5"
+  private val SubscriptionID = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase

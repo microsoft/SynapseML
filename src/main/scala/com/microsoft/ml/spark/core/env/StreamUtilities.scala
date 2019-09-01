@@ -49,7 +49,7 @@ object StreamUtilities {
       while (entry != null) {
         if (!entry.isDirectory && random.nextDouble < sampleRatio) {
 
-          val filename = zipfile + java.io.File.separator + entry.getName()
+          val filename = zipfile + java.io.File.separator + entry.getName
 
           //extracting all bytes of a given entry
           val byteStream = new ByteArrayOutputStream

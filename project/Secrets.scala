@@ -9,7 +9,7 @@ import sbt.{SettingKey, TaskKey}
 
 object Secrets {
   private val kvName = "mmlspark-keys"
-  private val subscriptionID = "ca9d21ff-2a46-4e8b-bf06-8d65242342e5"
+  private val subscriptionID = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
@@ -37,13 +37,13 @@ object Secrets {
     }
   }
 
-  lazy val nexusUsername: String = getSecret("nexus-un")
-  lazy val nexusPassword: String = getSecret("nexus-pw")
+  lazy val nexusUsername: String = sys.env.getOrElse("NEXUS-UN", getSecret("nexus-un"))
+  lazy val nexusPassword: String = sys.env.getOrElse("NEXUS-PW", getSecret("nexus-pw"))
   lazy val pgpPublic: String = new String(Base64.getDecoder.decode(
-    getSecret("pgp-public").getBytes("UTF-8")))
+    sys.env.getOrElse("PGP-PUBLIC", getSecret("pgp-public")).getBytes("UTF-8")))
   lazy val pgpPrivate: String = new String(Base64.getDecoder.decode(
-    getSecret("pgp-private").getBytes("UTF-8")))
-  lazy val pgpPassword: String = getSecret("pgp-pw")
+    sys.env.getOrElse("PGP-PRIVATE", getSecret("pgp-private")).getBytes("UTF-8")))
+  lazy val pgpPassword: String = sys.env.getOrElse("PGP-PW", getSecret("pgp-pw"))
   lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", getSecret("storage-key"))
 
 }

@@ -87,7 +87,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
   private def sortLevels[T: TypeTag](levels: Array[_])
                         (ordering: Ordering[T])
                         (implicit ct: ClassTag[T]): Array[_] = {
-    var castLevels = levels.map(_.asInstanceOf[T])
+    val castLevels = levels.map(_.asInstanceOf[T])
     castLevels.sorted(ordering)
   }
 
@@ -173,7 +173,7 @@ class ValueIndexerModel(val uid: String)
         map.getIndexOption(level).getOrElse(unknownIndex)
       }
     })
-    // Add the MML style and MLLIB style metadata for categoricals
+    // Add the MML style and sparkML style metadata for categoricals
     val metadata = map.toMetadata(map.toMetadata(dataset.schema(getInputCol).metadata, true), false)
     val inputColIndex = getIndex(dataset(getInputCol))
     dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))

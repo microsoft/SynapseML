@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{getBoosterPtrFromModelString, intToPtr}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelString
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -16,7 +16,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   /** Transient variable containing local machine's pointer to native booster
     */
   @transient
-  var boosterPtr: SWIGTYPE_p_void = null
+  var boosterPtr: SWIGTYPE_p_void = _
 
   def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     // Reload booster on each node
@@ -36,27 +36,23 @@ class LightGBMBooster(val model: String) extends Serializable {
   lazy val numClasses: Int = getNumClasses()
 
   @transient
-  var scoredDataOutPtr: SWIGTYPE_p_double = null
+  var scoredDataOutPtr: SWIGTYPE_p_double = _
 
   @transient
-  var scoredDataLengthLongPtr: SWIGTYPE_p_long = null
-
-  @transient
-  var scoredDataLength_int64_tPtr: SWIGTYPE_p_int64_t = null //scalastyle:ignore field.name
+  var scoredDataLengthLongPtr: SWIGTYPE_p_long_long = _
 
   def ensureScoredDataCreated(): Unit = {
     if (scoredDataLengthLongPtr != null)
       return
 
     scoredDataOutPtr = lightgbmlib.new_doubleArray(numClasses)
-    scoredDataLengthLongPtr = lightgbmlib.new_longp()
-    lightgbmlib.longp_assign(scoredDataLengthLongPtr, 1 /* numRows */)
-    scoredDataLength_int64_tPtr = lightgbmlib.long_to_int64_t_ptr(scoredDataLengthLongPtr)
+    scoredDataLengthLongPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.int64_tp_assign(scoredDataLengthLongPtr, 1)
   }
 
   override protected def finalize(): Unit = {
     if (scoredDataLengthLongPtr != null)
-      lightgbmlib.delete_longp(scoredDataLengthLongPtr)
+      lightgbmlib.delete_int64_tp(scoredDataLengthLongPtr)
     if (scoredDataOutPtr == null)
       lightgbmlib.delete_doubleArray(scoredDataOutPtr)
   }
@@ -68,15 +64,15 @@ class LightGBMBooster(val model: String) extends Serializable {
     val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
-    ensureScoredDataCreated
+    ensureScoredDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForCSRSingle(
         sparseVector.indices, sparseVector.values,
         sparseVector.numNonzeros,
-        boosterPtr, dataInt32bitType, data64bitType, intToPtr(1 + 1), intToPtr(numCols),
-      kind, -1, datasetParams,
-      scoredDataLength_int64_tPtr, scoredDataOutPtr), "Booster Predict")
+        boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
+        kind, -1, datasetParams,
+        scoredDataLengthLongPtr, scoredDataOutPtr), "Booster Predict")
 
     predToArray(classification, scoredDataOutPtr, kind)
   }
@@ -89,20 +85,20 @@ class LightGBMBooster(val model: String) extends Serializable {
 
     val datasetParams = "max_bin=255"
 
-    ensureScoredDataCreated
+    ensureScoredDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(
         row, boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        -1, datasetParams, scoredDataLength_int64_tPtr, scoredDataOutPtr),
+        -1, datasetParams, scoredDataLengthLongPtr, scoredDataOutPtr),
       "Booster Predict")
     predToArray(classification, scoredDataOutPtr, kind)
   }
 
   def saveNativeModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    if (filename == null || filename.isEmpty()) {
+    if (filename == null || filename.isEmpty) {
       throw new IllegalArgumentException("filename should not be empty or null.")
     }
     val rdd = session.sparkContext.parallelize(Seq(model))

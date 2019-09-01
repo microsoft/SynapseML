@@ -2,7 +2,12 @@
 
 # Microsoft Machine Learning for Apache Spark
 
-[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)
+[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
+
+[![Version](https://img.shields.io/badge/version-0.18.1-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
@@ -19,11 +24,8 @@ sub-millisecond latency web services, backed by your Spark cluster.
 
 MMLSpark requires Scala 2.11, Spark 2.3+, and either Python 2.7 or Python 3.5+.
 See the API documentation [for
-Scala](http://mmlspark.azureedge.net/docs/scala/) and [for
-PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
-
-[<img src="https://mmlspark.azureedge.net/icons/ReleaseNotes.svg" align="right"
-  />](https://github.com/Azure/mmlspark/releases)
+Scala](https://mmlspark.blob.core.windows.net/docs/0.18.1/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/0.18.1/pyspark/index.html).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -35,7 +37,6 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
     -   [GPU VM Setup](#gpu-vm-setup)
     -   [Spark package](#spark-package)
     -   [Python](#python)
-    -   [HDInsight](#hdinsight)
     -   [Databricks cloud](#databricks-cloud)
     -   [SBT](#sbt)
     -   [Building from source](#building-from-source)
@@ -47,38 +48,16 @@ PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
 ## Projects
 
-<table style="width:70%">
-   <tr align="center">
-    <td><b>The Cognitive Services on Spark:</b><img height="40" /></td>
-    <td><b>LIME on Spark:</b><img height="40" /></b></td>
-    <td><b>Spark Serving:</b><img height="40" /></b></td>
-  </tr>
-  <tr align="center">
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/congitive_on_spark.png" width="200" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg" width="180" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg" width="180" /></td>
-  </tr>
-  <tr align="center">
-    <td>Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines</td>
-    <td>Distributed, Model Agnostic, Interpretations for Image Classifiers</td>
-    <td>Serve any Spark Computation as a Web Service with Sub-Millisecond Latency</td>
-  </tr>
-   <tr align="center">
-    <td><b>LightGBM on Spark:</b><img height="40" /></b></td>
-    <td><b>CNTK on Spark:</b><img height="40" /></b></td>
-    <td><b>HTTP on Spark:</b><img height="40" /></b></td>
-  </tr>
-  <tr align="center">
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png" width="250" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png" width="250" /></td>
-    <td><img src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png" width="150" /></td>
-  </tr>
-  <tr align="center">
-    <td>Train Gradient Boosted Machines with LightGBM</td>
-    <td>Distributed Deep Learning with the Microsoft Cognitive Toolkit</td>
-    <td>An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration</td>
-  </tr>
-</table>
+|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+| **Vowpal Wabbit on Spark**  | **The Cognitive Services on Spark**| **LightGBM on Spark** |  **Spark Serving** |
+| Fast, Sparse, and Effective Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
+
+|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+|  **HTTP on Spark** | **CNTK on Spark** |  **Lime on Spark**| **Spark Binding Autogeneration** |
+| An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration|Distributed Deep Learning with the Microsoft Cognitive Toolkit | Distributed, Model Agnostic, Interpretations for Classifiers | Automatically Generate Spark bindings for PySpark and SparklyR|
+
 
 ## Examples
 
@@ -151,9 +130,9 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages Azure:mmlspark:0.17
-pyspark --packages Azure:mmlspark:0.17
-spark-submit --packages Azure:mmlspark:0.17 MyApp.jar
+spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1
+pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1
+spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:0.18.1 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use MMLSpark
@@ -168,14 +147,14 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `Azure:mmlspark:0.17`.  Ensure this library is
+For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:0.18.1`.  Ensure this library is
 attached to all clusters you create.
 
 Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.17.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.18.1.dbc`
 
 ### Docker
 
@@ -207,30 +186,10 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "Azure:mmlspark:0.17") \
+            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.18.1") \
             .getOrCreate()
 import mmlspark
 ```
-
-<img title="Script action submission" src="http://i.imgur.com/oQcS0R2.png" align="right" />
-
-### HDInsight
-
-To install MMLSpark on an existing [HDInsight Spark
-Cluster](https://docs.microsoft.com/en-us/azure/hdinsight/), you can execute a
-script action on the cluster head and worker nodes.  For instructions on
-running script actions, see [this
-guide](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-customize-cluster-linux#use-a-script-action-during-cluster-creation).
-
-The script action url is:
-<https://mmlspark.azureedge.net/buildartifacts/0.17/install-mmlspark.sh>.
-
-If you're using the Azure Portal to run the script action, go to `Script
-actions` → `Submit new` in the `Overview` section of your cluster blade.  In
-the `Bash script URI` field, input the script action URL provided above.  Mark
-the rest of the options as shown on the screenshot to the right.
-
-Submit, and the cluster should finish configuring within 10 minutes or so.
 
 ### SBT
 
@@ -238,8 +197,7 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-resolvers += "MMLSpark Repo" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.17"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "0.18.1"
 ```
 
 ### Building from source
@@ -262,25 +220,32 @@ and some necessary custom wrappers may be missing.
 
 -   Visit our [new website].
 
--   Watch [our keynote demo in the Spark+AI Summit 2018].
+-   Watch our keynote demos at [the Spark+AI Summit 2019], [the Spark+AI European Summit 2018], and [the Spark+AI Summit 2018].
 
 -   Read [our paper] for a deep dive on MMLSpark.
 
 -   See how MMLSpark is used to [help endangered species].
 
+-   Explore generative adversarial artwork in [our collaboration with The MET and MIT].
+
 -   Explore [our collaboration with Apache Spark] on image analysis.
 
 -   Use [MMLSpark in Azure Machine Learning].
 
--   Watch [MMLSpark at the Spark Summit].
 
 [new website]: https://mmlspark.blob.core.windows.net/website/index.html "aka.ms/spark"
 
-[our keynote demo in the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
+[the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
+
+[the Spark+AI Summit 2019]: https://youtu.be/T_fs4C0aqD0?t=425
+
+[the Spark+AI European Summit 2018]: https://youtu.be/N3ozCZXeOeU?t=472
 
 [our paper]: https://arxiv.org/abs/1804.04031 "Flexible and Scalable Deep Learning with MMLSpark"
 
-[help endangered species]: https://customers.microsoft.com/en-us/story/snow-leopard-trust-nonprofit-azure "Saving snow leopards with deep learning and computer vision on Spark"
+[help endangered species]: https://www.microsoft.com/en-us/ai/ai-lab-stories?activetab=pivot1:primaryr3 "Identifying snow leopards with AI"
+
+[our collaboration with The MET and MIT]: https://www.microsoft.com/en-us/ai/ai-lab-stories?activetab=pivot1:primaryr4 "Generative art at the MET"
 
 [our collaboration with Apache Spark]: https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/ "Image Data Support in Apache Spark"
 
@@ -305,6 +270,7 @@ To give feedback and/or report an issue, open a [GitHub
 Issue](https://help.github.com/articles/creating-an-issue/).
 
 ## Other relevant projects
+-   [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit)
 
 -   [LightGBM](https://github.com/Microsoft/LightGBM)
 

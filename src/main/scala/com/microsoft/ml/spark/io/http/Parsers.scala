@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.io.http
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.ml.param._
@@ -94,7 +95,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
       this, "udfPython", "User Defined Python Function to be applied to the DF input col",
       { x: UserDefinedPythonFunction => x.dataType == HTTPSchema.Request })
 
-  val udfParams = Seq(udfScala, udfPython)
+  val udfParams: Seq[ComplexParam[_]] = Seq(udfScala, udfPython)
 
   /** @group getParam */
   def getUDF: UserDefinedFunction = $(udfScala)
@@ -157,7 +158,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
 
   val postProcessor: Param[Transformer] = new TransformerParam(
     this, "postProcessor", "optional transformation to postprocess json output", {
-      case udft: UDFTransformer => true
+      case _: UDFTransformer => true
       case _ => false
     })
 
@@ -220,7 +221,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   val udfPython = new UDPyFParam(
       this, "udfPython", "User Defined Python Function to be applied to the DF input col")
 
-  val udfParams = Seq(udfScala, udfPython)
+  val udfParams: Seq[ComplexParam[_]] = Seq(udfScala, udfPython)
 
   /** @group getParam */
   def getUDF: UserDefinedFunction = $(udfScala)

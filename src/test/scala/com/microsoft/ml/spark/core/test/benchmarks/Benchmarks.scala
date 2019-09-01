@@ -79,7 +79,7 @@ abstract class Benchmarks extends TestBase {
         diff + bmNew.precision > 0
       } else {
         -1.0 * diff + bmNew.precision > 0
-      }, s"new benchmark ${bmNew.value} and " +
+      }, s"new benchmark on ${bmNew.name} ${bmNew.value} and " +
         s"old benchmark ${bmOld.value} " +
         s"are not within ${bmNew.precision}")
   }
