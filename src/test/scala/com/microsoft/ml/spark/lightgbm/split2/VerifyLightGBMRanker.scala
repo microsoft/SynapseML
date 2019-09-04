@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.lightgbm.split2
 
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.ml.spark.lightgbm.split1.{LightGBMTestUtils, OsUtils}
+import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
 import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
@@ -17,7 +17,7 @@ import org.apache.spark.sql.types.StringType
 //scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM Ranker module. */
 class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRanker]
-  with OsUtils with LightGBMTestUtils {
+  with LightGBMTestUtils {
 
   import session.implicits._
 
@@ -60,23 +60,18 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   }
 
   override def testExperiments(): Unit = {
-    assume(!isWindows)
     super.testExperiments()
   }
 
   override def testSerialization(): Unit = {
-    assume(!isWindows)
     super.testSerialization()
   }
 
   test("Verify LightGBM Ranker on ranking dataset") {
-    assume(!isWindows)
     assertFitWithoutErrors(baseModel, rankingDF)
   }
 
   test("Throws error when group column is not long or int") {
-    assume(!isWindows)
-
     val df = rankingDF.withColumn(queryCol, col(queryCol).cast(StringType))
 
     // Throws SparkException instead of IllegalArgumentException because the type
@@ -100,8 +95,9 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .transform(baseDF)
       .select(queryCol, labelCol, featuresCol)
 
-    assertFitWithoutErrors(baseModel, df)
-    assertFitWithoutErrors(baseModel, df.withColumn(queryCol, col(queryCol).cast("Int")))
+    assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray), df)
+    assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
+      df.withColumn(queryCol, col(queryCol).cast("Int")))
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
