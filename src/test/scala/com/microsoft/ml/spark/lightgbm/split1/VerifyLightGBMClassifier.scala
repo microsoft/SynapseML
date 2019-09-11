@@ -122,7 +122,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()
   lazy val taskDF: DataFrame = loadBinary("task.train.csv", "TaskFailed10").cache()
   lazy val breastTissueDF: DataFrame = loadMulticlass("BreastTissue.csv", "Class").cache()
-  lazy val bankTrainDF: DataFrame = {
+  lazy val unfeaturizedBankTrainDF: DataFrame = {
     val categoricalColumns = Array(
       "job", "marital", "education", "default", "housing", "loan", "contact", "y")
     val newCategoricalColumns: Array[String] = categoricalColumns.map("c_" + _)
@@ -133,7 +133,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .fit(df)
       .transform(df).drop(categoricalColumns: _*)
       .withColumnRenamed("c_y", labelCol)
-    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
+    df2
+  }.cache()
+  lazy val indexedBankTrainDF: DataFrame = {
+    LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol,
+      oneHotEncodeCategoricals = false).transform(unfeaturizedBankTrainDF)
+  }.cache()
+  lazy val bankTrainDF: DataFrame = {
+    LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
   }.cache()
 
   val binaryObjective = "binary"
@@ -292,14 +299,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
-    val Array(train, test) = bankTrainDF.randomSplit(Array(0.8, 0.2), seed)
-
-    val model = baseModel
-      .setCategoricalSlotNames(bankTrainDF.columns.filter(_.startsWith("c_")))
-
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+    // Verify categorical features used in some tree in the model
+    assert(model.getModel.model.contains("num_cat=1"))
     val metric = binaryEvaluator
-      .evaluate(model.fit(train).transform(test))
-
+      .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
   }
