@@ -42,9 +42,10 @@ object LightGBMUtils {
   }
 
   def getFeaturizer(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String] = None, groupColumn: Option[String] = None): PipelineModel = {
+                    weightColumn: Option[String] = None,
+                    groupColumn: Option[String] = None,
+                    oneHotEncodeCategoricals: Boolean = true): PipelineModel = {
     // Create pipeline model to featurize the dataset
-    val oneHotEncodeCategoricals = true
     val featuresToHashTo = FeaturizeUtilities.NumFeaturesTreeOrNNBased
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
       !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
@@ -82,7 +83,9 @@ object LightGBMUtils {
             } else {
               attr match {
                 case _: NumericAttribute | UnresolvedAttribute => Iterator()
-                case _: BinaryAttribute => Iterator(idx)
+                // Note: it seems that BinaryAttribute is not considered categorical,
+                // since all OHE cols are marked with this, but StringIndexed are always Nominal
+                case _: BinaryAttribute => Iterator()
                 case _: NominalAttribute => Iterator(idx)
               }
             }
@@ -195,11 +198,14 @@ object LightGBMUtils {
 
   def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
                            referenceDataset: Option[LightGBMDataset],
-                           featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
+                           featureNamesOpt: Option[Array[String]],
+                           trainParams: TrainParams): LightGBMDataset = {
     val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = "max_bin=255 is_pre_partition=True"
+    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      (if (trainParams.categoricalFeatures.isEmpty) ""
+      else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     try {
@@ -225,12 +231,14 @@ object LightGBMUtils {
     */
   def generateSparseDataset(sparseRows: Array[SparseVector],
                             referenceDataset: Option[LightGBMDataset],
-                            featureNamesOpt: Option[Array[String]]): LightGBMDataset = {
+                            featureNamesOpt: Option[Array[String]],
+                            trainParams: TrainParams): LightGBMDataset = {
     val numCols = sparseRows(0).size
 
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = "max_bin=255 is_pre_partition=True"
-
+    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      (if (trainParams.categoricalFeatures.isEmpty) ""
+       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],
