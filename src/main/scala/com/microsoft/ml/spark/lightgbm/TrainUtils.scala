@@ -68,7 +68,8 @@ private object TrainUtils extends Serializable {
         val numCols = rowsAsDoubleArray.head.length
         val slotNames = getSlotNames(schema, featuresColumn, numCols)
         log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset, slotNames))
+        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
+          slotNames, trainParams))
       } else {
         val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
@@ -77,7 +78,7 @@ private object TrainUtils extends Serializable {
         val numCols = rowsAsSparse(0).size
         val slotNames = getSlotNames(schema, featuresColumn, numCols)
         log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames))
+        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
 
     // Validate generated dataset has the correct number of rows and cols
