@@ -12,7 +12,7 @@ import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{DoubleType, IntegerType, LongType, StructType}
 import org.slf4j.Logger
 import org.apache.spark.BarrierTaskContext
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -26,7 +26,7 @@ private object TrainUtils extends Serializable {
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
+    val labels = getNumericColumnAsDouble(labelColumn, schema, rows, LightGBMConstants.LabelCol)
     if (trainParams.objective == LightGBMConstants.MulticlassObjective ||
       trainParams.objective == LightGBMConstants.BinaryObjective) {
       val distinctLabels = labels.distinct.map(_.toInt).sorted
@@ -83,17 +83,29 @@ private object TrainUtils extends Serializable {
 
     // Validate generated dataset has the correct number of rows and cols
     datasetPtr.get.validateDataset()
-    datasetPtr.get.addFloatField(labels, "label", numRows)
+    datasetPtr.get.addFloatField(labels, LightGBMConstants.LabelCol, numRows)
     weightColumn.foreach { col =>
-      val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addFloatField(weights, "weight", numRows)
+      val weights = getNumericColumnAsDouble(col, schema, rows, LightGBMConstants.WeightCol)
+      datasetPtr.get.addFloatField(weights, LightGBMConstants.WeightCol, numRows)
     }
     addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
     initScoreColumn.foreach { col =>
-      val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
+      val initScores = getNumericColumnAsDouble(col, schema, rows, LightGBMConstants.InitScoreCol)
+      datasetPtr.get.addDoubleField(initScores, LightGBMConstants.InitScoreCol, numRows)
     }
     datasetPtr
+  }
+
+  def getNumericColumnAsDouble(col: String, schema: StructType, rows: Array[Row], colType: String): Array[Double] = {
+    val datatype = schema.fields(schema.fieldIndex(col)).dataType
+    datatype match {
+      case IntegerType => rows.map(row => row.getInt(schema.fieldIndex(col)).toDouble)
+      case LongType => rows.map(row => row.getLong(schema.fieldIndex(col)).toDouble)
+      case DoubleType => rows.map(row => row.getDouble(schema.fieldIndex(col)))
+      case _ =>
+        throw new IllegalArgumentException(s"$colType column $col must be of type Double, Long" +
+          s" or Int but is ${datatype.typeName}")
+    }
   }
 
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],

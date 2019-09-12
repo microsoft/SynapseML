@@ -29,4 +29,13 @@ object LightGBMConstants {
     * sending port and host information
     */
   val FinishedStatus: String = "finished"
+  /** Label column type or field name
+    */
+  val LabelCol: String = "label"
+  /** Weight column type or field name
+    */
+  val WeightCol: String = "weight"
+  /** Init score column type or field name
+    */
+  val InitScoreCol: String = "init_score"
 }
