@@ -14,6 +14,7 @@ import org.apache.spark.ml.regression.RegressionModel
 
 object VowpalWabbitRegressor extends DefaultParamsReadable[VowpalWabbitRegressor]
 
+@InternalWrapper
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressorModel]
     with VowpalWabbitBase
@@ -32,6 +33,7 @@ class VowpalWabbitRegressor(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
 
+@InternalWrapper
 class VowpalWabbitRegressorModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressorModel]
     with VowpalWabbitBaseModel
