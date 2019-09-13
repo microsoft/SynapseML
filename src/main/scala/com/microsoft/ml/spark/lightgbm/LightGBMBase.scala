@@ -5,13 +5,15 @@ package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoders}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.math.min
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{BooleanType, DataType, DoubleType, IntegerType, NumericType, StringType}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 import scala.collection.mutable.ListBuffer
 import scala.language.existentials
@@ -39,10 +41,29 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def prepareDataframe(dataset: Dataset[_], trainingCols: ListBuffer[String],
+  protected def castColumns(dataset: Dataset[_], trainingCols: Array[(String, DataType)]): DataFrame = {
+    val schema = dataset.schema
+    // Cast columns to correct types
+    dataset.select(
+      trainingCols.map {
+        case (name, datatype) => {
+          val index = schema.fieldIndex(name)
+          // Note: We only want to cast if original column was of numeric type
+          schema.fields(index).dataType match {
+            case numericDataType: NumericType =>
+              if (numericDataType != datatype) dataset(name).cast(datatype)
+              else dataset(name)
+            case _ => dataset(name)
+          }
+        }
+      }: _*
+    ).toDF()
+  }
+
+  protected def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, DataType)],
                                  numWorkers: Int): DataFrame = {
+    val df = castColumns(dataset, trainingCols)
     // Reduce number of partitions to number of executor cores
-    val df = dataset.select(trainingCols.map(name => col(name)): _*).toDF()
     /* Note: with barrier execution mode we must use repartition instead of coalesce when
      * running on spark standalone.
      * Using coalesce, we get the error:
@@ -77,21 +98,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def getTrainingCols(): ListBuffer[String] = {
-    val trainingCols = ListBuffer(getLabelCol, getFeaturesCol)
-    if (get(weightCol).isDefined) {
-      trainingCols += getWeightCol
-    }
-    if (getOptGroupCol.isDefined) {
-      trainingCols += getOptGroupCol.get
-    }
-    if (get(validationIndicatorCol).isDefined) {
-      trainingCols += getValidationIndicatorCol
-    }
-    if (get(initScoreCol).isDefined) {
-      trainingCols += getInitScoreCol
-    }
-    trainingCols
+  protected def getTrainingCols(): Array[(String, DataType)] = {
+    val colsToCheck = Array((Some(getLabelCol), DoubleType), (Some(getFeaturesCol), VectorType),
+      (get(weightCol), DoubleType),
+      (getOptGroupCol, IntegerType), (get(validationIndicatorCol), BooleanType),
+      (get(initScoreCol), DoubleType))
+    colsToCheck.flatMap { case (col: Option[String], colType: DataType) => {
+      if (col.isDefined) Some(col.get, colType) else None
+    }}
   }
 
   protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
@@ -101,6 +115,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Only get the relevant columns
     val trainingCols = getTrainingCols()
+
     val df = prepareDataframe(dataset, trainingCols, numWorkers)
 
     val (inetAddress, port, future) =
