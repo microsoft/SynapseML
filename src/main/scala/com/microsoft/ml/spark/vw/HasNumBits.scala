@@ -23,10 +23,4 @@ trait HasNumBits extends Wrappable {
     * @return the bitmask used to constrain the hash feature indices.
     */
   protected def getMask: Int = ((1 << getNumBits) - 1)
-
-  val sumCollisions = new BooleanParam(this, "sumCollisions", "Sums collisions if true, otherwise removes them")
-  setDefault(sumCollisions -> true)
-
-  def getSumCollisions: Boolean = $(sumCollisions)
-  def setSumCollisions(value: Boolean): this.type = set(sumCollisions, value)
 }

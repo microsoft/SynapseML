@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.binary
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
+import java.nio.file.Files
 
 import com.microsoft.ml.spark.Binary.implicits._
 import com.microsoft.ml.spark.BinaryFileReader

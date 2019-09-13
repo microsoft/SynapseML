@@ -20,7 +20,8 @@ import scala.collection.mutable
 object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
 
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
-  with HasInputCols with HasOutputCol with HasNumBits with Wrappable with ComplexParamsWritable
+  with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
+  with Wrappable with ComplexParamsWritable
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 

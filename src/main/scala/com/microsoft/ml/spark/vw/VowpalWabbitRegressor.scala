@@ -21,13 +21,12 @@ class VowpalWabbitRegressor(override val uid: String)
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressorModel = {
-    val binaryModel = trainInternal(dataset)
-
-    new VowpalWabbitRegressorModel(uid)
-      .setModel(binaryModel)
+    val model = new VowpalWabbitRegressorModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setPredictionCol(getPredictionCol)
+
+    trainInternal(dataset, model)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)

@@ -24,15 +24,14 @@ class VowpalWabbitClassifier(override val uid: String)
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
 
-    val binaryModel = trainInternal(dataset)
-
-    new VowpalWabbitClassificationModel(uid)
-      .setModel(binaryModel)
+    val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setPredictionCol(getPredictionCol)
       .setProbabilityCol(getProbabilityCol)
       .setRawPredictionCol(getRawPredictionCol)
+
+    trainInternal(dataset, model)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
