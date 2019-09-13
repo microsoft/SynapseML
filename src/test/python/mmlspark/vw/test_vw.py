@@ -4,12 +4,7 @@ import pyspark
 import unittest
 from mmlspark.vw.VowpalWabbitClassifier import VowpalWabbitClassifier
 
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import StringIndexer
-from pyspark.ml.recommendation import ALS
-from pyspark.ml.tuning import *
-from pyspark.sql.types import *
-from pyspark.sql import SQLContext, SparkSession
+from pyspark.sql import SparkSession
 
 spark = SparkSession.builder \
     .master("local[*]") \

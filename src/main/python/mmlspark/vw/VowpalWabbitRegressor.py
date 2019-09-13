@@ -8,7 +8,6 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark.vw._VowpalWabbitRegressor import _VowpalWabbitRegressor
 from mmlspark.vw._VowpalWabbitRegressor import _VowpalWabbitRegressorModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams

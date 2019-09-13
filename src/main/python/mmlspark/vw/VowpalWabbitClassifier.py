@@ -8,7 +8,6 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark.vw._VowpalWabbitClassifier import _VowpalWabbitClassifier
 from mmlspark.vw._VowpalWabbitClassifier import _VowpalWabbitClassificationModel
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.wrapper import JavaParams

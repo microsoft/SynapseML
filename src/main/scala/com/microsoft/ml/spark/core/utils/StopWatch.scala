@@ -21,15 +21,7 @@ class StopWatch {
     elapsedTime += System.nanoTime - startTime
   }
 
-//  def measure[T](f: (Unit) => T):  = {
-//    start
-//
-//    f()
-//
-//    pause
-//  }
-
-  def measure[T](f:  => T): T  = {
+  def measure[T](f: => T): T  = {
     start
 
     val ret = f

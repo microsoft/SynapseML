@@ -10,7 +10,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
-import org.apache.spark.sql.types.{DoubleType, FloatType, IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.internal._
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
