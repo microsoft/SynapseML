@@ -1,9 +1,11 @@
 # Prepare training and test data.
 import os
-import pyspark
 import unittest
+import tempfile
 from mmlspark.vw.VowpalWabbitClassifier import VowpalWabbitClassifier
+from mmlspark.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
+from pyspark.sql.types import *
 from pyspark.sql import SparkSession
 
 spark = SparkSession.builder \
@@ -18,8 +20,29 @@ sc = spark.sparkContext
 class VowpalWabbitClassificationSpec(unittest.TestCase):
 
     def save_model_test(self):
+        # create sample data
+        schema = StructType([StructField("label", DoubleType()),
+                              StructField("text", StringType())])
+
+        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+            (-1, "mountains are nice"),
+            (1, "do you have the TPS reports ready?")], cSchema)
+
+        # featurize data
+        featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=['text'])
+        featurized_data = featurizer.transform(data)
+
+        # train model
         vw = VowpalWabbitClassifier()
-        # vw.fit()
+        model = vw.fit(featurized_data)
+
+        # write model to file and validate itś there
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            modelFile = '{}/model'.format(tmpdirname)
+
+            vw.saveNativeModel(modelFile)
+
+            self.assertTrue(os.stat(modelFile) > 0)
 
 if __name__ == "__main__":
     result = unittest.main()

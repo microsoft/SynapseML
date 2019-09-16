@@ -122,8 +122,13 @@ trait VowpalWabbitBase extends Wrappable
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
+  def labelCol: Param[String]
   def getLabelCol: String
+  setDefault(labelCol -> "label")
+
+  def featuresCol: Param[String]
   def getFeaturesCol: String
+  setDefault(labelCol -> "features")
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
@@ -338,8 +343,13 @@ trait VowpalWabbitBase extends Wrappable
 
   private def applyTrainingResultsToModel(model: VowpalWabbitBaseModel, trainingResults: Seq[TrainingResult],
                                           dataset: Dataset[_]): Unit = {
+
+    val nonEmptyModels = trainingResults.find(_.model.isDefined)
+    if (nonEmptyModels.isEmpty)
+      throw new IllegalArgumentException("Dataset needs to contain at least one model")
+
     // find first model that exists (only for the first partition)
-    model.setModel(trainingResults.find(_.model.isDefined).head.model.get)
+    model.setModel(nonEmptyModels.get.model.get)
 
     // get argument diagnostics
     val timeMarshalCol = col("timeNativeIngestNs")

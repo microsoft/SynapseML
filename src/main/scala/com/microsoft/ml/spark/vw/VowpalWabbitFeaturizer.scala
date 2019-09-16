@@ -26,6 +26,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
   setDefault(inputCols -> Array())
+  setDefault(outputCol -> "features")
 
   val seed = new IntParam(this, "seed", "Hash seed")
   setDefault(seed -> 0)
