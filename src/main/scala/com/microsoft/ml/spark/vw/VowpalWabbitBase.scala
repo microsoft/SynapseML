@@ -26,26 +26,26 @@ import scala.math.min
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
 
 // structure for the diagnostics dataframe
-case class TrainingResultPerPartition(partitionId: Int,
-                                      arguments: String,
-                                      learningRate: Double,
-                                      powerT: Double,
-                                      hashSeed: Int,
-                                      numBits: Int,
-                                      numberOfExamplesPerPass: Long,
-                                      weightedExampleSum: Double,
-                                      weightedLabelSum: Double,
-                                      averageLoss: Double,
-                                      bestConstant: Float,
-                                      bestConstantLoss: Float,
-                                      totalNumberOfFeatures: Long,
-                                      timeTotalNs: Long,
-                                      timeNativeIngestNs: Long,
-                                      timeLearnNs: Long,
-                                      timeMultipassNs: Long)
+case class TrainingStats(partitionId: Int,
+                         arguments: String,
+                         learningRate: Double,
+                         powerT: Double,
+                         hashSeed: Int,
+                         numBits: Int,
+                         numberOfExamplesPerPass: Long,
+                         weightedExampleSum: Double,
+                         weightedLabelSum: Double,
+                         averageLoss: Double,
+                         bestConstant: Float,
+                         bestConstantLoss: Float,
+                         totalNumberOfFeatures: Long,
+                         timeTotalNs: Long,
+                         timeNativeIngestNs: Long,
+                         timeLearnNs: Long,
+                         timeMultipassNs: Long)
 
 case class TrainingResult (model: Option[Array[Byte]],
-                           stats: TrainingResultPerPartition)
+                           stats: TrainingStats)
 
 /**
   * VW support multiple input columns which are mapped to namespaces.
@@ -272,7 +272,7 @@ trait VowpalWabbitBase extends Wrappable
 
           Seq(TrainingResult(
             if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
-            TrainingResultPerPartition(
+            TrainingStats(
               TaskContext.get.partitionId,
               args.getArgs,
               args.getLearningRate,
