@@ -19,14 +19,14 @@ sc = spark.sparkContext
 
 class VowpalWabbitClassificationSpec(unittest.TestCase):
 
-    def save_model_test(self):
+    def test_save_model(self):
         # create sample data
         schema = StructType([StructField("label", DoubleType()),
                               StructField("text", StringType())])
 
         data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
             (-1, "mountains are nice"),
-            (1, "do you have the TPS reports ready?")], cSchema)
+            (1, "do you have the TPS reports ready?")], schema)
 
         # featurize data
         featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=['text'])

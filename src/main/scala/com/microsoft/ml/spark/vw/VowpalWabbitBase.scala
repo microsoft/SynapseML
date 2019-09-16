@@ -128,7 +128,7 @@ trait VowpalWabbitBase extends Wrappable
 
   def featuresCol: Param[String]
   def getFeaturesCol: String
-  setDefault(labelCol -> "features")
+  setDefault(featuresCol -> "features")
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
