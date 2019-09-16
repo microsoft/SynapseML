@@ -2,6 +2,8 @@
 import os
 import unittest
 import tempfile
+import pyspark
+
 from mmlspark.vw.VowpalWabbitClassifier import VowpalWabbitClassifier
 from mmlspark.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
