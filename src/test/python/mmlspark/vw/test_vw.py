@@ -27,8 +27,8 @@ class VowpalWabbitClassificationSpec(unittest.TestCase):
                               StructField("text", StringType())])
 
         data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
-            (-1, "mountains are nice"),
-            (1, "do you have the TPS reports ready?")], schema)
+            (-1.0, "mountains are nice"),
+            ( 1.0, "do you have the TPS reports ready?")], schema)
 
         # featurize data
         featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=['text'])
@@ -42,7 +42,7 @@ class VowpalWabbitClassificationSpec(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             modelFile = '{}/model'.format(tmpdirname)
 
-            vw.saveNativeModel(modelFile)
+            model.saveNativeModel(modelFile)
 
             self.assertTrue(os.stat(modelFile) > 0)
 
