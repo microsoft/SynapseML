@@ -262,7 +262,15 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
 
     // Verify changing weight of one label significantly skews the results
-    assert(countPredictions(df) * 2 < countPredictions(dfWeight))
+    val constLabelPredictionCount = countPredictions(df)
+    assert(constLabelPredictionCount * 2 < countPredictions(dfWeight))
+
+    // Also validate with int and long values for weight column predictions are the same within some threshold
+    val threshold = 0.2 * constLabelPredictionCount
+    val dfInt = pimaDF.withColumn(weightCol, lit(1))
+    assert(math.abs(constLabelPredictionCount - countPredictions(dfInt)) < threshold)
+    val dfLong = pimaDF.withColumn(weightCol, lit(1L))
+    assert(math.abs(constLabelPredictionCount - countPredictions(dfLong)) < threshold)
   }
 
   test("Verify LightGBM Classifier with unbalanced dataset") {
