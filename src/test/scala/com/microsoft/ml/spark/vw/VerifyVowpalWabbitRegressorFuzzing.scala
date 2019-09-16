@@ -27,7 +27,7 @@ class VerifyVowpalWabbitRegressorFuzzing extends EstimatorFuzzing[VowpalWabbitRe
 
   override def reader: MLReadable[_] = VowpalWabbitRegressor
 
-  override def modelReader: MLReadable[_] = VowpalWabbitRegressorModel
+  override def modelReader: MLReadable[_] = VowpalWabbitRegressionModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitRegressor]] = {
     val fileName = "energyefficiency2012_data.train.csv"
