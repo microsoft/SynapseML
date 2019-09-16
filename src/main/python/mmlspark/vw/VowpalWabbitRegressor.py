@@ -6,7 +6,11 @@ from pyspark.ml.common import inherit_doc
 
 @inherit_doc
 class VowpalWabbitRegressor(_VowpalWabbitRegressor):
-    pass
+    def _create_model(self, java_model):
+        model = _VowpalWabbitRegressorModel()
+        model._java_obj = java_model
+        model._transfer_params_from_java()
+        return model
 
 @inherit_doc
 class VowpalWabbitRegressorModel(_VowpalWabbitRegressorModel):

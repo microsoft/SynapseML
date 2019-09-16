@@ -21,7 +21,7 @@ sc = spark.sparkContext
 
 class VowpalWabbitClassificationSpec(unittest.TestCase):
 
-    def test_save_model(self):
+    def test_save_model_classification(self):
         # create sample data
         schema = StructType([StructField("label", DoubleType()),
                               StructField("text", StringType())])
@@ -38,7 +38,32 @@ class VowpalWabbitClassificationSpec(unittest.TestCase):
         vw = VowpalWabbitClassifier()
         model = vw.fit(featurized_data)
 
-        # write model to file and validate itś there
+        # write model to file and validate it's there
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            modelFile = '{}/model'.format(tmpdirname)
+
+            model.saveNativeModel(modelFile)
+
+            self.assertTrue(os.stat(modelFile) > 0)
+
+    def test_save_model_regression(self):
+        # create sample data
+        schema = StructType([StructField("label", DoubleType()),
+                              StructField("text", StringType())])
+
+        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+            (-1.0, "mountains are nice"),
+            ( 1.0, "do you have the TPS reports ready?")], schema)
+
+        # featurize data
+        featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=['text'])
+        featurized_data = featurizer.transform(data)
+
+        # train model
+        vw = VowpalWabbitRegressor()
+        model = vw.fit(featurized_data)
+
+        # write model to file and validate it's there
         with tempfile.TemporaryDirectory() as tmpdirname:
             modelFile = '{}/model'.format(tmpdirname)
 
