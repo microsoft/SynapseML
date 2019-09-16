@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-from mmlspark.vw._VowpalWabbitClassifier import _VowpalWabbitClassificationModel
+from mmlspark.vw._VowpalWabbitClassifier import _VowpalWabbitClassifier, _VowpalWabbitClassificationModel
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc

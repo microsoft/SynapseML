@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-from mmlspark.vw._VowpalWabbitRegressor import _VowpalWabbitRegressorModel
+from mmlspark.vw._VowpalWabbitRegressor import _VowpalWabbitRegressor, _VowpalWabbitRegressorModel
 from pyspark.ml.common import inherit_doc
 
 @inherit_doc
