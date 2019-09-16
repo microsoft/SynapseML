@@ -44,8 +44,8 @@ case class TrainingStats(partitionId: Int,
                          timeLearnNs: Long,
                          timeMultipassNs: Long)
 
-case class TrainingResult (model: Option[Array[Byte]],
-                           stats: TrainingStats)
+case class TrainingResult(model: Option[Array[Byte]],
+                          stats: TrainingStats)
 
 /**
   * VW support multiple input columns which are mapped to namespaces.

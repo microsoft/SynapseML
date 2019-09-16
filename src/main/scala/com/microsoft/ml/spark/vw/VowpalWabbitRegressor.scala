@@ -16,13 +16,13 @@ object VowpalWabbitRegressor extends DefaultParamsReadable[VowpalWabbitRegressor
 
 @InternalWrapper
 class VowpalWabbitRegressor(override val uid: String)
-  extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressorModel]
+  extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
-  override def train(dataset: Dataset[_]): VowpalWabbitRegressorModel = {
-    val model = new VowpalWabbitRegressorModel(uid)
+  override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
+    val model = new VowpalWabbitRegressionModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setPredictionCol(getPredictionCol)
@@ -34,8 +34,8 @@ class VowpalWabbitRegressor(override val uid: String)
 }
 
 @InternalWrapper
-class VowpalWabbitRegressorModel(override val uid: String)
-  extends RegressionModel[Row, VowpalWabbitRegressorModel]
+class VowpalWabbitRegressionModel(override val uid: String)
+  extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModel
     with ComplexParamsWritable
 {
@@ -51,4 +51,4 @@ class VowpalWabbitRegressorModel(override val uid: String)
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 }
 
-object VowpalWabbitRegressorModel extends ComplexParamsReadable[VowpalWabbitRegressorModel]
+object VowpalWabbitRegressionModel extends ComplexParamsReadable[VowpalWabbitRegressionModel]
