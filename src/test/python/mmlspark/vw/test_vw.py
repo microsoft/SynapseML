@@ -20,7 +20,7 @@ spark = SparkSession.builder \
 
 sc = spark.sparkContext
 
-class VowpalWabbitClassificationSpec(unittest.TestCase):
+class VowpalWabbitSpec(unittest.TestCase):
 
     def save_model(self, estimator):
         # create sample data
