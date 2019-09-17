@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWr
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 

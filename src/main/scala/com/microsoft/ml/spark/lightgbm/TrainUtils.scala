@@ -20,12 +20,62 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 
 private object TrainUtils extends Serializable {
-
   def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
                       weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
-    val numRows = rows.length
+    val (validatedRows, validatedLabels) = validateLabels(rows, labelColumn, featuresColumn, weightColumn,
+      initScoreColumn, groupColumn, referenceDataset, schema, log, trainParams)
+    var datasetPtr: Option[LightGBMDataset] = None
+    datasetPtr = generateRowData(validatedRows, featuresColumn, referenceDataset, schema, log, trainParams)
+    val numRows = validatedRows.length
+    // Validate generated dataset has the correct number of rows and cols
+    datasetPtr.get.validateDataset()
+    datasetPtr.get.addFloatField(validatedLabels, "label", numRows)
+    weightColumn.foreach { col =>
+      val weights = validatedRows.map(row => row.getDouble(schema.fieldIndex(col)))
+      datasetPtr.get.addFloatField(weights, "weight", numRows)
+    }
+    addGroupColumn(validatedRows, groupColumn, datasetPtr, numRows, schema)
+    initScoreColumn.foreach { col =>
+      val initScores = validatedRows.map(row => row.getDouble(schema.fieldIndex(col)))
+      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
+    }
+    datasetPtr
+  }
+
+  def generateMissingLabels(rows: Array[Row], labelColumn: String, labels: Array[Double],
+                            schema: StructType, distinctLabels: Array[Int]): (Array[Row], Array[Double]) = {
+    val (_, missingLabelsDistinct) =
+      distinctLabels.foldLeft((-1, List[Int]())) {
+        case ((baseCount, baseLabels), newLabel) => {
+          if (newLabel == baseCount + 1) (newLabel, baseLabels)
+          else (baseCount + 1, baseCount + 1 :: baseLabels)
+        }
+      }
+    val missingLabels =
+      if (distinctLabels.size == 1 && missingLabelsDistinct.isEmpty) {
+        List[Int](1)
+      } else {
+        missingLabelsDistinct
+      }
+    if (missingLabels.nonEmpty) {
+      // Append missing labels to rows
+      val newRows = rows.take(missingLabels.size).zip(missingLabels).map { case (row, label) =>
+        val rowAsArray = row.toSeq.toArray
+        rowAsArray.update(schema.fieldIndex(labelColumn), label.toDouble)
+        new GenericRowWithSchema(rowAsArray, row.schema)
+      }
+      (rows ++ newRows, labels ++ missingLabels.map(_.toDouble))
+    } else {
+      (rows, labels)
+    }
+  }
+
+  def validateLabels(rows: Array[Row], labelColumn: String, featuresColumn: String,
+                     weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
+                     referenceDataset: Option[LightGBMDataset], schema: StructType,
+                     log: Logger, trainParams: TrainParams): (Array[Row], Array[Double]) = {
     val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
     if (trainParams.objective == LightGBMConstants.MulticlassObjective ||
       trainParams.objective == LightGBMConstants.BinaryObjective) {
@@ -33,67 +83,46 @@ private object TrainUtils extends Serializable {
       // TODO: Temporary hack to append missing labels for debugging, off by default
       //  try to figure out a better fix in lightgbm
       if (trainParams.asInstanceOf[ClassifierTrainParams].generateMissingLabels) {
-        val (_, missingLabels) =
-          distinctLabels.foldLeft((-1, List[Int]())) {
-            case ((baseCount, baseLabels), newLabel) => {
-              if (newLabel == baseCount + 1) (newLabel, baseLabels)
-              else (baseCount + 1, baseCount + 1 :: baseLabels)
-            }
-          }
-        if (missingLabels.nonEmpty) {
-          // Append missing labels to rows
-          val newRows = rows.take(missingLabels.size).zip(missingLabels).map { case (row, label) =>
-            val rowAsArray = row.toSeq.toArray
-            rowAsArray.update(schema.fieldIndex(labelColumn), label.toDouble)
-            new GenericRowWithSchema(rowAsArray, row.schema)
-          }
-          return generateDataset(rows ++ newRows, labelColumn, featuresColumn, weightColumn, initScoreColumn,
-            groupColumn, referenceDataset, schema, log, trainParams)
-        }
+        generateMissingLabels(rows, labelColumn, labels, schema, distinctLabels)
       } else {
         val errMsg = "For classification, label values must start from 0 and increase " +
           "by 1 to n for each partition."
         distinctLabels.foldLeft(-1)((base, newLabel) => if (newLabel == base + 1) newLabel else
           throw new Exception(s"$errMsg  Missing label ${base + 1}, unique labels ${distinctLabels.mkString(",")}"))
+        if (distinctLabels.size < 2)
+          throw new Exception("For classification, there must be a minimum of two labels for each partition.")
+        (rows, labels)
       }
+    } else {
+      (rows, labels)
     }
-    val hrow = rows.head
-    var datasetPtr: Option[LightGBMDataset] = None
-    datasetPtr =
-      if (hrow.get(schema.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
-          case dense: DenseVector => dense.toArray
-          case sparse: SparseVector => sparse.toDense.toArray
-        })
-        val numCols = rowsAsDoubleArray.head.length
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
-        log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
-          slotNames, trainParams))
-      } else {
-        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
-          case dense: DenseVector => dense.toSparse
-          case sparse: SparseVector => sparse
-        })
-        val numCols = rowsAsSparse(0).size
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
-        log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
-      }
+  }
 
-    // Validate generated dataset has the correct number of rows and cols
-    datasetPtr.get.validateDataset()
-    datasetPtr.get.addFloatField(labels, "label", numRows)
-    weightColumn.foreach { col =>
-      val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addFloatField(weights, "weight", numRows)
+  def generateRowData(rows: Array[Row], featuresColumn: String,
+                      referenceDataset: Option[LightGBMDataset], schema: StructType,
+                      log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
+    val hrow = rows.head
+    val numRows = rows.length
+    if (hrow.get(schema.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
+      val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
+        case dense: DenseVector => dense.toArray
+        case sparse: SparseVector => sparse.toDense.toArray
+      })
+      val numCols = rowsAsDoubleArray.head.length
+      val slotNames = getSlotNames(schema, featuresColumn, numCols)
+      log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
+      Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
+        slotNames, trainParams))
+    } else {
+      val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
+        case dense: DenseVector => dense.toSparse
+        case sparse: SparseVector => sparse
+      })
+      val numCols = rowsAsSparse(0).size
+      val slotNames = getSlotNames(schema, featuresColumn, numCols)
+      log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
+      Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
     }
-    addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
-    initScoreColumn.foreach { col =>
-      val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
-    }
-    datasetPtr
   }
 
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],

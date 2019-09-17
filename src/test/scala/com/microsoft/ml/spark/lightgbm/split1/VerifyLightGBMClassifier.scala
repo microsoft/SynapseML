@@ -143,9 +143,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
   }.cache()
 
-  val binaryObjective = "binary"
-  val multiclassObject = "multiclass"
-
   def binaryEvaluator: BinaryClassificationEvaluator = {
     new BinaryClassificationEvaluator()
       .setLabelCol(labelCol)
@@ -195,7 +192,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(getAndIncrementPort())
       .setNumLeaves(5)
       .setNumIterations(10)
-      .setObjective(binaryObjective)
+      .setObjective(LightGBMConstants.BinaryObjective)
       .setLabelCol(labelCol)
   }
 
@@ -333,6 +330,46 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertFitWithoutErrors(baseModel, df)
   }
 
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in binary classification") {
+    val baseDF = pimaDF.select(labelCol, featuresCol)
+    val df = baseDF.mapPartitions({ rows =>
+      // Remove all instances of some classes
+      if (TaskContext.get.partitionId == 1) {
+        rows.filter(_.getInt(0) < 1)
+      } else {
+        rows
+      }
+    })(RowEncoder(baseDF.schema))
+
+    // Validate fit fails and doesn't get stuck
+    assertThrows[Exception] {
+      baseModel.fit(df)
+    }
+
+    // Validate using special mode works
+    assertFitWithoutErrors(baseModel.setGenerateMissingLabels(true), df)
+
+    val dfStratified = new StratifiedRepartition()
+      .setLabelCol(labelCol)
+      .setMode(SPConstants.Equal)
+      .transform(df)
+
+    // Assert stratified train data contains all keys across all partitions, with extra count
+    // for it to be evaluated
+    dfStratified
+      .select(labelCol)
+      .foreachPartition({ rows =>
+        val actualLabels = rows.map(_.getInt(0)).toList.distinct.sorted
+        val expectedLabels = (0 to 1).toList
+        if (actualLabels != expectedLabels){
+          throw new AssertionError(s"Missing labels, actual: $actualLabels, expected: $expectedLabels")
+        }
+      })
+
+    // Validate with stratified repartitioned dataset fit passes
+    assertFitWithoutErrors(baseModel.setGenerateMissingLabels(false), dfStratified)
+  }
+
   ignore("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
     val baseDF = breastTissueDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions({ rows =>
@@ -349,7 +386,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setFeaturesCol(featuresCol)
       .setPredictionCol(predCol)
       .setDefaultListenPort(getAndIncrementPort())
-      .setObjective(multiclassObject)
+      .setObjective(LightGBMConstants.MulticlassObjective)
 
     // Validate fit fails and doesn't get stuck
     assertThrows[Exception] {
@@ -421,7 +458,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       test(s"Verify LightGBMClassifier can be trained and scored " +
         s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {
         val model = baseModel
-          .setObjective(multiclassObject)
+          .setObjective(LightGBMConstants.MulticlassObjective)
           .setBoostingType(boostingType)
 
         if (boostingType == "rf") {
