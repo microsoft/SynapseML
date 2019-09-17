@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -16,6 +16,7 @@ import scala.math.exp
 
 object VowpalWabbitClassifier extends DefaultParamsReadable[VowpalWabbitClassifier]
 
+@InternalWrapper
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
@@ -24,21 +25,21 @@ class VowpalWabbitClassifier(override val uid: String)
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
 
-    val binaryModel = trainInternal(dataset)
-
-    new VowpalWabbitClassificationModel(uid)
-      .setModel(binaryModel)
+    val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setPredictionCol(getPredictionCol)
       .setProbabilityCol(getProbabilityCol)
       .setRawPredictionCol(getRawPredictionCol)
+
+    trainInternal(dataset, model)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
 }
 
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
+@InternalWrapper
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel {
