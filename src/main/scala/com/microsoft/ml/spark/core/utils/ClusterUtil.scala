@@ -7,7 +7,7 @@ import java.net.InetAddress
 
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.lightgbm.BlockManagerUtils
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.slf4j.Logger
 
 object ClusterUtil {
@@ -21,9 +21,13 @@ object ClusterUtil {
     val spark = dataset.sparkSession
     val confTaskCpus =
       try {
-        spark.sparkContext.getConf.get("spark.task.cpus", "1").toInt
+        val taskCpusConfig = spark.sparkContext.getConf.getOption("spark.task.cpus")
+        if (taskCpusConfig.isEmpty) {
+          log.info("LightGBM did not detect spark.task.cpus config set, using number of processes instead")
+        }
+        taskCpusConfig.getOrElse(getJVMCPUs(spark).toString).toInt
       } catch {
-        case _: NoSuchElementException => 1
+        case _: NoSuchElementException => getJVMCPUs(spark)
       }
     try {
       val confCores = spark.sparkContext.getConf
@@ -35,9 +39,7 @@ object ClusterUtil {
     } catch {
       case _: NoSuchElementException =>
         // If spark.executor.cores is not defined, get the cores per JVM
-        import spark.implicits._
-        val numMachineCores = spark.range(0, 1)
-          .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+        val numMachineCores = getJVMCPUs(spark)
         val coresPerExec = numMachineCores / confTaskCpus
         log.info(s"LightGBM calculated num cores per executor as $coresPerExec from " +
           s"$numMachineCores machine cores from JVM and $confTaskCpus task CPUs")
@@ -72,24 +74,46 @@ object ClusterUtil {
     }).toArray
   }
 
+  def getJVMCPUs(spark: SparkSession): Int = {
+    import spark.implicits._
+    spark.range(0, 1)
+      .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
+  }
+
   /** Returns the number of executors * number of cores.
     * @param dataset The dataset containing the current spark session.
     * @param numCoresPerExec The number of cores per executor.
     * @return The number of executors * number of cores.
     */
-  def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int): Int = {
+  def getNumExecutorCores(dataset: Dataset[_], numCoresPerExec: Int, log: Logger): Int = {
     val executors = getExecutors(dataset)
+    log.info(s"Retrieving executors...")
     if (!executors.isEmpty) {
+      log.info(s"Retrieved num executors ${executors.length} with num cores per executor ${numCoresPerExec}")
       executors.length * numCoresPerExec
     } else {
+      log.info(s"Could not retrieve executors from blockmanager, trying to get from configuration...")
       val master = dataset.sparkSession.sparkContext.master
       val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
       master match {
-        case rx(null)  => 1
-        case rx("*")   => Runtime.getRuntime.availableProcessors()
-        case rx(cores) => cores.toInt
-        case _         => BlockManagerUtils.getBlockManager(dataset)
-          .master.getMemoryStatus.size
+        case rx(null)  => {
+          log.info(s"Retrieved local() = 1 executor by default")
+          1
+        }
+        case rx("*")   => {
+          log.info(s"Retrieved local(*) = ${Runtime.getRuntime.availableProcessors()} executors")
+          Runtime.getRuntime.availableProcessors()
+        }
+        case rx(cores) => {
+          log.info(s"Retrieved local(cores) = $cores executors")
+          cores.toInt
+        }
+        case _         => {
+          val numExecutors = BlockManagerUtils.getBlockManager(dataset)
+            .master.getMemoryStatus.size
+          log.info(s"Using default case = $numExecutors executors")
+          numExecutors
+        }
       }
     }
   }
