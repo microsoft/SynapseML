@@ -111,7 +111,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
+    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
     // Only get the relevant columns
     val trainingCols = getTrainingCols()
