@@ -23,6 +23,35 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   case class Input2[T, S](in1: T, in2: S)
 
+  val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
+
+  test("Verify order preserving") {
+    val featurizer1 = new VowpalWabbitFeaturizer()
+      .setStringSplitInputCols(Array("in"))
+      .setPreserveOrderNumBits(2)
+      .setNumBits(18)
+      .setPrefixStringsWithColumnName(false)
+      .setOutputCol("features")
+    val df1 = session.createDataFrame(Seq(Input[String]("marie markus fun")))
+
+    val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
+
+    assert(v1.numNonzeros == 3)
+
+    val bitMask = (1 << 18) - 1
+
+    // the order is the same as in the string above
+    assert((bitMask & v1.indices(0)) == (bitMask &
+      VowpalWabbitMurmur.hash("marie", namespaceFeatures)))
+    assert((bitMask & v1.indices(1)) == (bitMask &
+      VowpalWabbitMurmur.hash("markus", namespaceFeatures)))
+    assert((bitMask & v1.indices(2)) == (bitMask &
+      VowpalWabbitMurmur.hash("fun", namespaceFeatures)))
+    assert(v1.values(0) == 1.0)
+    assert(v1.values(1) == 1.0)
+    assert(v1.values(2) == 1.0)
+  }
+
   test("Verify VowpalWabbit Featurizer can be run with seq and string") {
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("str", "seq"))
