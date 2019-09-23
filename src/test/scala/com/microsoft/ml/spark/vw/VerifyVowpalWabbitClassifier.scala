@@ -209,6 +209,32 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     println(labelOneCnt1)
   }
 
+  case class ClassificationInput[T](label: Int, in: T)
+
+  test("Verify VowpalWabbit Classifier w/ ngrams") {
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setStringSplitInputCols(Array("in"))
+      .setPreserveOrderNumBits(2)
+      .setNumBits(18)
+      .setPrefixStringsWithColumnName(false)
+      .setOutputCol("features")
+
+    val dataset  = session.createDataFrame(Seq(
+      ClassificationInput[String](1, "marie markus fun"),
+      ClassificationInput[String](0, "marie markus no fun")
+    )).coalesce(1)
+
+    val datasetFeaturized = featurizer.transform(dataset)
+
+    val vw1 = new VowpalWabbitClassifier()
+      .setArgs("--ngram f2 -a")
+    val classifier1 = vw1.fit(datasetFeaturized)
+
+    // 3 (words) + 2 (ngrams) + 1 (constant) = 6
+    // 4 (words) + 3 (ngrams) + 1 (constant) = 8
+    assert (classifier1.getPerformanceStatistics.select("totalNumberOfFeatures").head.get(0) == 14)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.
