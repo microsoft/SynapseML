@@ -23,6 +23,8 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   case class Input2[T, S](in1: T, in2: S)
 
+  val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
+
   test("Verify VowpalWabbit Featurizer can be run with seq and string") {
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("str", "seq"))
@@ -50,7 +52,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 1)
-    assert(v1.indices(0) == VowpalWabbitMurmur.hash("in", VowpalWabbitMurmur.hash("features", 0)))
+    assert(v1.indices(0) == VowpalWabbitMurmur.hash("in", namespaceFeatures))
     assert(v1.values(0) == v)
   }
 
@@ -72,7 +74,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 1)
-    assert(v1.indices(0) == VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0)))
+    assert(v1.indices(0) == VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures))
     assert(v1.values(0) == 1.0)
   }
 
@@ -85,10 +87,11 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
     assert(v1.numNonzeros == 2)
+
     assert(v1.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
     assert(v1.indices(1) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarie", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarie", namespaceFeatures)))
     assert(v1.values(0) == 1.0)
     assert(v1.values(1) == 1.0)
   }
@@ -106,9 +109,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     // note: order depends on the hashes
     assert(vec.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("ink1", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("ink1", namespaceFeatures)))
     assert(vec.indices(1) == (defaultMask &
-      VowpalWabbitMurmur.hash("ink2", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("ink2", namespaceFeatures)))
     assert(vec.values(0) == v1)
     assert(vec.values(1) == v2)
   }
@@ -132,9 +135,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     assert(v1.numNonzeros == 2)
     assert(v1.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
     assert(v1.indices(1) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarie", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarie", namespaceFeatures)))
     assert(v1.values(0) == 1.0)
     assert(v1.values(1) == 1.0)
   }
@@ -149,7 +152,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     assert(v1.numNonzeros == 1)
     assert(v1.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
     assert(v1.values(0) == 3.0)
   }
 
@@ -164,7 +167,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     assert(v1.numNonzeros == 1)
     assert(v1.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarkus", VowpalWabbitMurmur.hash("features", 0))))
+      VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
     assert(v1.values(0) == 1.0)
   }
 

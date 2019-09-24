@@ -18,6 +18,9 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
     Vectors.sparse(11, Array(8, 9), Array(7.0, 8.0))
   )))
 
+  private def featurizeUsing(interactions: VowpalWabbitInteractions) =
+    interactions.transform(df).head().getAs[SparseVector]("features")
+
   private def verifyValues(actual: SparseVector, expected: Array[Double]) = {
     assert(actual.numNonzeros == expected.length)
 
@@ -29,7 +32,7 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
       .setInputCols(Array("v1", "v2"))
       .setOutputCol("features")
 
-    val v = interactions.transform(df).head().getAs[SparseVector]("features")
+    val v = featurizeUsing(interactions)
 
     verifyValues(v, Array(4.0, 8, 12.0))
   }
@@ -39,7 +42,7 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
       .setInputCols(Array("v2", "v3"))
       .setOutputCol("features")
 
-    val v = interactions.transform(df).head().getAs[SparseVector]("features")
+    val v = featurizeUsing(interactions)
 
     verifyValues(v, Array(28.0, 32.0))
   }
@@ -49,7 +52,7 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
       .setInputCols(Array("v1", "v2", "v3"))
       .setOutputCol("features")
 
-    val v = interactions.transform(df).head().getAs[SparseVector]("features")
+    val v = featurizeUsing(interactions)
 
     verifyValues(v, Array(
       1.0 * 5 * 7, 1 * 5 * 8.0,
