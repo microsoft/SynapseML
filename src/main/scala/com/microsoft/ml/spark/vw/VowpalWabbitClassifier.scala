@@ -25,7 +25,8 @@ class VowpalWabbitClassifier(override val uid: String)
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
 
   // to support Grid search we need to replicate the parameters here...
-  val labelConversion = new BooleanParam(this, "labelConversion", "Convert 0/1 Spark ML style labels to -1/1 VW style labels. Defaults to true.")
+  val labelConversion = new BooleanParam(this, "labelConversion",
+    "Convert 0/1 Spark ML style labels to -1/1 VW style labels. Defaults to true.")
   setDefault(labelConversion -> true)
   def getLabelConversion: Boolean = $(labelConversion)
   def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)

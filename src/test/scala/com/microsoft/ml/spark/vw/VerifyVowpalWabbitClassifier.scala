@@ -122,8 +122,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     // convert -1/1 to 0/1
     val df = dataset.withColumn("label01", (col("label") + 1) / 2)
 
-    df.show(10)
-
     val vw = new VowpalWabbitClassifier()
       .setLabelCol("label01")
 
