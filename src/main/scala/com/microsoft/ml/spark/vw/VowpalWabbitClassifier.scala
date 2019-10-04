@@ -11,6 +11,7 @@ import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, Pro
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.vowpalwabbit.spark.VowpalWabbitExample
 
 import scala.math.exp
 
@@ -23,8 +24,30 @@ class VowpalWabbitClassifier(override val uid: String)
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
 
-  override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
+  // to support Grid search we need to replicate the parameters here...
+  val labelConversion = new BooleanParam(this, "labelConversion", "Convert 0/1 Spark ML style labels to -1/1 VW style labels. Defaults to true.")
+  setDefault(labelConversion -> true)
+  def getLabelConversion: Boolean = $(labelConversion)
+  def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
 
+  override protected def createLabelSetter(df: DataFrame) = {
+    if (getLabelConversion)
+    {
+      val labelColIdx = df.schema.fieldIndex(getLabelCol)
+
+      if (get(weightCol).isDefined) {
+        val weightColIdx = df.schema.fieldIndex(getWeightCol)
+        (row: Row, ex: VowpalWabbitExample) =>
+          ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat * 2 -1)
+      }
+      else
+        (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat * 2 - 1)
+    }
+    else
+        super.createLabelSetter(df)
+  }
+
+  override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
     val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)

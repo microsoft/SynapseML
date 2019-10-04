@@ -163,7 +163,7 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  private def createLabelSetter(df: DataFrame) = {
+  protected def createLabelSetter(df: DataFrame) = {
     val labelColIdx = df.schema.fieldIndex(getLabelCol)
 
     if (get(weightCol).isDefined) {
