@@ -277,4 +277,27 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
     retryWithBackoff(assertSize(in, 2))
   }
 
+  test("Infer the structure of the index from the dataframe") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array("p1", "p2", "p3")),
+      ("upload", "1", "file1", Array("p4", null, "p6")))
+      .toDF("searchAction", "id", "fileName", "phrases")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "searchableCols" -> List("fileName", "phrases").mkString(","),
+        "filterableCols" -> List("fileName", "phrases").mkString(","),
+        "facetableCols" -> List("fileName", "phrases").mkString(",")
+    ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
 }

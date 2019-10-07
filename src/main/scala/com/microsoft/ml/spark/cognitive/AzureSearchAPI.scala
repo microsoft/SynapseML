@@ -97,11 +97,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validIndexFields(fields: Seq[IndexField]): Try[Seq[IndexField]] = {
-    val x = fields.map(f => validIndexField(f))
-    val y = x.collect { case Success(f) => f }
-    if (y.length == x.length) {
-      Success(y)
-    } else Failure(new IllegalArgumentException("Invalid fields"))
+    Try(fields.map(f => validIndexField(f).get))
   }
 
   private val ValidFieldTypes = Seq("Edm.String",
