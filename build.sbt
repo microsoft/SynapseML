@@ -306,6 +306,11 @@ val settings = Seq(
     name, version, scalaVersion, sbtVersion,
     baseDirectory, datasetDir),
   parallelExecution in Test := false,
+  test in assembly := {},
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x => MergeStrategy.first
+  },
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
   inConfig(IntegrationTest2)(Defaults.testSettings)
 
