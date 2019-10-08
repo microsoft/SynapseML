@@ -183,7 +183,7 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
 
 class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageInput with HasDetectOrientation
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("OCR"))
 
@@ -213,7 +213,7 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseWithoutHandler(uid)
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser {
+    with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
@@ -320,7 +320,7 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
@@ -339,7 +339,7 @@ object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
@@ -432,7 +432,7 @@ object RecognizeDomainSpecificContent
 class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasServiceParams with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser {
+    with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
@@ -456,7 +456,7 @@ object TagImage extends ComplexParamsReadable[TagImage]
 
 class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
@@ -487,7 +487,7 @@ object DescribeImage extends ComplexParamsReadable[DescribeImage]
 
 class DescribeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
-    with HasImageInput with HasInternalJsonOutputParser {
+    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 

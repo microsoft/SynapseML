@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.cognitive
 import java.net.URI
 
 import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.core.contracts.HasOutputCol
+import com.microsoft.ml.spark.core.contracts.{HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http._
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
@@ -249,6 +249,18 @@ trait HasInternalJsonOutputParser {
     new JSONOutputParser().setDataType(responseDataType)
   }
 
+}
+
+trait HasSetLocation extends Wrappable {
+  override def additionalPythonMethods(): String = {
+    """
+      |    def setLocation(self, value):
+      |        self._java_obj = self._java_obj.setLocation(value)
+      |        return self
+      |""".stripMargin + super.additionalPythonMethods()
+  }
+
+  def setLocation(v: String): this.type
 }
 
 abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Transformer
