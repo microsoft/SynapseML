@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions.{col, struct, to_json, udf, expr}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import com.microsoft.ml.spark.cognitive.IndexJsonProtocol._
+import com.microsoft.ml.spark.cognitive.AzureSearchProtocol._
 import spray.json._
 import DefaultJsonProtocol._
 
@@ -122,7 +122,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def transform(dataset: Dataset[_]): DataFrame = {
     if (get(url).isEmpty) {
       setUrl(s"https://$getServiceName.search.windows.net" +
-        s"/indexes/$getIndexName/docs/index?api-version=2017-11-11")
+        s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")
     }
     super.transform(dataset)
   }
@@ -153,40 +153,53 @@ object AzureSearchWriter extends IndexParser with SLogging {
     df.withColumn(collectionColName, expr(s"filter($collectionColName, x -> x is not null)"))
   }
 
+  private def convertFields(fields: Seq[StructField],
+                            keyCol: String,
+                            searchActionCol: String,
+                            prefix: Option[String]): Seq[IndexField] = {
+    fields.filterNot(_.name == searchActionCol).map { sf =>
+      val fullName = prefix.map(_ + sf.name).getOrElse(sf.name)
+      val (innerType, innerFields) = sparkTypeToEdmType(sf.dataType)
+      IndexField(
+        sf.name,
+        innerType,
+        None, None, None, None, None,
+        if (keyCol == fullName) Some(true) else None,
+        None, None, None, None,
+        structFieldToSearchFields(sf.dataType,
+          keyCol, searchActionCol, prefix=Some(prefix.getOrElse("") + sf.name + "."))
+      )
+    }
+  }
+
+  private def structFieldToSearchFields(schema: DataType,
+                                        keyCol: String,
+                                        searchActionCol: String,
+                                        prefix: Option[String] = None
+                                       ): Option[Seq[IndexField]] = {
+    schema match {
+      case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
+      case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
+      case _ => None
+    }
+  }
+
   private def dfToIndexJson(schema: StructType,
                             indexName: String,
                             keyCol: String,
-                            searchActionCol: String,
-                            searchableCols: List[String],
-                            filterableCols: List[String],
-                            sortableCols: List[String],
-                            facetableCols: List[String],
-                            retrievableCols: List[String]): String = {
-    val is = IndexSchema(indexName, schema.fields.filterNot(_.name == searchActionCol).map(sf =>
-      Field(
-        sf.name,
-        sparkTypeToEdmType(sf.dataType),
-        searchableCols.contains(sf.name),
-        filterableCols.contains(sf.name),
-        sortableCols.contains(sf.name),
-        facetableCols.contains(sf.name),
-        keyCol == sf.name,
-        retrievableCols.contains(sf.name),
-        None,
-        None,
-        None,
-        None
-      )
-    ))
-
+                            searchActionCol: String): String = {
+    val is = IndexInfo(
+      Some(indexName),
+      structFieldToSearchFields(schema, keyCol, searchActionCol).get,
+      None, None, None, None, None, None, None, None
+    )
     is.toJson.compactPrint
   }
 
   private def prepareDF(df: DataFrame, options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "searchableCols", "filterableCols",
-      "facetableCols", "retrievableCols", "sortableCols"
+      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol"
     )
 
     options.keys.foreach(k =>
@@ -196,39 +209,21 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val actionCol = options.getOrElse("actionCol", "@search.action")
     val serviceName = options("serviceName")
     val indexJsonOpt = options.get("indexJson")
-    val apiVersion = options.getOrElse("apiVersion", "2017-11-11")
+    val apiVersion = options.getOrElse("apiVersion", AzureSearchAPIConstants.DefaultAPIVersion)
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
     val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
 
+    val keyCol = options.get("keyCol")
+    val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
     if (indexJsonOpt.isDefined) {
-      List("keyCol", "searchableCols", "filterableCols", "facetableCols", "indexName").foreach(opt =>
+      List("keyCol", "indexName").foreach(opt =>
         assert(options.get(opt).isEmpty, s"Cannot set both indexJson options and $opt")
       )
     }
 
-    val keyCol = options.get("keyCol")
-
-    val defaultParseEmpty = { field: String =>
-      options.get(field).map(s => s.split(",").toList)
-        .getOrElse(List())
-    }
-    val defaultParseFull = { field: String =>
-      options.get(field).map(s => s.split(",").toList)
-        .getOrElse(df.schema.fieldNames.toList)
-    }
-
-    val searchableCols = defaultParseFull("searchableCols")
-    val filterableCols = defaultParseEmpty("filterableCols")
-    val facetableCols = defaultParseEmpty("facetableCols")
-    val retrievableCols = defaultParseFull("retrievableCols")
-    val sortableCols = defaultParseEmpty("sortableCols")
-
-    val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
-
     val indexJson = indexJsonOpt.getOrElse {
-      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol,
-        searchableCols, filterableCols, sortableCols, facetableCols, retrievableCols)
+      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol)
     }
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
@@ -265,12 +260,10 @@ object AzureSearchWriter extends IndexParser with SLogging {
     t.substring("Collection(".length).dropRight(1)
   }
 
-  private def edmTypeToSparkType(dt: String, allowCollections: Boolean = true): DataType = dt match {
-    case t if allowCollections && isEdmCollection(t) =>
-      ArrayType(edmTypeToSparkType(getEdmCollectionElement(t), false), containsNull = false)
+  private[ml] def edmTypeToSparkType(dt: String,
+                                     fields: Option[Seq[IndexField]]): DataType = dt match {
     case t if isEdmCollection(t) =>
-      throw new IllegalArgumentException("Azure search does not allow nested collections," +
-        " consider using Edm.ComplexType")
+      ArrayType(edmTypeToSparkType(getEdmCollectionElement(t), fields), containsNull = false)
     case "Edm.String" => StringType
     case "Edm.Boolean" => BooleanType
     case "Edm.Int64" => LongType
@@ -278,30 +271,44 @@ object AzureSearchWriter extends IndexParser with SLogging {
     case "Edm.Double" => DoubleType
     case "Edm.DateTimeOffset" => StringType //See if there's a way to use spark datetimes
     case "Edm.GeographyPoint" => StringType
-    case "Edm.ComplexType" => StringType
+    case "Edm.ComplexType" => StructType(fields.get.map(f =>
+      StructField(f.name, edmTypeToSparkType(f.`type`, f.fields))))
   }
 
-  private def sparkTypeToEdmType(dt: DataType, allowCollections: Boolean = true): String = dt match {
-    case ArrayType(it, _) if allowCollections =>
-      "Collection(" + sparkTypeToEdmType(it, false) + ")"
-    case StringType => "Edm.String"
-    case BooleanType => "Edm.Boolean"
-    case IntegerType => "Edm.Int32"
-    case LongType => "Edm.Int64"
-    case DoubleType => "Edm.Double"
-    case DateType => "Edm.DateTimeOffset"
-    case _ => "Edm.ComplexType"
+  private def sparkTypeToEdmType(dt: DataType,
+                                 allowCollections: Boolean = true): (String, Option[Seq[IndexField]]) = {
+    dt match {
+      case ArrayType(it, _) if allowCollections =>
+        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections = false)
+        (s"Collection($innerType)", innerFields)
+      case ArrayType(it, _) if !allowCollections =>
+        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections)
+        ("Edm.ComplexType", innerFields)
+      case StringType => ("Edm.String", None)
+      case BooleanType => ("Edm.Boolean", None)
+      case IntegerType => ("Edm.Int32", None)
+      case LongType => ("Edm.Int64", None)
+      case DoubleType => ("Edm.Double", None)
+      case DateType => ("Edm.DateTimeOffset", None)
+      case StructType(fields) => ("Edm.ComplexType", Some(fields.map{f=>
+        val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
+        IndexField(f.name, innerType,None, None, None, None, None, None, None, None, None, None, innerFields)
+      }))
+    }
   }
 
-  @scala.annotation.tailrec
   private def dtEqualityModuloNullability(dt1: DataType, dt2: DataType): Boolean = (dt1, dt2) match {
     case (ArrayType(it1, _), ArrayType(it2, _)) => dtEqualityModuloNullability(it1, it2)
+    case (StructType(fields1), StructType(fields2)) =>
+      fields1.zip(fields2).forall {
+        case (sf1, sf2) => sf1.name==sf2.name && dtEqualityModuloNullability(sf1.dataType, sf2.dataType)
+      }
     case _ => dt1 == dt2
   }
 
   private def checkSchemaParity(schema: StructType, indexJson: String, searchActionCol: String): Unit = {
     val indexInfo = parseIndexJson(indexJson)
-    val indexFields = indexInfo.fields.map(f => (f.name, edmTypeToSparkType(f.`type`))).toMap
+    val indexFields = indexInfo.fields.map(f => (f.name, edmTypeToSparkType(f.`type`, f.fields))).toMap
 
     assert(schema(searchActionCol).dataType == StringType)
     schema.toList.filter(_.name != searchActionCol).foreach { field =>

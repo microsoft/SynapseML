@@ -3,18 +3,20 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.cognitive.AzureSearchProtocol._
+import com.microsoft.ml.spark.cognitive.RESTHelpers._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.log4j.{LogManager, Logger}
-import org.apache.spark.sql.types._
 import spray.json._
 
 import scala.util.{Failure, Success, Try}
-import AzureSearchProtocol._
 
-import RESTHelpers._
+object AzureSearchAPIConstants {
+  val DefaultAPIVersion = "2019-05-06"
+}
+import AzureSearchAPIConstants._
 
 trait IndexParser {
   def parseIndexJson(str: String): IndexInfo = {
@@ -25,7 +27,7 @@ trait IndexParser {
 trait IndexLister {
   def getExisting(key: String,
                   serviceName: String,
-                  apiVersion: String = "2017-11-11"): Seq[String] = {
+                  apiVersion: String = DefaultAPIVersion): Seq[String] = {
     val indexListRequest = new HttpGet(
       s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion&$$select=name"
     )
@@ -46,7 +48,7 @@ object SearchIndex extends IndexParser with IndexLister {
   def createIfNoneExists(key: String,
                          serviceName: String,
                          indexJson: String,
-                         apiVersion: String = "2017-11-11"): Unit = {
+                         apiVersion: String = DefaultAPIVersion): Unit = {
     val indexName = parseIndexJson(indexJson).name.get
 
     val existingIndexNames = getExisting(key, serviceName, apiVersion)
@@ -84,7 +86,7 @@ object SearchIndex extends IndexParser with IndexLister {
   private def validIndexField(field: IndexField): Try[IndexField] = {
     for {
       _ <- validName(field.name)
-      _ <- validType(field.`type`)
+      _ <- validType(field.`type`, field.fields)
       _ <- validSearchable(field.`type`, field.searchable)
       _ <- validSortable(field.`type`, field.sortable)
       _ <- validFacetable(field.`type`, field.facetable)
@@ -100,29 +102,19 @@ object SearchIndex extends IndexParser with IndexLister {
     Try(fields.map(f => validIndexField(f).get))
   }
 
-  private val ValidFieldTypes = Seq("Edm.String",
-    "Collection(Edm.String)",
-    "Edm.Int32",
-    "Edm.Int64",
-    "Edm.Double",
-    "Edm.Boolean",
-    "Edm.DateTimeOffset",
-    "Edm.GeographyPoint")
-
   private def validName(n: String): Try[String] = {
     if (n.isEmpty) {
       Failure(new IllegalArgumentException("Empty name"))
     } else Success(n)
   }
 
-  private def validType(t: String): Try[String] = {
-    if (ValidFieldTypes.contains(t)) {
-      Success(t)
-    } else Failure(new IllegalArgumentException("Invalid field type"))
+  private def validType(t: String, fields: Option[Seq[IndexField]]): Try[String] = {
+    val tdt = Try(AzureSearchWriter.edmTypeToSparkType(t,fields))
+    tdt.map(_ => t)
   }
 
   private def validSearchable(t: String, s: Option[Boolean]): Try[Option[Boolean]] = {
-    if (Seq("Edm.String", "Collection(Edm.String)").contains(t)) {
+    if (Set("Edm.String", "Collection(Edm.String)")(t)) {
       Success(s)
     } else if (s.contains(true)) {
       Failure(new IllegalArgumentException("Only Edm.String and Collection(Edm.String) fields can be searchable"))
@@ -193,7 +185,7 @@ object SearchIndex extends IndexParser with IndexLister {
   def getStatistics(indexName: String,
                     key: String,
                     serviceName: String,
-                    apiVersion: String = "2017-11-11"): (Int, Int) = {
+                    apiVersion: String = DefaultAPIVersion): (Int, Int) = {
     val getStatsRequest = new HttpGet(
       s"https://$serviceName.search.windows.net/indexes/$indexName/stats?api-version=$apiVersion")
     getStatsRequest.setHeader("api-key", key)
