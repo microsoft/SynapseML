@@ -43,15 +43,12 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
 
   val preserveOrderNumBits = new IntParam(this, "preserveOrderNumBits",
     "Number of bits used to preserve the feature order. This will reduce the hash size. " +
-      "Needs to be large enough to fit count the maximum number of words")
+      "Needs to be large enough to fit count the maximum number of words",
+    (value: Int) => value >= 0 && value < 29)
   setDefault(preserveOrderNumBits -> 0)
 
   def getPreserveOrderNumBits: Int = $(preserveOrderNumBits)
-  def setPreserveOrderNumBits(value: Int): this.type = {
-    if (value < 1 || value > 28)
-      throw new IllegalArgumentException("preserveOrderNumBits must be between 1 and 28 bits")
-    set(preserveOrderNumBits, value)
-  }
+  def setPreserveOrderNumBits(value: Int): this.type = set(preserveOrderNumBits, value)
 
   val prefixStringsWithColumnName = new BooleanParam(this, "prefixStringsWithColumnName",
     "Prefix string features with column name")
