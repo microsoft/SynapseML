@@ -163,11 +163,11 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  protected def createLabelSetter(df: DataFrame) = {
-    val labelColIdx = df.schema.fieldIndex(getLabelCol)
+  protected def createLabelSetter(schema: StructType) = {
+    val labelColIdx = schema.fieldIndex(getLabelCol)
 
     if (get(weightCol).isDefined) {
-      val weightColIdx = df.schema.fieldIndex(getWeightCol)
+      val weightColIdx = schema.fieldIndex(getWeightCol)
       (row: Row, ex: VowpalWabbitExample) =>
         ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
     }
@@ -216,7 +216,7 @@ trait VowpalWabbitBase extends Wrappable
     *                    It is used to get the partition id.
     */
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: => String = "") = {
-    val applyLabel = createLabelSetter(df)
+    val applyLabel = createLabelSetter(df.schema)
 
     val featureColIndices = generateNamespaceInfos(df.schema)
 

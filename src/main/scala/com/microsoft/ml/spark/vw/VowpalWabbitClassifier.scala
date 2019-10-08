@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -12,6 +13,7 @@ import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 import org.vowpalwabbit.spark.VowpalWabbitExample
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 
 import scala.math.exp
 
@@ -31,23 +33,6 @@ class VowpalWabbitClassifier(override val uid: String)
   def getLabelConversion: Boolean = $(labelConversion)
   def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
 
-  override protected def createLabelSetter(df: DataFrame) = {
-    if (getLabelConversion)
-    {
-      val labelColIdx = df.schema.fieldIndex(getLabelCol)
-
-      if (get(weightCol).isDefined) {
-        val weightColIdx = df.schema.fieldIndex(getWeightCol)
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat * 2 -1)
-      }
-      else
-        (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat * 2 - 1)
-    }
-    else
-        super.createLabelSetter(df)
-  }
-
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
     val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
@@ -56,7 +41,17 @@ class VowpalWabbitClassifier(override val uid: String)
       .setProbabilityCol(getProbabilityCol)
       .setRawPredictionCol(getRawPredictionCol)
 
-    trainInternal(dataset, model)
+    val finalDataset = if (!getLabelConversion)
+      dataset
+    else
+    {
+      val inputLabelCol = dataset.withDerivativeCol("label")
+      dataset
+        .withColumnRenamed(getLabelCol, inputLabelCol)
+        .withColumn(getLabelCol, col(inputLabelCol) * 2 - 1)
+    }
+
+    trainInternal(finalDataset, model)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
