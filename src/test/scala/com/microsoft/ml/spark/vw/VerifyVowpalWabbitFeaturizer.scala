@@ -51,7 +51,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     assert(v1.values(1) == 1.0)
     assert(v1.values(2) == 1.0)
   }
-  
+
   test("Verify VowpalWabbit Featurizer can be run with seq and string") {
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("str", "seq"))

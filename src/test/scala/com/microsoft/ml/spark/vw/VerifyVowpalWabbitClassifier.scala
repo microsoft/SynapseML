@@ -232,6 +232,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     // 3 (words) + 2 (ngrams) + 1 (constant) = 6
     // 4 (words) + 3 (ngrams) + 1 (constant) = 8
+
     assert(classifier1.getPerformanceStatistics.select("totalNumberOfFeatures").head.get(0) == 14)
   }
 
