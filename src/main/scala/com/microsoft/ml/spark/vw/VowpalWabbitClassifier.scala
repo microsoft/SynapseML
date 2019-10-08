@@ -43,8 +43,7 @@ class VowpalWabbitClassifier(override val uid: String)
 
     val finalDataset = if (!getLabelConversion)
       dataset
-    else
-    {
+    else {
       val inputLabelCol = dataset.withDerivativeCol("label")
       dataset
         .withColumnRenamed(getLabelCol, inputLabelCol)
