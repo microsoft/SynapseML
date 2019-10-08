@@ -56,11 +56,10 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt "sonatypeOpen \"com.microsoft.ml.spark\" \"mmlspark\""
         sbt publishBlob publishSigned publishDocs publishR
-        sbt sonatypeRelease
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+        sbt release
       displayName: Publish Artifacts
       env:
         STORAGE_KEY: $(storage-key)
