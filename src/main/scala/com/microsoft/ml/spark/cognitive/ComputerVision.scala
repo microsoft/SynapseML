@@ -24,6 +24,8 @@ import org.apache.http.entity.ContentType
 import org.apache.spark.ml.ComplexParamsReadable
 import com.microsoft.ml.spark.io.http.HandlingUtils._
 import scala.concurrent.blocking
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 import scala.language.existentials
 
@@ -360,6 +362,8 @@ class AnalyzeImage(override val uid: String)
   def getVisualFeaturesCol: String = getVectorParam(visualFeatures)
 
   def setVisualFeatures(v: Seq[String]): this.type = setScalarParam(visualFeatures, v)
+
+  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala)
 
   def setVisualFeaturesCol(v: String): this.type = setVectorParam(visualFeatures, v)
 
