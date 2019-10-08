@@ -53,7 +53,7 @@ case class ClassifierTrainParams(parallelism: String, numIterations: Int, learni
                                  isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
                                  numClass: Int, boostFromAverage: Boolean,
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
-                                 isProvideTrainingMetric: Boolean, generateMissingLabels: Boolean, metric: String)
+                                 isProvideTrainingMetric: Boolean, metric: String)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =

@@ -333,7 +333,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertFitWithoutErrors(baseModel, df)
   }
 
-  ignore("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
     val baseDF = breastTissueDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions({ rows =>
       // Remove all instances of some classes
@@ -351,33 +351,23 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(getAndIncrementPort())
       .setObjective(multiclassObject)
 
-    // Validate fit fails and doesn't get stuck
-    assertThrows[Exception] {
-      model.fit(df)
-    }
+    // Validate fit works and doesn't get stuck
+    assertFitWithoutErrors(model, df)
+  }
 
-    // Validate using special mode works
-    assertFitWithoutErrors(model.setGenerateMissingLabels(true), df)
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in binary classification") {
+    val baseDF = pimaDF.select(labelCol, featuresCol)
+    val df = baseDF.mapPartitions({ rows =>
+      // Remove all instances of some classes
+      if (TaskContext.get.partitionId == 1) {
+        rows.filter(_.getInt(0) < 1)
+      } else {
+        rows
+      }
+    })(RowEncoder(baseDF.schema))
 
-    val dfStratified = new StratifiedRepartition()
-      .setLabelCol(labelCol)
-      .setMode(SPConstants.Equal)
-      .transform(df)
-
-    // Assert stratified train data contains all keys across all partitions, with extra count
-    // for it to be evaluated
-    dfStratified
-      .select(labelCol)
-      .foreachPartition({ rows =>
-        val actualLabels = rows.map(_.getInt(0)).toList.distinct.sorted
-        val expectedLabels = (0 to 5).toList
-        if (actualLabels != expectedLabels){
-          throw new AssertionError(s"Missing labels, actual: $actualLabels, expected: $expectedLabels")
-        }
-      })
-
-    // Validate with stratified repartitioned dataset fit passes
-    assertFitWithoutErrors(model.setGenerateMissingLabels(false), dfStratified)
+    // Validate fit works and doesn't get stuck
+    assertFitWithoutErrors(baseModel, df)
   }
 
   def verifyLearnerOnBinaryCsvFile(fileName: String,
