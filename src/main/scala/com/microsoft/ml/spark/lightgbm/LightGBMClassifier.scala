@@ -38,13 +38,6 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  val generateMissingLabels = new BooleanParam(this, "generateMissingLabels",
-    "Instead of failing in lightgbm, generates dummy rows with missing labels within partitions")
-  setDefault(generateMissingLabels -> false)
-
-  def getGenerateMissingLabels: Boolean = $(generateMissingLabels)
-  def setGenerateMissingLabels(value: Boolean): this.type = set(generateMissingLabels, value)
-
   def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
@@ -55,7 +48,7 @@ class LightGBMClassifier(override val uid: String)
       getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
-      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getGenerateMissingLabels,
+      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
       getMetric)
   }
 
