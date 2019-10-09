@@ -348,7 +348,7 @@ class AnalyzeImage(override val uid: String)
     { spd: ServiceParamData[Seq[String]] =>
       spd.data.get match {
         case Left(seq) => seq.forall(Set(
-          "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"
+          "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Brands", "Objects"
         ))
         case _ => true
       }
