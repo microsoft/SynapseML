@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.core.schema
 
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
 
 import scala.collection.mutable
@@ -12,7 +12,7 @@ import scala.collection.mutable
 /** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
 
-  implicit class MMLDataFrame(val df: DataFrame) extends AnyVal {
+  implicit class MMLDataFrame(val df: Dataset[_]) extends AnyVal {
     /** Finds an unused column name given initial column name in the given schema.
       * The unused column name will be given prefix with a number appended to it, eg "testColumn_5".
       * There will be an underscore between the column name and the number appended.
@@ -64,7 +64,7 @@ object DatasetExtensions {
     findUnusedColumnName(prefix)(schema.fieldNames.toSet)
   }
 
-  def findUnusedColumnName(prefix: String, df: DataFrame): String = {
+  def findUnusedColumnName(prefix: String, df: Dataset[_]): String = {
     findUnusedColumnName(prefix, df.schema)
   }
 
