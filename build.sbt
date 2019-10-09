@@ -278,6 +278,16 @@ publishBlob := {
   uploadToBlob(localPackageFolder, blobMavenFolder, "maven",  s.log)
 }
 
+val release = TaskKey[Unit]("release", "publish the library to mmlspark blob")
+release := Def.taskDyn {
+  val v = isSnapshot.value
+  if (!v){
+    Def.task {sonatypeBundleRelease.value}
+  }else{
+    Def.task {"Not a release"}
+  }
+}
+
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
 publishBadges := {
   val s = streams.value
@@ -359,10 +369,4 @@ pgpPublicRing := {
 
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
-publishTo := Some(
-  if (isSnapshot.value) {
-    Opts.resolver.sonatypeSnapshots
-  } else {
-    Opts.resolver.sonatypeStaging
-  }
-)
+publishTo := sonatypePublishToBundle.value

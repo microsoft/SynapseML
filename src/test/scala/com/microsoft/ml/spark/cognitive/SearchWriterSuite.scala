@@ -10,18 +10,18 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import com.microsoft.ml.spark.cognitive.RESTHelpers._
 
 import scala.collection.mutable
 import scala.concurrent.blocking
 
-trait HasAzureSearchKey {
+trait AzureSearchKey {
   lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
-class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
-  with TransformerFuzzing[AddDocuments] {
+class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
+  with TransformerFuzzing[AddDocuments] with VisionKey {
 
   import session.implicits._
 
@@ -273,6 +273,57 @@ class SearchWriterSuite extends TestBase with HasAzureSearchKey with IndexLister
         "serviceName" -> testServiceName,
         "indexJson" -> phraseIndex,
         "filterNulls" -> "true"))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("Infer the structure of the index from the dataframe") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array("p1", "p2", "p3")),
+      ("upload", "1", "file1", Array("p4", null, "p6")))
+      .toDF("searchAction", "id", "fileName", "phrases")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id"
+    ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("pipeline with analyze image"){
+    val in = generateIndexName()
+
+    val df = Seq(
+      ("upload", "0", "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"),
+      ("upload", "1", "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg")
+    ).toDF("searchAction", "id", "url")
+
+    val tdf = new AnalyzeImage()
+      .setSubscriptionKey(visionKey)
+      .setLocation("eastus")
+      .setImageUrlCol("url")
+      .setOutputCol("analyzed")
+      .setErrorCol("errors")
+      .setVisualFeatures(List("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"))
+      .transform(df)
+      .select("*", "analyzed.*").drop("errors", "analyzed")
+
+    AzureSearchWriter.write(tdf,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id"
+      ))
 
     retryWithBackoff(assertSize(in, 2))
   }

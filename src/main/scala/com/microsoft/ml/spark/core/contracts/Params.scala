@@ -6,7 +6,11 @@ package com.microsoft.ml.spark.core.contracts
 import org.apache.spark.ml.param._
 
 //Trait used to opt into code generation
-trait Wrappable extends Params
+trait Wrappable extends Params {
+  def additionalPythonMethods(): String = {
+    ""
+  }
+}
 
 trait HasInputCol extends Wrappable {
   /** The name of the input column

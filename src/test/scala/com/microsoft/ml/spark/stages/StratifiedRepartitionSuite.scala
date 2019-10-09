@@ -19,7 +19,7 @@ class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[Strati
   val colors = "colors"
   val const = "const"
 
-  val input = Seq(
+  lazy val input = Seq(
     (0, "Blue", 2),
     (0, "Red", 2),
     (0, "Green", 2),
