@@ -12,15 +12,14 @@ from pyspark import sql
 from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
-
-def streamToAzureSearch(df, options=dict()):
+def streamToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.ml.spark.cognitive.AzureSearchWriter
     return writer.stream(df._jdf, options)
 
 setattr(pyspark.sql.DataFrame, 'streamToAzureSearch', streamToAzureSearch)
 
-def writeToAzureSearch(df, options=dict()):
+def writeToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.ml.spark.cognitive.AzureSearchWriter
     writer.write(df._jdf, options)

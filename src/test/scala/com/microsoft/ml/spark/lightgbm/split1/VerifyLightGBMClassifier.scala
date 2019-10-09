@@ -51,9 +51,9 @@ trait LightGBMTestUtils extends TestBase {
   def loadRegression(name: String,
                      originalLabelCol: String,
                      columnsFilter: Option[Seq[String]] = None): DataFrame = {
-    val df = readCSV(DatasetUtils.regressionTrainFile(name).toString).repartition(numPartitions)
+    lazy val df = readCSV(DatasetUtils.regressionTrainFile(name).toString).repartition(numPartitions)
       .withColumnRenamed(originalLabelCol, labelCol)
-    val df2 =
+    lazy val df2 =
       if (columnsFilter.isDefined) {
         df.select(columnsFilter.get.map(col): _*)
       } else {
@@ -406,7 +406,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        precision: Double): Unit = {
-    val df = loadMulticlass(fileName, labelColumnName).cache()
+    lazy val df = loadMulticlass(fileName, labelColumnName).cache()
     boostingTypes.foreach { boostingType =>
       test(s"Verify LightGBMClassifier can be trained and scored " +
         s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {

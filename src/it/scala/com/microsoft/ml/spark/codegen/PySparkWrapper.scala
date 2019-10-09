@@ -39,7 +39,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
                               paramDefinitionsAndDefaultsString: String,
                               paramGettersAndSettersString: String,
                               classDocString: String, paramDocString: String,
-                              classParamDocString: String): String = {
+                              classParamDocString: String,
+                              additionalMethods: String): String = {
     s"""|$CopyrightLines
         |
         |import sys
@@ -89,6 +90,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |        return self._set(**kwargs)
         |
         |$paramGettersAndSettersString
+        |
+        |$additionalMethods
         |""".stripMargin
   }
 
@@ -304,6 +307,11 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     val paramDocList = ListBuffer[String]()
     val classParamDocList = ListBuffer[String]()
 
+    val additionalMethods = {
+      val clazz = entryPoint.getClass
+      clazz.getMethod("additionalPythonMethods").invoke(entryPoint).asInstanceOf[String]
+    }
+
     // Iterate over the com.microsoft.ml.spark.core.serialize.params to build strings
     val allParams: Array[Param[_]] = entryPoint.params
     // Check for complex types
@@ -383,7 +391,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     classTemplate(importsString, inheritanceString,
       classParamsString,
       paramDefinitionsAndDefaultsString, paramGettersAndSettersString,
-      classDocString, paramDocString, classParamDocString) + "\n" +
+      classDocString, paramDocString, classParamDocString, additionalMethods) + "\n" +
       saveLoadTemplate(entryPointQualifiedName, entryPointName)
   }
 

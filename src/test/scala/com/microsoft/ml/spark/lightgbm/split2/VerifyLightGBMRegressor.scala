@@ -150,7 +150,7 @@ class VerifyLightGBMRegressor extends Benchmarks
                                        labelCol: String,
                                        decimals: Int,
                                        columnsFilter: Option[Seq[String]] = None): Unit = {
-    val df = loadRegression(fileName, labelCol, columnsFilter).cache()
+    lazy val df = loadRegression(fileName, labelCol, columnsFilter).cache()
     boostingTypes.foreach { boostingType =>
       test(s"Verify LightGBMRegressor can be trained " +
         s"and scored on $fileName with boosting type $boostingType") {
