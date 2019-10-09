@@ -22,7 +22,7 @@ import scala.language.existentials
 object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 

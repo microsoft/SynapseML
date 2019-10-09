@@ -15,7 +15,7 @@ import org.apache.spark.sql.types.{NumericType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 class RecommendationIndexer(override val uid: String)
-  extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase {
+  extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase with Wrappable {
 
   def this() = this(Identifiable.randomUID("RecommendationIndexer"))
 

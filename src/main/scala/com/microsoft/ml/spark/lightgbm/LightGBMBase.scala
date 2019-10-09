@@ -133,11 +133,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val trainParams = getTrainParams(numWorkers, categoricalIndexes, dataset)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
-    val validationData =
+    val (trainingData, validationData) =
       if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
-        Some(sc.broadcast(df.filter(x => x.getBoolean(x.fieldIndex(getValidationIndicatorCol))).collect()))
-      else None
-    val preprocessedDF = preprocessData(df)
+        (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
+          Some(sc.broadcast(preprocessData(df.filter(x =>
+            x.getBoolean(x.fieldIndex(getValidationIndicatorCol)))).collect())))
+      else (df, None)
+    val preprocessedDF = preprocessData(trainingData)
     val schema = preprocessedDF.schema
     val mapPartitionsFunc = TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
       get(weightCol), get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec, schema)(_)

@@ -21,7 +21,7 @@ import spray.json.DefaultJsonProtocol._
 import scala.language.existentials
 
 abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   val granularity = new ServiceParam[String](this, "granularity",
     """
