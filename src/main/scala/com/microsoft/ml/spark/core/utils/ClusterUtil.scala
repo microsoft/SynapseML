@@ -23,17 +23,20 @@ object ClusterUtil {
       try {
         val taskCpusConfig = spark.sparkContext.getConf.getOption("spark.task.cpus")
         if (taskCpusConfig.isEmpty) {
-          log.info("LightGBM did not detect spark.task.cpus config set, using number of processes instead")
+          log.info("ClusterUtils did not detect spark.task.cpus config set, using default 1 instead")
         }
-        taskCpusConfig.getOrElse(getJVMCPUs(spark).toString).toInt
+        taskCpusConfig.getOrElse("1").toInt
       } catch {
-        case _: NoSuchElementException => getJVMCPUs(spark)
+        case _: NoSuchElementException => {
+          log.info("spark.task.cpus config not set, using default 1 instead")
+          1
+        }
       }
     try {
       val confCores = spark.sparkContext.getConf
         .get("spark.executor.cores").toInt
       val coresPerExec = confCores / confTaskCpus
-      log.info(s"LightGBM calculated num cores per executor as $coresPerExec from $confCores " +
+      log.info(s"ClusterUtils calculated num cores per executor as $coresPerExec from $confCores " +
         s"cores and $confTaskCpus task CPUs")
       coresPerExec
     } catch {
@@ -41,7 +44,7 @@ object ClusterUtil {
         // If spark.executor.cores is not defined, get the cores per JVM
         val numMachineCores = getJVMCPUs(spark)
         val coresPerExec = numMachineCores / confTaskCpus
-        log.info(s"LightGBM calculated num cores per executor as $coresPerExec from " +
+        log.info(s"ClusterUtils calculated num cores per executor as $coresPerExec from " +
           s"$numMachineCores machine cores from JVM and $confTaskCpus task CPUs")
         coresPerExec
     }
