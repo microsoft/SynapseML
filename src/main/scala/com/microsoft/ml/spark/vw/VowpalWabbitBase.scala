@@ -10,19 +10,42 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.internal._
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import org.vowpalwabbit.spark._
 import com.microsoft.ml.spark.core.contracts.{HasWeightCol, Wrappable}
 import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
-import com.microsoft.ml.spark.core.utils.ClusterUtil
+import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
 import org.apache.spark.ml.ComplexParamsWritable
 
+import scala.collection.JavaConverters._
 import scala.math.min
 
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
+
+// structure for the diagnostics dataframe
+case class TrainingStats(partitionId: Int,
+                         arguments: String,
+                         learningRate: Double,
+                         powerT: Double,
+                         hashSeed: Int,
+                         numBits: Int,
+                         numberOfExamplesPerPass: Long,
+                         weightedExampleSum: Double,
+                         weightedLabelSum: Double,
+                         averageLoss: Double,
+                         bestConstant: Float,
+                         bestConstantLoss: Float,
+                         totalNumberOfFeatures: Long,
+                         timeTotalNs: Long,
+                         timeNativeIngestNs: Long,
+                         timeLearnNs: Long,
+                         timeMultipassNs: Long)
+
+case class TrainingResult(model: Option[Array[Byte]],
+                          stats: TrainingStats)
 
 /**
   * VW support multiple input columns which are mapped to namespaces.
@@ -99,8 +122,13 @@ trait VowpalWabbitBase extends Wrappable
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
+  def labelCol: Param[String]
   def getLabelCol: String
+  setDefault(labelCol -> "label")
+
+  def featuresCol: Param[String]
   def getFeaturesCol: String
+  setDefault(featuresCol -> "features")
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
@@ -114,8 +142,8 @@ trait VowpalWabbitBase extends Wrappable
         param match {
           case _: StringArrayParam =>
             for (q <- get(param).get)
-              sb.append(s" $optionShort $q")
-          case _ => sb.append(s" $optionShort ${get(param).get}")
+              sb.append(s" --$optionLong $q")
+          case _ => sb.append(s" --$optionLong ${get(param).get}")
         }
 
         sb
@@ -135,11 +163,11 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  private def createLabelSetter(df: DataFrame) = {
-    val labelColIdx = df.schema.fieldIndex(getLabelCol)
+  protected def createLabelSetter(schema: StructType) = {
+    val labelColIdx = schema.fieldIndex(getLabelCol)
 
     if (get(weightCol).isDefined) {
-      val weightColIdx = df.schema.fieldIndex(getWeightCol)
+      val weightColIdx = schema.fieldIndex(getWeightCol)
       (row: Row, ex: VowpalWabbitExample) =>
         ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
     }
@@ -188,56 +216,92 @@ trait VowpalWabbitBase extends Wrappable
     *                    It is used to get the partition id.
     */
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: => String = "") = {
-    val applyLabel = createLabelSetter(df)
+    val applyLabel = createLabelSetter(df.schema)
 
     val featureColIndices = generateNamespaceInfos(df.schema)
 
     def trainIteration(inputRows: Iterator[Row],
-                       localInitialModel: Option[Array[Byte]]): Iterator[Option[Array[Byte]]] = {
+                       localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
 
       // construct command line arguments
       val args = buildCommandLineArguments(vwArgs, contextArgs)
+
+      val totalTime = new StopWatch
+      val nativeIngestTime = new StopWatch
+      val learnTime = new StopWatch
+      val multipassTime = new StopWatch
 
       StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
         else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
         StreamUtilities.using(vw.createExample()) { ex =>
             // pass data to VW native part
-            for (row <- inputRows) {
-              // transfer label
-              applyLabel(row, ex)
+            totalTime.measure {
+              for (row <- inputRows) {
+                nativeIngestTime.measure {
+                  // transfer label
+                  applyLabel(row, ex)
 
-              // transfer features
-              for (ns <- featureColIndices)
-                row.get(ns.colIdx) match {
-                  case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-                    ns.hash, dense.values)
-                  case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-                    sparse.indices, sparse.values)
+                  // transfer features
+                  for (ns <- featureColIndices)
+                    row.get(ns.colIdx) match {
+                      case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+                        ns.hash, dense.values)
+                      case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+                        sparse.indices, sparse.values)
+                    }
                 }
 
-              ex.learn()
-              ex.clear()
+                learnTime.measure {
+                  ex.learn()
+                  ex.clear()
+                }
+              }
+
+              multipassTime.measure {
+                vw.endPass()
+
+                if (getNumPasses > 1)
+                  vw.performRemainingPasses()
+              }
             }
-
-            vw.endPass()
-
-            if (getNumPasses > 1)
-              vw.performRemainingPasses()
           }
 
           // only export the model on the first partition
-          Seq(if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None).iterator
+          val perfStats = vw.getPerformanceStatistics
+          val args = vw.getArguments
+
+          Seq(TrainingResult(
+            if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+            TrainingStats(
+              TaskContext.get.partitionId,
+              args.getArgs,
+              args.getLearningRate,
+              args.getPowerT,
+              args.getHashSeed,
+              args.getNumBits,
+              perfStats.getNumberOfExamplesPerPass,
+              perfStats.getWeightedExampleSum,
+              perfStats.getWeightedLabelSum,
+              perfStats.getAverageLoss,
+              perfStats.getBestConstant,
+              perfStats.getBestConstantLoss,
+              perfStats.getTotalNumberOfFeatures,
+              totalTime.elapsed,
+              nativeIngestTime.elapsed,
+              learnTime.elapsed,
+              multipassTime.elapsed))).iterator
         }.get // this will throw if there was an exception
     }
 
-    val encoder = Encoders.kryo[Option[Array[Byte]]]
+    val encoder = Encoders.kryo[TrainingResult]
 
     // schedule multiple mapPartitions in
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
     df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
-      .reduce((a, b) => if (a.isEmpty) b else a)
+      // important to trigger here so that the spanning tree is still up
+      .collect()
   }
 
   /**
@@ -249,7 +313,7 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def trainInternalDistributed(df: DataFrame,
                                          vwArgs: StringBuilder,
-                                         numWorkers: Int): Option[Array[Byte]] = {
+                                         numWorkers: Int): Array[TrainingResult] = {
     // multiple partitions -> setup distributed coordination
     val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
 
@@ -277,15 +341,41 @@ trait VowpalWabbitBase extends Wrappable
     }
   }
 
+  private def applyTrainingResultsToModel(model: VowpalWabbitBaseModel, trainingResults: Seq[TrainingResult],
+                                          dataset: Dataset[_]): Unit = {
+
+    val nonEmptyModels = trainingResults.find(_.model.isDefined)
+    if (nonEmptyModels.isEmpty)
+      throw new IllegalArgumentException("Dataset needs to contain at least one model")
+
+    // find first model that exists (only for the first partition)
+    model.setModel(nonEmptyModels.get.model.get)
+
+    // get argument diagnostics
+    val timeMarshalCol = col("timeNativeIngestNs")
+    val timeLearnCol = col("timeLearnNs")
+    val timeMultipassCol = col("timeMultipassNs")
+    val timeTotalCol = col("timeTotalNs")
+
+    val diagRdd = dataset.sparkSession.createDataFrame(trainingResults.map { _.stats })
+        .withColumn("timeMarshalPercentage", timeMarshalCol / timeTotalCol)
+        .withColumn("timeLearnPercentage",timeLearnCol / timeTotalCol)
+        .withColumn("timeMultipassPercentage",timeMultipassCol / timeTotalCol)
+        .withColumn("timeSparkReadPercentage",
+          (timeTotalCol - timeMarshalCol - timeLearnCol - timeMultipassCol) / timeTotalCol)
+
+    model.setPerformanceStatistics(diagRdd)
+  }
+
   /**
     * Main training loop
     * @param dataset input data.
     * @return binary VW model.
     */
-  protected def trainInternal(dataset: Dataset[_]): Array[Byte] = {
+  protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec)
+    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
@@ -314,65 +404,14 @@ trait VowpalWabbitBase extends Wrappable
       .appendParamIfNotThere("q", "quadratic", interactions)
 
     // call training
-    val binaryModel = if (numWorkers == 1)
+    val trainingResults = (if (numWorkers == 1)
       trainInternal(df, vwArgs.result)
     else
-      trainInternalDistributed(df, vwArgs, numWorkers)
+      trainInternalDistributed(df, vwArgs, numWorkers))
 
-    binaryModel.get
-  }
-}
+    // store results in model
+    applyTrainingResultsToModel(model, trainingResults, dataset)
 
-/**
-  * Base trait to wrap the model for prediction.
-  */
-trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
-  with org.apache.spark.ml.param.shared.HasRawPredictionCol
-  with HasAdditionalFeatures
-  with ComplexParamsWritable
-{
-  @transient
-  lazy val vw = new VowpalWabbitNative("--testonly --quiet", getModel)
-
-  @transient
-  lazy val example: VowpalWabbitExample = vw.createExample()
-
-  @transient
-  lazy val vwArgs: VowpalWabbitArguments = vw.getArguments
-
-  protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
-    val featureColIndices = (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .zipWithIndex.map { case (col, index) => NamespaceInfo(
-        VowpalWabbitMurmur.hash(col, vwArgs.getHashSeed),
-        col.charAt(0),
-        index)
-    }
-
-    val predictUDF = udf { (namespaces: Row) => predictInternal(featureColIndices, namespaces) }
-
-    val allCols = Seq(col($(featuresCol))) ++ getAdditionalFeatures.map(col)
-
-    dataset.withColumn($(rawPredictionCol), predictUDF(struct(allCols: _*)))
-  }
-
-  val model = new ByteArrayParam(this, "model", "The VW model....")
-
-  def setModel(v: Array[Byte]): this.type = set(model, v)
-
-  def getModel: Array[Byte] = $(model)
-
-  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], namespaces: Row): Double = {
-    example.clear()
-
-    for (ns <- featureColIndices)
-      namespaces.get(ns.colIdx) match {
-        case dense: DenseVector => example.addToNamespaceDense(ns.featureGroup,
-          ns.hash, dense.values)
-        case sparse: SparseVector => example.addToNamespaceSparse(ns.featureGroup,
-          sparse.indices, sparse.values)
-      }
-
-    // TODO: surface prediction confidence
-    example.predict.asInstanceOf[ScalarPrediction].getValue.toDouble
+    model
   }
 }

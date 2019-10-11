@@ -52,7 +52,9 @@ case class AIResponse(categories: Option[Seq[AICategory]],
                       metadata: AIMetadata,
                       faces: Option[Seq[AIFace]],
                       color: Option[AIColor],
-                      imageType: Option[AIImageType])
+                      imageType: Option[AIImageType],
+                      brands: Option[Seq[AIBrand]],
+                      objects: Option[Seq[AIObject]])
 
 object AIResponse extends SparkBindings[AIResponse]
 
@@ -84,19 +86,19 @@ case class AIColor(dominantColorForeground: String,
 
 case class AIImageType(clipArtType: Int, lineDrawingType: Int)
 
+case class AIBrand(name: String, rectangle: Rectangle2)
+
+case class AIObject(rectangle: Rectangle2, `object`: String, confidence: Double)
+
 case class TagImagesResponse(tags: Seq[ImageTag],
                              requestId: String,
                              metaData: ImageMetadata)
 
 object TagImagesResponse extends SparkBindings[TagImagesResponse]
 
-case class ImageTag(name: String,
-                    confidence: Double,
-                    hint: Option[String])
+case class ImageTag(name: String, confidence: Double, hint: Option[String])
 
-case class ImageMetadata(width: Int,
-                         height: Int,
-                         format: String)
+case class ImageMetadata(width: Int, height: Int, format: String)
 
 case class DescribeImageResponse(description: ImageDescription, requestID: String, metadata: ImageMetadata)
 

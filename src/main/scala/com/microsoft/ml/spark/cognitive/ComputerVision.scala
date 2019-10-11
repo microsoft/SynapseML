@@ -24,6 +24,8 @@ import org.apache.http.entity.ContentType
 import org.apache.spark.ml.ComplexParamsReadable
 import com.microsoft.ml.spark.io.http.HandlingUtils._
 import scala.concurrent.blocking
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 import scala.language.existentials
 
@@ -183,7 +185,7 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
 
 class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageInput with HasDetectOrientation
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("OCR"))
 
@@ -213,7 +215,7 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseWithoutHandler(uid)
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser {
+    with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
@@ -320,7 +322,7 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
@@ -339,14 +341,14 @@ object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
     { spd: ServiceParamData[Seq[String]] =>
       spd.data.get match {
         case Left(seq) => seq.forall(Set(
-          "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"
+          "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Brands", "Objects"
         ))
         case _ => true
       }
@@ -360,6 +362,8 @@ class AnalyzeImage(override val uid: String)
   def getVisualFeaturesCol: String = getVectorParam(visualFeatures)
 
   def setVisualFeatures(v: Seq[String]): this.type = setScalarParam(visualFeatures, v)
+
+  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala)
 
   def setVisualFeaturesCol(v: String): this.type = setVectorParam(visualFeatures, v)
 
@@ -432,7 +436,7 @@ object RecognizeDomainSpecificContent
 class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasServiceParams with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser {
+    with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
@@ -456,7 +460,7 @@ object TagImage extends ComplexParamsReadable[TagImage]
 
 class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
@@ -487,7 +491,7 @@ object DescribeImage extends ComplexParamsReadable[DescribeImage]
 
 class DescribeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
-    with HasImageInput with HasInternalJsonOutputParser {
+    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation {
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 

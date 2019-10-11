@@ -3,27 +3,98 @@
 
 package com.microsoft.ml.spark.vw
 
+import java.io.File
+import java.nio.file.Files
+
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions._
 
 class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"
   val numPartitions = 2
 
-  test("Verify VowpalWabbit Classifier can be run with TrainValidationSplit") {
-      val fileName = "a1a.train.svmlight"
+  def getAlaTrainDataFrame(localNumPartitions: Int = numPartitions): Dataset[Row] = {
+    val fileLocation = DatasetUtils.binaryTrainFile("a1a.train.svmlight").toString
+    session.read.format("libsvm").load(fileLocation).repartition(localNumPartitions)
+  }
 
-      val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-      val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+  test ("Verify VowpalWabbit Classifier can save native model and test audit output") {
+    val dataset = getAlaTrainDataFrame()
+
+    val vw = new VowpalWabbitClassifier()
+
+    val model = vw.fit(dataset)
+
+    // print audit information
+    model.setTestArgs("--audit")
+    model.transform(dataset.limit(3)).show()
+
+    // save model
+    val saveDir = new File(tmpDir.toFile, "vw-model")
+    model.saveNativeModel(saveDir.toString)
+
+    assert(saveDir.exists)
+    assert(saveDir.length() > 100)
+  }
+
+  test ("Verify VowpalWabbit Classifier returns diagnostics") {
+    val dataset = getAlaTrainDataFrame()
+
+    val vw = new VowpalWabbitClassifier()
+      .setNumBits(10)
+      .setLearningRate(3.1)
+      .setPowerT(0)
+      .setLabelConversion(false)
+
+    val model = vw.fit(dataset)
+
+    model.getPerformanceStatistics.show
+
+    assert(model.getPerformanceStatistics.count == numPartitions)
+
+    var perfRow = model.getPerformanceStatistics.where("partitionId == 0").collect.head
+
+    assert(perfRow.getDouble(perfRow.fieldIndex("powerT")) == 0.0)
+    assert(803 + 802 == model.getPerformanceStatistics.agg(sum("numberOfExamplesPerPass")).collect().head.getLong(0))
+  }
+
+  test ("Verify VowpalWabbit Classifier accept parameters") {
+    val dataset = getAlaTrainDataFrame()
+
+    val vw = new VowpalWabbitClassifier()
+      .setNumBits(10)
+      .setLearningRate(3.1)
+      .setPowerT(0)
+      .setL1(1e-5)
+      .setL2(1e-6)
+
+    val model = vw.fit(dataset)
+
+    assert(model.vwArgs.getNumBits == 10)
+  }
+
+  test ("Verify VowpalWabbit Classifier audit") {
+    val dataset = getAlaTrainDataFrame()
+
+    val vw = new VowpalWabbitClassifier()
+      .setArgs("-a")
+
+    val model = vw.fit(dataset.limit(10))
+  }
+
+  test("Verify VowpalWabbit Classifier can be run with TrainValidationSplit") {
+    val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
         .setArgs("--link=logistic --quiet")
+        .setLabelConversion(false)
 
     val paramGrid = new ParamGridBuilder()
        .addGrid(vw.learningRate, Array(0.5, 0.05, 0.001))
@@ -41,18 +112,32 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     model.transform(dataset)
 
     val auc = model.avgMetrics(0)
+
     println(s"areaUnderROC: $auc")
+    assert(auc > 0.85)
+  }
+
+  test("Verify VowpalWabbit Classifier can convert 0/1 labels") {
+    val dataset = getAlaTrainDataFrame()
+    // convert -1/1 to 0/1
+    val df = dataset.withColumn("label01", (col("label") + 1) / 2)
+
+    val vw = new VowpalWabbitClassifier()
+      .setLabelCol("label01")
+
+    val classifier = vw.fit(df)
+    val labelOneCnt = classifier.transform(df).select("prediction").filter(_.getDouble(0) == 1.0).count()
+
+    assert(labelOneCnt == 275)
   }
 
   test("Verify VowpalWabbit Classifier can be run with libsvm") {
-    val fileName = "a1a.train.svmlight"
-
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+    val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
       .setPowerT(0.3)
       .setNumPasses(3)
+      .setLabelConversion(false)
 
     val classifier = vw.fit(dataset)
     assert(classifier.getModel.length > 400)
@@ -64,39 +149,38 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (short)") {
-    val fileName = "a1a.train.svmlight"
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+    val dataset = getAlaTrainDataFrame(3)
+
+    println(s"dataset partitions ${dataset.rdd.getNumPartitions}")
 
     val vw = new VowpalWabbitClassifier()
       .setArgs("-b 15")
       .setNumBits(22)
+      .setLabelConversion(false)
 
     // command line args take precedence
     assert(vw.fit(dataset).vwArgs.getNumBits == 15)
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (long)") {
-    val fileName = "a1a.train.svmlight"
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+    val dataset = getAlaTrainDataFrame(3)
 
     val vw = new VowpalWabbitClassifier()
       .setArgs("-b 4")
       .setNumBits(22)
+      .setLabelConversion(false)
 
     // command line args take precedence
     assert(vw.fit(dataset).vwArgs.getNumBits == 4)
   }
 
   test("Verify VowpalWabbit Classifier can deal with empty partitions") {
-    val fileName = "a1a.train.svmlight"
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(4)
+    val dataset = getAlaTrainDataFrame(3)
 
     val vw = new VowpalWabbitClassifier()
       .setPowerT(0.3)
       .setNumPasses(3)
+      .setLabelConversion(false)
 
     val infoEnc = RowEncoder(dataset.schema)
     val trainData = dataset
@@ -116,19 +200,20 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Classifier w/ and w/o link=logistic produce same results") {
-    val fileName = "a1a.train.svmlight"
-
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+    val dataset = getAlaTrainDataFrame()
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Predicting-probabilities
     val vw1 = new VowpalWabbitClassifier()
         .setNumPasses(2)
+        .setLabelConversion(false)
+
     val classifier1 = vw1.fit(dataset)
 
     val vw2 = new VowpalWabbitClassifier()
         .setArgs("--link=logistic")
         .setNumPasses(2)
+        .setLabelConversion(false)
+
     val classifier2 = vw2.fit(dataset)
 
     val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
@@ -138,19 +223,45 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Classifier w/ bfgs and cache file") {
-    val fileName = "a1a.train.svmlight"
-
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+    val dataset = getAlaTrainDataFrame()
 
     val vw1 = new VowpalWabbitClassifier()
       .setNumPasses(3)
       .setArgs("--loss_function=logistic --bfgs")
+      .setLabelConversion(false)
+
     val classifier1 = vw1.fit(dataset)
 
     val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
 
     println(labelOneCnt1)
+  }
+
+  case class ClassificationInput[T](label: Int, in: T)
+
+  test("Verify VowpalWabbit Classifier w/ ngrams") {
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setStringSplitInputCols(Array("in"))
+      .setPreserveOrderNumBits(2)
+      .setNumBits(18)
+      .setPrefixStringsWithColumnName(false)
+      .setOutputCol("features")
+
+    val dataset  = session.createDataFrame(Seq(
+      ClassificationInput[String](1, "marie markus fun"),
+      ClassificationInput[String](0, "marie markus no fun")
+    )).coalesce(1)
+
+    val datasetFeaturized = featurizer.transform(dataset)
+
+    val vw1 = new VowpalWabbitClassifier()
+      .setArgs("--ngram f2 -a")
+    val classifier1 = vw1.fit(datasetFeaturized)
+
+    // 3 (words) + 2 (ngrams) + 1 (constant) = 6
+    // 4 (words) + 3 (ngrams) + 1 (constant) = 8
+
+    assert(classifier1.getPerformanceStatistics.select("totalNumberOfFeatures").head.get(0) == 14)
   }
 
   /** Reads a CSV file given the file name and file location.
@@ -170,11 +281,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
   override def modelReader: MLReadable[_] = VowpalWabbitClassificationModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitClassifier]] = {
-
-    val fileName = "a1a.train.svmlight"
-
-    val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
-    val dataset = session.read.format("libsvm").load(fileLocation).repartition(numPartitions)
+    val dataset = getAlaTrainDataFrame()
 
     Seq(new TestObject(
       new VowpalWabbitClassifier(),

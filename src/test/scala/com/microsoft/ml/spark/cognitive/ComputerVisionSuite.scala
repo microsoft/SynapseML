@@ -99,7 +99,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
     .setLanguageCol("language")
     .setDefaultLanguage("en")
     .setVisualFeatures(
-      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult"))
+      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
     .setDetails(Seq("Celebrities", "Landmarks"))
 
   lazy val bytesDF: DataFrame = BingImageSearch
@@ -112,7 +112,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
     .setLanguageCol("language")
     .setDefaultLanguage("en")
     .setVisualFeatures(
-      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult")
+      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands")
     )
     .setDetails(Seq("Celebrities", "Landmarks"))
 
@@ -148,7 +148,8 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   test("Basic Usage with URL") {
     val fromRow = AIResponse.makeFromRowConverter
     val responses = ai.transform(df).select("features")
-      .collect().toList.map(r => fromRow(r.getStruct(0)))
+      .collect().toList.map(r =>
+        fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
   }

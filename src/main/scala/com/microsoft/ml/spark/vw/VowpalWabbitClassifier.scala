@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -11,34 +12,52 @@ import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, Pro
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.vowpalwabbit.spark.VowpalWabbitExample
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 
 import scala.math.exp
 
 object VowpalWabbitClassifier extends DefaultParamsReadable[VowpalWabbitClassifier]
 
+@InternalWrapper
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
 
+  // to support Grid search we need to replicate the parameters here...
+  val labelConversion = new BooleanParam(this, "labelConversion",
+    "Convert 0/1 Spark ML style labels to -1/1 VW style labels. Defaults to true.")
+  setDefault(labelConversion -> true)
+  def getLabelConversion: Boolean = $(labelConversion)
+  def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
+
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
-
-    val binaryModel = trainInternal(dataset)
-
-    new VowpalWabbitClassificationModel(uid)
-      .setModel(binaryModel)
+    val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setPredictionCol(getPredictionCol)
       .setProbabilityCol(getProbabilityCol)
       .setRawPredictionCol(getRawPredictionCol)
+
+    val finalDataset = if (!getLabelConversion)
+      dataset
+    else {
+      val inputLabelCol = dataset.withDerivativeCol("label")
+      dataset
+        .withColumnRenamed(getLabelCol, inputLabelCol)
+        .withColumn(getLabelCol, col(inputLabelCol) * 2 - 1)
+    }
+
+    trainInternal(finalDataset, model)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
 }
 
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
+@InternalWrapper
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel {

@@ -51,9 +51,9 @@ trait LightGBMTestUtils extends TestBase {
   def loadRegression(name: String,
                      originalLabelCol: String,
                      columnsFilter: Option[Seq[String]] = None): DataFrame = {
-    val df = readCSV(DatasetUtils.regressionTrainFile(name).toString).repartition(numPartitions)
+    lazy val df = readCSV(DatasetUtils.regressionTrainFile(name).toString).repartition(numPartitions)
       .withColumnRenamed(originalLabelCol, labelCol)
-    val df2 =
+    lazy val df2 =
       if (columnsFilter.isDefined) {
         df.select(columnsFilter.get.map(col): _*)
       } else {
@@ -122,7 +122,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()
   lazy val taskDF: DataFrame = loadBinary("task.train.csv", "TaskFailed10").cache()
   lazy val breastTissueDF: DataFrame = loadMulticlass("BreastTissue.csv", "Class").cache()
-  lazy val bankTrainDF: DataFrame = {
+  lazy val unfeaturizedBankTrainDF: DataFrame = {
     val categoricalColumns = Array(
       "job", "marital", "education", "default", "housing", "loan", "contact", "y")
     val newCategoricalColumns: Array[String] = categoricalColumns.map("c_" + _)
@@ -133,7 +133,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .fit(df)
       .transform(df).drop(categoricalColumns: _*)
       .withColumnRenamed("c_y", labelCol)
-    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
+    df2
+  }.cache()
+  lazy val indexedBankTrainDF: DataFrame = {
+    LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol,
+      oneHotEncodeCategoricals = false).transform(unfeaturizedBankTrainDF)
+  }.cache()
+  lazy val bankTrainDF: DataFrame = {
+    LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
   }.cache()
 
   val binaryObjective = "binary"
@@ -255,7 +262,15 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
 
     // Verify changing weight of one label significantly skews the results
-    assert(countPredictions(df) * 2 < countPredictions(dfWeight))
+    val constLabelPredictionCount = countPredictions(df)
+    assert(constLabelPredictionCount * 2 < countPredictions(dfWeight))
+
+    // Also validate with int and long values for weight column predictions are the same within some threshold
+    val threshold = 0.2 * constLabelPredictionCount
+    val dfInt = pimaDF.withColumn(weightCol, lit(1))
+    assert(math.abs(constLabelPredictionCount - countPredictions(dfInt)) < threshold)
+    val dfLong = pimaDF.withColumn(weightCol, lit(1L))
+    assert(math.abs(constLabelPredictionCount - countPredictions(dfLong)) < threshold)
   }
 
   test("Verify LightGBM Classifier with unbalanced dataset") {
@@ -266,7 +281,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     )
   }
 
-  test("Verify LightGBM Classifier with validation dataset") {
+  ignore("Verify LightGBM Classifier with validation dataset") {
     val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
 
     val Array(train, validIntermediate, test) = df.randomSplit(Array(0.6, 0.2, 0.2), seed)
@@ -292,14 +307,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier categorical parameter") {
-    val Array(train, test) = bankTrainDF.randomSplit(Array(0.8, 0.2), seed)
-
-    val model = baseModel
-      .setCategoricalSlotNames(bankTrainDF.columns.filter(_.startsWith("c_")))
-
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+    // Verify categorical features used in some tree in the model
+    assert(model.getModel.model.contains("num_cat=1"))
     val metric = binaryEvaluator
-      .evaluate(model.fit(train).transform(test))
-
+      .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
   }
@@ -318,7 +333,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertFitWithoutErrors(baseModel, df)
   }
 
-  ignore("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in multiclass classification") {
     val baseDF = breastTissueDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions({ rows =>
       // Remove all instances of some classes
@@ -336,33 +351,23 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setDefaultListenPort(getAndIncrementPort())
       .setObjective(multiclassObject)
 
-    // Validate fit fails and doesn't get stuck
-    assertThrows[Exception] {
-      model.fit(df)
-    }
+    // Validate fit works and doesn't get stuck
+    assertFitWithoutErrors(model, df)
+  }
 
-    // Validate using special mode works
-    assertFitWithoutErrors(model.setGenerateMissingLabels(true), df)
+  test("Verify LightGBM Classifier won't get stuck on unbalanced classes in binary classification") {
+    val baseDF = pimaDF.select(labelCol, featuresCol)
+    val df = baseDF.mapPartitions({ rows =>
+      // Remove all instances of some classes
+      if (TaskContext.get.partitionId == 1) {
+        rows.filter(_.getInt(0) < 1)
+      } else {
+        rows
+      }
+    })(RowEncoder(baseDF.schema))
 
-    val dfStratified = new StratifiedRepartition()
-      .setLabelCol(labelCol)
-      .setMode(SPConstants.Equal)
-      .transform(df)
-
-    // Assert stratified train data contains all keys across all partitions, with extra count
-    // for it to be evaluated
-    dfStratified
-      .select(labelCol)
-      .foreachPartition({ rows =>
-        val actualLabels = rows.map(_.getInt(0)).toList.distinct.sorted
-        val expectedLabels = (0 to 5).toList
-        if (actualLabels != expectedLabels){
-          throw new AssertionError(s"Missing labels, actual: $actualLabels, expected: $expectedLabels")
-        }
-      })
-
-    // Validate with stratified repartitioned dataset fit passes
-    assertFitWithoutErrors(model.setGenerateMissingLabels(false), dfStratified)
+    // Validate fit works and doesn't get stuck
+    assertFitWithoutErrors(baseModel, df)
   }
 
   def verifyLearnerOnBinaryCsvFile(fileName: String,
@@ -401,7 +406,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        precision: Double): Unit = {
-    val df = loadMulticlass(fileName, labelColumnName).cache()
+    lazy val df = loadMulticlass(fileName, labelColumnName).cache()
     boostingTypes.foreach { boostingType =>
       test(s"Verify LightGBMClassifier can be trained and scored " +
         s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {

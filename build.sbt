@@ -24,8 +24,8 @@ libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
-  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.2.400",
-  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.2"
+  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.100",
+  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
 )
 
 //noinspection ScalaStyle
@@ -278,6 +278,16 @@ publishBlob := {
   uploadToBlob(localPackageFolder, blobMavenFolder, "maven",  s.log)
 }
 
+val release = TaskKey[Unit]("release", "publish the library to mmlspark blob")
+release := Def.taskDyn {
+  val v = isSnapshot.value
+  if (!v){
+    Def.task {sonatypeBundleRelease.value}
+  }else{
+    Def.task {"Not a release"}
+  }
+}
+
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
 publishBadges := {
   val s = streams.value
@@ -306,6 +316,11 @@ val settings = Seq(
     name, version, scalaVersion, sbtVersion,
     baseDirectory, datasetDir),
   parallelExecution in Test := false,
+  test in assembly := {},
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x => MergeStrategy.first
+  },
   buildInfoPackage := "com.microsoft.ml.spark.build") ++
   inConfig(IntegrationTest2)(Defaults.testSettings)
 
@@ -354,10 +369,4 @@ pgpPublicRing := {
 
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
-publishTo := Some(
-  if (isSnapshot.value) {
-    Opts.resolver.sonatypeSnapshots
-  } else {
-    Opts.resolver.sonatypeStaging
-  }
-)
+publishTo := sonatypePublishToBundle.value

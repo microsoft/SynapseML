@@ -27,36 +27,6 @@ private object TrainUtils extends Serializable {
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val numRows = rows.length
     val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
-    if (trainParams.objective == LightGBMConstants.MulticlassObjective ||
-      trainParams.objective == LightGBMConstants.BinaryObjective) {
-      val distinctLabels = labels.distinct.map(_.toInt).sorted
-      // TODO: Temporary hack to append missing labels for debugging, off by default
-      //  try to figure out a better fix in lightgbm
-      if (trainParams.asInstanceOf[ClassifierTrainParams].generateMissingLabels) {
-        val (_, missingLabels) =
-          distinctLabels.foldLeft((-1, List[Int]())) {
-            case ((baseCount, baseLabels), newLabel) => {
-              if (newLabel == baseCount + 1) (newLabel, baseLabels)
-              else (baseCount + 1, baseCount + 1 :: baseLabels)
-            }
-          }
-        if (missingLabels.nonEmpty) {
-          // Append missing labels to rows
-          val newRows = rows.take(missingLabels.size).zip(missingLabels).map { case (row, label) =>
-            val rowAsArray = row.toSeq.toArray
-            rowAsArray.update(schema.fieldIndex(labelColumn), label.toDouble)
-            new GenericRowWithSchema(rowAsArray, row.schema)
-          }
-          return generateDataset(rows ++ newRows, labelColumn, featuresColumn, weightColumn, initScoreColumn,
-            groupColumn, referenceDataset, schema, log, trainParams)
-        }
-      } else {
-        val errMsg = "For classification, label values must start from 0 and increase " +
-          "by 1 to n for each partition."
-        distinctLabels.foldLeft(-1)((base, newLabel) => if (newLabel == base + 1) newLabel else
-          throw new Exception(s"$errMsg  Missing label ${base + 1}, unique labels ${distinctLabels.mkString(",")}"))
-      }
-    }
     val hrow = rows.head
     var datasetPtr: Option[LightGBMDataset] = None
     datasetPtr =
@@ -68,7 +38,8 @@ private object TrainUtils extends Serializable {
         val numCols = rowsAsDoubleArray.head.length
         val slotNames = getSlotNames(schema, featuresColumn, numCols)
         log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset, slotNames))
+        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
+          slotNames, trainParams))
       } else {
         val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
@@ -77,7 +48,7 @@ private object TrainUtils extends Serializable {
         val numCols = rowsAsSparse(0).size
         val slotNames = getSlotNames(schema, featuresColumn, numCols)
         log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames))
+        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
 
     // Validate generated dataset has the correct number of rows and cols
