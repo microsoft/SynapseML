@@ -281,24 +281,29 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     )
   }
 
-  ignore("Verify LightGBM Classifier with validation dataset") {
+  test("Verify LightGBM Classifier with validation dataset") {
     val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
 
-    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.6, 0.2, 0.2), seed)
+    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.1, 0.6, 0.3), seed)
     val valid = validIntermediate.withColumn(validationCol, lit(true))
     val trainAndValid = train.union(valid.orderBy(rand()))
 
+    // model1 should overfit on the given dataset
     val model1 = baseModel
       .setNumLeaves(100)
+      .setNumIterations(200)
       .setIsUnbalance(true)
 
+    // model2 should terminate early before overfitting
     val model2 = baseModel
       .setNumLeaves(100)
+      .setNumIterations(200)
       .setIsUnbalance(true)
       .setValidationIndicatorCol(validationCol)
       .setEarlyStoppingRound(5)
 
-    Array("auc", "binary_error", "binary_logloss").foreach { metric =>
+    // Assert evaluation metric improves
+    Array("auc", "binary_logloss", "binary_error").foreach { metric =>
       assertBinaryImprovement(
         model1, train, test,
         model2.setMetric(metric), trainAndValid, test
