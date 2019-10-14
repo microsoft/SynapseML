@@ -12,7 +12,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.DoubleType
 
 //scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM Ranker module. */
@@ -72,7 +72,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   }
 
   test("Throws error when group column is not long or int") {
-    val df = rankingDF.withColumn(queryCol, col(queryCol).cast(StringType))
+    val df = rankingDF.withColumn(queryCol, col(queryCol).cast(DoubleType))
 
     // Throws SparkException instead of IllegalArgumentException because the type
     // inspection is part of the spark job instead of before it
@@ -98,6 +98,8 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray), df)
     assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
       df.withColumn(queryCol, col(queryCol).cast("Int")))
+    assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
+      df.withColumn(queryCol, concat(lit("str_"), col(queryCol))))
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
