@@ -66,42 +66,75 @@ private object TrainUtils extends Serializable {
     datasetPtr
   }
 
+  trait CardinalityType[T] {
+    def isValid(value: T): Boolean
+  }
+
+  object CardinalityTypes {
+
+    implicit object LongType extends CardinalityType[Long] {
+      override def isValid(value: Long): Boolean = {
+        value >= 0
+      }
+    }
+
+    implicit object IntType extends CardinalityType[Int] {
+      override def isValid(value: Int): Boolean = {
+        value >= 0
+      }
+    }
+
+    implicit object StringType extends CardinalityType[String] {
+      override def isValid(value: String): Boolean = {
+        value != null && value != ""
+      }
+    }
+
+  }
+
+  import CardinalityTypes._
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
                      datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
     groupColumn.foreach { col =>
       val datatype = schema.fields(schema.fieldIndex(col)).dataType
 
       if (datatype != org.apache.spark.sql.types.IntegerType
-        && datatype != org.apache.spark.sql.types.LongType) {
-        throw new IllegalArgumentException(s"group column $col must be of type Long or Int but is ${datatype.typeName}")
+        && datatype != org.apache.spark.sql.types.LongType
+        && datatype != org.apache.spark.sql.types.StringType) {
+        throw new IllegalArgumentException(s"group column $col must be of type Long, Int or String but is ${datatype.typeName}")
       }
 
-      val group =
-        if (datatype == org.apache.spark.sql.types.IntegerType) {
-          rows.map(row => row.getInt(schema.fieldIndex(col)))
-        } else {
-          rows.map(row => row.getLong(schema.fieldIndex(col)).toInt)
-        }
+      val colIdx = schema.fieldIndex(col)
 
       // Convert to distinct count (note ranker should have sorted within partition by group id)
       // We use a triplet of a list of cardinalities, last unqiue value and unique value count
-      val cardinalityTriplet =
-      group.foldLeft((List.empty[Int], -1, 0)) { (listValue, currentValue) =>
-        if (listValue._2 < 0) {
-          // Base case, keep list as empty and set cardinality to 1
-          (listValue._1, currentValue, 1)
-        }
-        else if (listValue._2 == currentValue) {
-          // Encountered same value
-          (listValue._1, currentValue, listValue._3 + 1)
-        }
-        else {
-          // New value, need to reset counter and add new cardinality to list
-          (listValue._3 :: listValue._1, currentValue, 1)
-        }
+      val cardinalityTriplet = datatype match {
+        case org.apache.spark.sql.types.IntegerType => countCardinality(rows.map(row => row.getInt(colIdx)))
+        case org.apache.spark.sql.types.LongType => countCardinality(rows.map(row => row.getLong(colIdx)))
+        case org.apache.spark.sql.types.StringType => countCardinality(rows.map(row => row.getString(colIdx)))
       }
+
       val groupCardinality = (cardinalityTriplet._3 :: cardinalityTriplet._1).reverse.toArray
       datasetPtr.get.addIntField(groupCardinality, "group", groupCardinality.length)
+    }
+  }
+
+
+  def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): (List[Int], T, Int) = {
+    val default: T = null.asInstanceOf[T]
+    input.foldLeft((List.empty[Int], default, 0)) { (listValue, currentValue) =>
+      if (!ev.isValid(listValue._2)) {
+        // Base case, keep list as empty and set cardinality to 1
+        (listValue._1, currentValue, 1)
+      }
+      else if (listValue._2 == currentValue) {
+        // Encountered same value
+        (listValue._1, currentValue, listValue._3 + 1)
+      }
+      else {
+        // New value, need to reset counter and add new cardinality to list
+        (listValue._3 :: listValue._1, currentValue, 1)
+      }
     }
   }
 
