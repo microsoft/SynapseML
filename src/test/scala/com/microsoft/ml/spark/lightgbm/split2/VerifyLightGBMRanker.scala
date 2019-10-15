@@ -81,7 +81,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     }
   }
 
-  test("Verify LightGBM Ranker with int and long query column") {
+  test("Verify LightGBM Ranker with int, long and string query column") {
     val baseDF = Seq(
       (0L, 1, 1.2, 2.3),
       (0L, 0, 3.2, 2.35),

@@ -38,18 +38,25 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def castColumns(dataset: Dataset[_], trainingCols: Array[(String, Option[DataType])]): DataFrame = {
+  protected def castColumns(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])]): DataFrame = {
     val schema = dataset.schema
     // Cast columns to correct types
     dataset.select(
-      trainingCols.filter(_._2.isDefined).map {
-        case (name, Some(datatype)) => {
+      trainingCols.map {
+        case (name, datatypes: Seq[DataType]) => {
           val index = schema.fieldIndex(name)
           // Note: We only want to cast if original column was of numeric type
+
           schema.fields(index).dataType match {
             case numericDataType: NumericType =>
-              if (numericDataType != datatype) dataset(name).cast(datatype)
-              else dataset(name)
+              // If more than one datatype is allowed, see if any match
+              if (datatypes.contains(numericDataType)) {
+                dataset(name)
+              } else {
+                // If none match, cast to the first option
+                dataset(name).cast(datatypes.head)
+              }
+
             case _ => dataset(name)
           }
         }
@@ -57,7 +64,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     ).toDF()
   }
 
-  protected def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Option[DataType])],
+  protected def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
                                  numWorkers: Int): DataFrame = {
     val df = castColumns(dataset, trainingCols)
     // Reduce number of partitions to number of executor cores
@@ -95,16 +102,16 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def getTrainingCols(): Array[(String, Option[DataType])] = {
-    val colsToCheck: Array[(Option[String], Option[DataType])] = Array(
-      (Some(getLabelCol), Some(DoubleType)),
-      (Some(getFeaturesCol), Some(VectorType)),
-      (get(weightCol), Some(DoubleType)),
-      (getOptGroupCol, None), // GroupCol can be any of Int/Long/String
-      (get(validationIndicatorCol), Some(BooleanType)),
-      (get(initScoreCol), Some(DoubleType)))
+  protected def getTrainingCols(): Array[(String, Seq[DataType])] = {
+    val colsToCheck: Array[(Option[String], Seq[DataType])] = Array(
+      (Some(getLabelCol), Seq(DoubleType)),
+      (Some(getFeaturesCol), Seq(VectorType)),
+      (get(weightCol), Seq(DoubleType)),
+      (getOptGroupCol, Seq(IntegerType, LongType, StringType)),
+      (get(validationIndicatorCol), Seq(BooleanType)),
+      (get(initScoreCol), Seq(DoubleType)))
 
-    colsToCheck.flatMap { case (col: Option[String], colType: Option[DataType]) => {
+    colsToCheck.flatMap { case (col: Option[String], colType: Seq[DataType]) => {
       if (col.isDefined) Some(col.get, colType) else None
     }
     }
