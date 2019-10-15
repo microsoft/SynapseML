@@ -8,14 +8,13 @@ import java.net._
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import org.apache.spark.BarrierTaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
-import org.apache.spark.BarrierTaskContext
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 
@@ -93,6 +92,7 @@ private object TrainUtils extends Serializable {
   }
 
   import CardinalityTypes._
+
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
                      datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
     groupColumn.foreach { col =>
@@ -114,26 +114,28 @@ private object TrainUtils extends Serializable {
         case org.apache.spark.sql.types.StringType => countCardinality(rows.map(row => row.getString(colIdx)))
       }
 
-      val groupCardinality = (cardinalityTriplet._3 :: cardinalityTriplet._1).reverse.toArray
+      val groupCardinality = (cardinalityTriplet.currentCount :: cardinalityTriplet.groupCounts).reverse.toArray
       datasetPtr.get.addIntField(groupCardinality, "group", groupCardinality.length)
     }
   }
 
+  case class CardinalityTriplet[T](groupCounts: List[Int], currentValue: T, currentCount: Int)
 
-  def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): (List[Int], T, Int) = {
+  def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): CardinalityTriplet[T] = {
     val default: T = null.asInstanceOf[T]
-    input.foldLeft((List.empty[Int], default, 0)) { (listValue, currentValue) =>
-      if (!ev.isValid(listValue._2)) {
+
+    input.foldLeft(CardinalityTriplet(List.empty[Int], default, 0)) { (listValue: CardinalityTriplet[T], currentValue) =>
+      if (!ev.isValid(listValue.currentValue)) {
         // Base case, keep list as empty and set cardinality to 1
-        (listValue._1, currentValue, 1)
+        CardinalityTriplet(listValue.groupCounts, currentValue, 1)
       }
-      else if (listValue._2 == currentValue) {
+      else if (listValue.currentValue == currentValue) {
         // Encountered same value
-        (listValue._1, currentValue, listValue._3 + 1)
+        CardinalityTriplet(listValue.groupCounts, currentValue, listValue.currentCount + 1)
       }
       else {
         // New value, need to reset counter and add new cardinality to list
-        (listValue._3 :: listValue._1, currentValue, 1)
+        CardinalityTriplet(listValue.currentCount :: listValue.groupCounts, currentValue, 1)
       }
     }
   }
