@@ -65,29 +65,15 @@ private object TrainUtils extends Serializable {
     datasetPtr
   }
 
-  trait CardinalityType[T] {
-    def isValid(value: T): Boolean
-  }
+  trait CardinalityType[T] {}
 
   object CardinalityTypes {
 
-    implicit object LongType extends CardinalityType[Long] {
-      override def isValid(value: Long): Boolean = {
-        value >= 0
-      }
-    }
+    implicit object LongType extends CardinalityType[Long] {}
 
-    implicit object IntType extends CardinalityType[Int] {
-      override def isValid(value: Int): Boolean = {
-        value >= 0
-      }
-    }
+    implicit object IntType extends CardinalityType[Int] {}
 
-    implicit object StringType extends CardinalityType[String] {
-      override def isValid(value: String): Boolean = {
-        value != null && value != ""
-      }
-    }
+    implicit object StringType extends CardinalityType[String] {}
 
   }
 
@@ -108,36 +94,40 @@ private object TrainUtils extends Serializable {
 
       // Convert to distinct count (note ranker should have sorted within partition by group id)
       // We use a triplet of a list of cardinalities, last unqiue value and unique value count
-      val cardinalityTriplet = datatype match {
+      val groupCardinality = datatype match {
         case org.apache.spark.sql.types.IntegerType => countCardinality(rows.map(row => row.getInt(colIdx)))
         case org.apache.spark.sql.types.LongType => countCardinality(rows.map(row => row.getLong(colIdx)))
         case org.apache.spark.sql.types.StringType => countCardinality(rows.map(row => row.getString(colIdx)))
       }
 
-      val groupCardinality = (cardinalityTriplet.currentCount :: cardinalityTriplet.groupCounts).reverse.toArray
       datasetPtr.get.addIntField(groupCardinality, "group", groupCardinality.length)
     }
   }
 
   case class CardinalityTriplet[T](groupCounts: List[Int], currentValue: T, currentCount: Int)
 
-  def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): CardinalityTriplet[T] = {
+  def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): Array[Int] = {
     val default: T = null.asInstanceOf[T]
 
-    input.foldLeft(CardinalityTriplet(List.empty[Int], default, 0)) { (listValue: CardinalityTriplet[T], currentValue) =>
-      if (!ev.isValid(listValue.currentValue)) {
-        // Base case, keep list as empty and set cardinality to 1
-        CardinalityTriplet(listValue.groupCounts, currentValue, 1)
-      }
-      else if (listValue.currentValue == currentValue) {
-        // Encountered same value
-        CardinalityTriplet(listValue.groupCounts, currentValue, listValue.currentCount + 1)
-      }
-      else {
-        // New value, need to reset counter and add new cardinality to list
-        CardinalityTriplet(listValue.currentCount :: listValue.groupCounts, currentValue, 1)
-      }
+    val cardinalityTriplet = input.foldLeft(CardinalityTriplet(List.empty[Int], default, 0)) {
+      case (listValue: CardinalityTriplet[T], currentValue) =>
+
+        if (listValue.groupCounts.isEmpty && listValue.currentCount == 0) {
+          // Base case, keep list as empty and set cardinality to 1
+          CardinalityTriplet(listValue.groupCounts, currentValue, 1)
+        }
+        else if (listValue.currentValue == currentValue) {
+          // Encountered same value
+          CardinalityTriplet(listValue.groupCounts, currentValue, listValue.currentCount + 1)
+        }
+        else {
+          // New value, need to reset counter and add new cardinality to list
+          CardinalityTriplet(listValue.currentCount :: listValue.groupCounts, currentValue, 1)
+        }
     }
+
+    val groupCardinality = (cardinalityTriplet.currentCount :: cardinalityTriplet.groupCounts).reverse.toArray
+    groupCardinality
   }
 
   def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[LightGBMDataset],
