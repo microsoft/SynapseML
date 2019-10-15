@@ -5,14 +5,16 @@ package com.microsoft.ml.spark.lightgbm.split2
 
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.lightgbm.TrainUtils.CardinalityTypes._
 import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
-import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
+import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils, TrainUtils}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.types.StructType
+import org.scalatest.Matchers._
 
 //scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM Ranker module. */
@@ -71,8 +73,8 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     assertFitWithoutErrors(baseModel, rankingDF)
   }
 
-  test("Throws error when group column is not long or int") {
-    val df = rankingDF.withColumn(queryCol, col(queryCol).cast(DoubleType))
+  test("Throws error when group column is not long, int or string") {
+    val df = rankingDF.withColumn(queryCol, from_json(lit("{}"), StructType(Seq())))
 
     // Throws SparkException instead of IllegalArgumentException because the type
     // inspection is part of the spark job instead of before it
@@ -100,6 +102,18 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       df.withColumn(queryCol, col(queryCol).cast("Int")))
     assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
       df.withColumn(queryCol, concat(lit("str_"), col(queryCol))))
+  }
+
+  test("verify cardinality counts: int") {
+    val counts = TrainUtils.countCardinality(Seq(1, 1, 2, 2, 2, 3))
+
+    counts shouldBe Seq(2, 3, 1)
+  }
+
+  test("verify cardinality counts: string") {
+    val counts = TrainUtils.countCardinality(Seq("a", "a", "b", "b", "b", "c"))
+
+    counts shouldBe Seq(2, 3, 1)
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
