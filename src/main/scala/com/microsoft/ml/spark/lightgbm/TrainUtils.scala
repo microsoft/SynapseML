@@ -65,15 +65,15 @@ private object TrainUtils extends Serializable {
     datasetPtr
   }
 
-  trait CardinalityType[T] {}
+  trait CardinalityType[T]
 
   object CardinalityTypes {
 
-    implicit object LongType extends CardinalityType[Long] {}
+    implicit object LongType extends CardinalityType[Long]
 
-    implicit object IntType extends CardinalityType[Int] {}
+    implicit object IntType extends CardinalityType[Int]
 
-    implicit object StringType extends CardinalityType[String] {}
+    implicit object StringType extends CardinalityType[String]
 
   }
 
@@ -87,7 +87,8 @@ private object TrainUtils extends Serializable {
       if (datatype != org.apache.spark.sql.types.IntegerType
         && datatype != org.apache.spark.sql.types.LongType
         && datatype != org.apache.spark.sql.types.StringType) {
-        throw new IllegalArgumentException(s"group column $col must be of type Long, Int or String but is ${datatype.typeName}")
+        throw new IllegalArgumentException(
+          s"group column $col must be of type Long, Int or String but is ${datatype.typeName}")
       }
 
       val colIdx = schema.fieldIndex(col)
