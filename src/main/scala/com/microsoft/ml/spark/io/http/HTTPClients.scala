@@ -7,15 +7,15 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StringType
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, blocking}
 import scala.concurrent.duration.Duration
 import scala.util.Try
-import scala.concurrent.blocking
 
 trait Handler {
 
@@ -38,7 +38,15 @@ private[ml] trait HTTPClient extends BaseClient
     .setSocketTimeout(requestTimeout)
     .build()
 
+  protected val connectionManager = {
+    val cm = new PoolingHttpClientConnectionManager()
+    cm.setDefaultMaxPerRoute(Int.MaxValue) // Spark will handle the threading to avoid going over limits
+    cm.setMaxTotal(Int.MaxValue)
+    cm
+  }
+
   protected val internalClient: Client = HttpClientBuilder.create()
+    .setConnectionManager(connectionManager)
     .setDefaultRequestConfig(requestConfig).build()
 
   override def close(): Unit = {
@@ -82,7 +90,7 @@ object HandlingUtils extends SparkLogging {
                 case _ => request.getURI
               }
             }")
-            blocking {Thread.sleep(h.getValue.toLong * 1000)}
+            Thread.sleep(h.getValue.toLong * 1000)
           }
         false
       case 400 =>
@@ -102,7 +110,7 @@ object HandlingUtils extends SparkLogging {
       response
     } else {
       response.close()
-      blocking {Thread.sleep(retriesLeft.head.toLong)}
+      Thread.sleep(retriesLeft.head.toLong)
       sendWithRetries(client, request, retriesLeft.tail)
     }
   }
@@ -149,11 +157,11 @@ class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
                      (override implicit val ec: ExecutionContext)
   extends AsyncClient(concurrency, timeout)(ec) with HTTPClient {
   override def handle(client: CloseableHttpClient,
-                      request: HTTPRequestData): HTTPResponseData = handler(client, request)
+                      request: HTTPRequestData): HTTPResponseData = blocking {handler(client, request)}
 }
 
 class SingleThreadedHTTPClient(val handler: HandlingUtils.HandlerFunc, val requestTimeout: Int)
   extends HTTPClient with SingleThreadedClient {
   override def handle(client: CloseableHttpClient,
-                      request: HTTPRequestData): HTTPResponseData = handler(client, request)
+                      request: HTTPRequestData): HTTPResponseData = blocking {handler(client, request)}
 }
