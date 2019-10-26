@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.http
 
 import java.net.{SocketException, URI}
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.sun.net.httpserver.HttpExchange
@@ -192,7 +193,8 @@ case class HTTPRequestData(requestLine: RequestLineData,
     request.setURI(new URI(requestLine.uri))
     requestLine.protocolVersion.foreach(pv =>
       request.setProtocolVersion(pv.toHTTPCore))
-    request.setHeaders(headers.map(_.toHTTPCore))
+    request.setHeaders(headers.map(_.toHTTPCore) ++
+        Array(new BasicHeader("User-Agent", s"mmlspark/${BuildInfo.version}")))
     request
   }
 
