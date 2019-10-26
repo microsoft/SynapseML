@@ -7,6 +7,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 
 import scala.concurrent.blocking
 import scala.util.Try
@@ -20,8 +21,16 @@ object RESTHelpers {
     .setSocketTimeout(RequestTimeout)
     .build()
 
+  lazy val ConnectionManager = {
+    val cm = new PoolingHttpClientConnectionManager()
+    cm.setDefaultMaxPerRoute(Int.MaxValue)
+    cm.setMaxTotal(Int.MaxValue)
+    cm
+  }
+
   lazy val Client: CloseableHttpClient = HttpClientBuilder
-    .create().setDefaultRequestConfig(RequestConfigVal).build()
+    .create().setConnectionManager(ConnectionManager)
+    .setDefaultRequestConfig(RequestConfigVal).build()
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
     try {
