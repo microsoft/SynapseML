@@ -56,7 +56,8 @@ abstract class AsyncClient(val concurrency: Int,
   (requests: Iterator[RequestWithContext]): Iterator[ResponseWithContext] = {
     val futureResponses = requests.map(r => Future {
       sendRequestWithContext(r)
-    })
+    }(ExecutionContext.global)
+    )
     AsyncUtils.bufferedAwait(futureResponses, concurrency, timeout)
   }
 }
