@@ -37,6 +37,13 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
+
+  val numBatches = new IntParam(this, "numBatches",
+    "If greater than 0, splits data into separate batches during training")
+  setDefault(numBatches -> 0)
+
+  def getNumBatches: Int = $(numBatches)
+  def setNumBatches(value: Int): this.type = set(numBatches, value)
 }
 
 /** Defines common parameters across all LightGBM learners.
@@ -172,13 +179,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getLambdaL2: Double = $(lambdaL2)
   def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
 
-  val numBatches = new IntParam(this, "numBatches",
-    "If greater than 0, splits data into separate batches during training")
-  setDefault(numBatches -> 0)
-
-  def getNumBatches: Int = $(numBatches)
-  def setNumBatches(value: Int): this.type = set(numBatches, value)
-
   val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
     "Whether output metric result over training dataset.")
   setDefault(isProvideTrainingMetric -> false)
@@ -219,4 +219,25 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMetric: String = $(metric)
   def setMetric(value: String): this.type = set(metric, value)
+
+  val minGainToSplit = new DoubleParam(this, "minGainToSplit",
+    "The minimal gain to perform split")
+  setDefault(minGainToSplit -> 0.0)
+
+  def getMinGainToSplit: Double = $(minGainToSplit)
+  def setMinGainToSplit(value: Double): this.type = set(minGainToSplit, value)
+
+  val maxDeltaStep = new DoubleParam(this, "maxDeltaStep",
+    "Used to limit the max output of tree leaves")
+  setDefault(maxDeltaStep -> 0.0)
+
+  def getMaxDeltaStep: Double = $(maxDeltaStep)
+  def setMaxDeltaStep(value: Double): this.type = set(maxDeltaStep, value)
+
+  val maxBinByFeature = new IntArrayParam(this, "maxBinByFeature",
+    "Max number of bins for each feature")
+  setDefault(maxBinByFeature -> Array.empty)
+
+  def getMaxBinByFeature: Array[Int] = $(maxBinByFeature)
+  def setMaxBinByFeature(value: Array[Int]): this.type = set(maxBinByFeature, value)
 }
