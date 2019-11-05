@@ -251,6 +251,23 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
+  test("Verify LightGBM Classifier with min gain to split parameter") {
+    // If the min gain to split is too high, assert AUC lower for training data (assert parameter works)
+    val scoredDF1 = baseModel.setMinGainToSplit(99999).fit(pimaDF).transform(pimaDF)
+    val scoredDF2 = baseModel.fit(pimaDF).transform(pimaDF)
+    assertBinaryImprovement(scoredDF1, scoredDF2)
+  }
+
+  test("Verify LightGBM Classifier with max delta step parameter") {
+    // If the max delta step is specified, assert AUC differs (assert parameter works)
+    // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
+    val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
+    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(100)
+    val scoredDF1 = baseModelWithLR.fit(train).transform(test)
+    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.1).fit(train).transform(test)
+    assertBinaryImprovement(scoredDF1, scoredDF2)
+  }
+
   test("Verify LightGBM Classifier with weight column") {
     val model = baseModel.setWeightCol(weightCol)
 

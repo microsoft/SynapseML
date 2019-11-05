@@ -28,6 +28,9 @@ abstract class TrainParams extends Serializable {
   def lambdaL2: Double
   def isProvideTrainingMetric: Boolean
   def metric: String
+  def minGainToSplit: Double
+  def maxDeltaStep: Double
+  def maxBinByFeature: Array[Int]
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -38,8 +41,10 @@ abstract class TrainParams extends Serializable {
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
       s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
-      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  metric=$metric " +
-      (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")}")
+      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  metric=$metric min_gain_to_split=$minGainToSplit " +
+      s"max_delta_step=$maxDeltaStep " +
+      (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
+      (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")}")
   }
 }
 
@@ -53,7 +58,8 @@ case class ClassifierTrainParams(parallelism: String, numIterations: Int, learni
                                  isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
                                  numClass: Int, boostFromAverage: Boolean,
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
-                                 isProvideTrainingMetric: Boolean, metric: String)
+                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
+                                 maxDeltaStep: Double, maxBinByFeature: Array[Int])
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -74,7 +80,8 @@ case class RegressorTrainParams(parallelism: String, numIterations: Int, learnin
                                 modelString: Option[String], verbosity: Int,
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
-                                isProvideTrainingMetric: Boolean, metric: String)
+                                isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
+                                maxDeltaStep: Double, maxBinByFeature: Array[Int])
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -93,7 +100,8 @@ case class RankerTrainParams(parallelism: String, numIterations: Int, learningRa
                              categoricalFeatures: Array[Int], boostingType: String,
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
-                             metric: String, evalAt: Array[Int])
+                             metric: String, evalAt: Array[Int], minGainToSplit: Double,
+                             maxDeltaStep: Double, maxBinByFeature: Array[Int])
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
