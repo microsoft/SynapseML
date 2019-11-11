@@ -108,6 +108,19 @@ class LightGBMBooster(val model: String) extends Serializable {
     dataset.coalesce(1).write.mode(mode).text(filename)
   }
 
+  def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
+    if (boosterPtr == null) {
+      LightGBMUtils.initializeNativeLibrary()
+      boosterPtr = getBoosterPtrFromModelString(model)
+    }
+    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterPtr, 0, 0, 1, lightgbmlib.new_int64_tp())
+    val rdd = session.sparkContext.parallelize(Seq(json))
+    import session.sqlContext.implicits._
+    val dataset = session.sqlContext.createDataset(rdd)
+    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
+    dataset.coalesce(1).write.mode(mode).text(filename)
+  }
+
   /**
     * Calls into LightGBM to retrieve the feature importances.
     * @param importanceType Can be "split" or "gain"
