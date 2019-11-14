@@ -284,6 +284,7 @@ jobs:
         azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
+          export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
