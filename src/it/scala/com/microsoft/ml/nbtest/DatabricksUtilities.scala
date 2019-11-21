@@ -49,7 +49,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
-    Map("pypi" -> Map("package" -> "nltk"))
+    Map("pypi" -> Map("package" -> "nltk")),
+    Map("pypi" -> Map("package" -> "bs4"))
   ).toJson.compactPrint
 
   // Execution Params
