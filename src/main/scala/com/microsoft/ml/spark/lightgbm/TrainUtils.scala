@@ -35,7 +35,7 @@ private object TrainUtils extends Serializable {
           case sparse: SparseVector => sparse.toDense.toArray
         })
         val numCols = rowsAsDoubleArray.head.length
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
           slotNames, trainParams))
@@ -45,7 +45,7 @@ private object TrainUtils extends Serializable {
           case sparse: SparseVector => sparse
         })
         val numCols = rowsAsSparse(0).size
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
@@ -232,18 +232,23 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int): Option[Array[String]] = {
-    val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    if (metadata.attributes.isEmpty) None
-    else if (metadata.attributes.get.isEmpty) None
-    else {
-      val colnames = (0 until numCols).map(_.toString).toArray
-      metadata.attributes.get.foreach {
-        case attr =>
-          attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
+  def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int,
+                   trainParams: TrainParams): Option[Array[String]] = {
+    if(trainParams.featureNames.nonEmpty) {
+      Some(trainParams.featureNames)
+    } else {
+      val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
+      val metadata = AttributeGroup.fromStructField(featuresSchema)
+      if (metadata.attributes.isEmpty) None
+      else if (metadata.attributes.get.isEmpty) None
+      else {
+        val colnames = (0 until numCols).map(_.toString).toArray
+        metadata.attributes.get.foreach {
+          case attr =>
+            attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
+        }
+        Some(colnames)
       }
-      Some(colnames)
     }
   }
 

@@ -139,6 +139,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
 
+  val slotNames = new StringArrayParam(this, "slotNames", "List of slot names in the features column")
+
+  def getSlotNames: Array[String] = $(slotNames)
+  def setSlotNames(value: Array[String]): this.type = set(slotNames, value)
+
   val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
     "List of categorical column indexes, the slot index in the features column")
 

@@ -31,6 +31,7 @@ abstract class TrainParams extends Serializable {
   def minGainToSplit: Double
   def maxDeltaStep: Double
   def maxBinByFeature: Array[Int]
+  def featureNames: Array[String]
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -59,7 +60,7 @@ case class ClassifierTrainParams(parallelism: String, numIterations: Int, learni
                                  numClass: Int, boostFromAverage: Boolean,
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                 maxDeltaStep: Double, maxBinByFeature: Array[Int])
+                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -81,7 +82,7 @@ case class RegressorTrainParams(parallelism: String, numIterations: Int, learnin
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                maxDeltaStep: Double, maxBinByFeature: Array[Int])
+                                maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -101,7 +102,7 @@ case class RankerTrainParams(parallelism: String, numIterations: Int, learningRa
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
-                             maxDeltaStep: Double, maxBinByFeature: Array[Int])
+                             maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
