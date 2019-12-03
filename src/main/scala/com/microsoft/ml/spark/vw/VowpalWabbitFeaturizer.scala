@@ -59,47 +59,85 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
 
   private def getAllInputCols = getInputCols ++ getStringSplitInputCols
 
-  private def getFeaturizer(name: String, dataType: DataType, idx: Int, namespaceHash: Int): Featurizer = {
-    val stringSplitInputCols = getStringSplitInputCols
+  private def getFeaturizer(name: String,
+                            dataType: DataType,
+                            nullable: Boolean,
+                            idx: Int,
+                            namespaceHash: Int): Featurizer = {
 
     val prefixName = if (getPrefixStringsWithColumnName) name else ""
 
     dataType match {
-      case DoubleType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getDouble(idx))
-      case FloatType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getFloat(idx).toDouble)
-      case IntegerType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getInt(idx).toDouble)
-      case LongType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getLong(idx).toDouble)
-      case ShortType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getShort(idx).toDouble)
-      case ByteType => new NumericFeaturizer(idx, prefixName, namespaceHash, getMask, r => r.getByte(idx).toDouble)
+      case DoubleType => getNumericFeaturizer[Double](prefixName, nullable, idx, namespaceHash)
+      case FloatType => getNumericFeaturizer[Float](prefixName, nullable, idx, namespaceHash)
+      case IntegerType => getNumericFeaturizer[Int](prefixName, nullable, idx, namespaceHash)
+      case LongType => getNumericFeaturizer[Long](prefixName, nullable, idx, namespaceHash)
+      case ShortType => getNumericFeaturizer[Short](prefixName, nullable, idx, namespaceHash)
+      case ByteType => getNumericFeaturizer[Byte](prefixName, nullable, idx, namespaceHash)
       case BooleanType => new BooleanFeaturizer(idx, prefixName, namespaceHash, getMask)
-      case StringType =>
-        if (stringSplitInputCols.contains(name))
-          new StringSplitFeaturizer(idx, prefixName, namespaceHash, getMask)
-      else new StringFeaturizer(idx, prefixName, namespaceHash, getMask)
-      case arr: ArrayType =>
-        if (arr.elementType != DataTypes.StringType)
-          throw new RuntimeException(s"Unsupported array element type: $dataType")
-        new StringArrayFeaturizer(idx, prefixName, namespaceHash, getMask)
+      case StringType => getStringFeaturizer(name, prefixName, idx, namespaceHash)
+      case arr: ArrayType => getArrayFeaturizer(name, arr, nullable, idx)
+      case struct: StructType => getStructFeaturizer(struct, name, nullable, idx)
+      case m: MapType => getMapFeaturizer(prefixName, m, idx, namespaceHash)
+      case m: Any =>getOtherFeaturizer(m, prefixName, idx)
+    }
+  }
 
-      case m: MapType =>
-        if (m.keyType != DataTypes.StringType)
-          throw new RuntimeException(s"Unsupported map key type: $dataType")
+  private def getNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](prefixName: String,
+                                                                       nullable: Boolean,
+                                                                       idx: Int,
+                                                                       namespaceHash: Int): Featurizer = {
+    if (nullable)
+      new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask)
+    else
+      new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask)
+  }
 
-        m.valueType match {
-          case StringType => new MapStringFeaturizer(idx, prefixName, namespaceHash, getMask)
-          case DoubleType => new MapFeaturizer[Double](idx, prefixName, namespaceHash, getMask, v => v)
-          case FloatType => new MapFeaturizer[Float](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
-          case IntegerType => new MapFeaturizer[Int](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
-          case LongType => new MapFeaturizer[Long](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
-          case ShortType => new MapFeaturizer[Short](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
-          case ByteType => new MapFeaturizer[Byte](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
-          case _ => throw new RuntimeException(s"Unsupported map value type: $dataType")
-        }
-      case m: Any =>
-        if (m == VectorType) // unfortunately the type is private
-          new VectorFeaturizer(idx, prefixName, getMask)
-        else
-          throw new RuntimeException(s"Unsupported data type: $dataType")
+  private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int): Featurizer = {
+    // println(s"Array namespace: $name")
+    new SeqFeaturizer(idx, name, getFeaturizer(name, dataType.elementType, nullable, idx, this.getSeed))
+  }
+
+  private def getOtherFeaturizer(dataType: Any, prefixName: String, idx: Int): Featurizer =
+    if (dataType == VectorType) // unfortunately the type is private
+      new VectorFeaturizer(idx, prefixName, getMask)
+    else
+      throw new RuntimeException(s"Unsupported data type: $dataType")
+
+  private def getStringFeaturizer(name: String, prefixName: String, idx: Int, namespaceHash: Int): Featurizer =
+    if (getStringSplitInputCols.contains(name))
+      new StringSplitFeaturizer(idx, prefixName, namespaceHash, getMask)
+    else
+      new StringFeaturizer(idx, prefixName, namespaceHash, getMask)
+
+  private def getStructFeaturizer(dataType: StructType,
+                                  name: String,
+                                  nullable: Boolean,
+                                  idx: Int): Featurizer = {
+    val namespaceHash = VowpalWabbitMurmur.hash(name, this.getSeed)
+    val subFeaturizers = dataType.fields
+      .zipWithIndex
+      .map { case (f, i) => getFeaturizer(f.name, f.dataType, f.nullable, i, namespaceHash) }
+
+    if (nullable)
+      new NullableStructFeaturizer(idx, name, subFeaturizers)
+    else
+      new StructFeaturizer(idx, name, subFeaturizers)
+  }
+
+  private def getMapFeaturizer(prefixName: String, dataType: MapType, idx: Int, namespaceHash: Int): Featurizer = {
+    if (dataType.keyType != DataTypes.StringType)
+      throw new RuntimeException(s"Unsupported map key type: $dataType")
+
+    dataType.valueType match {
+      case StringType => new MapStringFeaturizer(idx, prefixName, namespaceHash, getMask)
+      case DoubleType => new MapFeaturizer[Double](idx, prefixName, namespaceHash, getMask, v => v)
+      case FloatType => new MapFeaturizer[Float](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
+      case IntegerType => new MapFeaturizer[Int](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
+      case LongType => new MapFeaturizer[Long](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
+      case ShortType => new MapFeaturizer[Short](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
+      case ByteType => new MapFeaturizer[Byte](idx, prefixName, namespaceHash, getMask, v => v.toDouble)
+      case _ => throw new RuntimeException(s"Unsupported map value type: $dataType")
     }
   }
 
@@ -118,7 +156,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       .filter(f => inputColsList.contains(f.name))
 
     val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
-      .map { case (field, idx) => getFeaturizer(field.name, field.dataType, idx, namespaceHash) }
+      .map { case (field, idx) => getFeaturizer(field.name, field.dataType, field.nullable, idx, namespaceHash) }
 
         // TODO: list types
         // BinaryType
@@ -126,7 +164,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
         // DateType
         // NullType
         // TimestampType
-        // getStruct
 
     val mode = udf((r: Row) => {
       val indices = mutable.ArrayBuilder.make[Int]

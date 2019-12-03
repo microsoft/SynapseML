@@ -18,7 +18,7 @@ import scala.collection.mutable
 class BooleanFeaturizer(override val fieldIdx: Int,
                         override val columnName: String,
                         namespaceHash: Int, mask: Int)
-  extends Featurizer(fieldIdx) {
+  extends Featurizer(fieldIdx) with ElementFeaturizer[Boolean] {
 
   /**
     * Pre-hashed feature index.
@@ -36,12 +36,18 @@ class BooleanFeaturizer(override val fieldIdx: Int,
   override def featurize(row: Row,
                          indices: mutable.ArrayBuilder[Int],
                          values: mutable.ArrayBuilder[Double]): Unit = {
-    if (row.getBoolean(fieldIdx)) {
-        indices += featureIdx
-        values += 1.0
-    }
 
-    ()
+    featurize(0, row.getBoolean(fieldIdx), indices, values)
+  }
+
+  def featurize(idx: Int,
+                value: Boolean,
+                indices: mutable.ArrayBuilder[Int],
+                values: mutable.ArrayBuilder[Double]): Unit = {
+    if (value) {
+      indices += featureIdx + idx
+      values += 1.0
+    }
   }
 }
 

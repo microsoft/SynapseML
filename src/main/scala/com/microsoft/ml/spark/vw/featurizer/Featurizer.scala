@@ -25,5 +25,7 @@ abstract class Featurizer(val fieldIdx: Int) extends Serializable {
     * @note this interface isn't very Scala idiomatic, but it avoids lots of allocation.
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
-  def featurize(row: Row, indices: mutable.ArrayBuilder[Int], values: mutable.ArrayBuilder[Double]): Unit
+  def featurize(row: Row,
+                indices: mutable.ArrayBuilder[Int],
+                values: mutable.ArrayBuilder[Double]): Unit
 }

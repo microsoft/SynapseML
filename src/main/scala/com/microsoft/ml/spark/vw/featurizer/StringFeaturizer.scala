@@ -18,7 +18,7 @@ class StringFeaturizer(override val fieldIdx: Int,
                        override val columnName: String,
                        val namespaceHash: Int,
                        val mask: Int)
-  extends Featurizer(fieldIdx) {
+  extends Featurizer(fieldIdx) with ElementFeaturizer[String] {
 
   /**
     * Featurize a single row.
@@ -29,9 +29,19 @@ class StringFeaturizer(override val fieldIdx: Int,
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
   override def featurize(row: Row, indices: mutable.ArrayBuilder[Int], values: mutable.ArrayBuilder[Double]): Unit = {
-    indices += mask & hasher.hash(row.getString(fieldIdx), namespaceHash)
-    values += 1.0
+    featurize(0, row.getString(fieldIdx), indices, values)
 
     ()
+  }
+
+  def featurize(idx: Int,
+                value: String,
+                indices: mutable.ArrayBuilder[Int],
+                values: mutable.ArrayBuilder[Double]): Unit = {
+
+    if (value != null && !value.isEmpty) {
+      indices += mask & hasher.hash(value, namespaceHash)
+      values += 1.0
+    }
   }
 }

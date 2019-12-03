@@ -115,6 +115,9 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     assert(v1.numNonzeros == 2)
 
+    println(v1)
+    val namespaceFeatures = VowpalWabbitMurmur.hash("in", 0)
+    // TODO
     assert(v1.indices(0) == (defaultMask &
       VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
     assert(v1.indices(1) == (defaultMask &
