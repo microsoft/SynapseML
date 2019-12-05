@@ -41,6 +41,7 @@ object SparkSessionFactory {
         .setMaster(if (numRetries == 1){s"local[$cores]"}else{s"local[$cores, $numRetries]"})
         .set("spark.logConf", "true")
         .set("spark.sql.shuffle.partitions", "20")
+        .set("spark.driver.maxResultSize", "6g")
         .set("spark.sql.warehouse.dir", SparkSessionFactory.LocalWarehousePath)
     val sess = SparkSession.builder()
       .config(conf)
