@@ -90,6 +90,18 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getBaggingFraction: Double = $(baggingFraction)
   def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
 
+  val posBaggingFraction = new DoubleParam(this, "posBaggingFraction", "Positive Bagging fraction")
+  setDefault(posBaggingFraction->1)
+
+  def getPosBaggingFraction: Double = $(posBaggingFraction)
+  def setPosBaggingFraction(value: Double): this.type = set(posBaggingFraction, value)
+
+  val negBaggingFraction = new DoubleParam(this, "negBaggingFraction", "Negative Bagging fraction")
+  setDefault(posBaggingFraction->1)
+
+  def getNegBaggingFraction: Double = $(negBaggingFraction)
+  def setNegBaggingFraction(value: Double): this.type = set(negBaggingFraction, value)
+
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
 
