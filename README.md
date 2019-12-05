@@ -22,7 +22,7 @@ can embed **any** web service into their SparkML models. In this vein, MMLSpark 
 SparkML transformers for a wide variety of [Microsoft Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/). For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
-MMLSpark requires Scala 2.11, Spark 2.3+, and either Python 2.7 or Python 3.5+.
+MMLSpark requires Scala 2.11, Spark 2.4+, and Python 3.5+.
 See the API documentation [for
 Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc1/scala/index.html#package) and [for
 PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc1/pyspark/index.html).
@@ -147,10 +147,11 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc1`.  Ensure this library is
-attached to all clusters you create.
+For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc1` 
+with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
+attached to your target cluster(s).
 
-Finally, ensure that your Spark cluster has at least Spark 2.1 and Scala 2.11.
+Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
@@ -187,6 +188,7 @@ the above example, or from python:
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
             .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc1") \
+            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
 import mmlspark
 ```
@@ -197,7 +199,9 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
+resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
 libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc1"
+
 ```
 
 ### Building from source
