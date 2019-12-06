@@ -46,10 +46,38 @@ trait LightGBMExecutionParams extends Wrappable {
   def setNumBatches(value: Int): this.type = set(numBatches, value)
 }
 
+/** Defines parameters for slots across all LightGBM learners.
+ */
+trait LightGBMSlotParams extends Wrappable {
+  val slotNames = new StringArrayParam(this, "slotNames",
+    "List of slot names in the features column")
+
+  def getSlotNames: Array[String] = $(slotNames)
+  def setSlotNames(value: Array[String]): this.type = set(slotNames, value)
+
+  setDefault(slotNames -> Array.empty)
+
+  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
+    "List of categorical column indexes, the slot index in the features column")
+
+  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
+  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
+
+  setDefault(categoricalSlotIndexes -> Array.empty)
+
+  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
+    "List of categorical column slot names, the slot name in the features column")
+
+  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
+  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
+
+  setDefault(categoricalSlotNames -> Array.empty)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams {
+  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams with LightGBMSlotParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -138,23 +166,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
-
-  val slotNames = new StringArrayParam(this, "slotNames", "List of slot names in the features column")
-
-  def getSlotNames: Array[String] = $(slotNames)
-  def setSlotNames(value: Array[String]): this.type = set(slotNames, value)
-
-  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
-    "List of categorical column indexes, the slot index in the features column")
-
-  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
-  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
-
-  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
-    "List of categorical column slot names, the slot name in the features column")
-
-  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
-  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
 
   val boostFromAverage = new BooleanParam(this, "boostFromAverage",
     "Adjusts initial score to the mean of labels for faster convergence")

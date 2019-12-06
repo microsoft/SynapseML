@@ -341,6 +341,39 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(metric > 0.8)
   }
 
+  test("Verify LightGBM Classifier with slot names parameter") {
+    // define slot names that has a slot renamed pday to p_day
+    val slotNames = Array("age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact",
+      "day", "month", "duration", "campaign", "p_days", "previous", "poutcome")
+    val categoricalSlotNames = indexedBankTrainDF.columns.filter(_.startsWith("c_"))
+    val newSlotNames = slotNames.map { name =>
+      if(categoricalSlotNames.contains("c_" + name)) {
+        "c_" + name
+      } else {
+        name
+      }
+    }
+
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setSlotNames(newSlotNames)
+      .setCategoricalSlotNames(categoricalSlotNames)
+
+    assert(untrainedModel.getSlotNames.contains("p_days"))
+
+    val model = untrainedModel.fit(train)
+    // Verify categorical features used in some tree in the model
+    assert(model.getModel.model.contains("num_cat=1"))
+
+    // Verify the p_days column that is renamed  used in some tree in the model
+    assert(model.getModel.model.contains("p_days"))
+
+    val metric = binaryEvaluator
+      .evaluate(model.transform(test))
+    // Verify we get good result
+    assert(metric > 0.8)
+  }
+
   test("Verify LightGBM Classifier won't get stuck on empty partitions") {
     val baseDF = pimaDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions { rows =>
