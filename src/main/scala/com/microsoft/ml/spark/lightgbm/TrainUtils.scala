@@ -234,7 +234,7 @@ private object TrainUtils extends Serializable {
 
   def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int,
                    trainParams: TrainParams): Option[Array[String]] = {
-    if(trainParams.featureNames.nonEmpty) {
+    if (trainParams.featureNames.nonEmpty) {
       Some(trainParams.featureNames)
     } else {
       val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
