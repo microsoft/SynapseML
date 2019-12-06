@@ -79,7 +79,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       case arr: ArrayType => getArrayFeaturizer(name, arr, nullable, idx)
       case struct: StructType => getStructFeaturizer(struct, name, nullable, idx)
       case m: MapType => getMapFeaturizer(prefixName, m, idx, namespaceHash)
-      case m: Any =>getOtherFeaturizer(m, prefixName, idx)
+      case m: Any => getOtherFeaturizer(m, prefixName, idx)
     }
   }
 

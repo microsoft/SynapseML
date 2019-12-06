@@ -26,6 +26,7 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.100",
   "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
+    from "file:///mnt/c/work/vowpal_wabbit/java/target/vw-jni-8.7.0.3.jar"
 )
 
 //noinspection ScalaStyle
