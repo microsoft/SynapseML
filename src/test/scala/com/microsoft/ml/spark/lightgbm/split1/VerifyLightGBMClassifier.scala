@@ -20,11 +20,9 @@ import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
-import org.scalactic.Equality
-import org.scalatest.Assertion
 
 // scalastyle:off magic.number
 trait LightGBMTestUtils extends TestBase {
@@ -342,23 +340,20 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {
+
+    val binBankTrainDf: DataFrame = loadBinary("bank.train.csv", "y").cache()
+    val categoricalColumns = Array("job", "marital", "education", "default", "housing", "loan", "contact", "y")
+
     // define slot names that has a slot renamed pday to p_day
     val slotNames = Array("age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact",
       "day", "month", "duration", "campaign", "p_days", "previous", "poutcome")
-    val categoricalSlotNames = indexedBankTrainDF.columns.filter(_.startsWith("c_"))
-    val newSlotNames = slotNames.map { name =>
-      if(categoricalSlotNames.contains("c_" + name)) {
-        "c_" + name
-      } else {
-        name
-      }
-    }
 
-    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val Array(train, test) = binBankTrainDf.randomSplit(Array(0.8, 0.2), seed)
     val untrainedModel = baseModel
-      .setSlotNames(newSlotNames)
-      .setCategoricalSlotNames(categoricalSlotNames)
+      .setSlotNames(slotNames)
+      .setCategoricalSlotNames(categoricalColumns)
 
+    assert(untrainedModel.getSlotNames.length == slotNames.length)
     assert(untrainedModel.getSlotNames.contains("p_days"))
 
     val model = untrainedModel.fit(train)
@@ -368,8 +363,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // Verify the p_days column that is renamed  used in some tree in the model
     assert(model.getModel.model.contains("p_days"))
 
-    val metric = binaryEvaluator
-      .evaluate(model.transform(test))
+    val metric = binaryEvaluator.evaluate(model.transform(test))
+
     // Verify we get good result
     assert(metric > 0.8)
   }
