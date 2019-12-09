@@ -342,7 +342,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   test("Verify LightGBM Classifier with slot names parameter") {
 
     val binBankTrainDf: DataFrame = loadBinary("bank.train.csv", "y").cache()
-    val categoricalColumns = Array("job", "marital", "education", "default", "housing", "loan", "contact", "y")
+    val categoricalColumns = Array("job", "marital", "education", "default", "housing", "loan", "contact")
 
     // define slot names that has a slot renamed pday to p_day
     val slotNames = Array("age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact",
