@@ -352,7 +352,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val newDf = new VectorAssembler().setInputCols(originalSlotNames).setOutputCol(featuresCol).transform(originalDf)
     val newSlotNames = originalSlotNames.map(name => if(name == "Age (years)") "Age_years" else name)
 
-    // define slot names that has a slot renamed pday to p_day
+    // define slot names that has a slot renamed "Age (years)" to "Age_years"
     val untrainedModel = baseModel.setSlotNames(newSlotNames)
 
     assert(untrainedModel.getSlotNames.length == newSlotNames.length)
@@ -360,38 +360,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
     val model = untrainedModel.fit(newDf)
 
-    // Verify the Age column that is renamed  used in some tree in the model
+    // Verify the Age_years column that is renamed  used in some tree in the model
     assert(model.getModel.model.contains("Age_years"))
-  }
-
-  test("Verify LightGBM Classifier with slot names parameter") {
-
-    val binBankTrainDf: DataFrame = loadBinary("bank.train.csv", "y").cache()
-    val categoricalColumns = Array("job", "marital", "education", "default", "housing", "loan", "contact")
-
-    // define slot names that has a slot renamed pday to p_day
-    val slotNames = Array("age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact",
-      "day", "month", "duration", "campaign", "p_days", "previous", "poutcome")
-
-    val Array(train, test) = binBankTrainDf.randomSplit(Array(0.8, 0.2), seed)
-    val untrainedModel = baseModel
-      .setSlotNames(slotNames)
-      .setCategoricalSlotNames(categoricalColumns)
-
-    assert(untrainedModel.getSlotNames.length == slotNames.length)
-    assert(untrainedModel.getSlotNames.contains("p_days"))
-
-    val model = untrainedModel.fit(train)
-    // Verify categorical features used in some tree in the model
-    assert(model.getModel.model.contains("num_cat=1"))
-
-    // Verify the p_days column that is renamed  used in some tree in the model
-    assert(model.getModel.model.contains("p_days"))
-
-    val metric = binaryEvaluator.evaluate(model.transform(test))
-
-    // Verify we get good result
-    assert(metric > 0.8)
   }
 
   test("Verify LightGBM Classifier won't get stuck on empty partitions") {
