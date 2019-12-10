@@ -12,6 +12,8 @@ abstract class TrainParams extends Serializable {
   def numLeaves: Int
   def maxBin: Int
   def baggingFraction: Double
+  def posBaggingFraction: Double
+  def negBaggingFraction: Double
   def baggingFreq: Int
   def baggingSeed: Int
   def earlyStoppingRound: Int
@@ -38,7 +40,8 @@ abstract class TrainParams extends Serializable {
     // let's fetch and print training metrics in `TrainUtils.scala` through JNI.
     s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism num_iterations=$numIterations " +
       s"learning_rate=$learningRate num_leaves=$numLeaves " +
-      s"max_bin=$maxBin bagging_fraction=$baggingFraction bagging_freq=$baggingFreq " +
+      s"max_bin=$maxBin bagging_fraction=$baggingFraction pos_bagging_fraction=$posBaggingFraction " +
+      s"neg_bagging_fraction=$negBaggingFraction bagging_freq=$baggingFreq " +
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
       s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
