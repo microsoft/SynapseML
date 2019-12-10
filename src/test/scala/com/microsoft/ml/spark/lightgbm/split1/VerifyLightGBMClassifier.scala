@@ -15,7 +15,7 @@ import com.microsoft.ml.spark.stages.{MultiColumnAdapter, SPConstants, Stratifie
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
@@ -337,6 +337,31 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
+  }
+
+  test("Verify LightGBM Classifier with slot names parameter") {
+
+    val originalDf = readCSV(DatasetUtils.binaryTrainFile("PimaIndian.csv").toString).repartition(numPartitions)
+      .withColumnRenamed("Diabetes mellitus", labelCol)
+
+    val originalSlotNames = Array("Number of times pregnant",
+      "Plasma glucose concentration a 2 hours in an oral glucose tolerance test",
+      "Diastolic blood pressure (mm Hg)", "Triceps skin fold thickness (mm)", "2-Hour serum insulin (mu U/ml)",
+      "Body mass index (weight in kg/(height in m)^2)", "Diabetes pedigree function","Age (years)")
+
+    val newDf = new VectorAssembler().setInputCols(originalSlotNames).setOutputCol(featuresCol).transform(originalDf)
+    val newSlotNames = originalSlotNames.map(name => if(name == "Age (years)") "Age_years" else name)
+
+    // define slot names that has a slot renamed pday to p_day
+    val untrainedModel = baseModel.setSlotNames(newSlotNames)
+
+    assert(untrainedModel.getSlotNames.length == newSlotNames.length)
+    assert(untrainedModel.getSlotNames.contains("Age_years"))
+
+    val model = untrainedModel.fit(newDf)
+
+    // Verify the Age column that is renamed  used in some tree in the model
+    assert(model.getModel.model.contains("Age_years"))
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {
