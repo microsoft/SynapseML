@@ -107,7 +107,6 @@ trait LightGBMFractionParams extends Wrappable {
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
   with LightGBMSlotParams with LightGBMFractionParams {
-
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
