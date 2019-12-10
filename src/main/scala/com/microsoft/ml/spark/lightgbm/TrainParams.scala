@@ -55,8 +55,9 @@ abstract class TrainParams extends Serializable {
 /** Defines the Booster parameters passed to the LightGBM classifier.
   */
 case class ClassifierTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
-                                 numLeaves: Int, maxBin: Int, baggingFraction: Double, baggingFreq: Int,
-                                 baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                 numLeaves: Int, maxBin: Int,
+                                 baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
+                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                                  maxDepth: Int, minSumHessianInLeaf: Double,
                                  numMachines: Int, objective: String, modelString: Option[String],
                                  isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
@@ -78,8 +79,8 @@ case class ClassifierTrainParams(parallelism: String, numIterations: Int, learni
 case class RegressorTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
                                 numLeaves: Int, objective: String, alpha: Double,
                                 tweedieVariancePower: Double, maxBin: Int,
-                                baggingFraction: Double, baggingFreq: Int,
-                                baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
+                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                                 modelString: Option[String], verbosity: Int,
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
@@ -97,8 +98,8 @@ case class RegressorTrainParams(parallelism: String, numIterations: Int, learnin
   */
 case class RankerTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
                              numLeaves: Int, objective: String, maxBin: Int,
-                             baggingFraction: Double, baggingFreq: Int,
-                             baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                             baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
+                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                              maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                              modelString: Option[String], verbosity: Int,
                              categoricalFeatures: Array[Int], boostingType: String,
