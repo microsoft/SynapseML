@@ -74,10 +74,40 @@ trait LightGBMSlotParams extends Wrappable {
   setDefault(categoricalSlotNames -> Array.empty)
 }
 
+/** Defines parameters for fraction across all LightGBM learners.
+ */
+trait LightGBMFractionParams extends Wrappable {
+  val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
+  setDefault(baggingFraction->1)
+
+  def getBaggingFraction: Double = $(baggingFraction)
+  def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
+
+  val posBaggingFraction = new DoubleParam(this, "posBaggingFraction", "Positive Bagging fraction")
+  setDefault(posBaggingFraction->1)
+
+  def getPosBaggingFraction: Double = $(posBaggingFraction)
+  def setPosBaggingFraction(value: Double): this.type = set(posBaggingFraction, value)
+
+  val negBaggingFraction = new DoubleParam(this, "negBaggingFraction", "Negative Bagging fraction")
+  setDefault(negBaggingFraction->1)
+
+  def getNegBaggingFraction: Double = $(negBaggingFraction)
+  def setNegBaggingFraction(value: Double): this.type = set(negBaggingFraction, value)
+
+  val featureFraction = new DoubleParam(this, "featureFraction", "Feature fraction")
+  setDefault(featureFraction->1)
+
+  def getFeatureFraction: Double = $(featureFraction)
+  def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams with LightGBMSlotParams {
+  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
+  with LightGBMSlotParams with LightGBMFractionParams {
+
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -112,12 +142,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getMaxBin: Int = $(maxBin)
   def setMaxBin(value: Int): this.type = set(maxBin, value)
 
-  val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
-  setDefault(baggingFraction->1)
-
-  def getBaggingFraction: Double = $(baggingFraction)
-  def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
-
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
 
@@ -135,12 +159,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getEarlyStoppingRound: Int = $(earlyStoppingRound)
   def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
-
-  val featureFraction = new DoubleParam(this, "featureFraction", "Feature fraction")
-  setDefault(featureFraction->1)
-
-  def getFeatureFraction: Double = $(featureFraction)
-  def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)
