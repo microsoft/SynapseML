@@ -5,28 +5,31 @@ package com.microsoft.ml.spark.lightgbm
 
 object LightGBMConstants {
   /** The default port for LightGBM network initialization
-    */
+   */
   val DefaultLocalListenPort = 12400
   /** The default timeout for LightGBM network initialization
-    */
+   */
   val DefaultListenTimeout = 120
   /** Default buffer length for model
-    */
+   */
   val DefaultBufferLength: Int = 10000
+  /** Default top_k value for LightGBM voting parallel
+   */
+  val DefaultTopK: Int = 20
   /** Lambdarank ranking objective
-    */
+   */
   val RankObjective: String = "lambdarank"
   /** Binary classification objective
-    */
+   */
   val BinaryObjective: String = "binary"
   /** Multiclass classification objective
-    */
+   */
   val MulticlassObjective: String = "multiclass"
   /** Ignore worker status, used to ignore workers that get empty partitions
-    */
+   */
   val IgnoreStatus: String = "ignore"
   /** Barrier execution flag telling driver that all tasks have completed
-    * sending port and host information
-    */
+   * sending port and host information
+   */
   val FinishedStatus: String = "finished"
 }
