@@ -7,7 +7,7 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.Executors
 
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities.usingMany
 import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, SharedSingleton}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import javax.annotation.concurrent.GuardedBy

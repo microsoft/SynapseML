@@ -7,7 +7,7 @@ import java.io._
 import java.net._
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities._
 import org.apache.spark.BarrierTaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -335,7 +335,7 @@ private object TrainUtils extends Serializable {
                           emptyPartition: Boolean): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
-        using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
+        usingMany(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
           new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream)))) {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
