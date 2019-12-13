@@ -84,7 +84,7 @@ trait LightGBMFractionParams extends Wrappable {
 }
 
 /** Defines common parameters across all LightGBM learners.
- */
+  */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams with LightGBMFractionParams {
   val numIterations = new IntParam(this, "numIterations",
