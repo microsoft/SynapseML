@@ -8,7 +8,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
 /** Defines common LightGBM execution parameters.
- */
+  */
 trait LightGBMExecutionParams extends Wrappable {
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
@@ -56,7 +56,7 @@ trait LightGBMExecutionParams extends Wrappable {
 }
 
 /** Defines parameters for fraction across all LightGBM learners.
- */
+  */
 trait LightGBMFractionParams extends Wrappable {
   val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
   setDefault(baggingFraction->1)
