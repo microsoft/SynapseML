@@ -54,9 +54,9 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     import com.microsoft.cognitiveservices.speech.SpeechConfig
     // Replace below with your own subscription key// Replace below with your own subscription key
 
-    val speechSubscriptionKey: String = "YourSubscriptionKey"
+    val speechSubscriptionKey: String = stt.getSubscriptionKey
     // Replace below with your own service region (e.g., "westus").
-    val serviceRegion: String = "YourServiceRegion"
+    val serviceRegion: String = "eastus"
 
     var exitCode: Int = 1
     val config: SpeechConfig = SpeechConfig.fromSubscription(speechSubscriptionKey, serviceRegion)
