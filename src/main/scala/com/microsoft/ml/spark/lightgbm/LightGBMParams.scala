@@ -18,8 +18,8 @@ trait LightGBMExecutionParams extends Wrappable {
   def setParallelism(value: String): this.type = set(parallelism, value)
 
   val topK = new Param[Int](this, "topK",
-    "The top_k value used in Voting parallel," +
-      " set this to larger value for more accurate result, but it will slow down the training speed. " +
+    "The top_k value used in Voting parallel, " +
+      "set this to larger value for more accurate result, but it will slow down the training speed. " +
       "It should be greater than 0")
   setDefault(topK -> LightGBMConstants.DefaultTopK)
 
