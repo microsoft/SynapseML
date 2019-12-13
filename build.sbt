@@ -27,6 +27,7 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
   "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
 )
+resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
 //noinspection ScalaStyle
 lazy val IntegrationTest2 = config("it").extend(Test)

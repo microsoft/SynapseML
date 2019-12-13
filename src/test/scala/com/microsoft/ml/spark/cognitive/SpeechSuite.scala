@@ -12,6 +12,9 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.scalactic.Equality
 import org.scalatest.Assertion
+import java.util.concurrent.Future
+import com.microsoft.cognitiveservices.speech._
+
 
 trait SpeechKey {
   lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
@@ -44,6 +47,54 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   override def testSerialization(): Unit = {
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
+  }
+
+  test("Simple usage of new speech SDK") {
+    import com.microsoft.cognitiveservices.speech.CancellationDetails
+    import com.microsoft.cognitiveservices.speech.SpeechConfig
+    // Replace below with your own subscription key// Replace below with your own subscription key
+
+    val speechSubscriptionKey: String = "YourSubscriptionKey"
+    // Replace below with your own service region (e.g., "westus").
+    val serviceRegion: String = "YourServiceRegion"
+
+    var exitCode: Int = 1
+    val config: SpeechConfig = SpeechConfig.fromSubscription(speechSubscriptionKey, serviceRegion)
+    assert((config != null))
+
+    val reco: SpeechRecognizer = new SpeechRecognizer(config)
+    assert((reco != null))
+
+    System.out.println("Say something...")
+
+    val task: Future[SpeechRecognitionResult] = reco.recognizeOnceAsync
+    assert((task != null))
+
+    val result: SpeechRecognitionResult = task.get
+    assert((result != null))
+
+    if (result.getReason eq ResultReason.RecognizedSpeech) {
+      System.out.println("We recognized: " + result.getText)
+      exitCode = 0
+    }
+    else {
+      if (result.getReason eq ResultReason.NoMatch) {
+        System.out.println("NOMATCH: Speech could not be recognized.")
+      }
+      else {
+        if (result.getReason eq ResultReason.Canceled) {
+          val cancellation: CancellationDetails = CancellationDetails.fromResult(result)
+          System.out.println("CANCELED: Reason=" + cancellation.getReason)
+          if (cancellation.getReason eq CancellationReason.Error) {
+            System.out.println("CANCELED: ErrorCode=" + cancellation.getErrorCode)
+            System.out.println("CANCELED: ErrorDetails=" + cancellation.getErrorDetails)
+            System.out.println("CANCELED: Did you update the subscription info?")
+          }
+        }
+      }
+    }
+
+
   }
 
   test("Basic Usage") {
