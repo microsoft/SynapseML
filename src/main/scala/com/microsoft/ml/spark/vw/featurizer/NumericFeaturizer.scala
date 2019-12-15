@@ -18,7 +18,8 @@ import scala.collection.mutable
 class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
                                  override val columnName: String,
                                  val namespaceHash: Int,
-                                 val mask: Int)
+                                 val mask: Int,
+                                 val zero: T)
   extends Featurizer(fieldIdx) with ElementFeaturizer[T] {
 
   /**
@@ -37,7 +38,7 @@ class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldId
                 indices: mutable.ArrayBuilder[Int],
                 values: mutable.ArrayBuilder[Double]): Unit = {
     // Note: 0 valued features are always filtered.
-    if (value != 0) {
+    if (value != zero) {
       indices += featureIdx + idx
       values += value.toDouble
     }
@@ -48,8 +49,9 @@ class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldId
 class NullableNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
                            override val columnName: String,
                            override val namespaceHash: Int,
-                           override val mask: Int)
-  extends NumericFeaturizer[T](fieldIdx, columnName, namespaceHash, mask) {
+                           override val mask: Int,
+                           override val zero: T)
+  extends NumericFeaturizer[T](fieldIdx, columnName, namespaceHash, mask, zero) {
   override def featurize(row: Row,
                          indices: mutable.ArrayBuilder[Int],
                          values: mutable.ArrayBuilder[Double]): Unit =

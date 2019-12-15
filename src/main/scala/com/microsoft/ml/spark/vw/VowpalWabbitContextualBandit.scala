@@ -41,12 +41,14 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val costIdx = schema.fieldIndex("_label_cost")
     val probabilityIdx = schema.fieldIndex("_label_probability")
 
+    // TODO: update jar
     (row: Row, ex: VowpalWabbitExample, idx: Int) => {
-      if (idx == 0)
-        ex.setSharedLabel
-      else if (row.getInt(labelIdx) == idx)
-        ex.setContextualBanditLabel(idx, row.getDouble(costIdx), row.getDouble(probabilityIdx))
+//      if (idx == 0)
+//        ex.setSharedLabel
+//      else if (row.getInt(labelIdx) == idx)
+//        ex.setContextualBanditLabel(idx, row.getDouble(costIdx), row.getDouble(probabilityIdx))
     }
+
   }
 
   protected override def trainRow(schema: StructType,

@@ -68,12 +68,12 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     val prefixName = if (getPrefixStringsWithColumnName) name else ""
 
     dataType match {
-      case DoubleType => getNumericFeaturizer[Double](prefixName, nullable, idx, namespaceHash)
-      case FloatType => getNumericFeaturizer[Float](prefixName, nullable, idx, namespaceHash)
-      case IntegerType => getNumericFeaturizer[Int](prefixName, nullable, idx, namespaceHash)
-      case LongType => getNumericFeaturizer[Long](prefixName, nullable, idx, namespaceHash)
-      case ShortType => getNumericFeaturizer[Short](prefixName, nullable, idx, namespaceHash)
-      case ByteType => getNumericFeaturizer[Byte](prefixName, nullable, idx, namespaceHash)
+      case DoubleType => getNumericFeaturizer[Double](prefixName, nullable, idx, namespaceHash, 0)
+      case FloatType => getNumericFeaturizer[Float](prefixName, nullable, idx, namespaceHash, 0)
+      case IntegerType => getNumericFeaturizer[Int](prefixName, nullable, idx, namespaceHash, 0)
+      case LongType => getNumericFeaturizer[Long](prefixName, nullable, idx, namespaceHash, 0)
+      case ShortType => getNumericFeaturizer[Short](prefixName, nullable, idx, namespaceHash, 0)
+      case ByteType => getNumericFeaturizer[Byte](prefixName, nullable, idx, namespaceHash, 0)
       case BooleanType => new BooleanFeaturizer(idx, prefixName, namespaceHash, getMask)
       case StringType => getStringFeaturizer(name, prefixName, idx, namespaceHash)
       case arr: ArrayType => getArrayFeaturizer(name, arr, nullable, idx)
@@ -86,11 +86,12 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   private def getNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](prefixName: String,
                                                                        nullable: Boolean,
                                                                        idx: Int,
-                                                                       namespaceHash: Int): Featurizer = {
+                                                                       namespaceHash: Int,
+                                                                       zero: T): Featurizer = {
     if (nullable)
-      new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask)
+      new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, zero)
     else
-      new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask)
+      new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, zero)
   }
 
   private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int): Featurizer = {
