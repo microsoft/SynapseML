@@ -19,12 +19,13 @@ class NotebookTests extends TestBase {
   test("Databricks Notebooks") {
     val clusterId = createClusterInPool(ClusterName, PoolId)
     try {
+      println("Checking if cluster is active")
+      tryWithRetries(Seq.fill(60*15)(1000).toArray){() =>
+        assert(isClusterActive(clusterId))}
       println("Installing libraries")
       installLibraries(clusterId)
       println(s"Creating folder $Folder")
       workspaceMkDir(Folder)
-      tryWithRetries(Seq.fill(60*15)(1000).toArray){() =>
-        assert(isClusterActive(clusterId))}
       println(s"Submitting jobs")
       val jobIds = NotebookFiles.map(uploadAndSubmitNotebook(clusterId, _))
       println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
