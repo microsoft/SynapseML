@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import java.util.UUID
+
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.cognitive.Face
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -162,7 +164,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey 
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group1"
+  lazy val pgName = "group" + UUID.randomUUID().toString
 
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
