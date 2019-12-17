@@ -48,8 +48,8 @@ object Simulator {
           (user == 1 AND ((timeOfDay == 0 AND chosenAction == 3) OR (timeOfDay == 1 AND chosenAction == 1)))
         """.stripMargin), 1).otherwise(0))
 
-  def generateContext(n: Int): Seq[Context] = {
-    val rnd = new Random(42)
+  def generateContext(n: Int, seed: Int): Seq[Context] = {
+    val rnd = new Random(seed)
 
     for (i <- 0 to n) yield {
       val userIdx = rnd.nextInt(2) // Tom, Anna
@@ -61,7 +61,7 @@ object Simulator {
         // user context
         new SparseVector(4, Array(userIdx, 2 + timeOfDayIdx), Array(1.0, 1.0)),
         // articles
-        List.range(0, 4).map({ i => new SparseVector(4, Array(i), Array(1.0)) }).toSeq
+        List.range(0, 7).map({ i => new SparseVector(7, Array(i), Array(1.0)) }).toSeq
       )
     }
   }
@@ -89,12 +89,9 @@ object Simulator {
 
 class VerifyContextualBandit extends TestBase {
 
-  test ("Verify Contextual Bandit") {
-   // epoch(pi)
-    val policy = new UniformRandomPolicy
-
+  def epoch(policy: Transformer, n: Int, seed: Int): Transformer = {
     // 1. generate context
-    var df = session.createDataFrame(Simulator.generateContext(500))
+    var df = session.createDataFrame(Simulator.generateContext(n, seed))
       .coalesce(1)
       .cache()
 
@@ -113,29 +110,43 @@ class VerifyContextualBandit extends TestBase {
 
     df = df.cache()
 
+    val regressor = new LightGBMRegressor()
+      .setVerbosity(-1)
+
+    policy match {
+      case cb: ContextualBanditModel => {
+        cb.getModel match {
+          case lgbm: LightGBMRegressionModel => {
+            regressor.setModelString(regressor.stringFromTrainedModel(lgbm))
+            println("continue training")
+          }
+        }
+      }
+      case _ => {}
+    }
+
     // 5. train policy -> pi'
     val cb = new ContextualBandit()
       .setLabelCol("reward")
-      .setEstimator(new LightGBMRegressor()
-          .setVerbosity(-1)
-      )
+      .setEstimator(regressor)
 
     val newPolicy = cb.fit(df)
-      .setExplorationStrategy(new PassThrough)
+      .setExplorationStrategy(new EpsilonGreedy(0.2))
+//       .setExplorationStrategy(new PassThrough)
 
-    val importance = newPolicy.getModel
-      .asInstanceOf[LightGBMRegressionModel]
-      .getFeatureImportances("gain")
-
-    println(importance.mkString(","))
+//    val importance = newPolicy.getModel
+//      .asInstanceOf[LightGBMRegressionModel]
+//      .getFeatureImportances("gain")
+//
+//    println(importance.mkString(","))
 
     df = newPolicy.transform(df)
 
-    df.show(10, false)
-    df.where("reward == 1")
-      .withColumn("predictedAction",
-        array_position(col("prediction"), array_max(col("prediction"))))
-      .show(10, false)
+//    df.show(10, false)
+//    df.where("reward == 1")
+//      .withColumn("predictedAction",
+//        array_position(col("prediction"), array_max(col("prediction"))))
+//      .show(10, false)
 
     df
       .withColumn("predictedAction",
@@ -144,21 +155,32 @@ class VerifyContextualBandit extends TestBase {
         when((col("chosenAction") === col("predictedAction"))
           , 1).otherwise(0))
       .withColumn("matchClick",
-          when(
-            (col("reward") === lit(1.0)) &&
+        when(
+          (col("reward") === lit(1.0)) &&
             (col("chosenAction") === col("predictedAction"))
-            , 1).otherwise(0))
+          , 1).otherwise(0))
       .selectExpr("SUM(reward) AS clicks",
         "COUNT(*) as N",
         "SUM(match) as matches",
         "SUM(matchClick) AS matchesClick")
       .show
+//
+//    df.groupBy(
+//      col("user"),
+//      col("timeOfDay"),
+//      col("chosenAction")).sum("reward")
+//      .where(col("SUM(reward)") > 0)
+//      .show(100)
 
-    df.groupBy(
-      col("user"),
-      col("timeOfDay"),
-      col("chosenAction")).sum("reward")
-      .where(col("SUM(reward)") > 0)
-      .show(100)
+    newPolicy.setPredictionCol("probabilities")
+  }
+
+  test ("Verify Contextual Bandit") {
+   // epoch(pi)
+    var policy: Transformer = new UniformRandomPolicy
+
+    for (i <- 0 to 10) {
+      policy = epoch(policy, 100, i + 42)
+    }
   }
 }

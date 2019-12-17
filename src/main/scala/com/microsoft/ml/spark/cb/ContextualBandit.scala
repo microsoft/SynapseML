@@ -57,7 +57,7 @@ class ContextualBandit(override val uid: String)
     val averageNumActionsInv = dataset.count().toDouble /
       dataset.select(sum(size(col(getFeaturesCol)))).collect()(0).getLong(0)
 
-    println(s"Average num actions: ${1.0 / averageNumActionsInv}")
+//    println(s"Average num actions: ${1.0 / averageNumActionsInv}")
 
     val stage1 = if (!get(clipProbability).isEmpty)
       // implement probability clipping
@@ -73,7 +73,7 @@ class ContextualBandit(override val uid: String)
     // extract selected action
     val stage3 = stage2.withColumn("CB_features", element_at(col(getFeaturesCol), col(getActionCol)))
 
-    stage3.printSchema
+//    stage3.printSchema
     stage3.show(5, false)
 
     val est = getEstimator
