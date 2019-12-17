@@ -134,14 +134,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .transform(df).drop(categoricalColumns: _*)
       .withColumnRenamed("c_y", labelCol)
     df2
-  }.cache()
+    }.cache()
   lazy val indexedBankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol,
       oneHotEncodeCategoricals = false).transform(unfeaturizedBankTrainDF)
-  }.cache()
+    }.cache()
   lazy val bankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
-  }.cache()
+    }.cache()
 
   val binaryObjective = "binary"
   val multiclassObject = "multiclass"
@@ -395,9 +395,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnBinaryCsvFile(fileName: String,
                                    labelColumnName: String,
                                    decimals: Int): Unit = {
-    boostingTypes.foreach { boostingType =>
-      test("Verify LightGBMClassifier can be trained " +
-        s"and scored on $fileName with boosting type $boostingType", TestBase.Extended) {
+    test("Verify LightGBMClassifier can be trained " +
+      s"and scored on $fileName", TestBase.Extended) {
+      boostingTypes.foreach { boostingType =>
         val df = loadBinary(fileName, labelColumnName)
         val model = baseModel
           .setBoostingType(boostingType)
@@ -428,10 +428,11 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        precision: Double): Unit = {
-    lazy val df = loadMulticlass(fileName, labelColumnName).cache()
-    boostingTypes.foreach { boostingType =>
-      test(s"Verify LightGBMClassifier can be trained and scored " +
-        s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {
+    test(s"Verify LightGBMClassifier can be trained and scored " +
+      s"on multiclass $fileName", TestBase.Extended) {
+      lazy val df = loadMulticlass(fileName, labelColumnName).cache()
+      boostingTypes.foreach { boostingType =>
+
         val model = baseModel
           .setObjective(multiclassObject)
           .setBoostingType(boostingType)
@@ -450,8 +451,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         addBenchmark(s"LightGBMClassifier_${fileName}_$boostingType",
           multiclassEvaluator.evaluate(tdf), precision)
       }
+      df.unpersist()
     }
-    df.unpersist()
   }
 
   override def testObjects(): Seq[TestObject[LightGBMClassifier]] = {
