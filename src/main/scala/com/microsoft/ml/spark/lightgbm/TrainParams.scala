@@ -34,6 +34,7 @@ abstract class TrainParams extends Serializable {
   def minGainToSplit: Double
   def maxDeltaStep: Double
   def maxBinByFeature: Array[Int]
+  def minDataInLeaf: Int
   def featureNames: Array[String]
 
   override def toString: String = {
@@ -47,7 +48,7 @@ abstract class TrainParams extends Serializable {
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
       s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
       s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  metric=$metric min_gain_to_split=$minGainToSplit " +
-      s"max_delta_step=$maxDeltaStep " +
+      s"max_delta_step=$maxDeltaStep min_data_in_leaf=$minDataInLeaf " +
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
       (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")}")
   }
@@ -65,7 +66,7 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
                                  numClass: Int, boostFromAverage: Boolean,
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
+                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int, featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -87,7 +88,7 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
+                                maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int, featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -107,7 +108,7 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
-                             maxDeltaStep: Double, maxBinByFeature: Array[Int], featureNames: Array[String])
+                             maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int, featureNames: Array[String])
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
