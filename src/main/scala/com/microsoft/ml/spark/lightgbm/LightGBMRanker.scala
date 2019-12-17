@@ -36,7 +36,7 @@ class LightGBMRanker(override val uid: String)
   def getMaxPosition: Int = $(maxPosition)
   def setMaxPosition(value: Int): this.type = set(maxPosition, value)
 
-  val labelGain = new DoubleArrayParam(this, "labelGain", "parameter for Huber loss and Quantile regression")
+  val labelGain = new DoubleArrayParam(this, "labelGain", "graded relevance for each label in NDCG")
   setDefault(labelGain -> Array.empty[Double])
 
   def getLabelGain: Array[Double] = $(labelGain)
@@ -50,7 +50,7 @@ class LightGBMRanker(override val uid: String)
 
   def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RankerTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
+    RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getMaxBin, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,

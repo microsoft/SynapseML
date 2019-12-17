@@ -54,7 +54,7 @@ object DatabricksUtilities extends HasHttpClient {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 25 * 60 * 1000
+  val TimeoutInMillis: Int = 30 * 60 * 1000
 
   val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
@@ -88,8 +88,8 @@ object DatabricksUtilities extends HasHttpClient {
   }
 
   //TODO convert all this to typed code
-  def databricksPost(path: String, body: String): JsValue = {
-    retry(List(100, 500, 1000), { () =>
+  def databricksPost(path: String, body: String, retries:List[Int]=List(100, 500, 1000)): JsValue = {
+    retry(retries, { () =>
       val request = new HttpPost(BaseURL + path)
       request.addHeader("Authorization", AuthValue)
       request.setEntity(new StringEntity(body))

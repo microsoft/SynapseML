@@ -16,6 +16,9 @@ object LightGBMConstants {
   /** Default buffer length for model
     */
   val DefaultBufferLength: Int = 10000
+  /** Default top_k value for LightGBM voting parallel
+    */
+  val DefaultTopK: Int = 20
   /** Lambdarank ranking objective
     */
   val RankObjective: String = "lambdarank"
