@@ -44,14 +44,16 @@ object Simulator {
     dataset.withColumn("reward",
       when(expr(
         """
-           (user == 0 AND ((timeOfDay == 0 AND chosenAction == 1) OR (timeOfDay == 1 AND chosenAction == 2))) OR
-           (user == 1 AND ((timeOfDay == 0 AND chosenAction == 3) OR (timeOfDay == 1 AND chosenAction == 1)))
+          (user == 0 AND ((timeOfDay == 0 AND chosenAction == 1) OR (timeOfDay == 1 AND chosenAction == 2))) OR
+          (user == 1 AND ((timeOfDay == 0 AND chosenAction == 3) OR (timeOfDay == 1 AND chosenAction == 1)))
         """.stripMargin), 1).otherwise(0))
 
   def generateContext(n: Int): Seq[Context] = {
+    val rnd = new Random(42)
+
     for (i <- 0 to n) yield {
-      val userIdx = Random.nextInt(2) // Tom, Anna
-      val timeOfDayIdx = Random.nextInt(2) // morning, afternoon
+      val userIdx = rnd.nextInt(2) // Tom, Anna
+      val timeOfDayIdx = rnd.nextInt(2) // morning, afternoon
 
       Context(
         userIdx,
@@ -92,8 +94,9 @@ class VerifyContextualBandit extends TestBase {
     val policy = new UniformRandomPolicy
 
     // 1. generate context
-    var df = session.createDataFrame(Simulator.generateContext(5000))
+    var df = session.createDataFrame(Simulator.generateContext(500))
       .coalesce(1)
+      .cache()
 
     // feature engineering
     val assembler = new NestedVectorAssembler
@@ -103,22 +106,18 @@ class VerifyContextualBandit extends TestBase {
     df = policy.transform(df)
 
     // 3. sample from distribution over actions
-    df = Simulator.sampleAction(df)
+    df = Simulator.sampleAction(df).cache()
 
     // 4. simulate behavior
     df = Simulator.addReward(df)
 
     df = df.cache()
 
-
-//    df.printSchema
-
     // 5. train policy -> pi'
     val cb = new ContextualBandit()
       .setLabelCol("reward")
       .setEstimator(new LightGBMRegressor()
-        //        .setNumIterations(500)
-        //        .setMetric("l2")
+          .setVerbosity(-1)
       )
 
     val newPolicy = cb.fit(df)
@@ -142,13 +141,24 @@ class VerifyContextualBandit extends TestBase {
       .withColumn("predictedAction",
         array_position(col("prediction"), array_max(col("prediction"))))
       .withColumn("match",
+        when((col("chosenAction") === col("predictedAction"))
+          , 1).otherwise(0))
+      .withColumn("matchClick",
           when(
             (col("reward") === lit(1.0)) &&
             (col("chosenAction") === col("predictedAction"))
             , 1).otherwise(0))
       .selectExpr("SUM(reward) AS clicks",
         "COUNT(*) as N",
-        "SUM(match) AS click_matches")
+        "SUM(match) as matches",
+        "SUM(matchClick) AS matchesClick")
       .show
+
+    df.groupBy(
+      col("user"),
+      col("timeOfDay"),
+      col("chosenAction")).sum("reward")
+      .where(col("SUM(reward)") > 0)
+      .show(100)
   }
 }
