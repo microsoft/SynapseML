@@ -11,7 +11,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.{col, element_at, lit, udf, when}
+import org.apache.spark.sql.functions.{col, element_at, lit, udf, when, sum, size}
 import org.vowpalwabbit.spark.VowpalWabbitExample
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import org.apache.spark.ml.param.shared.HasProbabilityCol
@@ -52,21 +52,29 @@ class ContextualBandit(override val uid: String)
 
   override protected def train(dataset: Dataset[_]): ContextualBanditModel = {
     // for MTR training the selected action is enough
-    val stage1 = dataset
-      .withColumn("CB_weight_1", col(getLabelCol) / col(getProbabilityCol))
 
-    val stage2 = if (!get(clipProbability).isEmpty)
+    // eventSum / sum(#actions)
+    val averageNumActionsInv = dataset.count().toDouble /
+      dataset.select(sum(size(col(getFeaturesCol)))).collect()(0).getLong(0)
+
+    println(s"Average num actions: ${1.0 / averageNumActionsInv}")
+
+    val stage1 = if (!get(clipProbability).isEmpty)
       // implement probability clipping
-      stage1.withColumn("CB_weight",
-        when(col("CB_weight_1") > lit(getClipProbability), lit(getClipProbability))
-          .otherwise(col("CB_weight_1")))
+      dataset.withColumn("CB_prob",
+        when(col(getProbabilityCol) > lit(getClipProbability), lit(getClipProbability))
+          .otherwise(col(getProbabilityCol)))
       else
-        stage1.withColumn("CB_weight", col("CB_weight_1"))
+        dataset.withColumn("CB_prob", col(getProbabilityCol))
+
+    val stage2 = stage1
+      .withColumn("CB_weight", lit(1.0) / col("CB_prob") * lit(averageNumActionsInv))
 
     // extract selected action
     val stage3 = stage2.withColumn("CB_features", element_at(col(getFeaturesCol), col(getActionCol)))
 
     stage3.printSchema
+    stage3.show(5, false)
 
     val est = getEstimator
     val model = est
@@ -78,16 +86,20 @@ class ContextualBandit(override val uid: String)
 
     new ContextualBanditModel(uid)
       .setModel(model.asInstanceOf[Model[_]])
-      .setActionCol(getActionCol)
+      .setFeaturesCol(getFeaturesCol)
   }
 }
 
 trait ExplorationStrategy {
-  def generate(actionScores: Array[Double]): Array[Double]
+  def generate(actionScores: Seq[Double]): Seq[Double]
+}
+
+class PassThrough extends ExplorationStrategy with Serializable {
+  def generate(actionScores: Seq[Double]): Seq[Double] = actionScores
 }
 
 class EpsilonGreedy(val epsilon: Double) extends ExplorationStrategy with Serializable {
-  def generate(actionScores: Array[Double]): Array[Double] = {
+  def generate(actionScores: Seq[Double]): Seq[Double] = {
     // see generate_epsilon_greedy
     val prob = epsilon / actionScores.length
     val pmf = Array.fill[Double](actionScores.length)(prob)
@@ -100,7 +112,7 @@ class EpsilonGreedy(val epsilon: Double) extends ExplorationStrategy with Serial
 }
 
 class SoftMax(val lambda: Double) extends ExplorationStrategy with Serializable {
-  def generate(actionScores: Array[Double]): Array[Double] = {
+  def generate(actionScores: Seq[Double]): Seq[Double] = {
     val maxScore = if (lambda > 0) actionScores.max else actionScores.min
 
     val pmf = actionScores.map(s => exp(lambda  * (s - maxScore)))
@@ -113,7 +125,6 @@ class SoftMax(val lambda: Double) extends ExplorationStrategy with Serializable 
 
 // TODO: enforce minimum prob
 
-// Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
 @InternalWrapper
 class ContextualBanditModel(override val uid: String)
 extends PredictionModel[Seq[Vector], ContextualBanditModel]
@@ -123,17 +134,11 @@ extends PredictionModel[Seq[Vector], ContextualBanditModel]
   def setModel(value: Model[_]): this.type = set(model, value)
   def getModel: Model[_] = ${model}
 
-  val actionCol = new Param[String](this, "actionCol", "Column name of chosen action")
-  def getActionCol: String = $(actionCol)
-  def setActionCol(value: String): this.type = set(actionCol, value)
-
   val explorationStrategy: Param[ExplorationStrategy] = new Param(this, "explorationStrategy", "exploration strategy")
   def setExplorationStrategy(value: ExplorationStrategy): this.type = set(explorationStrategy, value)
   def getExplorationStrategy: ExplorationStrategy = ${explorationStrategy}
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-
-//    val encoder = Encoders.kryo[Row]
 
     // support both predict(Row/Vector) - need Row for namespace interactions
 
@@ -143,10 +148,10 @@ extends PredictionModel[Seq[Vector], ContextualBanditModel]
     // apply exploration strategy (scores -> probabilities)
     val predictiveModel = getModel.asInstanceOf[PredictionModel[Vector, _]]
     val predictionUdf = udf {
-      (actions: Array[Vector]) => getExplorationStrategy.generate(actions.map(predictiveModel.predict(_)))
+      (actions: Seq[Vector]) => getExplorationStrategy.generate(actions.map(predictiveModel.predict(_)))
     }
 
-    dataset.toDF.withColumn($(probabilityCol), predictionUdf(col($(actionCol))))
+    dataset.toDF.withColumn($(predictionCol), predictionUdf(col($(featuresCol))))
   }
 
   override def predict(features: Seq[Vector]): Double = {

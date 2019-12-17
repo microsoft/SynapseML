@@ -44,8 +44,8 @@ object Simulator {
     dataset.withColumn("reward",
       when(expr(
         """
-           (user == 0 AND ((timeOfDay == 0  AND chosenAction == 0) OR (timeOfDay == 1 AND chosenAction == 1))) OR
-           (user == 1 AND ((timeOfDay == 0 AND chosenAction == 2) OR (timeOfDay == 1 AND chosenAction == 0)))
+           (user == 0 AND ((timeOfDay == 0 AND chosenAction == 1) OR (timeOfDay == 1 AND chosenAction == 2))) OR
+           (user == 1 AND ((timeOfDay == 0 AND chosenAction == 3) OR (timeOfDay == 1 AND chosenAction == 1)))
         """.stripMargin), 1).otherwise(0))
 
   def generateContext(n: Int): Seq[Context] = {
@@ -57,9 +57,9 @@ object Simulator {
         userIdx,
         timeOfDayIdx,
         // user context
-        new SparseVector(5, Array(userIdx, 2 + timeOfDayIdx), Array(1.0, 1.0)),
+        new SparseVector(4, Array(userIdx, 2 + timeOfDayIdx), Array(1.0, 1.0)),
         // articles
-        List.range(0, 7).map({ i => new SparseVector(20, Array(i), Array(1.0)) }).toSeq
+        List.range(0, 4).map({ i => new SparseVector(4, Array(i), Array(1.0)) }).toSeq
       )
     }
   }
@@ -75,7 +75,7 @@ object Simulator {
           .scanLeft(0.0)(_ + _) // cumulative sum
           .zipWithIndex
           .collectFirst({ case (p, i) if p > draw => i })
-          .getOrElse(probabilities.length - 1)
+          .getOrElse(probabilities.length)
       }
     }
 
@@ -92,37 +92,63 @@ class VerifyContextualBandit extends TestBase {
     val policy = new UniformRandomPolicy
 
     // 1. generate context
-    var df = session.createDataFrame(Simulator.generateContext(500))
+    var df = session.createDataFrame(Simulator.generateContext(5000))
       .coalesce(1)
 
     // feature engineering
     val assembler = new NestedVectorAssembler
     df = assembler.transform(df)
 
-    // 2. evaluate policy (Transformer)
+    // 2. evaluate policy
     df = policy.transform(df)
 
-    // 3. sample action
+    // 3. sample from distribution over actions
     df = Simulator.sampleAction(df)
 
     // 4. simulate behavior
     df = Simulator.addReward(df)
 
+    df = df.cache()
+
+
+//    df.printSchema
+
     // 5. train policy -> pi'
-
-//    df.show(5, false)
-    df.printSchema
-
     val cb = new ContextualBandit()
       .setLabelCol("reward")
-      .setEstimator(new LightGBMRegressor())
+      .setEstimator(new LightGBMRegressor()
+        //        .setNumIterations(500)
+        //        .setMetric("l2")
+      )
 
     val newPolicy = cb.fit(df)
+      .setExplorationStrategy(new PassThrough)
 
     val importance = newPolicy.getModel
       .asInstanceOf[LightGBMRegressionModel]
       .getFeatureImportances("gain")
 
     println(importance.mkString(","))
+
+    df = newPolicy.transform(df)
+
+    df.show(10, false)
+    df.where("reward == 1")
+      .withColumn("predictedAction",
+        array_position(col("prediction"), array_max(col("prediction"))))
+      .show(10, false)
+
+    df
+      .withColumn("predictedAction",
+        array_position(col("prediction"), array_max(col("prediction"))))
+      .withColumn("match",
+          when(
+            (col("reward") === lit(1.0)) &&
+            (col("chosenAction") === col("predictedAction"))
+            , 1).otherwise(0))
+      .selectExpr("SUM(reward) AS clicks",
+        "COUNT(*) as N",
+        "SUM(match) AS click_matches")
+      .show
   }
 }
