@@ -169,7 +169,7 @@ object DatabricksUtilities extends HasHttpClient {
          | "cluster_id": "$clusterId",
          | "libraries": $Libraries
          |}
-      """.stripMargin,List(100, 500, 1000, 10000, 20000))
+      """.stripMargin)
     ()
   }
 
