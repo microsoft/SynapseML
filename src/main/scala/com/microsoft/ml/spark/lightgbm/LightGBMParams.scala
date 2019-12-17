@@ -265,4 +265,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMaxBinByFeature: Array[Int] = $(maxBinByFeature)
   def setMaxBinByFeature(value: Array[Int]): this.type = set(maxBinByFeature, value)
+
+  val minDataInLeaf = new IntParam(this, "minDataInLeaf",
+    "Minimal number of data in one leaf. Can be used to deal with over-fitting.")
+  setDefault(minDataInLeaf -> 20)
+
+  def getMinDataInLeaf: Int = $(minDataInLeaf)
+  def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
 }
