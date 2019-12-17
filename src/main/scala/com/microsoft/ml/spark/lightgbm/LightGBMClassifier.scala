@@ -44,7 +44,7 @@ class LightGBMClassifier(override val uid: String)
      */
     val actualNumClasses = getNumClasses(dataset)
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
+    ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
       getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,

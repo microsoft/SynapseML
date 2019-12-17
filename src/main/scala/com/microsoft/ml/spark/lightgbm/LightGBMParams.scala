@@ -17,6 +17,15 @@ trait LightGBMExecutionParams extends Wrappable {
   def getParallelism: String = $(parallelism)
   def setParallelism(value: String): this.type = set(parallelism, value)
 
+  val topK = new IntParam(this, "topK",
+    "The top_k value used in Voting parallel, " +
+      "set this to larger value for more accurate result, but it will slow down the training speed. " +
+      "It should be greater than 0")
+  setDefault(topK -> LightGBMConstants.DefaultTopK)
+
+  def getTopK: Int = $(topK)
+  def setTopK(value: Int): this.type = set(topK, value)
+
   val defaultListenPort = new IntParam(this, "defaultListenPort",
     "The default listen port on executors, used for testing")
 
@@ -75,7 +84,7 @@ trait LightGBMSlotParams extends Wrappable {
 }
 
 /** Defines parameters for fraction across all LightGBM learners.
- */
+  */
 trait LightGBMFractionParams extends Wrappable {
   val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
   setDefault(baggingFraction->1)
@@ -128,8 +137,8 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val objective = new Param[String](this, "objective",
     "The Objective. For regression applications, this can be: " +
-    "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
-    "For classification applications, this can be: binary, multiclass, or multiclassova. ")
+      "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
+      "For classification applications, this can be: binary, multiclass, or multiclassova. ")
   setDefault(objective -> "regression")
 
   def getObjective: String = $(objective)
@@ -193,8 +202,8 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val boostingType = new Param[String](this, "boostingType",
     "Default gbdt = traditional Gradient Boosting Decision Tree. Options are: " +
-    "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
-    "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
+      "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
+      "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
   setDefault(boostingType -> "gbdt")
 
   def getBoostingType: String = $(boostingType)
@@ -221,7 +230,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val metric = new Param[String](this, "metric",
     "Metrics to be evaluated on the evaluation data.  Options are: " +
-     "empty string or not specified means that metric corresponding to specified " +
+      "empty string or not specified means that metric corresponding to specified " +
       "objective will be used (this is possible only for pre-defined objective functions, " +
       "otherwise no evaluation metric will be added). " +
       "None (string, not a None value) means that no metric will be registered, a" +
