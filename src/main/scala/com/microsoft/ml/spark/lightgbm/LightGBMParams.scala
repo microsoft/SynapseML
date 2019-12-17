@@ -17,6 +17,15 @@ trait LightGBMExecutionParams extends Wrappable {
   def getParallelism: String = $(parallelism)
   def setParallelism(value: String): this.type = set(parallelism, value)
 
+  val topK = new IntParam(this, "topK",
+    "The top_k value used in Voting parallel, " +
+      "set this to larger value for more accurate result, but it will slow down the training speed. " +
+      "It should be greater than 0")
+  setDefault(topK -> LightGBMConstants.DefaultTopK)
+
+  def getTopK: Int = $(topK)
+  def setTopK(value: Int): this.type = set(topK, value)
+
   val defaultListenPort = new IntParam(this, "defaultListenPort",
     "The default listen port on executors, used for testing")
 
@@ -46,10 +55,38 @@ trait LightGBMExecutionParams extends Wrappable {
   def setNumBatches(value: Int): this.type = set(numBatches, value)
 }
 
+/** Defines parameters for fraction across all LightGBM learners.
+  */
+trait LightGBMFractionParams extends Wrappable {
+  val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
+  setDefault(baggingFraction->1)
+
+  def getBaggingFraction: Double = $(baggingFraction)
+  def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
+
+  val posBaggingFraction = new DoubleParam(this, "posBaggingFraction", "Positive Bagging fraction")
+  setDefault(posBaggingFraction->1)
+
+  def getPosBaggingFraction: Double = $(posBaggingFraction)
+  def setPosBaggingFraction(value: Double): this.type = set(posBaggingFraction, value)
+
+  val negBaggingFraction = new DoubleParam(this, "negBaggingFraction", "Negative Bagging fraction")
+  setDefault(negBaggingFraction->1)
+
+  def getNegBaggingFraction: Double = $(negBaggingFraction)
+  def setNegBaggingFraction(value: Double): this.type = set(negBaggingFraction, value)
+
+  val featureFraction = new DoubleParam(this, "featureFraction", "Feature fraction")
+  setDefault(featureFraction->1)
+
+  def getFeatureFraction: Double = $(featureFraction)
+  def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams {
+  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams with LightGBMFractionParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -71,8 +108,8 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val objective = new Param[String](this, "objective",
     "The Objective. For regression applications, this can be: " +
-    "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
-    "For classification applications, this can be: binary, multiclass, or multiclassova. ")
+      "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
+      "For classification applications, this can be: binary, multiclass, or multiclassova. ")
   setDefault(objective -> "regression")
 
   def getObjective: String = $(objective)
@@ -83,12 +120,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMaxBin: Int = $(maxBin)
   def setMaxBin(value: Int): this.type = set(maxBin, value)
-
-  val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
-  setDefault(baggingFraction->1)
-
-  def getBaggingFraction: Double = $(baggingFraction)
-  def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
 
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
@@ -107,12 +138,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getEarlyStoppingRound: Int = $(earlyStoppingRound)
   def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
-
-  val featureFraction = new DoubleParam(this, "featureFraction", "Feature fraction")
-  setDefault(featureFraction->1)
-
-  def getFeatureFraction: Double = $(featureFraction)
-  def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)
@@ -160,8 +185,8 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val boostingType = new Param[String](this, "boostingType",
     "Default gbdt = traditional Gradient Boosting Decision Tree. Options are: " +
-    "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
-    "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
+      "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
+      "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
   setDefault(boostingType -> "gbdt")
 
   def getBoostingType: String = $(boostingType)
@@ -188,7 +213,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val metric = new Param[String](this, "metric",
     "Metrics to be evaluated on the evaluation data.  Options are: " +
-     "empty string or not specified means that metric corresponding to specified " +
+      "empty string or not specified means that metric corresponding to specified " +
       "objective will be used (this is possible only for pre-defined objective functions, " +
       "otherwise no evaluation metric will be added). " +
       "None (string, not a None value) means that no metric will be registered, a" +
@@ -240,4 +265,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMaxBinByFeature: Array[Int] = $(maxBinByFeature)
   def setMaxBinByFeature(value: Array[Int]): this.type = set(maxBinByFeature, value)
+
+  val minDataInLeaf = new IntParam(this, "minDataInLeaf",
+    "Minimal number of data in one leaf. Can be used to deal with over-fitting.")
+  setDefault(minDataInLeaf -> 20)
+
+  def getMinDataInLeaf: Int = $(minDataInLeaf)
+  def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
 }
