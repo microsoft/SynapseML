@@ -23,7 +23,7 @@ object ContextualBandit extends DefaultParamsReadable[ContextualBandit]
 
 @InternalWrapper
 class ContextualBandit(override val uid: String)
-  extends Predictor[Array[Vector], ContextualBandit, ContextualBanditModel] {
+  extends Predictor[Seq[Vector], ContextualBandit, ContextualBanditModel] {
 
   def this() = this(Identifiable.randomUID("ContextualBandit"))
 
@@ -34,32 +34,39 @@ class ContextualBandit(override val uid: String)
   val probabilityCol = new Param[String](this, "probabilityCol", "Column name of probability of chosen action")
   def getProbabilityCol: String = $(probabilityCol)
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
+  setDefault(probabilityCol -> "probability")
 
   val actionCol = new Param[String](this, "actionCol", "Column name of chosen action")
   def getActionCol: String = $(actionCol)
   def setActionCol(value: String): this.type = set(actionCol, value)
+  setDefault(actionCol -> "chosenAction")
 
   val estimator: Param[Estimator[_]] = new Param(this, "estimator", "estimator to reduce too")
   def setEstimator(value: Estimator[_]): this.type = set(estimator, value)
   def getEstimator: Estimator[_] = ${estimator}
 
-  val explorationStrategy: Param[ExplorationStrategy] = new Param(this, "explorationStrategy", "exploration strategy")
-  def setExplorationStrategy(value: ExplorationStrategy): this.type = set(explorationStrategy, value)
-  def getExplorationStrategy: ExplorationStrategy = ${explorationStrategy}
-
   override def copy(extra: ParamMap): ContextualBandit = defaultCopy(extra)
 
-  override protected def train(dataset: Dataset[_]): ContextualBanditModel = {
+  // TODO: fix validation
+  override def transformSchema(schema: StructType): StructType = schema
 
+  override protected def train(dataset: Dataset[_]): ContextualBanditModel = {
     // for MTR training the selected action is enough
-    val reduced = dataset
-      // implement probability clipping
+    val stage1 = dataset
       .withColumn("CB_weight_1", col(getLabelCol) / col(getProbabilityCol))
-      .withColumn("CB_weight",
+
+    val stage2 = if (!get(clipProbability).isEmpty)
+      // implement probability clipping
+      stage1.withColumn("CB_weight",
         when(col("CB_weight_1") > lit(getClipProbability), lit(getClipProbability))
           .otherwise(col("CB_weight_1")))
-      // extract selected action
-      .withColumn("CB_features", element_at(col(getFeaturesCol), col(getActionCol) + 1))
+      else
+        stage1.withColumn("CB_weight", col("CB_weight_1"))
+
+    // extract selected action
+    val stage3 = stage2.withColumn("CB_features", element_at(col(getFeaturesCol), col(getActionCol)))
+
+    stage3.printSchema
 
     val est = getEstimator
     val model = est
@@ -67,12 +74,11 @@ class ContextualBandit(override val uid: String)
       .set(est.getParam("featuresCol"), "CB_features")
       .set(est.getParam("labelCol"), getLabelCol)
       .set(est.getParam("weightCol"), "CB_weight")
-      .fit(reduced)
+      .fit(stage3)
 
     new ContextualBanditModel(uid)
       .setModel(model.asInstanceOf[Model[_]])
       .setActionCol(getActionCol)
-      .setExplorationStrategy(getExplorationStrategy)
   }
 }
 
@@ -110,7 +116,7 @@ class SoftMax(val lambda: Double) extends ExplorationStrategy with Serializable 
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
 @InternalWrapper
 class ContextualBanditModel(override val uid: String)
-extends PredictionModel[Array[Vector], ContextualBanditModel]
+extends PredictionModel[Seq[Vector], ContextualBanditModel]
   with HasProbabilityCol
 {
   val model: Param[Model[_]] = new Param(this, "model", "model")
@@ -143,7 +149,7 @@ extends PredictionModel[Array[Vector], ContextualBanditModel]
     dataset.toDF.withColumn($(probabilityCol), predictionUdf(col($(actionCol))))
   }
 
-  override def predict(features: Array[Vector]): Double = {
+  override def predict(features: Seq[Vector]): Double = {
     throw new NotImplementedError("Not implement")
     // return IPS?
   }
