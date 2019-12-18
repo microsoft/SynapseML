@@ -74,7 +74,7 @@ class ContextualBandit(override val uid: String)
     val stage3 = stage2.withColumn("CB_features", element_at(col(getFeaturesCol), col(getActionCol)))
 
 //    stage3.printSchema
-    stage3.show(5, false)
+//    stage3.show(5, false)
 
     val est = getEstimator
     val model = est

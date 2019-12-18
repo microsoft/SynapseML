@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.vw
 import java.util.UUID
 
 import org.apache.spark.TaskContext
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.{col, struct, udf}
@@ -182,8 +182,11 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def generateNamespaceInfos(schema: StructType): Array[NamespaceInfo] =
     (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .map(col => NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col)))
+      .map(col => generateNamespaceInfo(schema, col))
       .toArray
+
+  protected def generateNamespaceInfo(schema: StructType, col: String): NamespaceInfo =
+    NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col))
 
   private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = "") = {
     val args = new StringBuilder
@@ -212,7 +215,7 @@ trait VowpalWabbitBase extends Wrappable
   protected def trainRow(schema: StructType,
                          inputRows: Iterator[Row],
                          ctx: TrainContext
-                        ) = {
+                        ): Unit = {
     val applyLabel = createLabelSetter(schema)
     val featureColIndices = generateNamespaceInfos(schema)
 
@@ -224,12 +227,7 @@ trait VowpalWabbitBase extends Wrappable
 
           // transfer features
           for (ns <- featureColIndices)
-            row.get(ns.colIdx) match {
-              case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-                ns.hash, dense.values)
-              case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-                sparse.indices, sparse.values)
-            }
+            addFeaturesToExample(row.getAs[Vector](ns.colIdx), ex, ns)
         }
 
         ctx.learnTime.measure {
@@ -239,6 +237,14 @@ trait VowpalWabbitBase extends Wrappable
       }
     }
   }
+
+  protected def addFeaturesToExample(features: Vector, ex: VowpalWabbitExample, ns:NamespaceInfo): Unit =
+    features match {
+      case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+        ns.hash, dense.values)
+      case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+        sparse.indices, sparse.values)
+    }
 
   class TrainContext(val vw: VowpalWabbitNative,
                      val totalTime: StopWatch = new StopWatch,

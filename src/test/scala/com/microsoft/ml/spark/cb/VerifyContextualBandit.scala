@@ -118,7 +118,7 @@ class VerifyContextualBandit extends TestBase {
         cb.getModel match {
           case lgbm: LightGBMRegressionModel => {
             regressor.setModelString(regressor.stringFromTrainedModel(lgbm))
-            println("continue training")
+//            println("continue training")
           }
         }
       }

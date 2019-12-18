@@ -15,7 +15,7 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.vowpalwabbit.spark.VowpalWabbitExample
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import org.apache.spark.sql.types.StructType
-
+import collection.mutable.Stack
 import scala.math.exp
 
 object VowpalWabbitContextualBandit extends DefaultParamsReadable[VowpalWabbitContextualBandit]
@@ -27,6 +27,21 @@ class VowpalWabbitContextualBandit(override val uid: String)
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBandit"))
 
+  val probabilityCol = new Param[String](this, "probabilityCol", "Column name of probability of chosen action")
+  def getProbabilityCol: String = $(probabilityCol)
+  def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
+  setDefault(probabilityCol -> "probability")
+
+  val actionCol = new Param[String](this, "actionCol", "Column name of chosen action")
+  def getActionCol: String = $(actionCol)
+  def setActionCol(value: String): this.type = set(actionCol, value)
+  setDefault(actionCol -> "chosenAction")
+
+  val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
+  def getSharedCol: String = $(sharedCol)
+  def setSharedCol(value: String): this.type = set(sharedCol, value)
+  setDefault(sharedCol -> "shared")
+
   override def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample, Int) => Unit = {
     if (getArgs.contains("--ccb_explore_adf"))
       throw new UnsupportedOperationException("TODO")
@@ -37,18 +52,18 @@ class VowpalWabbitContextualBandit(override val uid: String)
   }
 
   private def createContextualBanditLabelSetter(schema: StructType): (Row, VowpalWabbitExample, Int) => Unit = {
-    val labelIdx = schema.fieldIndex("_labelIndex")
-    val costIdx = schema.fieldIndex("_label_cost")
-    val probabilityIdx = schema.fieldIndex("_label_probability")
+    val actionIdx = schema.fieldIndex(getActionCol)
+    val labelIdx = schema.fieldIndex(getLabelCol)
+    val probabilityIdx = schema.fieldIndex(getProbabilityCol)
 
     // TODO: update jar
     (row: Row, ex: VowpalWabbitExample, idx: Int) => {
-//      if (idx == 0)
-//        ex.setSharedLabel
-//      else if (row.getInt(labelIdx) == idx)
-//        ex.setContextualBanditLabel(idx, row.getDouble(costIdx), row.getDouble(probabilityIdx))
+      if (idx == 0)
+        ex.setSharedLabel
+      else if (row.getInt(actionIdx) == idx)
+        // cost = -label (reward)
+        ex.setContextualBanditLabel(idx, -row.getDouble(labelIdx), row.getDouble(probabilityIdx))
     }
-
   }
 
   protected override def trainRow(schema: StructType,
@@ -57,34 +72,73 @@ class VowpalWabbitContextualBandit(override val uid: String)
                         ) = {
     val applyLabel = createLabelSetter(schema)
     val featureColIndices = generateNamespaceInfos(schema)
-    val contextIdx = schema.fieldIndex("c")
+    val sharedNs = generateNamespaceInfo(schema, getSharedCol)
 
-    // TODO: shared features column
-    // TODO: actions (e.g. Array(Row[Vector])
+    class ExampleStack {
+      val stack = Stack.newBuilder[VowpalWabbitExample].result
 
-    StreamUtilities.using(ctx.vw.createExample()) { ex =>
-      for (row <- inputRows) {
-        ctx.nativeIngestTime.measure {
+      def getOrCreateExample(): VowpalWabbitExample =
+        if (stack.isEmpty)
+          ctx.vw.createExample
+        else
+          stack.pop
 
-          // TODO: go on here
-          // transfer label
-          applyLabel(row, ex, 0)
-
-          // transfer features
-          for (ns <- featureColIndices)
-            row.get(ns.colIdx) match {
-              case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-                ns.hash, dense.values)
-              case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-                sparse.indices, sparse.values)
-            }
-        }
-
-        ctx.learnTime.measure {
-          ex.learn()
-          ex.clear()
-        }
+      def returnExample(ex: VowpalWabbitExample) = {
+        ex.clear
+        stack.push(ex)
       }
+
+      def close() =
+        while (stack.nonEmpty)
+          stack.pop.close()
+    }
+
+    val exampleStack = new ExampleStack
+
+    for (row <- inputRows) {
+      val sharedExample = exampleStack.getOrCreateExample
+      // transfer label
+      applyLabel(row, sharedExample, 0)
+      addFeaturesToExample(row.getAs[Vector](sharedNs.colIdx), sharedExample, sharedNs)
+      sharedExample.learn
+
+      // transfer actions
+      val actions0 = row.getAs[Seq[Vector]](featureColIndices(0).colIdx)
+
+      // each features column is a Seq[Vector]
+      // first index  ... namespaces
+      // second index ... actions
+      val actionFeatures = featureColIndices.map(ns => row.getAs[Seq[Vector]](ns.colIdx).toArray)
+
+      // loop over actions
+      val examples = (for (actionIdx <- 0 to actions0.length) yield {
+        val ex = exampleStack.getOrCreateExample
+
+        applyLabel(row, ex, actionIdx + 1)
+
+        // loop over namespaces
+        for ((ns, i) <- featureColIndices.zipWithIndex) {
+          val features = actionFeatures(i)(actionIdx)
+
+          addFeaturesToExample(features, ex, ns)
+        }
+
+        ex.learn
+        ex
+      }).toArray // make sure it materializes
+
+      // signal end of multi-line
+      val newLineEx = exampleStack.getOrCreateExample
+      newLineEx.makeEmpty
+      newLineEx.learn
+
+      // re-use examples
+      exampleStack.returnExample(newLineEx)
+
+      for (ex <- examples)
+        exampleStack.returnExample(ex)
+
+      exampleStack.returnExample(sharedExample)
     }
   }
 
