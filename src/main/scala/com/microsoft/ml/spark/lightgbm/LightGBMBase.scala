@@ -137,7 +137,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
     val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
     val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol,
+    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol, getSlotNames,
       categoricalSlotIndexesArr, categoricalSlotNamesArr)
     val trainParams = getTrainParams(numWorkers, categoricalIndexes, dataset)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
