@@ -284,6 +284,9 @@ private object TrainUtils extends Serializable {
 
   private def findOpenPort(defaultListenPort: Int, numCoresPerExec: Int, log: Logger): Socket = {
     val basePort = defaultListenPort + (LightGBMUtils.getId() * numCoresPerExec)
+    if (basePort > LightGBMConstants.MaxPort) {
+      throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
+    }
     var localListenPort = basePort
     var foundPort = false
     var workerServerSocket: Socket = null
@@ -296,6 +299,9 @@ private object TrainUtils extends Serializable {
         case _: IOException =>
           log.warn(s"Could not bind to port $localListenPort...")
           localListenPort += 1
+          if (localListenPort > LightGBMConstants.MaxPort) {
+            throw new Exception(s"Error: port $basePort out of range, possibly due to networking or firewall issues")
+          }
           if (localListenPort - basePort > 1000) {
             throw new Exception("Error: Could not find open port after 1k tries")
           }
