@@ -56,7 +56,7 @@ class LightGBMRanker(override val uid: String)
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf)
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {

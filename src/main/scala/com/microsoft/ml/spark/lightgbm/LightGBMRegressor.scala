@@ -64,7 +64,7 @@ class LightGBMRegressor(override val uid: String)
       getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
       getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2,
       getIsProvideTrainingMetric, getMetric, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf)
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
