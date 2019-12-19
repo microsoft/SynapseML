@@ -163,6 +163,8 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
+  protected  def getAdditionalColumns(): Seq[String] = Seq.empty
+
   protected def createLabelSetter(schema: StructType) = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
 
@@ -289,6 +291,8 @@ trait VowpalWabbitBase extends Wrappable
     */
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: => String = "") = {
 
+    val schema = df.schema
+
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
 
@@ -302,7 +306,7 @@ trait VowpalWabbitBase extends Wrappable
           // pass data to VW native part
         trainContext.totalTime.measure {
           // train on data
-          trainRow(df.schema, inputRows, trainContext)
+          trainRow(schema, inputRows, trainContext)
 
           // perform distributed sync
           trainContext.multipassTime.measure {
@@ -407,6 +411,7 @@ trait VowpalWabbitBase extends Wrappable
     val dfSubset = dataset.toDF().select((
         Seq(getFeaturesCol, getLabelCol) ++
         getAdditionalFeatures ++
+        getAdditionalColumns ++
         Seq(get(weightCol)).flatten
       ).map(col): _*)
 

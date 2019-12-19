@@ -42,6 +42,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setSharedCol(value: String): this.type = set(sharedCol, value)
   setDefault(sharedCol -> "shared")
 
+  protected override def getAdditionalColumns(): Seq[String] = Seq(getActionCol, getProbabilityCol, getSharedCol)
+
   override def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample, Int) => Unit = {
     if (getArgs.contains("--ccb_explore_adf"))
       throw new UnsupportedOperationException("TODO")
@@ -66,25 +68,37 @@ class VowpalWabbitContextualBandit(override val uid: String)
     }
   }
 
+  // TODO: fix validation
+  override def transformSchema(schema: StructType): StructType = schema
+
   protected override def trainRow(schema: StructType,
                          inputRows: Iterator[Row],
                          ctx: TrainContext
                         ) = {
-    val applyLabel = createLabelSetter(schema)
+//    val applyLabel = createLabelSetter(schema)
     val featureColIndices = generateNamespaceInfos(schema)
     val sharedNs = generateNamespaceInfo(schema, getSharedCol)
+    val actionColIdx = schema.fieldIndex(getActionCol)
+    val labelIdx = schema.fieldIndex(getLabelCol)
+    val probabilityIdx = schema.fieldIndex(getProbabilityCol)
 
     class ExampleStack {
-      val stack = Stack.newBuilder[VowpalWabbitExample].result
+      val stack = new Stack[VowpalWabbitExample]
 
-      def getOrCreateExample(): VowpalWabbitExample =
-        if (stack.isEmpty)
+      def getOrCreateExample(): VowpalWabbitExample = {
+        val ex = if (stack.isEmpty)
           ctx.vw.createExample
         else
           stack.pop
 
-      def returnExample(ex: VowpalWabbitExample) = {
         ex.clear
+        ex.setDefaultLabel
+
+        ex
+      }
+
+      def returnExample(ex: VowpalWabbitExample) = {
+//        ex.clear
         stack.push(ex)
       }
 
@@ -96,11 +110,13 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val exampleStack = new ExampleStack
 
     for (row <- inputRows) {
+      println("ROW")
       val sharedExample = exampleStack.getOrCreateExample
       // transfer label
-      applyLabel(row, sharedExample, 0)
+//      applyLabel(row, sharedExample, 0)
+      sharedExample.setSharedLabel
+      // TODO: support multiple shared feature columns
       addFeaturesToExample(row.getAs[Vector](sharedNs.colIdx), sharedExample, sharedNs)
-      sharedExample.learn
 
       // transfer actions
       val actions0 = row.getAs[Seq[Vector]](featureColIndices(0).colIdx)
@@ -111,10 +127,14 @@ class VowpalWabbitContextualBandit(override val uid: String)
       val actionFeatures = featureColIndices.map(ns => row.getAs[Seq[Vector]](ns.colIdx).toArray)
 
       // loop over actions
-      val examples = (for (actionIdx <- 0 to actions0.length) yield {
+      val examples = (for (actionIdx <- 0 until actions0.length) yield {
         val ex = exampleStack.getOrCreateExample
 
-        applyLabel(row, ex, actionIdx + 1)
+//        applyLabel(row, ex, actionIdx + 1)
+        if (actionIdx == row.getInt(actionColIdx)) {
+          ex.setContextualBanditLabel(actionIdx + 1, -row.getDouble(labelIdx), row.getDouble(probabilityIdx))
+          println(s"Setting label on $actionIdx")
+        }
 
         // loop over namespaces
         for ((ns, i) <- featureColIndices.zipWithIndex) {
@@ -123,22 +143,19 @@ class VowpalWabbitContextualBandit(override val uid: String)
           addFeaturesToExample(features, ex, ns)
         }
 
-        ex.learn
         ex
       }).toArray // make sure it materializes
 
       // signal end of multi-line
       val newLineEx = exampleStack.getOrCreateExample
       newLineEx.makeEmpty
-      newLineEx.learn
 
-      // re-use examples
-      exampleStack.returnExample(newLineEx)
+      val allExamples = sharedExample +: examples :+ newLineEx
 
-      for (ex <- examples)
+      ctx.vw.learn(allExamples)
+
+      for (ex <- allExamples)
         exampleStack.returnExample(ex)
-
-      exampleStack.returnExample(sharedExample)
     }
   }
 

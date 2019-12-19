@@ -8,6 +8,7 @@ import java.nio.file.Files
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegressor}
+import com.microsoft.ml.spark.vw.{VowpalWabbitBaseModel, VowpalWabbitContextualBandit}
 import org.apache.spark.ml.util.{Identifiable, MLReadable}
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.ml.Transformer
@@ -181,6 +182,85 @@ class VerifyContextualBandit extends TestBase {
 
     for (i <- 0 to 10) {
       policy = epoch(policy, 100, i + 42)
+    }
+  }
+
+  def epochVowpalWabbit(policy: Transformer, n: Int, seed: Int): Transformer = {
+    // 1. generate context
+    var df = session.createDataFrame(Simulator.generateContext(n, seed))
+      .coalesce(1)
+      .cache()
+
+    // feature engineering
+    // Use VW -q directly
+
+    // 2. evaluate policy
+    df = policy.transform(df)
+
+    // 3. sample from distribution over actions
+    df = Simulator.sampleAction(df).cache()
+
+    // 4. simulate behavior
+    df = Simulator.addReward(df)
+
+    df = df.cache()
+
+    // 5. train policy -> pi'
+    val cb = new VowpalWabbitContextualBandit()
+      .setArgs("--cb_explore_adf -q sf --epsilon 0.2")
+      .setLabelCol("reward")
+
+    // continuous training
+    policy match {
+      case vw: VowpalWabbitBaseModel => cb.setInitialModel(vw.getModel)
+      case _ => {}
+    }
+
+//    df.printSchema
+//    df.show(5, false)
+
+    val newPolicy = cb.fit(df)
+
+    df = newPolicy.transform(df)
+
+    //    df.show(10, false)
+    //    df.where("reward == 1")
+    //      .withColumn("predictedAction",
+    //        array_position(col("prediction"), array_max(col("prediction"))))
+    //      .show(10, false)
+
+    df
+      .withColumn("predictedAction",
+        array_position(col("prediction"), array_max(col("prediction"))))
+      .withColumn("match",
+        when((col("chosenAction") === col("predictedAction"))
+          , 1).otherwise(0))
+      .withColumn("matchClick",
+        when(
+          (col("reward") === lit(1.0)) &&
+            (col("chosenAction") === col("predictedAction"))
+          , 1).otherwise(0))
+      .selectExpr("SUM(reward) AS clicks",
+        "COUNT(*) as N",
+        "SUM(match) as matches",
+        "SUM(matchClick) AS matchesClick")
+      .show
+    //
+    //    df.groupBy(
+    //      col("user"),
+    //      col("timeOfDay"),
+    //      col("chosenAction")).sum("reward")
+    //      .where(col("SUM(reward)") > 0)
+    //      .show(100)
+
+    newPolicy.setPredictionCol("probabilities")
+  }
+
+  test( "Verify VW Contextual Bandit") {
+    var policy: Transformer = new UniformRandomPolicy
+
+    for (i <- 0 to 10) {
+      policy = epochVowpalWabbit(policy, 100, i + 42)
     }
   }
 }
