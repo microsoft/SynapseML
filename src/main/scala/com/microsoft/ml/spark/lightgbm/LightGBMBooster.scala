@@ -46,7 +46,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     }
   }
 
-  lazy val numClasses: Int = getNumClasses
+  lazy val numClasses: Int = getNumClasses()
 
   lazy val numTotalModel: Int = getNumTotalModel
 
