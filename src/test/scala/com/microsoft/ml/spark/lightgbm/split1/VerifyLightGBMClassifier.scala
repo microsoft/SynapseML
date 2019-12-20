@@ -20,7 +20,7 @@ import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 
@@ -99,10 +99,11 @@ trait LightGBMTestUtils extends TestBase {
     LightGBMConstants.DefaultLocalListenPort + portIndex
   }
 
-  val boostingTypes = Array("gbdt", "rf", "dart", "goss")
+  val boostingTypes: Array[String] = Array("gbdt", "rf", "dart", "goss")
   val featuresCol = "features"
   val labelCol = "labels"
   val rawPredCol = "rawPrediction"
+  val leafPredCol = "leafPrediction"
   val initScoreCol = "initScore"
   val predCol = "prediction"
   val probCol = "probability"
@@ -195,6 +196,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setNumIterations(10)
       .setObjective(binaryObjective)
       .setLabelCol(labelCol)
+      .setLeafPredictionCol(leafPredCol)
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -243,7 +245,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val convertUDF = udf((vector: DenseVector) => vector(1))
     val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
     val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
-      .drop(predCol, rawPredCol, probCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertBinaryImprovement(scoredDF1, scoredDF2)
@@ -337,6 +339,31 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
+  }
+
+  test("Verify LightGBM Classifier leaf prediction") {
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val leafIndices: Array[Double] = evaluatedDf.select(leafPredCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(leafIndices.length == model.getModel.numTotalModel)
+
+    // leaf index's value >= 0 and integer
+    leafIndices.foreach { index =>
+      assert(index >= 0)
+      assert(index == index.toInt)
+    }
+
+    // if leaf prediction is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setLeafPredictionCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(leafPredCol))
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {
