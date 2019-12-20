@@ -78,9 +78,9 @@ trait HasFeatureImportanceGetters {
 }
 
 trait HasLeafPredictionCol extends Params {
-  val leafPredictionCol = new Param[String](this, "leafIndicesCol",
-    "Tree learner parallelism, can be set to data_parallel or voting_parallel")
-  setDefault(leafPredictionCol->"")
+  val leafPredictionCol = new Param[String](this, "leafPredictionCol",
+    "Predicted leaf indices's column name")
+  setDefault(leafPredictionCol -> "")
 
   def getLeafPredictionCol: String = $(leafPredictionCol)
   def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
