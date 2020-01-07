@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
+import java.io.{ByteArrayInputStream, FileInputStream, FileNotFoundException, InputStream}
 import java.net.URL
 import java.util
 import java.util.Collections
@@ -117,20 +117,12 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   }
 
   def recognizingHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
-    println("RECOGNIZING: Text=" + e.getResult.getText)
   }
 
   def canceledHandler(s: Any, e: SpeechRecognitionCanceledEventArgs): Unit = {
-    println("CANCELED: Reason=" + e.getReason)
-    if (e.getReason == CancellationReason.Error) {
-      println("CANCELED: ErrorCode=" + e.getErrorCode)
-      println("CANCELED: ErrorDetails=" + e.getErrorDetails)
-      println("CANCELED: Did you update the subscription info?")
-    }
   }
 
   def sessionStartedHandler(s: Any, e: SessionEventArgs): Unit = {
-    println("\n    Session started event.")
   }
 
   def speechSDK(filename: String): String = {
@@ -160,7 +152,6 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
       resultPromise.complete(Try(stringBuffer.toArray.mkString(" ")))
     }
 
-    // Subscribes to events.
     recognizer.recognizing.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizingHandler))
     recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
     recognizer.canceled.addEventListener(makeEventHandler[SpeechRecognitionCanceledEventArgs](canceledHandler))
@@ -181,12 +172,10 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     result
   }
 
+  /** Checks if 2 strings are close enough. Strips all non-alphanumerics and compares remaining chars */
   def stringsCloseEnough(string1: String, string2: String): Boolean = {
-    """Checks if 2 strings are close enough. Strips all non-alphanumerics and compares remaining"""
     val simpleString1 = string1.replaceAll("[^A-Za-z0-9]", "").toLowerCase()
     val simpleString2 = string2.replaceAll("[^A-Za-z0-9]", "").toLowerCase()
-    println(s"Expected: $simpleString1")
-    println(s"Result: $simpleString2")
     simpleString1 == simpleString2
   }
 
@@ -195,8 +184,6 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     val expectedFile = scala.io.Source.fromFile(expectedPath)
     val expected = try expectedFile.mkString finally expectedFile.close()
     val result = speechSDK(audioFilePath)
-    println(s"Expected: $expected")
-    println(s"Result: $result")
     stringsCloseEnough(expected, result)
   }
 
@@ -206,6 +193,12 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   test("Speech SDK Usage 2"){
     assert(speechTest("audio2.wav", "audio2.txt"))
+  }
+
+  test("Speech SDK File Doesn't Exist") {
+    assertThrows[FileNotFoundException] {
+      speechTest("audio3.wav", "audio3.txt")
+    }
   }
 
   test("Detailed Usage") {
