@@ -3,12 +3,14 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{ByteArrayInputStream, File, FileInputStream}
+import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import java.net.URL
+import java.util
+import java.util.Collections
 import java.util.concurrent.Future
 
-import com.microsoft.cognitiveservices.speech._
-import com.microsoft.cognitiveservices.speech.audio.AudioInputStream
+import com.microsoft.cognitiveservices.speech.{SpeechConfig, _}
+import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -22,18 +24,17 @@ import scala.concurrent.{Await, Promise}
 import scala.util.Try
 
 
-
 trait SpeechKey {
   lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
 }
-
-//class EventHandlerWrapper(f: )
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   with SpeechKey {
 
   import session.implicits._
+
   val region = "eastus"
+  val resourcesDir = System.getProperty("user.dir") + "/src/test/resources/"
 
   lazy val stt = new SpeechToText()
     .setSubscriptionKey(speechKey)
@@ -109,71 +110,53 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     result.DisplayText.get.contains("this is a test")
   }
 
-  test("Speech SDK Usage 1"){
-    import java.io.{FileInputStream, InputStream}
-    import java.util
-    import java.util.Collections
+  def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
+    new EventHandler[T] {
+      def onEvent(var1: Any, var2: T): Unit = f(var1, var2)
+    }
+  }
 
-    import com.microsoft.cognitiveservices.speech.SpeechConfig
-    import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
+  def recognizingHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
+    println("RECOGNIZING: Text=" + e.getResult.getText)
+  }
 
-    val resourcesDir =  System.getProperty("user.dir") + "/src/test/resources/"
-    val wavFilePath = resourcesDir + "/audio1.wav"
+  def canceledHandler(s: Any, e: SpeechRecognitionCanceledEventArgs): Unit = {
+    println("CANCELED: Reason=" + e.getReason)
+    if (e.getReason == CancellationReason.Error) {
+      println("CANCELED: ErrorCode=" + e.getErrorCode)
+      println("CANCELED: ErrorDetails=" + e.getErrorDetails)
+      println("CANCELED: Did you update the subscription info?")
+    }
+  }
+
+  def sessionStartedHandler(s: Any, e: SessionEventArgs): Unit = {
+    println("\n    Session started event.")
+  }
+
+  def speechSDK(filename: String): String = {
+    val wavFilePath = resourcesDir + "/" + filename
     val config: SpeechConfig = SpeechConfig.fromSubscription(speechKey, region)
     assert(config != null)
 
     val inputBytes = IOUtils.toByteArray(new FileInputStream(wavFilePath))
     val inputStream: InputStream = new ByteArrayInputStream(inputBytes)
 
-    // Create the push stream to push audio to.
     val pushStream: PushAudioInputStream = AudioInputStream.createPushStream
-
-    // Creates a speech recognizer using Push Stream as audio input.
     val audioInput: AudioConfig = AudioConfig.fromStreamInput(pushStream)
 
     val recognizer = new SpeechRecognizer(config, audioInput)
-
-    def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
-      new EventHandler[T] {
-        def onEvent(var1: Any, var2: T): Unit = f(var1, var2)
-      }
-    }
-
-    def recognizingHandler(s: Any,  e: SpeechRecognitionEventArgs): Unit = {
-      println("RECOGNIZING: Text=" + e.getResult.getText)
-    }
-
+    val resultPromise = Promise[String]()
     val stringBuffer = Collections.synchronizedList(new util.ArrayList[String])
 
     def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
       if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
-        println("RECOGNIZED: Text=" + e.getResult.getText)
         stringBuffer.add(e.getResult.getText)
-
       }
-      else {
-        if (e.getResult.getReason eq ResultReason.NoMatch) {
-          println("NOMATCH: Speech could not be recognized.")
-        }
+      else if (e.getResult.getReason eq ResultReason.NoMatch) {
       }
     }
 
-    def canceledHandler(s: Any, e: SpeechRecognitionCanceledEventArgs): Unit = {
-      println("CANCELED: Reason=" + e.getReason)
-      if (e.getReason eq CancellationReason.Error) {
-        println("CANCELED: ErrorCode=" + e.getErrorCode)
-        println("CANCELED: ErrorDetails=" + e.getErrorDetails)
-        println("CANCELED: Did you update the subscription info?")
-      }
-    }
-
-    def sessionStartedHandler(s: Any, e: SessionEventArgs): Unit = {
-      println("\n    Session started event.")
-    }
-
-    val resultPromise = Promise[String]()
     def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
-      println("\n    Session stopped event.")
       resultPromise.complete(Try(stringBuffer.toArray.mkString(" ")))
     }
 
@@ -184,12 +167,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     recognizer.sessionStarted.addEventListener(makeEventHandler[SessionEventArgs](sessionStartedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
 
-    // Starts continuous recognition. Uses stopContinuousRecognitionAsync() to stop recognition.
     recognizer.startContinuousRecognitionAsync.get
-
-    // Push audio read from the file into the PushStream.
-    // The audio can be pushed into the stream before, after, or during recognition
-    // and recognition will continue as data becomes available.
     pushStream.write(inputBytes)
 
     pushStream.close()
@@ -197,16 +175,37 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
     val result: String = Await.result(resultPromise.future, Duration.Inf)
 
-    val expectedPath = resourcesDir + "/audio1.txt"
-    val expectedFile = scala.io.Source.fromFile(expectedPath)
-    val expected = try expectedFile.mkString finally expectedFile.close()
-    assert(expected == result)
-
-    println(s"Result: $result")
-
     recognizer.stopContinuousRecognitionAsync.get()
     config.close()
     audioInput.close()
+    result
+  }
+
+  def stringsCloseEnough(string1: String, string2: String): Boolean = {
+    """Checks if 2 strings are close enough. Strips all non-alphanumerics and compares remaining"""
+    val simpleString1 = string1.replaceAll("[^A-Za-z0-9]", "").toLowerCase()
+    val simpleString2 = string2.replaceAll("[^A-Za-z0-9]", "").toLowerCase()
+    println(s"Expected: $simpleString1")
+    println(s"Result: $simpleString2")
+    simpleString1 == simpleString2
+  }
+
+  def speechTest(audioFilePath: String, textFilePath: String): Boolean = {
+    val expectedPath = resourcesDir + "/" + textFilePath
+    val expectedFile = scala.io.Source.fromFile(expectedPath)
+    val expected = try expectedFile.mkString finally expectedFile.close()
+    val result = speechSDK(audioFilePath)
+    println(s"Expected: $expected")
+    println(s"Result: $result")
+    stringsCloseEnough(expected, result)
+  }
+
+  test("Speech SDK Usage 1"){
+    assert(speechTest("audio1.wav", "audio1.txt"))
+  }
+
+  test("Speech SDK Usage 2"){
+    assert(speechTest("audio2.wav", "audio2.txt"))
   }
 
   test("Detailed Usage") {
