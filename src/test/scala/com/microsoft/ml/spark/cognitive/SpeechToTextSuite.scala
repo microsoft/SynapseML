@@ -9,14 +9,14 @@ import java.util
 import java.util.Collections
 import java.util.concurrent.Future
 
-import com.microsoft.cognitiveservices.speech.{SpeechConfig, _}
 import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
+import com.microsoft.cognitiveservices.speech.{SpeechConfig, _}
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 import scala.concurrent.duration.Duration
@@ -58,6 +58,24 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   override def testSerialization(): Unit = {
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
+  }
+
+  test("Basic Usage") {
+    val toObj: Row => SpeechResponse = SpeechResponse.makeFromRowConverter
+    val result = df.select("audio")
+
+//    val result = toObj(stt.setFormat("simple")
+//      .transform(df).select("text")
+//      .collect().head.getStruct(0))
+//    result.DisplayText.get.contains("this is a test")
+  }
+
+  test("Detailed Usage") {
+    val toObj = SpeechResponse.makeFromRowConverter
+    val result = toObj(stt.setFormat("detailed")
+      .transform(df).select("text")
+      .collect().head.getStruct(0))
+    result.NBest.get.head.Display.contains("this is a test")
   }
 
   test("Simple usage of new speech SDK") {
@@ -102,14 +120,6 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     }
   }
 
-  test("Basic Usage") {
-    val toObj = SpeechResponse.makeFromRowConverter
-    val result = toObj(stt.setFormat("simple")
-      .transform(df).select("text")
-      .collect().head.getStruct(0))
-    result.DisplayText.get.contains("this is a test")
-  }
-
   def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
       def onEvent(var1: Any, var2: T): Unit = f(var1, var2)
@@ -125,7 +135,11 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   def sessionStartedHandler(s: Any, e: SessionEventArgs): Unit = {
   }
 
-  def speechSDK(filename: String): String = {
+  /**
+    * @param filename a WAV file in the resources directory
+    * @return text transcription of the WAV file
+    */
+  def wavToText(filename: String): String = {
     val wavFilePath = resourcesDir + "/" + filename
     val config: SpeechConfig = SpeechConfig.fromSubscription(speechKey, region)
     assert(config != null)
@@ -183,7 +197,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     val expectedPath = resourcesDir + "/" + textFilePath
     val expectedFile = scala.io.Source.fromFile(expectedPath)
     val expected = try expectedFile.mkString finally expectedFile.close()
-    val result = speechSDK(audioFilePath)
+    val result = wavToText(audioFilePath)
     stringsCloseEnough(expected, result)
   }
 
@@ -199,14 +213,6 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     assertThrows[FileNotFoundException] {
       speechTest("audio3.wav", "audio3.txt")
     }
-  }
-
-  test("Detailed Usage") {
-    val toObj = SpeechResponse.makeFromRowConverter
-    val result = toObj(stt.setFormat("detailed")
-      .transform(df).select("text")
-      .collect().head.getStruct(0))
-    result.NBest.get.head.Display.contains("this is a test")
   }
 
   override def testObjects(): Seq[TestObject[SpeechToText]] =
