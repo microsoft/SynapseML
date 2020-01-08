@@ -8,14 +8,15 @@ import java.net.URI
 import java.util
 import java.util.Collections
 
-import com.microsoft.cognitiveservices.speech.{OutputFormat, ProfanityOption, ResultReason, SessionEventArgs, SpeechConfig, SpeechRecognitionEventArgs, SpeechRecognizer}
+import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.HasURL
 import org.apache.commons.compress.utils.IOUtils
-import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
@@ -28,9 +29,11 @@ import scala.concurrent.{Await, Promise}
 import scala.language.existentials
 import scala.util.Try
 
+object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
+
 class SpeechToTextSDK(override val uid: String) extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey {
+  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 
@@ -89,21 +92,16 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
   def setProfanityCol(v: String): this.type = setVectorParam(profanity, v)
 
-  val region = "eastus" //temp
+  val region = "eastus"
   val location =
     new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
-
-  val defaultLanguage = "en-us"
-  val defaultProfanity =  "Masked"
-  val defaultFormat = "Simple"
-
-  setDefault(language->ServiceParamData(None, Some(defaultLanguage.toString)))
-  setDefault(profanity->ServiceParamData(None, Some(defaultProfanity.toString)))
-  setDefault(format->ServiceParamData(None, Some(defaultFormat.toString)))
+  setDefault(language->ServiceParamData(None, Some("en-us")))
+  setDefault(profanity->ServiceParamData(None, Some("Masked")))
+  setDefault(format->ServiceParamData(None, Some("Simple")))
 
   def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
@@ -111,10 +109,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
   }
 
-
-  /**
-    * @return text transcription of the audio
-    */
+  /** @return text transcription of the audio */
   def audioBytesToText(bytes: Array[Byte],
                        speechKey: String,
                        uri: URI,
@@ -131,26 +126,23 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     val audioInput: AudioConfig = AudioConfig.fromStreamInput(pushStream)
 
     val recognizer = new SpeechRecognizer(config, audioInput)
+    val connection = Connection.fromRecognizer(recognizer)
+    connection.setMessageProperty("speech.config", "application",
+      s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
+
     val resultPromise = Promise[String]()
     val stringBuffer = Collections.synchronizedList(new util.ArrayList[String])
 
     def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
       if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
-        val text = e.getResult.getText
         stringBuffer.add(e.getResult.getText)
       }
     }
 
-    def recognizingHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
-      println("RECOGNIZING: " + e.getResult.getText)
-    }
-
     def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
-      println("STOPPED")
       resultPromise.complete(Try(stringBuffer.toArray.mkString(" ")))
     }
 
-    recognizer.recognizing.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizingHandler))
     recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
 
@@ -201,7 +193,6 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       case Nil => Seq(lit(false).alias("placeholder"))
       case l => l
     }
-    println("Done transforming...")
      df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
       .withColumn(getOutputCol, udf(inputFunc(schema), StringType)(col(dynamicParamColName)))
       .drop(dynamicParamColName)
