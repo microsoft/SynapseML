@@ -3,19 +3,20 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream, InputStream}
+import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import java.net.URI
 import java.util
 import java.util.Collections
 
+import com.microsoft.cognitiveservices.speech.{OutputFormat, ProfanityOption, ResultReason, SessionEventArgs, SpeechConfig, SpeechRecognitionEventArgs, SpeechRecognizer}
 import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
-import com.microsoft.cognitiveservices.speech.{OutputFormat, ProfanityOption, ResultReason, SessionEventArgs, SpeechConfig, SpeechRecognitionEventArgs, SpeechRecognizer}
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.io.http.HasURL
 import org.apache.commons.compress.utils.IOUtils
-import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity}
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
+import org.apache.spark.ml.param.{ParamMap, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -28,7 +29,8 @@ import scala.language.existentials
 import scala.util.Try
 
 class SpeechToTextSDK(override val uid: String) extends Transformer
-  with HasSetLocation with HasServiceParams with HasOutputCol with HasCognitiveServiceInput {
+  with HasSetLocation with HasServiceParams
+  with HasOutputCol with HasURL with HasSubscriptionKey {
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 
@@ -89,16 +91,26 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
   val region = "eastus" //temp
   val location =
-    new URI(s"https://$region.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
+    new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
+
+
+  val defaultLanguage = "en-us"
+  val defaultProfanity =  "Masked"
+  val defaultFormat = "Simple"
+
+  setDefault(language->ServiceParamData(None, Some(defaultLanguage.toString)))
+  setDefault(profanity->ServiceParamData(None, Some(defaultProfanity.toString)))
+  setDefault(format->ServiceParamData(None, Some(defaultFormat.toString)))
 
   def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
       def onEvent(var1: Any, var2: T): Unit = f(var1, var2)
     }
   }
+
 
   /**
     * @return text transcription of the audio
@@ -107,14 +119,12 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
                        speechKey: String,
                        uri: URI,
                        language: String,
-                       profanity: ProfanityOption,
-                       format: OutputFormat): String = {
-
+                       profanity: String,
+                       format: String): String = {
     val config: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
     assert(config != null)
-    config.setProfanity(profanity)
+    config.setProperty("profanity", profanity)
     config.setSpeechRecognitionLanguage(language)
-    config.setOutputFormat(format)
 
     val inputStream: InputStream = new ByteArrayInputStream(bytes)
     val pushStream: PushAudioInputStream = AudioInputStream.createPushStream
@@ -126,13 +136,21 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
     def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
       if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
+        val text = e.getResult.getText
         stringBuffer.add(e.getResult.getText)
       }
     }
 
+    def recognizingHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
+      println("RECOGNIZING: " + e.getResult.getText)
+    }
+
     def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
+      println("STOPPED")
       resultPromise.complete(Try(stringBuffer.toArray.mkString(" ")))
     }
+
+    recognizer.recognizing.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizingHandler))
     recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
 
@@ -150,82 +168,49 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     result
   }
 
-  /**
-    * @param filename a WAV file in the resources directory
-    * @return text transcription of the WAV file
-    */
-  def wavToText(filename: String,
-                speechKey: String,
-                uri: URI,
-                language: String,
-                profanity: ProfanityOption,
-                format: OutputFormat): String = {
-
-    val audioBytes = wavToBytes(filename)
-    audioBytesToText(audioBytes, speechKey, uri, language, profanity, format)
-  }
-
   def wavToBytes(filepath: String): Array[Byte] = {
     IOUtils.toByteArray(new FileInputStream(filepath))
   }
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    val speechKey = sys.env.getOrElse("SPEECH_API_KEY", "")
-    val uri = location
-    val language = "en-us"
-    val profanity = ProfanityOption.Masked
-    val format = OutputFormat.Simple
+  protected def inputFunc(schema: StructType): Row => Option[String] = {
+    { row: Row =>
+      if (shouldSkip(row)) {
+        None
+      } else {
+        Some(audioBytesToText(
+          getValue(row, audioData),
+          getValue(row, subscriptionKey),
+          new URI(getUrl),
+          getValue(row, language),
+          getValue(row, profanity),
+          getValue(row, format)))
+      }
+    }
+  }
 
-    val audioBytesToTextUDF = udf((audioBytes: Array[Byte]) =>
-      audioBytesToText(audioBytes, speechKey,  uri, language, profanity, format))
-    val df = dataset.toDF()
-    df.withColumn(getOutputCol,  audioBytesToTextUDF(df("audio")))
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val df = dataset.toDF
+    val schema = dataset.schema
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+    println("Done transforming...")
+     df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
+      .withColumn(getOutputCol, udf(inputFunc(schema), StringType)(col(dynamicParamColName)))
+      .drop(dynamicParamColName)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add("text", StringType)
-  }
-
-  def convertToWav(data: Array[Byte]): Array[Byte] = { // open stream
-    import javax.sound.sampled.AudioFileFormat.Type
-    import javax.sound.sampled.{AudioFormat, AudioSystem}
-
-    try{
-      val sourceStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(data))
-      val sourceFormat: AudioFormat = sourceStream.getFormat
-      // create audio format object for the desired stream/audio format
-      // this is *not* the same as the file format (wav)
-      val format = new AudioFormat(
-        AudioFormat.Encoding.PCM_SIGNED,
-        sourceFormat.getSampleRate,
-        sourceFormat.getSampleSizeInBits,
-        sourceFormat.getChannels,
-        sourceFormat.getFrameSize,
-        sourceFormat.getFrameRate,
-        sourceFormat.isBigEndian)
-
-      // create stream that delivers the desired format
-      val converted = AudioSystem.getAudioInputStream(format, sourceStream)
-      // write stream into a file with file format wav
-      val os = new ByteArrayOutputStream()
-      try {
-        AudioSystem.write(converted, Type.WAVE, os)
-        os.toByteArray
-      } finally {
-        os.close()
-      }
-    } catch {
-      //TODO figure out why build machines don't have proper codecs
-      case e: javax.sound.sampled.UnsupportedAudioFileException =>
-        logWarning(e.getMessage)
-        data
-    }
-  }
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
-    Some(new ByteArrayEntity(convertToWav(getValue(row, audioData))))
   }
 
 }
