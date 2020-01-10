@@ -35,7 +35,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   with HasSetLocation with HasServiceParams
   with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
 
-  def this() = this(Identifiable.randomUID("SpeechToText"))
+  def this() = this(Identifiable.randomUID("SpeechToTextSDK"))
 
   val audioData = new ServiceParam[Array[Byte]](this, "audioData",
     """
