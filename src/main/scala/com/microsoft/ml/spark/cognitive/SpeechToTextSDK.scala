@@ -12,6 +12,7 @@ import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio.{AudioConfig, AudioInputStream, PushAudioInputStream}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.HasURL
@@ -21,8 +22,7 @@ import org.apache.spark.ml.param.{ParamMap, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Promise}
@@ -99,9 +99,9 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
-  setDefault(language->ServiceParamData(None, Some("en-us")))
-  setDefault(profanity->ServiceParamData(None, Some("Masked")))
-  setDefault(format->ServiceParamData(None, Some("Simple")))
+  setDefault(language -> ServiceParamData(None, Some("en-us")))
+  setDefault(profanity -> ServiceParamData(None, Some("Masked")))
+  setDefault(format -> ServiceParamData(None, Some("Simple")))
 
   def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
@@ -110,16 +110,18 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   }
 
   /** @return text transcription of the audio */
-  def audioBytesToText(bytes: Array[Byte],
+  def audioBytesToText(sparkSession: SparkSession,
+                       bytes: Array[Byte],
                        speechKey: String,
                        uri: URI,
                        language: String,
                        profanity: String,
-                       format: String): String = {
+                       format: String): Array[SpeechResponse] = {
     val config: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
     assert(config != null)
-    config.setProperty("profanity", profanity)
+    config.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
     config.setSpeechRecognitionLanguage(language)
+    config.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
 
     val inputStream: InputStream = new ByteArrayInputStream(bytes)
     val pushStream: PushAudioInputStream = AudioInputStream.createPushStream
@@ -130,17 +132,18 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     connection.setMessageProperty("speech.config", "application",
       s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
 
-    val resultPromise = Promise[String]()
-    val stringBuffer = Collections.synchronizedList(new util.ArrayList[String])
+    val jsons = Collections.synchronizedList(new util.ArrayList[String])
+    val resultPromise = Promise[Array[String]]()
 
     def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
       if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
-        stringBuffer.add(e.getResult.getText)
+        val jsonString = e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)
+        jsons.add(jsonString)
       }
     }
 
     def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
-      resultPromise.complete(Try(stringBuffer.toArray.mkString(" ")))
+      resultPromise.complete(Try(jsons.toArray.map(_.asInstanceOf[String])))
     }
 
     recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
@@ -148,28 +151,32 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
     recognizer.startContinuousRecognitionAsync.get
     pushStream.write(bytes)
-
     pushStream.close()
     inputStream.close()
 
-    val result: String = Await.result(resultPromise.future, Duration.Inf)
+    val result = Await.result(resultPromise.future, Duration.Inf)
 
     recognizer.stopContinuousRecognitionAsync.get()
     config.close()
     audioInput.close()
-    result
+
+    import spray.json._
+
+    result.map(jsonString =>
+      jsonString.parseJson.convertTo[SpeechResponse])
   }
 
   def wavToBytes(filepath: String): Array[Byte] = {
     IOUtils.toByteArray(new FileInputStream(filepath))
   }
 
-  protected def inputFunc(schema: StructType): Row => Option[String] = {
+  protected def inputFunc(schema: StructType, sparkSession: SparkSession): Row => Option[Array[SpeechResponse]] = {
     { row: Row =>
       if (shouldSkip(row)) {
         None
       } else {
         Some(audioBytesToText(
+          sparkSession,
           getValue(row, audioData),
           getValue(row, subscriptionKey),
           new URI(getUrl),
@@ -183,6 +190,8 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF
     val schema = dataset.schema
+    val sparkSession: SparkSession = df.sparkSession
+
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
     val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
 
@@ -194,7 +203,10 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       case l => l
     }
      df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
-      .withColumn(getOutputCol, udf(inputFunc(schema), StringType)(col(dynamicParamColName)))
+
+      .withColumn(
+        getOutputCol,
+        udf(inputFunc(schema, sparkSession), ArrayType(SpeechResponse.schema))(col(dynamicParamColName)))
       .drop(dynamicParamColName)
   }
 

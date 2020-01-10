@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.core.schema.SparkBindings
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 case class DetailedSpeechResponse(Confidence: Double,
                                   Lexical: String,
@@ -14,8 +15,15 @@ case class DetailedSpeechResponse(Confidence: Double,
 case class SpeechResponse(RecognitionStatus: String,
                           Offset: Int,
                           Duration: Int,
+                          Id: Option[String],
                           DisplayText: Option[String],
                           NBest: Option[Seq[DetailedSpeechResponse]]
                           )
 
 object SpeechResponse extends SparkBindings[SpeechResponse]
+
+object SpeechFormat extends DefaultJsonProtocol {
+  implicit val DetailedSpeechResponseFormat: RootJsonFormat[DetailedSpeechResponse] =
+    jsonFormat5(DetailedSpeechResponse.apply)
+  implicit val SpeechResponseFormat: RootJsonFormat[SpeechResponse] = jsonFormat6(SpeechResponse.apply)
+}

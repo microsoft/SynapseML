@@ -15,7 +15,6 @@ import org.scalatest.Assertion
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   with SpeechKey {
-
   import session.implicits._
 
   val region = "eastus"
@@ -59,40 +58,78 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     a.intersect(b).size.toDouble / (a | b).size.toDouble
   }
 
-  def speechTest(audioFile: String, textFile: String): Assertion = {
+  def speechArrayToText(speechArray: Seq[SpeechResponse]): String = {
+    speechArray.map(sr => sr.DisplayText.getOrElse("")).mkString(" ")
+  }
+
+  def speechTest(format: String, audioFile: String, textFile: String): Assertion = {
     val audioFilePath = resourcesDir + audioFile
     val expectedPath = resourcesDir + textFile
     val expectedFile = scala.io.Source.fromFile(expectedPath)
     val expected = try expectedFile.mkString finally expectedFile.close()
     val bytes = IOUtils.toByteArray(new FileInputStream(audioFilePath))
-    val result = sdk.audioBytesToText(bytes, speechKey, uri, language, profanity, format)
+
+    val resultArray = sdk.audioBytesToText(audioDfs(0).sparkSession, bytes, speechKey, uri, language, profanity, format)
+    val result = speechArrayToText(resultArray)
+    if(format == "simple") {
+      resultArray.foreach{rp =>
+        assert(rp.NBest.isEmpty)
+      }
+    } else {
+      resultArray.foreach{rp =>
+        println(rp)
+       assert(rp.NBest.get.nonEmpty)
+      }
+    }
     assert(jaccardSimilarity(expected, result) > .9)
   }
 
   def dfTest(format: String, audioFileNumber: Int, verbose: Boolean = false): Assertion = {
     val expectedFile = scala.io.Source.fromFile(resourcesDir + $"audio$audioFileNumber.txt")
     val expected = try expectedFile.mkString finally expectedFile.close()
-    val result = sdk.setFormat(format)
-      .transform(audioDfs(audioFileNumber-1)).select("text")
-      .collect().head.getAs[String]("text")
+
+    val toObj: Row => SpeechResponse = SpeechResponse.makeFromRowConverter
+    val resultSeq = sdk.setFormat(format)
+      .transform(audioDfs(audioFileNumber-1))
+      .select("text").collect()
+      .map(row => row.getSeq[Row](0).map(toObj))
+      .head
+    val result = speechArrayToText(resultSeq)
     if (verbose) {
       println(s"Expected: $expected")
       println(s"Actual: $result")
     }
+    if (format == "simple") {
+      resultSeq.foreach{rp =>
+        assert(rp.NBest.isEmpty)
+      }
+    } else {
+      resultSeq.foreach{rp =>
+        assert(rp.NBest.get.nonEmpty)
+      }
+    }
     assert(jaccardSimilarity(expected, result) > .9)
   }
 
-  test("SDK audioBytesToText 1"){
-    speechTest("audio1.wav", "audio1.txt")
+  test("Simple audioBytesToText 1"){
+    speechTest("simple", "audio1.wav", "audio1.txt")
   }
 
-  test("SDK audioBytesToText 2"){
-    speechTest("audio2.wav", "audio2.txt")
+  test("Detailed audioBytesToText 1"){
+    speechTest("detailed", "audio1.wav", "audio1.txt")
   }
 
-  test("SDK audioBytesToText File Doesn't Exist") {
+  test("Detailed audioBytesToText 2"){
+    speechTest("detailed", "audio2.wav", "audio2.txt")
+  }
+
+  test("Simple audioBytesToText 2"){
+    speechTest("simple", "audio2.wav", "audio2.txt")
+  }
+
+  test("audioBytesToText File Doesn't Exist") {
     assertThrows[FileNotFoundException] {
-      speechTest("audio3.wav", "audio3.txt")
+      speechTest("simple", "audio3.wav", "audio3.txt")
     }
   }
 
@@ -124,9 +161,11 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
       .transform(audioDfs(0)).select("text")
       .collect().head.getStruct(0)).DisplayText.getOrElse("")
 
-    val sdkResult = sdk.setFormat(format)
-      .transform(audioDfs(0)).select("text")
-      .collect().head.getAs[String]("text")
+    val sdkResult = speechArrayToText(sdk.setFormat(format)
+      .transform(audioDfs(0))
+      .select("text").collect()
+      .map(row => row.getSeq[Row](0).map(toObj))
+      .head)
     assert(jaccardSimilarity(apiResult, sdkResult) > 0.9)
   }
 
