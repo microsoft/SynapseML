@@ -187,7 +187,7 @@ class LightGBMClassificationModel(
 
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
-         getProbabilityCol, getRawPredictionCol, thresholdValues, actualNumClasses)
+         getProbabilityCol, getRawPredictionCol, getLeafPredictionCol, thresholdValues, actualNumClasses)
 
   protected def predictLeaf(features: Vector): Vector = {
     Vectors.dense(model.predictLeaf(features))
