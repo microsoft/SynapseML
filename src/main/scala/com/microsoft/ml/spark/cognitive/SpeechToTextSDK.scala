@@ -148,8 +148,8 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
     recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
-
     recognizer.startContinuousRecognitionAsync.get
+
     pushStream.write(bytes)
     pushStream.close()
     inputStream.close()

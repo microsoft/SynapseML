@@ -8,8 +8,9 @@ import java.net.URI
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
+import org.apache.spark.ml.param.DoubleArrayArrayParam
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{Column, DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
@@ -23,6 +24,8 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   val language = "en-us"
   val profanity = "masked"
   val format = "simple"
+
+  val threshold = 0.9
 
   lazy val sdk = new SpeechToTextSDK()
     .setSubscriptionKey(speechKey)
@@ -42,20 +45,27 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     Seq(Tuple1(bytes)).toDF("audio")
   )
 
+  /** Simple similarity test using Jaccard index */
+  def jaccardSimilarity(s1: String, s2: String): Double = {
+    val a = s1.toLowerCase.sliding(2).toSet
+    val b = s2.toLowerCase.sliding(2).toSet
+    a.intersect(b).size.toDouble / (a | b).size.toDouble
+  }
   override lazy val dfEq = new Equality[DataFrame] {
     override def areEqual(a: DataFrame, b: Any): Boolean =
-      baseDfEq.areEqual(a.drop("audio"), b.asInstanceOf[DataFrame].drop("audio"))
+      baseDfEq.areEqual(a.drop("audio"), b.asInstanceOf[DataFrame].drop("audio")) &&
+      jaccardSimilarity(a("text"), b.asInstanceOf[DataFrame]("text"))
   }
 
   override def testSerialization(): Unit = {
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
   }
 
-  /** Simple similarity test using Jaccard index */
-  def jaccardSimilarity(s1: String, s2: String): Double = {
-    val a = s1.toLowerCase.sliding(2).toSet
-    val b = s2.toLowerCase.sliding(2).toSet
-    a.intersect(b).size.toDouble / (a | b).size.toDouble
+  def jaccardSimilarity(c1: Column, c2: Column): Boolean = {
+    import org.apache.spark.sql.functions._
+    def colJaccard = udf((s1: String, s2: String) => jaccardSimilarity(s1, s2) >= threshold )
+    val df = c1.asInstanceOf[DataFrame].withColumn("c2", c2)
+    df.filter(!colJaccard(c1, c2)).toDF().isEmpty
   }
 
   def speechArrayToText(speechArray: Seq[SpeechResponse]): String = {
@@ -77,7 +87,6 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
       }
     } else {
       resultArray.foreach{rp =>
-        println(rp)
        assert(rp.NBest.get.nonEmpty)
       }
     }
@@ -108,7 +117,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
         assert(rp.NBest.get.nonEmpty)
       }
     }
-    assert(jaccardSimilarity(expected, result) > .9)
+    assert(jaccardSimilarity(expected, result) > threshold)
   }
 
   test("Simple audioBytesToText 1"){
@@ -166,7 +175,11 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
       .select("text").collect()
       .map(row => row.getSeq[Row](0).map(toObj))
       .head)
-    assert(jaccardSimilarity(apiResult, sdkResult) > 0.9)
+    assert(jaccardSimilarity(apiResult, sdkResult) > threshold)
+  }
+
+  test("equality") {
+
   }
 
   override def testObjects(): Seq[TestObject[SpeechToTextSDK]] =
