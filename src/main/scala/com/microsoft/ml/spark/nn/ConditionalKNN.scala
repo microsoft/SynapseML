@@ -63,6 +63,7 @@ private[ml] object KNNFuncHolder {
     bbt.value.findMaximumInnerProducts(new BDV(dv.values), conditioner.toSet, k)
       .map(bm => Row(bbt.value.values(bm.index), bm.distance, bbt.value.labels(bm.index)))
   }
+
 }
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]

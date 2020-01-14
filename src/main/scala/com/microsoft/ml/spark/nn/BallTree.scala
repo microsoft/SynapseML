@@ -4,12 +4,15 @@
 package com.microsoft.ml.spark.nn
 
 import java.io.Serializable
+import java.util
 
 import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
 
 import scala.collection.mutable
 import scala.util.Random
+import collection.JavaConversions._
+import collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],
                          normOfQueryPoint: Double,
@@ -157,10 +160,25 @@ case class BallTree[V](override val keys: IndexedSeq[DenseVector[Double]],
   }
 }
 
+object ConditionalBallTree {
+
+  def apply[L, V](keys: java.util.ArrayList[java.util.ArrayList[Double]],
+                  values: java.util.ArrayList[V],
+                  labels: java.util.ArrayList[L],
+                  leafSize: Int): ConditionalBallTree[L, V] = {
+    ConditionalBallTree(
+      keys.toIndexedSeq.map(vals => DenseVector(vals.toList.toArray)),
+      values.toIndexedSeq,
+      labels.toIndexedSeq,
+      leafSize)
+  }
+}
+
 case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[Double]],
                                      override val values: IndexedSeq[V],
                                      labels: IndexedSeq[L],
                                      override val leafSize: Int = 50) extends Serializable with BallTreeBase[V] {
+
 
   private val root: Node[L] = addStats(makeBallTree(pointIdx))
 
@@ -215,6 +233,12 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
     } else {
       //ignoring this subtree
     }
+  }
+
+  def findMaximumInnerProducts(queryPoint: java.util.ArrayList[Double],
+                               conditioner: Set[L],
+                               k: Int): Seq[BestMatch] = {
+    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner, k)
   }
 
   def findMaximumInnerProducts(queryPoint: DenseVector[Double],
@@ -283,4 +307,3 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
     s"Conditional Balltree with data size of ${keys.length}"
   }
 }
-
