@@ -178,8 +178,8 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     assert(jaccardSimilarity(apiResult, sdkResult) > threshold)
   }
 
-  test("equality") {
-
+  test("Serialization Fuzzing 2"){
+    testSerialization()
   }
 
   override def testObjects(): Seq[TestObject[SpeechToTextSDK]] =

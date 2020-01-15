@@ -18,13 +18,15 @@ else:
 def extractKeyPhrases(verbose=False):
 	if verbose:
 		print("========= EXTRACT KEY PHRASES ============")
-	last_time = time.time()
 	keyphrase_url = endpoint + "/text/analytics/v2.1/keyphrases"
 	documents = docs.extractKeyPhrases
 	headers = {"Ocp-Apim-Subscription-Key": subscription_key}
+	
+	last_time = time.time()
 	response = requests.post(keyphrase_url, headers=headers, json=documents)
-	key_phrases = response.json()
 	runtime = time.time()-last_time
+
+	key_phrases = response.json()
 	if verbose:
 		pprint(key_phrases)
 		print("Time: %6fs" % runtime)
@@ -33,13 +35,16 @@ def extractKeyPhrases(verbose=False):
 def detectLanguage(verbose=False):
 	if verbose:
 		print("========= DETECT LANGUAGE ============")
-	last_time = time.time()
+
 	language_api_url = endpoint + "/text/analytics/v2.1/languages"
 	documents = docs.detectLanguage
 	headers = {"Ocp-Apim-Subscription-Key": subscription_key}
+
+	last_time = time.time()
 	response = requests.post(language_api_url, headers=headers, json=documents)
-	languages = response.json()
 	runtime = time.time()-last_time
+
+	languages = response.json()
 	if verbose:
 		pprint(entities)
 		print("Time: %6fs" % runtime)
@@ -48,30 +53,16 @@ def detectLanguage(verbose=False):
 def sentimentAnalysis(verbose=False):
 	if verbose:
 		print("========= SENTIMENT ANALYSIS ============")
-	last_time = time.time()
+
 	sentiment_url = endpoint + "/text/analytics/v2.1/sentiment"
 	documents = docs.sentimentAnalysis
 	headers = {"Ocp-Apim-Subscription-Key": subscription_key}
-	response = requests.post(sentiment_url, headers=headers, json=documents)
-	sentiments = response.json()
-	runtime = time.time()-last_time
-	if verbose:
-		pprint(entities)
-		print("Time: %6fs" % runtime)
-	return runtime
 
-def identifyEntities(verbose=False):
-	if verbose:
-		print("========= IDENTIFY ENTITIES ============")
 	last_time = time.time()
-	entities_url = endpoint + "/text/analytics/v2.1/entities"
-	documents = {"documents": [
-	    {"id": "1", "text": "Microsoft was founded by Bill Gates and Paul Allen on April 4, 1975, to develop and sell BASIC interpreters for the Altair 8800."}
-	]}
-	headers = {"Ocp-Apim-Subscription-Key": subscription_key}
-	response = requests.post(entities_url, headers=headers, json=documents)
-	entities = response.json()
+	response = requests.post(sentiment_url, headers=headers, json=documents)
 	runtime = time.time()-last_time
+
+	sentiments = response.json()
 	if verbose:
 		pprint(entities)
 		print("Time: %6fs" % runtime)

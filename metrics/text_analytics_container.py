@@ -9,6 +9,10 @@ import text_analytics_docs as docs
 PORT = 5000
 
 link = "http://localhost:%d/status" % PORT
+headers = {
+    'accept': 'application/json',
+    'Content-Type': 'application/json',
+}
 
 def checkAPIStatus():
 	status = requests.get(link)
@@ -18,14 +22,12 @@ def checkAPIStatus():
 def extractKeyPhrases(verbose=False):
 	if verbose:
 		print("========= EXTRACT KEY PHRASES ============")
-	last_time = time.time()
-	headers = {
-	    'accept': 'application/json',
-	    'Content-Type': 'application/json',
-	}
 	data = json.dumps(docs.extractKeyPhrases)
+
+	last_time = time.time()
 	response = requests.post('http://localhost:5000/text/analytics/v2.0/keyPhrases', data=data, headers=headers)
 	runtime = time.time() - last_time
+
 	if verbose:
 		print(response.text)
 		print("Status: %d" % response.status_code)
@@ -35,14 +37,12 @@ def extractKeyPhrases(verbose=False):
 def detectLanguage(verbose=False):
 	if verbose:
 		print("========= DETECT LANGUAGE ============")
-	last_time = time.time()
-	headers = {
-	    'accept': 'application/json',
-	    'Content-Type': 'application/json',
-	}
 	data = json.dumps(docs.detectLanguage)
+
+	last_time = time.time()
 	response = requests.post('http://localhost:5000/text/analytics/v2.0/language', data=data, headers=headers)
 	runtime = time.time() - last_time
+
 	if verbose:
 		print(response.text)
 		print("Status: %d" % response.status_code)
@@ -52,12 +52,8 @@ def detectLanguage(verbose=False):
 def sentimentAnalysis(verbose=False):
 	if verbose:
 		print("========= SENTIMENT ANALYSIS ============")
-	last_time = time.time()
-	headers = {
-	    'accept': 'application/json',
-	    'Content-Type': 'application/json',
-	}
 	data = json.dumps(docs.sentimentAnalysis)
+	last_time = time.time()
 	response = requests.post('http://localhost:5000/text/analytics/v2.0/sentiment ', data=data, headers=headers)
 	runtime = time.time() - last_time
 	if verbose:

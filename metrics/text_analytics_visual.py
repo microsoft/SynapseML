@@ -3,10 +3,15 @@ import numpy as np
 import text_analytics_container as container
 import text_analytics_api as api
 import sys
+import os
+from datetime import date
+from text_analytics_base import *
 
-results_directory = "results/text_analytics"
+today = date.today()
+location = "MA"
+results_directory = "results/text_analytics_" + location.lower()
 imgs_directory = "imgs"
-num_trials = 20
+num_trials = 150
 
 def getMeans():
 	container_means = []
@@ -60,7 +65,7 @@ def plot():
 
 	fig.tight_layout()
 
-	plt.savefig(imgs_directory + "/text_analytics.png")
+	plt.savefig(imgs_directory + "/text_analytics"+location.lower()+".png")
 
 	plt.show()
 
@@ -76,6 +81,15 @@ def extractKeyPhrases():
 		fp.write("Container:\t%10f\n" % containerExtractKeyPhrasesAverage)
 		fp.write("API:\t%10f" % apiExtractKeyPhrasesAverage)
 
+	if  "extract_key_phrasec.csv" not in os.listdir(results_directory):
+		with open(results_directory + "/extract_key_phrases.csv", "w+") as fp:
+			fp.write("Type,Runtime,Location,Date\n")	
+
+	with open(results_directory + "/extract_key_phrases.csv", "a+") as fp:
+		for i in range(num_trials):
+			fp.write("Container,%10f,%s,%s\n" % (containerExtractKeyPhrases[i],location,today))
+			fp.write("API,%10f,%s,%s\n" % (apiExtractKeyPhrases[i],location,today))
+
 def detectLanguage():
 	containerDetectLanguage = [container.detectLanguage() for i in range(num_trials)]
 	apiDetectLanguage = [api.detectLanguage() for i in range(num_trials)]
@@ -87,6 +101,15 @@ def detectLanguage():
 	with open(results_directory + "/detect_language.txt", "w+") as fp:
 		fp.write("Container:\t%10f\n" % containerDetectLanguageAverage)
 		fp.write("API:\t%10f" % apiDetectLanguageAverage)
+
+	if  "detect_language.csv" not in os.listdir(results_directory):
+		with open(results_directory + "/detect_language.csv", "w+") as fp:
+			fp.write("Type,Runtime,Location,Date\n")	
+
+	with open(results_directory + "/detect_language.csv", "a+") as fp:
+		for i in range(num_trials):
+			fp.write("Container,%10f,%s,%s\n" % (containerDetectLanguage[i],location,today))
+			fp.write("API,%10f,%s,%s\n" % (apiDetectLanguage[i],location,today))
 
 def sentimentAnalysis():
 	containerSentimentAnalysis = [container.sentimentAnalysis() for i in range(num_trials)]
@@ -100,6 +123,14 @@ def sentimentAnalysis():
 		fp.write("Container:\t%10f\n" % containerSentimentAnalysisAverage)
 		fp.write("API:\t%10f" % apiSentimentAnalysisAverage)
 
+	if  "sentiment_analysis.csv" not in os.listdir(results_directory):
+		with open(results_directory + "/sentiment_analysis.csv", "w+") as fp:
+			fp.write("Type,Runtime,Location,Date\n")	
+
+	with open(results_directory + "/sentiment_analysis.csv", "a+") as fp:
+		for i in range(num_trials):
+			fp.write("Container,%10f,%s,%s\n" % (containerSentimentAnalysis[i],location,today))
+			fp.write("API,%10f,%s,%s\n" % (apiSentimentAnalysis[i],location,today))
 
 
 if __name__ == "__main__":
@@ -108,11 +139,11 @@ if __name__ == "__main__":
 	elif container.checkAPIStatus():
 		if "--language" in sys.argv:
 			detectLanguage()
-		elif "--keyphrases" in sys.argv:
+		elif "--keyphrase" in sys.argv:
 			extractKeyPhrases()
 		elif "--sentiment" in sys.argv:
 			sentimentAnalysis()
 		else:
-			print("Error: Please specify a function to update. Valid options are --language, --keyphrases, --sentiment, or --plot to show the resulting graph.")
+			print("Error: Please specify a function to update. Valid options are --language, --keyphrase, --sentiment, or --plot to show the resulting graph.")
 	else:
 		print("API Status Invalid.")
