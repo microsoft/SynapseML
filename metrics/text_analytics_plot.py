@@ -112,6 +112,20 @@ def generate_plots():
 	sns.stripplot(x="Function", y="Runtime", hue="Type",
 	              data=df, dodge=True, jitter=True,
 	              alpha=.25, zorder=1)
+
+
+	# Show the conditional means
+	sns.pointplot(x="Function", y="Runtime", hue="Type",
+	              data=df, dodge=.4, join=False, palette="dark",
+	              markers="d", scale=.75, ci=None)
+
+	# Improve the legend 
+	handles, labels = ax.get_legend_handles_labels()
+	ax.legend(handles[3:], labels[3:], title="Type",
+	          handletextpad=0, columnspacing=1,
+	          loc="upper right", ncol=3, frameon=True)
+
+
 	fig.tight_layout()
 	plt.savefig(imgs_directory + "/text_analytics_"+location.lower()+"_stripplot.png")
 
