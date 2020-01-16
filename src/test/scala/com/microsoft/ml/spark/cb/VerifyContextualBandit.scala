@@ -207,19 +207,21 @@ class VerifyContextualBandit extends TestBase {
 
     // 5. train policy -> pi'
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf -q sf --epsilon 0.2")
+      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("reward")
 
     // continuous training
     policy match {
       case vw: VowpalWabbitBaseModel => cb.setInitialModel(vw.getModel)
-      case _ => {}
+      // avoid having quadratics twice by only applying them if we don have an inital model
+      case _ => cb.setArgs(cb.getArgs + " -q sf")
     }
 
 //    df.printSchema
 //    df.show(5, false)
 
     val newPolicy = cb.fit(df)
+    newPolicy.setTestArgs("--quiet")
 
     df = newPolicy.transform(df)
 

@@ -176,20 +176,6 @@ trait VowpalWabbitBase extends Wrappable
     else
       (row: Row, ex: VowpalWabbitExample, idx: Int) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
   }
-
-  /**
-    * Generate namespace info (hash, feature group, field index) for supplied columns.
-    * @param schema data frame schema to lookup column indices.
-    * @return
-    */
-  protected def generateNamespaceInfos(schema: StructType): Array[NamespaceInfo] =
-    (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .map(col => generateNamespaceInfo(schema, col))
-      .toArray
-
-  protected def generateNamespaceInfo(schema: StructType, col: String): NamespaceInfo =
-    NamespaceInfo(VowpalWabbitMurmur.hash(col, getHashSeed), col.charAt(0), schema.fieldIndex(col))
-
   private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = "") = {
     val args = new StringBuilder
     args.append(vwArgs)
@@ -219,34 +205,29 @@ trait VowpalWabbitBase extends Wrappable
                          ctx: TrainContext
                         ): Unit = {
     val applyLabel = createLabelSetter(schema)
-    val featureColIndices = generateNamespaceInfos(schema)
+    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
+      schema,
+      getHashSeed,
+      Seq(getFeaturesCol) ++ getAdditionalFeatures)
 
-    StreamUtilities.using(ctx.vw.createExample()) { ex =>
+    StreamUtilities.using(ctx.vw.createExample()) { example =>
       for (row <- inputRows) {
         ctx.nativeIngestTime.measure {
           // transfer label
-          applyLabel(row, ex, 0)
+          applyLabel(row, example, 0)
 
           // transfer features
-          for (ns <- featureColIndices)
-            addFeaturesToExample(row.getAs[Vector](ns.colIdx), ex, ns)
+          VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
         }
 
+        // learn and cleanup
         ctx.learnTime.measure {
-          ex.learn()
-          ex.clear()
+          example.learn()
+          example.clear()
         }
       }
     }
   }
-
-  protected def addFeaturesToExample(features: Vector, ex: VowpalWabbitExample, ns:NamespaceInfo): Unit =
-    features match {
-      case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
-        ns.hash, dense.values)
-      case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
-        sparse.indices, sparse.values)
-    }
 
   class TrainContext(val vw: VowpalWabbitNative,
                      val totalTime: StopWatch = new StopWatch,
