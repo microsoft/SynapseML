@@ -1,0 +1,45 @@
+{
+	"configuration": {
+        "script": "project/tf_mnist_train.py",
+        "arguments": [
+            "--minibatch_size",
+            "64",
+            "--learning_rate",
+            "0.001",
+            "--keep_probability",
+			"0.5",
+            "--output_dir",
+            "outputs",
+            "--num_iterations",
+            "1000"],
+        "framework": "Python",
+        "communicator": "None",
+        "target": "sparkml-test",
+        "maxRunDurationSeconds": null,
+        "nodeCount": 1,
+        "environment": {
+            "python": {
+                "interpreterPath": "python",
+                "userManagedDependencies": true,
+                "condaDependencies": {
+                    "name": "venv",
+                    "dependencies": ["python=3.6.2", {
+                            "pip": ["azureml-defaults"]
+                        }]
+                }
+            },
+            "environmentVariables": {
+                "CLIENT_SECRET": "b77cead6-f87e-45c7-a5da-9d23a19fd9e2"
+            },
+            "docker": {
+                "baseImage": "tensorflow:1.13-cpu",
+                "baseDockerfile": null,
+                "arguments": [],
+            }
+        },
+        "history": {
+            "outputCollection": true,
+        }
+    },
+    "runtype": "experiment"
+}
