@@ -3,13 +3,12 @@
 
 package com.microsoft.ml.spark.nn
 
-import java.io.Serializable
-
+import java.io._
 import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
-
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import scala.collection.JavaConversions._
-
+import scala.collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],
                          normOfQueryPoint: Double,
@@ -169,6 +168,15 @@ object ConditionalBallTree {
       labels.toIndexedSeq,
       leafSize)
   }
+
+  def load[L, V](filename: String): ConditionalBallTree[L, V] = {
+    using(new FileInputStream(filename)){fileIn =>
+      using(new ObjectInputStream(fileIn)){in =>
+        in.readObject().asInstanceOf[ConditionalBallTree[L, V]]
+      }
+    }.get.get
+  }
+
 }
 
 class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializable {
@@ -234,9 +242,9 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
   }
 
   def findMaximumInnerProducts(queryPoint: java.util.ArrayList[Double],
-                               conditioner: Set[L],
-                               k: Int): Seq[BestMatch] = {
-    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner, k)
+                               conditioner: java.util.Set[L],
+                               k: Int): java.util.List[BestMatch] = {
+    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner.toSet, k).asJava
   }
 
   def findMaximumInnerProducts(queryPoint: DenseVector[Double],
@@ -247,6 +255,14 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
     query.bestMatches.toArray
       .filter(_.index != -1)
       .sorted(Ordering.by({ bm: BestMatch => (bm.distance, bm.index) }).reverse)
+  }
+
+  def save(filename: String): Unit = {
+    using(new FileOutputStream(filename)) { fileOut =>
+      using(new ObjectOutputStream(fileOut)) { out =>
+        out.writeObject(this)
+      }
+    }
   }
 
   override def toString: String = {
