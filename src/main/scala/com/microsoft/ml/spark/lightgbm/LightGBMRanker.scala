@@ -10,6 +10,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.sql._
+import org.apache.spark.sql.types.DataType
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
@@ -76,6 +77,20 @@ class LightGBMRanker(override val uid: String)
   }
 
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
+
+  override def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
+                                numWorkers: Int): DataFrame = {
+    val repartitionedDataset = getOptGroupCol match {
+      case None => dataset
+      case Some(groupingCol) => {
+        val df = dataset.repartition(new Column(groupingCol)).cache()
+        //force materialization
+        df.count
+        df
+      }
+    }
+    super.prepareDataframe(repartitionedDataset, trainingCols, numWorkers)
+  }
 }
 
 /** Model produced by [[LightGBMRanker]]. */
