@@ -111,4 +111,3 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
 }
 
 object ConditionalKNNModel extends ComplexParamsReadable[ConditionalKNNModel]
-
