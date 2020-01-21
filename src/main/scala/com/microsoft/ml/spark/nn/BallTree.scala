@@ -179,7 +179,6 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
                                      labels: IndexedSeq[L],
                                      override val leafSize: Int = 50) extends Serializable with BallTreeBase[V] {
 
-
   private val root: Node[L] = addStats(makeBallTree(pointIdx))
 
   private def addStats(node: Node[L]): Node[L] = {
@@ -236,9 +235,9 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
   }
 
   def findMaximumInnerProducts(queryPoint: java.util.ArrayList[Double],
-                               conditioner: Set[L],
-                               k: Int): Seq[BestMatch] = {
-    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner, k)
+                               conditioner: java.util.Set[L],
+                               k: Int): java.util.List[BestMatch] = {
+    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner.toSet, k).asJava
   }
 
   def findMaximumInnerProducts(queryPoint: DenseVector[Double],
