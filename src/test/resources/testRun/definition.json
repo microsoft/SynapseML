@@ -1,0 +1,37 @@
+{
+    "Configuration":{  
+       "Script":"hello.py",
+       "Arguments":[  
+          "234"
+       ],
+       "SourceDirectoryDataStore":null,
+       "Framework":"Python",
+       "Communicator":"None",
+       "Target":"sparkml-test",
+       "MaxRunDurationSeconds":1200,
+       "NodeCount":1,
+       "Environment":{  
+          "Python":{  
+             "InterpreterPath":"python",
+             "UserManagedDependencies":false,
+             "CondaDependencies":{  
+                "name":"venv",
+                "dependencies":[  
+                   "python=3.6.2",
+                   {  
+                      "pip":[  
+                         "azureml-defaults"
+                      ]
+                   }
+                ]
+             }
+          },
+          "Docker":{  
+             "BaseImage":"mcr.microsoft.com/azureml/base:intelmpi2018.3-ubuntu16.04"
+          }
+      },
+       "History":{  
+          "OutputCollection":true
+       }
+    }
+}
