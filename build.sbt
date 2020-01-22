@@ -25,7 +25,9 @@ libraryDependencies ++= Seq(
   "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.8.0",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
-  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
+  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3",
+  "com.microsoft.azure" % "adal4j" % "1.6.3",
+  "org.scalaj" %% "scalaj-http" % "2.4.2"
 )
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 

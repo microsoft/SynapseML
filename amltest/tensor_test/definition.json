@@ -35,6 +35,11 @@
                 "baseImage": "tensorflow:1.13-cpu",
                 "baseDockerfile": null,
                 "arguments": [],
+                "baseImageRegistry": {
+                    "address": "extenamls5e43136a.azurecr.io",
+                    "username": "extenamls5e43136a",
+                    "password": "ZX+wTBOxjWCcizDGYi5pT/Wqqf=DsS1H"
+				}
             }
         },
         "history": {

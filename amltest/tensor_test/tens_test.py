@@ -6,10 +6,10 @@ from azureml.core.authentication import ServicePrincipalAuthentication
 import time
 import os
 
-client_id = "caddbe75-030e-4b57-bae3-b39e32051009"
-client_secret = "b77cead6-f87e-45c7-a5da-9d23a19fd9e2"
+client_id = os.environ["CLIENT_ID"] #caddbe75-030e-4b57-bae3-b39e32051009"
+client_secret = os.environ["CLIENT_SECRET"] #"b77cead6-f87e-45c7-a5da-9d23a19fd9e2"
 resource_url = "https://login.microsoftonline.com"
-tenant_id = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+tenant_id = os.environ["TENANT_ID"] #"72f988bf-86f1-41af-91ab-2d7cd011db47"
 
 authority = "{}/{}".format(resource_url, tenant_id)
 auth_context = AuthenticationContext(authority)
@@ -27,22 +27,26 @@ hosturl = "https://{}.api.azureml.ms/".format(region)
 historybase = "history/v1.0/"
 resourcebase = "subscriptions/{}/resourceGroups/{}/providers/Microsoft.MachineLearningServices/workspaces/{}/".format(subid,rg,ws)
 experiment_name = "tensor_experiment"
-create_experiment = hosturl + historybase + resourcebase + "experiments/{}".format(experiment_name)
-resp = requests.post(create_experiment, headers=header)
-print("RESP 1:",resp.text)
-print(resp.status_code)
 
-
-# get_experiment = hosturl + historybase + resourcebase + "experiments/{}".format(experiment_name)
-# resp = requests.get(get_experiment, headers=header)
-# print(resp.text)
+# create_experiment = hosturl + historybase + resourcebase + "experiments/{}".format(experiment_name)
+# resp = requests.post(create_experiment, headers=header)
+# print("RESP 1:",resp.text)
 # print(resp.status_code)
-# print()
+
+
+get_experiment = hosturl + historybase + resourcebase + "experiments/{}".format(experiment_name)
+resp = requests.get(get_experiment, headers=header)
+print(resp.text)
+print(resp.status_code)
+print()
 
 executionbase = "execution/v1.0/"
 resourcebase = "subscriptions/{}/resourceGroups/{}/providers/Microsoft.MachineLearningServices/workspaces/{}/".format(subid,rg,ws)
 
 start_run = hosturl + executionbase + resourcebase + "experiments/{}/startrun".format(experiment_name)
+
+with open("definition.json","rb") as fp:
+	print(fp.readlines())
 
 run_files = {"runDefinitionFile": ("definition.json", open("definition.json","rb")), "projectZipFile": ("project.zip", open("project.zip","rb"))}
 
