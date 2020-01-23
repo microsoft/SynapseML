@@ -69,8 +69,9 @@ trait LightGBMBinParams extends Wrappable {
 
   def getBinSampleCount: Int = $(binSampleCount)
   def setBinSampleCount(value: Int): this.type = set(binSampleCount, value)
+}
 
-  /** Defines parameters for slots across all LightGBM learners.
+/** Defines parameters for slots across all LightGBM learners.
  */
 trait LightGBMSlotParams extends Wrappable {
   val slotNames = new StringArrayParam(this, "slotNames",

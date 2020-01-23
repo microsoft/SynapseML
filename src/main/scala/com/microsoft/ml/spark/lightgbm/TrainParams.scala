@@ -82,7 +82,7 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
   */
 case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
                                 numLeaves: Int, objective: String, alpha: Double,
-                                tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
+                                tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
                                 baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
