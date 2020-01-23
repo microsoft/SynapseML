@@ -15,6 +15,7 @@ spark = SparkSession.builder \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
+
 class NNSpec(unittest.TestCase):
 
     def test_bindings(self):
@@ -24,13 +25,13 @@ class NNSpec(unittest.TestCase):
             result = cbt_model.findMaximumInnerProducts([1.0, 2.0], {'foo'}, 5)
             expected = [(0, 5.0)]
             self.assertEqual(expected, result)
+
         test_cbt(cbt)
 
         # TODO make serialization test
-        #cbt.save("cbt.model")
-        #cbt2 = ConditionalBallTree.load("cbt.model")
-        #test_cbt(cbt2)
-
+        # cbt.save("cbt.model")
+        # cbt2 = ConditionalBallTree.load("cbt.model")
+        # test_cbt(cbt2)
 
 
 if __name__ == "__main__":

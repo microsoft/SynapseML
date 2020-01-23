@@ -170,8 +170,8 @@ object ConditionalBallTree {
   }
 
   def load[L, V](filename: String): ConditionalBallTree[L, V] = {
-    using(new FileInputStream(filename)){fileIn =>
-      using(new ObjectInputStream(fileIn)){in =>
+    using(new FileInputStream(filename)) { fileIn =>
+      using(new ObjectInputStream(fileIn)) { in =>
         in.readObject().asInstanceOf[ConditionalBallTree[L, V]]
       }
     }.get.get
@@ -184,7 +184,7 @@ class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializabl
   private def makeIndexRecursive(node: Node): Map[L, Set[Node]] = {
     node match {
       case ln: LeafNode =>
-        ln.pointIdx.map(labels).toSet.map {label: L => (label, Set(node))}.toMap
+        ln.pointIdx.map(labels).toSet.map { label: L => (label, Set(node)) }.toMap
       case InnerNode(_, lc, rc) =>
         makeIndexRecursive(lc).foldLeft(makeIndexRecursive(rc)) { case (state, (label, node)) =>
           state.updated(label, state.getOrElse(label, Set()) | node)
@@ -200,9 +200,9 @@ class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializabl
 }
 
 case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[Double]],
-                                              override val values: IndexedSeq[V],
-                                              labels: IndexedSeq[L],
-                                              override val leafSize: Int = 50)
+                                     override val values: IndexedSeq[V],
+                                     labels: IndexedSeq[L],
+                                     override val leafSize: Int = 50)
   extends Serializable with BallTreeBase[V] {
 
   private[ml] val root: Node = makeBallTree(pointIdx)
