@@ -33,7 +33,7 @@ object Benchmark {
 
 }
 
-abstract class Benchmarks extends TestBase {
+trait Benchmarks extends TestBase {
 
   lazy val resourcesDirectory = new File(getClass.getResource("/").toURI)
   lazy val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"), s"benchmarks_${this}.csv")
