@@ -41,7 +41,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.train.ComputePerInstanceStatistics",
       "com.microsoft.ml.spark.featurize.DataConversion",
       "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
-      "com.microsoft.ml.spark.cognitive.LocalNER"
+      "com.microsoft.ml.spark.cognitive.LocalNER",
+      "com.microsoft.ml.spark.nn.KNNModel",
+      "com.microsoft.ml.spark.nn.ConditionalKNNModel" //Already tested in estimator
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -68,7 +70,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.cognitive.LocalNER",
       "com.microsoft.ml.spark.cntk.train.CNTKLearner",
       "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
-      "com.microsoft.ml.spark.featurize.DataConversion"
+      "com.microsoft.ml.spark.featurize.DataConversion",
+      "com.microsoft.ml.spark.nn.KNNModel",
+      "com.microsoft.ml.spark.nn.ConditionalKNNModel" //Already tested in estimator
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
