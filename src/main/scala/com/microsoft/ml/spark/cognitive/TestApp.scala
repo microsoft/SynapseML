@@ -8,28 +8,30 @@ import spray.json._
 import java.nio.file.{Files, Paths}
 
 class TestApp {
-  lazy val resource = "https://login.microsoftonline.com"
-  lazy val clientId = sys.env.getOrElse("CLIENT_ID", "")
-  lazy val clientSecret = sys.env.getOrElse("CLIENT_SECRET", "")
-  lazy val tenantId = sys.env.getOrElse("TENANT_ID", "")
+  lazy val resource: String = "https://login.microsoftonline.com"
+  lazy val clientId: String = sys.env.getOrElse("CLIENT_ID", "")
+  lazy val clientSecret: String = sys.env.getOrElse("CLIENT_SECRET", "")
+  lazy val tenantId: String = sys.env.getOrElse("TENANT_ID", "")
 
-  lazy val token = getAuth.getAccessToken
-  lazy val headers = Seq("Authorization" -> s"Bearer $token")
+  lazy val token: String = getAuth.getAccessToken
+  lazy val headers: Seq[(String, String)] = Seq("Authorization" -> s"Bearer $token")
 
-  lazy val subscriptionId = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
-  lazy val region = "eastus"
-  lazy val rg = "extern2020"
-  lazy val ws = "exten-amls"
+  lazy val subscriptionId: String = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
+  lazy val region: String = "eastus"
+  lazy val resourceGroup: String = "extern2020"
+  lazy val workspace: String = "exten-amls"
 
   lazy val hostUrl = s"https://$region.api.azureml.ms/"
-  lazy val resourceBase = s"subscriptions/$subscriptionId/resourceGroups/$rg/providers/" +
-    s"Microsoft.MachineLearningServices/workspaces/$ws/"
+  lazy val resourceBase: String = s"subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/" +
+    s"Microsoft.MachineLearningServices/workspaces/$workspace/"
+
+  lazy val experimentName = "new_experiment"
+  lazy val runFilePath = System.getProperty("user.dir") + "/src/test/resources/testRun"
 
   def main(): Unit = {
-    val experimentName = "new_experiment"
     getOrCreateExperiment(experimentName)
-    val runFilePath = System.getProperty("user.dir") + "/src/test/resources/testRun"
     launchRun(experimentName, runFilePath)
+    showModels
   }
 
   def getAuth: AuthenticationResult = {
@@ -69,6 +71,7 @@ class TestApp {
       else if (response.code == 401) {
         throw new Exception("Unauthorized request. Check your client ID, client secret, and tenant ID.")
       } else {
+        println(response)
         throw new Exception
       }
     }
@@ -95,19 +98,34 @@ class TestApp {
         MultiPart("projectZipFile", path + "project.zip", "application/zip", projectBytes)
       )
       .headers(headers).asString
-
-    println(response)
-
     val runId = getHTTPResponseField(response, "runId")
 
     if (response.code == 200) {
       val successUrl = s"https://mlworkspacecanary.azure.ai/portal/subscriptions/" +
-        s"$subscriptionId/resourceGroups/$rg/providers/Microsoft.MachineLearningServices/" +
-        s"workspaces/$ws/experiments/$experimentName/runs/$runId"
+        s"$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.MachineLearningServices/" +
+        s"workspaces/$workspace/experiments/$experimentName/runs/$runId"
       println(s"Congratulations, your job is running. You can check its progress at $successUrl")
     } else {
+      println(response)
       throw new Exception
     }
 
   }
+
+  def showModels(): Unit = {
+    val modelHostUrl = "https://docs.microsoft.com/"
+    val modelBase = "modelmanagement/v1.0/"
+    val subscriptionId = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
+
+     val url = s"$modelHostUrl$modelBase/modelmanagement/v1.0/subscriptions/${subscriptionId}/" +
+      s"resourceGroups/${resourceGroup}/providers/Microsoft.MachineLearningServices/" +
+      s"workspaces/${workspace}/models"
+
+    val response: HttpResponse[String] = Http(url)
+      .headers(headers)
+      .param("runId", "AutoML_60f0a9c6-c7d4-4635-a02c-b5f0dde3ca54_ModelExplain")
+      .asString
+    println(response)
+  }
+
 }
