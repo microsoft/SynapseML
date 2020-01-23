@@ -54,7 +54,7 @@ object DatabricksUtilities extends HasHttpClient {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 30 * 60 * 1000
+  val TimeoutInMillis: Int = 40 * 60 * 1000
 
   val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
