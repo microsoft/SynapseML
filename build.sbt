@@ -13,6 +13,11 @@ scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.3"
 
+// required for isolation-forest
+resolvers ++= Seq(
+  Resolver.jcenterRepo
+)
+
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
@@ -25,7 +30,10 @@ libraryDependencies ++= Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
-  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
+  "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
+  "com.linkedin.isolation-forest" %% "isolation-forest" % "0.3.1",
+  //  from "file:///home/marcozo/isolation-forest/isolation-forest/build/libs/isolation-forest_2.11-0.3.1.jar",
+  "org.apache.spark" %% "spark-avro" % sparkVersion
 )
 
 //noinspection ScalaStyle
@@ -211,7 +219,7 @@ testPythonTask := {
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2019-05-02.tgz"
+val datasetName = "datasets-2020-01-20.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
