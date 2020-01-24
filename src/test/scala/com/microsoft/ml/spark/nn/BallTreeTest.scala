@@ -26,6 +26,8 @@ trait BallTreeTestBase extends TestBase {
   def twoClassLabels(data: IndexedSeq[_]): IndexedSeq[Int] =
     IndexedSeq.fill(data.length / 2)(1) ++ IndexedSeq.fill(data.length - data.length / 2)(2)
 
+  def twoClassStringLabels(data: IndexedSeq[_]): IndexedSeq[String] =
+    twoClassLabels(data).map(_.toString)
   def randomClassLabels(data: IndexedSeq[_], nClasses: Int): IndexedSeq[Int] = {
     val r = scala.util.Random
     data.map(_ => r.nextInt(nClasses))
@@ -33,6 +35,7 @@ trait BallTreeTestBase extends TestBase {
 
   def assertEquivalent(r1: Seq[BestMatch],
                        r2: Seq[BestMatch]): Unit = {
+    assert(r1.length == r2.length)
     r1.zip(r2).foreach { case (cm, gt) =>
       assert(cm.distance === gt.distance)
     }
@@ -51,6 +54,12 @@ trait BallTreeTestBase extends TestBase {
     ))
     .toDF("features", "values", "labels")
 
+  lazy val stringDF = session
+    .createDataFrame(uniformData.zip(uniformLabels).map(p =>
+      (new SDV(p._1.data), "foo", "class1")
+    ))
+    .toDF("features", "values", "labels")
+
   lazy val testDF = session
     .createDataFrame(uniformData.zip(uniformLabels).take(5).map(p =>
       (new SDV(p._1.data), "foo", p._2)
@@ -58,6 +67,12 @@ trait BallTreeTestBase extends TestBase {
     .toDF("features", "values", "labels")
     .withColumn("conditioner", lit(Array(0, 1)))
 
+  lazy val testStringDF = session
+    .createDataFrame(uniformData.zip(uniformLabels).take(5).map(p =>
+      (new SDV(p._1.data), "foo", "class1")
+    ))
+    .toDF("features", "values", "labels")
+    .withColumn("conditioner", lit(Array("class1")))
 }
 
 class BallTreeTest extends BallTreeTestBase {
