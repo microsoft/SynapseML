@@ -5,7 +5,8 @@ package com.microsoft.ml.spark.isolationforest
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable, MLReadable, MLReader,
+  MLWritable, MLWriter}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import com.linkedin.relevance.isolationforest.{IsolationForestModelReadWrite, IsolationForestParams,
   IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
