@@ -32,7 +32,6 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
   "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
   "com.linkedin.isolation-forest" %% "isolation-forest" % "0.3.1",
-  //  from "file:///home/marcozo/isolation-forest/isolation-forest/build/libs/isolation-forest_2.11-0.3.1.jar",
   "org.apache.spark" %% "spark-avro" % sparkVersion
 )
 
