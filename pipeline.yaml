@@ -264,6 +264,8 @@ jobs:
         PACKAGE: "recommendation"
       stages:
         PACKAGE: "stages"
+      nn:
+        PACKAGE: "nn"
       train:
         PACKAGE: "train"
       vw:

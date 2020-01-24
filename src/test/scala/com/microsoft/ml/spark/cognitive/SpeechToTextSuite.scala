@@ -3,15 +3,15 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.net.URL
+import java.io.{FileInputStream, FileNotFoundException}
+import java.net.{URI, URL}
 
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
-import org.scalatest.Assertion
 
 trait SpeechKey {
   lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
@@ -22,9 +22,16 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   import session.implicits._
 
+  val region = "eastus"
+  val resourcesDir = System.getProperty("user.dir") + "/src/test/resources/"
+  val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
+  val language = "en-us"
+  val profanity = "masked"
+  val format = "simple"
+
   lazy val stt = new SpeechToText()
     .setSubscriptionKey(speechKey)
-    .setLocation("eastus")
+    .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
     .setLanguage("en-US")
@@ -46,8 +53,15 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
   }
 
+  /** Simple similarity test using Jaccard index */
+  def jaccardSimilarity(s1: String, s2: String): Double = {
+    val a = Set(s1)
+    val b = Set(s2)
+    a.intersect(b).size.toDouble / (a | b).size.toDouble
+  }
+
   test("Basic Usage") {
-    val toObj = SpeechResponse.makeFromRowConverter
+    val toObj: Row => SpeechResponse = SpeechResponse.makeFromRowConverter
     val result = toObj(stt.setFormat("simple")
       .transform(df).select("text")
       .collect().head.getStruct(0))

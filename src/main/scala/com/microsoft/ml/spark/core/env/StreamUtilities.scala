@@ -8,12 +8,13 @@ import java.util.zip.ZipInputStream
 
 import org.apache.commons.io.IOUtils
 
+import scala.io.Source
 import scala.util.Random
 
 object StreamUtilities {
 
   import scala.util.{Failure, Success, Try}
-  def using[T <: AutoCloseable, U](disposable: Seq[T])(task: Seq[T] => U): Try[U] = {
+  def usingMany[T <: AutoCloseable, U](disposable: Seq[T])(task: Seq[T] => U): Try[U] = {
     try {
       Success(task(disposable))
     } catch {
@@ -24,6 +25,16 @@ object StreamUtilities {
   }
 
   def using[T <: AutoCloseable, U](disposable: T)(task: T => U): Try[U] = {
+    try {
+      Success(task(disposable))
+    } catch {
+      case e: Exception => Failure(e)
+    } finally {
+      disposable.close()
+    }
+  }
+
+  def usingSource[T <: Source, U](disposable: T)(task: T => U): Try[U] = {
     try {
       Success(task(disposable))
     } catch {
