@@ -177,6 +177,24 @@ You can use MMLSpark in both your Scala and PySpark notebooks. To get started wi
 
 `https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v0.17.dbc`
 
+### Apache Livy
+
+To install MMLSpark for use in a Jupyter notebook served by Apache Livy the following configure magic can be used.
+
+Excluding certain packages from the library may be necessary due to current issues with Livy 0.5
+
+```
+%%configure -f
+{
+    "name": "mmlspark",
+    "conf": {
+        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc1",
+        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.11,org.scalactic:scalactic_2.11,org.scalatest:scalatest_2.11"
+    }
+}
+```
+
 ### Docker
 
 The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
