@@ -186,9 +186,9 @@ class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializabl
       case ln: LeafNode =>
         ln.pointIdx.map(labels).toSet.map { label: L => (label, Set(node)) }.toMap
       case InnerNode(_, lc, rc) =>
-        makeIndexRecursive(lc).foldLeft(makeIndexRecursive(rc)) { case (state, (label, node)) =>
-          state.updated(label, state.getOrElse(label, Set()) | node)
-        }
+        makeIndexRecursive(lc).foldLeft(makeIndexRecursive(rc)) { case (state, (label, nodes)) =>
+          state.updated(label, state.getOrElse(label, Set()) | nodes)
+        }.map { case (label, nodes) => (label, nodes | Set(node)) }
     }
   }
 
@@ -197,6 +197,7 @@ class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializabl
   def nodeSubset(conditioner: Set[L]): Set[Node] = {
     conditioner.map(index).reduce(_ | _)
   }
+
 }
 
 case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[Double]],
