@@ -22,7 +22,6 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.scalactic.Tolerance._
 
-case class LabeledDataPointVector(features: Vector, label: Double)
 case class MammographyRecord(feature0: Double, feature1: Double, feature2: Double, feature3: Double,
                              feature4: Double, feature5: Double, label: Double)
 case class ScoringResult(features: Vector, label: Double, predictedLabel: Double, outlierScore: Double)
@@ -65,7 +64,7 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
         s" $aurocExpectation +/- $uncert, but observed $auroc")
   }
 
-  def loadMammographyData(): Dataset[LabeledDataPointVector] = {
+  def loadMammographyData(): DataFrame = {
 
     import session.implicits._
 
@@ -80,7 +79,6 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
       .option("header", "false")
       .schema(mammographyRecordSchema)
       .load(fileLocation)
-      .as[MammographyRecord]
 
     val assembler = new VectorAssembler()
       .setInputCols(Array("feature0", "feature1", "feature2", "feature3", "feature4", "feature5"))
@@ -89,12 +87,11 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
     val data = assembler
       .transform(rawData)
       .select("features", "label")
-      .as[LabeledDataPointVector]
 
     data
   }
 
-  def loadShuttleData(): Dataset[LabeledDataPointVector] = {
+  def loadShuttleData(): DataFrame = {
 
     import session.implicits._
 
@@ -109,7 +106,6 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
       .option("header", "false")
       .schema(shuttleRecordSchema)
       .load(fileLocation)
-      .as[ShuttleRecord]
 
     val assembler = new VectorAssembler()
       .setInputCols(Array("feature0", "feature1", "feature2", "feature3", "feature4", "feature5",
@@ -119,7 +115,6 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
     val data = assembler
       .transform(rawData)
       .select("features", "label")
-      .as[LabeledDataPointVector]
 
     data
   }

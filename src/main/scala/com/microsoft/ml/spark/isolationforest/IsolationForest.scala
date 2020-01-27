@@ -5,12 +5,12 @@ package com.microsoft.ml.spark.isolationforest
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable, MLReadable, MLReader,
-  MLWritable, MLWriter}
+import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import com.linkedin.relevance.isolationforest.{IsolationForestModelReadWrite, IsolationForestParams,
   IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, Wrappable}
+import org.apache.spark.ml.param.shared.HasFeaturesCol
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
