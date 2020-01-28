@@ -159,10 +159,11 @@ You can use MMLSpark in both your Scala and PySpark notebooks. To get started wi
 
 ### Apache Livy
 
-To install MMLSpark for use in a Jupyter notebook served by Apache Livy the following configure magic can be used.      
+To install MMLSpark from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
+
 Excluding certain packages from the library may be necessary due to current issues with Livy 0.5
 
-```
+```javascript
 %%configure -f
 {
     "name": "mmlspark",
