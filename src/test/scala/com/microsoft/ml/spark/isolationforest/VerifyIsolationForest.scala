@@ -3,31 +3,22 @@
 
 package com.microsoft.ml.spark.isolationforest
 
-import java.io.File
-import java.nio.file.Files
-
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.core.test.benchmarks.Benchmarks
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.TaskContext
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.scalactic.Tolerance._
+import com.microsoft.ml.spark.train.ComputeModelStatistics
 
 case class MammographyRecord(feature0: Double, feature1: Double, feature2: Double, feature3: Double,
                              feature4: Double, feature5: Double, label: Double)
 case class ScoringResult(features: Vector, label: Double, predictedLabel: Double, outlierScore: Double)
-case class ShuttleRecord(feature0: Double, feature1: Double, feature2: Double, feature3: Double,
-                         feature4: Double, feature5: Double, feature6: Double, feature7: Double,
-                         feature8: Double, label: Double)
 
 class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationForest] {
   test ("Verify isolationForestMammographyDataTest") {
@@ -54,12 +45,17 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
 
     // Calculate area under ROC curve and assert
     val scores = isolationForestModel.transform(data).as[ScoringResult]
-    val metrics = new BinaryClassificationMetrics(scores.rdd.map(x => (x.outlierScore, x.label)))
+    val metrics = new ComputeModelStatistics()
+      .setEvaluationMetric(MetricConstants.AucSparkMetric)
+      .setLabelCol("label")
+      .setScoredLabelsCol("predictedLabel")
+      .setScoresCol("outlierScore")
+      .transform(scores)
 
     // Expectation from results in the 2008 "Isolation Forest" paper by F. T. Liu, et al.
     val aurocExpectation = 0.86
     val uncert = 0.02
-    val auroc = metrics.areaUnderROC()
+    val auroc = metrics.first().getDouble(1)
     assert(auroc === aurocExpectation +- uncert, "expected area under ROC =" +
         s" $aurocExpectation +/- $uncert, but observed $auroc")
   }
@@ -82,34 +78,6 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
 
     val assembler = new VectorAssembler()
       .setInputCols(Array("feature0", "feature1", "feature2", "feature3", "feature4", "feature5"))
-      .setOutputCol("features")
-
-    val data = assembler
-      .transform(rawData)
-      .select("features", "label")
-
-    data
-  }
-
-  def loadShuttleData(): DataFrame = {
-
-    import session.implicits._
-
-    val shuttleRecordSchema = Encoders.product[ShuttleRecord].schema
-
-    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,"IsolationForest", "shuttle.csv").toString
-
-    // Open source dataset from http://odds.cs.stonybrook.edu/shuttle-dataset/
-    val rawData = session.read
-      .format("csv")
-      .option("comment", "#")
-      .option("header", "false")
-      .schema(shuttleRecordSchema)
-      .load(fileLocation)
-
-    val assembler = new VectorAssembler()
-      .setInputCols(Array("feature0", "feature1", "feature2", "feature3", "feature4", "feature5",
-        "feature6", "feature7", "feature8"))
       .setOutputCol("features")
 
     val data = assembler
