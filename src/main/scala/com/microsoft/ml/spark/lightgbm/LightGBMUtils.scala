@@ -209,6 +209,7 @@ object LightGBMUtils {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      s"bin_construct_sample_cnt=${trainParams.binSampleCount}" +
       (if (trainParams.categoricalFeatures.isEmpty) ""
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
