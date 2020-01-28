@@ -12,6 +12,7 @@ abstract class TrainParams extends Serializable {
   def learningRate: Double
   def numLeaves: Int
   def maxBin: Int
+  def binSampleCount: Int
   def baggingFraction: Double
   def posBaggingFraction: Double
   def negBaggingFraction: Double
@@ -57,7 +58,7 @@ abstract class TrainParams extends Serializable {
 /** Defines the Booster parameters passed to the LightGBM classifier.
   */
 case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
-                                 numLeaves: Int, maxBin: Int,
+                                 numLeaves: Int, maxBin: Int, binSampleCount: Int,
                                  baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
                                  baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                                  maxDepth: Int, minSumHessianInLeaf: Double,
@@ -81,7 +82,7 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
   */
 case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
                                 numLeaves: Int, objective: String, alpha: Double,
-                                tweedieVariancePower: Double, maxBin: Int,
+                                tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
                                 baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
@@ -101,7 +102,7 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
 /** Defines the Booster parameters passed to the LightGBM ranker.
   */
 case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
-                             numLeaves: Int, objective: String, maxBin: Int,
+                             numLeaves: Int, objective: String, maxBin: Int, binSampleCount: Int,
                              baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
                              baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
                              maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
