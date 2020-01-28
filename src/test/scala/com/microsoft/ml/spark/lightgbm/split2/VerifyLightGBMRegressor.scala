@@ -110,7 +110,7 @@ class VerifyLightGBMRegressor extends Benchmarks
       .withColumnRenamed("M-class flares production by this region", labelCol)
 
     LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
-  }.cache()
+    }.cache()
 
   def regressionEvaluator: RegressionEvaluator = {
     new RegressionEvaluator()
@@ -150,10 +150,11 @@ class VerifyLightGBMRegressor extends Benchmarks
                                        labelCol: String,
                                        decimals: Int,
                                        columnsFilter: Option[Seq[String]] = None): Unit = {
-    lazy val df = loadRegression(fileName, labelCol, columnsFilter).cache()
-    boostingTypes.foreach { boostingType =>
-      test(s"Verify LightGBMRegressor can be trained " +
-        s"and scored on $fileName with boosting type $boostingType") {
+    test(s"Verify LightGBMRegressor can be trained " +
+      s"and scored on $fileName ") {
+      lazy val df = loadRegression(fileName, labelCol, columnsFilter).cache()
+      boostingTypes.foreach { boostingType =>
+
         val model = baseModel.setBoostingType(boostingType)
 
         if (boostingType == "rf") {
@@ -166,8 +167,8 @@ class VerifyLightGBMRegressor extends Benchmarks
         addBenchmark(s"LightGBMRegressor_${fileName}_$boostingType",
           regressionEvaluator.evaluate(fitModel.transform(df)), decimals, higherIsBetter = false)
       }
+      df.unpersist()
     }
-    df.unpersist()
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRegressor]] = {
