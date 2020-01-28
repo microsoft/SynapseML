@@ -213,10 +213,10 @@ private object TrainUtils extends Serializable {
           log.info(s"Valid $evalName=$score")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
-              (x: Double, y: Double) => x > y
+              (x: Double, y: Double, tol: Double) => x - y > tol
             else
-              (x: Double, y: Double) => x < y
-          if (bestScores(index) == null || cmp(score, bestScore(index))) {
+              (x: Double, y: Double, tol: Double) => x - y < tol
+          if (bestScores(index) == null || cmp(score, bestScore(index), trainParams.improvementTolerance)) {
             bestScore(index) = score
             bestIter(index) = iters
             bestScores(index) = evalNames.indices

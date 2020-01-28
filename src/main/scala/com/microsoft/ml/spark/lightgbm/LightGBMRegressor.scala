@@ -60,9 +60,10 @@ class LightGBMRegressor(override val uid: String)
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RegressorTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
-      getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2,
-      getIsProvideTrainingMetric, getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature)
+      getEarlyStoppingRound, getImprovementTolerance, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf,
+      numWorkers, modelStr, getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType,
+      getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getMetric, getMinGainToSplit,
+      getMaxDeltaStep, getMaxBinByFeature)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
