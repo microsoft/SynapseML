@@ -8,7 +8,6 @@ import java.net.URI
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
-import org.apache.spark.ml.param.DoubleArrayArrayParam
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame, Row}
 import org.scalactic.Equality
@@ -178,48 +177,6 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     assert(jaccardSimilarity(apiResult, sdkResult) > threshold)
   }
 
-  val app = new TestApp
-
-  test("getToken") {
-    val auth = app.getAuth
-    val token = auth.getAccessToken
-    println(s"Token: $token")
-    assert(token.length > 0, "Access token not found")
-  }
-
-  test("get existing experiment") {
-    app.getOrCreateExperiment("tensor_experiment")
-  }
-
-  /*
-    TODO: Comment back in when support for removing experiments
-    through API is supported (otherwise created a new experiment
-    whenever tests are run)
-   */
-  /*
-  test("create new experiment") {
-    def randomString(length: Int): String = {
-      val chars = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9')
-      val sb = new StringBuilder
-      for (i <- 1 to length) {
-        val randomNum = util.Random.nextInt(chars.length)
-        sb.append(chars(randomNum))
-      }
-      sb.toString
-    }
-
-    val randomExperimentName = s"fake_experiment_${randomString(6)}"
-    println(s"Random Name: $randomExperimentName")
-    val experiment = app.getOrCreateExperiment(randomExperimentName)
-  }
-  */
-
-  test("launch run") {
-    val experimentName = "new_experiment"
-    val runFilePath = System.getProperty("user.dir") + "/src/test/resources/testRun"
-    app.getOrCreateExperiment(experimentName)
-    app.launchRun(experimentName, runFilePath)
-  }
   override def testObjects(): Seq[TestObject[SpeechToTextSDK]] =
     Seq(new TestObject(sdk, audioDfs(1)))
 

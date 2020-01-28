@@ -27,7 +27,8 @@ libraryDependencies ++= Seq(
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
   "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3",
   "com.microsoft.azure" % "adal4j" % "1.6.3",
-  "org.scalaj" %% "scalaj-http" % "2.4.2"
+  "org.scalaj" %% "scalaj-http" % "2.4.2",
+  "com.typesafe.play" %% "play-json" % "2.8.1"
 )
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
