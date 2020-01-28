@@ -52,9 +52,9 @@ class TreeVizualizer[V](cbt: ConditionalBallTree[String, V]) {
 }
 
 class ConditionalBallTreeTest extends Benchmarks with BallTreeTestBase {
-  def naiveSearch(haystack: IndexedSeq[DenseVector[Double]],
-                  labels: IndexedSeq[Int],
-                  conditioner: Set[Int],
+  def naiveSearch[L](haystack: IndexedSeq[DenseVector[Double]],
+                  labels: IndexedSeq[L],
+                  conditioner: Set[L],
                   needle: DenseVector[Double],
                   k: Int): Seq[BestMatch] = {
     haystack
@@ -68,20 +68,21 @@ class ConditionalBallTreeTest extends Benchmarks with BallTreeTestBase {
       .map { case (i, d) => BestMatch(i, d) }
   }
 
-  def assertEquivalent(r1: Seq[BestMatch],
+  def assertEquivalent[L](r1: Seq[BestMatch],
                        r2: Seq[BestMatch],
-                       conditioner: Set[Int],
-                       labels: IndexedSeq[Int]): Unit = {
+                       conditioner: Set[L],
+                       labels: IndexedSeq[L]): Unit = {
+    assert(r1.length == r2.length)
     r1.zip(r2).foreach { case (cm, gt) =>
-      assert(cm.distance === gt.distance)
+      assert(cm.distance === gt.distance, s"$cm, $gt, $conditioner, ${labels(cm.index)}, ${labels(gt.index)}")
       assert(conditioner(labels(cm.index)))
       assert(conditioner(labels(gt.index)))
     }
   }
 
-  def compareToNaive(haystack: IndexedSeq[DenseVector[Double]],
-                     labels: IndexedSeq[Int],
-                     conditioner: Set[Int],
+  def compareToNaive[L](haystack: IndexedSeq[DenseVector[Double]],
+                     labels: IndexedSeq[L],
+                     conditioner: Set[L],
                      k: Int,
                      needle: DenseVector[Double]): Unit = {
     val tree = ConditionalBallTree(haystack, haystack.indices, labels)
@@ -94,6 +95,16 @@ class ConditionalBallTreeTest extends Benchmarks with BallTreeTestBase {
     val labels = twoClassLabels(uniformData)
     val needle = DenseVector(9.0, 10.0, 11.0)
     val conditioners = Seq(Set(1), Set(2), Set(1, 2))
+    val ks = Seq(1, 5, 10, 100)
+    for (conditioner <- conditioners; k <- ks) {
+      compareToNaive(uniformData, labels, conditioner, k, needle)
+    }
+  }
+
+  test("string conditioner") {
+    val labels = twoClassStringLabels(uniformData)
+    val needle = DenseVector(9.0, 10.0, 11.0)
+    val conditioners = Seq(Set("1"), Set("2"), Set("1", "2"))
     val ks = Seq(1, 5, 10, 100)
     for (conditioner <- conditioners; k <- ks) {
       compareToNaive(uniformData, labels, conditioner, k, needle)

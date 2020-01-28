@@ -59,7 +59,6 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
 private[ml] object KNNFuncHolder {
   def queryFunc[L, V](bbt: Broadcast[ConditionalBallTree[L, V]], k: Int)
                      (dv: DenseVector, conditioner: Seq[L]): Seq[Row] = {
-    println(conditioner)
     bbt.value.findMaximumInnerProducts(new BDV(dv.values), conditioner.toSet, k)
       .map(bm => Row(bbt.value.values(bm.index), bm.distance, bbt.value.labels(bm.index)))
   }
