@@ -64,7 +64,7 @@ trait LightGBMLearnerParams extends Wrappable {
   def getEarlyStoppingRound: Int = $(earlyStoppingRound)
   def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
 
-  val improvementTolerance = new Param[Double](this, "improvementTolerance",
+  val improvementTolerance = new DoubleParam(this, "improvementTolerance",
     "Tolerance to consider improvement in metric")
   setDefault(improvementTolerance -> 0.0)
 
