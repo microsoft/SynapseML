@@ -3,19 +3,27 @@
 
 package com.microsoft.ml.spark.aml
 
+import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
+import java.util
 import java.util.concurrent.Executors
 
 import com.microsoft.aad.adal4j.{AuthenticationContext, AuthenticationResult, ClientCredential}
+import com.microsoft.ml.spark.aml.AMLExperimentFormat._
+import com.microsoft.ml.spark.cognitive.{HasServiceParams, SpeechResponse}
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import org.apache.commons.io.IOUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
+import org.apache.spark.sql.functions.{col, lit, struct, udf}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset}
-import scalaj.http.{Http, HttpOptions, HttpRequest, HttpResponse, MultiPart}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import scalaj.http.{Http, HttpOptions, HttpResponse, MultiPart}
 import spray.json._
-import com.microsoft.ml.spark.aml.AMLExperimentFormat._
+
+import scala.io.Source
 
 trait AMLParams extends Wrappable with DefaultParamsWritable {
   /*** @group param*/
@@ -203,7 +211,7 @@ class AMLEstimator(override val uid: String)
     }
   }
 
-  def getTopModelResponse(runId: String): AMLModelResponse = {
+  def getTopModelResponse(runId: String): HttpResponse[String] = {
     val modelBase = "modelmanagement/v1.0/"
     val subscriptionId = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
 
@@ -218,13 +226,14 @@ class AMLEstimator(override val uid: String)
       .option(HttpOptions.readTimeout(10000))
       .asString
     println(response)
-    val topModel = response.body.parseJson.asJsObject
-        .getFields("value").toList.head
-        .convertTo[Array[AMLModelResponse]].head
-    topModel
+    response
+//    val topModel = response.body.parseJson.asJsObject
+//        .getFields("value").toList.head
+//        .convertTo[Array[AMLModelResponse]].head
+//    topModel
   }
 
-  def deployModel(modelId: String, computeType: String): Unit = {
+  def deployModel(modelId: String, computeType: String, container: String): HttpResponse[String] = {
     val possibleComputeTypes = List("ACI", "AKSENDPOINT", "IOT")
     assert(possibleComputeTypes.contains(computeType),
       s"""Error: Please enter a valid compute type. Possible values are ${
@@ -234,19 +243,83 @@ class AMLEstimator(override val uid: String)
 
     val serviceBase = "modelmanagement/v1.0/"
 
-    val url = s"${hostUrl}${serviceBase}subscriptions/${getSubscriptionId}/" +
-      s"resourceGroups/${getResourceGroup}/providers/Microsoft.MachineLearningServices/" +
-      s"workspaces/${getWorkspace}/services"
+    val url = s"${hostUrl}${serviceBase}subscriptions/$getSubscriptionId/" +
+      s"resourceGroups/$getResourceGroup/providers/Microsoft.MachineLearningServices/" +
+      s"workspaces/$getWorkspace/services"
+
+    val response = Http(url).postForm(Seq(
+      "computeType" -> "possibleComputeTypes",
+      "name" -> "myServiceTEST"
+    )).asString
+
+    println(response)
+    response
+    // TODO: figure out params to pass into REST API call
+    // ref: https://docs.microsoft.com/en-us/rest/api/azureml/modelsanddeployments/services/create#deploymenttype
+    ???
+  }
+
+  def deployModel(configPath: String): HttpResponse[String] = {
+    val serviceBase = "modelmanagement/v1.0/"
+
+    val url = s"${hostUrl}${serviceBase}subscriptions/$getSubscriptionId/" +
+      s"resourceGroups/$getResourceGroup/providers/Microsoft.MachineLearningServices/" +
+      s"workspaces/$getWorkspace/services"
+
+    val config = Source.fromFile(configPath).getLines.mkString.parseJson.toString
+
+    println(s"CONFIG: $config\n\n")
+    Http(url)
+      .header("content-type", "application/json")
+      .header("Authorization", s"Bearer $token")
+      .timeout(connTimeoutMs = 10000, readTimeoutMs = 50000)
+      .postData(config).asString
   }
 
   def predict(modelEndpoint: String, data: String): HttpResponse[String] = {
     val response = Http(modelEndpoint)
       .header("content-type", "application/json")
       .postData(data)
-//      .timeout(connTimeoutMs = 10000, readTimeoutMs = 50000)
       .asString
+    response
+  }
 
-    println(response)
+  def uploadArtifact(path: String, container: String): HttpResponse[String] = {
+    val artifactBase = "artifact/v1.0/"
+    val origin = "LocalUpload"
+
+    val url = s"$hostUrl${artifactBase}subscriptions/${getSubscriptionId}" +
+      s"/resourceGroups/${getResourceGroup}/providers/Microsoft." +
+      s"MachineLearningServices/workspaces/${getWorkspace}/artifacts/content/${origin}/${container}/${path}"
+
+    val byteArray = IOUtils.toByteArray(new FileInputStream(new File(path)))
+
+    Http(url)
+      .header("Content-Type", "application/json; charset=utf-8")
+      .header("Authorization", s"Bearer $token")
+      .postData(byteArray).asString
+  }
+
+  def createAssets(artifact: String): HttpResponse[String] = {
+    val modelBase = "modelmanagement/v1.0/"
+    val url = s"$hostUrl${modelBase}subscriptions/${getSubscriptionId}/" +
+      s"resourceGroups/${getResourceGroup}/providers/Microsoft.MachineLearningServices/" +
+      s"workspaces/${getWorkspace}/assets"
+
+//    "artifacts": [{"prefix": "LocalUpload/200128T172310-de742f9e/my_c00l_classifier.joblib.tar.gz"}]
+    val payload =
+      s"""
+        |{
+        |"name": "stupid_model_asset",
+        |"artifacts": [{"prefix": "$artifact"}]
+        |}
+        |""".stripMargin
+
+    val response = Http(url)
+      .header("content-type", "application/json")
+      .header("Authorization", s"Bearer $token")
+      .postData(payload)
+      .asString
     response
   }
 
@@ -254,43 +327,89 @@ class AMLEstimator(override val uid: String)
     getOrCreateExperiment
     val runId = launchRun
     val modelResponse = getTopModelResponse(runId)
-    // TODO: deploy the model
-    new AMLModel(modelResponse.id)
+    // TODO: deploy the model (call deployModel)
+//    new AMLModel(modelResponse.id)
+    ???
+  }
+
+  def deleteModel(id: String): Unit = {
+    val serviceBase = "modelmanagement/v1.0/"
+
+    val url = s"${hostUrl}${serviceBase}subscriptions/${getSubscriptionId}" +
+      s"/resourceGroups/${getResourceGroup}/providers/Microsoft.MachineLearningServices/" +
+      s"workspaces/${getWorkspace}/services/${id}"
+
+    val response = Http(url)
+
+    // TODO
+    ???
   }
 
   override def copy(extra: ParamMap): this.type =
     defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {
-   ???
-    // The model's transform schema
+    schema.add("prediction", StringType)
   }
 
 }
 
 class AMLModel(val uid: String)
-  extends Model[AMLModel] with DefaultParamsWritable {
-
-  def getUid: String = {
-    uid
-  }
-
+  extends Model[AMLModel] with DefaultParamsWritable with HasOutputCol
+  with HasServiceParams with HasInputCol {
   override def copy(extra: ParamMap): AMLModel = defaultCopy(extra)
 
-  def getDeployedModel(uri: String): Unit = {
-    ???
+  val uri = new Param[String](this, "uri", "REST API endpoint")
+
+  val chunkSize = new Param[Int](this, "chunkSize", "Number of chunks to split data")
+
+  setDefault(chunkSize, 1)
+
+  /** @group getParam */
+  final def getUri: String = $(uri)
+
+  /** @group getParam */
+  final def getChunkSize: Int = $(chunkSize)
+
+  def setUri(value: String): this.type = set(uri, value)
+
+  def setChunkSize(value: String): this.type = set(chunkSize, value.toInt)
+
+  def predict(data: String): HttpResponse[String] = {
+    val response = Http(getUri)
+      .header("content-type", "application/json")
+      .postData(data)
+      .asString
+    response
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // call the deployed web service
     // https://docs.microsoft.com/en-us/azure/machine-learning/how-to-consume-web-service
+    val df = dataset.toDF
+    val schema = dataset.schema
+    val sparkSession: SparkSession = df.sparkSession
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
 
-    ???
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+//    val inputCol = "input"
+
+    df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
+      .withColumn(
+        getOutputCol,
+        udf(predict(getInputCol), ArrayType(SpeechResponse.schema))(col(dynamicParamColName)))
+      .drop(dynamicParamColName)
+
+//    df.withColumn("prediction", udf(predict("input")))
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    // What does the web service return
-    ???
+    schema.add("prediction", StringType)
   }
 }
 

@@ -7,7 +7,7 @@
        "SourceDirectoryDataStore":null,
        "Framework":"Python",
        "Communicator":"None",
-       "Target":"sparkml-test",
+       "Target":"cpu-cluster",
        "MaxRunDurationSeconds":1200,
        "NodeCount":1,
        "Environment":{  
