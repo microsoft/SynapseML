@@ -19,6 +19,7 @@ abstract class TrainParams extends Serializable {
   def baggingFreq: Int
   def baggingSeed: Int
   def earlyStoppingRound: Int
+  def improvementTolerance: Double
   def featureFraction: Double
   def maxDepth: Int
   def minSumHessianInLeaf: Double
@@ -60,7 +61,8 @@ abstract class TrainParams extends Serializable {
 case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
                                  numLeaves: Int, maxBin: Int, binSampleCount: Int,
                                  baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
+                                 improvementTolerance: Double, featureFraction: Double,
                                  maxDepth: Int, minSumHessianInLeaf: Double,
                                  numMachines: Int, objective: String, modelString: Option[String],
                                  isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
@@ -84,7 +86,8 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 numLeaves: Int, objective: String, alpha: Double,
                                 tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
                                 baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
+                                improvementTolerance: Double, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                                 modelString: Option[String], verbosity: Int,
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
@@ -104,8 +107,8 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
 case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
                              numLeaves: Int, objective: String, maxBin: Int, binSampleCount: Int,
                              baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
-                             maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
+                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, improvementTolerance: Double,
+                             featureFraction: Double, maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                              modelString: Option[String], verbosity: Int,
                              categoricalFeatures: Array[Int], boostingType: String,
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
