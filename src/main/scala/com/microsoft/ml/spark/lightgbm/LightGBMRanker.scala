@@ -52,7 +52,7 @@ class LightGBMRanker(override val uid: String)
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
-      getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
+      getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
