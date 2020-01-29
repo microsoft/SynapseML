@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{FileInputStream, FileNotFoundException}
+import java.io.{File, FileInputStream, FileNotFoundException}
 import java.net.URI
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -12,6 +12,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
+import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
+import org.apache.spark.sql.types.StringType
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   with SpeechKey {
@@ -175,6 +177,29 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
       .map(row => row.getSeq[Row](0).map(toObj))
       .head)
     assert(jaccardSimilarity(apiResult, sdkResult) > threshold)
+  }
+
+  test("HMS") {
+    val key = "D8A5DA42CB18904C196742F4C4DE907E"
+    val path = resourcesDir + "nascar"
+    val df =  new File(path)
+      .listFiles().toSeq
+      .map(af =>  (IOUtils.toByteArray(new FileInputStream(af)), af.getName))
+      .toDF("bytes", "file")
+    val results = sdk.setAudioDataCol("bytes")
+      .setOutputCol("stt_result")
+      .transform(df)
+      .withColumn("searchAction", lit("upload"))
+      .withColumn("id", monotonically_increasing_id().cast(StringType))
+      .drop("bytes")
+    AzureSearchWriter.write(results, Map(
+      "subscriptionKey" -> key,
+      "actionCol" -> "searchAction",
+      "serviceName" -> "extern-search",
+      "filterNulls" -> "true",
+      "indexName" -> "demo",
+      "keyCol" -> "id"
+    ))
   }
 
   override def testObjects(): Seq[TestObject[SpeechToTextSDK]] =
