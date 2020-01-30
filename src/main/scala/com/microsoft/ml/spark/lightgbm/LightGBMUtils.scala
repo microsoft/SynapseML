@@ -67,12 +67,15 @@ object LightGBMUtils {
 
   def getCategoricalIndexes(df: DataFrame,
                             featuresCol: String,
+                            slotNames: Array[String],
                             categoricalColumnIndexes: Array[Int],
                             categoricalColumnSlotNames: Array[String]): Array[Int] = {
-    val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
-    val featuresSchema = df.schema(featuresCol)
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    val categoricalIndexes =
+    val categoricalIndexes = if(slotNames.nonEmpty) {
+      categoricalColumnSlotNames.map(slotNames.indexOf(_))
+    } else {
+      val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
+      val featuresSchema = df.schema(featuresCol)
+      val metadata = AttributeGroup.fromStructField(featuresSchema)
       if (metadata.attributes.isEmpty) Array[Int]()
       else {
         metadata.attributes.get.zipWithIndex.flatMap {
@@ -91,6 +94,8 @@ object LightGBMUtils {
             }
         }
       }
+    }
+
     categoricalColumnIndexes.union(categoricalIndexes).distinct
   }
 
@@ -204,6 +209,7 @@ object LightGBMUtils {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      s"bin_construct_sample_cnt=${trainParams.binSampleCount}" +
       (if (trainParams.categoricalFeatures.isEmpty) ""
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64

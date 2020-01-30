@@ -7,12 +7,18 @@ object LightGBMConstants {
   /** The default port for LightGBM network initialization
     */
   val DefaultLocalListenPort = 12400
+  /** Max port range available on machine, 65535
+    */
+  val MaxPort = ((2 << 15) - 1)
   /** The default timeout for LightGBM network initialization
     */
   val DefaultListenTimeout = 120
   /** Default buffer length for model
     */
   val DefaultBufferLength: Int = 10000
+  /** Default top_k value for LightGBM voting parallel
+    */
+  val DefaultTopK: Int = 20
   /** Lambdarank ranking objective
     */
   val RankObjective: String = "lambdarank"

@@ -7,7 +7,7 @@ import java.io._
 import java.net._
 
 import com.microsoft.ml.lightgbm._
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import com.microsoft.ml.spark.core.env.StreamUtilities._
 import org.apache.spark.BarrierTaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -35,7 +35,7 @@ private object TrainUtils extends Serializable {
           case sparse: SparseVector => sparse.toDense.toArray
         })
         val numCols = rowsAsDoubleArray.head.length
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
           slotNames, trainParams))
@@ -45,7 +45,7 @@ private object TrainUtils extends Serializable {
           case sparse: SparseVector => sparse
         })
         val numCols = rowsAsSparse(0).size
-        val slotNames = getSlotNames(schema, featuresColumn, numCols)
+        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
@@ -213,10 +213,10 @@ private object TrainUtils extends Serializable {
           log.info(s"Valid $evalName=$score")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
-              (x: Double, y: Double) => x > y
+              (x: Double, y: Double, tol: Double) => x - y > tol
             else
-              (x: Double, y: Double) => x < y
-          if (bestScores(index) == null || cmp(score, bestScore(index))) {
+              (x: Double, y: Double, tol: Double) => x - y < tol
+          if (bestScores(index) == null || cmp(score, bestScore(index), trainParams.improvementTolerance)) {
             bestScore(index) = score
             bestIter(index) = iters
             bestScores(index) = evalNames.indices
@@ -232,18 +232,23 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int): Option[Array[String]] = {
-    val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    if (metadata.attributes.isEmpty) None
-    else if (metadata.attributes.get.isEmpty) None
-    else {
-      val colnames = (0 until numCols).map(_.toString).toArray
-      metadata.attributes.get.foreach {
-        case attr =>
-          attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
+  def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int,
+                   trainParams: TrainParams): Option[Array[String]] = {
+    if (trainParams.featureNames.nonEmpty) {
+      Some(trainParams.featureNames)
+    } else {
+      val featuresSchema = schema.fields(schema.fieldIndex(featuresColumn))
+      val metadata = AttributeGroup.fromStructField(featuresSchema)
+      if (metadata.attributes.isEmpty) None
+      else if (metadata.attributes.get.isEmpty) None
+      else {
+        val colnames = (0 until numCols).map(_.toString).toArray
+        metadata.attributes.get.foreach {
+          case attr =>
+            attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
+        }
+        Some(colnames)
       }
-      Some(colnames)
     }
   }
 
@@ -284,6 +289,9 @@ private object TrainUtils extends Serializable {
 
   private def findOpenPort(defaultListenPort: Int, numCoresPerExec: Int, log: Logger): Socket = {
     val basePort = defaultListenPort + (LightGBMUtils.getId() * numCoresPerExec)
+    if (basePort > LightGBMConstants.MaxPort) {
+      throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
+    }
     var localListenPort = basePort
     var foundPort = false
     var workerServerSocket: Socket = null
@@ -296,6 +304,9 @@ private object TrainUtils extends Serializable {
         case _: IOException =>
           log.warn(s"Could not bind to port $localListenPort...")
           localListenPort += 1
+          if (localListenPort > LightGBMConstants.MaxPort) {
+            throw new Exception(s"Error: port $basePort out of range, possibly due to networking or firewall issues")
+          }
           if (localListenPort - basePort > 1000) {
             throw new Exception("Error: Could not find open port after 1k tries")
           }
@@ -324,7 +335,7 @@ private object TrainUtils extends Serializable {
                           emptyPartition: Boolean): String = {
     using(new Socket(networkParams.addr, networkParams.port)) {
       driverSocket =>
-        using(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
+        usingMany(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
           new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream)))) {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
