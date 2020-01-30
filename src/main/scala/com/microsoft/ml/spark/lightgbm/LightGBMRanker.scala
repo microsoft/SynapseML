@@ -95,6 +95,10 @@ class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labe
     model.score(features, false, false)(0)
   }
 
+  def getFeatureShaps(features: Vector): Array[Double] = {
+    model.featuresShap(features)
+  }
+
   override def copy(extra: ParamMap): LightGBMRankerModel =
     new LightGBMRankerModel(uid, model, labelColName, featuresColName, predictionColName)
 
