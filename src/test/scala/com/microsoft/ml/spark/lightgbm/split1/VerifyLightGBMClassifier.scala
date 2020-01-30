@@ -92,6 +92,12 @@ trait LightGBMTestUtils extends TestBase {
     assert(splitLength == gainLength && splitLength == featuresLength)
   }
 
+  def assertFeatureShapLengths(fitModel: Model[_] with HasFeatureShapGetters, features: Vector, df: DataFrame): Unit = {
+    val shapLength = fitModel.getFeatureShaps(features).length
+    val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
+    assert(shapLength == featuresLength)
+  }
+
   lazy val numPartitions = 2
   val startingPortIndex = 0
   private var portIndex = startingPortIndex

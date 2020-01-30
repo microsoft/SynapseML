@@ -140,16 +140,16 @@ class LightGBMBooster(val model: String) extends Serializable {
 
     val datasetParams = "max_bin=255"
 
-    ensureScoredDataCreated()
+    ensureShapDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(
         row, boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        -1, datasetParams, scoredDataLengthLongPtr, scoredDataOutPtr),
+        -1, datasetParams, shapDataLengthLongPtr, shapDataOutPtr),
       "Booster Predict")
-    predToArray(false, scoredDataOutPtr, kind)
+    predToArray(false, shapDataOutPtr, kind)
   }
 
   protected def predictForMat(row: Array[Double], kind: Int, classification: Boolean): Array[Double] = {
@@ -222,7 +222,7 @@ class LightGBMBooster(val model: String) extends Serializable {
     lightgbmlib.intp_value(numClassesOut)
   }
 
-  private def getNumFeatures(): Int = {
+  def getNumFeatures(): Int = {
     if (boosterPtr == null) {
       LightGBMUtils.initializeNativeLibrary()
       boosterPtr = getBoosterPtrFromModelString(model)

@@ -91,7 +91,7 @@ trait HasFeatureShapGetters {
 class LightGBMRankerModel(override val uid: String, override val model: LightGBMBooster, labelColName: String,
                           featuresColName: String, predictionColName: String)
   extends RankerModel[Vector, LightGBMRankerModel]
-    with HasFeatureShapGetters
+    with HasFeatureShapGetters with HasFeatureImportanceGetters
     with ConstructorWritable[LightGBMRankerModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -113,13 +113,11 @@ class LightGBMRankerModel(override val uid: String, override val model: LightGBM
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
 
+  override def numFeatures: Int = model.getNumFeatures()
+
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
     model.saveNativeModel(session, filename, overwrite)
-  }
-
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
   }
 
   def getModel: LightGBMBooster = this.model
