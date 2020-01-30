@@ -78,11 +78,20 @@ class LightGBMRanker(override val uid: String)
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
 }
 
+trait HasFeatureShapGetters {
+  val model: LightGBMBooster
+
+  def getFeatureShaps(features: Vector): Array[Double] = {
+    model.featuresShap(features)
+  }
+}
+
 /** Model produced by [[LightGBMRanker]]. */
 @InternalWrapper
-class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labelColName: String,
+class LightGBMRankerModel(override val uid: String, override val model: LightGBMBooster, labelColName: String,
                           featuresColName: String, predictionColName: String)
   extends RankerModel[Vector, LightGBMRankerModel]
+    with HasFeatureShapGetters
     with ConstructorWritable[LightGBMRankerModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -93,10 +102,6 @@ class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labe
 
   override def predict(features: Vector): Double = {
     model.score(features, false, false)(0)
-  }
-
-  def getFeatureShaps(features: Vector): Array[Double] = {
-    model.featuresShap(features)
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel =

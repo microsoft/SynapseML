@@ -235,7 +235,10 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   private def predToArray(classification: Boolean, scoredDataOutPtr: SWIGTYPE_p_double, kind: Int): Array[Double] = {
-    if (classification && numClasses == 1) {
+    if (kind == lightgbmlibConstants.C_API_PREDICT_CONTRIB) {
+      (0 until numFeatures).map(featNum =>
+        lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum)).toArray
+    } else if (classification && numClasses == 1) {
       // Binary classification scenario - LightGBM only returns the value for the positive class
       val pred = lightgbmlib.doubleArray_getitem(scoredDataOutPtr, 0)
       if (kind == lightgbmlibConstants.C_API_PREDICT_RAW_SCORE) {
@@ -245,12 +248,9 @@ class LightGBMBooster(val model: String) extends Serializable {
         // Return the probability for binary classification
         Array(1 - pred, pred)
       }
-    } else if (kind != lightgbmlibConstants.C_API_PREDICT_CONTRIB) {
+    } else {
       (0 until numClasses).map(classNum =>
         lightgbmlib.doubleArray_getitem(scoredDataOutPtr, classNum)).toArray
-    } else {
-      (0 until numFeatures).map(featNum =>
-        lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum)).toArray
     }
   }
 }
