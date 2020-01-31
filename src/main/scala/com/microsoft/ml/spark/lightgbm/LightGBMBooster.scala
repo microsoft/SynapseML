@@ -16,14 +16,13 @@ class LightGBMBooster(val model: String) extends Serializable {
   /** Transient variable containing local machine's pointer to native booster
     */
   @transient
-  var boosterPtr: SWIGTYPE_p_void = _
+  lazy val boosterPtr: SWIGTYPE_p_void = {
+    LightGBMUtils.initializeNativeLibrary()
+    getBoosterPtrFromModelString(model)
+  }
 
   def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     // Reload booster on each node
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
     val kind =
       if (raw) lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
       else lightgbmlibConstants.C_API_PREDICT_NORMAL
@@ -35,11 +34,6 @@ class LightGBMBooster(val model: String) extends Serializable {
 
   def predictLeaf(features: Vector): Array[Double] = {
     // Reload booster on each node
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
-
     features match {
       case dense: DenseVector => predictLeafForMat(dense.toArray)
       case sparse: SparseVector => predictLeafForCSR(sparse)
@@ -55,31 +49,25 @@ class LightGBMBooster(val model: String) extends Serializable {
   lazy val numIterations: Int = numTotalModel / numModelPerIteration
 
   @transient
-  var scoredDataOutPtr: SWIGTYPE_p_double = _
-
-  @transient
-  var scoredDataLengthLongPtr: SWIGTYPE_p_long_long = _
-
-  @transient
-  var leafIndexDataOutPtr: SWIGTYPE_p_double = _
-
-  @transient
-  var leafIndexDataLengthLongPtr: SWIGTYPE_p_long_long = _
-
-  def ensureScoredDataCreated(): Unit = {
-    if (scoredDataLengthLongPtr == null) {
-      scoredDataOutPtr = lightgbmlib.new_doubleArray(numClasses)
-      scoredDataLengthLongPtr = lightgbmlib.new_int64_tp()
-      lightgbmlib.int64_tp_assign(scoredDataLengthLongPtr, 1)
-    }
+  lazy val scoredDataOutPtr: SWIGTYPE_p_double = {
+    lightgbmlib.new_doubleArray(numClasses)
   }
 
-  def ensureLeafIndexDataCreated(): Unit = {
-    if (leafIndexDataOutPtr == null) {
-      leafIndexDataOutPtr = lightgbmlib.new_doubleArray(numTotalModel)
-      leafIndexDataLengthLongPtr = lightgbmlib.new_int64_tp()
-      lightgbmlib.int64_tp_assign(leafIndexDataLengthLongPtr, numTotalModel)
-    }
+  @transient
+  lazy val scoredDataLengthLongPtr: SWIGTYPE_p_long_long = {
+    val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.int64_tp_assign(dataLongLengthPtr, 1)
+    dataLongLengthPtr
+  }
+
+  @transient
+  lazy val leafIndexDataOutPtr: SWIGTYPE_p_double = lightgbmlib.new_doubleArray(numTotalModel)
+
+  @transient
+  lazy val leafIndexDataLengthLongPtr: SWIGTYPE_p_long_long = {
+    val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.int64_tp_assign(dataLongLengthPtr, numTotalModel)
+    dataLongLengthPtr
   }
 
   override protected def finalize(): Unit = {
@@ -100,8 +88,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
-    ensureScoredDataCreated()
-
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForCSRSingle(
         sparseVector.indices, sparseVector.values,
@@ -121,8 +107,6 @@ class LightGBMBooster(val model: String) extends Serializable {
 
     val datasetParams = "max_bin=255"
 
-    ensureScoredDataCreated()
-
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(
         row, boosterPtr, data64bitType,
@@ -139,8 +123,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     val datasetParams = "max_bin=255 is_pre_partition=True"
     val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-
-    ensureLeafIndexDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForCSRSingle(
@@ -160,8 +142,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     val isRowMajor = 1
 
     val datasetParams = "max_bin=255"
-
-    ensureLeafIndexDataCreated()
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(
@@ -186,10 +166,6 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
     val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterPtr, 0, 0, 1, lightgbmlib.new_int64_tp())
     val rdd = session.sparkContext.parallelize(Seq(json))
     import session.sqlContext.implicits._
@@ -205,10 +181,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     */
   def getFeatureImportances(importanceType: String): Array[Double] = {
     val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
     val numFeaturesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterGetNumFeature(boosterPtr, numFeaturesOut),
@@ -226,10 +198,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     * @return The number of classes.
     */
   def getNumClasses(): Int = {
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
     val numClassesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterGetNumClasses(boosterPtr, numClassesOut),
@@ -242,11 +210,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     * @return The number of models per iteration.
     */
   def getNumModelPerIteration: Int = {
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
-
     val numModelPerIterationOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumModelPerIteration(boosterPtr, numModelPerIterationOut),
@@ -259,11 +222,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     * @return The number of total models.
     */
   def getNumTotalModel: Int = {
-    if (boosterPtr == null) {
-      LightGBMUtils.initializeNativeLibrary()
-      boosterPtr = getBoosterPtrFromModelString(model)
-    }
-
     val numModelOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumberOfTotalModel(boosterPtr, numModelOut),
