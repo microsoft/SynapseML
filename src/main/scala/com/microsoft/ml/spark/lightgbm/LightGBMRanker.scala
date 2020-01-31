@@ -82,16 +82,20 @@ class LightGBMRanker(override val uid: String)
 
   override def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
                                 numWorkers: Int): DataFrame = {
-    val repartitionedDataset = getOptGroupCol match {
-      case None => dataset
-      case Some(groupingCol) => {
-        val df = dataset.repartition(new Column(groupingCol)).cache()
-        //force materialization
-        df.count
-        df
+    if (getRepartitionByGroupingColumn) {
+      val repartitionedDataset = getOptGroupCol match {
+        case None => dataset
+        case Some(groupingCol) => {
+          val df = dataset.repartition(new Column(groupingCol)).cache()
+          //force materialization
+          df.count
+          df
+        }
       }
+      super.prepareDataframe(repartitionedDataset, trainingCols, numWorkers)
+    } else {
+      super.prepareDataframe(dataset, trainingCols, numWorkers)
     }
-    super.prepareDataframe(repartitionedDataset, trainingCols, numWorkers)
   }
 }
 
