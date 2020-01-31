@@ -1,0 +1,31 @@
+{
+  "computeType": "AKS",
+  "computeName": "sparkml-test",
+  "environmentImageRequest": {
+    "driverProgram": "deploy.py",
+    "assets": [
+      {
+        "url": "aml://artifact/ef460be4971342d0ae1800178a9887da",
+        "id": "stupid_model:8",
+        "mimeType": "application/octet-stream",
+        "unpack": false
+      },
+      {
+        "id": "score.py",
+        "url": "aml://artifact/LocalUpload/random_string_1010/C:/Users/v-lucyz/mmlspark/src/test/resources/score.py",
+        "mimeType": "application/x-python",
+        "unpack": false
+      },
+      {
+        "id": "deploy.py",
+        "url": "aml://artifact/LocalUpload/random_string_1010/C:/Users/v-lucyz/mmlspark/src/test/resources/deploy.py",
+        "mimeType": "application/x-python",
+        "unpack": false
+      }
+    ],
+    "modelIds": ["sklearn_mnist:1"]
+  },
+  "keys": {"primaryKey": null, "secondaryKey": null},
+  "location": "eastus",
+  "name": "dumbservice"
+}

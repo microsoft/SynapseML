@@ -10,8 +10,13 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import scalaj.http.Http
+import com.microsoft.ml.spark.aml.AMLConfigFormats._
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.io.Source
 import scala.util.Random
+import spray.json._
 
 class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
   with SpeechKey {
@@ -26,6 +31,14 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)
   }
 
+  def makeConfig(path: String): AKSConfig = {
+    val configString = Source.fromFile(path)
+      .getLines.mkString.parseJson
+    configString.convertTo[AKSConfig]
+  }
+
+  lazy val config = makeConfig(resourcesDir + "testDeploy/model_config.json")
+
   lazy val aml: AMLEstimator = new AMLEstimator()
     .setClientId(sys.env.getOrElse("CLIENT_ID", ""))
     .setClientSecret(sys.env.getOrElse("CLIENT_SECRET", ""))
@@ -37,6 +50,8 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     .setWorkspace("exten-amls")
     .setExperimentName("new_experiment")
     .setRunFilePath(resourcesDir + "testRun")
+//    .setDeployFilePath()
+    .setDeployConfig(config)
 
   test("Get token") {
     val token = aml.getAuth.getAccessToken
@@ -83,9 +98,24 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     aml.launchRun
   }
 
+  test("Update config") {
+    val registeredModelId = "sample model id"
+    aml.updateConfigModelId(registeredModelId)
+    val config = aml.getDeployConfig
+    val modelIds = config.environmentImageRequest.get.modelIds.get
+    assert(modelIds.contains(registeredModelId))
+  }
+
   test("Get model") {
     val runId = "AutoML_60f0a9c6-c7d4-4635-a02c-b5f0dde3ca54_97"
     val model = aml.getTopModelResponse(runId)
+    assert(model.code == 200)
+  }
+
+  test("Get model ID") {
+    val runId = "AutoML_60f0a9c6-c7d4-4635-a02c-b5f0dde3ca54_97"
+    val model = aml.getTopModelResponse(runId)
+    println(aml.getModelId(model))
     assert(model.code == 200)
   }
 
@@ -99,12 +129,6 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     val url = aml.getHTTPResponseField(model, "url")
     val mimeType = aml.getHTTPResponseField(model, "mimeType")
     val unpack = aml.getHTTPResponseField(model, "unpack")
-//    val asset =
-//      s"""
-//         |{
-//         |
-//         |""".stripMargin
-//    assert(model.experimentName.get == "sklearn-mnist")
   }
 
   test("Get deployed model") {
@@ -152,7 +176,7 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     println(mnistDf)
   }
 
-  test("stupid test") {
+  test("Call stupid model") {
     val url = "http://13.68.134.151:80/api/v1/service/mydumbservice2/score"
     val key = "04GtCCdEvT37WIXA0LOSDdmgouv0guzg"
     val data = s"""{"data": [14]}"""
@@ -163,43 +187,70 @@ class AMLSuite extends TransformerFuzzing[SpeechToTextSDK]
     println(response)
   }
 
-  test("deployTest") {
-    val configPath = resourcesDir + "model_config.json"
-    val response = aml.deployModel(configPath)
-    println(response.body)
-    println(response.statusLine)
-    println(response.code)
-    println(response.headers)
-  }
-
-  test("artifact basic") {
-    val filePath = resourcesDir + "score.py"
+  test("Create stupid artifact") {
+    val filePath = resourcesDir + "testDeploy/assets/score.py"
     val randomVal = new Random().nextDouble * 1000
-//    val randomVal = 1010
     val container = s"random_string_${randomVal.toInt}"
     val response = aml.uploadArtifact(filePath, container)
     println(response)
     assert(response.code == 200)
   }
 
-  test("deploy model") {
-    val filePath = resourcesDir + "score.py"
-    val randomVal = new Random().nextDouble * 1000
-    val container = s"random_string_${randomVal.toInt}"
-    val response = aml.uploadArtifact(filePath, container)
-    println(response)
-    val response2 = aml.deployModel(resourcesDir + "model_config.json")
-    println(response2)
+  test("Deploy stupid model") {
+    val runResponse = aml
+      .setDeployFolderPath(resourcesDir + "testDeploy/")
+      .setDeployConfig(config)
+      .deployModel
+
+    val runStatusFuture = aml.pollForTermination(runResponse, 4000, 1000)
+    val runStatusResponse = Await.result(runStatusFuture, Duration.apply(10, "seconds"))
+    println(s"Run Status: $runStatusResponse")
+
+    val modelId = aml.getHTTPResponseField(runStatusResponse, "id")
+    println(s"ModelID: $modelId")
+
+    val modelResponse = aml.getTopModelResponse(modelId)
+    println(modelResponse)
   }
 
-  test("make assets") {
-    val filePath = resourcesDir + "score.py"
-    val randomVal = new Random().nextDouble * 1000
-    val container = s"random_string_${randomVal.toInt}"
-    val response = aml.uploadArtifact(filePath, container)
-    val artifactId = aml.getHTTPResponseField(response, "artifactId")
-    println(artifactId)
-    val response2 = aml.createAssets(artifactId)
+  test("Refresh service") {
+    aml.setDeployConfig(config)
+    val serviceId = "dumbdumbservice"
+    val createResponse = aml.createService(serviceId)
+    assert(createResponse.code == 202, "Service could not be created")
+    aml.refreshService(serviceId)
+    val createResponse2 = aml.createService(serviceId)
+    assert(createResponse2.code == 202, "Service not fully refreshed")
+  }
+
+  test("Create and delete dumb service") {
+    aml.setDeployConfig(config)
+    val serviceId = "dumbservicetest"
+    val createResponse = aml.createService(serviceId)
+    assert(createResponse.code == 202, "Service could not be created")
+    val response = aml.deleteService(serviceId)
+   assert(response.code == 200)
+    // Check that it has been deleted
+    val response2 = aml.deleteService(serviceId)
+   assert(response2.code == 204, s"$serviceId not actually deleted")
+  }
+
+  test("get assets") {
+    aml.getAssets
+  }
+
+  test("Integration test") {
+    val myAML: AMLEstimator = new AMLEstimator()
+      .setClientId(sys.env.getOrElse("CLIENT_ID", ""))
+      .setClientSecret(sys.env.getOrElse("CLIENT_SECRET", ""))
+      .setRegion("eastus")
+      .setResource("https://login.microsoftonline.com")
+      .setTenantId(sys.env.getOrElse("TENANT_ID", ""))
+      .setSubscriptionId("ce1dee05-8cf6-4ad6-990a-9c80868800ba")
+      .setResourceGroup("extern2020")
+      .setWorkspace("exten-amls")
+      .setExperimentName("new_experiment")
+      .setRunFilePath(resourcesDir + "testRun")
   }
 
   override def testObjects(): Seq[TestObject[SpeechToTextSDK]] =

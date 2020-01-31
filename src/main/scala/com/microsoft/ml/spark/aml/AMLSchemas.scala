@@ -27,6 +27,7 @@ case class AMLExperimentResponse(ExperimentId: String,
                                  RetainForLifetimeOfWorkspace: Boolean
                                 )
 
+
 case class AMLModelCreatedBy(userObjectId: String,
                              userPuId: String,
                              userIdp: Option[String],
@@ -72,5 +73,4 @@ object AMLExperimentFormat extends DefaultJsonProtocol {
 
   implicit val AMLModelFormat: RootJsonFormat[AMLModelResponse] =
     jsonFormat22(AMLModelResponse.apply)
-
 }
