@@ -12,13 +12,6 @@ from azureml.train.estimator import Estimator
 # outputdir = "outputs/"
 # os.makedirs(outputdir, exist_ok=True)
 
-# class StupidClassifier:
-#   def __init__(self):
-#     pass
-
-#   def predict(data):
-#     return "wow i did a prediction"
-
 reg = {"dog": 1, "cat": 1230491408}
 # reg = lambda wfe: 10
 dump(reg, "my_c00l_classifier.joblib") 
