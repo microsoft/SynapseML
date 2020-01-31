@@ -25,6 +25,8 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
 
   val queryCol = "query"
 
+  override val ignoreEstimators: Boolean = true
+
   lazy val rankingDF: DataFrame = {
     val df1 = session.read.format("libsvm")
       .load(DatasetUtils.rankingTrainFile("rank.train").toString)
@@ -48,7 +50,6 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .drop("features")
       .withColumnRenamed("_features", "features")
       .cache()
-
   }
 
   def baseModel: LightGBMRanker = {
