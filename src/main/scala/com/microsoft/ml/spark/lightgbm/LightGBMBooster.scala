@@ -8,7 +8,11 @@ import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelStrin
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-protected class BoosterHandler(model: String) extends Serializable {
+/** Wraps the boosterPtr and guarantees that Native library is initialized
+ * everytime it is needed
+ * @param model The string serialized representation of the learner
+ */
+protected class BoosterHandler(model: String) {
 
   LightGBMUtils.initializeNativeLibrary()
 
@@ -39,9 +43,10 @@ protected class BoosterHandler(model: String) extends Serializable {
     dataLongLengthPtr
   }
 
-  lazy val numClasses = getNumClasses()
-
+  lazy val numClasses = getNumClasses
+  lazy val numFeatures = getNumFeatures
   lazy val numTotalModel = getNumTotalModel
+  lazy val numTotalModelPerIteration = getNumModelPerIteration
 
   lazy val rawScoreConstant = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
   lazy val normalScoreConstant = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
@@ -50,7 +55,7 @@ protected class BoosterHandler(model: String) extends Serializable {
   lazy val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
   lazy val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
-  def getNumClasses(): Int = {
+  private def getNumClasses: Int = {
     val numClassesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterGetNumClasses(boosterPtr, numClassesOut),
@@ -58,7 +63,7 @@ protected class BoosterHandler(model: String) extends Serializable {
     lightgbmlib.intp_value(numClassesOut)
   }
 
-  def getNumModelPerIteration: Int = {
+  private def getNumModelPerIteration: Int = {
     val numModelPerIterationOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumModelPerIteration(boosterPtr, numModelPerIterationOut),
@@ -66,12 +71,20 @@ protected class BoosterHandler(model: String) extends Serializable {
     lightgbmlib.intp_value(numModelPerIterationOut)
   }
 
-  def getNumTotalModel: Int = {
+  private def getNumTotalModel: Int = {
     val numModelOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumberOfTotalModel(boosterPtr, numModelOut),
       "Booster total models")
     lightgbmlib.intp_value(numModelOut)
+  }
+
+  private def getNumFeatures: Int = {
+    val numFeaturesOut = lightgbmlib.new_intp()
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterGetNumFeature(boosterPtr, numFeaturesOut),
+      "Booster NumFeature")
+   lightgbmlib.intp_value(numFeaturesOut)
   }
 
   override def finalize(): Unit = {
@@ -94,7 +107,6 @@ protected class BoosterHandler(model: String) extends Serializable {
   */
 @SerialVersionUID(777L)
 class LightGBMBooster(val model: String) extends Serializable {
-
   /** Transient variable containing local machine's pointer to native booster
     */
   @transient
@@ -119,11 +131,13 @@ class LightGBMBooster(val model: String) extends Serializable {
     }
   }
 
-  lazy val numClasses: Int = boosterHandler.getNumClasses()
+  lazy val numClasses: Int = boosterHandler.numClasses
 
-  lazy val numTotalModel: Int = boosterHandler.getNumTotalModel
+  lazy val numFeatures: Int = boosterHandler.numFeatures
 
-  lazy val numModelPerIteration: Int = boosterHandler.getNumModelPerIteration
+  lazy val numTotalModel: Int = boosterHandler.numTotalModel
+
+  lazy val numModelPerIteration: Int = boosterHandler.numTotalModelPerIteration
 
   lazy val numIterations: Int = numTotalModel / numModelPerIteration
 
@@ -227,11 +241,6 @@ class LightGBMBooster(val model: String) extends Serializable {
     */
   def getFeatureImportances(importanceType: String): Array[Double] = {
     val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
-    val numFeaturesOut = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterGetNumFeature(boosterHandler.boosterPtr, numFeaturesOut),
-      "Booster NumFeature")
-    val numFeatures = lightgbmlib.intp_value(numFeaturesOut)
     val featureImportances = lightgbmlib.new_doubleArray(numFeatures)
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1, importanceTypeNum, featureImportances),
