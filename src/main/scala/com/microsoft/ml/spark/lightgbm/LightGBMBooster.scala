@@ -86,20 +86,6 @@ protected class BoosterHandler(model: String) {
       "Booster NumFeature")
    lightgbmlib.intp_value(numFeaturesOut)
   }
-
-  override def finalize(): Unit = {
-    if (scoredDataLengthLongPtr != null)
-      lightgbmlib.delete_int64_tp(scoredDataLengthLongPtr)
-    if (scoredDataOutPtr != null)
-      lightgbmlib.delete_doubleArray(scoredDataOutPtr)
-    if (leafIndexDataLengthLongPtr != null)
-      lightgbmlib.delete_int64_tp(leafIndexDataLengthLongPtr)
-    if (leafIndexDataOutPtr != null)
-      lightgbmlib.delete_doubleArray(leafIndexDataOutPtr)
-    if (boosterPtr != null) {
-      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
-    }
-  }
 }
 
 /** Represents a LightGBM Booster learner
