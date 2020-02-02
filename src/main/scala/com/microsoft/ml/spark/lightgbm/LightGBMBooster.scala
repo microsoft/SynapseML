@@ -8,6 +8,7 @@ import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelStrin
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
+//scalastyle:off
 /** Wraps the boosterPtr and guarantees that Native library is initialized
  * everytime it is needed
  * @param model The string serialized representation of the learner
@@ -16,28 +17,23 @@ protected class BoosterHandler(model: String) {
 
   LightGBMUtils.initializeNativeLibrary()
 
-  @transient
-  lazy val boosterPtr: SWIGTYPE_p_void = {
+  var boosterPtr: SWIGTYPE_p_void = {
     getBoosterPtrFromModelString(model)
   }
 
-  @transient
-  lazy val scoredDataOutPtr: SWIGTYPE_p_double = {
+  var scoredDataOutPtr: SWIGTYPE_p_double = {
     lightgbmlib.new_doubleArray(numClasses)
   }
 
-  @transient
-  lazy val scoredDataLengthLongPtr: SWIGTYPE_p_long_long = {
+  var scoredDataLengthLongPtr: SWIGTYPE_p_long_long = {
     val dataLongLengthPtr = lightgbmlib.new_int64_tp()
     lightgbmlib.int64_tp_assign(dataLongLengthPtr, 1)
     dataLongLengthPtr
   }
 
-  @transient
-  lazy val leafIndexDataOutPtr: SWIGTYPE_p_double = lightgbmlib.new_doubleArray(numTotalModel)
+  var leafIndexDataOutPtr: SWIGTYPE_p_double = lightgbmlib.new_doubleArray(numTotalModel)
 
-  @transient
-  lazy val leafIndexDataLengthLongPtr: SWIGTYPE_p_long_long = {
+  var leafIndexDataLengthLongPtr: SWIGTYPE_p_long_long = {
     val dataLongLengthPtr = lightgbmlib.new_int64_tp()
     lightgbmlib.int64_tp_assign(dataLongLengthPtr, numTotalModel)
     dataLongLengthPtr
@@ -86,8 +82,36 @@ protected class BoosterHandler(model: String) {
       "Booster NumFeature")
    lightgbmlib.intp_value(numFeaturesOut)
   }
+
+  private def freeNativeMemory(): Unit = {
+    if (scoredDataLengthLongPtr != null) {
+      lightgbmlib.delete_int64_tp(scoredDataLengthLongPtr)
+      scoredDataLengthLongPtr = null
+    }
+    if (scoredDataOutPtr != null) {
+      lightgbmlib.delete_doubleArray(scoredDataOutPtr)
+      scoredDataOutPtr = null
+    }
+    if (leafIndexDataLengthLongPtr != null) {
+      lightgbmlib.delete_int64_tp(leafIndexDataLengthLongPtr)
+      leafIndexDataLengthLongPtr = null
+    }
+    if (leafIndexDataOutPtr != null) {
+      lightgbmlib.delete_doubleArray(leafIndexDataOutPtr)
+      leafIndexDataOutPtr = null
+    }
+    if (boosterPtr != null) {
+      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
+      boosterPtr = null
+    }
+  }
+
+  override protected def finalize(): Unit = {
+    freeNativeMemory()
+  }
 }
 
+//scalastyle:on
 /** Represents a LightGBM Booster learner
   * @param model The string serialized representation of the learner
   */
