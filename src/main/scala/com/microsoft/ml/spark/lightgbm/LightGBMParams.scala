@@ -55,6 +55,39 @@ trait LightGBMExecutionParams extends Wrappable {
   def setNumBatches(value: Int): this.type = set(numBatches, value)
 }
 
+/** Defines common parameters across all LightGBM learners related to learning score evolution.
+  */
+trait LightGBMLearnerParams extends Wrappable {
+  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
+  setDefault(earlyStoppingRound -> 0)
+
+  def getEarlyStoppingRound: Int = $(earlyStoppingRound)
+  def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
+
+  val improvementTolerance = new DoubleParam(this, "improvementTolerance",
+    "Tolerance to consider improvement in metric")
+  setDefault(improvementTolerance -> 0.0)
+
+  def getImprovementTolerance: Double = $(improvementTolerance)
+  def setImprovementTolerance(value: Double): this.type = set(improvementTolerance, value)
+}
+
+/** Defines common parameters across all LightGBM learners related to histogram bin construction.
+  */
+trait LightGBMBinParams extends Wrappable {
+  val maxBin = new IntParam(this, "maxBin", "Max bin")
+  setDefault(maxBin -> 255)
+
+  def getMaxBin: Int = $(maxBin)
+  def setMaxBin(value: Int): this.type = set(maxBin, value)
+
+  val binSampleCount = new IntParam(this, "binSampleCount", "Number of samples considered at computing histogram bins")
+  setDefault(binSampleCount -> 200000)
+
+  def getBinSampleCount: Int = $(binSampleCount)
+  def setBinSampleCount(value: Int): this.type = set(binSampleCount, value)
+}
+
 /** Defines parameters for slots across all LightGBM learners.
  */
 trait LightGBMSlotParams extends Wrappable {
@@ -115,7 +148,7 @@ trait LightGBMFractionParams extends Wrappable {
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
-  with LightGBMSlotParams with LightGBMFractionParams {
+  with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -144,12 +177,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getObjective: String = $(objective)
   def setObjective(value: String): this.type = set(objective, value)
 
-  val maxBin = new IntParam(this, "maxBin", "Max bin")
-  setDefault(maxBin -> 255)
-
-  def getMaxBin: Int = $(maxBin)
-  def setMaxBin(value: Int): this.type = set(maxBin, value)
-
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
 
@@ -161,12 +188,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBaggingSeed: Int = $(baggingSeed)
   def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
-
-  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
-  setDefault(earlyStoppingRound -> 0)
-
-  def getEarlyStoppingRound: Int = $(earlyStoppingRound)
-  def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)
