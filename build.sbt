@@ -13,11 +13,6 @@ scalaVersion := "2.11.12"
 
 val sparkVersion = "2.4.3"
 
-// required for isolation-forest
-resolvers ++= Seq(
-  Resolver.jcenterRepo
-)
-
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
