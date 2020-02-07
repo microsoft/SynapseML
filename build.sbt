@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
   "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
-  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.1",
+  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2",
   "org.apache.spark" %% "spark-avro" % sparkVersion
 )
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
