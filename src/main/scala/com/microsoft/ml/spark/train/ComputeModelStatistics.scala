@@ -28,7 +28,7 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
     * The metrics that can be chosen are:
     *
     *   For binary classification:
-    *     - AreaUnderROC
+    *     - areaUnderROC
     *     - AUC
     *     - accuracy
     *     - precision
@@ -287,10 +287,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   private def getScalarScoresAndLabels(dataset: Dataset[_],
                                        labelColumnName: String,
                                        scoresColumnName: String): RDD[(Double, Double)] = {
+    selectAndCastToDF(dataset, scoresColumnName, labelColumnName).show
     selectAndCastToDF(dataset, scoresColumnName, labelColumnName)
       .rdd
       .map {
         case Row(prediction: Vector, label: Double) => (prediction(1), label)
+        case Row(prediction: Double, label: Double) => (prediction, label)
         case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
       }
   }
