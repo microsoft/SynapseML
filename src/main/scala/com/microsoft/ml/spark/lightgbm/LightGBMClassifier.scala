@@ -212,7 +212,7 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    val actualNumClasses = lightGBMBooster.getNumClasses()
+    val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
   }
@@ -224,7 +224,7 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
                                 leafPredictionColName: String = "leafPrediction"): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val lightGBMBooster = new LightGBMBooster(model)
-    val actualNumClasses = lightGBMBooster.getNumClasses()
+    val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
       predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
   }
