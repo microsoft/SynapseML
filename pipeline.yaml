@@ -247,6 +247,8 @@ jobs:
       io:
         PACKAGE: "io"
         FLAKY: "true"
+      isolationforest:
+        PACKAGE: "isolationforest"
       flaky:
         PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
         FLAKY: "true"
