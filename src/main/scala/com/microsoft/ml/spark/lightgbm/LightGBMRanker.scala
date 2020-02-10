@@ -115,7 +115,7 @@ class LightGBMRankerModel(override val uid: String, override val model: LightGBM
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
 
-  override def numFeatures: Int = model.getNumFeatures
+  override def numFeatures: Int = model.numFeatures
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
