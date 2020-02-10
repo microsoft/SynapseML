@@ -177,7 +177,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.vw.VowpalWabbitRegressor", // HasFeaturesCol is part of spark's base class
       "com.microsoft.ml.spark.lightgbm.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.ml.spark.lightgbm.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
-      "com.microsoft.ml.spark.lightgbm.LightGBMRanker" // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.lightgbm.LightGBMRanker", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.ml.spark.isolationforest.IsolationForest" // HasFeaturesCol from spark
     )
     pipelineStages.foreach { stage =>
       if (!exemptions(stage.getClass.getName)) {
