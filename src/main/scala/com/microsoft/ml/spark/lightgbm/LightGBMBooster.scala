@@ -76,6 +76,24 @@ protected class BoosterHandler(model: String) {
       }
     }
   }
+  
+ val shapDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
+    new ThreadLocal[DoubleNativePtrHandler] {
+      override def initialValue(): DoubleNativePtrHandler = {
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures))
+      }
+    }
+  }
+
+  val shapDataLengthLongPtr: ThreadLocal[LongLongNativePtrHandler] = {
+    new ThreadLocal[LongLongNativePtrHandler] {
+      override def initialValue(): LongLongNativePtrHandler = {
+        val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+        lightgbmlib.int64_tp_assign(dataLongLengthPtr, numFeatures)
+        new LongLongNativePtrHandler(dataLongLengthPtr)
+      }
+    }
+  }
 
   val featureImportanceOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
@@ -101,6 +119,7 @@ protected class BoosterHandler(model: String) {
   lazy val rawScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
   lazy val normalScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_NORMAL
   lazy val leafIndexPredictConstant: Int = lightgbmlibConstants.C_API_PREDICT_LEAF_INDEX
+  lazy val contribPredictConstant = lightgbmlibConstants.C_API_PREDICT_CONTRIB
 
   lazy val dataInt32bitType: Int = lightgbmlibConstants.C_API_DTYPE_INT32
   lazy val data64bitType: Int = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -175,16 +194,34 @@ class LightGBMBooster(val model: String) extends Serializable {
       if (raw) boosterHandler.rawScoreConstant
       else boosterHandler.normalScoreConstant
     features match {
-      case dense: DenseVector => predictScoreForMat(dense.toArray, kind, classification)
-      case sparse: SparseVector => predictScoreForCSR(sparse, kind, classification)
+      case dense: DenseVector => predictForMat(dense.toArray, kind,
+        boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
+      case sparse: SparseVector => predictForCSR(sparse, kind,
+        boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
     }
+    predScoreToArray(classification, boosterHandler.scoredDataOutPtr.get().ptr, kind)
   }
 
   def predictLeaf(features: Vector): Array[Double] = {
+    val kind = boosterHandler.leafIndexPredictConstant
     features match {
-      case dense: DenseVector => predictLeafForMat(dense.toArray)
-      case sparse: SparseVector => predictLeafForCSR(sparse)
+      case dense: DenseVector => predictForMat(dense.toArray, kind,
+        boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
+      case sparse: SparseVector => predictForCSR(sparse, kind,
+        boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
     }
+    predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
+  }
+
+  def featuresShap(features: Vector): Array[Double] = {
+    val kind = boosterHandler.contribPredictConstant
+    features match {
+      case dense: DenseVector => predictForMat(dense.toArray, kind,
+        boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
+      case sparse: SparseVector => predictForCSR(sparse, kind,
+        boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
+    }
+    shapToArray(boosterHandler.shapDataOutPtr.get().ptr)
   }
 
   lazy val numClasses: Int = boosterHandler.numClasses
@@ -197,7 +234,9 @@ class LightGBMBooster(val model: String) extends Serializable {
 
   lazy val numIterations: Int = numTotalModel / numModelPerIteration
 
-  protected def predictScoreForCSR(sparseVector: SparseVector, kind: Int, classification: Boolean): Array[Double] = {
+  protected def predictForCSR(sparseVector: SparseVector, kind: Int,
+                              dataLengthLongPtr: SWIGTYPE_p_long_long,
+                              dataOutPtr: SWIGTYPE_p_double): Unit = {
     val numCols = sparseVector.size
 
     val datasetParams = "max_bin=255"
@@ -210,12 +249,12 @@ class LightGBMBooster(val model: String) extends Serializable {
         sparseVector.numNonzeros,
         boosterHandler.boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
         kind, -1, datasetParams,
-        boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr), "Booster Predict")
-
-    predScoreToArray(classification, boosterHandler.scoredDataOutPtr.get().ptr, kind)
+        dataLengthLongPtr, dataOutPtr), "Booster Predict")
   }
 
-  protected def predictScoreForMat(row: Array[Double], kind: Int, classification: Boolean): Array[Double] = {
+  protected def predictForMat(row: Array[Double], kind: Int,
+                              dataLengthLongPtr: SWIGTYPE_p_long_long,
+                              dataOutPtr: SWIGTYPE_p_double): Unit = {
     val data64bitType = boosterHandler.data64bitType
 
     val numCols = row.length
@@ -228,48 +267,8 @@ class LightGBMBooster(val model: String) extends Serializable {
         row, boosterHandler.boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        -1, datasetParams, boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr),
+        -1, datasetParams, dataLengthLongPtr, dataOutPtr),
       "Booster Predict")
-    predScoreToArray(classification, boosterHandler.scoredDataOutPtr.get().ptr, kind)
-  }
-
-  protected def predictLeafForCSR(sparseVector: SparseVector): Array[Double] = {
-    val numCols = sparseVector.size
-
-    val datasetParams = "max_bin=255 is_pre_partition=True"
-    val dataInt32bitType = boosterHandler.dataInt32bitType
-    val data64bitType = boosterHandler.data64bitType
-
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterPredictForCSRSingle(
-        sparseVector.indices, sparseVector.values,
-        sparseVector.numNonzeros,
-        boosterHandler.boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
-        boosterHandler.leafIndexPredictConstant, -1, datasetParams,
-        boosterHandler.leafIndexDataLengthLongPtr.get().ptr,
-        boosterHandler.leafIndexDataOutPtr.get().ptr), "Booster Predict Leaf")
-
-    predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
-  }
-
-  protected def predictLeafForMat(row: Array[Double]): Array[Double] = {
-    val data64bitType = boosterHandler.data64bitType
-
-    val numCols = row.length
-    val isRowMajor = 1
-
-    val datasetParams = "max_bin=255"
-
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterPredictForMatSingle(
-        row, boosterHandler.boosterPtr, data64bitType,
-        numCols,
-        isRowMajor, boosterHandler.leafIndexPredictConstant,
-        -1, datasetParams, boosterHandler.leafIndexDataLengthLongPtr.get().ptr,
-        boosterHandler.leafIndexDataOutPtr.get().ptr),
-      "Booster Predict Leaf")
-
-    predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
   }
 
   def saveNativeModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
@@ -328,5 +327,10 @@ class LightGBMBooster(val model: String) extends Serializable {
   private def predLeafToArray(leafIndexDataOutPtr: SWIGTYPE_p_double): Array[Double] = {
     (0 until numTotalModel).map(modelNum =>
       lightgbmlib.doubleArray_getitem(leafIndexDataOutPtr, modelNum)).toArray
+  }
+
+  private def shapToArray(shapDataOutPtr: SWIGTYPE_p_double): Array[Double] = {
+    (0 until numFeatures).map(featNum =>
+      lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum)).toArray
   }
 }
