@@ -53,6 +53,13 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getNumBatches: Int = $(numBatches)
   def setNumBatches(value: Int): this.type = set(numBatches, value)
+
+  val repartitionByGroupingColumn = new BooleanParam(this, "repartitionByGroupingColumn",
+    "Repartition training data according to grouping column, on by default.")
+  setDefault(repartitionByGroupingColumn -> true)
+
+  def getRepartitionByGroupingColumn: Boolean = $(repartitionByGroupingColumn)
+  def setRepartitionByGroupingColumn(value: Boolean): this.type = set(repartitionByGroupingColumn, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.

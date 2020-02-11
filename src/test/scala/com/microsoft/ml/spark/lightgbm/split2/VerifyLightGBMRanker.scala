@@ -49,7 +49,6 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .drop("features")
       .withColumnRenamed("_features", "features")
       .cache()
-
   }
 
   def baseModel: LightGBMRanker = {
@@ -58,6 +57,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .setFeaturesCol(featuresCol)
       .setGroupCol(queryCol)
       .setDefaultListenPort(getAndIncrementPort())
+      .setRepartitionByGroupingColumn(false)
       .setNumLeaves(5)
       .setNumIterations(10)
   }
