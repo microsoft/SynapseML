@@ -9,67 +9,129 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 //scalastyle:off
+protected abstract class NativePtrHandler[T](val ptr: T) {
+  protected def freeNativePtr(): Unit
+  override def finalize(): Unit = {
+    if (ptr != null) {
+      freeNativePtr()
+    }
+  }
+}
+
+protected class DoubleNativePtrHandler(ptr: SWIGTYPE_p_double) extends NativePtrHandler[SWIGTYPE_p_double](ptr) {
+  override protected def freeNativePtr(): Unit = {
+    lightgbmlib.delete_doubleArray(ptr)
+  }
+}
+
+protected class LongLongNativePtrHandler(ptr: SWIGTYPE_p_long_long) extends NativePtrHandler[SWIGTYPE_p_long_long](ptr) {
+  override protected def freeNativePtr(): Unit = {
+    lightgbmlib.delete_int64_tp(ptr)
+  }
+}
+
 /** Wraps the boosterPtr and guarantees that Native library is initialized
  * everytime it is needed
  * @param model The string serialized representation of the learner
  */
 protected class BoosterHandler(model: String) {
-
   LightGBMUtils.initializeNativeLibrary()
 
   var boosterPtr: SWIGTYPE_p_void = {
     getBoosterPtrFromModelString(model)
   }
 
-  var scoredDataOutPtr: SWIGTYPE_p_double = {
-    lightgbmlib.new_doubleArray(numClasses)
+  val scoredDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
+    new ThreadLocal[DoubleNativePtrHandler] {
+      override def initialValue(): DoubleNativePtrHandler = {
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numClasses))
+      }
+    }
   }
 
-  var scoredDataLengthLongPtr: SWIGTYPE_p_long_long = {
-    val dataLongLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.int64_tp_assign(dataLongLengthPtr, 1)
-    dataLongLengthPtr
+  val scoredDataLengthLongPtr: ThreadLocal[LongLongNativePtrHandler] = {
+    new ThreadLocal[LongLongNativePtrHandler] {
+      override def initialValue(): LongLongNativePtrHandler = {
+        val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+        lightgbmlib.int64_tp_assign(dataLongLengthPtr, 1)
+        new LongLongNativePtrHandler(dataLongLengthPtr)
+      }
+    }
   }
 
-  var leafIndexDataOutPtr: SWIGTYPE_p_double = {
-    lightgbmlib.new_doubleArray(numTotalModel)
+  val leafIndexDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
+    new ThreadLocal[DoubleNativePtrHandler] {
+      override def initialValue(): DoubleNativePtrHandler = {
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numTotalModel))
+      }
+    }
   }
 
-  var leafIndexDataLengthLongPtr: SWIGTYPE_p_long_long = {
-    val dataLongLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.int64_tp_assign(dataLongLengthPtr, numTotalModel)
-    dataLongLengthPtr
+  val leafIndexDataLengthLongPtr: ThreadLocal[LongLongNativePtrHandler] = {
+    new ThreadLocal[LongLongNativePtrHandler] {
+      override def initialValue(): LongLongNativePtrHandler = {
+        val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+        lightgbmlib.int64_tp_assign(dataLongLengthPtr, numTotalModel)
+        new LongLongNativePtrHandler(dataLongLengthPtr)
+      }
+    }
+  }
+  
+ val shapDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
+    new ThreadLocal[DoubleNativePtrHandler] {
+      override def initialValue(): DoubleNativePtrHandler = {
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures))
+      }
+    }
   }
 
-  var shapDataOutPtr: SWIGTYPE_p_double = {
-    lightgbmlib.new_doubleArray(numFeatures)
+  val shapDataLengthLongPtr: ThreadLocal[LongLongNativePtrHandler] = {
+    new ThreadLocal[LongLongNativePtrHandler] {
+      override def initialValue(): LongLongNativePtrHandler = {
+        val dataLongLengthPtr = lightgbmlib.new_int64_tp()
+        lightgbmlib.int64_tp_assign(dataLongLengthPtr, numFeatures)
+        new LongLongNativePtrHandler(dataLongLengthPtr)
+      }
+    }
   }
 
-  var shapDataLengthLongPtr: SWIGTYPE_p_long_long = {
-    val dataLongLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.int64_tp_assign(dataLongLengthPtr, numFeatures)
-    dataLongLengthPtr
+  val featureImportanceOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
+    new ThreadLocal[DoubleNativePtrHandler] {
+      override def initialValue(): DoubleNativePtrHandler = {
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures))
+      }
+    }
   }
 
-  lazy val numClasses = getNumClasses
-  lazy val numFeatures = getNumFeatures
-  lazy val numTotalModel = getNumTotalModel
-  lazy val numTotalModelPerIteration = getNumModelPerIteration
+  val dumpModelOutPtr: ThreadLocal[LongLongNativePtrHandler] = {
+    new ThreadLocal[LongLongNativePtrHandler] {
+      override def initialValue(): LongLongNativePtrHandler = {
+        new LongLongNativePtrHandler(lightgbmlib.new_int64_tp())
+      }
+    }
+  }
 
-  lazy val rawScoreConstant = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
-  lazy val normalScoreConstant = lightgbmlibConstants.C_API_PREDICT_NORMAL
-  lazy val leafIndexPredictConstant = lightgbmlibConstants.C_API_PREDICT_LEAF_INDEX
+  lazy val numClasses: Int = getNumClasses
+  lazy val numFeatures: Int = getNumFeatures
+  lazy val numTotalModel: Int = getNumTotalModel
+  lazy val numTotalModelPerIteration: Int = getNumModelPerIteration
+
+  lazy val rawScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
+  lazy val normalScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_NORMAL
+  lazy val leafIndexPredictConstant: Int = lightgbmlibConstants.C_API_PREDICT_LEAF_INDEX
   lazy val contribPredictConstant = lightgbmlibConstants.C_API_PREDICT_CONTRIB
 
-  lazy val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
-  lazy val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+  lazy val dataInt32bitType: Int = lightgbmlibConstants.C_API_DTYPE_INT32
+  lazy val data64bitType: Int = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
   private def getNumClasses: Int = {
     val numClassesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterGetNumClasses(boosterPtr, numClassesOut),
       "Booster NumClasses")
-    lightgbmlib.intp_value(numClassesOut)
+    val out = lightgbmlib.intp_value(numClassesOut)
+    lightgbmlib.delete_intp(numClassesOut)
+    out
   }
 
   private def getNumModelPerIteration: Int = {
@@ -77,7 +139,9 @@ protected class BoosterHandler(model: String) {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumModelPerIteration(boosterPtr, numModelPerIterationOut),
       "Booster models per iteration")
-    lightgbmlib.intp_value(numModelPerIterationOut)
+    val out = lightgbmlib.intp_value(numModelPerIterationOut)
+    lightgbmlib.delete_intp(numModelPerIterationOut)
+    out
   }
 
   private def getNumTotalModel: Int = {
@@ -85,7 +149,9 @@ protected class BoosterHandler(model: String) {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterNumberOfTotalModel(boosterPtr, numModelOut),
       "Booster total models")
-    lightgbmlib.intp_value(numModelOut)
+    val out = lightgbmlib.intp_value(numModelOut)
+    lightgbmlib.delete_intp(numModelOut)
+    out
   }
 
   private def getNumFeatures: Int = {
@@ -93,34 +159,12 @@ protected class BoosterHandler(model: String) {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterGetNumFeature(boosterPtr, numFeaturesOut),
       "Booster NumFeature")
-   lightgbmlib.intp_value(numFeaturesOut)
+    val out = lightgbmlib.intp_value(numFeaturesOut)
+    lightgbmlib.delete_intp(numFeaturesOut)
+    out
   }
 
   private def freeNativeMemory(): Unit = {
-    if (scoredDataLengthLongPtr != null) {
-      lightgbmlib.delete_int64_tp(scoredDataLengthLongPtr)
-      scoredDataLengthLongPtr = null
-    }
-    if (scoredDataOutPtr != null) {
-      lightgbmlib.delete_doubleArray(scoredDataOutPtr)
-      scoredDataOutPtr = null
-    }
-    if (leafIndexDataLengthLongPtr != null) {
-      lightgbmlib.delete_int64_tp(leafIndexDataLengthLongPtr)
-      leafIndexDataLengthLongPtr = null
-    }
-    if (leafIndexDataOutPtr != null) {
-      lightgbmlib.delete_doubleArray(leafIndexDataOutPtr)
-      leafIndexDataOutPtr = null
-    }
-    if (shapDataLengthLongPtr != null) {
-      lightgbmlib.delete_int64_tp(shapDataLengthLongPtr)
-      shapDataLengthLongPtr = null
-    }
-    if (shapDataOutPtr != null) {
-      lightgbmlib.delete_doubleArray(shapDataOutPtr)
-      shapDataOutPtr = null
-    }
     if (boosterPtr != null) {
       LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
       boosterPtr = null
@@ -129,10 +173,10 @@ protected class BoosterHandler(model: String) {
 
   override protected def finalize(): Unit = {
     freeNativeMemory()
+    super.finalize()
   }
 }
 
-//scalastyle:on
 /** Represents a LightGBM Booster learner
   * @param model The string serialized representation of the learner
   */
@@ -239,7 +283,8 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, 0, 1, lightgbmlib.new_int64_tp())
+    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, 0, 1,
+      boosterHandler.dumpModelOutPtr.get().ptr)
     val rdd = session.sparkContext.parallelize(Seq(json))
     import session.sqlContext.implicits._
     val dataset = session.sqlContext.createDataset(rdd)
@@ -254,11 +299,11 @@ class LightGBMBooster(val model: String) extends Serializable {
     */
   def getFeatureImportances(importanceType: String): Array[Double] = {
     val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
-    val featureImportances = lightgbmlib.new_doubleArray(numFeatures)
     LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1, importanceTypeNum, featureImportances),
+      lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1,
+        importanceTypeNum, boosterHandler.featureImportanceOutPtr.get().ptr),
       "Booster FeatureImportance")
-    (0 until numFeatures).map(lightgbmlib.doubleArray_getitem(featureImportances, _)).toArray
+    (0 until numFeatures).map(lightgbmlib.doubleArray_getitem(boosterHandler.featureImportanceOutPtr.get().ptr, _)).toArray
   }
 
   private def predScoreToArray(classification: Boolean, scoredDataOutPtr: SWIGTYPE_p_double,
