@@ -99,11 +99,20 @@ class LightGBMRanker(override val uid: String)
   }
 }
 
+trait HasFeatureShapGetters {
+  val model: LightGBMBooster
+
+  def getFeatureShaps(features: Vector): Array[Double] = {
+    model.featuresShap(features)
+  }
+}
+
 /** Model produced by [[LightGBMRanker]]. */
 @InternalWrapper
-class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labelColName: String,
+class LightGBMRankerModel(override val uid: String, override val model: LightGBMBooster, labelColName: String,
                           featuresColName: String, predictionColName: String)
   extends RankerModel[Vector, LightGBMRankerModel]
+    with HasFeatureShapGetters with HasFeatureImportanceGetters
     with ConstructorWritable[LightGBMRankerModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -125,13 +134,11 @@ class LightGBMRankerModel(override val uid: String, model: LightGBMBooster, labe
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
 
+  override def numFeatures: Int = model.numFeatures
+
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
     model.saveNativeModel(session, filename, overwrite)
-  }
-
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
   }
 
   def getModel: LightGBMBooster = this.model
