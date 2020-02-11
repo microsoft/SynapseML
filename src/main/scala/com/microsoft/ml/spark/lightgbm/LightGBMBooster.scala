@@ -195,33 +195,33 @@ class LightGBMBooster(val model: String) extends Serializable {
       else boosterHandler.normalScoreConstant
     features match {
       case dense: DenseVector => predictForMat(dense.toArray, kind,
-        boosterHandler.scoredDataLengthLongPtr, boosterHandler.scoredDataOutPtr)
+        boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
       case sparse: SparseVector => predictForCSR(sparse, kind,
-        boosterHandler.scoredDataLengthLongPtr, boosterHandler.scoredDataOutPtr)
+        boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
     }
-    predScoreToArray(classification, boosterHandler.scoredDataOutPtr, kind)
+    predScoreToArray(classification, boosterHandler.scoredDataOutPtr.get().ptr, kind)
   }
 
   def predictLeaf(features: Vector): Array[Double] = {
     val kind = boosterHandler.leafIndexPredictConstant
     features match {
       case dense: DenseVector => predictForMat(dense.toArray, kind,
-        boosterHandler.leafIndexDataLengthLongPtr, boosterHandler.leafIndexDataOutPtr)
+        boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
       case sparse: SparseVector => predictForCSR(sparse, kind,
-        boosterHandler.leafIndexDataLengthLongPtr, boosterHandler.leafIndexDataOutPtr)
+        boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
     }
-    predLeafToArray(boosterHandler.leafIndexDataOutPtr)
+    predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
   }
 
   def featuresShap(features: Vector): Array[Double] = {
     val kind = boosterHandler.contribPredictConstant
     features match {
       case dense: DenseVector => predictForMat(dense.toArray, kind,
-        boosterHandler.shapDataLengthLongPtr, boosterHandler.shapDataOutPtr)
+        boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
       case sparse: SparseVector => predictForCSR(sparse, kind,
-        boosterHandler.shapDataLengthLongPtr, boosterHandler.shapDataOutPtr)
+        boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
     }
-    shapToArray(boosterHandler.shapDataOutPtr)
+    shapToArray(boosterHandler.shapDataOutPtr.get().ptr)
   }
 
   lazy val numClasses: Int = boosterHandler.numClasses
