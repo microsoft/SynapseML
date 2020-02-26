@@ -12,6 +12,7 @@ import org.apache.spark.BarrierTaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
@@ -57,11 +58,9 @@ private object TrainUtils extends Serializable {
       val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
       datasetPtr.get.addFloatField(weights, "weight", numRows)
     }
+    addInitScoreColumn(rows, initScoreColumn, datasetPtr, numRows, schema)
     addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
-    initScoreColumn.foreach { col =>
-      val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
-    }
+
     datasetPtr
   }
 
@@ -78,6 +77,29 @@ private object TrainUtils extends Serializable {
   }
 
   import CardinalityTypes._
+
+  def addInitScoreColumn(rows: Array[Row], initScoreColumn: Option[String],
+                         datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
+    initScoreColumn.foreach { col =>
+      val field = schema.fields(schema.fieldIndex(col))
+      if (field.dataType == VectorType) {
+        val initScores = rows.map(row => row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector])
+        // Calculate # rows * # classes in multiclass case
+        val initScoresLength = initScores.length
+        val totalLength = initScoresLength * initScores(0).size
+        val flattenedInitScores = new Array[Double](totalLength)
+        initScores.zipWithIndex.foreach { case (rowVector, rowIndex) =>
+          rowVector.values.zipWithIndex.foreach { case (rowValue, colIndex) =>
+            flattenedInitScores(colIndex * initScoresLength + rowIndex) = rowValue
+          }
+        }
+        datasetPtr.get.addDoubleField(flattenedInitScores, "init_score", numRows)
+      } else {
+        val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
+        datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
+      }
+    }
+  }
 
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
                      datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
