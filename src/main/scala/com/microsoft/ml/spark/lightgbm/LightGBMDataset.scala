@@ -55,7 +55,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_double] = None
     try {
-      colArray = Some(lightgbmlib.new_doubleArray(numRows))
+      colArray = Some(lightgbmlib.new_doubleArray(field.length))
       field.zipWithIndex.foreach(ri =>
         lightgbmlib.doubleArray_setitem(colArray.get, ri._2, ri._1))
       val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(colArray.get)
