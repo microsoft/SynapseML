@@ -241,6 +241,10 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(binaryEvaluator.evaluate(sdf1) < binaryEvaluator.evaluate(sdf2))
   }
 
+  def assertMulticlassImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {
+    assert(multiclassEvaluator.evaluate(sdf1) < multiclassEvaluator.evaluate(sdf2))
+  }
+
   def assertBinaryImprovement(v1: LightGBMClassifier, train1: DataFrame, test1: DataFrame,
                               v2: LightGBMClassifier, train2: DataFrame, test2: DataFrame
                              ): Unit = {
@@ -255,6 +259,15 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertBinaryImprovement(scoredDF1, scoredDF2)
+  }
+
+  test("Verify LightGBM Multiclass Classifier with vector initial score") {
+    val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
+    val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
+      .drop(predCol, rawPredCol, probCol, leafPredCol)
+    val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
+
+    assertMulticlassImprovement(scoredDF1, scoredDF2)
   }
 
   test("Verify LightGBM Classifier with min gain to split parameter") {

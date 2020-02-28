@@ -109,7 +109,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       (get(weightCol), Seq(DoubleType)),
       (getOptGroupCol, Seq(IntegerType, LongType, StringType)),
       (get(validationIndicatorCol), Seq(BooleanType)),
-      (get(initScoreCol), Seq(DoubleType)))
+      (get(initScoreCol), Seq(DoubleType, VectorType)))
 
     colsToCheck.flatMap { case (col: Option[String], colType: Seq[DataType]) => {
       if (col.isDefined) Some(col.get, colType) else None
