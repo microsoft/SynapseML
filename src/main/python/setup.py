@@ -3,10 +3,18 @@
 
 import os
 from setuptools import setup, find_packages
+import pyspark
+
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("Install MMLSpark") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:0.18.1") \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
 
 setup(
-    name="mmlspark",
-    version=os.environ["MML_PY_VERSION"],
+    name="dciborow-mmlspark-dev",
+    version="0.0.1",
     description="Microsoft ML for Spark",
     long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
                      "contributions to the Apache Spark ecosystem",
