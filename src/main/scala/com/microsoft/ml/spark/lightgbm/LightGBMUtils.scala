@@ -194,10 +194,10 @@ object LightGBMUtils {
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
   (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
     val numCols = rowsAsDoubleArray.head.length
-    val data = lightgbmlib.new_doubleArray(numCols * numRows)
+    val data = lightgbmlib.new_doubleArray(numCols.toLong * numRows.toLong)
     rowsAsDoubleArray.zipWithIndex.foreach(ri =>
       ri._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
+        lightgbmlib.doubleArray_setitem(data, (value._2 + (ri._2 * numCols)).toLong, value._1)))
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 

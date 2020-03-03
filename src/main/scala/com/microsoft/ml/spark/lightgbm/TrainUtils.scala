@@ -186,7 +186,7 @@ private object TrainUtils extends Serializable {
     val evalCounts = lightgbmlib.intp_value(evalCountsPtr)
     // For debugging, can get metric names:
     val evalNamesPtr = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterPtr.get, evalCounts)
-    (0 until evalCounts).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
+    (0L until evalCounts.toLong).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
   }
 
   def trainCore(trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
@@ -214,24 +214,24 @@ private object TrainUtils extends Serializable {
             " stopping training on worker. This message should rarely occur")
       }
       if (trainParams.isProvideTrainingMetric && !isFinished) {
-        val trainResults = lightgbmlib.new_doubleArray(evalNames.length)
+        val trainResults = lightgbmlib.new_doubleArray(evalNames.length.toLong)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 0, dummyEvalCountsPtr, trainResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
         LightGBMUtils.validate(resultEval, "Booster Get Train Eval")
         evalNames.zipWithIndex.foreach { case (evalName, index) =>
-          val score = lightgbmlib.doubleArray_getitem(trainResults, index)
+          val score = lightgbmlib.doubleArray_getitem(trainResults, index.toLong)
           log.info(s"Train $evalName=$score")
         }
       }
       if (hasValid && !isFinished) {
-        val evalResults = lightgbmlib.new_doubleArray(evalNames.length)
+        val evalResults = lightgbmlib.new_doubleArray(evalNames.length.toLong)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
         LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
         evalNames.zipWithIndex.foreach { case (evalName, index) =>
-          val score = lightgbmlib.doubleArray_getitem(evalResults, index)
+          val score = lightgbmlib.doubleArray_getitem(evalResults, index.toLong)
           log.info(s"Valid $evalName=$score")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
@@ -242,7 +242,7 @@ private object TrainUtils extends Serializable {
             bestScore(index) = score
             bestIter(index) = iters
             bestScores(index) = evalNames.indices
-              .map(j => lightgbmlib.doubleArray_getitem(evalResults, j)).toArray
+              .map(j => lightgbmlib.doubleArray_getitem(evalResults, j.toLong)).toArray
           } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))

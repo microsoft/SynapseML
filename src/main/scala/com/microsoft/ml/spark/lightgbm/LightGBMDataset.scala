@@ -37,9 +37,9 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_float] = None
     try {
-      colArray = Some(lightgbmlib.new_floatArray(numRows))
+      colArray = Some(lightgbmlib.new_floatArray(numRows.toLong))
       field.zipWithIndex.foreach(ri =>
-        lightgbmlib.floatArray_setitem(colArray.get, ri._2, ri._1.toFloat))
+        lightgbmlib.floatArray_setitem(colArray.get, ri._2.toLong, ri._1.toFloat))
       val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(colArray.get)
       val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
       LightGBMUtils.validate(
@@ -55,9 +55,9 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_double] = None
     try {
-      colArray = Some(lightgbmlib.new_doubleArray(field.length))
+      colArray = Some(lightgbmlib.new_doubleArray(field.length.toLong))
       field.zipWithIndex.foreach(ri =>
-        lightgbmlib.doubleArray_setitem(colArray.get, ri._2, ri._1))
+        lightgbmlib.doubleArray_setitem(colArray.get, ri._2.toLong, ri._1))
       val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(colArray.get)
       val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
       LightGBMUtils.validate(
@@ -73,9 +73,9 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_int] = None
     try {
-      colArray = Some(lightgbmlib.new_intArray(numRows))
+      colArray = Some(lightgbmlib.new_intArray(numRows.toLong))
       field.zipWithIndex.foreach(ri =>
-        lightgbmlib.intArray_setitem(colArray.get, ri._2, ri._1))
+        lightgbmlib.intArray_setitem(colArray.get, ri._2.toLong, ri._1))
       val colAsVoidPtr = lightgbmlib.int_to_voidp_ptr(colArray.get)
       val data32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
       LightGBMUtils.validate(
