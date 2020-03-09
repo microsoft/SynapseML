@@ -20,7 +20,15 @@ case class TAError(id: String, message: String)
 
 object TAError extends SparkBindings[TAError]
 
-case class TAResponse[T](documents: Seq[T], errors: Option[Seq[TAError]])
+case class TAResponse[T](statistics: Option[TAResponseStatistics],
+                         documents: Seq[T],
+                         errors: Option[Seq[TAError]],
+                         modelVersion: Option[String])
+
+case class TAResponseStatistics(documentsCount: Int,
+                                validDocumentsCount: Int,
+                                erroneousDocumentsCount: Int,
+                                transactionsCount: Int)
 
 object TAJSONFormat {
 
@@ -36,6 +44,22 @@ object TAJSONFormat {
 object SentimentResponse extends SparkBindings[TAResponse[SentimentScore]]
 
 case class SentimentScore(id: String, score: Float)
+
+// SentimentV3 Schemas
+
+object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocument]]
+
+case class SentimentScoredDocument(id: String,
+                                   sentiment: String,
+                                   statistics: Option[DocumentStatistics],
+                                   documentScores: SentimentScoreV3,
+                                   sentences: Seq[Sentence])
+
+case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
+
+case class Sentence(sentiment: String, sentenceScores: SentimentScoreV3, offset: Int, length: Int)
+
+case class DocumentStatistics(charactersCount:Int, transactionsCount: Int)
 
 // Detect Language Schemas
 
