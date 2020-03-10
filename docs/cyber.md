@@ -41,12 +41,12 @@
    Given a dataframe with a value column x, the transformer changes its value as follows:
    x'=(x-mean)/stddev, i.e., if the transformer is given the same dataframe the estimator 
    was given then the value column will have a mean of 0.0 and a standard deviation of 1.0.
-3. [LinearScalarScaler](../src/main/python/mmlspark/cyber/ml/feature_engineering/scalers.py)
+3. [MinMaxScalarScaler](../src/main/python/mmlspark/cyber/ml/feature_engineering/scalers.py)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
-   Given a dataframe it creates a LinearScalarScalerModel (described next) which normalizes
+   Given a dataframe it creates a MinMaxScalarScalerModel (described next) which normalizes
    any given dataframe according to the minimum and maximum values calculated on the 
    dataframe given to the estimator.
-4. [LinearScalarScalerModel](../src/main/python/mmlspark/cyber/ml/feature_engineering/scalers.py)
+4. [MinMaxScalarScalerModel](../src/main/python/mmlspark/cyber/ml/feature_engineering/scalers.py)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe with a value column x, the transformer changes its value such that 
    if the transformer is given the same dataframe the estimator 
