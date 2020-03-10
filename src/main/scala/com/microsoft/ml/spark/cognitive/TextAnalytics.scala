@@ -3,12 +3,14 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import java.net.URI
+
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
-import org.apache.spark.ml.param.{ServiceParam, ServiceParamData}
+import org.apache.spark.ml.param.{BooleanParam, Param, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions._
@@ -60,9 +62,9 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
     { row: Row =>
       if (shouldSkip(row)) {
         None
-      } else if (getValue(row, text).forall(Option(_).isEmpty)){
+      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
         None
-      }else{
+      } else {
         import com.microsoft.ml.spark.cognitive.TAJSONFormat._
         val post = new HttpPost(getUrl)
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -88,7 +90,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
     }
   }
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
@@ -115,24 +117,27 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       col(newCol).alias(oldCol)
     }.toSeq
 
+    val innerFields = innerResponseDataType.fields.filter(_.name != "id")
+
     val unpackBatchUDF = udf({ rowOpt: Row =>
-      Option(rowOpt).map{ row =>
-        val documents = row.getSeq[Row](0).map(doc => (doc.getString(0).toInt, doc)).toMap
-        val errors = row.getSeq[Row](1).map(err => (err.getString(0).toInt, err)).toMap
+      Option(rowOpt).map { row =>
+        val documents = row.getSeq[Row](1).map(doc =>
+          (doc.getString(0).toInt, doc)).toMap
+        val errors = row.getSeq[Row](2).map(err => (err.getString(0).toInt, err)).toMap
         val rows: Seq[Row] = (0 until (documents.size + errors.size)).map(i =>
           documents.get(i)
-            .map(doc => Row(doc.get(1), None))
-            .getOrElse(Row(None, errors.get(i).map(_.getString(1)).orNull))
+            .map(doc => Row.fromSeq(doc.toSeq.tail ++ Seq(None)))
+            .getOrElse(Row.fromSeq(
+              Seq.fill(innerFields.length)(None) ++ Seq(errors.get(i).map(_.getString(1)).orNull)))
         )
         rows
       }
     }, ArrayType(
-      new StructType()
-        .add(
-          innerResponseDataType.fields(1).name,
-          innerResponseDataType.fields(1).dataType)
-        .add("error-message", StringType)
-    ))
+      innerResponseDataType.fields.filter(_.name != "id").foldLeft(new StructType()) { case (st, f) =>
+        st.add(f.name, f.dataType)
+      }.add("error-message", StringType)
+    )
+    )
 
     val stages = reshapeCols.map(_._1).toArray ++ Array(
       Lambda(_.withColumn(
@@ -233,5 +238,38 @@ class KeyPhraseExtractor(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+
+}
+
+object TextSentimentV3 extends ComplexParamsReadable[TextSentimentV3]
+
+class TextSentimentV3(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("TextSentimentV3"))
+
+  val showStats = new ServiceParam[Boolean](this, "showStats",
+    "if set to true, response will contain input and document level statistics.", isURLParam = true)
+
+  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
+
+  val modelVersion = new ServiceParam[String](this, "modelVersion",
+    "This value indicates which model will be used for scoring." +
+      " If a model-version is not specified, the API should default to the latest," +
+      " non-preview version.", isURLParam = true)
+
+  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+
+  override def responseDataType: StructType = SentimentResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0-preview.1/sentiment")
+
+  override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
+    super.inputFunc(schema)(r).map { request =>
+      request.setURI(new URI(prepareUrl(r)))
+      request
+    }
+  }
 
 }
