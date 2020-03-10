@@ -1,11 +1,11 @@
 __author__ = 'rolevin'
 
-import pytest
+import os
+import unittest
 
 from typing import Dict, Set, Type, Union
 
-from pyspark import SQLContext
-from pyspark.sql import DataFrame, functions as f, types as t
+from pyspark.sql import DataFrame, functions as f, types as t, SparkSession
 
 from mmlspark.cyber.ml.feature_engineering import indexers
 from mmlspark.cyber.ml.access_anomalies.collaborative_filtering import \
@@ -15,6 +15,16 @@ from mmlspark.cyber.ml.access_anomalies.collaborative_filtering import \
 from ..explain_tester import ExplainTester
 
 from ...dataset import DataFactory
+
+
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("TestAccessAnomalies") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
+
+spark_context = spark.sparkContext
 
 
 epsilon = 10**-3
@@ -79,7 +89,7 @@ def create_stats(df, tenant_col: str, value_col: str = AccessAnomalyConfig.defau
 
 
 class Dataset:
-    def __init__(self, spark_context: SQLContext):
+    def __init__(self):
         num_tenants = 2
 
         self.spark_context = spark_context
@@ -133,7 +143,7 @@ class Dataset:
         self.implicit_access_anomaly_model = None
 
     @staticmethod
-    def create_new_training(spark_context: SQLContext, ratio: float) -> DataFrame:
+    def create_new_training(ratio: float) -> DataFrame:
         training_pdf = DataFactory().create_clustered_training_data(ratio)
 
         return spark_context.createDataFrame(training_pdf).withColumn(
@@ -149,9 +159,7 @@ class Dataset:
         return self.default_access_anomaly_model
 
 
-@pytest.fixture(scope="module")
-def data_set(spark_context: SQLContext):
-    return Dataset(spark_context)
+data_set = Dataset(spark_context)
 
 
 def get_department(the_col: Union[str, f.Column]) -> f.Column:
@@ -159,8 +167,8 @@ def get_department(the_col: Union[str, f.Column]) -> f.Column:
     return f.element_at(f.split(_the_col, '_'), 1)
 
 
-class TestModelNormalizeTransformer:
-    def test_model_standard_scaling(self, spark_context: SQLContext):
+class TestModelNormalizeTransformer(unittest.TestCase):
+    def test_model_standard_scaling(self):
         tenant_col = AccessAnomalyConfig.default_tenant_col
         user_col = AccessAnomalyConfig.default_user_col
         user_vec_col = AccessAnomalyConfig.default_user_col + '_vec'
@@ -226,7 +234,7 @@ class TestModelNormalizeTransformer:
         assert len(user_vectors) == 1
         assert user_vectors[0] == [-0.5, -0.5, 3.0, -0.5]
 
-    def test_model_end2end(self, spark_context: SQLContext):
+    def test_model_end2end(self):
         num_users = 10
         num_resources = 25
 
@@ -308,7 +316,7 @@ class TestModelNormalizeTransformer:
             assert abs(stats.std - 1.0) < epsilon, stats
 
 
-class TestAccessAnomalyExplain(ExplainTester):
+class TestAccessAnomalyExplain(ExplainTester, unittest.TestCase):
     def test_explain(self):
         params = [
             'tenantCol',
@@ -334,8 +342,8 @@ class TestAccessAnomalyExplain(ExplainTester):
         self.check_explain(AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col), params, counts)
 
 
-class TestAccessAnomaly:
-    def test_enrich_and_normalize(self, spark_context: SQLContext):
+class TestAccessAnomaly(unittest.TestCase):
+    def test_enrich_and_normalize(self):
         training = Dataset.create_new_training(spark_context, 1.0).cache()
         access_anomaly = AccessAnomaly(
             tenant_col=AccessAnomalyConfig.default_tenant_col,
@@ -413,7 +421,7 @@ class TestAccessAnomaly:
             ) <= high_value)) | (f.col(scaled_likelihood_col) == 1.0)
         ).count() == enriched_df.count()
 
-    def test_mean_and_std(self, data_set: Dataset):
+    def test_mean_and_std(self):
         model = data_set.get_default_access_anomaly_model()
 
         assert model.user_model_df.select(
@@ -437,7 +445,7 @@ class TestAccessAnomaly:
             assert abs(stats.mean) < epsilon, stats
             assert abs(stats.std - 1.0) < epsilon, stats
 
-    def test_data_match_for_cf(self, data_set: Dataset):
+    def test_data_match_for_cf(self):
         tenant_col = AccessAnomalyConfig.default_tenant_col
         user_col = AccessAnomalyConfig.default_user_col
         res_col = AccessAnomalyConfig.default_res_col
@@ -488,7 +496,7 @@ class TestAccessAnomaly:
             get_department(user_col) != get_department(res_col)
         ).count() == data_set.inter_test.count()
 
-    def report_cross_access(self, model: AccessAnomalyModel, data_set: Dataset):
+    def report_cross_access(self, model: AccessAnomalyModel):
         training_scores = model.transform(data_set.training)
         training_stats: StatsMap = create_stats(training_scores, AccessAnomalyConfig.default_tenant_col)
 
@@ -518,5 +526,5 @@ class TestAccessAnomaly:
             print(intra_stats)
             print(inter_stats)
 
-    def test_cross_access(self, data_set: Dataset):
+    def test_cross_access(self):
         self.report_cross_access(data_set.get_default_access_anomaly_model(), data_set)

@@ -1,8 +1,9 @@
+import os
+import unittest
+
 from typing import List, Tuple
 
-from pyspark import SQLContext
-
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType, StructField, StringType
 
 from pyspark.ml import Transformer
@@ -11,8 +12,18 @@ from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
 from mmlspark.cyber.ml.utils.spark_utils import DataFrameUtils, ExplainBuilder
 
 
-class TestDataFrameUtils:
-    def create_sample_dataframe(self, spark_context: SQLContext):
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("TestSparkUtils") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
+
+spark_context = spark.sparkContext
+
+
+class TestDataFrameUtils(unittest.TestCase):
+    def create_sample_dataframe(self):
         schema = StructType(
             [
                 StructField("tenant", StringType(), nullable=True),
@@ -30,17 +41,13 @@ class TestDataFrameUtils:
         )
         return dataframe
 
-    def create_string_type_dataframe(self,
-                                     spark_context: SQLContext,
-                                     field_names: List[str],
-                                     data: List[Tuple[str]]) -> DataFrame:
-
+    def create_string_type_dataframe(self, field_names: List[str], data: List[Tuple[str]]) -> DataFrame:
         return spark_context.createDataFrame(
             data,
             StructType([StructField(name, StringType(), nullable=True) for name in field_names])
         )
 
-    def test_get_spark(self, spark_context: SQLContext):
+    def test_get_spark(self):
         df = self.create_sample_dataframe(spark_context)
         assert df is not None
 
@@ -49,7 +56,7 @@ class TestDataFrameUtils:
         assert spark is not None
         assert spark is spark_context.sparkSession
 
-    def test_zip_with_index_sort_by_column_within_partitions(self, spark_context: SQLContext):
+    def test_zip_with_index_sort_by_column_within_partitions(self):
         dataframe = self.create_sample_dataframe(spark_context)
         result = DataFrameUtils.zip_with_index(df=dataframe, partition_col="tenant", order_by_col="user")
         expected = [
@@ -60,7 +67,7 @@ class TestDataFrameUtils:
         ]
         assert result.collect() == expected
 
-    def test_zip_without_partitions_sort_by_column(self, spark_context: SQLContext):
+    def test_zip_without_partitions_sort_by_column(self):
         dataframe = self.create_sample_dataframe(spark_context)
         result = DataFrameUtils.zip_with_index(df=dataframe, order_by_col="user")
         expected = [
@@ -72,7 +79,7 @@ class TestDataFrameUtils:
         assert result.collect() == expected
 
 
-class TestExplainBuilder:
+class TestExplainBuilder(unittest.TestCase):
     class ExplainableObj(Transformer, HasInputCol, HasOutputCol):
         partitionKey = Param(
             Params._dummy(),
@@ -131,3 +138,7 @@ class TestExplainBuilder:
 
         assert oo.partition_key == 5
         assert oo.getPartitionKey() == 5
+
+
+if __name__ == "__main__":
+    result = unittest.main()

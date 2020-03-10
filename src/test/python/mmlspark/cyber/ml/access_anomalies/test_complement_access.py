@@ -1,17 +1,29 @@
 __author__ = 'rolevin'
 
+import os
+import unittest
+
 from typing import Type
 
-from pyspark import SQLContext
-from pyspark.sql import DataFrame, functions as f, types as t
+from pyspark.sql import DataFrame, functions as f, types as t, SparkSession
 
 from mmlspark.cyber.ml.access_anomalies.complement_access import ComplementAccessTransformer
 
 from ..explain_tester import ExplainTester
 
 
-class TestComplementAccessTransformer:
-    def create_dataframe(self, spark_context: SQLContext) -> DataFrame:
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("TestComplementAccessTransformer") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
+
+spark_context = spark.sparkContext
+
+
+class TestComplementAccessTransformer(unittest.TestCase):
+    def create_dataframe(self) -> DataFrame:
         schema = t.StructType(
             [
                 t.StructField("tenant", t.StringType(), nullable=True),
@@ -36,7 +48,7 @@ class TestComplementAccessTransformer:
             schema
         )
 
-    def test_partitioned_complement_access_transformer(self, spark_context: SQLContext):
+    def test_partitioned_complement_access_transformer(self):
         df = self.create_dataframe(spark_context).cache()
         assert df is not None and df.count() > 0
 
@@ -64,7 +76,7 @@ class TestComplementAccessTransformer:
             f.col('tenant') == 't2'
         ).agg(f.max('res').alias('max_res')).first()['max_res'] <= 3
 
-    def test_unpartitioned_complement_access_transformer(self, spark_context: SQLContext):
+    def test_unpartitioned_complement_access_transformer(self):
         df = self.create_dataframe(spark_context).filter(f.col('tenant') == 't1').select('user', 'res').cache()
         assert df is not None and df.count() > 0
 
@@ -80,7 +92,7 @@ class TestComplementAccessTransformer:
         assert complement_df.agg(f.max('res').alias('max_res')).first()['max_res'] <= 5
 
 
-class TestComplementAccessTransformerExplain(ExplainTester):
+class TestComplementAccessTransformerExplain(ExplainTester, unittest.TestCase):
     def test_explain(self):
         types = [str, list, int]
 
@@ -91,3 +103,7 @@ class TestComplementAccessTransformerExplain(ExplainTester):
         self.check_explain(ComplementAccessTransformer(
             'partition_key', 'indexed_col_names_arr', 2
         ), params, counts)
+
+
+if __name__ == "__main__":
+    result = unittest.main()

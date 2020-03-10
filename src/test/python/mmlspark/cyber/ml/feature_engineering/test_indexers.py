@@ -1,17 +1,28 @@
 __author__ = 'rolevin'
 
+import os
+import unittest
+
 from typing import Type
 
-from pyspark import SQLContext
-
-from pyspark.sql import functions as f, types as t
+from pyspark.sql import functions as f, types as t, SparkSession
 from mmlspark.cyber.ml.feature_engineering import indexers
 
 from ..explain_tester import ExplainTester
 
 
-class TestIndexers:
-    def create_sample_dataframe(self, spark_context: SQLContext):
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("TestIndexers") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
+
+spark_context = spark.sparkContext
+
+
+class TestIndexers(unittest.TestCase):
+    def create_sample_dataframe(self):
         schema = t.StructType(
             [
                 t.StructField("tenant", t.StringType(), nullable=True),
@@ -36,7 +47,7 @@ class TestIndexers:
             schema
         )
 
-    def test_id_indexer(self, spark_context: SQLContext):
+    def test_id_indexer(self):
         indexer = indexers.IdIndexer('user', 'tenant', 'actual_uid', True)
 
         df = self.create_sample_dataframe(spark_context)
@@ -49,7 +60,7 @@ class TestIndexers:
             f.col('expected_uid') != f.col('actual_uid')
         ).count()
 
-    def test_multi_indexer(self, spark_context: SQLContext):
+    def test_multi_indexer(self):
         multi_indexer = indexers.MultiIndexer([
             indexers.IdIndexer('user', 'tenant', 'actual_uid', True),
             indexers.IdIndexer('res', 'tenant', 'actual_rid', True),
@@ -71,7 +82,7 @@ class TestIndexers:
             f.col('expected_rid') != f.col('actual_rid')
         ).count()
 
-    def test_multi_indexer_undo_transform(self, spark_context: SQLContext):
+    def test_multi_indexer_undo_transform(self):
         multi_indexer = indexers.MultiIndexer([
             indexers.IdIndexer('user', 'tenant', 'actual_uid', True),
             indexers.IdIndexer('res', 'tenant', 'actual_rid', True),
@@ -100,7 +111,7 @@ class TestIndexers:
             'tenant', 'res'
         ).distinct().orderBy('tenant', 'res').collect()
 
-    def test_multi_indexer_non_per_tenant(self, spark_context: SQLContext):
+    def test_multi_indexer_non_per_tenant(self):
         multi_indexer = indexers.MultiIndexer([
             indexers.IdIndexer('user', 'tenant', 'actual_uid', False),
             indexers.IdIndexer('res', 'tenant', 'actual_rid', False)
@@ -135,7 +146,7 @@ class TestIndexers:
         assert df.select('tenant', 'user', 'res').orderBy('tenant', 'user', 'res').collect() == orig_df.collect()
 
 
-class TestIdIndexerExplain(ExplainTester):
+class TestIdIndexerExplain(ExplainTester, unittest.TestCase):
     def test_explain(self):
         types = [str, bool]
 
@@ -144,3 +155,7 @@ class TestIdIndexerExplain(ExplainTester):
 
         params = ['inputCol', 'partitionKey', 'outputCol', 'resetPerPartition']
         self.check_explain(indexers.IdIndexer('input', 'tenant', 'output', True), params, counts)
+
+
+if __name__ == "__main__":
+    result = unittest.main()

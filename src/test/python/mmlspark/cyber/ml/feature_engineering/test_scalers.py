@@ -1,17 +1,28 @@
 __author__ = 'rolevin'
 
+import os
+import unittest
+
 from typing import Type
 
-from pyspark import SQLContext
-
-from pyspark.sql import functions as f, types as t
+from pyspark.sql import functions as f, types as t, SparkSession
 from mmlspark.cyber.ml.feature_engineering import scalers
 
 from ..explain_tester import ExplainTester
 
 
-class TestScalers:
-    def create_sample_dataframe(self, spark_context: SQLContext):
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .appName("TestScalers") \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .getOrCreate()
+
+spark_context = spark.sparkContext
+
+
+class TestScalers(unittest.TestCase):
+    def create_sample_dataframe(self):
         schema = t.StructType(
             [
                 t.StructField("tenant", t.StringType(), nullable=True),
@@ -31,7 +42,7 @@ class TestScalers:
             schema
         )
 
-    def test_unpartitioned_min_max_scaler(self, spark_context: SQLContext):
+    def test_unpartitioned_min_max_scaler(self):
         ls = scalers.MinMaxScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
@@ -44,7 +55,7 @@ class TestScalers:
             f.col('name').cast(t.IntegerType()) != f.col('new_score').cast(t.IntegerType())
         ).count()
 
-    def test_partitioned_min_max_scaler(self, spark_context: SQLContext):
+    def test_partitioned_min_max_scaler(self):
         ls = scalers.MinMaxScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
@@ -68,7 +79,7 @@ class TestScalers:
         # this is the average between min and max
         assert t3_arr[0]['new_score'] == 1.5
 
-    def test_unpartitioned_standard_scaler(self, spark_context: SQLContext):
+    def test_unpartitioned_standard_scaler(self):
         ls = scalers.StandardScalarScaler('score', None, 'new_score', 1.0, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
@@ -82,7 +93,7 @@ class TestScalers:
         assert new_scores.to_numpy().mean() == 0.0
         assert abs(new_scores.to_numpy().std() - 1.0) < 0.0001
 
-    def test_partitioned_standard_scaler(self, spark_context: SQLContext):
+    def test_partitioned_standard_scaler(self):
         ls = scalers.StandardScalarScaler('score', 'tenant', 'new_score', 1.0, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
@@ -113,7 +124,7 @@ class TestScalers:
                 assert tenant_scores[0] == 0.0
 
 
-class TestStandardScalarScalerExplain(ExplainTester):
+class TestStandardScalarScalerExplain(ExplainTester, unittest.TestCase):
     def test_explain(self):
         types = [str, float]
 
@@ -124,7 +135,7 @@ class TestStandardScalarScalerExplain(ExplainTester):
         self.check_explain(scalers.StandardScalarScaler('input', 'tenant', 'output'), params, counts)
 
 
-class TestMinMaxScalarScalerExplain(ExplainTester):
+class TestMinMaxScalarScalerExplain(ExplainTester, unittest.TestCase):
     def test_explain(self):
         types = [str, float]
 
@@ -133,3 +144,7 @@ class TestMinMaxScalarScalerExplain(ExplainTester):
 
         params = ['inputCol', 'partitionKey', 'outputCol', 'minRequiredValue', 'maxRequiredValue']
         self.check_explain(scalers.MinMaxScalarScaler('input', 'tenant', 'output'), params, counts)
+
+
+if __name__ == "__main__":
+    result = unittest.main()
