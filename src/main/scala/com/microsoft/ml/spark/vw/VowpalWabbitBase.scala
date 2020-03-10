@@ -21,6 +21,7 @@ import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
 import org.apache.spark.ml.ComplexParamsWritable
 
 import scala.collection.JavaConverters._
+import scala.io.Source
 import scala.math.min
 
 case class NamespaceInfo (hash: Int, featureGroup: Char, colIdx: Int)
@@ -45,6 +46,8 @@ case class TrainingStats(partitionId: Int,
                          timeMultipassNs: Long)
 
 case class TrainingResult(model: Option[Array[Byte]],
+                          readableModel: Option[String],
+                          readableModelWithFeatures: Option[String],
                           stats: TrainingStats)
 
 /**
@@ -163,6 +166,20 @@ trait VowpalWabbitBase extends Wrappable
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
 
+  val exportReadableModel = new BooleanParam(this, "exportReadableModel",
+    "If true exports the readable model")
+
+  def getExportReadableModel: Boolean = $(exportReadableModel)
+  def setExportReadableModel(value: Boolean): this.type = set(exportReadableModel, value)
+  setDefault(exportReadableModel -> false)
+
+  val invertHash = new BooleanParam(this, "invertHash",
+    "If true exports the readable model with feature names")
+
+  def getInvertHash: Boolean = $(invertHash)
+  def setInvertHash(value: Boolean): this.type = set(invertHash, value)
+  setDefault(invertHash -> false)
+
   protected def createLabelSetter(schema: StructType) = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
 
@@ -205,7 +222,21 @@ trait VowpalWabbitBase extends Wrappable
 
     log.info(s"VowpalWabbit args: ${args}")
 
-    args.result
+    args
+  }
+
+  private def getExportFile(vwArgs: StringBuilder, option: String, condition: Boolean) = {
+    // create readable model if requested
+    if(!(TaskContext.get.partitionId == 0 && condition))
+      None
+    else {
+      val readableModelFile = java.io.File.createTempFile("vowpalwabbit", ".txt")
+      readableModelFile.deleteOnExit()
+
+      vwArgs.append(s" $option ${readableModelFile.getAbsolutePath}")
+
+      Option(readableModelFile)
+    }
   }
 
   /**
@@ -226,13 +257,16 @@ trait VowpalWabbitBase extends Wrappable
       // construct command line arguments
       val args = buildCommandLineArguments(vwArgs, contextArgs)
 
+      val readableModelFile = getExportFile(args, "--readable_model", getExportReadableModel)
+      val invertHashFile = getExportFile(args, "--invert_hash", getInvertHash)
+
       val totalTime = new StopWatch
       val nativeIngestTime = new StopWatch
       val learnTime = new StopWatch
       val multipassTime = new StopWatch
 
-      StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-        else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
+      val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
+        else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
         StreamUtilities.using(vw.createExample()) { ex =>
             // pass data to VW native part
             totalTime.measure {
@@ -270,27 +304,32 @@ trait VowpalWabbitBase extends Wrappable
           val perfStats = vw.getPerformanceStatistics
           val args = vw.getArguments
 
-          Seq(TrainingResult(
-            if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
-            TrainingStats(
-              TaskContext.get.partitionId,
-              args.getArgs,
-              args.getLearningRate,
-              args.getPowerT,
-              args.getHashSeed,
-              args.getNumBits,
-              perfStats.getNumberOfExamplesPerPass,
-              perfStats.getWeightedExampleSum,
-              perfStats.getWeightedLabelSum,
-              perfStats.getAverageLoss,
-              perfStats.getBestConstant,
-              perfStats.getBestConstantLoss,
-              perfStats.getTotalNumberOfFeatures,
-              totalTime.elapsed,
-              nativeIngestTime.elapsed,
-              learnTime.elapsed,
-              multipassTime.elapsed))).iterator
-        }.get // this will throw if there was an exception
+          (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+           TrainingStats(
+             TaskContext.get.partitionId,
+             args.getArgs,
+             args.getLearningRate,
+             args.getPowerT,
+             args.getHashSeed,
+             args.getNumBits,
+             perfStats.getNumberOfExamplesPerPass,
+             perfStats.getWeightedExampleSum,
+             perfStats.getWeightedLabelSum,
+             perfStats.getAverageLoss,
+             perfStats.getBestConstant,
+             perfStats.getBestConstantLoss,
+             perfStats.getTotalNumberOfFeatures,
+             totalTime.elapsed,
+             nativeIngestTime.elapsed,
+             learnTime.elapsed,
+             multipassTime.elapsed))
+      }.get // this will throw if there was an exception
+
+      // need to read the model after the VW object is disposed as this triggers the file write
+      val readableModel = readableModelFile.map(Source.fromFile(_).mkString)
+      val readableModelWithFeatures = invertHashFile.map(Source.fromFile(_).mkString)
+
+      Seq(TrainingResult(model, readableModel, readableModelWithFeatures, stats)).iterator
     }
 
     val encoder = Encoders.kryo[TrainingResult]
@@ -365,6 +404,12 @@ trait VowpalWabbitBase extends Wrappable
           (timeTotalCol - timeMarshalCol - timeLearnCol - timeMultipassCol) / timeTotalCol)
 
     model.setPerformanceStatistics(diagRdd)
+
+    if (nonEmptyModels.get.readableModel.isDefined)
+      model.setReadableModel(nonEmptyModels.get.readableModel.get)
+
+    if (nonEmptyModels.get.readableModelWithFeatures.isDefined)
+      model.setReadableModelWithFeatures(nonEmptyModels.get.readableModelWithFeatures.get)
   }
 
   /**

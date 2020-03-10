@@ -57,8 +57,18 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   val model = new ByteArrayParam(this, "model", "The VW model....")
 
   def setModel(v: Array[Byte]): this.type = set(model, v)
-
   def getModel: Array[Byte] = $(model)
+
+  val readableModel = new Param[String](this, "readableModel", "The readable model")
+
+  def setReadableModel(v: String): this.type = set(readableModel, v)
+  def getReadableModel: String = $(readableModel)
+
+  val readableModelWithFeatures = new Param[String](this, "readableModelWithFeatures",
+    "The readable model with features")
+
+  def setReadableModelWithFeatures(v: String): this.type = set(readableModelWithFeatures, v)
+  def getReadableModelWithFeatures: String = $(readableModelWithFeatures)
 
   // Perf stats parameter
   val performanceStatistics = new DataFrameParam(this,
@@ -66,7 +76,6 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
     "Performance statistics collected during training")
 
   def setPerformanceStatistics(v: DataFrame): this.type = set(performanceStatistics, v)
-
   def getPerformanceStatistics: DataFrame = $(performanceStatistics)
 
   protected def predictInternal(featureColIndices: Seq[NamespaceInfo], namespaces: Row): Double = {
