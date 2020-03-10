@@ -426,7 +426,7 @@ class AccessAnomaly(Estimator):
 
     @timefunc
     def _get_scaled_df(self, df: DataFrame) -> DataFrame:
-        return scalers.LinearScalarScaler(
+        return scalers.MinMaxScalarScaler(
             input_col=self.likelihood_col,
             partition_key=self.tenant_col,
             output_col=self.scaled_likelihood_col,

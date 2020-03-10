@@ -32,7 +32,7 @@ class TestScalers:
         )
 
     def test_unpartitioned_min_max_scaler(self, spark_context: SQLContext):
-        ls = scalers.LinearScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
+        ls = scalers.MinMaxScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
         model = ls.fit(df)
@@ -45,7 +45,7 @@ class TestScalers:
         ).count()
 
     def test_partitioned_min_max_scaler(self, spark_context: SQLContext):
-        ls = scalers.LinearScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
+        ls = scalers.MinMaxScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
         df = self.create_sample_dataframe(spark_context)
         model = ls.fit(df)
@@ -124,7 +124,7 @@ class TestStandardScalarScalerExplain(ExplainTester):
         self.check_explain(scalers.StandardScalarScaler('input', 'tenant', 'output'), params, counts)
 
 
-class TestLinearScalarScalerExplain(ExplainTester):
+class TestMinMaxScalarScalerExplain(ExplainTester):
     def test_explain(self):
         types = [str, float]
 
@@ -132,4 +132,4 @@ class TestLinearScalarScalerExplain(ExplainTester):
             return tt not in types or c > 0
 
         params = ['inputCol', 'partitionKey', 'outputCol', 'minRequiredValue', 'maxRequiredValue']
-        self.check_explain(scalers.LinearScalarScaler('input', 'tenant', 'output'), params, counts)
+        self.check_explain(scalers.MinMaxScalarScaler('input', 'tenant', 'output'), params, counts)
