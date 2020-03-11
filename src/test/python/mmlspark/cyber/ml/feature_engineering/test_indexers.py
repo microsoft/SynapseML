@@ -50,7 +50,7 @@ class TestIndexers(unittest.TestCase):
     def test_id_indexer(self):
         indexer = indexers.IdIndexer('user', 'tenant', 'actual_uid', True)
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = indexer.fit(df)
         new_df = model.transform(df)
 
@@ -66,7 +66,7 @@ class TestIndexers(unittest.TestCase):
             indexers.IdIndexer('res', 'tenant', 'actual_rid', True),
         ])
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = multi_indexer.fit(df)
         new_df = model.transform(df)
 
@@ -88,7 +88,7 @@ class TestIndexers(unittest.TestCase):
             indexers.IdIndexer('res', 'tenant', 'actual_rid', True),
         ])
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = multi_indexer.fit(df)
         new_df = model.transform(df)
 
@@ -117,7 +117,7 @@ class TestIndexers(unittest.TestCase):
             indexers.IdIndexer('res', 'tenant', 'actual_rid', False)
         ])
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = multi_indexer.fit(df)
         new_df = model.transform(df)
 

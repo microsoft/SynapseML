@@ -45,7 +45,7 @@ class TestScalers(unittest.TestCase):
     def test_unpartitioned_min_max_scaler(self):
         ls = scalers.MinMaxScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = ls.fit(df)
         new_df = model.transform(df)
 
@@ -58,7 +58,7 @@ class TestScalers(unittest.TestCase):
     def test_partitioned_min_max_scaler(self):
         ls = scalers.MinMaxScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = ls.fit(df)
         new_df = model.transform(df)
 
@@ -82,7 +82,7 @@ class TestScalers(unittest.TestCase):
     def test_unpartitioned_standard_scaler(self):
         ls = scalers.StandardScalarScaler('score', None, 'new_score', 1.0, use_pandas=False)
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = ls.fit(df)
         new_df = model.transform(df)
 
@@ -96,7 +96,7 @@ class TestScalers(unittest.TestCase):
     def test_partitioned_standard_scaler(self):
         ls = scalers.StandardScalarScaler('score', 'tenant', 'new_score', 1.0, use_pandas=False)
 
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         model = ls.fit(df)
         new_df = model.transform(df)
 

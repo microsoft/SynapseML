@@ -342,7 +342,7 @@ class TestAccessAnomalyExplain(ExplainTester, unittest.TestCase):
 
 class TestAccessAnomaly(unittest.TestCase):
     def test_enrich_and_normalize(self):
-        training = Dataset.create_new_training(spark_context, 1.0).cache()
+        training = Dataset.create_new_training(1.0).cache()
         access_anomaly = AccessAnomaly(
             tenant_col=AccessAnomalyConfig.default_tenant_col,
             max_iter=10,
@@ -525,4 +525,4 @@ class TestAccessAnomaly(unittest.TestCase):
             print(inter_stats)
 
     def test_cross_access(self):
-        self.report_cross_access(data_set.get_default_access_anomaly_model(), data_set)
+        self.report_cross_access(data_set.get_default_access_anomaly_model())

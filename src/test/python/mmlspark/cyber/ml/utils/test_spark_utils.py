@@ -48,7 +48,7 @@ class TestDataFrameUtils(unittest.TestCase):
         )
 
     def test_get_spark(self):
-        df = self.create_sample_dataframe(spark_context)
+        df = self.create_sample_dataframe()
         assert df is not None
 
         spark = DataFrameUtils.get_spark_session(df)
@@ -57,7 +57,7 @@ class TestDataFrameUtils(unittest.TestCase):
         assert spark is spark_context.sparkSession
 
     def test_zip_with_index_sort_by_column_within_partitions(self):
-        dataframe = self.create_sample_dataframe(spark_context)
+        dataframe = self.create_sample_dataframe()
         result = DataFrameUtils.zip_with_index(df=dataframe, partition_col="tenant", order_by_col="user")
         expected = [
             ("OrgB", "Joe", 0),
@@ -68,7 +68,7 @@ class TestDataFrameUtils(unittest.TestCase):
         assert result.collect() == expected
 
     def test_zip_without_partitions_sort_by_column(self):
-        dataframe = self.create_sample_dataframe(spark_context)
+        dataframe = self.create_sample_dataframe()
         result = DataFrameUtils.zip_with_index(df=dataframe, order_by_col="user")
         expected = [
             ("OrgA", "Alice", 0),

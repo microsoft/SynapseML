@@ -49,7 +49,7 @@ class TestComplementAccessTransformer(unittest.TestCase):
         )
 
     def test_partitioned_complement_access_transformer(self):
-        df = self.create_dataframe(spark_context).cache()
+        df = self.create_dataframe().cache()
         assert df is not None and df.count() > 0
 
         transformer = ComplementAccessTransformer('tenant', ['user', 'res'], 3)
@@ -77,7 +77,7 @@ class TestComplementAccessTransformer(unittest.TestCase):
         ).agg(f.max('res').alias('max_res')).first()['max_res'] <= 3
 
     def test_unpartitioned_complement_access_transformer(self):
-        df = self.create_dataframe(spark_context).filter(f.col('tenant') == 't1').select('user', 'res').cache()
+        df = self.create_dataframe().filter(f.col('tenant') == 't1').select('user', 'res').cache()
         assert df is not None and df.count() > 0
 
         transformer = ComplementAccessTransformer(None, ['user', 'res'], 3)
