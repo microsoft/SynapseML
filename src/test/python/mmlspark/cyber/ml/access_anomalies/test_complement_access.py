@@ -5,7 +5,7 @@ import unittest
 
 from typing import Type
 
-from pyspark.sql import DataFrame, functions as f, types as t, SparkSession
+from pyspark.sql import DataFrame, functions as f, types as t, SparkSession, SQLContext
 
 from mmlspark.cyber.ml.access_anomalies.complement_access import ComplementAccessTransformer
 
@@ -19,7 +19,7 @@ spark = SparkSession.builder \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
-spark_context = spark.sparkContext
+spark_context = SQLContext(spark.sparkContext)
 
 
 class TestComplementAccessTransformer(unittest.TestCase):

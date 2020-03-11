@@ -3,7 +3,7 @@ import unittest
 
 from typing import List, Tuple
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, SparkSession, SQLContext
 from pyspark.sql.types import StructType, StructField, StringType
 
 from pyspark.ml import Transformer
@@ -19,7 +19,7 @@ spark = SparkSession.builder \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
-spark_context = spark.sparkContext
+spark_context = SQLContext(spark.sparkContext)
 
 
 class TestDataFrameUtils(unittest.TestCase):

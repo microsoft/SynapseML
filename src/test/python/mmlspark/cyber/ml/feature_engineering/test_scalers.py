@@ -5,7 +5,7 @@ import unittest
 
 from typing import Type
 
-from pyspark.sql import functions as f, types as t, SparkSession
+from pyspark.sql import functions as f, types as t, SparkSession, SQLContext
 from mmlspark.cyber.ml.feature_engineering import scalers
 
 from ..explain_tester import ExplainTester
@@ -18,7 +18,7 @@ spark = SparkSession.builder \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
-spark_context = spark.sparkContext
+spark_context = SQLContext(spark.sparkContext)
 
 
 class TestScalers(unittest.TestCase):

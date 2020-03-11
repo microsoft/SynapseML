@@ -5,7 +5,7 @@ import unittest
 
 from typing import Dict, Set, Type, Union
 
-from pyspark.sql import DataFrame, functions as f, types as t, SparkSession
+from pyspark.sql import DataFrame, functions as f, types as t, SparkSession, SQLContext
 
 from mmlspark.cyber.ml.feature_engineering import indexers
 from mmlspark.cyber.ml.access_anomalies.collaborative_filtering import \
@@ -24,7 +24,7 @@ spark = SparkSession.builder \
     .config("spark.executor.heartbeatInterval", "60s") \
     .getOrCreate()
 
-spark_context = spark.sparkContext
+spark_context = SQLContext(spark.sparkContext)
 
 
 epsilon = 10**-3
@@ -92,8 +92,6 @@ class Dataset:
     def __init__(self):
         num_tenants = 2
 
-        self.spark_context = spark_context
-
         self.training = None
         self.intra_test = None
         self.inter_test = None
@@ -159,7 +157,7 @@ class Dataset:
         return self.default_access_anomaly_model
 
 
-data_set = Dataset(spark_context)
+data_set = Dataset()
 
 
 def get_department(the_col: Union[str, f.Column]) -> f.Column:
