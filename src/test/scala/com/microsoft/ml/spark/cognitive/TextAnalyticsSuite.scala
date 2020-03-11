@@ -118,6 +118,7 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentimentV3] with Text
     .setLocation("eastus")
     .setLanguageCol("lang")
     .setDefaultLanguage("de")
+    .setModelVersion("latest")
     .setShowStats(true)
     .setOutputCol("replies")
 
