@@ -3,15 +3,12 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.FileInputStream
-import java.net.URI
-import java.nio.{ByteBuffer, ByteOrder}
+import java.io.{ByteArrayInputStream, InputStream}
+import java.net.{URI, URL}
 import java.util.concurrent.LinkedBlockingQueue
 
 import com.microsoft.cognitiveservices.speech._
-import com.microsoft.cognitiveservices.speech.audio.{
-  AudioConfig, AudioInputStream, AudioStreamFormat, PushAudioInputStream
-}
+import com.microsoft.cognitiveservices.speech.audio._
 import com.microsoft.cognitiveservices.speech.internal.AudioStreamContainerFormat
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
@@ -19,8 +16,12 @@ import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.HasURL
-import org.apache.commons.compress.utils.IOUtils
-import org.apache.spark.ml.param.{BooleanParam, ParamMap, ServiceParam, ServiceParamData}
+import com.microsoft.ml.spark.{CompressedStream, WavStream}
+import org.apache.commons.io.FilenameUtils
+import org.apache.hadoop.fs.Path
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.injections.SConf
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -33,9 +34,8 @@ import scala.language.existentials
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
-private[ml] class BlockingQueueIterator[T](
-                                            lbq: LinkedBlockingQueue[Option[T]],
-                                            onFinish: => Unit) extends Iterator[T] {
+private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
+                                           onFinish: => Unit) extends Iterator[T] {
   var nextVar: Option[T] = None
   var isDone = false
   var takeAnother = true
@@ -64,18 +64,13 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
   def this() = this(Identifiable.randomUID("SpeechToTextSDK"))
 
-  val audioData = new ServiceParam[Array[Byte]](this, "audioData",
-    """
-      |The data sent to the service must be a .wav files
-    """.stripMargin.replace("\n", " ").replace("\r", " "),
-    { _ => true },
-    isRequired = true,
-    isURLParam = false
+  val audioDataCol = new Param[String](this, "audioDataCol",
+    "Column holding audio data, must be either ByteArrays or Strings representing file URIs"
   )
 
-  def setAudioData(v: Array[Byte]): this.type = setScalarParam(audioData, v)
+  def setAudioDataCol(v: String): this.type = set(audioDataCol, v)
 
-  def setAudioDataCol(v: String): this.type = setVectorParam(audioData, v)
+  def getAudioDataCol: String = $(audioDataCol)
 
   val fileType = new ServiceParam[String](
     this, "fileType", "The file type of the sound files, supported types: wav, ogg, mp3")
@@ -149,31 +144,10 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
   }
 
-  private def getAudioFormat(fileTypeOption: Option[String], bytes: Array[Byte]) = {
-    val fileType = fileTypeOption.map(_.toLowerCase()).getOrElse("wav")
+  private[ml] def getAudioFormat(fileType: String) = {
     fileType match {
       case "wav" =>
-        val bb1 = ByteBuffer.allocate(2)
-        bb1.order(ByteOrder.LITTLE_ENDIAN)
-        bb1.put(bytes(22))
-        bb1.put(bytes(23))
-        val nChannels = bb1.getShort(0)
-
-        val bb2 = ByteBuffer.allocate(4)
-        bb2.order(ByteOrder.LITTLE_ENDIAN)
-        bb2.put(bytes(24))
-        bb2.put(bytes(25))
-        bb2.put(bytes(26))
-        bb2.put(bytes(27))
-        val sampleRate = bb2.getInt(0)
-
-        val bb3 = ByteBuffer.allocate(2)
-        bb3.order(ByteOrder.LITTLE_ENDIAN)
-        bb3.put(bytes(34))
-        bb3.put(bytes(35))
-        val bitsPerSample = bb3.getShort(0)
-
-        AudioStreamFormat.getWaveFormatPCM(sampleRate, bitsPerSample, nChannels)
+        AudioStreamFormat.getDefaultInputFormat
       case "mp3" =>
         AudioStreamFormat.getCompressedFormat(AudioStreamContainerFormat.MP3)
       case "ogg" =>
@@ -183,70 +157,92 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   }
 
   /** @return text transcription of the audio */
-  def audioBytesToText(bytes: Array[Byte],
-                       speechKey: String,
-                       uri: URI,
-                       language: String,
-                       profanity: String,
-                       format: String,
-                       fileType: Option[String]): Iterator[SpeechResponse] = {
-    val config: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
-    assert(config != null)
-    config.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
-    config.setSpeechRecognitionLanguage(language)
-    config.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
-    val pushStream: PushAudioInputStream = AudioInputStream.createPushStream(getAudioFormat(fileType, bytes))
-    val audioInput: AudioConfig = AudioConfig.fromStreamInput(pushStream)
+  def inputStreamToText(stream: InputStream,
+                        audioFormat: String,
+                        uri: URI,
+                        speechKey: String,
+                        profanity: String,
+                        language: String,
+                        format: String
+                       ): Iterator[SpeechResponse] = {
+    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
+    assert(speechConfig != null)
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
+    speechConfig.setSpeechRecognitionLanguage(language)
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
+
+    val af = getAudioFormat(audioFormat)
+    val pullStream = if (audioFormat == "wav") {
+      AudioInputStream.createPullStream(new WavStream(stream), af)
+    } else {
+      AudioInputStream.createPullStream(new CompressedStream(stream), af)
+    }
+    val audioConfig = AudioConfig.fromStreamInput(pullStream)
     try {
-      val recognizer = new SpeechRecognizer(config, audioInput)
+      val recognizer = new SpeechRecognizer(speechConfig, audioConfig)
       val connection = Connection.fromRecognizer(recognizer)
       connection.setMessageProperty("speech.config", "application",
         s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
-      val results = new LinkedBlockingQueue[Option[String]]()
+      val queue = new LinkedBlockingQueue[Option[String]]()
 
       def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
         if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
-          results.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
+          queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
         }
       }
 
       def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
-        results.put(None)
+        queue.put(None)
       }
 
       recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
       recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
       recognizer.startContinuousRecognitionAsync.get
-      pushStream.write(bytes)
-      pushStream.close()
-      new BlockingQueueIterator[String](results, recognizer.stopContinuousRecognitionAsync.get())
-        .map(jsonString => jsonString.parseJson.convertTo[SpeechResponse])
+      new BlockingQueueIterator[String](queue, {
+        recognizer.stopContinuousRecognitionAsync.get()
+        pullStream.close()
+      }).map(jsonString => jsonString.parseJson.convertTo[SpeechResponse])
     } finally {
-      config.close()
-      audioInput.close()
-      pushStream.close()
+      speechConfig.close()
+      audioConfig.close()
     }
   }
 
-  def wavToBytes(filepath: String): Array[Byte] = {
-    IOUtils.toByteArray(new FileInputStream(filepath))
-  }
-
   protected def transformAudioRows(dynamicParamColName: String,
-                                   toRow: SpeechResponse => Row)(rows: Iterator[Row]): Iterator[Row] = {
+                                   toRow: SpeechResponse => Row,
+                                   bconf: Broadcast[SConf],
+                                   isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
       if (shouldSkip(row)) {
         Seq(Row.merge(row, Row(None)))
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
-        val results = audioBytesToText(
-          getValue(dynamicParamRow, audioData),
-          getValue(dynamicParamRow, subscriptionKey),
+        val (stream, audioFileFormat) = if (isUriAudio) {
+          val uri = row.getAs[String](getAudioDataCol)
+          val stream =  if (uri.startsWith("http")){
+            val conn = new URL(uri).openConnection
+            conn.setConnectTimeout(5000)
+            conn.setReadTimeout(5000)
+            conn.connect()
+            conn.getInputStream
+          }else {
+            val path = new Path(uri)
+            val fs = path.getFileSystem(bconf.value.value2)
+            fs.open(path)
+          }
+          (stream, FilenameUtils.getExtension(uri))
+        } else {
+          val bytes = row.getAs[Array[Byte]](getAudioDataCol)
+          (new ByteArrayInputStream(bytes), getValueOpt(dynamicParamRow, fileType).getOrElse("wav"))
+        }
+        val results = inputStreamToText(
+          stream,
+          audioFileFormat,
           new URI(getUrl),
-          getValue(dynamicParamRow, language),
+          getValue(dynamicParamRow, subscriptionKey),
           getValue(dynamicParamRow, profanity),
-          getValue(dynamicParamRow, format),
-          getValueOpt(dynamicParamRow, fileType))
+          getValue(dynamicParamRow, language),
+          getValue(dynamicParamRow, format))
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))
         } else {
@@ -277,14 +273,31 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
 
     val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
+    val sc = df.sparkSession.sparkContext
+    val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
+    val isUriAudio = df.schema(getAudioDataCol).dataType match {
+      case StringType => true
+      case BinaryType => false
+      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+    }
     val toRow = SpeechResponse.makeToRowConverter
-    enrichedDf.mapPartitions(transformAudioRows(dynamicParamColName, toRow))(enc)
+    enrichedDf.mapPartitions(transformAudioRows(
+      dynamicParamColName,
+      toRow,
+      bConf,
+      isUriAudio
+    ))(enc)
       .drop(dynamicParamColName)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
+    schema(getAudioDataCol).dataType match {
+      case StringType => ()
+      case BinaryType => ()
+      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+    }
     if (getStreamIntermediateResults) {
       schema.add(getOutputCol, SpeechResponse.schema)
     } else {

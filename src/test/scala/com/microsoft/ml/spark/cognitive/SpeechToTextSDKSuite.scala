@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{File, FileInputStream}
+import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
 import com.microsoft.ml.spark.core.env.StreamUtilities
@@ -76,7 +76,10 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   def speechTest(format: String, audioBytes: Array[Byte], expectedText: String): Assertion = {
-    val resultArray = sdk.audioBytesToText(audioBytes, speechKey, uri, language, profanity, format, None)
+    val resultArray = sdk.inputStreamToText(
+      new ByteArrayInputStream(audioBytes),
+      "wav",
+      uri, speechKey, profanity, language, format)
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -160,6 +163,18 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
 
   test("Detailed SDK Usage Audio 2") {
     dfTest("detailed", audioDf2, text2)
+  }
+
+  test("URI based access") {
+    val uriDf = Seq(Tuple1(audioPaths(1).toURI.toString))
+      .toDF("audio")
+    dfTest("detailed", uriDf, text2)
+  }
+
+  test("URL based access") {
+    val uriDf = Seq(Tuple1("https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"))
+      .toDF("audio")
+    dfTest("detailed", uriDf, text2)
   }
 
   test("Detailed SDK with mp3 (Linux only)") {
