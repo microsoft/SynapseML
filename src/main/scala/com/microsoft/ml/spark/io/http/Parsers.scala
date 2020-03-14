@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.io.http
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.ml.spark.core.serialize.ComplexParam
@@ -21,7 +21,7 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.reflect.runtime.universe.TypeTag
 
-abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol {
+abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol with Wrappable {
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, HTTPSchema.Request)
@@ -136,7 +136,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
 
 }
 
-abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOutputCol {
+abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOutputCol with Wrappable {
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 }
 

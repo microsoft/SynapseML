@@ -12,7 +12,7 @@ trait Wrappable extends Params {
   }
 }
 
-trait HasInputCol extends Wrappable {
+trait HasInputCol extends Params {
   /** The name of the input column
     * @group param
     */
@@ -23,7 +23,7 @@ trait HasInputCol extends Wrappable {
   def getInputCol: String = $(inputCol)
 }
 
-trait HasOutputCol extends Wrappable {
+trait HasOutputCol extends Params {
   /** The name of the output column
     * @group param
     */
@@ -34,7 +34,7 @@ trait HasOutputCol extends Wrappable {
   def getOutputCol: String = $(outputCol)
 }
 
-trait HasInputCols extends Wrappable {
+trait HasInputCols extends Params {
   /** The names of the inputColumns
     * @group param
     */
@@ -45,7 +45,7 @@ trait HasInputCols extends Wrappable {
   def getInputCols: Array[String] = $(inputCols)
 }
 
-trait HasOutputCols extends Wrappable {
+trait HasOutputCols extends Params {
   /** The names of the output columns
     * @group param
     */
@@ -56,7 +56,7 @@ trait HasOutputCols extends Wrappable {
   def getOutputCols: Array[String] = $(outputCols)
 }
 
-trait HasLabelCol extends Wrappable {
+trait HasLabelCol extends Params {
   /** The name of the label column
     * @group param
     */
@@ -67,7 +67,7 @@ trait HasLabelCol extends Wrappable {
   def getLabelCol: String = $(labelCol)
 }
 
-trait HasFeaturesCol extends Wrappable {
+trait HasFeaturesCol extends Params {
   /** The name of the features column
     * @group param
     */
@@ -78,7 +78,7 @@ trait HasFeaturesCol extends Wrappable {
   def getFeaturesCol: String = $(featuresCol)
 }
 
-trait HasWeightCol extends Wrappable {
+trait HasWeightCol extends Params {
   /** The name of the weight column
     * @group param
     */
@@ -89,7 +89,7 @@ trait HasWeightCol extends Wrappable {
   def getWeightCol: String = $(weightCol)
 }
 
-trait HasScoredLabelsCol extends Wrappable {
+trait HasScoredLabelsCol extends Params {
   /** The name of the scored labels column
     * @group param
     */
@@ -102,7 +102,7 @@ trait HasScoredLabelsCol extends Wrappable {
   def getScoredLabelsCol: String = $(scoredLabelsCol)
 }
 
-trait HasScoresCol extends Wrappable {
+trait HasScoresCol extends Params {
   /** The name of the scores column
     * @group param
     */
@@ -115,7 +115,7 @@ trait HasScoresCol extends Wrappable {
   def getScoresCol: String = $(scoresCol)
 }
 
-trait HasScoredProbabilitiesCol extends Wrappable {
+trait HasScoredProbabilitiesCol extends Params {
   /** The name of the scored probabilities column
     * @group param
     */
@@ -128,7 +128,7 @@ trait HasScoredProbabilitiesCol extends Wrappable {
   def getScoredProbabilitiesCol: String = $(scoredProbabilitiesCol)
 }
 
-trait HasEvaluationMetric extends Wrappable {
+trait HasEvaluationMetric extends Params {
   val evaluationMetric: Param[String] =
     new Param[String](this, "evaluationMetric", "Metric to evaluate models with")
 
@@ -139,7 +139,7 @@ trait HasEvaluationMetric extends Wrappable {
   def setEvaluationMetric(value: String): this.type = set(evaluationMetric, value)
 }
 
-trait HasValidationIndicatorCol extends Wrappable {
+trait HasValidationIndicatorCol extends Params {
   /** The name of the validation indicator column
     * @group param
     */
@@ -153,7 +153,7 @@ trait HasValidationIndicatorCol extends Wrappable {
   def setValidationIndicatorCol(value: String): this.type = set(validationIndicatorCol, value)
 }
 
-trait HasInitScoreCol extends Wrappable {
+trait HasInitScoreCol extends Params {
   /** The name of the initial score column
     * @group param
     */
@@ -165,7 +165,7 @@ trait HasInitScoreCol extends Wrappable {
   def getInitScoreCol: String = $(initScoreCol)
 }
 
-trait HasGroupCol extends Wrappable {
+trait HasGroupCol extends Params {
   /** The name of the group column
     * @group param
     */
