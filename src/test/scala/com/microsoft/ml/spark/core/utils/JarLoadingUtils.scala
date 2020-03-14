@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.core.utils
 
+import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.scalatest.exceptions.TestFailedException
 import org.spark_project.guava.reflect.ClassPath
 
@@ -34,6 +35,10 @@ object JarLoadingUtils {
           case _: Throwable => None: Option[Class[_]]
         }
       }
+  }
+
+  private[spark] val WrappableClasses = {
+    AllClasses.filter(clazz => classOf[Wrappable].isAssignableFrom(clazz))
   }
 
   private def catchInstantiationErrors[T](clazz: Class[_], func: Function[Class[_], T], debug: Boolean): Option[T] = {

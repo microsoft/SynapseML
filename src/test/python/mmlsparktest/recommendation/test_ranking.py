@@ -1,6 +1,7 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 # Prepare training and test data.
-import os
-import pyspark
 import unittest
 from mmlspark.recommendation.RankingAdapter import RankingAdapter
 from mmlspark.recommendation.RankingEvaluator import RankingEvaluator
@@ -12,27 +13,14 @@ from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 from pyspark.sql.types import *
-from pyspark.sql import SQLContext, SparkSession
+from mmlsparktest.spark import *
 
-spark = SparkSession.builder \
-    .master("local[*]") \
-    .appName("TestRanking") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
-    .config("spark.executor.heartbeatInterval", "60s") \
-    .getOrCreate()
-
-sc = spark.sparkContext
 
 class RankingSpec(unittest.TestCase):
 
     @staticmethod
     def getRatings():
-        cSchema = StructType([StructField("originalCustomerID", IntegerType()),
-                              StructField("newCategoryID", IntegerType()),
-                              StructField("rating", IntegerType()),
-                              StructField("notTime", IntegerType())])
-
-        ratings = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+        ratings = spark.createDataFrame([
             (0, 1, 4, 4),
             (0, 3, 1, 1),
             (0, 4, 5, 5),
@@ -64,7 +52,8 @@ class RankingSpec(unittest.TestCase):
             (3, 7, 5, 5),
             (3, 8, 1, 1),
             (3, 9, 5, 5),
-            (3, 10, 3, 3)], cSchema)
+            (3, 10, 3, 3)],
+            ["originalCustomerID", "newCategoryID", "rating", "notTime"])
         return ratings
 
     def ignore_adapter_evaluator(self):
@@ -102,8 +91,9 @@ class RankingSpec(unittest.TestCase):
         user_id_index = "customerID"
         item_id_index = "itemID"
 
-        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
-                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
+        recommendation_indexer = RecommendationIndexer(
+            userInputCol=user_id, userOutputCol=user_id_index,
+            itemInputCol=item_id, itemOutputCol=item_id_index)
 
         sar = SAR(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
 

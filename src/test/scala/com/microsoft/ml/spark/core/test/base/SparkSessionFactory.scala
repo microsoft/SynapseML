@@ -43,6 +43,7 @@ object SparkSessionFactory {
         .set("spark.sql.shuffle.partitions", "20")
         .set("spark.driver.maxResultSize", "6g")
         .set("spark.sql.warehouse.dir", SparkSessionFactory.LocalWarehousePath)
+        .set("spark.sql.crossJoin.enabled", "true")
     val sess = SparkSession.builder()
       .config(conf)
       .getOrCreate()
