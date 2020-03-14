@@ -49,15 +49,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
         |from pyspark.ml.feature import Tokenizer
         |from mmlspark.train import TrainClassifier
         |from mmlspark.featurize import ValueIndexer
-        |
-        |spark = SparkSession.builder \\
-        |    .master("local[*]") \\
-        |    .appName("$entryPointName") \\
-        |    .config("spark.jars.packages", "com.microsoft.ml.spark:${PackageName}_2.11:$Version") \\
-        |    .config("spark.executor.heartbeatInterval", "60s") \\
-        |    .getOrCreate()
-        |
-        |sc = spark.sparkContext
+        |from mmlsparktest.spark import *
         |
         |class ${entryPointName}Test(unittest.TestCase):
         |    def test_placeholder(self):
