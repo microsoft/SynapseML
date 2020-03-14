@@ -9,16 +9,8 @@ from mmlspark.vw.VowpalWabbitRegressor import VowpalWabbitRegressor
 from mmlspark.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
 from pyspark.sql.types import *
-from pyspark.sql import SparkSession
+from mmlsparktest.spark import *
 
-spark = SparkSession.builder \
-    .master("local[*]") \
-    .appName("_VW") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
-    .config("spark.executor.heartbeatInterval", "60s") \
-    .getOrCreate()
-
-sc = spark.sparkContext
 
 class VowpalWabbitSpec(unittest.TestCase):
 
