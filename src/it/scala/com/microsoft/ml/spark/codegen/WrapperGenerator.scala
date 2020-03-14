@@ -68,8 +68,8 @@ abstract class WrapperGenerator {
               generateTransformerTestWrapper(t, className, qualifiedClassName))
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
-              .find(c => Seq("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")
-                .contains(c.getSuperclass.getSimpleName))
+              .find(c => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")(
+                c.getSuperclass.getSimpleName))
               .get
             val typeArgs = sc.getGenericSuperclass.asInstanceOf[ParameterizedType]
               .getActualTypeArguments
@@ -78,9 +78,12 @@ abstract class WrapperGenerator {
               (modelWrapperName(myClass, modelClass.split("\\.").last), modelClass)
             }
             val (modelClass, modelQualifiedClass) = sc.getSuperclass.getSimpleName match {
-              case "Estimator" => getModelFromGenericType(typeArgs.head)
-              case model if Array("ProbabilisticClassifier", "BaseRegressor", "Predictor", "Ranker").contains(model)
-              => getModelFromGenericType(typeArgs(2))
+              case "Estimator" =>
+                val modelClass = myClass.getGenericSuperclass.asInstanceOf[ParameterizedType]
+                  .getActualTypeArguments.head.getTypeName
+                (modelWrapperName(myClass, modelClass.split("\\.").last), modelClass)
+              case model if Set("ProbabilisticClassifier", "BaseRegressor", "Predictor", "Ranker")(model) =>
+                getModelFromGenericType(typeArgs(2))
             }
 
             val className = wrapperName(myClass)
@@ -99,20 +102,13 @@ abstract class WrapperGenerator {
       // Classes without default constructor
       case ie: InstantiationException =>
         if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ie")
-      // Classes with "private" modifiers on constructors
-      case iae: IllegalAccessException =>
-        if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $iae")
-      // Classes that require runtime library loading
-      case ule: UnsatisfiedLinkError =>
-        if (DebugMode) println(s"Could not generate wrapper for class ${myClass.getSimpleName}: $ule")
       case e: Exception =>
         println(s"Could not generate wrapper for class ${myClass.getSimpleName}: ${e.printStackTrace}")
     }
   }
 
   def generateWrappers(): Unit = {
-    JarLoadingUtils.AllClasses
-      .foreach(cl => writeWrappersToFile(cl, cl.getName))
+    JarLoadingUtils.WrappableClasses.foreach(cl => writeWrappersToFile(cl, cl.getName))
   }
 
 }
@@ -126,7 +122,7 @@ object PySparkWrapperGenerator {
 class PySparkWrapperGenerator extends WrapperGenerator {
   override def wrapperDir: File = new File(PySrcDir, "mmlspark")
 
-  override def wrapperTestDir: File = new File(PyTestDir, "mmlspark")
+  override def wrapperTestDir: File = new File(PyTestDir, "mmlsparktest")
 
   // check if the class is annotated with InternalWrapper
   private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {

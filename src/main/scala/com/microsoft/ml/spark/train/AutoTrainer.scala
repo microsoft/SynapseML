@@ -3,14 +3,14 @@
 
 package com.microsoft.ml.spark.train
 
-import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol}
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol, Wrappable}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{EstimatorParam, IntParam}
 
 /** Defines common inheritance and parameters across trainers.
   */
 trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with HasLabelCol with ComplexParamsWritable with HasFeaturesCol {
+  with HasLabelCol with ComplexParamsWritable with HasFeaturesCol with Wrappable {
 
   /** Doc for model to run.
     */

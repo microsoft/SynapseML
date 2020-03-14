@@ -62,7 +62,7 @@ trait HTTPParams extends Wrappable {
 
 }
 
-trait HasURL extends Wrappable {
+trait HasURL extends Params {
 
   val url: Param[String] = new Param[String](this, "url", "Url of the service")
 

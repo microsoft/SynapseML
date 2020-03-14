@@ -272,8 +272,6 @@ jobs:
         PACKAGE: "train"
       vw:
         PACKAGE: "vw"
-      cyber:
-        PACKAGE: "cyber"
   steps:
     - task: AzureCLI@1
       displayName: 'Setup repo'
