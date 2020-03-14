@@ -206,7 +206,7 @@ testPythonTask := {
       "--cov=mmlspark",
       "--junitxml=target/python-test-results.xml",
       "--cov-report=xml",
-      "target/scala-2.11/generated/test/python/mmlspark"
+      "target/scala-2.11/generated/test/python/mmlsparktest"
     ),
     new File("."),
     "MML_VERSION" -> version.value
