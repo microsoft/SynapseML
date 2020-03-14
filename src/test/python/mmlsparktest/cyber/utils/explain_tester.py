@@ -3,6 +3,7 @@ __author__ = 'rolevin'
 from typing import Any, Callable, List
 
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol
+from mmlsparktest.spark import *
 
 
 class ExplainTester:

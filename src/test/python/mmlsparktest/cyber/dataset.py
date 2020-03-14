@@ -1,9 +1,11 @@
-__author__ = 'rolevin'
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
 
 import pandas as pd
 import random
-
-from mmlspark.cyber.ml.access_anomalies.collaborative_filtering import AccessAnomalyConfig
+from mmlsparktest.spark import *
+from mmlspark.cyber.anomaly.collaborative_filtering import AccessAnomalyConfig
+import itertools
 
 
 class DataFactory:
@@ -36,10 +38,7 @@ class DataFactory:
         return self.to_pdf(user_lst, res_lst, likelihood_lst)
 
     def edges_between(self, users, resources, ratio, full_node_coverage, not_set=None):
-        import itertools
-
         required_edge_cnt = len(users) * len(resources) * ratio
-
         tups = []
         seen = set([])
         seen_users = set([])

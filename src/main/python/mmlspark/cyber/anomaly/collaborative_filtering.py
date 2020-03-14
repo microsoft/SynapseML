@@ -2,10 +2,10 @@ __author__ = 'rolevin'
 
 from typing import List, Optional, Tuple
 
-from mmlspark.cyber.ml.access_anomalies.complement_access import ComplementAccessTransformer
-from mmlspark.cyber.ml.feature_engineering import indexers, scalers
-from mmlspark.cyber.ml.utils import spark_utils
-from mmlspark.cyber.ml.utils.common import timefunc
+from mmlspark.cyber.anomaly.complement_access import ComplementAccessTransformer
+from mmlspark.cyber.feature import *
+from mmlspark.cyber.utils import spark_utils
+from mmlspark.cyber.utils.common import timefunc
 
 import numpy as np
 
@@ -25,6 +25,7 @@ def _make_dot():
     create a method that performs a dot product between two vectors (list of doubles)
     :return: the method
     """
+
     @f.udf(t.DoubleType())
     def dot(v, u):
         if (v is not None) and (u is not None):
@@ -46,6 +47,7 @@ class UserResourceCfDataframeModel:
     (mapping from name to latent vector)
     and the relevant column names
     """
+
     def __init__(self,
                  tenant_col: str,
                  user_col: str,
@@ -54,7 +56,6 @@ class UserResourceCfDataframeModel:
                  res_vec_col: str,
                  user_model_df: DataFrame,
                  res_model_df: DataFrame):
-
         self.tenant_col = tenant_col
         self.user_col = user_col
         self.user_vec_col = user_vec_col
@@ -113,6 +114,7 @@ class AccessAnomalyModel(Transformer):
     """
     A pyspark.ml.Transformer model that can predict anomaly scores for user, resource access pairs
     """
+
     def __init__(self, user_res_cf_df_model: UserResourceCfDataframeModel, output_col: str):
         self.user_res_cf_df_model = user_res_cf_df_model
         self.output_col = output_col
@@ -175,6 +177,7 @@ class CfAlgoParams:
     if to use implicit or explicit feedback versions of the ALS algorithm
     and additional parameters that are relevant for the implicit/explicit versions
     """
+
     def __init__(self, implicit: bool):
         self._implicit = implicit
         self._alpha: Optional[float] = None
@@ -246,7 +249,7 @@ class AccessAnomalyConfig:
     default_rank = 10
     default_max_iter = 25
     default_reg_param = 1.0
-    default_num_blocks = None   # |tenants| if separate_tenants is False else 10
+    default_num_blocks = None  # |tenants| if separate_tenants is False else 10
     default_separate_tenants = False
 
     default_low_value = 5.0
@@ -426,12 +429,12 @@ class AccessAnomaly(Estimator):
 
     @timefunc
     def _get_scaled_df(self, df: DataFrame) -> DataFrame:
-        return scalers.MinMaxScalarScaler(
-            input_col=self.likelihood_col,
-            partition_key=self.tenant_col,
-            output_col=self.scaled_likelihood_col,
-            min_required_value=self.low_value,
-            max_required_value=self.high_value
+        return PartitionedMinMaxScaler(
+            inputCol=self.likelihood_col,
+            partitionKey=self.tenant_col,
+            outputCol=self.scaled_likelihood_col,
+            minValue=self.low_value,
+            maxValue=self.high_value
         ).fit(df).transform(df) if self.low_value is not None and self.high_value is not None else df
 
     @timefunc
@@ -621,6 +624,7 @@ class ModelNormalizeTransformer:
     a new normalized UserResourceCfDataframeModel which has an anomaly score
     with a mean of 0.0 and standard deviation of 1.0 when applied on the given dataframe
     """
+
     def __init__(self, access_df: DataFrame, rank: int):
         self.access_df = access_df
         self.rank = rank
@@ -685,11 +689,13 @@ class ModelNormalizeTransformer:
             dot(f.col(user_vec_col), f.col(res_vec_col)).alias(likelihood_col_token)
         )
 
-        scaler_model = scalers.StandardScalarScaler(
-            likelihood_col_token, tenant_col, user_vec_col
+        scaler_model = PartitionedStandardScaler(
+            inputCol=likelihood_col_token,
+            partitionKey=tenant_col,
+            outputCol=user_vec_col
         ).fit(fixed_df)
 
-        per_group_stats: DataFrame = scaler_model.per_group_stats
+        per_group_stats: DataFrame = scaler_model.getPerGroupStats()
         assert isinstance(per_group_stats, DataFrame)
 
         append2user_bias = self._make_append_bias(user_col, res_col, user_col, user_col, self.rank)

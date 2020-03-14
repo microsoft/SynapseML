@@ -2,7 +2,7 @@ __author__ = 'rolevin'
 
 from typing import List, Optional
 
-from mmlspark.cyber.ml.utils.spark_utils import DataFrameUtils, ExplainBuilder
+from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
 
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import Param, Params
@@ -33,6 +33,7 @@ class ComplementAccessTransformer(Transformer):
     the set of possible access patterns which did not occur in the given dataframe
     (i.e., it returns a sample from the complement set).
     """
+
     def __init__(self,
                  partition_key: Optional[str],
                  indexed_col_names_arr: List[str],

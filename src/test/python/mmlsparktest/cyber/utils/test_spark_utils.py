@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from typing import List, Tuple
@@ -9,40 +8,25 @@ from pyspark.sql.types import StructType, StructField, StringType
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
 
-from mmlspark.cyber.ml.utils.spark_utils import DataFrameUtils, ExplainBuilder
-
-
-spark = SparkSession.builder \
-    .master("local[*]") \
-    .appName("TestSparkUtils") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
-    .config("spark.executor.heartbeatInterval", "60s") \
-    .getOrCreate()
-
-spark_context = SQLContext(spark.sparkContext)
+from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
+from mmlsparktest.spark import *
 
 
 class TestDataFrameUtils(unittest.TestCase):
     def create_sample_dataframe(self):
-        schema = StructType(
-            [
-                StructField("tenant", StringType(), nullable=True),
-                StructField("user", StringType(), nullable=True)
-            ]
-        )
-        dataframe = spark_context.createDataFrame(
+        dataframe = sc.createDataFrame(
             [
                 ("OrgA", "Alice"),
                 ("OrgB", "Joe"),
                 ("OrgA", "Joe"),
                 ("OrgA", "Bob")
             ],
-            schema
+            ["tenant", "user"]
         )
         return dataframe
 
     def create_string_type_dataframe(self, field_names: List[str], data: List[Tuple[str]]) -> DataFrame:
-        return spark_context.createDataFrame(
+        return sc.createDataFrame(
             data,
             StructType([StructField(name, StringType(), nullable=True) for name in field_names])
         )
@@ -54,7 +38,7 @@ class TestDataFrameUtils(unittest.TestCase):
         spark = DataFrameUtils.get_spark_session(df)
 
         assert spark is not None
-        assert spark is spark_context.sparkSession
+        assert spark is sc.sparkSession
 
     def test_zip_with_index_sort_by_column_within_partitions(self):
         dataframe = self.create_sample_dataframe()

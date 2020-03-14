@@ -2,8 +2,8 @@ __author__ = 'rolevin'
 
 from typing import List
 
-from mmlspark.cyber.ml.utils.common import timefunc
-from mmlspark.cyber.ml.utils.spark_utils import DataFrameUtils, ExplainBuilder
+from mmlspark.cyber.utils.common import timefunc
+from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
 
 from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params

@@ -5,7 +5,6 @@ import logging
 import time
 from typing import Dict, List, Sequence
 
-
 __profiling__ = True
 
 __report_map__: Dict[str, Sequence[int]] = {}

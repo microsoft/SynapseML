@@ -5,7 +5,6 @@ from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param
 from pyspark.sql import DataFrame, SparkSession, functions as f, types as t
 from pyspark.sql.window import Window
 
-
 __all__ = ["DataFrameUtils", "ExplainBuilder"]
 
 

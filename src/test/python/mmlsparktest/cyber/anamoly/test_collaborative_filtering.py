@@ -1,33 +1,17 @@
-__author__ = 'rolevin'
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
 
-import os
 import unittest
-
 from typing import Dict, Set, Type, Union
-
-from pyspark.sql import DataFrame, functions as f, types as t, SparkSession, SQLContext
-
-from mmlspark.cyber.ml.feature_engineering import indexers
-from mmlspark.cyber.ml.access_anomalies.collaborative_filtering import \
+from pyspark.sql import DataFrame, functions as f, SparkSession, SQLContext
+from mmlspark.cyber.feature import indexers
+from mmlspark.cyber.anomaly.collaborative_filtering import \
     AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, \
     UserResourceCfDataframeModel, ModelNormalizeTransformer, CfAlgoParams
+from mmlsparktest.cyber.dataset import DataFactory
+from mmlsparktest.spark import *
 
-from ..explain_tester import ExplainTester
-
-from ...dataset import DataFactory
-
-
-spark = SparkSession.builder \
-    .master("local[*]") \
-    .appName("TestAccessAnomalies") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
-    .config("spark.executor.heartbeatInterval", "60s") \
-    .getOrCreate()
-
-spark_context = SQLContext(spark.sparkContext)
-
-
-epsilon = 10**-3
+epsilon = 10 ** -3
 
 
 class BasicStats:
@@ -101,15 +85,15 @@ class Dataset:
             intra_test_pdf = DataFactory().create_clustered_intra_test_data(training_pdf)
             inter_test_pdf = DataFactory().create_clustered_inter_test_data()
 
-            curr_training = spark_context.createDataFrame(training_pdf).withColumn(
+            curr_training = sc.createDataFrame(training_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col, f.lit(tid)
             )
 
-            curr_intra_test = spark_context.createDataFrame(intra_test_pdf).withColumn(
+            curr_intra_test = sc.createDataFrame(intra_test_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col, f.lit(tid)
             )
 
-            curr_inter_test = spark_context.createDataFrame(inter_test_pdf).withColumn(
+            curr_inter_test = sc.createDataFrame(inter_test_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col, f.lit(tid)
             )
 
@@ -144,7 +128,7 @@ class Dataset:
     def create_new_training(ratio: float) -> DataFrame:
         training_pdf = DataFactory().create_clustered_training_data(ratio)
 
-        return spark_context.createDataFrame(training_pdf).withColumn(
+        return sc.createDataFrame(training_pdf).withColumn(
             AccessAnomalyConfig.default_tenant_col, f.lit(0)
         ).cache()
 
@@ -174,38 +158,19 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         res_vec_col = AccessAnomalyConfig.default_res_col + '_vec'
         likelihood_col = AccessAnomalyConfig.default_likelihood_col
 
-        df_schema = t.StructType([
-            t.StructField(tenant_col, t.StringType(), False),
-            t.StructField(user_col, t.StringType(), False),
-            t.StructField(res_col, t.StringType(), False),
-            t.StructField(likelihood_col, t.DoubleType(), False)
-        ])
-
-        user_model_schema = t.StructType([
-            t.StructField(tenant_col, t.StringType(), False),
-            t.StructField(user_col, t.StringType(), False),
-            t.StructField(user_vec_col, t.ArrayType(t.DoubleType()), False)
-        ])
-
-        res_model_schema = t.StructType([
-            t.StructField(tenant_col, t.StringType(), False),
-            t.StructField(res_col, t.StringType(), False),
-            t.StructField(res_vec_col, t.ArrayType(t.DoubleType()), False)
-        ])
-
-        df = spark_context.createDataFrame([
+        df = sc.createDataFrame([
             ['0', 'roy', 'res1', 4.0],
-            ['0', 'roy', 'res2', 8.0]
-        ], df_schema)
+            ['0', 'roy', 'res2', 8.0]],
+            [tenant_col, user_col, res_col, likelihood_col]).cache()
 
-        user_model_df = spark_context.createDataFrame([
-            ['0', 'roy', [1.0, 1.0, 0.0, 1.0]]
-        ], user_model_schema)
+        user_model_df = sc.createDataFrame([
+            ['0', 'roy', [1.0, 1.0, 0.0, 1.0]]],
+            [tenant_col, user_col, user_vec_col]).cache()
 
-        res_model_df = spark_context.createDataFrame([
+        res_model_df = sc.createDataFrame([
             ['0', 'res1', [2.0, 2.0, 1.0, 0.0]],
-            ['0', 'res2', [4.0, 4.0, 1.0, 0.0]]
-        ], res_model_schema)
+            ['0', 'res2', [4.0, 4.0, 1.0, 0.0]]],
+            [tenant_col, res_col, res_vec_col]).cache()
 
         user_res_cf_df_model = UserResourceCfDataframeModel(
             tenant_col, user_col, user_vec_col, res_col, res_vec_col, user_model_df, res_model_df
@@ -243,39 +208,26 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         res_vec_col = AccessAnomalyConfig.default_res_col + '_vec'
         likelihood_col = AccessAnomalyConfig.default_likelihood_col
 
-        user_model_schema = t.StructType([
-            t.StructField(tenant_col, t.StringType(), False),
-            t.StructField(user_col, t.StringType(), False),
-            t.StructField(user_vec_col, t.ArrayType(t.DoubleType()), False)
-        ])
-
-        res_model_schema = t.StructType([
-            t.StructField(tenant_col, t.StringType(), False),
-            t.StructField(res_col, t.StringType(), False),
-            t.StructField(res_vec_col, t.ArrayType(t.DoubleType()), False)
-        ])
-
-        user_model_df = spark_context.createDataFrame([
-            [0,
+        user_model_df = sc.createDataFrame([
+            ['0',
              'roy_{0}'.format(i),
-             [float(i % 10), float((i + 1) % (num_users / 2)), 0.0, 1.0]] for i in range(num_users)
-        ], user_model_schema)
+             [float(i % 10), float((i + 1) % (num_users / 2)), 0.0, 1.0]] for i in range(num_users)],
+            [tenant_col, user_col, user_vec_col]).cache()
 
-        res_model_df = spark_context.createDataFrame([
-            [0,
+        res_model_df = sc.createDataFrame([
+            ['0,'
              'res_{0}'.format(i),
-             [float(i % 10), float((i + 1) % num_resources / 2), 1.0, 0.0]] for i in range(num_resources)
-        ], res_model_schema)
+             [float(i % 10), float((i + 1) % num_resources / 2), 1.0, 0.0]] for i in range(num_resources)],
+            [tenant_col, res_col, res_vec_col]).cache()
 
-        df = user_model_df.select(tenant_col, user_col).distinct().join(
-            res_model_df.select(tenant_col, res_col).distinct(),
-            tenant_col
-        ).withColumn(
-            likelihood_col,
-            f.lit(0.0)
-        )
+        df = (user_model_df
+              .select(tenant_col, user_col)
+              .distinct()
+              .join(res_model_df.select(tenant_col, res_col).distinct(),
+                    tenant_col)
+              .withColumn(likelihood_col, f.lit(0.0)))
 
-        assert df.count() == num_users*num_resources
+        assert df.count() == num_users * num_resources
 
         user_res_cf_df_model = UserResourceCfDataframeModel(
             tenant_col, user_col, user_vec_col, res_col, res_vec_col, user_model_df, res_model_df
@@ -285,19 +237,17 @@ class TestModelNormalizeTransformer(unittest.TestCase):
 
         model_normalizer = ModelNormalizeTransformer(df, 2)
 
-        user_res_norm_cf_df_model = model_normalizer.transform(user_res_cf_df_model)
+        user_res_norm_cf_df_model = model_normalizer.transform(user_res_cf_df_model).cache()
 
         assert user_res_cf_df_model.check()
         assert user_res_norm_cf_df_model.user_model_df.count() == user_model_df.count()
         assert user_res_norm_cf_df_model.res_model_df.count() == res_model_df.count()
 
-        assert user_res_norm_cf_df_model.user_model_df.filter(
-            f.size(f.col(user_vec_col)) == 4
-        ).count() == user_model_df.count()
+        assert (user_res_norm_cf_df_model.user_model_df
+                .filter(f.size(f.col(user_vec_col)) == 4).count() == user_model_df.count())
 
-        assert user_res_norm_cf_df_model.res_model_df.filter(
-            f.size(f.col(res_vec_col)) == 4
-        ).count() == res_model_df.count()
+        assert (user_res_norm_cf_df_model.res_model_df
+                .filter(f.size(f.col(res_vec_col)) == 4).count() == res_model_df.count())
 
         an_model = AccessAnomalyModel(user_res_norm_cf_df_model, likelihood_col)
 
@@ -312,32 +262,6 @@ class TestModelNormalizeTransformer(unittest.TestCase):
             assert stats.max > epsilon, stats
             assert abs(stats.mean) < epsilon, stats
             assert abs(stats.std - 1.0) < epsilon, stats
-
-
-class TestAccessAnomalyExplain(ExplainTester, unittest.TestCase):
-    def test_explain(self):
-        params = [
-            'tenantCol',
-            'userCol',
-            'resCol',
-            'likelihoodCol',
-            'outputCol',
-            'rankParam',
-            'maxIter',
-            'regParam',
-            'numBlocks',
-            'separateTenants',
-            'lowValue',
-            'highValue',
-            'algoCfParams'
-        ]
-
-        types = [str, int, float, None]
-
-        def counts(c: int, tt: Type):
-            return tt not in types or c > 0
-
-        self.check_explain(AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col), params, counts)
 
 
 class TestAccessAnomaly(unittest.TestCase):
@@ -359,7 +283,7 @@ class TestAccessAnomaly(unittest.TestCase):
         assert training.filter(f.col(user_col).isNull()).count() == 0
         assert training.filter(f.col(res_col).isNull()).count() == 0
 
-        the_indexer = indexers.MultiIndexer(
+        indexer = indexers.MultiIndexer(
             indexers=[
                 indexers.IdIndexer(
                     input_col=user_col,
@@ -376,20 +300,20 @@ class TestAccessAnomaly(unittest.TestCase):
             ]
         )
 
-        the_indexer_model = the_indexer.fit(training)
-        indexed_df = the_indexer_model.transform(training)
+        indexer_model = indexer.fit(training)
+        indexed_df = indexer_model.transform(training).cache()
 
         assert indexed_df.filter(f.col(indexed_user_col).isNull()).count() == 0
         assert indexed_df.filter(f.col(indexed_res_col).isNull()).count() == 0
         assert indexed_df.filter(f.col(indexed_user_col) <= 0).count() == 0
         assert indexed_df.filter(f.col(indexed_res_col) <= 0).count() == 0
 
-        unindexed_df = the_indexer_model.undo_transform(indexed_df)
+        unindexed_df = indexer_model.undo_transform(indexed_df).cache()
         assert unindexed_df.filter(f.col(user_col).isNull()).count() == 0
         assert unindexed_df.filter(f.col(res_col).isNull()).count() == 0
 
-        enriched_indexed_df = access_anomaly._enrich_and_normalize(indexed_df).cache()
-        enriched_df = the_indexer_model.undo_transform(enriched_indexed_df)
+        enriched_indexed_df = access_anomaly._enrich_and_normalize(indexed_df)
+        enriched_df = indexer_model.undo_transform(enriched_indexed_df).cache()
         assert enriched_df.filter(f.col(user_col).isNull()).count() == 0
         assert enriched_df.filter(f.col(res_col).isNull()).count() == 0
 
@@ -430,7 +354,7 @@ class TestAccessAnomaly(unittest.TestCase):
             AccessAnomalyConfig.default_tenant_col, AccessAnomalyConfig.default_res_col
         ).distinct().count() == data_set.num_resources
 
-        res_df = model.transform(data_set.training)
+        res_df = model.transform(data_set.training).cache()
         assert res_df is not None
         assert data_set.training.count() == res_df.count()
         assert res_df.filter(f.col(AccessAnomalyConfig.default_output_col).isNull()).count() == 0
@@ -460,13 +384,13 @@ class TestAccessAnomaly(unittest.TestCase):
             f.col(res_col).alias('df2_res'),
         )
 
-        df_joined_same_department = df1.join(
-            df2,
-            (df1.df1_tenant == df2.df2_tenant) & (df1.df1_user != df2.df2_user) & (
-                        get_department(df1.df1_user) == get_department(df2.df2_user)) & (df1.df1_res == df2.df2_res)
-        ).groupBy('df1_tenant', df1.df1_user, df2.df2_user).agg(
-            f.count('*').alias('count')
-        )
+        df_joined_same_department = (
+            df1.join(df2,
+                     (df1.df1_tenant == df2.df2_tenant) & (df1.df1_user != df2.df2_user) &
+                     (get_department(df1.df1_user) == get_department(df2.df2_user)) &
+                     (df1.df1_res == df2.df2_res))
+                .groupBy('df1_tenant', df1.df1_user, df2.df2_user)
+                .agg(f.count('*').alias('count'))).cache()
 
         stats_same_map = create_stats(df_joined_same_department, 'df1_tenant', 'count')
 
@@ -476,13 +400,14 @@ class TestAccessAnomaly(unittest.TestCase):
             assert stats_same.max >= 10
             assert stats_same.mean >= 5
 
-        df_joined_diff_department = df1.join(
-            df2,
-            (df1.df1_tenant == df2.df2_tenant) & (df1.df1_user != df2.df2_user) & (
-                        get_department(df1.df1_user) != get_department(df2.df2_user)) & (df1.df1_res == df2.df2_res)
-        ).groupBy('df1_tenant', df1.df1_user, df2.df2_user).agg(
-            f.count('*').alias('count')
-        )
+        df_joined_diff_department = (
+            df1.join(df2,
+                     (df1.df1_tenant == df2.df2_tenant) &
+                     (df1.df1_user != df2.df2_user) &
+                     (get_department(df1.df1_user) != get_department(df2.df2_user)) &
+                     (df1.df1_res == df2.df2_res))
+                .groupBy('df1_tenant', df1.df1_user, df2.df2_user)
+                .agg(f.count('*').alias('count')))
 
         assert df_joined_diff_department.count() == 0
 
