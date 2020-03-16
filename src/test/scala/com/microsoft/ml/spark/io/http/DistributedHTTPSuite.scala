@@ -74,7 +74,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     }
     res.close()
     println("request suceeded")
-    (out, (t1 - t0) / 1e6)
+    (out, (t1 - t0).toDouble / 1e6)
   }
 
   def using(c: StreamingQuery)(t: => Unit): Unit = {
@@ -131,7 +131,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     val t1 = System.nanoTime()
-    (out, (t1 - t0) / 1e6)
+    (out, (t1 - t0).toDouble / 1e6)
   }
 
   def mean(xs: List[Int]): Double = xs match {
