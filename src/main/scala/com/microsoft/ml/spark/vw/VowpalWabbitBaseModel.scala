@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.vw
 
+import com.microsoft.ml.spark.core.env.StreamUtilities
 import org.apache.spark.SparkContext
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.ml.ComplexParamsWritable
@@ -12,6 +13,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.spark.{VowpalWabbitArguments, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
+
+import scala.io.Source
 
 case class PathAndData(path: String, bytes: Array[Byte])
 
@@ -59,16 +62,20 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   def setModel(v: Array[Byte]): this.type = set(model, v)
   def getModel: Array[Byte] = $(model)
 
-  val readableModel = new Param[String](this, "readableModel", "The readable model")
+  def getReadableModel: String = {
+    val readableModelFile = java.io.File.createTempFile("vowpalwabbit", ".txt")
 
-  def setReadableModel(v: String): this.type = set(readableModel, v)
-  def getReadableModel: String = $(readableModel)
+    try
+    {
+      // start VW, write the model, stop
+      new VowpalWabbitNative(s"--readable_model ${readableModelFile.getAbsolutePath}", getModel).close
 
-  val readableModelWithFeatures = new Param[String](this, "readableModelWithFeatures",
-    "The readable model with features")
-
-  def setReadableModelWithFeatures(v: String): this.type = set(readableModelWithFeatures, v)
-  def getReadableModelWithFeatures: String = $(readableModelWithFeatures)
+      // need to read the model after the VW object is disposed as this triggers the file write
+      Source.fromFile(readableModelFile).mkString
+    }
+    finally
+      readableModelFile.delete
+ }
 
   // Perf stats parameter
   val performanceStatistics = new DataFrameParam(this,
