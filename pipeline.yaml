@@ -246,10 +246,8 @@ jobs:
         PACKAGE: "image"
       io1:
         PACKAGE: "io.split1"
-        FLAKY: "true"
       io2:
         PACKAGE: "io.split2"
-        FLAKY: "true"
       isolationforest:
         PACKAGE: "isolationforest"
       flaky:

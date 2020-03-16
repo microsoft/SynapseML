@@ -69,7 +69,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       .start()
     using(server) {
       Thread.sleep(3000)
-      assertLatency((1 to 100).map(i => sendStringRequest(client, url = url(newPort))), 5)
+      assertLatency((1 to 400).map(i => sendStringRequest(client, url = url(newPort))), 5)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
   }
@@ -83,7 +83,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
-      val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
+      val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
     }
 
@@ -97,7 +97,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
-      val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
+      val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -311,7 +311,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
           println(s"failing on partition $x")
           throw new RuntimeException()
         } else {
-          println(s"passing on partition $x")
+          //println(s"passing on partition $x")
           d
         }
       }, DoubleType)
@@ -342,7 +342,8 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       .map(i => (i, i.toString + "_foo"))
       .toDF("key", "value").cache()
 
-    val df1 = baseDF(1, port = newPort).parseRequest(apiName, new StructType().add("data", IntegerType))
+    val df1 = baseDF(1, port = newPort)
+      .parseRequest(apiName, new StructType().add("data", IntegerType))
 
     df1.printSchema()
 
@@ -390,7 +391,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
         .create().setDefaultRequestConfig(requestConfig2).build()
 
       val futures = (1 to 100).map(i => Future(sendFileRequest(client2, url = url(newPort))))
-      val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, Duration(5, TimeUnit.SECONDS))).toOption)
+      val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, requestDuration)).toOption)
       Thread.sleep(6000)
       assert(server.isActive)
       assert(responsesWithLatencies.length >= 0)
