@@ -244,8 +244,11 @@ jobs:
         PACKAGE: "featurize"
       image:
         PACKAGE: "image"
-      io:
-        PACKAGE: "io"
+      io1:
+        PACKAGE: "io.split1"
+        FLAKY: "true"
+      io2:
+        PACKAGE: "io.split2"
         FLAKY: "true"
       isolationforest:
         PACKAGE: "isolationforest"
