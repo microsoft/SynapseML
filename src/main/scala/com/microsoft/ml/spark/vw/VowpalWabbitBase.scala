@@ -54,7 +54,7 @@ case class TrainingResult(model: Option[Array[Byte]],
   * you'd get all quadratics for features in user/content
   * (the first letter is called feature group and VW users are used to it... before somebody starts complaining ;)
   */
-trait HasAdditionalFeatures extends Wrappable {
+trait HasAdditionalFeatures extends Params {
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
 
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)

@@ -65,7 +65,7 @@ trait Mode extends HasRecommenderCols {
 }
 
 class RankingAdapter(override val uid: String)
-  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode {
+  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode with Wrappable {
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 

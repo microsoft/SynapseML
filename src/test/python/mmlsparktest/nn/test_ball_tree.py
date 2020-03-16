@@ -1,19 +1,11 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 # Prepare training and test data.
 import unittest
 
-from pyspark.sql import SQLContext, SparkSession
-from pyspark import SparkContext, SQLContext
-import os
 from mmlspark.nn.ConditionalBallTree import ConditionalBallTree
-
-import pickle
-
-spark = SparkSession.builder \
-    .master("local[*]") \
-    .appName("TestConditionalBallTree") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
-    .config("spark.executor.heartbeatInterval", "60s") \
-    .getOrCreate()
+from mmlsparktest.spark import *
 
 
 class NNSpec(unittest.TestCase):
