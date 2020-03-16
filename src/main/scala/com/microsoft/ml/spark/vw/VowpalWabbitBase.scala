@@ -130,6 +130,13 @@ trait VowpalWabbitBase extends Wrappable
   def getFeaturesCol: String
   setDefault(featuresCol -> "features")
 
+  val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
+    "Use barrier execution mode, on by default.")
+  setDefault(useBarrierExecutionMode -> true)
+
+  def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
+  def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
+
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
       if (get(param).isEmpty ||
@@ -299,9 +306,11 @@ trait VowpalWabbitBase extends Wrappable
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
-    df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder)
-      // important to trigger here so that the spanning tree is still up
-      .collect()
+    // important to trigger collect() here so that the spanning tree is still up
+    if (getUseBarrierExecutionMode)
+      df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect()
+    else
+      df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect()
   }
 
   /**
@@ -386,9 +395,12 @@ trait VowpalWabbitBase extends Wrappable
       ).map(col): _*)
 
     // Reduce number of partitions to number of executor cores
-    val df = if (dataset.rdd.getNumPartitions > numWorkers)
-        dfSubset.coalesce(numWorkers)
+    val df = if (dataset.rdd.getNumPartitions > numWorkers) {
+      if (getUseBarrierExecutionMode) // see [SPARK-24820][SPARK-24821]
+        dfSubset.repartition(numWorkers)
       else
+        dfSubset.coalesce(numWorkers)
+    } else
         dfSubset
 
     // add exposed parameters to the final command line args
