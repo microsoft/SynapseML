@@ -63,7 +63,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     val post = new HttpPost(url)
     val e = new StringEntity(payload)
     post.setEntity(e)
-    println("request sent")
+    //println("request sent")
     val t0 = System.nanoTime()
     val res = client.execute(post)
     val t1 = System.nanoTime()
@@ -75,7 +75,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
       new BasicResponseHandler().handleResponse(res)
     }
     res.close()
-    println("request suceeded")
+    //println("request suceeded")
     (out, (t1 - t0).toDouble / 1e6)
   }
 
@@ -152,6 +152,8 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
       (a, e) => a + math.pow(e - avg, 2.0)
     } / xs.size)
   }
+
+  lazy val requestDuration = Duration(10, TimeUnit.SECONDS)
 
   lazy implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
@@ -268,7 +270,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 100).map(i => sendFileRequest(client))
+      val responsesWithLatencies = (1 to 10).map(i => sendFileRequest(client))
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
       val meanLatency = mean(latencies)
@@ -290,7 +292,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 100).map(i =>
+      val responsesWithLatencies = (1 to 10).map(i =>
         sendFileRequest(client)
       )
 
@@ -379,7 +381,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       (1 to 20).map(i => sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")))
         .foreach { f =>
-          val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+          val resp = Await.result(f, Duration(10, TimeUnit.SECONDS))
           assert(resp === "27")
         }
     }
