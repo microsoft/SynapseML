@@ -139,6 +139,11 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     case ys => ys.sum / ys.size.toDouble
   }
 
+  def median(xs: List[Int]): Double = xs match {
+    case Nil => 0.0
+    case ys => ys.sorted.apply(ys.length / 2)
+  }
+
   def stddev(xs: List[Int], avg: Double): Double = xs match {
     case Nil => 0.0
     case ys => math.sqrt((0.0 /: ys) {
@@ -151,10 +156,12 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
   def assertLatency(responsesWithLatencies: Seq[(String, Double)], cutoff: Double): Unit = {
     val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
     //responsesWithLatencies.foreach(r => println(r._1))
+    val medianLatency = median(latencies)
     val meanLatency = mean(latencies)
     val stdLatency = stddev(latencies, meanLatency)
+    println(s"Median Latency = $medianLatency")
     println(s"Latency = $meanLatency +/- $stdLatency")
-    assert(meanLatency < cutoff)
+    assert(medianLatency < cutoff)
     ()
   }
 
