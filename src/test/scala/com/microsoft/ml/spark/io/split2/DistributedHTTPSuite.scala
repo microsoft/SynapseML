@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split2
 
 import java.io.File
 import java.util.UUID
@@ -12,6 +12,8 @@ import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
+import com.microsoft.ml.spark.io.http.SharedSingleton
+import com.microsoft.ml.spark.io.split1.WithFreeUrl
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost

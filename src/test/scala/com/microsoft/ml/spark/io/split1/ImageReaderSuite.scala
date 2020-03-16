@@ -1,13 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark
+package com.microsoft.ml.spark.io.split1
 
 import java.io.{File, FileInputStream}
 
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.io.binary.FileReaderUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils

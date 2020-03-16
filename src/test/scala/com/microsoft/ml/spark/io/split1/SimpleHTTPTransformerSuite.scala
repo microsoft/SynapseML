@@ -1,13 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split1
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.http.{HandlingUtils, JSONOutputParser, SimpleHTTPTransformer}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructType}
-import org.apache.spark.sql.functions.{col, from_json, struct, udf}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StringType, StructType}
 
 class SimpleHTTPTransformerSuite
   extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
