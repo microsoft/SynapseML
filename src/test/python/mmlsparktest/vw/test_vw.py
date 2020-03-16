@@ -28,7 +28,7 @@ class VowpalWabbitSpec(unittest.TestCase):
         return featurizer.transform(data)
 
     def save_model(self, estimator):
-        model = estimator.fit(self.get_data)
+        model = estimator.fit(self.get_data())
 
         # write model to file and validate it's there
         with tempfile.TemporaryDirectory() as tmpdirname:
