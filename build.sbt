@@ -22,7 +22,7 @@ libraryDependencies ++= Seq(
   "com.microsoft.cntk" % "cntk" % "2.4",
   "org.openpnp" % "opencv" % "3.2.0-1",
   "com.jcraft" % "jsch" % "0.1.54",
-  "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.8.0",
+  "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.10.0",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.150",
   "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
@@ -202,13 +202,15 @@ testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
   Process(
-    activateCondaEnv ++ Seq("pytest",
+    activateCondaEnv ++ Seq("python",
+      "-m",
+      "pytest",
       "--cov=mmlspark",
-      "--junitxml=target/python-test-results.xml",
+      "--junitxml=../../../../python-test-results.xml",
       "--cov-report=xml",
-      "target/scala-2.11/generated/test/python/mmlspark"
+      "mmlsparktest"
     ),
-    new File("."),
+    new File("target/scala-2.11/generated/test/python/"),
     "MML_VERSION" -> version.value
   ) ! s.log
 }

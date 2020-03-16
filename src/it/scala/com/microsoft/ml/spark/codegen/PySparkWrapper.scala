@@ -47,6 +47,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |if sys.version >= '3':
         |    basestring = str
         |
+        |from pyspark import SparkContext, SQLContext
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
@@ -99,28 +100,29 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
   protected def defineComplexParamsTemplate(pname: String, explanation: String, other: String) =
     s"""        self.$pname = Param(self, \"$pname\", \"$explanation\", $other)"""
 
-  protected def setTemplate(capName: String, pname: String, explanation: String): String = {
-    s"""|    def set$capName(self, value):
+  protected def setTemplate(paramName: String, explanation: String): String = {
+    s"""|    def set${paramName.capitalize}(self, value):
         |        "\""
         |
         |        Args:
         |
-        |$explanation
+        |            $explanation
         |
         |        "\""
-        |        self._set($pname=value)
+        |        self._set(${paramName}=value)
         |        return self
         |
         |""".stripMargin
   }
 
-  protected def setServiceTemplate(capName: String, pname: String, explanation: String): String = {
+  protected def setServiceTemplate(paramName: String, explanation: String): String = {
+    val capName = paramName.capitalize
     s"""|    def set$capName(self, value):
         |        "\""
         |
         |        Args:
         |
-        |$explanation
+        |            $explanation
         |
         |        "\""
         |        self._java_obj = self._java_obj.set$capName(value)
@@ -132,7 +134,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |
         |        Args:
         |
-        |$explanation
+        |            $explanation
         |
         |        "\""
         |        self._java_obj = self._java_obj.set${capName}Col(value)
@@ -143,30 +145,50 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |""".stripMargin
   }
 
-  protected def getTemplate(capName: String, pname: String, docType: String, paramDef: String): String = {
+  protected def getTemplate(paramName: String, docType: String, paramDef: String): String = {
     val res = paramDef.split(":", 2).map(_.trim)
-    s"""|    def get$capName(self):
+    s"""|    def get${paramName.capitalize}(self):
         |        "\""
         |
         |        Returns:
         |
         |            $docType: ${res(1)}
         |        "\""
-        |        return self.getOrDefault(self.$pname)
+        |        return self.getOrDefault(self.$paramName)
         |
         |""".stripMargin
   }
 
-  protected def getComplexTemplate(capName: String, pname: String, docType: String, paramDef: String): String = {
+  protected def getComplexTemplate(paramName: String,
+                                   docType: String,
+                                   paramDef: String): String = {
     val res = paramDef.split(":", 2).map(_.trim)
-    s"""|    def get$capName(self):
+    s"""|    def get${paramName.capitalize}(self):
         |        "\""
         |
         |        Returns:
         |
         |            $docType: ${res(1)}
         |        "\""
-        |        return self._cache.get(\"$pname\", None)
+        |        return self._cache.get(\"$paramName\", None)
+        |
+        |""".stripMargin
+  }
+
+  protected def getComplexDFTemplate(paramName: String,
+                                     docType: String,
+                                     paramDef: String): String = {
+    val res = paramDef.split(":", 2).map(_.trim)
+    s"""|    def get${paramName.capitalize}(self):
+        |        "\""
+        |
+        |        Returns:
+        |
+        |            $docType: ${res(1)}
+        |        "\""
+        |        ctx = SparkContext._active_spark_context
+        |        sql_ctx = SQLContext.getOrCreate(ctx)
+        |        return  DataFrame(self._java_obj.get${paramName.capitalize}, sql_ctx)
         |
         |""".stripMargin
   }
@@ -216,9 +238,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
   protected def isComplexType(paramType: String): Boolean = complexTypes.contains(paramType)
 
-  protected def getParamExplanation(param: Param[_]): String = {
+  protected def getParamExplanation(model: Params, param: Param[_]): String = {
     // the result might have the instance UID: it shouldn't be in the generated code
-    val expl = entryPoint.explainParam(param).replace(entryPoint.uid, "[self.uid]")
+    val expl = model.explainParam(param).replace(model.uid, "[self.uid]")
     // if no defaults, Spark's explainParam() will end with "(undefined)", remove it
     " *\\(undefined\\)$".r.replaceAllIn(expl, "")
   }
@@ -296,6 +318,29 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     (pyParamDefault, autogenSuffix)
   }
 
+  protected def gettersAndSetters(model: Params): Seq[String] = {
+    val getters = model.params.map { param =>
+      val docType = getPythonizedDataType(param.getClass.getSimpleName)
+      if (param.isInstanceOf[DataFrameParam]) {
+        getComplexDFTemplate(param.name, docType, getParamExplanation(model, param))
+      } else if (isComplexType(param.getClass.getSimpleName) || param.isInstanceOf[ServiceParam[_]]) {
+        getComplexTemplate(param.name, docType, getParamExplanation(model, param))
+      } else {
+        getTemplate(param.name, docType, getParamExplanation(model, param))
+      }
+    }
+
+    val setters = model.params.map { param =>
+      if (param.isInstanceOf[ServiceParam[_]]) {
+        setServiceTemplate(param.name, getParamExplanation(model, param))
+      } else {
+        setTemplate(param.name, getParamExplanation(model, param))
+      }
+    }
+
+    getters ++ setters
+  }
+
   protected def getPysparkWrapperBase: String = {
     // Construct relevant strings
     val imports = ListBuffer[String](additionalImports("utils"))
@@ -303,7 +348,6 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     inheritedClasses ++= autoInheritedClasses
     val paramsAndDefaults = ListBuffer[String]()
     val paramDefinitionsAndDefaults = ListBuffer[String]()
-    val paramGettersAndSetters = ListBuffer[String]()
     val paramDocList = ListBuffer[String]()
     val classParamDocList = ListBuffer[String]()
 
@@ -324,45 +368,20 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     for (param <- allParams) {
       val pname = param.name
       val docType = getPythonizedDataType(param.getClass.getSimpleName)
-      if (param.isInstanceOf[ServiceParam[_]]) {
-        paramGettersAndSetters +=
-          setServiceTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3))
-      } else {
-        paramGettersAndSetters +=
-          setTemplate(StringUtils.capitalize(pname), pname,
-            paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3))
-      }
-
+      val explanation = getParamExplanation(entryPoint, param)
       if (isComplexType(param.getClass.getSimpleName)) {
         paramDefinitionsAndDefaults +=
-          defineComplexParamsTemplate(pname, getParamExplanation(param),
+          defineComplexParamsTemplate(pname, explanation,
             s"""generateTypeConverter("$pname", self._cache, complexTypeConverter)""")
-        paramGettersAndSetters +=
-          getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
-        paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
-        classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
       } else if (param.isInstanceOf[ServiceParam[_]]) {
         paramDefinitionsAndDefaults +=
-          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
-        paramGettersAndSetters +=
-          getComplexTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
-        paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
-        classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
+          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"$explanation\")"""
       } else {
         paramDefinitionsAndDefaults +=
-          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"${getParamExplanation(param)}\")"""
-        paramGettersAndSetters +=
-          getTemplate(StringUtils.capitalize(pname), pname, docType, getParamExplanation(param))
-        paramDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 3)
-        classParamDocList +=
-          paramDocTemplate(getParamExplanation(param), docType, ScopeDepth * 2)
+          s"""${ScopeDepth * 2}self.$pname = Param(self, \"$pname\", \"$explanation\")"""
       }
+      paramDocList += paramDocTemplate(explanation, docType, ScopeDepth * 3)
+      classParamDocList += paramDocTemplate(explanation, docType, ScopeDepth * 2)
 
       val (pyParamDefault, autogenSuffix) = getParamDefault(param)
       paramsAndDefaults += pname + "=" + pyParamDefault
@@ -379,7 +398,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
     val inheritanceString = inheritedClasses.mkString(", ")
     val classParamsString = paramsAndDefaults.mkString(", ")
     val paramDefinitionsAndDefaultsString = paramDefinitionsAndDefaults.mkString("\n")
-    val paramGettersAndSettersString = paramGettersAndSetters.mkString("\n")
+    val paramGettersAndSettersString = gettersAndSetters(entryPoint).mkString("\n")
     val classDocString = classDocTemplate(entryPointName)
     val paramDocString = paramDocList.mkString("\n")
     //val classParamDocString = classParamDocList.mkString("\n")
@@ -449,16 +468,29 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
         |    "\""
         |    Model fitted by :class:`${superClass}`.
         |
-        |    This class is left empty on purpose.
-        |    All necessary methods are exposed through inheritance.
         |    "\""
         |""".stripMargin
+  }
+
+  def companionModelGettersAndSetters: String = {
+    val modelClass = Class.forName(companionModelQualifiedName)
+    try {
+      val modelInstance = modelClass.newInstance().asInstanceOf[Params]
+      gettersAndSetters(modelInstance).mkString("\n")
+    } catch {
+      case _: InstantiationException =>
+        println(s"Could not generate getters and setters for " +
+          s"$modelClass" +
+          s" due to no default constructor")
+        ""
+    }
   }
 
   override def pysparkWrapperBuilder(): String = {
     Seq(super.pysparkWrapperBuilder,
       createModelStringTemplate,
       modelClassString(companionModelName, entryPointName),
+      companionModelGettersAndSetters,
       saveLoadTemplate(companionModelQualifiedName, companionModelName),
       "").mkString("\n")
   }
