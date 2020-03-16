@@ -1,11 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.binary
+package com.microsoft.ml.spark.io.split1
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
-import java.nio.file.Files
 
 import com.microsoft.ml.spark.Binary.implicits._
 import com.microsoft.ml.spark.BinaryFileReader

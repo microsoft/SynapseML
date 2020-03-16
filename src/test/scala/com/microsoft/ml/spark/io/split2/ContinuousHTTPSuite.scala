@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split2
 
 import java.io.File
 import java.util.UUID
@@ -64,7 +64,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server){
       Thread.sleep(5000)
-      val responsesWithLatencies = (1 to 10).map(_ =>  sendFileRequest(client))
+      val responsesWithLatencies = (1 to 30).map(_ =>  sendFileRequest(client))
       assertLatency(responsesWithLatencies, 100)
     }
 
