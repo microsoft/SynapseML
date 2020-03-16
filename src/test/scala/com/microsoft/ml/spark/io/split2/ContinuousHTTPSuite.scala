@@ -96,7 +96,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         sendStringRequestAsync(client)
       )
       futures.foreach { f =>
-        val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+        val resp = Await.result(f, requestDuration)
         println(resp)
       }
     }
