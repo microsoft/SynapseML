@@ -3,8 +3,6 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.env.StreamUtilities
-import org.apache.spark.SparkContext
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
