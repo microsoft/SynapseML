@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.util.MLReadable
@@ -98,8 +99,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
   override def reader: MLReadable[_] = EntityDetector
 }
 
-class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey {
-
+trait TextSentimentBaseSuite extends TestBase with TextKey {
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -110,6 +110,48 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextKey 
     (null, null),
     ("en", null)
   ).toDF("lang", "text")
+}
+
+class TextSentimentV3Suite extends TransformerFuzzing[TextSentimentV3] with TextSentimentBaseSuite {
+  lazy val t: TextSentimentV3 = new TextSentimentV3()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setLanguageCol("lang")
+    .setDefaultLanguage("de")
+    .setShowStats(true)
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = t.transform(df).select(
+      col("replies").alias("scoredDocuments")
+    ).collect().toList
+
+    assert(List(4,5).forall(results(_).get(0) == null))
+    assert(
+      results(0).getSeq[Row](0).head.getString(0) == "positive" &&
+      results(2).getSeq[Row](0).head.getString(0) == "negative")
+  }
+
+  test("batch usage"){
+    val t = new TextSentimentV3()
+      .setSubscriptionKey(textKey)
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setLanguage("en")
+      .setOutputCol("score")
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
+    val tdf = t.transform(batchedDF)
+    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
+    assert(replies.length == 6)
+  }
+
+  override def testObjects(): Seq[TestObject[TextSentimentV3]] =
+    Seq(new TestObject[TextSentimentV3](t, df))
+
+  override def reader: MLReadable[_] = TextSentimentV3
+}
+
+class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSentimentBaseSuite {
 
   lazy val t: TextSentiment = new TextSentiment()
     .setSubscriptionKey(textKey)
