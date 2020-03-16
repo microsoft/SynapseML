@@ -18,18 +18,6 @@ class VowpalWabbitRegressor(_VowpalWabbitRegressor):
         """
         self._java_obj.setInitialModel(model._java_obj.getModel())
 
-    def getNativeModel(self):
-        """
-        Get the binary native VW model.
-        """
-        return self._java_obj.getModel()
-
-    def getReadableModel(self):
-        return self._java_obj.getReadableModel()
-
-    def getReadableModelWithFeatures(self):
-        return self._java_obj.getReadableModelWithFeatures()
-
 @inherit_doc
 class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):
     def saveNativeModel(self, filename):
@@ -46,6 +34,3 @@ class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):
 
     def getReadableModel(self):
         return self._java_obj.getReadableModel()
-
-    def getReadableModelWithFeatures(self):
-        return self._java_obj.getReadableModelWithFeatures()

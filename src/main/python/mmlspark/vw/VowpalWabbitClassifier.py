@@ -18,9 +18,6 @@ class VowpalWabbitClassifier(_VowpalWabbitClassifier):
         """
         self._java_obj.setInitialModel(model._java_obj.getModel())
 
-    def getReadableModel(self):
-        return self._java_obj.getReadableModel()
-
 @inherit_doc
 class VowpalWabbitClassificationModel(_VowpalWabbitClassificationModel):
     def saveNativeModel(self, filename):
@@ -28,6 +25,12 @@ class VowpalWabbitClassificationModel(_VowpalWabbitClassificationModel):
         Save the native model to a local or WASB remote location.
         """
         self._java_obj.saveNativeModel(filename)
+
+    def getNativeModel(self):
+        """
+        Get the binary native VW model.
+        """
+        return self._java_obj.getModel()
 
     def getReadableModel(self):
         return self._java_obj.getReadableModel()
