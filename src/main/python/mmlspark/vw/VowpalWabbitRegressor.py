@@ -12,6 +12,12 @@ class VowpalWabbitRegressor(_VowpalWabbitRegressor):
         model._transfer_params_from_java()
         return model
 
+    def setInitialModel(self, model):
+        """
+        Initialize the estimator with a previously trained model.
+        """
+        self._java_obj.setInitialModel(model._java_obj.getModel())
+
 @inherit_doc
 class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):
     def saveNativeModel(self, filename):
@@ -19,3 +25,12 @@ class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):
         Save the native model to a local or WASB remote location.
         """
         self._java_obj.saveNativeModel(filename)
+
+    def getNativeModel(self):
+        """
+        Get the binary native VW model.
+        """
+        return self._java_obj.getModel()
+
+    def getReadableModel(self):
+        return self._java_obj.getReadableModel()
