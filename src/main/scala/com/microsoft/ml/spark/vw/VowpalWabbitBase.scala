@@ -205,7 +205,7 @@ trait VowpalWabbitBase extends Wrappable
 
     log.info(s"VowpalWabbit args: ${args}")
 
-    args.result
+    args
   }
 
   /**
@@ -231,8 +231,8 @@ trait VowpalWabbitBase extends Wrappable
       val learnTime = new StopWatch
       val multipassTime = new StopWatch
 
-      StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-        else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
+      val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
+        else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
         StreamUtilities.using(vw.createExample()) { ex =>
             // pass data to VW native part
             totalTime.measure {
@@ -270,27 +270,28 @@ trait VowpalWabbitBase extends Wrappable
           val perfStats = vw.getPerformanceStatistics
           val args = vw.getArguments
 
-          Seq(TrainingResult(
-            if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
-            TrainingStats(
-              TaskContext.get.partitionId,
-              args.getArgs,
-              args.getLearningRate,
-              args.getPowerT,
-              args.getHashSeed,
-              args.getNumBits,
-              perfStats.getNumberOfExamplesPerPass,
-              perfStats.getWeightedExampleSum,
-              perfStats.getWeightedLabelSum,
-              perfStats.getAverageLoss,
-              perfStats.getBestConstant,
-              perfStats.getBestConstantLoss,
-              perfStats.getTotalNumberOfFeatures,
-              totalTime.elapsed,
-              nativeIngestTime.elapsed,
-              learnTime.elapsed,
-              multipassTime.elapsed))).iterator
-        }.get // this will throw if there was an exception
+          (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+           TrainingStats(
+             TaskContext.get.partitionId,
+             args.getArgs,
+             args.getLearningRate,
+             args.getPowerT,
+             args.getHashSeed,
+             args.getNumBits,
+             perfStats.getNumberOfExamplesPerPass,
+             perfStats.getWeightedExampleSum,
+             perfStats.getWeightedLabelSum,
+             perfStats.getAverageLoss,
+             perfStats.getBestConstant,
+             perfStats.getBestConstantLoss,
+             perfStats.getTotalNumberOfFeatures,
+             totalTime.elapsed,
+             nativeIngestTime.elapsed,
+             learnTime.elapsed,
+             multipassTime.elapsed))
+      }.get // this will throw if there was an exception
+
+      Seq(TrainingResult(model, stats)).iterator
     }
 
     val encoder = Encoders.kryo[TrainingResult]
