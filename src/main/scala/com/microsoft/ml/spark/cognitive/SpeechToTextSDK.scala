@@ -145,7 +145,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   }
 
   private[ml] def getAudioFormat(fileType: String, default: Option[String]): AudioStreamFormat = {
-    fileType match {
+    fileType.toLowerCase match {
       case "wav" =>
         AudioStreamFormat.getDefaultInputFormat
       case "mp3" =>
