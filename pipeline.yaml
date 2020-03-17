@@ -41,7 +41,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
-- job: PublishAndE2E
+- job: Publish
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
@@ -71,12 +71,39 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-
     - bash: sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
         STORAGE_KEY: $(storage-key)
+
+- job: E2E
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Connection'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
