@@ -1,25 +1,23 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split2
 
 import java.io.File
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
-import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
+import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.spark.sql.execution.streaming.ServingUDFs
-import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.Duration
 import scala.util.Try
 
 class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
@@ -51,6 +49,8 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
   }
 
+  def waitForBuild(): Unit =Thread.sleep(3000)
+
   def basePipeline(numPartitions: Int = 4,
                    name: String = "foo",
                    apiName: String = apiName,
@@ -63,18 +63,20 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("continuous") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = newPort)
       .trigger(Trigger.Continuous("10 seconds")) // only change in query
       .start()
     using(server) {
       Thread.sleep(3000)
-      assertLatency((1 to 100).map(i => sendStringRequest(client, url = url(newPort))), 5)
+      assertLatency((1 to 400).map(i => sendStringRequest(client, url = url(newPort))), 10)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
   }
 
   test("async continuous") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = newPort)
       .trigger(Trigger.Continuous("1 seconds")) // only change in query
@@ -83,13 +85,14 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
-      val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
+      val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
     }
 
   }
 
   test("async microbatch") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = newPort)
       .start()
@@ -97,7 +100,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       Thread.sleep(3000)
       val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
-      val responsesWithLatencies = futures.map(Await.result(_, Duration(5, TimeUnit.SECONDS)))
+      val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
@@ -105,6 +108,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("double pipeline") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = newPort)
       .start()
@@ -128,6 +132,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("microbatch") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = newPort)
       .start()
@@ -137,17 +142,18 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client, url = url(newPort)))
       Thread.sleep(1000)
       (1 to 100).foreach(_ => sendStringRequest(client, url = url(newPort)))
-      assertLatency(responsesWithLatencies, 10)
+      assertLatency(responsesWithLatencies, 20)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
   }
 
   test("errors if 2 services are made at the same time with the same name") {
+    waitForBuild()
     val newPort = getFreePort
     val server1 = basePipeline(2, apiName = "n1", port = newPort)
       .start()
-
+    waitForBuild()
     assertThrows[AssertionError] {
       val server2 = basePipeline(2, "bar", apiName = "n1", port = newPort)
         .start()
@@ -160,12 +166,13 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("two services can run independently") {
+    waitForBuild()
     val port1 = getFreePort
-    val port2 = getFreePort
-
     val server1 = basePipeline(numPartitions = 1, name = "q1",
       apiPath = "foo", apiName = "n1", port = port1).start()
     using(server1) {
+      waitForBuild()
+      val port2 = getFreePort
       val server2 = basePipeline(numPartitions = 1, name = "q2",
         apiPath = "bar", apiName = "n2", port = port2).start()
       waitForServer(server1)
@@ -173,8 +180,8 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
         waitForServer(server2)
         val l1 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port1/foo"))
         val l2 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port2/bar"))
-        assertLatency(l1, 10)
-        assertLatency(l2, 10)
+        assertLatency(l1, 20)
+        assertLatency(l2, 20)
 
         println(HTTPSourceStateHolder.serviceInfoJson("n1"))
         println(HTTPSourceStateHolder.serviceInfoJson("n2"))
@@ -183,6 +190,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("forwarding ports to vm error check") {
+    waitForBuild()
     val newPort = getFreePort
     try {
       val server = baseWrite(session
@@ -209,6 +217,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("can reply to bad requests immediately partial") {
+    waitForBuild()
     val newPort = getFreePort
     val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "partial")
@@ -236,6 +245,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("can reply to bad requests immediately") {
+    waitForBuild()
     val newPort = getFreePort
     val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType), parsingCheck = "full")
@@ -264,6 +274,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("can reply from the middle of the pipeline") {
+    waitForBuild()
     val newPort = getFreePort
     val server = baseWrite(baseDF(port = newPort)
       .parseRequest(apiName, new StructType().add("value", IntegerType))
@@ -303,6 +314,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
   test("fault tolerance") {
     tryWithRetries(Array(0, 100, 100)) { () =>
+      waitForBuild()
       val newPort = getFreePort
       val r = scala.util.Random
       val flakyUDF = udf({ x: Int =>
@@ -311,7 +323,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
           println(s"failing on partition $x")
           throw new RuntimeException()
         } else {
-          println(s"passing on partition $x")
+          //println(s"passing on partition $x")
           d
         }
       }, DoubleType)
@@ -334,6 +346,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("joins") {
+    waitForBuild()
     val newPort = getFreePort
     //TODO figure out how to get spark streaming to shuffle for real
     import session.implicits._
@@ -342,7 +355,8 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       .map(i => (i, i.toString + "_foo"))
       .toDF("key", "value").cache()
 
-    val df1 = baseDF(1, port = newPort).parseRequest(apiName, new StructType().add("data", IntegerType))
+    val df1 = baseDF(1, port = newPort)
+      .parseRequest(apiName, new StructType().add("data", IntegerType))
 
     df1.printSchema()
 
@@ -364,13 +378,14 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       val meanLatency = mean(latencies)
       val stdLatency = stddev(latencies, meanLatency)
       println(s"Latency = $meanLatency +/- $stdLatency")
-      assert(meanLatency < 20)
+      assert(meanLatency < 30)
 
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
   }
 
   test("flaky connection") {
+    waitForBuild()
     val newPort = getFreePort
     val server = basePipeline(port = getFreePort)
       .trigger(Trigger.Continuous("1 second")) // only change in query
@@ -390,7 +405,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
         .create().setDefaultRequestConfig(requestConfig2).build()
 
       val futures = (1 to 100).map(i => Future(sendFileRequest(client2, url = url(newPort))))
-      val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, Duration(5, TimeUnit.SECONDS))).toOption)
+      val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, requestDuration)).toOption)
       Thread.sleep(6000)
       assert(server.isActive)
       assert(responsesWithLatencies.length >= 0)

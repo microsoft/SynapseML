@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.{BufferedInputStream, ByteArrayInputStream, InputStream}
 import java.net.{URI, URL}
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -224,7 +224,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
             conn.setConnectTimeout(5000)
             conn.setReadTimeout(5000)
             conn.connect()
-            conn.getInputStream
+            new BufferedInputStream(conn.getInputStream)
           }else {
             val path = new Path(uri)
             val fs = path.getFileSystem(bconf.value.value2)

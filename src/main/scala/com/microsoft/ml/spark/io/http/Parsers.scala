@@ -242,7 +242,9 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
   def setUDF[T: TypeTag](f: HTTPResponseData => T): this.type = {
     val fromRow = HTTPResponseData.makeFromRowConverter
-    setUDF(udf({ x: Row => f(fromRow(x)) }))
+    setUDF(udf({ x: Option[Row] =>
+      x.map(r =>
+        f(fromRow(r))) }))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {

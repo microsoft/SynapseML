@@ -172,9 +172,11 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("URL based access") {
-    val uriDf = Seq(Tuple1("https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"))
-      .toDF("audio")
-    dfTest("detailed", uriDf, text2)
+    tryWithRetries(Array(100, 500)){() => //For handling flaky build machines
+      val uriDf = Seq(Tuple1("https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"))
+        .toDF("audio")
+      dfTest("detailed", uriDf, text2)
+    }
   }
 
   test("Detailed SDK with mp3 (Linux only)") {

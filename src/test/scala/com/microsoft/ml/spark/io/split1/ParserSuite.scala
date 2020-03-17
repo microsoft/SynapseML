@@ -1,9 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split1
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.http._
 import org.apache.http.client.methods.HttpPost
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
