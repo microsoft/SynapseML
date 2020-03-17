@@ -166,13 +166,26 @@ trait VowpalWabbitBase extends Wrappable
   protected def createLabelSetter(schema: StructType) = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
 
+    // support numeric types as input
+    def getAsFloat(idx: Int) =
+      schema.fields(idx).dataType match {
+        case _: DoubleType => {
+          log.warn(s"Casting column '${schema.fields(idx).name}' to float. Loss of precision.")
+          (row: Row) => row.getDouble(idx).toFloat
+        }
+        case _: FloatType => (row: Row) => row.getFloat(idx)
+        case _: IntegerType => (row: Row) => row.getInt(idx).toFloat
+        case _: LongType => (row: Row) => row.getLong(idx).toFloat
+      }
+
+    val labelGetter = getAsFloat(labelColIdx)
     if (get(weightCol).isDefined) {
-      val weightColIdx = schema.fieldIndex(getWeightCol)
+      val weightGetter = getAsFloat(schema.fieldIndex(getWeightCol))
       (row: Row, ex: VowpalWabbitExample) =>
-        ex.setLabel(row.getDouble(weightColIdx).toFloat, row.getDouble(labelColIdx).toFloat)
+        ex.setLabel(weightGetter(row), labelGetter(row))
     }
     else
-      (row: Row, ex: VowpalWabbitExample) => ex.setLabel(row.getDouble(labelColIdx).toFloat)
+      (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
   }
 
   /**
