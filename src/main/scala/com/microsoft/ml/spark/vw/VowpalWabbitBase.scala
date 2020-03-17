@@ -394,7 +394,7 @@ trait VowpalWabbitBase extends Wrappable
 
     // add exposed parameters to the final command line args
     val vwArgs = new StringBuilder()
-      .append(s"${getArgs} --save_resume --preserve_performance_counters ")
+      .append(getArgs)
       .appendParamIfNotThere("hash_seed", "hash_seed", hashSeed)
       .appendParamIfNotThere("b", "bit_precision", numBits)
       .appendParamIfNotThere("l", "learning_rate", learningRate)

@@ -131,4 +131,21 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
 
     assert (metric < 11)
   }
+
+  test("Verify SGD followed-by BFGS") {
+    val dataset = session.read.format("libsvm")
+      .load(DatasetUtils.regressionTrainFile("triazines.scale.reg.train.svmlight").toString)
+      .coalesce(1)
+
+    val model1 = new VowpalWabbitRegressor()
+      .setNumPasses(20)
+      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
+      .fit(dataset)
+
+    val model2 = new VowpalWabbitRegressor()
+      .setNumPasses(20)
+      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs")
+      .setInitialModel(model1.getModel)
+      .fit(dataset)
+  }
 }
