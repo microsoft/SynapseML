@@ -144,7 +144,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
   }
 
-  private[ml] def getAudioFormat(fileType: String) = {
+  private[ml] def getAudioFormat(fileType: String, default: Option[String]): AudioStreamFormat = {
     fileType match {
       case "wav" =>
         AudioStreamFormat.getDefaultInputFormat
@@ -152,8 +152,12 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
         AudioStreamFormat.getCompressedFormat(AudioStreamContainerFormat.MP3)
       case "ogg" =>
         AudioStreamFormat.getCompressedFormat(AudioStreamContainerFormat.OGG_OPUS)
+      case _ if default.isDefined =>
+        log.warn(s"Could not identify codec $fileType using default ${default.get} instead")
+        getAudioFormat(default.get, None)
+      case _ =>
+        throw new IllegalArgumentException(s"Could not identify codec $fileType")
     }
-
   }
 
   /** @return text transcription of the audio */
@@ -163,7 +167,8 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
                         speechKey: String,
                         profanity: String,
                         language: String,
-                        format: String
+                        format: String,
+                        defaultAudioFormat: Option[String]
                        ): Iterator[SpeechResponse] = {
     val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
     assert(speechConfig != null)
@@ -171,7 +176,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     speechConfig.setSpeechRecognitionLanguage(language)
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
 
-    val af = getAudioFormat(audioFormat)
+    val af = getAudioFormat(audioFormat, defaultAudioFormat)
     val pullStream = if (audioFormat == "wav") {
       AudioInputStream.createPullStream(new WavStream(stream), af)
     } else {
@@ -219,18 +224,19 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
         val (stream, audioFileFormat) = if (isUriAudio) {
           val uri = row.getAs[String](getAudioDataCol)
-          val stream =  if (uri.startsWith("http")){
+          val stream = if (uri.startsWith("http")) {
             val conn = new URL(uri).openConnection
             conn.setConnectTimeout(5000)
             conn.setReadTimeout(5000)
             conn.connect()
             new BufferedInputStream(conn.getInputStream)
-          }else {
+          } else {
             val path = new Path(uri)
             val fs = path.getFileSystem(bconf.value.value2)
             fs.open(path)
           }
-          (stream, FilenameUtils.getExtension(uri))
+
+          (stream, FilenameUtils.getExtension(new URI(uri).getPath))
         } else {
           val bytes = row.getAs[Array[Byte]](getAudioDataCol)
           (new ByteArrayInputStream(bytes), getValueOpt(dynamicParamRow, fileType).getOrElse("wav"))
@@ -242,7 +248,8 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
           getValue(dynamicParamRow, subscriptionKey),
           getValue(dynamicParamRow, profanity),
           getValue(dynamicParamRow, language),
-          getValue(dynamicParamRow, format))
+          getValue(dynamicParamRow, format),
+          getValueOpt(dynamicParamRow, fileType))
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))
         } else {
