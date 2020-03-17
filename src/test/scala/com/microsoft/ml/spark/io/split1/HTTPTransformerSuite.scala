@@ -1,15 +1,16 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split1
 
-import java.net.{InetAddress, InetSocketAddress, ServerSocket}
+import java.net.{InetSocketAddress, ServerSocket}
 import java.util.concurrent.Executors
 
 import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.http.HTTPTransformer
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset}

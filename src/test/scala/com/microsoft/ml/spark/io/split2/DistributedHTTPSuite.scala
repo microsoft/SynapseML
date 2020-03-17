@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.io.split2
 
 import java.io.File
 import java.util.UUID
@@ -12,6 +12,8 @@ import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.http.HTTPSchema.string_to_response
+import com.microsoft.ml.spark.io.http.SharedSingleton
+import com.microsoft.ml.spark.io.split1.WithFreeUrl
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
@@ -61,7 +63,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     val post = new HttpPost(url)
     val e = new StringEntity(payload)
     post.setEntity(e)
-    println("request sent")
+    //println("request sent")
     val t0 = System.nanoTime()
     val res = client.execute(post)
     val t1 = System.nanoTime()
@@ -73,8 +75,8 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
       new BasicResponseHandler().handleResponse(res)
     }
     res.close()
-    println("request suceeded")
-    (out, (t1 - t0) / 1e6)
+    //println("request suceeded")
+    (out, (t1 - t0).toDouble / 1e6)
   }
 
   def using(c: StreamingQuery)(t: => Unit): Unit = {
@@ -131,12 +133,17 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     val t1 = System.nanoTime()
-    (out, (t1 - t0) / 1e6)
+    (out, (t1 - t0).toDouble / 1e6)
   }
 
   def mean(xs: List[Int]): Double = xs match {
     case Nil => 0.0
     case ys => ys.sum / ys.size.toDouble
+  }
+
+  def median(xs: List[Int]): Double = xs match {
+    case Nil => 0.0
+    case ys => ys.sorted.apply(ys.length / 2)
   }
 
   def stddev(xs: List[Int], avg: Double): Double = xs match {
@@ -146,15 +153,19 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     } / xs.size)
   }
 
+  lazy val requestDuration = Duration(10, TimeUnit.SECONDS)
+
   lazy implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
   def assertLatency(responsesWithLatencies: Seq[(String, Double)], cutoff: Double): Unit = {
     val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
     //responsesWithLatencies.foreach(r => println(r._1))
+    val medianLatency = median(latencies)
     val meanLatency = mean(latencies)
     val stdLatency = stddev(latencies, meanLatency)
+    println(s"Median Latency = $medianLatency")
     println(s"Latency = $meanLatency +/- $stdLatency")
-    assert(meanLatency < cutoff)
+    assert(medianLatency < cutoff)
     ()
   }
 
@@ -259,7 +270,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 100).map(i => sendFileRequest(client))
+      val responsesWithLatencies = (1 to 10).map(i => sendFileRequest(client))
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
       val meanLatency = mean(latencies)
@@ -281,7 +292,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 100).map(i =>
+      val responsesWithLatencies = (1 to 10).map(i =>
         sendFileRequest(client)
       )
 
@@ -370,7 +381,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       (1 to 20).map(i => sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")))
         .foreach { f =>
-          val resp = Await.result(f, Duration(5, TimeUnit.SECONDS))
+          val resp = Await.result(f, Duration(10, TimeUnit.SECONDS))
           assert(resp === "27")
         }
     }
