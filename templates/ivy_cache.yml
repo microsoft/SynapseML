@@ -1,0 +1,9 @@
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'ivy | "$(Agent.OS)" | **/build.sbt'
+      restoreKeys: |
+        ivy | "$(Agent.OS)"
+        ivy
+      path: $(Pipeline.Workspace)/../../.ivy2/cache
+    displayName: Cache local ivy repo

@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.lime
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.NetworkUtils
-import com.microsoft.ml.spark.io.binary.FileReaderUtils
+import com.microsoft.ml.spark.io.split1.FileReaderUtils
 import org.apache.spark.ml.util.MLReadable
 
 class SuperpixelTransformerSuite extends TransformerFuzzing[SuperpixelTransformer]
