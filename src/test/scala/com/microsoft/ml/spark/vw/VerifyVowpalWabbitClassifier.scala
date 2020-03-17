@@ -38,6 +38,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     // save model
     val saveDir = new File(tmpDir.toFile, "vw-model")
+
     model.saveNativeModel(saveDir.toString)
 
     assert(saveDir.exists)
@@ -147,6 +148,9 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     assert(labelOneCnt < dataset.count)
     assert(labelOneCnt > 10)
+
+    val readableModel = classifier.getReadableModel
+    assert(readableModel.length > 10)
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (short)") {
@@ -159,8 +163,10 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
       .setNumBits(22)
       .setLabelConversion(false)
 
+    val classifier = vw.fit(dataset)
+
     // command line args take precedence
-    assert(vw.fit(dataset).vwArgs.getNumBits == 15)
+    assert(classifier.vwArgs.getNumBits == 15)
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (long)") {
