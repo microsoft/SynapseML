@@ -12,7 +12,7 @@ import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.env.StreamUtilities._
-import com.microsoft.ml.spark.io.http.HasHttpClient
+import com.microsoft.ml.spark.io.split2.HasHttpClient
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity

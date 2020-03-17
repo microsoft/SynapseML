@@ -33,20 +33,23 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   steps:
-  - task: AzureCLI@1
-    displayName: 'Style Check'
-    inputs:
-      azureSubscription: 'MMLSpark Connection'
-      scriptLocation: inlineScript
-      inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
+    - template: templates/ivy_cache.yml
+    - task: AzureCLI@1
+      displayName: 'Style Check'
+      inputs:
+        azureSubscription: 'MMLSpark Connection'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
 - job: PublishAndE2E
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
   steps:
+    - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
+    - bash: conda info
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
@@ -93,6 +96,7 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   steps:
+    - template: templates/ivy_cache.yml
     - bash: |
         VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
         echo '##vso[task.setvariable variable=version]'$VERSION
@@ -186,6 +190,7 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   steps:
+    - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
@@ -244,8 +249,11 @@ jobs:
         PACKAGE: "featurize"
       image:
         PACKAGE: "image"
-      io:
-        PACKAGE: "io"
+      io1:
+        PACKAGE: "io.split1"
+        FLAKY: "true"
+      io2:
+        PACKAGE: "io.split2"
         FLAKY: "true"
       isolationforest:
         PACKAGE: "isolationforest"
@@ -273,6 +281,7 @@ jobs:
       vw:
         PACKAGE: "vw"
   steps:
+    - template: templates/ivy_cache_2.yml
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:

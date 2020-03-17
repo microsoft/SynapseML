@@ -14,8 +14,8 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
 import com.microsoft.ml.spark.io.IOImplicits._
-import com.microsoft.ml.spark.io.binary.FileReaderUtils
 import com.microsoft.ml.spark.io.powerbi.PowerBIWriter
+import com.microsoft.ml.spark.io.split1.FileReaderUtils
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
