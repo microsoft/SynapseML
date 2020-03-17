@@ -135,6 +135,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
+      .setArgs("--passes 3")
       .setPowerT(0.3)
       .setNumPasses(3)
       .setUseBarrierExecutionMode(useBarrierMode)
