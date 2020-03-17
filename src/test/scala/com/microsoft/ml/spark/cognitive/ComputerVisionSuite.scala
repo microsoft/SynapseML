@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.core.test.base.Flaky
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
@@ -16,7 +17,7 @@ trait VisionKey {
   lazy val visionKey = sys.env.getOrElse("VISION_API_KEY", Secrets.VisionApiKey)
 }
 
-class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
+class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
 
   import session.implicits._
 
@@ -79,7 +80,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey {
   override def reader: MLReadable[_] = OCR
 }
 
-class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey {
+class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey with Flaky {
 
   import session.implicits._
 
@@ -188,7 +189,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
 
 }
 
-class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKey {
+class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKey with Flaky {
 
   import com.microsoft.ml.spark.FluentAPI._
   import session.implicits._
@@ -244,7 +245,8 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
   override def reader: MLReadable[_] = RecognizeText
 }
 
-class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent] with VisionKey {
+class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
+  with VisionKey with Flaky {
 
   import session.implicits._
 
@@ -299,7 +301,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   override def reader: MLReadable[_] = RecognizeDomainSpecificContent
 }
 
-class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails] with VisionKey {
+class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
+  with VisionKey with Flaky {
 
   import session.implicits._
 
@@ -342,7 +345,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails] wit
   override def reader: MLReadable[_] = GenerateThumbnails
 }
 
-class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey {
+class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey with Flaky {
 
   import session.implicits._
 
@@ -397,7 +400,8 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey {
   override def reader: MLReadable[_] = TagImage
 }
 
-class DescribeImageSuite extends TransformerFuzzing[DescribeImage] with VisionKey {
+class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
+  with VisionKey with Flaky {
 
   import session.implicits._
 
