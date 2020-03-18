@@ -13,6 +13,7 @@ from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame, functions as f, types as t
+from pyspark.ml import Pipeline
 
 """
 Glossary:
@@ -561,27 +562,26 @@ class AccessAnomaly(Estimator):
     @timefunc
     def _fit(self, df: DataFrame) -> AccessAnomalyModel:
         # index the user and resource columns to allow running the spark ALS algorithm
-        the_indexer = indexers.MultiIndexer(
-            indexers=[
-                indexers.IdIndexer(
-                    input_col=self.user_col,
-                    partition_key=self.tenant_col,
-                    output_col=self.indexed_user_col,
-                    reset_per_partition=self.separate_tenants
-                ),
-                indexers.IdIndexer(
-                    input_col=self.res_col,
-                    partition_key=self.tenant_col,
-                    output_col=self.indexed_res_col,
-                    reset_per_partition=self.separate_tenants
-                )
-            ]
+        indexer = Pipeline(stages=[
+            PartitionedStringIndexer(
+                inputCol=self.user_col,
+                partitionKey=self.tenant_col,
+                outputCol=self.indexed_user_col,
+                overlappingIndicies=not self.separate_tenants
+            ),
+            PartitionedStringIndexer(
+                inputCol=self.res_col,
+                partitionKey=self.tenant_col,
+                outputCol=self.indexed_res_col,
+                overlappingIndicies=not self.separate_tenants
+            )
+        ]
         )
 
-        the_indexer_model = the_indexer.fit(df)
+        indexer_model = indexer.fit(df)
 
         # indexed_df is the dataframe with the indices for user and resource
-        indexed_df = the_indexer_model.transform(df)
+        indexed_df = indexer_model.transform(df)
         enriched_df = self._enrich_and_normalize(indexed_df).cache()
 
         user_res_cf_df_model = self.create_spark_model_vectors_df(enriched_df)
@@ -590,8 +590,8 @@ class AccessAnomaly(Estimator):
         ).transform(user_res_cf_df_model)
 
         # convert user and resource indices back to names
-        user_index_model = the_indexer_model.get_model_by_input_col(self.user_col)
-        res_index_model = the_indexer_model.get_model_by_input_col(self.res_col)
+        user_index_model = indexer_model.stages[0]
+        res_index_model = indexer_model.stages[1]
         assert user_index_model is not None and res_index_model is not None
 
         norm_user_model_df = user_res_norm_cf_df_model.user_model_df
@@ -708,10 +708,10 @@ class ModelNormalizeTransformer:
             user_col,
             append2user_bias(
                 f.col(user_vec_col),
-                f.lit(-1.0) * f.col(scalers.StandardScalarScalerConfig.mean_token),
+                f.lit(-1.0) * f.col("stats.mean"),
                 f.lit(-1.0) / f.when(
-                    f.col(scalers.StandardScalarScalerConfig.std_token) != 0.0,
-                    f.col(scalers.StandardScalarScalerConfig.std_token)
+                    f.col("stats.std") != 0.0,
+                    f.col("stats.std")
                 ).otherwise(f.lit(1.0))
             ).alias(user_vec_col)
         )
