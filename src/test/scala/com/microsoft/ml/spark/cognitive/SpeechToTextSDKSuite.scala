@@ -79,7 +79,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
       "wav",
-      uri, speechKey, profanity, language, format)
+      uri, speechKey, profanity, language, format, None)
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -172,10 +172,22 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("URL based access") {
-    tryWithRetries(Array(100, 500)){() => //For handling flaky build machines
+    tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1("https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"))
         .toDF("audio")
       dfTest("detailed", uriDf, text2)
+    }
+  }
+
+  test("SAS URL based access") {
+    val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
+      "?st=2020-03-17T16%3A17%3A41Z&se=2026-03-18T16%3A17%3A00Z&sp=rl" +
+      "&sv=2018-03-28&sr=b&sig=RbTzSQkKrIs3q9qmWFSNhwVpFED9COR4uqEIJyG2u7o%3D"
+
+    tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
+      val uriDf = Seq(Tuple1(sasURL))
+        .toDF("audio")
+      dfTest("detailed", uriDf, text2, sdk = sdk)
     }
   }
 
