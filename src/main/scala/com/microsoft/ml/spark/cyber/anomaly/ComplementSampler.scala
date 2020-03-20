@@ -82,7 +82,7 @@ class ComplementSampler(override val uid: String)
           getInputCols.zipWithIndex.map { case (name, i) => col("samples").getItem(i).alias(name) }: _*
       )
 
-    sampleDF
+    val resultDF = sampleDF
       .join(
         dfWithPartition,
         Seq(partitionKeyOrDefault) ++ getInputCols,
@@ -90,6 +90,7 @@ class ComplementSampler(override val uid: String)
       ).select(Seq(col(partitionKeyOrDefault)) ++
       getInputCols.map(ic => col(ic).cast(df.schema(ic).dataType).alias(ic)): _*)
 
+    get(partitionKey).map(_ => resultDF).getOrElse(resultDF.drop(partitionKeyOrDefault))
   }
 
   override def copy(extra: ParamMap): ComplementSampler = defaultCopy(extra)

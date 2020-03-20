@@ -59,12 +59,14 @@ class TestComplementSampler(unittest.TestCase):
 
         complement_df = ComplementSampler(inputCols=['user', 'res'], samplingFactor=3.0).transform(df).cache()
         assert complement_df.count() > 0
-        assert complement_df.schema == df.schema
+        assert complement_df.schema == df.drop("tenant").schema
 
         #assert complement_df.select('user', 'res').distinct().count() == complement_df.count()
         assert complement_df.join(df, ['user', 'res']).count() == 0
-        assert self.max_value(complement_df, "t1", "user") <= 5
-        assert self.max_value(complement_df, "t1", "res") <= 5
+        assert (df.agg(f.max("user").alias("user"))
+            .first()["user"]) <= 5
+        assert (df.agg(f.max("res").alias("res"))
+            .first()["res"]) <= 5
 
 
 if __name__ == "__main__":
