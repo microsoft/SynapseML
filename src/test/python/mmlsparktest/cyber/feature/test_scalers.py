@@ -87,7 +87,6 @@ class TestScalers(unittest.TestCase):
             inputCol='score', partitionKey='tenant', outputCol='new_score', std=1.0)
 
         new_df =  ls.fit(self.df).transform(self.df).cache()
-        new_df.printSchema()
 
         assert new_df.count() == self.df.count()
 

@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.functions.col
 
 trait IndexerTestUtils extends TestBase {
@@ -34,7 +34,7 @@ class PartitionedStringIndexerSuite extends EstimatorFuzzing[PartitionedStringIn
 
   test("basic usage") {
     val results = psi.fit(df).transform(df)
-    assert(results.schema === df.schema.add("uid", IntegerType))
+    assert(results.schema === df.schema.add("uid", LongType))
     assert(results.where(col("uid") =!= col("expected_uid")).count() === 0)
   }
 

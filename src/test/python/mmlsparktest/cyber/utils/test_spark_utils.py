@@ -1,66 +1,9 @@
 import unittest
 
-from typing import List, Tuple
-
-from pyspark.sql import DataFrame, SparkSession, SQLContext
-from pyspark.sql.types import StructType, StructField, StringType
-
+from mmlspark.cyber.utils.spark_utils import ExplainBuilder
+from mmlsparktest.spark import *
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
-
-from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
-from mmlsparktest.spark import *
-
-
-class TestDataFrameUtils(unittest.TestCase):
-    def create_sample_dataframe(self):
-        dataframe = sc.createDataFrame(
-            [
-                ("OrgA", "Alice"),
-                ("OrgB", "Joe"),
-                ("OrgA", "Joe"),
-                ("OrgA", "Bob")
-            ],
-            ["tenant", "user"]
-        )
-        return dataframe
-
-    def create_string_type_dataframe(self, field_names: List[str], data: List[Tuple[str]]) -> DataFrame:
-        return sc.createDataFrame(
-            data,
-            StructType([StructField(name, StringType(), nullable=True) for name in field_names])
-        )
-
-    def test_get_spark(self):
-        df = self.create_sample_dataframe()
-        assert df is not None
-
-        spark = DataFrameUtils.get_spark_session(df)
-
-        assert spark is not None
-        assert spark is sc.sparkSession
-
-    def test_zip_with_index_sort_by_column_within_partitions(self):
-        dataframe = self.create_sample_dataframe()
-        result = DataFrameUtils.zip_with_index(df=dataframe, partition_col="tenant", order_by_col="user")
-        expected = [
-            ("OrgB", "Joe", 0),
-            ("OrgA", "Alice", 0),
-            ("OrgA", "Bob", 1),
-            ("OrgA", "Joe", 2)
-        ]
-        assert result.collect() == expected
-
-    def test_zip_without_partitions_sort_by_column(self):
-        dataframe = self.create_sample_dataframe()
-        result = DataFrameUtils.zip_with_index(df=dataframe, order_by_col="user")
-        expected = [
-            ("OrgA", "Alice", 0),
-            ("OrgA", "Bob", 1),
-            ("OrgB", "Joe", 2),
-            ("OrgA", "Joe", 3)
-        ]
-        assert result.collect() == expected
 
 
 class TestExplainBuilder(unittest.TestCase):

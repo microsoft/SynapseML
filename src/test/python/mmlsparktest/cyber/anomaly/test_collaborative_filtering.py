@@ -2,9 +2,10 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import unittest
-from typing import Dict, Set, Type, Union
-from pyspark.sql import DataFrame, functions as f, SparkSession, SQLContext
-from mmlspark.cyber.feature import indexers
+from typing import Dict, Set, Union
+from pyspark.sql import DataFrame, functions as f
+from pyspark.ml import Pipeline
+from mmlspark.cyber.feature import *
 from mmlspark.cyber.anomaly.collaborative_filtering import \
     AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, \
     UserResourceCfDataframeModel, ModelNormalizeTransformer, CfAlgoParams
@@ -209,15 +210,15 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         likelihood_col = AccessAnomalyConfig.default_likelihood_col
 
         user_model_df = sc.createDataFrame([
-            ['0',
+            ('0',
              'roy_{0}'.format(i),
-             [float(i % 10), float((i + 1) % (num_users / 2)), 0.0, 1.0]] for i in range(num_users)],
+             [float(i % 10), float((i + 1) % (num_users / 2)), 0.0, 1.0]) for i in range(num_users)],
             [tenant_col, user_col, user_vec_col]).cache()
 
         res_model_df = sc.createDataFrame([
-            ['0,'
+            ('0',
              'res_{0}'.format(i),
-             [float(i % 10), float((i + 1) % num_resources / 2), 1.0, 0.0]] for i in range(num_resources)],
+             [float(i % 10), float((i + 1) % num_resources / 2), 1.0, 0.0]) for i in range(num_resources)],
             [tenant_col, res_col, res_vec_col]).cache()
 
         df = (user_model_df
@@ -237,7 +238,7 @@ class TestModelNormalizeTransformer(unittest.TestCase):
 
         model_normalizer = ModelNormalizeTransformer(df, 2)
 
-        user_res_norm_cf_df_model = model_normalizer.transform(user_res_cf_df_model).cache()
+        user_res_norm_cf_df_model = model_normalizer.transform(user_res_cf_df_model)
 
         assert user_res_cf_df_model.check()
         assert user_res_norm_cf_df_model.user_model_df.count() == user_model_df.count()
@@ -283,22 +284,12 @@ class TestAccessAnomaly(unittest.TestCase):
         assert training.filter(f.col(user_col).isNull()).count() == 0
         assert training.filter(f.col(res_col).isNull()).count() == 0
 
-        indexer = indexers.MultiIndexer(
-            indexers=[
-                indexers.IdIndexer(
-                    input_col=user_col,
-                    partition_key=tenant_col,
-                    output_col=indexed_user_col,
-                    reset_per_partition=False
-                ),
-                indexers.IdIndexer(
-                    input_col=res_col,
-                    partition_key=tenant_col,
-                    output_col=indexed_res_col,
-                    reset_per_partition=False
-                )
-            ]
-        )
+        indexer = Pipeline(stages=[
+            PartitionedStringIndexer(inputCol=user_col,  partitionKey=tenant_col,
+                                     outputCol=indexed_user_col, overlappingIndicies=False),
+            PartitionedStringIndexer(inputCol=res_col,  partitionKey=tenant_col,
+                                     outputCol=indexed_res_col, overlappingIndicies=False),
+        ])
 
         indexer_model = indexer.fit(training)
         indexed_df = indexer_model.transform(training).cache()

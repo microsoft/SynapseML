@@ -2,10 +2,9 @@ __author__ = 'rolevin'
 
 from typing import List, Optional, Tuple
 
-from mmlspark.cyber.anomaly.complement_access import ComplementAccessTransformer
+from mmlspark.cyber.anomaly import ComplementSampler
 from mmlspark.cyber.feature import *
 from mmlspark.cyber.utils import spark_utils
-from mmlspark.cyber.utils.common import timefunc
 
 import numpy as np
 
@@ -428,7 +427,6 @@ class AccessAnomaly(Estimator):
     def scaled_likelihood_col(self):
         return self.likelihood_col + '_scaled'
 
-    @timefunc
     def _get_scaled_df(self, df: DataFrame) -> DataFrame:
         return PartitionedMinMaxScaler(
             inputCol=self.likelihood_col,
@@ -438,7 +436,6 @@ class AccessAnomaly(Estimator):
             maxValue=self.high_value
         ).fit(df).transform(df) if self.low_value is not None and self.high_value is not None else df
 
-    @timefunc
     def _enrich_and_normalize(self, indexed_df: DataFrame) -> DataFrame:
         tenant_col = self.tenant_col
         indexed_user_col = self.indexed_user_col
@@ -450,8 +447,10 @@ class AccessAnomaly(Estimator):
             neg_score = self.algo_cf_params.neg_score
             assert complementset_factor is not None and neg_score is not None
 
-            comp_df = ComplementAccessTransformer(
-                tenant_col, [indexed_user_col, indexed_res_col], complementset_factor
+            comp_df = ComplementSampler(
+                partitionKey=tenant_col,
+                inputCols=[indexed_user_col, indexed_res_col],
+                samplingFactor=complementset_factor
             ).transform(indexed_df).withColumn(
                 scaled_likelihood_col,
                 f.lit(neg_score)
@@ -465,7 +464,6 @@ class AccessAnomaly(Estimator):
 
         return scaled_df.union(comp_df) if comp_df is not None else scaled_df
 
-    @timefunc
     def _train_cf(self, als: ALS, df: DataFrame) -> Tuple[DataFrame, DataFrame]:
         tenant_col = self.tenant_col
         indexed_user_col = self.indexed_user_col
@@ -495,7 +493,6 @@ class AccessAnomaly(Estimator):
 
         return user_model_df, res_model_df
 
-    @timefunc
     def create_spark_model_vectors_df(self, df: DataFrame) -> UserResourceCfDataframeModel:
         tenant_col = self.tenant_col
         indexed_user_col = self.indexed_user_col
@@ -559,7 +556,6 @@ class AccessAnomaly(Estimator):
             res_model_df
         )
 
-    @timefunc
     def _fit(self, df: DataFrame) -> AccessAnomalyModel:
         # index the user and resource columns to allow running the spark ALS algorithm
         indexer = Pipeline(stages=[
@@ -600,9 +596,9 @@ class AccessAnomaly(Estimator):
         indexed_user_col = self.indexed_user_col
         indexed_res_col = self.indexed_res_col
 
-        # do the actual index to name mapping (using undo_transform)
-        final_user_model_df = user_index_model.undo_transform(norm_user_model_df).drop(indexed_user_col)
-        final_res_model_df = res_index_model.undo_transform(norm_res_model_df).drop(indexed_res_col)
+        # do the actual index to name mapping (using inverseTransform)
+        final_user_model_df = user_index_model.inverseTransform(norm_user_model_df).drop(indexed_user_col)
+        final_res_model_df = res_index_model.inverseTransform(norm_res_model_df).drop(indexed_res_col)
 
         return AccessAnomalyModel(
             UserResourceCfDataframeModel(
@@ -664,7 +660,6 @@ class ModelNormalizeTransformer:
 
         return append_bias
 
-    @timefunc
     def transform(self, user_res_cf_df_model: UserResourceCfDataframeModel) -> UserResourceCfDataframeModel:
         likelihood_col_token = '__likelihood__'
 
