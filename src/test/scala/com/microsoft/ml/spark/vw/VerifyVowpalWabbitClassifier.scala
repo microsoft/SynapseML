@@ -266,7 +266,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset  = session.createDataFrame(Seq(
       ClassificationInput[String](1, "marie markus fun"),
       ClassificationInput[String](0, "marie markus no fun")
-    )).coalesce(1)
+    )).repartition(1)
 
     val datasetFeaturized = featurizer.transform(dataset)
 
