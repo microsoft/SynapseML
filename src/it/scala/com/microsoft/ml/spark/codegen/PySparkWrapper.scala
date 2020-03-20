@@ -8,6 +8,7 @@ import java.io.File
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.serialize.ComplexParam
 import Config._
+import com.microsoft.ml.spark.core.contracts.HasAdditionalPythonMethods
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -48,6 +49,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |    basestring = str
         |
         |from pyspark import SparkContext, SQLContext
+        |from pyspark.sql import DataFrame
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
@@ -188,7 +190,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |        "\""
         |        ctx = SparkContext._active_spark_context
         |        sql_ctx = SQLContext.getOrCreate(ctx)
-        |        return  DataFrame(self._java_obj.get${paramName.capitalize}, sql_ctx)
+        |        return  DataFrame(self._java_obj.get${paramName.capitalize}(), sql_ctx)
         |
         |""".stripMargin
   }
@@ -476,7 +478,11 @@ class PySparkEstimatorWrapper(entryPoint: Estimator[_],
     val modelClass = Class.forName(companionModelQualifiedName)
     try {
       val modelInstance = modelClass.newInstance().asInstanceOf[Params]
-      gettersAndSetters(modelInstance).mkString("\n")
+      val methods = gettersAndSetters(modelInstance).mkString("\n")
+      modelInstance match {
+        case mi: HasAdditionalPythonMethods => methods + "\n" + mi.additionalPythonMethods()
+        case _ => methods
+      }
     } catch {
       case _: InstantiationException =>
         println(s"Could not generate getters and setters for " +

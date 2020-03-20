@@ -257,7 +257,7 @@ trait HasSetLocation extends Wrappable {
       |    def setLocation(self, value):
       |        self._java_obj = self._java_obj.setLocation(value)
       |        return self
-      |""".stripMargin + super.additionalPythonMethods()
+      |""".stripMargin
   }
 
   def setLocation(v: String): this.type
