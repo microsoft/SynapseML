@@ -109,7 +109,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
 
     val trainData =
       featurizer2.transform(featurizer.transform(dataset))
-      .coalesce(1)
+      .repartition(1)
 
     val vw = new VowpalWabbitRegressor()
     val predCol = "pred"

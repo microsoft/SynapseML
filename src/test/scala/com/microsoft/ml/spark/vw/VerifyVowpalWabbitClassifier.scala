@@ -132,13 +132,14 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     assert(labelOneCnt == 275)
   }
 
-  test("Verify VowpalWabbit Classifier can be run with libsvm") {
+  private def testVerifyVowpalWabbitClassifierWithLibSVM(useBarrierMode: Boolean): Unit = {
     val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
       .setArgs("--passes 3")
       .setPowerT(0.3)
       .setNumPasses(3)
+      .setUseBarrierExecutionMode(useBarrierMode)
       .setLabelConversion(false)
 
     val classifier = vw.fit(dataset)
@@ -151,6 +152,14 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     val readableModel = classifier.getReadableModel
     assert(readableModel.length > 10)
+  }
+
+  test("Verify VowpalWabbit Classifier can be run with libsvm (barrier mode)") {
+    testVerifyVowpalWabbitClassifierWithLibSVM(true)
+  }
+
+  test("Verify VowpalWabbit Classifier can be run with libsvm (no barrier mode)") {
+    testVerifyVowpalWabbitClassifierWithLibSVM(false)
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (short)") {
@@ -257,7 +266,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset  = session.createDataFrame(Seq(
       ClassificationInput[String](1, "marie markus fun"),
       ClassificationInput[String](0, "marie markus no fun")
-    )).coalesce(1)
+    )).repartition(1)
 
     val datasetFeaturized = featurizer.transform(dataset)
 
