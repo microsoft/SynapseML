@@ -4,6 +4,9 @@
 package com.microsoft.ml.spark.lightgbm
 
 object LightGBMConstants {
+  /** The port for LightGBM Driver server, 0 (random)
+    */
+  val DefaultDriverListenPort = 0
   /** The default port for LightGBM network initialization
     */
   val DefaultLocalListenPort = 12400

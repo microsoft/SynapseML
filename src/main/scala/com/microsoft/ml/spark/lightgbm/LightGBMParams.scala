@@ -34,6 +34,14 @@ trait LightGBMExecutionParams extends Wrappable {
 
   setDefault(defaultListenPort -> LightGBMConstants.DefaultLocalListenPort)
 
+  val driverListenPort = new IntParam(this, "driverListenPort",
+    "The listen port on a driver. Default value is 0 (random)")
+
+  def getDriverListenPort: Int = $(driverListenPort)
+  def setDriverListenPort(value: Int): this.type = set(driverListenPort, value)
+
+  setDefault(driverListenPort -> LightGBMConstants.DefaultDriverListenPort)
+
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
   setDefault(timeout -> 1200)
 

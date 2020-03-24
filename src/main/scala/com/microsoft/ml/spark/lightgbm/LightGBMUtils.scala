@@ -109,11 +109,12 @@ object LightGBMUtils {
     */
   def createDriverNodesThread(numWorkers: Int, df: DataFrame,
                               log: Logger, timeout: Double,
-                              barrierExecutionMode: Boolean): (String, Int, Future[Unit]) = {
+                              barrierExecutionMode: Boolean,
+                              driverServerPort: Int): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
     implicit val context: ExecutionContextExecutor =
       ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
-    val driverServerSocket = new ServerSocket(0)
+    val driverServerSocket = new ServerSocket(driverServerPort)
     // Set timeout on socket
     val duration = Duration(timeout, SECONDS)
     if (duration.isFinite()) {
