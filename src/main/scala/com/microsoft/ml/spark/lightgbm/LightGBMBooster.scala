@@ -44,7 +44,7 @@ protected class BoosterHandler(model: String) {
   val scoredDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
       override def initialValue(): DoubleNativePtrHandler = {
-        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numClasses))
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numClasses.toLong))
       }
     }
   }
@@ -62,7 +62,7 @@ protected class BoosterHandler(model: String) {
   val leafIndexDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
       override def initialValue(): DoubleNativePtrHandler = {
-        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numTotalModel))
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numTotalModel.toLong))
       }
     }
   }
@@ -80,7 +80,7 @@ protected class BoosterHandler(model: String) {
  val shapDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
       override def initialValue(): DoubleNativePtrHandler = {
-        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures + 1))
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures.toLong + 1))
       }
     }
   }
@@ -98,7 +98,7 @@ protected class BoosterHandler(model: String) {
   val featureImportanceOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
       override def initialValue(): DoubleNativePtrHandler = {
-        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures))
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures.toLong))
       }
     }
   }
@@ -303,14 +303,14 @@ class LightGBMBooster(val model: String) extends Serializable {
       lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1,
         importanceTypeNum, boosterHandler.featureImportanceOutPtr.get().ptr),
       "Booster FeatureImportance")
-    (0 until numFeatures).map(lightgbmlib.doubleArray_getitem(boosterHandler.featureImportanceOutPtr.get().ptr, _)).toArray
+    (0L until numFeatures.toLong).map(lightgbmlib.doubleArray_getitem(boosterHandler.featureImportanceOutPtr.get().ptr, _)).toArray
   }
 
   private def predScoreToArray(classification: Boolean, scoredDataOutPtr: SWIGTYPE_p_double,
                                kind: Int): Array[Double] = {
     if (classification && numClasses == 1) {
       // Binary classification scenario - LightGBM only returns the value for the positive class
-      val pred = lightgbmlib.doubleArray_getitem(scoredDataOutPtr, 0)
+      val pred = lightgbmlib.doubleArray_getitem(scoredDataOutPtr, 0L)
       if (kind == boosterHandler.rawScoreConstant) {
         // Return the raw score for binary classification
         Array(-pred, pred)
@@ -320,17 +320,17 @@ class LightGBMBooster(val model: String) extends Serializable {
       }
     } else {
       (0 until numClasses).map(classNum =>
-        lightgbmlib.doubleArray_getitem(scoredDataOutPtr, classNum)).toArray
+        lightgbmlib.doubleArray_getitem(scoredDataOutPtr, classNum.toLong)).toArray
     }
   }
 
   private def predLeafToArray(leafIndexDataOutPtr: SWIGTYPE_p_double): Array[Double] = {
     (0 until numTotalModel).map(modelNum =>
-      lightgbmlib.doubleArray_getitem(leafIndexDataOutPtr, modelNum)).toArray
+      lightgbmlib.doubleArray_getitem(leafIndexDataOutPtr, modelNum.toLong)).toArray
   }
 
   private def shapToArray(shapDataOutPtr: SWIGTYPE_p_double): Array[Double] = {
     (0 until (numFeatures + 1)).map(featNum =>
-      lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum)).toArray
+      lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum.toLong)).toArray
   }
 }
