@@ -325,4 +325,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMinDataInLeaf: Int = $(minDataInLeaf)
   def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
+
+  var delegate: Option[LightGBMDelegate] = None
+  def getDelegate: Option[LightGBMDelegate] = delegate
+  def setDelegate(delegate: LightGBMDelegate): this.type = {
+    this.delegate = Option(delegate)
+    this
+  }
 }
