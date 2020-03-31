@@ -8,7 +8,7 @@ import java.net._
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.StreamUtilities._
-import org.apache.spark.BarrierTaskContext
+import org.apache.spark.{BarrierTaskContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -199,7 +199,14 @@ private object TrainUtils extends Serializable {
     val bestScore = new Array[Double](evalCounts)
     val bestScores = new Array[Array[Double]](evalCounts)
     val bestIter = new Array[Int](evalCounts)
+    val delegate = trainParams.delegate
+    val partitionId = TaskContext.getPartitionId
     while (!isFinished && iters < trainParams.numIterations) {
+
+      if (delegate.isDefined) {
+        delegate.get.beforeTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid)
+      }
+
       try {
         log.info("LightGBM worker calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
@@ -213,24 +220,32 @@ private object TrainUtils extends Serializable {
           log.warn("LightGBM reached early termination on one worker," +
             " stopping training on worker. This message should rarely occur")
       }
-      if (trainParams.isProvideTrainingMetric && !isFinished) {
+
+      val trainEvalResults: Option[Map[String, Double]] = if (trainParams.isProvideTrainingMetric && !isFinished) {
         val trainResults = lightgbmlib.new_doubleArray(evalNames.length)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 0, dummyEvalCountsPtr, trainResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
         LightGBMUtils.validate(resultEval, "Booster Get Train Eval")
-        evalNames.zipWithIndex.foreach { case (evalName, index) =>
+
+        val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(trainResults, index)
           log.info(s"Train $evalName=$score")
+          (evalName, score)
         }
+
+        Option(Map(results:_*))
+      } else {
+        None
       }
-      if (hasValid && !isFinished) {
+
+      val validEvalResults: Option[Map[String, Double]] = if (hasValid && !isFinished) {
         val evalResults = lightgbmlib.new_doubleArray(evalNames.length)
         val dummyEvalCountsPtr = lightgbmlib.new_intp()
         val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
         lightgbmlib.delete_intp(dummyEvalCountsPtr)
         LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
-        evalNames.zipWithIndex.foreach { case (evalName, index) =>
+        val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
           val score = lightgbmlib.doubleArray_getitem(evalResults, index)
           log.info(s"Valid $evalName=$score")
           val cmp =
@@ -247,9 +262,22 @@ private object TrainUtils extends Serializable {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))
           }
+
+          (evalName, score)
         }
+
         lightgbmlib.delete_doubleArray(evalResults)
+
+        Option(Map(results:_*))
+      } else {
+        None
       }
+
+      if (delegate.isDefined) {
+        delegate.get.afterTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid, isFinished,
+          trainEvalResults, validEvalResults)
+      }
+
       iters = iters + 1
     }
   }
