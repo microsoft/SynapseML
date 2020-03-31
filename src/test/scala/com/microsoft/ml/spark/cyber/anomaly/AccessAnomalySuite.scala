@@ -3,15 +3,16 @@
 
 package com.microsoft.ml.spark.cyber.anomaly
 
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{avg, col}
+import org.apache.spark.sql.types.StringType
 
 import scala.util.Random
 
-class AccessAnomalySuite extends EstimatorFuzzing[AccessAnomaly] {
-
+trait AccessAnomalyTestUtils extends TestBase {
   import session.implicits._
 
   lazy val r = new Random(0)
@@ -22,46 +23,71 @@ class AccessAnomalySuite extends EstimatorFuzzing[AccessAnomaly] {
     }
   }
 
-  lazy val users = sample(20, 0, 30) ++
-    sample(20, 30, 40) ++
-    sample(20, 40, 50)
-  lazy val resources = sample(20, 0, 10) ++
-    sample(20, 10, 20) ++
-    sample(20, 20, 30)
-  lazy val acceses = sample(60, 1, 4)
+  lazy val users: Seq[Int] = sample(50, 0, 10) ++
+    sample(50, 10, 20) ++
+    sample(50, 20, 30)
+  lazy val resources: Seq[Int] = sample(50, 0, 10) ++
+    sample(50, 10, 20) ++
+    sample(50, 20, 30)
+  lazy val acceses: Seq[Int] = sample(150, 1, 10)
+  lazy val tenant: Seq[Int] = sample(150, low = 0, high = 2)
 
-  lazy val trainDF = users.zip(resources).zip(acceses).toDF("user", "res", "acc")
+  def zipDF(users: Seq[Int], resources: Seq[Int], acceses: Seq[Int], tenant: Seq[Int]): DataFrame = {
+    Seq(users, resources, acceses, tenant)
+      .transpose.map(l => (l(0), l(1), l(2), l(3)))
+      .toDF("user", "res", "acc", "tenant")
+      .withColumn("tenant", col("tenant").cast(StringType))
+  }
 
-  lazy val usersWithAnamoly = users ++ sample(10, 40, 50)
-  lazy val resourcesWithAnamoly = resources ++  sample(10, 0, 10)
-  lazy val accesesWithAnomaly = acceses ++ sample(10, 1, 4)
+  lazy val trainDF: DataFrame = zipDF(users, resources, acceses, tenant)
+
+  lazy val usersAnomaly: Seq[Int] = users.take(10)
+  lazy val resourcesAnomaly: Seq[Int] = resources.takeRight(10)
+  lazy val accessesAnomaly: Seq[Int] = sample(10, 1, 10)
+  lazy val tenantAnomaly: Seq[Int] = sample(10, low = 0, high = 2)
+
+  lazy val testRegDF: DataFrame = trainDF
+  lazy val testAnomalyDF: DataFrame = zipDF(usersAnomaly, resourcesAnomaly, accessesAnomaly, tenantAnomaly)
 
   def aa: AccessAnomaly = new AccessAnomaly()
-    .setTenantCol("tenant")
     .setUserCol("user")
     .setResCol("res")
-    .setRatingCol("acc")
+    .setAccessCol("acc")
+    .setMaxIter(5)
+    .setTenantCol("tenant")
+    .setOutputCol("zscore")
+    .setSeparateTenants(true)
+}
 
-  def accessSet(df: DataFrame, tenant: String): Set[Seq[Int]] = {
-    df
-      .where(col("tenant") === lit(tenant))
-      .collect().map(r => Seq(r.getInt(1), r.getInt(2)))
-      .toSet
-  }
+class AccessAnomalySuite extends EstimatorFuzzing[AccessAnomaly] with AccessAnomalyTestUtils {
+  override val epsilon = .1
+  override val sortInDataframeEquality: Boolean = true
 
   test("basic usage") {
-    val results = ca.transform(df).cache()
-    Seq("t1", "t2").map(tenant =>
-      assert(accessSet(results, tenant).intersect(accessSet(df, tenant)).isEmpty)
-    )
-    assert(results.count == 10)
+    val fitModel = aa.fit(trainDF)
+    val avgRegScore = fitModel.transform(testRegDF)
+      .groupBy().agg(avg("zscore")).collect().head.getDouble(0)
+    val avgAnomalyScore = fitModel.transform(testAnomalyDF)
+      .groupBy().agg(avg("zscore")).collect().head.getDouble(0)
+    assert(avgAnomalyScore > .9)
+    assert(avgRegScore < .5)
   }
 
-  override def testObjects(): Seq[TestObject[ComplementSampler]] = Seq(
-    new TestObject(ca, df)
+  override def testObjects(): Seq[TestObject[AccessAnomaly]] = Seq(
+    new TestObject(aa, trainDF, testAnomalyDF)
   )
 
-  override def reader: MLReadable[_] = ComplementSampler
+  override def reader: MLReadable[_] = AccessAnomaly
+
+  override def modelReader: MLReadable[_] = AccessAnomalyModel
 
 }
 
+class AccessAmonmalyModelSuite extends TransformerFuzzing[AccessAnomalyModel] with AccessAnomalyTestUtils {
+  override val epsilon = .1
+  override val sortInDataframeEquality: Boolean = true
+
+  override def testObjects(): Seq[TestObject[AccessAnomalyModel]] = Seq(new TestObject(aa.fit(trainDF), testAnomalyDF))
+
+  override def reader: MLReadable[_] = AccessAnomalyModel
+}

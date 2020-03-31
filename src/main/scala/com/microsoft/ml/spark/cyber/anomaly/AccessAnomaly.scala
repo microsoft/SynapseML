@@ -3,22 +3,22 @@
 
 package com.microsoft.ml.spark.cyber.anomaly
 
-import org.apache.spark.ml.param.{BooleanParam, DoubleParam, IntParam, Param, ParamMap, Params, TransformerParam}
-import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, NamespaceInjections, Pipeline, PipelineModel, PipelineStage, Transformer}
 import com.microsoft.ml.spark.core.contracts.{HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.cyber.feature.{PartitionedMinMaxScaler, PartitionedStandardScaler, PartitionedStringIndexer}
-import com.microsoft.ml.spark.io.DataFrameExtensions
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.{DoubleType, StructType}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
-import org.apache.spark.ml.feature.{SQLTransformer, StandardScaler, StringIndexer}
-import org.apache.spark.sql.functions.{col, lit}
+import com.microsoft.ml.spark.cyber.feature.PartitionedStandardScaler
+import com.microsoft.ml.spark.stages.{DropColumns, UDFTransformer}
+import org.apache.spark.ml.feature.{SQLTransformer, StringIndexer}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
+import org.apache.spark.ml.util._
+import org.apache.spark.ml.{feature, _}
+import org.apache.spark.sql.functions.{col, hash, lit}
+import org.apache.spark.sql.types.{DoubleType, StringType, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object AccessAnomaly extends DefaultParamsReadable[AccessAnomaly]
 
-trait AccessAnomalyParams extends Params with HasOutputCol {
+trait HasUserActivityParams extends Params {
   val tenantCol = new Param[String](this,
     "tenantCol",
     "The name of the tenant column. " +
@@ -55,6 +55,10 @@ trait AccessAnomalyParams extends Params with HasOutputCol {
 
   def setResCol(v: String): this.type = set(resCol, v)
 
+}
+
+trait AccessAnomalyParams extends Params with HasOutputCol with HasUserActivityParams {
+
   val accessCol = new Param[String](this,
     "accessCol",
     "The name times a given user accessed a resource " +
@@ -62,19 +66,9 @@ trait AccessAnomalyParams extends Params with HasOutputCol {
   )
   setDefault(accessCol -> "rating")
 
-  def getRatingCol: String = $(accessCol)
+  def getAccessCol: String = $(accessCol)
 
-  def setRatingCol(v: String): this.type = set(accessCol, v)
-
-  val normalizeRating = new BooleanParam(this,
-    "normalizeRating",
-    "whether to use normalize the output rating to mean 0 std 1"
-  )
-  setDefault(normalizeRating -> true)
-
-  def getNormalizeRating: Boolean = $(normalizeRating)
-
-  def setNormalizeRating(v: Boolean): this.type = set(normalizeRating, v)
+  def setAccessCol(v: String): this.type = set(accessCol, v)
 
   val rank = new IntParam(this,
     "rank",
@@ -145,7 +139,7 @@ trait AccessAnomalyParams extends Params with HasOutputCol {
     "nonnegative",
     "whether to use nonnegative ALS"
   )
-  setDefault(nonnegative -> true)
+  setDefault(nonnegative -> false)
 
   def getNonnegative: Boolean = $(nonnegative)
 
@@ -189,9 +183,9 @@ trait AccessAnomalyParams extends Params with HasOutputCol {
   val negSamplingScore = new DoubleParam(this,
     "negSamplingScore",
     "'negSamplingScore' is a parameter applicable to the explicit feedback variant of ALS that governs " +
-      "the value to assign to the values of the complement set. (defaults to 1.0)."
+      "the value to assign to the values of the complement set. (defaults to 0.0)."
   )
-  setDefault(negSamplingScore -> 1.0)
+  setDefault(negSamplingScore -> 0.0)
 
   def getNegSamplingScore: Double = $(negSamplingScore)
 
@@ -217,12 +211,12 @@ class AccessAnomaly(override val uid: String) extends Estimator[AccessAnomalyMod
           .setInputCols(Array(indexedUserCol, indexedResCol))
           .setSamplingFactor(getNegSamplingFraction),
         new SQLTransformer()
-          .setStatement(s"SELECT *, lit($getNegSamplingScore) as $getRatingCol")
+          .setStatement(s"SELECT *, LIT($getNegSamplingScore) as $getAccessCol  FROM __THIS__")
       )
     }
   }
 
-  private def getAls = {
+  private def getAls: ALS = {
     new ALS()
       .setRank(getRank)
       .setMaxIter(getMaxIter)
@@ -238,13 +232,15 @@ class AccessAnomaly(override val uid: String) extends Estimator[AccessAnomalyMod
   private def getPreprocessor(schema: StructType): Pipeline = {
     val indexedUserCol = findUnusedColumnName("indexedUser", schema)
     val indexedResCol = findUnusedColumnName("indexedRes", schema)
+    val tenantUserCol = findUnusedColumnName("tenantUser", schema)
+    val tenantResCol = findUnusedColumnName("tenantRes", schema)
 
     val indexers = Seq( //TODO uniqueify Indexer
       new StringIndexer()
-        .setInputCol(getUserCol)
+        .setInputCol(tenantUserCol)
         .setOutputCol(indexedUserCol),
       new StringIndexer()
-        .setInputCol(getResCol)
+        .setInputCol(tenantResCol)
         .setOutputCol(indexedResCol)
     )
 
@@ -257,13 +253,20 @@ class AccessAnomaly(override val uid: String) extends Estimator[AccessAnomalyMod
     val df = data.toDF()
     val indexedUserCol = findUnusedColumnName("indexedUser", df)
     val indexedResCol = findUnusedColumnName("indexedRes", df)
+    val alsPredCol = findUnusedColumnName("alsPred", df)
+    val tenantUserCol = findUnusedColumnName("tenantUser", df)
+    val tenantResCol = findUnusedColumnName("tenantRes", df)
 
-    val fitPreprocessor = getPreprocessor(df.schema).fit(df)
-    val preprocessedDF = fitPreprocessor.transform(df).cache()
+    val df2 = df.withColumn(tenantUserCol, (hash(col(getTenantCol)) + hash(col(getUserCol))).cast(StringType))
+      .withColumn(tenantResCol, (hash(col(getTenantCol)) + hash(col(getResCol))).cast(StringType))
+
+    val fitPreprocessor = getPreprocessor(df.schema).fit(df2)
+    val preprocessedDF = fitPreprocessor.transform(df2).cache()
 
     val als = getAls.setUserCol(indexedUserCol)
       .setItemCol(indexedResCol)
-      .setRatingCol(getRatingCol)
+      .setRatingCol(getAccessCol)
+      .setPredictionCol(alsPredCol)
 
     val alsModel = if (getSeprateTetents) {
       val tenants = preprocessedDF
@@ -287,47 +290,61 @@ class AccessAnomaly(override val uid: String) extends Estimator[AccessAnomalyMod
       als.fit(preprocessedDF)
     }
 
-    val comparison = SQLTransformer()
-    val postprocessor = if (getNormalizeRating) {
-      Seq(new PartitionedStandardScaler()
-        .setInputCol(getRatingCol)
-        .setOutputCol(getRatingCol)
-        .setPartitionKey(getTenantCol))
+    val comparison = if (getImplicitCF) {
+      new SQLTransformer()
+        .setStatement(s"SELECT *,  1-$alsPredCol AS $getOutputCol  FROM __THIS__")
     } else {
-      Seq()
+      new SQLTransformer()
+        .setStatement(s"SELECT *, $getAccessCol - $alsPredCol AS $getOutputCol  FROM __THIS__")
     }
 
-    val pipe = new Pipeline().setStages(Array(fitPreprocessor, alsModel) ++ postprocessor).fit(df)
-    new AccessAnomalyModel(uid).setPipeline(pipe)
+    val drop = new DropColumns().setCols(Array(alsPredCol, indexedResCol, indexedUserCol))
+
+    val pipe = new Pipeline()
+      .setStages(Array(fitPreprocessor, alsModel, comparison, drop))
+      .fit(df2)
+
+    new AccessAnomalyModel(uid).setAccessModel(pipe)
+      .setUserCol(getUserCol).setTenantCol(getTenantCol).setResCol(getResCol)
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getRatingCol, DoubleType)
+    schema.add(getOutputCol, DoubleType)
   }
 }
 
 object AccessAnomalyModel extends ComplexParamsReadable[AccessAnomalyModel]
 
 class AccessAnomalyModel(override val uid: String) extends Model[AccessAnomalyModel]
-  with ComplexParamsWritable {
+  with ComplexParamsWritable with HasUserActivityParams {
 
   val accessModel = new TransformerParam(this, "accessModel",
     "the model that predicts the (normalized) number of acceses")
 
-  def getPipeline: Transformer = $(accessModel)
+  def getAccessModel: Transformer = $(accessModel)
 
-  def setPipeline(v: Transformer): this.type = set(accessModel, v)
+  def setAccessModel(v: Transformer): this.type = set(accessModel, v)
 
   def this() = this(Identifiable.randomUID("AccessAnomalyModel"))
 
   override def copy(extra: ParamMap): AccessAnomalyModel = defaultCopy(extra)
 
   override def transform(data: Dataset[_]): DataFrame = {
-    getPipeline.transform(data)
+    val df = data.toDF()
+    val tenantUserCol = findUnusedColumnName("tenantUser", df)
+    val tenantResCol = findUnusedColumnName("tenantRes", df)
+
+    val df2 = df.withColumn(tenantUserCol, (hash(col(getTenantCol)) + hash(col(getUserCol))).cast(StringType))
+      .withColumn(tenantResCol, (hash(col(getTenantCol)) + hash(col(getResCol))).cast(StringType))
+    getAccessModel.transform(df2).drop(tenantUserCol, tenantResCol)
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    getPipeline.transformSchema(schema)
+    val tenantUserCol = findUnusedColumnName("tenantUser", schema)
+    val tenantResCol = findUnusedColumnName("tenantRes", schema)
+    StructType(getAccessModel.transformSchema(
+      schema.add(tenantUserCol, StringType).add(tenantResCol, StringType))
+      .filterNot(sf => Set(tenantUserCol, tenantResCol)(sf.name)))
   }
 
 }
