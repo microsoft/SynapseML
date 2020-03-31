@@ -203,7 +203,7 @@ private object TrainUtils extends Serializable {
     val partitionId = TaskContext.getPartitionId
     while (!isFinished && iters < trainParams.numIterations) {
 
-      if(delegate.isDefined) {
+      if (delegate.isDefined) {
         delegate.get.beforeTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid)
       }
 
@@ -273,7 +273,7 @@ private object TrainUtils extends Serializable {
         None
       }
 
-      if(delegate.isDefined) {
+      if (delegate.isDefined) {
         delegate.get.afterTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid, isFinished,
           trainEvalResults, validEvalResults)
       }
