@@ -26,6 +26,31 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.slf4j.Logger
 
+class TrainDelegate extends LightGBMDelegate {
+
+  override def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                                    boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
+    // nothing
+  }
+
+  override def afterTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                                   boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean, isFinished: Boolean,
+                                   trainEvalResults: Option[Map[String, Double]],
+                                   validEvalResults: Option[Map[String, Double]]): Unit = {
+    // nothing
+  }
+
+  override def getLearningRate(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                               previousLearningRate: Double): Double = {
+    if (curIters == 0) {
+      previousLearningRate
+    } else {
+      previousLearningRate * 0.05
+    }
+  }
+
+}
+
 // scalastyle:off magic.number
 trait LightGBMTestUtils extends TestBase {
 
@@ -363,32 +388,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
-
-    class TrainDelegate extends LightGBMDelegate {
-
-      override def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                                        boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
-        // nothing
-      }
-
-      override def afterTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                                       boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean, isFinished: Boolean,
-                                       trainEvalResults: Option[Map[String, Double]],
-                                       validEvalResults: Option[Map[String, Double]]): Unit = {
-        // nothing
-      }
-
-      override def getLearningRate(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                                   previousLearningRate: Double): Double = {
-        if (curIters == 0) {
-          previousLearningRate
-        } else {
-          previousLearningRate * 0.05
-        }
-      }
-
-    }
-
     val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
     val delegate = new TrainDelegate()
     val untrainedModel = baseModel
