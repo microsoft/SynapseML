@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.slf4j.Logger
 
+@SerialVersionUID(100L)
 class TrainDelegate extends LightGBMDelegate {
 
   override def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
