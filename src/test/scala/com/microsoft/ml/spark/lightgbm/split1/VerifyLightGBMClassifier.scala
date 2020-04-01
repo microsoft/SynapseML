@@ -395,7 +395,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
       .setDelegate(delegate)
       .setLearningRate(0.1)
-      .setNumIterations(2)  // expected learing_rate: iters 0 => 0.1, iters 1 => 0.005
+      .setNumIterations(2)  // expected learning_rate: iters 0 => 0.1, iters 1 => 0.005
 
     val model = untrainedModel.fit(train)
 
