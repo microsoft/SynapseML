@@ -400,8 +400,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val model = untrainedModel.fit(train)
 
     // Verify updating learning_rate
-    val expectedLearningRate = 0.005 // 0.1 * 0.05
-    assert(model.getModel.model.contains(s"learning_rate=$expectedLearningRate"))
+    assert(model.getModel.model.contains(s"learning_rate: 0.005"))
   }
 
   test("Verify LightGBM Classifier leaf prediction") {
