@@ -390,9 +390,10 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
 
     val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val delegate = new TrainDelegate()
     val untrainedModel = baseModel
       .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
-      .setDelegate(new TrainDelegate())
+      .setDelegate(delegate)
       .setLearningRate(0.1)
       .setNumIterations(2)  // expected learing_rate: iters 0 => 0.1, iters 1 => 0.005
 
