@@ -14,4 +14,7 @@ abstract class LightGBMDelegate extends Serializable {
                           boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean, isFinished: Boolean,
                           trainEvalResults: Option[Map[String, Double]],
                           validEvalResults: Option[Map[String, Double]]): Unit
+
+  def getLearningRate(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                      previousLearningRate: Double): Double = previousLearningRate
 }
