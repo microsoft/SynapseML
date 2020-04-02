@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.lightgbm
 import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
 import org.slf4j.Logger
 
-abstract class LightGBMDelegate extends Serializable {
+trait LightGBMDelegate extends Serializable {
   def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
                            boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit
 
