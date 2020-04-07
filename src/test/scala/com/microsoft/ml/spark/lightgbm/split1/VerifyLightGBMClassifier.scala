@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.lightgbm.split1
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
+import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -23,6 +24,33 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
+import org.slf4j.Logger
+
+@SerialVersionUID(100L)
+class TrainDelegate extends LightGBMDelegate {
+
+  override def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                                    boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
+    // nothing
+  }
+
+  override def afterTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                                   boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean, isFinished: Boolean,
+                                   trainEvalResults: Option[Map[String, Double]],
+                                   validEvalResults: Option[Map[String, Double]]): Unit = {
+    // nothing
+  }
+
+  override def getLearningRate(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                               previousLearningRate: Double): Double = {
+    if (curIters == 0) {
+      previousLearningRate
+    } else {
+      previousLearningRate * 0.05
+    }
+  }
+
+}
 
 // scalastyle:off magic.number
 trait LightGBMTestUtils extends TestBase {
@@ -358,6 +386,21 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
+  }
+
+  test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val delegate = new TrainDelegate()
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setDelegate(delegate)
+      .setLearningRate(0.1)
+      .setNumIterations(2)  // expected learning_rate: iters 0 => 0.1, iters 1 => 0.005
+
+    val model = untrainedModel.fit(train)
+
+    // Verify updating learning_rate
+    assert(model.getModel.model.contains("learning_rate: 0.005"))
   }
 
   test("Verify LightGBM Classifier leaf prediction") {
