@@ -201,10 +201,19 @@ private object TrainUtils extends Serializable {
     val bestIter = new Array[Int](evalCounts)
     val delegate = trainParams.delegate
     val partitionId = TaskContext.getPartitionId
+    var learningRate: Double = trainParams.learningRate
     while (!isFinished && iters < trainParams.numIterations) {
 
       if (delegate.isDefined) {
         delegate.get.beforeTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid)
+        val newLearningRate = delegate.get.getLearningRate(partitionId, iters, log, trainParams, learningRate)
+        if (newLearningRate != learningRate) {
+          log.info(s"LightGBM worker calling LGBM_BoosterResetParameter to reset learningRate" +
+            s" (newLearningRate: $newLearningRate)")
+          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterPtr.get,
+            s"learning_rate=$newLearningRate"), "Booster Reset learning_rate Param")
+          learningRate = newLearningRate
+        }
       }
 
       try {
