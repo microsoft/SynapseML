@@ -18,35 +18,36 @@ import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
+case class ColumnParams(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
+                        initScoreColumn: Option[String], groupColumn: Option[String])
 
 private object TrainUtils extends Serializable {
 
-  def generateDataset(rows: Array[Row], labelColumn: String, featuresColumn: String,
-                      weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
+  def generateDataset(rows: Array[Row], columnParams: ColumnParams,
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(schema.fieldIndex(labelColumn)))
+    val labels = rows.map(row => row.getDouble(schema.fieldIndex(columnParams.labelColumn)))
     val hrow = rows.head
     var datasetPtr: Option[LightGBMDataset] = None
     datasetPtr =
-      if (hrow.get(schema.fieldIndex(featuresColumn)).isInstanceOf[DenseVector]) {
-        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
+      if (hrow.get(schema.fieldIndex(columnParams.featuresColumn)).isInstanceOf[DenseVector]) {
+        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
           case dense: DenseVector => dense.toArray
           case sparse: SparseVector => sparse.toDense.toArray
         })
         val numCols = rowsAsDoubleArray.head.length
-        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
+        val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
           slotNames, trainParams))
       } else {
-        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(featuresColumn)) match {
+        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
           case dense: DenseVector => dense.toSparse
           case sparse: SparseVector => sparse
         })
         val numCols = rowsAsSparse(0).size
-        val slotNames = getSlotNames(schema, featuresColumn, numCols, trainParams)
+        val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
         log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
@@ -54,12 +55,12 @@ private object TrainUtils extends Serializable {
     // Validate generated dataset has the correct number of rows and cols
     datasetPtr.get.validateDataset()
     datasetPtr.get.addFloatField(labels, "label", numRows)
-    weightColumn.foreach { col =>
+    columnParams.weightColumn.foreach { col =>
       val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
       datasetPtr.get.addFloatField(weights, "weight", numRows)
     }
-    addInitScoreColumn(rows, initScoreColumn, datasetPtr, numRows, schema)
-    addGroupColumn(rows, groupColumn, datasetPtr, numRows, schema)
+    addInitScoreColumn(rows, columnParams.initScoreColumn, datasetPtr, numRows, schema)
+    addGroupColumn(rows, columnParams.groupColumn, datasetPtr, numRows, schema)
 
     datasetPtr
   }
@@ -189,7 +190,35 @@ private object TrainUtils extends Serializable {
     (0 until evalCounts).map(lightgbmlib.stringArray_getitem(evalNamesPtr, _)).toArray
   }
 
-  def trainCore(trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
+  def beforeTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
+                           trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
+    if (trainParams.delegate.isDefined) {
+      trainParams.delegate.get.beforeTrainIteration(batchIndex, partitionId, curIters, log, trainParams, boosterPtr,
+        hasValid)
+    }
+  }
+
+  def afterTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
+                          trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean,
+                          isFinished: Boolean,
+                          trainEvalResults: Option[Map[String, Double]],
+                          validEvalResults: Option[Map[String, Double]]): Unit = {
+    if (trainParams.delegate.isDefined) {
+      trainParams.delegate.get.afterTrainIteration(batchIndex, partitionId, curIters, log, trainParams, boosterPtr,
+        hasValid, isFinished, trainEvalResults, validEvalResults)
+    }
+  }
+
+  def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                      previousLearningRate: Double): Double = {
+    trainParams.delegate match {
+      case Some(delegate) => delegate.getLearningRate(batchIndex, partitionId, curIters, log, trainParams,
+          previousLearningRate)
+      case None => previousLearningRate
+    }
+  }
+
+  def trainCore(batchIndex: Int, trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
                 log: Logger, hasValid: Boolean): Unit = {
     val isFinishedPtr = lightgbmlib.new_intp()
     var isFinished = false
@@ -199,21 +228,18 @@ private object TrainUtils extends Serializable {
     val bestScore = new Array[Double](evalCounts)
     val bestScores = new Array[Array[Double]](evalCounts)
     val bestIter = new Array[Int](evalCounts)
-    val delegate = trainParams.delegate
     val partitionId = TaskContext.getPartitionId
     var learningRate: Double = trainParams.learningRate
     while (!isFinished && iters < trainParams.numIterations) {
-
-      if (delegate.isDefined) {
-        delegate.get.beforeTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid)
-        val newLearningRate = delegate.get.getLearningRate(partitionId, iters, log, trainParams, learningRate)
-        if (newLearningRate != learningRate) {
-          log.info(s"LightGBM worker calling LGBM_BoosterResetParameter to reset learningRate" +
-            s" (newLearningRate: $newLearningRate)")
-          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterPtr.get,
-            s"learning_rate=$newLearningRate"), "Booster Reset learning_rate Param")
-          learningRate = newLearningRate
-        }
+      beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid)
+      val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
+        learningRate)
+      if (newLearningRate != learningRate) {
+        log.info(s"LightGBM worker calling LGBM_BoosterResetParameter to reset learningRate" +
+          s" (newLearningRate: $newLearningRate)")
+        LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterPtr.get,
+          s"learning_rate=$newLearningRate"), "Booster Reset learning_rate Param")
+        learningRate = newLearningRate
       }
 
       try {
@@ -282,10 +308,8 @@ private object TrainUtils extends Serializable {
         None
       }
 
-      if (delegate.isDefined) {
-        delegate.get.afterTrainIteration(partitionId, iters, log, trainParams, boosterPtr, hasValid, isFinished,
-          trainEvalResults, validEvalResults)
-      }
+      afterTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid, isFinished,
+        trainEvalResults, validEvalResults)
 
       iters = iters + 1
     }
@@ -311,26 +335,60 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def translate(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
-                initScoreColumn: Option[String], groupColumn: Option[String],
-                validationData: Option[Broadcast[Array[Row]]],
+  def beforeGenerateTrainDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
+                                 log: Logger, trainParams: TrainParams): Unit = {
+    if(trainParams.delegate.isDefined) {
+      trainParams.delegate.get.beforeGenerateTrainDataset(batchIndex, TaskContext.getPartitionId, columnParams,
+        schema, log, trainParams)
+    }
+  }
+
+  def afterGenerateTrainDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
+                                 log: Logger, trainParams: TrainParams): Unit = {
+    if(trainParams.delegate.isDefined) {
+      trainParams.delegate.get.afterGenerateTrainDataset(batchIndex, TaskContext.getPartitionId, columnParams,
+        schema, log, trainParams)
+    }
+  }
+
+  def beforeGenerateValidDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
+                                 log: Logger, trainParams: TrainParams): Unit = {
+    if(trainParams.delegate.isDefined) {
+      trainParams.delegate.get.beforeGenerateValidDataset(batchIndex, TaskContext.getPartitionId, columnParams,
+        schema, log, trainParams)
+    }
+  }
+
+  def afterGenerateValidDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
+                                log: Logger, trainParams: TrainParams): Unit = {
+    if(trainParams.delegate.isDefined) {
+      trainParams.delegate.get.afterGenerateValidDataset(batchIndex, TaskContext.getPartitionId, columnParams,
+        schema, log, trainParams)
+    }
+  }
+
+  def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[Broadcast[Array[Row]]],
                 log: Logger, trainParams: TrainParams, schema: StructType,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
-      trainDatasetPtr = generateDataset(rows, labelColumn, featuresColumn,
-        weightColumn, initScoreColumn, groupColumn, None, schema, log, trainParams)
+      beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
+      trainDatasetPtr = generateDataset(rows, columnParams, None, schema, log, trainParams)
+      afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
+
       if (validationData.isDefined) {
-        validDatasetPtr = generateDataset(validationData.get.value, labelColumn,
-          featuresColumn, weightColumn, initScoreColumn, groupColumn, trainDatasetPtr,
+        beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
+        validDatasetPtr = generateDataset(validationData.get.value, columnParams, trainDatasetPtr,
           schema, log, trainParams)
+        afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
       }
+
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
         boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-        trainCore(trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
         val model = saveBoosterToString(boosterPtr, log)
         List[LightGBMBooster](new LightGBMBooster(model)).toIterator
       } finally {
@@ -450,8 +508,7 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def trainLightGBM(networkParams: NetworkParams, labelColumn: String, featuresColumn: String,
-                    weightColumn: Option[String], initScoreColumn: Option[String], groupColumn: Option[String],
+  def trainLightGBM(batchIndex: Int, networkParams: NetworkParams, columnParams: ColumnParams,
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int, schema: StructType)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
@@ -478,8 +535,7 @@ private object TrainUtils extends Serializable {
         val retries = 3
         val initialDelay = 1000L
         networkInit(nodes, localListenPort, log, retries, initialDelay)
-        translate(labelColumn, featuresColumn, weightColumn, initScoreColumn, groupColumn, validationData,
-          log, trainParams, schema, inputRows)
+        translate(batchIndex, columnParams, validationData, log, trainParams, schema, inputRows)
       } finally {
         // Finalize network when done
         LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")

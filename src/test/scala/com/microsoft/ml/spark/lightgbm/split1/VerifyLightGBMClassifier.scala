@@ -29,19 +29,7 @@ import org.slf4j.Logger
 @SerialVersionUID(100L)
 class TrainDelegate extends LightGBMDelegate {
 
-  override def beforeTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                                    boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
-    // nothing
-  }
-
-  override def afterTrainIteration(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                                   boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean, isFinished: Boolean,
-                                   trainEvalResults: Option[Map[String, Double]],
-                                   validEvalResults: Option[Map[String, Double]]): Unit = {
-    // nothing
-  }
-
-  override def getLearningRate(partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
                                previousLearningRate: Double): Double = {
     if (curIters == 0) {
       previousLearningRate
