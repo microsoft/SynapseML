@@ -268,6 +268,8 @@ jobs:
         PACKAGE: "cntk"
       cognitive:
         PACKAGE: "cognitive"
+        FFMPEG: "true"
+        FLAKY: "true"
       core:
         PACKAGE: "core"
       downloader:
@@ -324,6 +326,8 @@ jobs:
         azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: |
+          (${FFMPEG:-false} && sudo apt-get install ffmpeg libgstreamer1.0-0 \
+          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||

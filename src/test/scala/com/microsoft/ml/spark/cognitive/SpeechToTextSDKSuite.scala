@@ -44,9 +44,9 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
 
   lazy val Seq(bytes1, bytes2, bytes3) = audioBytes
 
-  lazy val textPaths = Seq("audio1.txt", "audio2.txt", "audio3.txt").map(new File(resourcesDir, _))
+  lazy val textPaths = Seq("audio1.txt", "audio2.txt", "audio3.txt", "audio4.txt").map(new File(resourcesDir, _))
 
-  lazy val Seq(text1, text2, text3) = textPaths.map(f =>
+  lazy val Seq(text1, text2, text3, text4) = textPaths.map(f =>
     StreamUtilities.usingSource(scala.io.Source.fromFile(f)) { source =>
       source.mkString
     }.get)
@@ -107,7 +107,8 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
              input: DataFrame,
              expectedText: String,
              verbose: Boolean = false,
-             sdk: SpeechToTextSDK = sdk): Assertion = {
+             sdk: SpeechToTextSDK = sdk,
+             threshold: Double = jaccardThreshold): Assertion = {
     val resultSeq = extractResults(
       sdk.setFormat(format).transform(input),
       sdk.getStreamIntermediateResults)
@@ -126,7 +127,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
         assert(rp.NBest.get.nonEmpty)
       }
     }
-    assert(jaccardSimilarity(expectedText, result) > jaccardThreshold)
+    assert(jaccardSimilarity(expectedText, result) > threshold)
   }
 
   test("Simple audioBytesToText 1") {
@@ -192,8 +193,20 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("Detailed SDK with mp3 (Linux only)") {
-    if (System.getProperty("os.name").toLowerCase().contains("nix")) {
-      dfTest("detailed", audioDf3, text3, sdk = sdk.setFileType("mp3"))
+    dfTest("detailed", audioDf3, text3, sdk = sdk.setFileType("mp3"), verbose = true, threshold = .7)
+  }
+
+  test("m3u8 based access") {
+    val streamUrl = "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8"
+    val sdk2 = sdk.setExtraFfmpegArgs(Array("-acodec", "mp3", "-ab", "257k", "-f", "mp3", "-t", "60"))
+      .setLanguage("fr-FR")
+    // 20 seconds of streaming
+    tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
+      val uriDf = Seq(Tuple1(streamUrl))
+        .toDF("audio")
+      dfTest(
+        "detailed",
+        uriDf, text4, sdk = sdk2, threshold = .6)
     }
   }
 
