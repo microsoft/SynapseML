@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.io.{BufferedInputStream, ByteArrayInputStream, InputStream}
+import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -91,6 +92,15 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  val extraFfmpegArgs = new StringArrayParam(this, "extraFfmpegArgs", "extra arguments to " +
+    "pass to ffmpeg if used for decoding")
+
+  setDefault(extraFfmpegArgs -> Array("-acodec", "mp3", "-ab", "257k", "-f", "mp3"))
+
+  def setExtraFfmpegArgs(v: Array[String]): this.type =set(extraFfmpegArgs, v)
+
+  def getExtraFfmpegArgs: Array[String] = $(extraFfmpegArgs)
 
   val streamIntermediateResults = new BooleanParam(this, "streamIntermediateResults",
     "Whether or not to immediately return itermediate results, or group in a sequence"
@@ -213,6 +223,39 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
   }
 
+  private def getStream(bconf: Broadcast[SConf],
+                        isUriAudio: Boolean,
+                        row: Row,
+                        dynamicParamRow: Row): (InputStream, String) = {
+    if (isUriAudio) {
+      val uri = row.getAs[String](getAudioDataCol)
+      val extension = FilenameUtils.getExtension(new URI(uri).getPath).toLowerCase()
+      if (extension == "m3u8" && uri.startsWith("http")) {
+        val stream = new ProcessBuilder()
+          .redirectError(Redirect.INHERIT)
+          .redirectInput(Redirect.INHERIT)
+          .command(
+            Seq("ffmpeg", "-y", "-i", uri) ++ getExtraFfmpegArgs.toSeq ++ Seq("pipe:1"): _*)
+          .start()
+          .getInputStream
+        (stream, "mp3")
+      } else if (uri.startsWith("http")) {
+        val conn = new URL(uri).openConnection
+        conn.setConnectTimeout(5000)
+        conn.setReadTimeout(5000)
+        conn.connect()
+        (new BufferedInputStream(conn.getInputStream), extension)
+      } else {
+        val path = new Path(uri)
+        val fs = path.getFileSystem(bconf.value.value2)
+        (fs.open(path), extension)
+      }
+    } else {
+      val bytes = row.getAs[Array[Byte]](getAudioDataCol)
+      (new ByteArrayInputStream(bytes), getValueOpt(dynamicParamRow, fileType).getOrElse("wav"))
+    }
+  }
+
   protected def transformAudioRows(dynamicParamColName: String,
                                    toRow: SpeechResponse => Row,
                                    bconf: Broadcast[SConf],
@@ -222,25 +265,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
         Seq(Row.merge(row, Row(None)))
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
-        val (stream, audioFileFormat) = if (isUriAudio) {
-          val uri = row.getAs[String](getAudioDataCol)
-          val stream = if (uri.startsWith("http")) {
-            val conn = new URL(uri).openConnection
-            conn.setConnectTimeout(5000)
-            conn.setReadTimeout(5000)
-            conn.connect()
-            new BufferedInputStream(conn.getInputStream)
-          } else {
-            val path = new Path(uri)
-            val fs = path.getFileSystem(bconf.value.value2)
-            fs.open(path)
-          }
-
-          (stream, FilenameUtils.getExtension(new URI(uri).getPath))
-        } else {
-          val bytes = row.getAs[Array[Byte]](getAudioDataCol)
-          (new ByteArrayInputStream(bytes), getValueOpt(dynamicParamRow, fileType).getOrElse("wav"))
-        }
+        val (stream, audioFileFormat) = getStream(bconf, isUriAudio, row, dynamicParamRow)
         val results = inputStreamToText(
           stream,
           audioFileFormat,
