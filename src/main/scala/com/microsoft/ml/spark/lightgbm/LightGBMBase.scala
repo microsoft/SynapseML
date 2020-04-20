@@ -27,14 +27,41 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     if (getNumBatches > 0) {
       val ratio = 1.0 / getNumBatches
       val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
-      datasets.foldLeft(None: Option[TrainedModel]) { (model, dataset) =>
+      datasets.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
         if (model.isDefined) {
           setModelString(stringFromTrainedModel(model.get))
         }
-        Some(innerTrain(dataset))
+
+        val dataset = datasetWithIndex._1
+        val batchIndex = datasetWithIndex._2
+
+        beforeTrainBatch(batchIndex, dataset, model)
+
+        val newModel = innerTrain(dataset, batchIndex)
+        afterTrainBatch(batchIndex, dataset, newModel)
+
+        Some(newModel)
       }.get
     } else {
-      innerTrain(dataset)
+      innerTrain(dataset, batchIndex = 0)
+    }
+  }
+
+  def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {
+    if (getDelegate.isDefined) {
+      val previousBooster: Option[LightGBMBooster] = model match {
+        case Some(_) => Option(new LightGBMBooster(stringFromTrainedModel(model.get)))
+        case None => None
+      }
+
+      getDelegate.get.beforeTrainBatch(batchIndex, log, dataset, previousBooster)
+    }
+  }
+
+  def afterTrainBatch(batchIndex: Int, dataset: Dataset[_], model: TrainedModel): Unit = {
+    if (getDelegate.isDefined) {
+      val booster = new LightGBMBooster(stringFromTrainedModel(model))
+      getDelegate.get.afterTrainBatch(batchIndex, log, dataset, booster)
     }
   }
 
@@ -117,7 +144,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def innerTrain(dataset: Dataset[_]): TrainedModel = {
+  protected def innerTrain(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
     val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
@@ -151,8 +178,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       else (df, None)
     val preprocessedDF = preprocessData(trainingData)
     val schema = preprocessedDF.schema
-    val mapPartitionsFunc = TrainUtils.trainLightGBM(networkParams, getLabelCol, getFeaturesCol,
-      get(weightCol), get(initScoreCol), getOptGroupCol, validationData, log, trainParams, numCoresPerExec, schema)(_)
+    val columnParams = ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
+    val mapPartitionsFunc = TrainUtils.trainLightGBM(batchIndex, networkParams, columnParams, validationData, log,
+      trainParams, numCoresPerExec, schema)(_)
     val lightGBMBooster =
       if (getUseBarrierExecutionMode) {
         preprocessedDF.rdd.barrier().mapPartitions(mapPartitionsFunc).reduce((booster1, _) => booster1)
