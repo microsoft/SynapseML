@@ -9,7 +9,8 @@ import scala.sys.process.Process
 val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
-scalaVersion := "2.11.12"
+crossScalaVersions := Seq("2.12.11", "2.11.12")
+scalaVersion := crossScalaVersions.value.head
 
 val sparkVersion = "2.4.5"
 
@@ -26,11 +27,12 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
   "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
-  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2",
+  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "1.0.0",
   "org.apache.spark" %% "spark-avro" % sparkVersion
 )
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
+fork := true
 //noinspection ScalaStyle
 lazy val IntegrationTest2 = config("it").extend(Test)
 
@@ -79,22 +81,29 @@ def activateCondaEnv: Seq[String] = {
 }
 
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
-val genDir = join("target", "scala-2.11", "generated")
-val unidocDir = join("target", "scala-2.11", "unidoc")
-val pythonSrcDir = join(genDir.toString, "src", "python")
-val unifiedDocDir = join(genDir.toString, "doc")
-val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
-val pythonPackageDir = join(genDir.toString, "package", "python")
-val pythonTestDir = join(genDir.toString, "test", "python")
+val genDir = SettingKey[File]("genDir")
+genDir := crossTarget.value / "generated"
+val unidocDir = SettingKey[File]("unidocDir")
+unidocDir := crossTarget.value / "unidoc"
+val pythonSrcDir = SettingKey[File]("pythonSrcDir")
+pythonSrcDir := genDir.value / "src" / "python"
+val unifiedDocDir = SettingKey[File]("unifiedDocDir")
+unifiedDocDir := genDir.value / "doc"
+val pythonDocDir = SettingKey[File]("pythonDocDir")
+pythonDocDir := unifiedDocDir.value / "pyspark"
+val pythonPackageDir = SettingKey[File]("pythonPackageDir")
+pythonPackageDir := genDir.value / "package" / "python"
+val pythonTestDir = SettingKey[File]("pythonTestDir")
+pythonTestDir := genDir.value / "test" / "python"
 
 val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
 generatePythonDoc := {
   val s = streams.value
   installPipPackageTask.value
   Process(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+    (pythonSrcDir.value / "mmlspark")) ! s.log
   Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+    (pythonSrcDir.value / "mmlspark")) ! s.log
 
 }
 
@@ -145,18 +154,18 @@ publishDocs := {
       |<a href="scala/index.html">scala/</u>
       |</pre></body></html>
     """.stripMargin
-  val scalaDir = join(unifiedDocDir.toString, "scala")
+  val scalaDir = unifiedDocDir.value / "scala"
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
-  FileUtils.copyDirectory(unidocDir, scalaDir)
-  FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
-  uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
+  FileUtils.copyDirectory(unidocDir.value, scalaDir)
+  FileUtils.writeStringToFile(unifiedDocDir.value / "index.html", html, "utf-8")
+  uploadToBlob(unifiedDocDir.value.toString, version.value, "docs", s.log)
 }
 
 val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
-  val rPackage = join("target", "scala-2.11", "generated", "package", "R")
+  val rPackage = join(crossTarget.value.toString, "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
@@ -173,14 +182,14 @@ packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
   createCondaEnvTask.value
-  val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
+  val destPyDir = join(crossTarget.value.toString, "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-  FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
+  FileUtils.copyDirectory((pythonSrcDir.value / "mmlspark"), destPyDir)
 
   Process(
     activateCondaEnv ++
-      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
-    pythonSrcDir,
+      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.value.absolutePath}"),
+    pythonSrcDir.value,
     "MML_PY_VERSION" -> pythonizeVersion(version.value)) ! s.log
 }
 
@@ -193,7 +202,7 @@ installPipPackageTask := {
   Process(
     activateCondaEnv ++ Seq("pip", "install",
       s"mmlspark-${pythonizeVersion(version.value)}-py2.py3-none-any.whl"),
-    pythonPackageDir) ! s.log
+    pythonPackageDir.value) ! s.log
 }
 
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
@@ -210,7 +219,7 @@ testPythonTask := {
       "--cov-report=xml",
       "mmlsparktest"
     ),
-    new File("target/scala-2.11/generated/test/python/"),
+    crossTarget.value / "generated/test/python/",
     "MML_VERSION" -> version.value
   ) ! s.log
 }
@@ -220,7 +229,7 @@ val datasetName = "datasets-2020-01-20.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
-  join(target.value.toString, "scala-2.11", "datasets", datasetName.split(".".toCharArray.head).head)
+  join(crossTarget.value.toString, "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
 getDatasetsTask := {
@@ -242,7 +251,7 @@ genBuildInfo := {
       |---------------
       |
       |### Maven Coordinates
-      | `${organization.value}:${name.value}_2.11:${version.value}`
+      | `${organization.value}:${name.value}_${scalaBinaryVersion.value}:${version.value}`
       |
       |### Maven Resolver
       | `https://mmlspark.azureedge.net/maven`

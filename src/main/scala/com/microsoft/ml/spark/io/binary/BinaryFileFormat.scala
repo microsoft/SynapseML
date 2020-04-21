@@ -164,7 +164,8 @@ class BinaryFileFormat extends TextBasedFileFormat with DataSourceRegister {
     assert(subsample >= 0.0 & subsample <= 1.0)
     (file: PartitionedFile) => {
       val fileReader = new HadoopFileReader(file, broadcastedHadoopConf.value.value, subsample, inspectZip, seed)
-      Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => fileReader.close()))
+      Option(TaskContext.get()).foreach((f: TaskContext) =>
+        f.addTaskCompletionListener({_ => fileReader.close(); true}: (TaskContext => Boolean)))
       fileReader.map { record =>
         val recordPath = record._1
         val bytes = record._2

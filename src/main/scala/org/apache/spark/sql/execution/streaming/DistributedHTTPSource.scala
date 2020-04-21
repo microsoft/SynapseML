@@ -295,14 +295,14 @@ class DistributedHTTPSource(name: String,
     if (newOffset.offset < lastOffsetCommitted.offset) {
       sys.error(s"Offsets committed out of order: $lastOffsetCommitted followed by $end")
     }
-    serverInfoDF.foreachPartition(_ =>
+    serverInfoDF.foreachPartition((_: Iterator[Row]) =>
       server.get.trimBatchesBefore(newOffset.offset))
     lastOffsetCommitted = newOffset
   }
 
   /** Stop this source. */
   override def stop(): Unit = synchronized {
-    serverInfoDF.foreachPartition(_ =>
+    serverInfoDF.foreachPartition((_: Iterator[Row]) =>
       server.get.stop())
     ()
   }

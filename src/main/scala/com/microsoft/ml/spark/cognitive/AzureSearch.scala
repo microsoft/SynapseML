@@ -326,7 +326,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
   }
 
   def write(df: DataFrame, options: Map[String, String] = Map()): Unit = {
-    prepareDF(df, options).foreachPartition(it => it.foreach(_ => ()))
+    prepareDF(df, options).foreachPartition((it: Iterator[Row]) => it.foreach(_ => ()))
   }
 
   def stream(df: DataFrame, options: java.util.HashMap[String, String]): DataStreamWriter[Row] = {
