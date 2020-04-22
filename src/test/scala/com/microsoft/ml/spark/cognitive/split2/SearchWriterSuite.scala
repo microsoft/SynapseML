@@ -1,17 +1,19 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.cognitive
+package com.microsoft.ml.spark.cognitive.split2
 
 import java.util.UUID
 
 import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive.RESTHelpers._
+import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.cognitive.split1.VisionKey
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
-import com.microsoft.ml.spark.cognitive.RESTHelpers._
+import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable
 import scala.concurrent.blocking
