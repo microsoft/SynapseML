@@ -1,23 +1,19 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.cognitive
+package com.microsoft.ml.spark.cognitive.split1
 
 import java.net.URI
 
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.cognitive._
+import com.microsoft.ml.spark.cognitive.{RESTHelpers, URLEncodingUtils}
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import scala.util.Try
-import scala.concurrent.blocking
 
 object FaceUtils {
 
@@ -85,7 +81,7 @@ object FaceUtils {
   }
 }
 
-import com.microsoft.ml.spark.cognitive.FaceUtils._
+import com.microsoft.ml.spark.cognitive.split1.FaceUtils._
 
 object FaceListProtocol {
   implicit val PfiEnc = jsonFormat2(PersistedFaceInfo.apply)

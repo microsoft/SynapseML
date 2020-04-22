@@ -1,12 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.cognitive
+package com.microsoft.ml.spark.cognitive.split2
 
-import java.io.{FileInputStream, FileNotFoundException}
 import java.net.{URI, URL}
 
 import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive.{SpeechResponse, SpeechToText}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable

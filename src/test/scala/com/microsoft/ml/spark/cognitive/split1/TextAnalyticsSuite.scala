@@ -1,9 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.cognitive
+package com.microsoft.ml.spark.cognitive.split1
 
 import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
