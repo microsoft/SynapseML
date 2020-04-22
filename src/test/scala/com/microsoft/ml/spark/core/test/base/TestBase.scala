@@ -306,9 +306,9 @@ trait DataFrameEquality extends TestBase {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(10000, false)
+      df1.show(10)
       println("df2:")
-      df2.show(10000, false)
+      df2.show(10)
     }
     assert(result)
   }
