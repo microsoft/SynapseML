@@ -21,8 +21,7 @@ object ClusterUtil {
     val spark = dataset.sparkSession
     val confTaskCpus = getTaskCpus(dataset, log)
     try {
-      val confCores = spark.sparkContext.getConf
-        .get("spark.executor.cores").toInt
+      val confCores = spark.sparkContext.getConf.get("spark.executor.cores").toInt
       val coresPerExec = confCores / confTaskCpus
       log.info(s"ClusterUtils calculated num cores per executor as $coresPerExec from $confCores " +
         s"cores and $confTaskCpus task CPUs")
@@ -30,7 +29,7 @@ object ClusterUtil {
     } catch {
       case _: NoSuchElementException =>
         // If spark.executor.cores is not defined, get the cores based on master
-        val defaultNumCores = getDefaultNumExecutorCores(dataset, log)
+        val defaultNumCores = getDefaultNumExecutorCores(spark, log)
         val coresPerExec = defaultNumCores / confTaskCpus
         log.info(s"ClusterUtils calculated num cores per executor as $coresPerExec from " +
           s"default num cores($defaultNumCores) from master and $confTaskCpus task CPUs")
@@ -38,47 +37,55 @@ object ClusterUtil {
     }
   }
 
-  def getDefaultNumExecutorCores(dataset: Dataset[_], log: Logger): Int = {
-    val spark = dataset.sparkSession
-    val master = try {
-      val masterConf = spark.sparkContext.getConf.getOption("spark.master")
-      if (masterConf.isDefined) {
-        log.info(s"ClusterUtils detected spark.master config (spark.master: ${masterConf.get})")
-      } else {
-        log.info("ClusterUtils did not detect spark.master config set")
-      }
+  /** Get number of default cores from sparkSession(required) or master(optional) for 1 executor.
+    * @param spark The current spark session. If not set master param, the master in the session is used.
+    * @param master This param is needed for unittest. If set, the function return the value for it.
+    *               if not set, basically, master in spark (SparkSession) is used.
+    * @return The number of default cores per executor based on master.
+    */
+  def getDefaultNumExecutorCores(spark: SparkSession, log: Logger, master: Option[String] = None): Int = {
+    val masterOpt = master match {
+      case Some(_) => master
+      case None =>
+        try {
+          val masterConf = spark.sparkContext.getConf.getOption("spark.master")
+          if (masterConf.isDefined) {
+            log.info(s"ClusterUtils detected spark.master config (spark.master: ${masterConf.get})")
+          } else {
+            log.info("ClusterUtils did not detect spark.master config set")
+          }
 
-      masterConf
-    } catch {
-      case _: NoSuchElementException => {
-        log.info("spark.master config not set")
-        None
-      }
+          masterConf
+        } catch {
+          case _: NoSuchElementException => {
+            log.info("spark.master config not set")
+            None
+          }
+        }
     }
 
     // ref: https://spark.apache.org/docs/latest/configuration.html
-    if (master.isEmpty) {
+    if (masterOpt.isEmpty) {
       val numMachineCores = getJVMCPUs(spark)
       log.info("ClusterUtils did not detect spark.master config set" +
         s"So, the number of machine cores($numMachineCores) from JVM is used")
       numMachineCores
-    } else if (master.get.startsWith("spark://") || master.get.startsWith("mesos://")) {
+    } else if (masterOpt.get.startsWith("spark://") || masterOpt.get.startsWith("mesos://")) {
       // all the available cores on the worker in standalone and Mesos coarse-grained modes
       val numMachineCores = getJVMCPUs(spark)
       log.info(s"ClusterUtils detected the number of executor cores from $numMachineCores machine cores from JVM" +
         s"based on master address")
       numMachineCores
-    } else if (master.get.startsWith("yarn") || master.get.startsWith("k8s://")) {
+    } else if (masterOpt.get.startsWith("yarn") || masterOpt.get.startsWith("k8s://")) {
       // 1 in YARN mode
       log.info(s"ClusterUtils detected 1 as the number of executor cores based on master address")
       1
     } else {
       val numMachineCores = getJVMCPUs(spark)
       log.info(s"ClusterUtils did not detect master that has known default value." +
-          s"So, the number of machine cores($numMachineCores) from JVM is used")
+        s"So, the number of machine cores($numMachineCores) from JVM is used")
       numMachineCores
     }
-
   }
 
   def getTaskCpus(dataset: Dataset[_], log: Logger): Int = {
