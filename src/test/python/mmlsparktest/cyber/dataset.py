@@ -3,9 +3,114 @@
 
 import pandas as pd
 import random
+from typing import Optional
 from mmlsparktest.spark import *
-from mmlspark.cyber.anomaly.collaborative_filtering import AccessAnomalyConfig
+from mmlspark.cyber.anomaly import AccessAnomaly
 import itertools
+
+
+class CfAlgoParams:
+    """
+    Parameter for the AccessAnomaly Estimator indicating
+    if to use implicit or explicit feedback versions of the ALS algorithm
+    and additional parameters that are relevant for the implicit/explicit versions
+    """
+    def __init__(self, implicit: bool):
+        self._implicit = implicit
+        self._alpha: Optional[float] = None
+        self._complementset_factor: Optional[int] = None
+        self._neg_score: Optional[float] = None
+
+        # set default values
+        if implicit:
+            self.set_alpha(1.0)
+        else:
+            self.set_complementset_factor(2)
+            self.set_neg_score(1.0)
+
+    @property
+    def implicit(self) -> bool:
+        return self._implicit
+
+    @property
+    def alpha(self) -> Optional[float]:
+        """
+        Relevant for the implicit version only
+        :return: alpha value (see descriptions in explainParam of AccessAnomaly)
+        """
+        return self._alpha
+
+    @property
+    def complementset_factor(self) -> Optional[int]:
+        """
+        Relevant for the explicit version only
+        :return: complementset_factor value (see descriptions in explainParam of AccessAnomaly)
+        """
+        return self._complementset_factor
+
+    @property
+    def neg_score(self) -> Optional[float]:
+        """
+        Relevant for the explicit version only
+        :return: neg_score value (see descriptions in explainParam of AccessAnomaly)
+        """
+        return self._neg_score
+
+    def set_alpha(self, value: float):
+        assert self.implicit
+        self._alpha = value
+        return self
+
+    def set_complementset_factor(self, value: int):
+        assert not self.implicit
+        self._complementset_factor = value
+        return self
+
+    def set_neg_score(self, value: float):
+        assert not self.implicit
+        assert value > 0.0
+        self._neg_score = value
+        return self
+
+
+class AccessAnomalyConfig:
+    """
+    Define default values for AccessAnomaly Params
+    """
+    default_tenant_col = 'tenant'
+    default_user_col = 'user'
+    default_res_col = 'res'
+    default_likelihood_col = 'likelihood'
+    default_output_col = 'anomaly_score'
+
+    default_rank = 10
+    default_max_iter = 25
+    default_reg_param = 1.0
+    default_num_blocks = None   # |tenants| if separate_tenants is False else 10
+    default_separate_tenants = False
+
+    default_low_value = 5.0
+    default_high_value = 10.0
+
+    default_algo_cf_params = CfAlgoParams(True)
+
+    @staticmethod
+    def create_access_anomaly(**params):
+        aa = AccessAnomaly()
+
+        aa.setTenantCol(params.get('tenant_col', AccessAnomalyConfig.default_tenant_col))
+        aa.setUserCol(params.get('user_col', AccessAnomalyConfig.default_user_col))
+        aa.setResCol(params.get('res_col', AccessAnomalyConfig.default_res_col))
+        aa.setAccessCol(params.get('likelihood_col', AccessAnomalyConfig.default_likelihood_col))
+        aa.setOutputCol(params.get('output_col', AccessAnomalyConfig.default_output_col))
+
+        aa.setRank(params.get('rank', AccessAnomalyConfig.default_rank))
+        aa.setMaxIter(params.get('max_iter', AccessAnomalyConfig.default_max_iter))
+        aa.setReg(params.get('reg_param', AccessAnomalyConfig.default_reg_param))
+        aa.setNumBlocks(params.get('num_blocks', 1))
+        aa.setSeparateTenants(params.get('separate_tenants', AccessAnomalyConfig.default_separate_tenants))
+
+        return aa
 
 
 class DataFactory:

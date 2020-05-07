@@ -73,6 +73,13 @@ class AccessAnomalySuite extends EstimatorFuzzing[AccessAnomaly] with AccessAnom
     assert(avgRegScore < .5)
   }
 
+  test("can work without acceses") {
+    val fitModel = aa.fit(trainDF)
+    val avgAnomalyScore = fitModel.transform(testAnomalyDF.drop("acc"))
+      .groupBy().agg(avg("zscore")).collect().head.getDouble(0)
+    assert(avgAnomalyScore > .9)
+  }
+
   override def testObjects(): Seq[TestObject[AccessAnomaly]] = Seq(
     new TestObject(aa, trainDF, testAnomalyDF)
   )

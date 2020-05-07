@@ -3,16 +3,14 @@
 
 import unittest
 from typing import Dict, Set, Union
-from pyspark.sql import DataFrame, functions as f
+from pyspark.sql import functions as f
 from pyspark.ml import Pipeline
 from mmlspark.cyber.feature import *
-from mmlspark.cyber.anomaly.collaborative_filtering import \
-    AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, \
-    UserResourceCfDataframeModel, ModelNormalizeTransformer, CfAlgoParams
-from mmlsparktest.cyber.dataset import DataFactory
+from mmlspark.cyber.anomaly import AccessAnomaly, AccessAnomalyModel
+from mmlsparktest.cyber.dataset import AccessAnomalyConfig, DataFactory
 from mmlsparktest.spark import *
 
-epsilon = 10 ** -3
+epsilon = 10 ** -2
 
 
 class BasicStats:
@@ -137,7 +135,7 @@ class Dataset:
         if self.default_access_anomaly_model is not None:
             return self.default_access_anomaly_model
 
-        access_anomaly = AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col, max_iter=10)
+        access_anomaly = AccessAnomalyConfig.create_access_anomaly(max_iter=10)
         self.default_access_anomaly_model = access_anomaly.fit(self.training)
         return self.default_access_anomaly_model
 
@@ -268,11 +266,13 @@ class TestModelNormalizeTransformer(unittest.TestCase):
 class TestAccessAnomaly(unittest.TestCase):
     def test_enrich_and_normalize(self):
         training = Dataset.create_new_training(1.0).cache()
-        access_anomaly = AccessAnomaly(
-            tenant_col=AccessAnomalyConfig.default_tenant_col,
-            max_iter=10,
-            algo_cf_params=CfAlgoParams(False)
+        access_anomaly = AccessAnomalyConfig.create_access_anomaly(
+            max_iter=10
         )
+
+        access_anomaly.setImplicitCF(False)
+        access_anomaly.setNegSamplingScore(1.0)
+        access_anomaly.setNegSamplingFraction(2.0)
 
         tenant_col = access_anomaly.tenant_col
         user_col = access_anomaly.user_col
@@ -417,9 +417,9 @@ class TestAccessAnomaly(unittest.TestCase):
         print('training_stats')
 
         for stats in training_stats.get_stats():
-            assert abs(stats.mean) < epsilon
-            assert abs(stats.std - 1.0) < epsilon
             print(stats)
+            assert abs(stats.mean) < epsilon, abs(stats.mean)
+            assert abs(stats.std - 1.0) < epsilon, abs(stats.std - 1.0)
 
         intra_test_scores = model.transform(data_set.intra_test)
         intra_test_stats = create_stats(intra_test_scores, AccessAnomalyConfig.default_tenant_col)
@@ -433,12 +433,12 @@ class TestAccessAnomaly(unittest.TestCase):
             intra_stats = intra_test_stats.get_stat(tid)
             inter_stats = inter_test_stats.get_stat(tid)
 
-            assert inter_stats.mean > intra_stats.mean
-            assert inter_stats.mean - intra_stats.mean >= 2.0
-
             print(tid)
             print(intra_stats)
             print(inter_stats)
+
+            assert inter_stats.mean > intra_stats.mean, inter_stats.mean
+            assert inter_stats.mean - intra_stats.mean >= 2.0, inter_stats.mean - intra_stats.mean
 
     def test_cross_access(self):
         self.report_cross_access(data_set.get_default_access_anomaly_model())
