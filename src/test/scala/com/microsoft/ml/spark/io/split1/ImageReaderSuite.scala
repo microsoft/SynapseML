@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.split1
 
 import java.io.{File, FileInputStream}
 
+import com.microsoft.ml.spark.cognitive.OsUtils
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.core.test.base.TestBase
@@ -16,11 +17,7 @@ import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql.functions.{col, to_json, udf}
 import org.apache.spark.sql.types.StringType
 
-trait OsUtils {
-  val isWindows: Boolean = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0
-}
-
-class ImageReaderSuite extends TestBase with FileReaderUtils with OsUtils {
+class ImageReaderSuite extends TestBase with FileReaderUtils {
 
   val imageFormat: String = classOf[PatchedImageFileFormat].getName
 
@@ -64,7 +61,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils with OsUtils {
   }
 
   test("read images from files") {
-    val prefix = if (isWindows) "" else "file://"
+    val prefix = if (OsUtils.IsWindows) "" else "file://"
     val files = recursiveListFiles(new File(cifarDirectory))
       .toSeq.map(f => Tuple1(prefix + f.toString))
     val df = session
