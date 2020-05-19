@@ -88,7 +88,7 @@ trait HasLeafPredictionCol extends Params {
 
 trait HasFeaturesShapCol extends Params {
   val featuresShapCol = new Param[String](this, "featuresShapCol",
-    "features' shap value column name that means their contribution for prediction")
+    "Output SHAP vector column name after prediction containing the feature contribution values")
   setDefault(featuresShapCol -> "")
 
   def getFeaturesShapCol: String = $(featuresShapCol)
@@ -162,7 +162,7 @@ class LightGBMClassificationModel(
     }
     if (getFeaturesShapCol.nonEmpty) {
       val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  featureShapUDF(col(getFeaturesCol)))
+      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
 
