@@ -231,7 +231,8 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
                               featuresColName: String = "features", predictionColName: String = "prediction",
                               probColName: String = "probability",
                               rawPredictionColName: String = "rawPrediction",
-                              leafPredictionColName: String = "leafPrediction"): LightGBMClassificationModel = {
+                              leafPredictionColName: String = "leafPrediction",
+                              featuresShapColName: String = "featuresShap"): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
@@ -239,18 +240,21 @@ object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassific
     val lightGBMBooster = new LightGBMBooster(text)
     val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
+      predictionColName, probColName, rawPredictionColName, leafPredictionColName, featuresShapColName,
+      None, actualNumClasses)
   }
 
   def loadNativeModelFromString(model: String, labelColName: String = "label",
                                 featuresColName: String = "features", predictionColName: String = "prediction",
                                 probColName: String = "probability",
                                 rawPredictionColName: String = "rawPrediction",
-                                leafPredictionColName: String = "leafPrediction"): LightGBMClassificationModel = {
+                                leafPredictionColName: String = "leafPrediction",
+                                featuresShapColName: String = "featuresShap"): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val lightGBMBooster = new LightGBMBooster(model)
     val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
+      predictionColName, probColName, rawPredictionColName, leafPredictionColName, featuresShapColName,
+      None, actualNumClasses)
   }
 }
