@@ -126,6 +126,7 @@ trait LightGBMTestUtils extends TestBase {
   val labelCol = "labels"
   val rawPredCol = "rawPrediction"
   val leafPredCol = "leafPrediction"
+  val featuresShapCol = "featuresShap"
   val initScoreCol = "initScore"
   val predCol = "prediction"
   val probCol = "probability"
@@ -219,6 +220,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setObjective(binaryObjective)
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
+      .setFeaturesShapCol(featuresShapCol)
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -271,7 +273,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val convertUDF = udf((vector: DenseVector) => vector(1))
     val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
     val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
-      .drop(predCol, rawPredCol, probCol, leafPredCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertBinaryImprovement(scoredDF1, scoredDF2)
@@ -280,7 +282,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
     val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
-      .drop(predCol, rawPredCol, probCol, leafPredCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertMulticlassImprovement(scoredDF1, scoredDF2)
@@ -414,6 +416,25 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // if leaf prediction is not wanted, it is possible to remove it.
     val evaluatedDf2 = model.setLeafPredictionCol("").transform(test)
     assert(!evaluatedDf2.columns.contains(leafPredCol))
+  }
+
+  test("Verify LightGBM Classifier features shap") {
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == model.getModel.numFeatures)
+
+    // if featuresShap is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(featuresShapCol))
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {

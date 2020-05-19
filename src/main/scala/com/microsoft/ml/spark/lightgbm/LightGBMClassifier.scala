@@ -26,7 +26,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMBase[LightGBMClassificationModel]
-  with HasLeafPredictionCol {
+  with HasLeafPredictionCol with HasFeaturesShapCol {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
@@ -57,7 +57,7 @@ class LightGBMClassifier(override val uid: String)
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
     val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
     new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
-      getPredictionCol, getProbabilityCol, getRawPredictionCol, getLeafPredictionCol,
+      getPredictionCol, getProbabilityCol, getRawPredictionCol, getLeafPredictionCol, getFeaturesShapCol,
       if (isDefined(thresholds)) Some(getThresholds) else None, classifierTrainParams.numClass)
   }
 
@@ -86,16 +86,27 @@ trait HasLeafPredictionCol extends Params {
   def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
 }
 
+trait HasFeaturesShapCol extends Params {
+  val featuresShapCol = new Param[String](this, "featuresShapCol",
+    "features' shap value column name that means their contribution for prediction")
+  setDefault(featuresShapCol -> "")
+
+  def getFeaturesShapCol: String = $(featuresShapCol)
+  def setFeaturesShapCol(value: String): this.type = set(featuresShapCol, value)
+}
+
 /** Model produced by [[LightGBMClassifier]]. */
 @InternalWrapper
 class LightGBMClassificationModel(
   override val uid: String, override val model: LightGBMBooster, labelColName: String,
   featuresColName: String, predictionColName: String, probColName: String,
-  rawPredictionColName: String, leafIndicesColName: String, thresholdValues: Option[Array[Double]],
+  rawPredictionColName: String, leafPredictionColName: String, featuresShapColName: String,
+  thresholdValues: Option[Array[Double]],
   actualNumClasses: Int)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
     with HasFeatureImportanceGetters
     with HasLeafPredictionCol
+    with HasFeaturesShapCol
     with ConstructorWritable[LightGBMClassificationModel] {
 
   // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
@@ -105,7 +116,8 @@ class LightGBMClassificationModel(
   set(predictionCol, predictionColName)
   set(probabilityCol, probColName)
   set(rawPredictionCol, rawPredictionColName)
-  set(leafPredictionCol, leafIndicesColName)
+  set(leafPredictionCol, leafPredictionColName)
+  set(featuresShapCol, featuresShapColName)
 
   if (thresholdValues.isDefined) set(thresholds, thresholdValues.get)
 
@@ -139,20 +151,18 @@ class LightGBMClassificationModel(
       numColsOutput += 1
     }
     if (getPredictionCol.nonEmpty) {
-      val predUDF = if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
-        // Note: Only call raw2prediction if thresholds not defined
-        udf(raw2prediction _).apply(col(getRawPredictionCol))
-      } else if (getProbabilityCol.nonEmpty) {
-        udf(probability2prediction _).apply(col(getProbabilityCol))
-      } else {
-        udf(predict _).apply(col(getFeaturesCol))
-      }
+      val predUDF = predictColumn
       outputData = outputData.withColumn(getPredictionCol, predUDF)
       numColsOutput += 1
     }
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
       outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
+      numColsOutput += 1
+    }
+    if (getFeaturesShapCol.nonEmpty) {
+      val featureShapUDF = udf(featuresShap _)
+      outputData = outputData.withColumn(getLeafPredictionCol,  featureShapUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
 
@@ -180,7 +190,7 @@ class LightGBMClassificationModel(
 
   override def copy(extra: ParamMap): LightGBMClassificationModel =
     new LightGBMClassificationModel(uid, model, labelColName, featuresColName, predictionColName, probColName,
-      rawPredictionColName, leafIndicesColName, thresholdValues, actualNumClasses)
+      rawPredictionColName, leafPredictionColName, featuresShapColName, thresholdValues, actualNumClasses)
 
   override val ttag: TypeTag[LightGBMClassificationModel] =
     typeTag[LightGBMClassificationModel]
@@ -189,8 +199,23 @@ class LightGBMClassificationModel(
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
          getProbabilityCol, getRawPredictionCol, getLeafPredictionCol, thresholdValues, actualNumClasses)
 
+  protected def predictColumn: Column = {
+    if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
+      // Note: Only call raw2prediction if thresholds not defined
+      udf(raw2prediction _).apply(col(getRawPredictionCol))
+    } else if (getProbabilityCol.nonEmpty) {
+      udf(probability2prediction _).apply(col(getProbabilityCol))
+    } else {
+      udf(predict _).apply(col(getFeaturesCol))
+    }
+  }
+
   protected def predictLeaf(features: Vector): Vector = {
     Vectors.dense(model.predictLeaf(features))
+  }
+
+  protected def featuresShap(features: Vector): Vector = {
+    Vectors.dense(model.featuresShap(features))
   }
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
