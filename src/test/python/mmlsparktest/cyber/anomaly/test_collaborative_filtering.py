@@ -274,12 +274,12 @@ class TestAccessAnomaly(unittest.TestCase):
         access_anomaly.setNegSamplingScore(1.0)
         access_anomaly.setNegSamplingFraction(2.0)
 
-        tenant_col = access_anomaly.tenant_col
-        user_col = access_anomaly.user_col
-        indexed_user_col = access_anomaly.indexed_user_col
-        res_col = access_anomaly.res_col
-        indexed_res_col = access_anomaly.indexed_res_col
-        scaled_likelihood_col = access_anomaly.scaled_likelihood_col
+        tenant_col = access_anomaly.getTenantCol()
+        user_col = access_anomaly.getUserCol()
+        indexed_user_col = 'indexed' + user_col[0:1].upper() + user_col[1:]
+        res_col = access_anomaly.getResCol()
+        indexed_res_col = 'indexed' + res_col[0:1].upper() + res_col[1:]
+        scaled_likelihood_col = access_anomaly.getAccessCol()
 
         assert training.filter(f.col(user_col).isNull()).count() == 0
         assert training.filter(f.col(res_col).isNull()).count() == 0
@@ -336,14 +336,6 @@ class TestAccessAnomaly(unittest.TestCase):
 
     def test_mean_and_std(self):
         model = data_set.get_default_access_anomaly_model()
-
-        assert model.user_model_df.select(
-            AccessAnomalyConfig.default_tenant_col, AccessAnomalyConfig.default_user_col
-        ).distinct().count() == data_set.num_users
-
-        assert model.res_model_df.select(
-            AccessAnomalyConfig.default_tenant_col, AccessAnomalyConfig.default_res_col
-        ).distinct().count() == data_set.num_resources
 
         res_df = model.transform(data_set.training).cache()
         assert res_df is not None
@@ -418,8 +410,8 @@ class TestAccessAnomaly(unittest.TestCase):
 
         for stats in training_stats.get_stats():
             print(stats)
-            assert abs(stats.mean) < epsilon, abs(stats.mean)
-            assert abs(stats.std - 1.0) < epsilon, abs(stats.std - 1.0)
+            assert abs(stats.mean) < epsilon, stats.mean
+            assert abs(stats.std - 1.0) < epsilon, stats.std
 
         intra_test_scores = model.transform(data_set.intra_test)
         intra_test_stats = create_stats(intra_test_scores, AccessAnomalyConfig.default_tenant_col)
