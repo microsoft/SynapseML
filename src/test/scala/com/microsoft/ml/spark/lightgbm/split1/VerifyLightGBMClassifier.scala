@@ -430,7 +430,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       case Row(v: Vector) => v
     }.first.toArray
 
-    assert(featuresShap.length == model.getModel.numFeatures)
+    assert(featuresShap.length == (model.getModel.numFeatures + 1))
 
     // if featuresShap is not wanted, it is possible to remove it.
     val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)

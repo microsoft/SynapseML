@@ -80,7 +80,7 @@ protected class BoosterHandler(model: String) {
  val shapDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
     new ThreadLocal[DoubleNativePtrHandler] {
       override def initialValue(): DoubleNativePtrHandler = {
-        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures))
+        new DoubleNativePtrHandler(lightgbmlib.new_doubleArray(numFeatures + 1))
       }
     }
   }
@@ -89,7 +89,7 @@ protected class BoosterHandler(model: String) {
     new ThreadLocal[LongLongNativePtrHandler] {
       override def initialValue(): LongLongNativePtrHandler = {
         val dataLongLengthPtr = lightgbmlib.new_int64_tp()
-        lightgbmlib.int64_tp_assign(dataLongLengthPtr, numFeatures)
+        lightgbmlib.int64_tp_assign(dataLongLengthPtr, (numFeatures + 1))
         new LongLongNativePtrHandler(dataLongLengthPtr)
       }
     }
@@ -330,7 +330,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   private def shapToArray(shapDataOutPtr: SWIGTYPE_p_double): Array[Double] = {
-    (0 until numFeatures).map(featNum =>
+    (0 until (numFeatures + 1)).map(featNum =>
       lightgbmlib.doubleArray_getitem(shapDataOutPtr, featNum)).toArray
   }
 }
