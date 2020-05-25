@@ -109,7 +109,7 @@ trait LightGBMTestUtils extends TestBase {
   def assertFeatureShapLengths(fitModel: Model[_] with HasFeatureShapGetters, features: Vector, df: DataFrame): Unit = {
     val shapLength = fitModel.getFeatureShaps(features).length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
-    assert(shapLength == featuresLength)
+    assert(shapLength == featuresLength + 1)
   }
 
   lazy val numPartitions = 2
