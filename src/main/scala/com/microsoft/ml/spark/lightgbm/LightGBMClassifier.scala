@@ -197,7 +197,8 @@ class LightGBMClassificationModel(
 
   override def objectsToSave: List[Any] =
     List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
-         getProbabilityCol, getRawPredictionCol, getLeafPredictionCol, thresholdValues, actualNumClasses)
+         getProbabilityCol, getRawPredictionCol, getLeafPredictionCol,
+         getFeaturesShapCol, thresholdValues, actualNumClasses)
 
   protected def predictColumn: Column = {
     if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
