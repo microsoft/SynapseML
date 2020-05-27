@@ -4,15 +4,13 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
-import org.apache.spark.ml.{Ranker, RankerModel}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.DataType
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
 
@@ -61,7 +59,12 @@ class LightGBMRanker(override val uid: String)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
-    new LightGBMRankerModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
+    new LightGBMRankerModel(uid)
+      .setLightGBMBooster(lightGBMBooster)
+      .setFeaturesCol(getFeaturesCol)
+      .setPredictionCol(getPredictionCol)
+      .setLeafPredictionCol(getLeafPredictionCol)
+      .setFeaturesShapCol(getFeaturesShapCol)
   }
 
   def stringFromTrainedModel(model: LightGBMRankerModel): String = {
@@ -99,68 +102,61 @@ class LightGBMRanker(override val uid: String)
   }
 }
 
-trait HasFeatureShapGetters {
-  val model: LightGBMBooster
-
-  def getFeatureShaps(features: Vector): Array[Double] = {
-    model.featuresShap(features)
-  }
-}
-
 /** Model produced by [[LightGBMRanker]]. */
 @InternalWrapper
-class LightGBMRankerModel(override val uid: String, override val model: LightGBMBooster, labelColName: String,
-                          featuresColName: String, predictionColName: String)
+class LightGBMRankerModel(override val uid: String)
   extends RankerModel[Vector, LightGBMRankerModel]
-    with HasFeatureShapGetters with HasFeatureImportanceGetters
-    with ConstructorWritable[LightGBMRankerModel] {
+    with LightGBMModelParams
+    with LightGBMModelMethods
+    with LightGBMPredictionParams
+    with ComplexParamsWritable {
 
-  // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
-  // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
-  set(labelCol, labelColName)
-  set(featuresCol, featuresColName)
-  set(predictionCol, predictionColName)
-
-  override def predict(features: Vector): Double = {
-    model.score(features, false, false)(0)
+  /**
+    * Adds additional Leaf Index and SHAP columns if specified.
+    *
+    * @param dataset input dataset
+    * @return transformed dataset
+    */
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    var outputData = super.transform(dataset)
+    if (getLeafPredictionCol.nonEmpty) {
+      val predLeafUDF = udf(predictLeaf _)
+      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
+    }
+    if (getFeaturesShapCol.nonEmpty) {
+      val featureShapUDF = udf(featuresShap _)
+      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
+    }
+    outputData.toDF
   }
 
-  override def copy(extra: ParamMap): LightGBMRankerModel =
-    new LightGBMRankerModel(uid, model, labelColName, featuresColName, predictionColName)
+  override def predict(features: Vector): Double = {
+    getModel.score(features, false, false)(0)
+  }
 
-  override val ttag: TypeTag[LightGBMRankerModel] =
-    typeTag[LightGBMRankerModel]
+  override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
 
-  override def objectsToSave: List[Any] =
-    List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
-
-  override def numFeatures: Int = model.numFeatures
+  override def numFeatures: Int = getModel.numFeatures
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
-    model.saveNativeModel(session, filename, overwrite)
+    getModel.saveNativeModel(session, filename, overwrite)
   }
-
-  def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMRankerModel extends ConstructorReadable[LightGBMRankerModel] {
-  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
-                              featuresColName: String = "features",
-                              predictionColName: String = "prediction"): LightGBMRankerModel = {
+object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {
+  def loadNativeModelFromFile(filename: String): LightGBMRankerModel = {
     val uid = Identifiable.randomUID("LightGBMRanker")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    new LightGBMRankerModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRankerModel(uid).setLightGBMBooster(lightGBMBooster)
   }
 
-  def loadNativeModelFromString(model: String, labelColName: String = "label",
-                                featuresColName: String = "features",
-                                predictionColName: String = "prediction"): LightGBMRankerModel = {
+  def loadNativeModelFromString(model: String): LightGBMRankerModel = {
     val uid = Identifiable.randomUID("LightGBMRanker")
     val lightGBMBooster = new LightGBMBooster(model)
-    new LightGBMRankerModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRankerModel(uid).setLightGBMBooster(lightGBMBooster)
   }
 }

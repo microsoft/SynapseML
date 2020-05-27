@@ -32,27 +32,23 @@ class LightGBMRankerModel(_LightGBMRankerModel):
         self._java_obj.saveNativeModel(filename, overwrite)
 
     @staticmethod
-    def loadNativeModelFromFile(filename, labelColName="label", featuresColName="features",
-                                predictionColName="prediction"):
+    def loadNativeModelFromFile(filename):
         """
         Load the model from a native LightGBM text file.
         """
         ctx = SparkContext._active_spark_context
         loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMRankerModel
-        java_model = loader.loadNativeModelFromFile(filename, labelColName,
-                                                    featuresColName, predictionColName)
+        java_model = loader.loadNativeModelFromFile(filename)
         return JavaParams._from_java(java_model)
 
     @staticmethod
-    def loadNativeModelFromString(model, labelColName="label", featuresColName="features",
-                                  predictionColName="prediction"):
+    def loadNativeModelFromString(model):
         """
         Load the model from a native LightGBM model string.
         """
         ctx = SparkContext._active_spark_context
         loader = ctx._jvm.com.microsoft.ml.spark.lightgbm.LightGBMRankerModel
-        java_model = loader.loadNativeModelFromString(model, labelColName,
-                                                      featuresColName, predictionColName)
+        java_model = loader.loadNativeModelFromString(model)
         return JavaParams._from_java(java_model)
 
     def getFeatureImportances(self, importance_type="split"):
@@ -60,3 +56,15 @@ class LightGBMRankerModel(_LightGBMRankerModel):
         Get the feature importances as a list.  The importance_type can be "split" or "gain".
         """
         return list(self._java_obj.getFeatureImportances(importance_type))
+
+    def getDenseFeatureShaps(self, vector):
+        """
+        Get the local shap feature importances.
+        """
+        return list(self._java_obj.getFeatureShaps(vector))
+
+    def getSparseFeatureShaps(self, size, indices, values):
+        """
+        Get the local shap feature importances for sparse vectors.
+        """
+        return list(self._java_obj.getSparseFeatureShaps(size, indices, values))
