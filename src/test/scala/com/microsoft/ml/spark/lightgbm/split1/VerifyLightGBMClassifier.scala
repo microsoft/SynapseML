@@ -279,7 +279,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
-  test("Verify LightGBM Multiclass Classifier with vector initial score") {
+  ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
     val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
       .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
