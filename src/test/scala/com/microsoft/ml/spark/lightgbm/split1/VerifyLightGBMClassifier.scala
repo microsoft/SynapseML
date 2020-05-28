@@ -250,7 +250,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
-  ignore("Verify LightGBM Classifier with batch training") {
+  test("Verify LightGBM Classifier with batch training") {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
   }
@@ -279,7 +279,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
-  ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
+  test("Verify LightGBM Multiclass Classifier with vector initial score") {
     val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
       .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
@@ -299,9 +299,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
-    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(100)
+    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(200)
     val scoredDF1 = baseModelWithLR.fit(train).transform(test)
-    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.1).fit(train).transform(test)
+    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.5).fit(train).transform(test)
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
