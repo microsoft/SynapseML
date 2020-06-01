@@ -4,15 +4,13 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
-import org.apache.spark.ml.BaseRegressor
+import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.sql._
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
+import org.apache.spark.sql.functions.{col, udf}
 
 object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 
@@ -68,7 +66,12 @@ class LightGBMRegressor(override val uid: String)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
-    new LightGBMRegressionModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol, getPredictionCol)
+    new LightGBMRegressionModel(uid)
+      .setLightGBMBooster(lightGBMBooster)
+      .setFeaturesCol(getFeaturesCol)
+      .setPredictionCol(getPredictionCol)
+      .setLeafPredictionCol(getLeafPredictionCol)
+      .setFeaturesShapCol(getFeaturesShapCol)
   }
 
   def stringFromTrainedModel(model: LightGBMRegressionModel): String = {
@@ -80,57 +83,57 @@ class LightGBMRegressor(override val uid: String)
 
 /** Model produced by [[LightGBMRegressor]]. */
 @InternalWrapper
-class LightGBMRegressionModel(override val uid: String,
-                              override val model: LightGBMBooster,
-                              labelColName: String,
-                              featuresColName: String,
-                              predictionColName: String)
+class LightGBMRegressionModel(override val uid: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
-    with HasFeatureImportanceGetters
-    with ConstructorWritable[LightGBMRegressionModel] {
+    with LightGBMModelParams
+    with LightGBMModelMethods
+    with LightGBMPredictionParams
+    with ComplexParamsWritable {
 
-  // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
-  // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
-  set(labelCol, labelColName)
-  set(featuresCol, featuresColName)
-  set(predictionCol, predictionColName)
-
-  override def predict(features: Vector): Double = {
-    model.score(features, false, false)(0)
+  /**
+    * Adds additional Leaf Index and SHAP columns if specified.
+    *
+    * @param dataset input dataset
+    * @return transformed dataset
+    */
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    var outputData = super.transform(dataset)
+    if (getLeafPredictionCol.nonEmpty) {
+      val predLeafUDF = udf(predictLeaf _)
+      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
+    }
+    if (getFeaturesShapCol.nonEmpty) {
+      val featureShapUDF = udf(featuresShap _)
+      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
+    }
+    outputData.toDF
   }
 
-  override def copy(extra: ParamMap): LightGBMRegressionModel =
-    new LightGBMRegressionModel(uid, model, labelColName, featuresColName, predictionColName)
+  override def predict(features: Vector): Double = {
+    getModel.score(features, false, false)(0)
+  }
 
-  override val ttag: TypeTag[LightGBMRegressionModel] = typeTag[LightGBMRegressionModel]
-
-  override def objectsToSave: List[Any] = List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol)
+  override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
-    model.saveNativeModel(session, filename, overwrite)
+    getModel.saveNativeModel(session, filename, overwrite)
   }
-
-  def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMRegressionModel extends ConstructorReadable[LightGBMRegressionModel] {
-  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
-                              featuresColName: String = "features",
-                              predictionColName: String = "prediction"): LightGBMRegressionModel = {
+object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {
+  def loadNativeModelFromFile(filename: String): LightGBMRegressionModel = {
     val uid = Identifiable.randomUID("LightGBMRegressor")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRegressionModel(uid).setLightGBMBooster(lightGBMBooster)
   }
 
-  def loadNativeModelFromString(model: String, labelColName: String = "label",
-                                featuresColName: String = "features",
-                                predictionColName: String = "prediction"): LightGBMRegressionModel = {
+  def loadNativeModelFromString(model: String): LightGBMRegressionModel = {
     val uid = Identifiable.randomUID("LightGBMRegressor")
     val lightGBMBooster = new LightGBMBooster(model)
-    new LightGBMRegressionModel(uid, lightGBMBooster, labelColName, featuresColName, predictionColName)
+    new LightGBMRegressionModel(uid).setLightGBMBooster(lightGBMBooster)
   }
 }
