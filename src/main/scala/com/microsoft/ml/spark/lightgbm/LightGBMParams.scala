@@ -159,11 +159,46 @@ trait LightGBMFractionParams extends Wrappable {
   def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 }
 
+/** Defines common prediction parameters across LightGBM Ranker, Classifier and Regressor
+  */
+trait LightGBMPredictionParams extends Wrappable {
+  val leafPredictionCol = new Param[String](this, "leafPredictionCol",
+    "Predicted leaf indices's column name")
+  setDefault(leafPredictionCol -> "")
+
+  def getLeafPredictionCol: String = $(leafPredictionCol)
+  def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
+
+  val featuresShapCol = new Param[String](this, "featuresShapCol",
+    "Output SHAP vector column name after prediction containing the feature contribution values")
+  setDefault(featuresShapCol -> "")
+
+  def getFeaturesShapCol: String = $(featuresShapCol)
+  def setFeaturesShapCol(value: String): this.type = set(featuresShapCol, value)
+}
+
+/** Defines parameters for LightGBM models
+  */
+trait LightGBMModelParams extends Wrappable {
+  val lightGBMBooster = new LightGBMBoosterParam(this, "lightGBMBooster",
+    "The trained LightGBM booster")
+
+  def getLightGBMBooster: LightGBMBooster = $(lightGBMBooster)
+  def setLightGBMBooster(value: LightGBMBooster): this.type = set(lightGBMBooster, value)
+
+  /**
+    * Alias for same method
+    * @return The LightGBM Booster.
+    */
+  def getModel: LightGBMBooster = this.getLightGBMBooster
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
-  with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams {
+  with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
+  with LightGBMPredictionParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)

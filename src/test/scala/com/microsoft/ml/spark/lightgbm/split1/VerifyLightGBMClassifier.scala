@@ -99,14 +99,14 @@ trait LightGBMTestUtils extends TestBase {
     assert(model.fit(df).transform(df).collect().length > 0)
   }
 
-  def assertImportanceLengths(fitModel: Model[_] with HasFeatureImportanceGetters, df: DataFrame): Unit = {
+  def assertImportanceLengths(fitModel: Model[_] with LightGBMModelMethods, df: DataFrame): Unit = {
     val splitLength = fitModel.getFeatureImportances("split").length
     val gainLength = fitModel.getFeatureImportances("gain").length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
     assert(splitLength == gainLength && splitLength == featuresLength)
   }
 
-  def assertFeatureShapLengths(fitModel: Model[_] with HasFeatureShapGetters, features: Vector, df: DataFrame): Unit = {
+  def assertFeatureShapLengths(fitModel: Model[_] with LightGBMModelMethods, features: Vector, df: DataFrame): Unit = {
     val shapLength = fitModel.getFeatureShaps(features).length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
     assert(shapLength == featuresLength + 1)
@@ -603,11 +603,19 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
       // Verify can load model from file
       val resultsFromString = LightGBMClassificationModel
-        .loadNativeModelFromString(oldModelString, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+        .loadNativeModelFromString(oldModelString)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
-      val resultsFromFile = LightGBMClassificationModel.
-        loadNativeModelFromFile(modelPath, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+      val resultsFromFile = LightGBMClassificationModel
+        .loadNativeModelFromFile(modelPath)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
       val resultsOriginal = fitModel.transform(df)
