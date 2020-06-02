@@ -360,14 +360,14 @@ private object TrainUtils extends Serializable {
 
   def afterGenerateValidDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
                                 log: Logger, trainParams: TrainParams): Unit = {
-    if(trainParams.delegate.isDefined) {
+    if (trainParams.delegate.isDefined) {
       trainParams.delegate.get.afterGenerateValidDataset(batchIndex, TaskContext.getPartitionId, columnParams,
         schema, log, trainParams)
     }
   }
 
   def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[Broadcast[Array[Row]]],
-                log: Logger, trainParams: TrainParams, schema: StructType,
+                log: Logger, trainParams: TrainParams, returnBooster: Boolean, schema: StructType,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
@@ -388,8 +388,12 @@ private object TrainUtils extends Serializable {
       try {
         boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
         trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
-        val model = saveBoosterToString(boosterPtr, log)
-        List[LightGBMBooster](new LightGBMBooster(model)).toIterator
+        if (returnBooster) {
+          val model = saveBoosterToString(boosterPtr, log)
+          Iterator.single(new LightGBMBooster(model))
+        } else {
+          Iterator.empty
+        }
       } finally {
         // Free booster
         boosterPtr.foreach { booster =>
@@ -507,6 +511,27 @@ private object TrainUtils extends Serializable {
     }
   }
 
+  /**
+    * Gets the main node's port that will return the LightGBM Booster.
+    * Used to minimize network communication overhead in reduce step.
+    * @return The main node's port number.
+    */
+  def getMainWorkerPort(nodes: String, log: Logger): Int = {
+    val nodesList = nodes.split(",")
+    if (nodesList.length == 0) {
+      throw new Exception("Error: could not split nodes list correctly")
+    }
+    val mainNode = nodesList(0)
+    val hostAndPort = mainNode.split(":")
+    if (hostAndPort.length != 2) {
+      throw new Exception("Error: could not parse main worker host and port correctly")
+    }
+    val mainHost = hostAndPort(0)
+    val mainPort = hostAndPort(1)
+    log.info(s"LightGBM setting main worker host: $mainHost and port: $mainPort")
+    mainPort.toInt
+  }
+
   def trainLightGBM(batchIndex: Int, networkParams: NetworkParams, columnParams: ColumnParams,
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numCoresPerExec: Int, schema: StructType)
@@ -530,11 +555,14 @@ private object TrainUtils extends Serializable {
     } else {
       // Initialize the network communication
       log.info(s"LightGBM worker listening on: $localListenPort")
+      // Return booster only from main worker to reduce network communication overhead
+      val mainWorkerPort = getMainWorkerPort(nodes, log)
+      val returnBooster = mainWorkerPort == localListenPort
       try {
         val retries = 3
         val initialDelay = 1000L
         networkInit(nodes, localListenPort, log, retries, initialDelay)
-        translate(batchIndex, columnParams, validationData, log, trainParams, schema, inputRows)
+        translate(batchIndex, columnParams, validationData, log, trainParams, returnBooster, schema, inputRows)
       } finally {
         // Finalize network when done
         LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
