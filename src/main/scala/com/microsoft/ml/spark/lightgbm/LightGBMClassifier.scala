@@ -4,15 +4,13 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
@@ -25,8 +23,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 @InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMBase[LightGBMClassificationModel]
-  with HasLeafPredictionCol {
+  with LightGBMBase[LightGBMClassificationModel] {
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
@@ -56,9 +53,16 @@ class LightGBMClassifier(override val uid: String)
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
     val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
-    new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
-      getPredictionCol, getProbabilityCol, getRawPredictionCol, getLeafPredictionCol,
-      if (isDefined(thresholds)) Some(getThresholds) else None, classifierTrainParams.numClass)
+    val model = new LightGBMClassificationModel(uid)
+      .setLightGBMBooster(lightGBMBooster)
+      .setFeaturesCol(getFeaturesCol)
+      .setPredictionCol(getPredictionCol)
+      .setProbabilityCol(getProbabilityCol)
+      .setRawPredictionCol(getRawPredictionCol)
+      .setLeafPredictionCol(getLeafPredictionCol)
+      .setFeaturesShapCol(getFeaturesShapCol)
+      .setActualNumClasses(classifierTrainParams.numClass)
+    if (isDefined(thresholds)) model.setThresholds(getThresholds) else model
   }
 
   def stringFromTrainedModel(model: LightGBMClassificationModel): String = {
@@ -68,46 +72,22 @@ class LightGBMClassifier(override val uid: String)
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
 }
 
-trait HasFeatureImportanceGetters {
-  val model: LightGBMBooster
+/** Special parameter for classification model for actual number of classes in dataset
+  */
+trait HasActualNumClasses extends Params {
+  val actualNumClasses = new IntParam(this, "actualNumClasses",
+    "Inferred number of classes based on dataset metadata or, if there is no metadata, unique count")
 
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
-  }
-
-}
-
-trait HasLeafPredictionCol extends Params {
-  val leafPredictionCol = new Param[String](this, "leafPredictionCol",
-    "Predicted leaf indices's column name")
-  setDefault(leafPredictionCol -> "")
-
-  def getLeafPredictionCol: String = $(leafPredictionCol)
-  def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
+  def getActualNumClasses: Int = $(actualNumClasses)
+  def setActualNumClasses(value: Int): this.type = set(actualNumClasses, value)
 }
 
 /** Model produced by [[LightGBMClassifier]]. */
 @InternalWrapper
-class LightGBMClassificationModel(
-  override val uid: String, override val model: LightGBMBooster, labelColName: String,
-  featuresColName: String, predictionColName: String, probColName: String,
-  rawPredictionColName: String, leafIndicesColName: String, thresholdValues: Option[Array[Double]],
-  actualNumClasses: Int)
+class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
-    with HasFeatureImportanceGetters
-    with HasLeafPredictionCol
-    with ConstructorWritable[LightGBMClassificationModel] {
-
-  // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
-  // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
-  set(labelCol, labelColName)
-  set(featuresCol, featuresColName)
-  set(predictionCol, predictionColName)
-  set(probabilityCol, probColName)
-  set(rawPredictionCol, rawPredictionColName)
-  set(leafPredictionCol, leafIndicesColName)
-
-  if (thresholdValues.isDefined) set(thresholds, thresholdValues.get)
+      with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
+      with HasActualNumClasses with ComplexParamsWritable {
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to
@@ -139,20 +119,18 @@ class LightGBMClassificationModel(
       numColsOutput += 1
     }
     if (getPredictionCol.nonEmpty) {
-      val predUDF = if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
-        // Note: Only call raw2prediction if thresholds not defined
-        udf(raw2prediction _).apply(col(getRawPredictionCol))
-      } else if (getProbabilityCol.nonEmpty) {
-        udf(probability2prediction _).apply(col(getProbabilityCol))
-      } else {
-        udf(predict _).apply(col(getFeaturesCol))
-      }
+      val predUDF = predictColumn
       outputData = outputData.withColumn(getPredictionCol, predUDF)
       numColsOutput += 1
     }
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
       outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
+      numColsOutput += 1
+    }
+    if (getFeaturesShapCol.nonEmpty) {
+      val featureShapUDF = udf(featuresShap _)
+      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
 
@@ -168,64 +146,50 @@ class LightGBMClassificationModel(
       " raw2probabilityInPlace should not be called!")
   }
 
-  override def numClasses: Int = this.actualNumClasses
+  override def numClasses: Int = getActualNumClasses
 
   override protected def predictRaw(features: Vector): Vector = {
-    Vectors.dense(model.score(features, true, true))
+    Vectors.dense(getModel.score(features, true, true))
   }
 
   override protected def predictProbability(features: Vector): Vector = {
-    Vectors.dense(model.score(features, false, true))
+    Vectors.dense(getModel.score(features, false, true))
   }
 
-  override def copy(extra: ParamMap): LightGBMClassificationModel =
-    new LightGBMClassificationModel(uid, model, labelColName, featuresColName, predictionColName, probColName,
-      rawPredictionColName, leafIndicesColName, thresholdValues, actualNumClasses)
+  override def copy(extra: ParamMap): LightGBMClassificationModel = defaultCopy(extra)
 
-  override val ttag: TypeTag[LightGBMClassificationModel] =
-    typeTag[LightGBMClassificationModel]
-
-  override def objectsToSave: List[Any] =
-    List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
-         getProbabilityCol, getRawPredictionCol, getLeafPredictionCol, thresholdValues, actualNumClasses)
-
-  protected def predictLeaf(features: Vector): Vector = {
-    Vectors.dense(model.predictLeaf(features))
+  protected def predictColumn: Column = {
+    if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
+      // Note: Only call raw2prediction if thresholds not defined
+      udf(raw2prediction _).apply(col(getRawPredictionCol))
+    } else if (getProbabilityCol.nonEmpty) {
+      udf(probability2prediction _).apply(col(getProbabilityCol))
+    } else {
+      udf(predict _).apply(col(getFeaturesCol))
+    }
   }
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
-    model.saveNativeModel(session, filename, overwrite)
+    getModel.saveNativeModel(session, filename, overwrite)
   }
-
-  def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel] {
-  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
-                              featuresColName: String = "features", predictionColName: String = "prediction",
-                              probColName: String = "probability",
-                              rawPredictionColName: String = "rawPrediction",
-                              leafPredictionColName: String = "leafPrediction"): LightGBMClassificationModel = {
+object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassificationModel] {
+  def loadNativeModelFromFile(filename: String): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
     val actualNumClasses = lightGBMBooster.numClasses
-    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
+    new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)
   }
 
-  def loadNativeModelFromString(model: String, labelColName: String = "label",
-                                featuresColName: String = "features", predictionColName: String = "prediction",
-                                probColName: String = "probability",
-                                rawPredictionColName: String = "rawPrediction",
-                                leafPredictionColName: String = "leafPrediction"): LightGBMClassificationModel = {
+  def loadNativeModelFromString(model: String): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val lightGBMBooster = new LightGBMBooster(model)
     val actualNumClasses = lightGBMBooster.numClasses
-    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, leafPredictionColName, None, actualNumClasses)
+    new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)
   }
 }

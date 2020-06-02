@@ -11,9 +11,10 @@ import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegress
 import com.microsoft.ml.spark.stages.MultiColumnAdapter
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{avg, col, lit, when}
 
 // scalastyle:off magic.number
@@ -144,6 +145,26 @@ class VerifyLightGBMRegressor extends Benchmarks
 
     // Choose the best model for tweedie distribution
     assertFitWithoutErrors(cv, airfoilDF)
+  }
+
+  test("Verify LightGBM Regressor features shap") {
+    val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setFeaturesShapCol(featuresShapCol)
+      .setCategoricalSlotNames(flareDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == (model.getModel.numFeatures + 1))
+
+    // if featuresShap is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(featuresShapCol))
   }
 
   def verifyLearnerOnRegressionCsvFile(fileName: String,

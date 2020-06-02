@@ -99,17 +99,17 @@ trait LightGBMTestUtils extends TestBase {
     assert(model.fit(df).transform(df).collect().length > 0)
   }
 
-  def assertImportanceLengths(fitModel: Model[_] with HasFeatureImportanceGetters, df: DataFrame): Unit = {
+  def assertImportanceLengths(fitModel: Model[_] with LightGBMModelMethods, df: DataFrame): Unit = {
     val splitLength = fitModel.getFeatureImportances("split").length
     val gainLength = fitModel.getFeatureImportances("gain").length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
     assert(splitLength == gainLength && splitLength == featuresLength)
   }
 
-  def assertFeatureShapLengths(fitModel: Model[_] with HasFeatureShapGetters, features: Vector, df: DataFrame): Unit = {
+  def assertFeatureShapLengths(fitModel: Model[_] with LightGBMModelMethods, features: Vector, df: DataFrame): Unit = {
     val shapLength = fitModel.getFeatureShaps(features).length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
-    assert(shapLength == featuresLength)
+    assert(shapLength == featuresLength + 1)
   }
 
   lazy val numPartitions = 2
@@ -126,6 +126,7 @@ trait LightGBMTestUtils extends TestBase {
   val labelCol = "labels"
   val rawPredCol = "rawPrediction"
   val leafPredCol = "leafPrediction"
+  val featuresShapCol = "featuresShap"
   val initScoreCol = "initScore"
   val predCol = "prediction"
   val probCol = "probability"
@@ -219,6 +220,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setObjective(binaryObjective)
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
+      .setFeaturesShapCol(featuresShapCol)
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -248,7 +250,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
-  ignore("Verify LightGBM Classifier with batch training") {
+  test("Verify LightGBM Classifier with batch training") {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
   }
@@ -271,7 +273,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val convertUDF = udf((vector: DenseVector) => vector(1))
     val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
     val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
-      .drop(predCol, rawPredCol, probCol, leafPredCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertBinaryImprovement(scoredDF1, scoredDF2)
@@ -280,7 +282,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
     val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
-      .drop(predCol, rawPredCol, probCol, leafPredCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertMulticlassImprovement(scoredDF1, scoredDF2)
@@ -297,9 +299,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
-    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(100)
+    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(200)
     val scoredDF1 = baseModelWithLR.fit(train).transform(test)
-    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.1).fit(train).transform(test)
+    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.5).fit(train).transform(test)
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
@@ -414,6 +416,25 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // if leaf prediction is not wanted, it is possible to remove it.
     val evaluatedDf2 = model.setLeafPredictionCol("").transform(test)
     assert(!evaluatedDf2.columns.contains(leafPredCol))
+  }
+
+  test("Verify LightGBM Classifier features shap") {
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == (model.getModel.numFeatures + 1))
+
+    // if featuresShap is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(featuresShapCol))
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {
@@ -582,11 +603,19 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
       // Verify can load model from file
       val resultsFromString = LightGBMClassificationModel
-        .loadNativeModelFromString(oldModelString, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+        .loadNativeModelFromString(oldModelString)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
-      val resultsFromFile = LightGBMClassificationModel.
-        loadNativeModelFromFile(modelPath, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+      val resultsFromFile = LightGBMClassificationModel
+        .loadNativeModelFromFile(modelPath)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
       val resultsOriginal = fitModel.transform(df)
