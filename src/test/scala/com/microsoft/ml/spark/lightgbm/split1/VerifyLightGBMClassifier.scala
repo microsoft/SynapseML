@@ -112,6 +112,14 @@ trait LightGBMTestUtils extends TestBase {
     assert(shapLength == featuresLength + 1)
   }
 
+  def validateHeadRowShapValues(evaluatedDf: DataFrame, expectedShape: Int): Unit = {
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == expectedShape)
+  }
+
   lazy val numPartitions = 2
   val startingPortIndex = 0
   private var portIndex = startingPortIndex
@@ -418,7 +426,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(!evaluatedDf2.columns.contains(leafPredCol))
   }
 
-  test("Verify LightGBM Classifier features shap") {
+  test("Verify Binary LightGBM Classifier local feature importance SHAP values") {
     val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
     val untrainedModel = baseModel
       .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
@@ -426,15 +434,28 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
     val evaluatedDf = model.transform(test)
 
-    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
-      case Row(v: Vector) => v
-    }.first.toArray
-
-    assert(featuresShap.length == (model.getModel.numFeatures + 1))
+    validateHeadRowShapValues(evaluatedDf, model.getModel.numFeatures + 1)
 
     // if featuresShap is not wanted, it is possible to remove it.
     val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
     assert(!evaluatedDf2.columns.contains(featuresShapCol))
+  }
+
+  test("Verify Multiclass LightGBM Classifier local feature importance SHAP values") {
+    val Array(train, test) = breastTissueDF.select(labelCol, featuresCol).randomSplit(Array(0.8, 0.2), seed)
+
+    val untrainedModel = new LightGBMClassifier()
+      .setLabelCol(labelCol)
+      .setFeaturesCol(featuresCol)
+      .setPredictionCol(predCol)
+      .setDefaultListenPort(getAndIncrementPort())
+      .setObjective(multiclassObject)
+      .setFeaturesShapCol(featuresShapCol)
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    validateHeadRowShapValues(evaluatedDf, (model.getModel.numFeatures + 1) * model.getModel.numClasses)
   }
 
   test("Verify LightGBM Classifier with slot names parameter") {
