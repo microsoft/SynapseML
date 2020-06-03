@@ -23,7 +23,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     * @return The local feature importance values.
     */
   def getFeatureShaps(features: Vector): Array[Double] = {
-    getLightGBMBooster.featuresShap(features)
+    getLightGBMBooster.featuresShap(features).toArray
   }
 
   /**
@@ -32,7 +32,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     * @return The local feature importance values.
     */
   def getDenseFeatureShaps(features: Array[Double]): Array[Double] = {
-    getLightGBMBooster.featuresShap(Vectors.dense(features))
+    getLightGBMBooster.featuresShap(Vectors.dense(features)).toArray
   }
 
   /**
@@ -43,7 +43,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     * @return The local feature importance values.
     */
   def getSparseFeatureShaps(size: Int, indices: Array[Int], values: Array[Double]): Array[Double] = {
-    getLightGBMBooster.featuresShap(Vectors.sparse(size, indices, values))
+    getLightGBMBooster.featuresShap(Vectors.sparse(size, indices, values)).toArray
   }
 
   /**
@@ -52,7 +52,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     * @return The predicted leaf index.
     */
   protected def predictLeaf(features: Vector): Vector = {
-    Vectors.dense(getLightGBMBooster.predictLeaf(features))
+    getLightGBMBooster.predictLeaf(features)
   }
 
   /**
@@ -61,6 +61,6 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     * @return The SHAP local feature importance values.
     */
   protected def featuresShap(features: Vector): Vector = {
-    Vectors.dense(getLightGBMBooster.featuresShap(features))
+    getLightGBMBooster.featuresShap(features)
   }
 }

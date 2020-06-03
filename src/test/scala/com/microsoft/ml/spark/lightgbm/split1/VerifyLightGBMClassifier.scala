@@ -258,6 +258,19 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
+  test("Performance test for LightGBM Classifier scoring") {
+    val fitModel = baseModel.fit(pimaDF)
+
+    println("Running inferencing test...")
+
+    val t0 = System.nanoTime()
+    (0 to 100).map(i => {
+      fitModel.transform(pimaDF)
+    })
+    val t1 = System.nanoTime()
+    println("Elapsed time: " + (t1 - t0) + "ns")
+  }
+
   test("Verify LightGBM Classifier with batch training") {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))

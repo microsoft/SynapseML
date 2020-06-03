@@ -131,7 +131,7 @@ class LightGBMRankerModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    getModel.score(features, false, false)(0)
+    getModel.scoreValue(features, false, false)
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
