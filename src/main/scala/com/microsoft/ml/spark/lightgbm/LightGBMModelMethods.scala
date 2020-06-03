@@ -27,7 +27,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
   }
 
   /**
-    * Public method to get the dense local SHAP feature importance values for an instance.
+    * Public method for pyspark API to get the dense local SHAP feature importance values for an instance.
     * @param features The local instance or row to compute the SHAP values for.
     * @return The local feature importance values.
     */
@@ -36,7 +36,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
   }
 
   /**
-    * Public method to get the sparse local SHAP feature importance values for an instance.
+    * Public method for pyspark API to get the sparse local SHAP feature importance values for an instance.
     * @param size: The size of the sparse vector.
     * @param indices: The local instance or row indices to compute the SHAP values for.
     * @param values: The local instance or row values to compute the SHAP values for.
