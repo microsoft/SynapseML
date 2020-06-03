@@ -115,7 +115,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      * number of slots required to run this barrier stage.
      *
      * Hence we still need to estimate the number of workers and repartition even when using
-     * barrier execution, which is unfortunate as repartiton is more expensive than coalesce.
+     * barrier execution, which is unfortunate as repartition is more expensive than coalesce.
      */
     if (getUseBarrierExecutionMode) {
       val numPartitions = df.rdd.getNumPartitions
