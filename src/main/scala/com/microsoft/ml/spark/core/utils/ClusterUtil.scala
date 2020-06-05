@@ -38,7 +38,7 @@ object ClusterUtil {
   }
 
   /** Get number of default cores from sparkSession(required) or master(optional) for 1 executor.
-    * @param spark The current spark session. If not set master param, the master in the session is used.
+    * @param spark The current spark session. If master parameter is not set, the master in the spark session is used.
     * @param master This param is needed for unittest. If set, the function return the value for it.
     *               if not set, basically, master in spark (SparkSession) is used.
     * @return The number of default cores per executor based on master.
