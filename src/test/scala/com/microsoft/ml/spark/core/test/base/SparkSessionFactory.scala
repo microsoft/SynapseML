@@ -34,7 +34,7 @@ object SparkSessionFactory {
   def currentDir(): String = System.getProperty("user.dir")
 
   def getSession(name: String, logLevel: String = "WARN",
-                 numRetries: Int, numCores: Option[Int] = None): SparkSession = {
+                 numRetries: Int = 0, numCores: Option[Int] = None): SparkSession = {
     val cores = numCores.map(_.toString).getOrElse("*")
     val conf = new SparkConf()
         .setAppName(name)
