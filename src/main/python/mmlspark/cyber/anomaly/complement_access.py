@@ -7,6 +7,7 @@ from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import Param, Params
 from pyspark.sql import DataFrame, functions as f, types as t
+import random
 
 
 class ComplementAccessTransformer(Transformer):
@@ -105,7 +106,6 @@ class ComplementAccessTransformer(Transformer):
 
             @f.udf(schema)
             def randint(min_index_arr, max_index_arr):
-                import random
                 return [tuple([random.randint(min_index, max_index) for min_index, max_index
                                in zip(min_index_arr, max_index_arr)]) for _ in range(factor)]
 
