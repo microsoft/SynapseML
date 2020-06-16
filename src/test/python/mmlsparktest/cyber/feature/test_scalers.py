@@ -2,15 +2,22 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import unittest
-from pyspark.sql import functions as f, types as t
-from mmlspark.cyber.feature import *
+from pyspark.sql import functions as f, types as t, SparkSession, SQLContext
+from mmlspark.cyber.ml.feature_engineering import scalers
 from mmlsparktest.spark import *
 
-class TestScalers(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.df = sc.createDataFrame(
+class TestScalers(unittest.TestCase):
+    def create_sample_dataframe(self):
+        schema = t.StructType(
+            [
+                t.StructField("tenant", t.StringType(), nullable=True),
+                t.StructField("name", t.StringType(), nullable=True),
+                t.StructField("score", t.FloatType(), nullable=True)
+            ]
+        )
+
+        return sc.createDataFrame(
             [
                 ("t1", "5", 500.0),
                 ("t1", "6", 600.0),
@@ -18,39 +25,30 @@ class TestScalers(unittest.TestCase):
                 ("t2", "8", 800.0),
                 ("t3", "9", 900.0)
             ],
-            ["tenant", "name", "score"]
-        ).cache()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.df.unpersist()
+            schema
+        )
 
     def test_unpartitioned_min_max_scaler(self):
-        ls = PartitionedMinMaxScaler(
-            inputCol='score',
-            outputCol='new_score',
-            minValue=5.0,
-            maxValue=9.0)
+        ls = scalers.MinMaxScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
-        new_df = ls.fit(self.df).transform(self.df).cache()
+        df = self.create_sample_dataframe()
+        model = ls.fit(df)
+        new_df = model.transform(df)
 
-        assert new_df.count() == self.df.count()
+        assert new_df.count() == df.count()
 
         assert 0 == new_df.filter(
             f.col('name').cast(t.IntegerType()) != f.col('new_score').cast(t.IntegerType())
         ).count()
 
     def test_partitioned_min_max_scaler(self):
-        ls = PartitionedMinMaxScaler(
-            inputCol='score',
-            partitionKey='tenant',
-            outputCol='new_score',
-            minValue=1.0,
-            maxValue=2.0)
+        ls = scalers.MinMaxScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
-        new_df = ls.fit(self.df).transform(self.df).cache()
+        df = self.create_sample_dataframe()
+        model = ls.fit(df)
+        new_df = model.transform(df)
 
-        assert new_df.count() == self.df.count()
+        assert new_df.count() == df.count()
 
         t1_arr = new_df.filter(f.col('tenant') == 't1').orderBy('new_score').collect()
         assert len(t1_arr) == 2
@@ -68,28 +66,27 @@ class TestScalers(unittest.TestCase):
         assert t3_arr[0]['new_score'] == 1.5
 
     def test_unpartitioned_standard_scaler(self):
-        ls = PartitionedStandardScaler(
-            inputCol='score',
-            outputCol='new_score',
-            std=1.0)
+        ls = scalers.StandardScalarScaler('score', None, 'new_score', 1.0, use_pandas=False)
 
-        new_df = ls.fit(self.df).transform(self.df).cache()
+        df = self.create_sample_dataframe()
+        model = ls.fit(df)
+        new_df = model.transform(df)
 
-        assert new_df.count() == self.df.count()
+        assert new_df.count() == df.count()
 
         new_scores = new_df.toPandas()['new_score']
 
-        assert abs(new_scores.to_numpy().mean()) < 0.0001
+        assert new_scores.to_numpy().mean() == 0.0
         assert abs(new_scores.to_numpy().std() - 1.0) < 0.0001
 
     def test_partitioned_standard_scaler(self):
-        ls = PartitionedStandardScaler(
-            inputCol='score', partitionKey='tenant', outputCol='new_score', std=1.0)
+        ls = scalers.StandardScalarScaler('score', 'tenant', 'new_score', 1.0, use_pandas=False)
 
-        new_df =  ls.fit(self.df).transform(self.df).cache()
-        new_df.printSchema()
+        df = self.create_sample_dataframe()
+        model = ls.fit(df)
+        new_df = model.transform(df)
 
-        assert new_df.count() == self.df.count()
+        assert new_df.count() == df.count()
 
         for tenant in ['t1', 't2', 't3']:
             new_scores = new_df.filter(f.col('tenant') == tenant).toPandas()['new_score']
