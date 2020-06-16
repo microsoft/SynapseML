@@ -3,7 +3,7 @@ __author__ = 'rolevin'
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Union
 
-from mmlspark.cyber.ml.utils.spark_utils import ExplainBuilder
+from mmlspark.cyber.utils.spark_utils import ExplainBuilder
 
 from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
