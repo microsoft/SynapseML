@@ -146,9 +146,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   protected def innerTrain(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
-    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    val numWorkersPerExec = ClusterUtil.getNumWorkersPerExecutor(dataset, log)
+    val numExecutorWorkers = ClusterUtil.getNumExecutorWorkers(dataset, numWorkersPerExec, log)
+    val numWorkers = min(numExecutorWorkers, dataset.rdd.getNumPartitions)
     // Only get the relevant columns
     val trainingCols = getTrainingCols()
 
@@ -180,7 +180,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val schema = preprocessedDF.schema
     val columnParams = ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
     val mapPartitionsFunc = TrainUtils.trainLightGBM(batchIndex, networkParams, columnParams, validationData, log,
-      trainParams, numCoresPerExec, schema)(_)
+      trainParams, numWorkersPerExec, schema)(_)
     val lightGBMBooster =
       if (getUseBarrierExecutionMode) {
         preprocessedDF.rdd.barrier().mapPartitions(mapPartitionsFunc).reduce((booster1, _) => booster1)

@@ -397,8 +397,8 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
-    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
+    val numCoresPerExec = ClusterUtil.getNumWorkersPerExecutor(dataset, log)
+    val numExecutorCores = ClusterUtil.getNumExecutorWorkers(dataset, numCoresPerExec, log)
     val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
