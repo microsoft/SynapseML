@@ -303,6 +303,11 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
+  test("Verify LightGBM Classifier with num tasks parameter") {
+    val numTasks = Array(0, 1, 2)
+    numTasks.foreach(nTasks => assertFitWithoutErrors(baseModel.setNumTasks(nTasks), pimaDF))
+  }
+
   test("Verify LightGBM Classifier with max delta step parameter") {
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect

@@ -68,6 +68,14 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getRepartitionByGroupingColumn: Boolean = $(repartitionByGroupingColumn)
   def setRepartitionByGroupingColumn(value: Boolean): this.type = set(repartitionByGroupingColumn, value)
+
+  val numTasks = new IntParam(this, "numTasks",
+    "Advanced parameter to specify the number of tasks.  " +
+      "MMLSpark tries to guess this based on cluster configuration, but this parameter can be used to override.")
+  setDefault(numTasks -> 0)
+
+  def getNumTasks: Int = $(numTasks)
+  def setNumTasks(value: Int): this.type = set(numTasks, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
