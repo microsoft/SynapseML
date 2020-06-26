@@ -94,7 +94,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
                                  numTasks: Int): DataFrame = {
     val df = castColumns(dataset, trainingCols)
-    // Reduce number of partitions to number of executor cores
+    // Reduce number of partitions to number of executor tasks
     /* Note: with barrier execution mode we must use repartition instead of coalesce when
      * running on spark standalone.
      * Using coalesce, we get the error:
