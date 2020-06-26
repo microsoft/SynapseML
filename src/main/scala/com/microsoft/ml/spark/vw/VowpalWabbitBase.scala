@@ -331,12 +331,12 @@ trait VowpalWabbitBase extends Wrappable
     * Setup spanning tree and invoke training.
     * @param df input data.
     * @param vwArgs VW command line arguments.
-    * @param numWorkers number of target workers.
+    * @param numTasks number of target tasks.
     * @return
     */
   protected def trainInternalDistributed(df: DataFrame,
                                          vwArgs: StringBuilder,
-                                         numWorkers: Int): Array[TrainingResult] = {
+                                         numTasks: Int): Array[TrainingResult] = {
     // multiple partitions -> setup distributed coordination
     val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
 
@@ -356,7 +356,7 @@ trait VowpalWabbitBase extends Wrappable
       --holdout_off should be included for distributed training
       */
       vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
-        .append(s"--unique_id $jobUniqueId --total $numWorkers ")
+        .append(s"--unique_id $jobUniqueId --total $numTasks ")
 
       trainInternal(df, vwArgs.result, s"--node ${TaskContext.get.partitionId}")
     } finally {
@@ -397,9 +397,9 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
-    val numCoresPerExec = ClusterUtil.getNumWorkersPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorWorkers(dataset, numCoresPerExec, log)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
+    val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
+    val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
     val dfSubset = dataset.toDF().select((
@@ -409,11 +409,11 @@ trait VowpalWabbitBase extends Wrappable
       ).map(col): _*)
 
     // Reduce number of partitions to number of executor cores
-    val df = if (dataset.rdd.getNumPartitions > numWorkers) {
+    val df = if (dataset.rdd.getNumPartitions > numTasks) {
       if (getUseBarrierExecutionMode) // see [SPARK-24820][SPARK-24821]
-        dfSubset.repartition(numWorkers)
+        dfSubset.repartition(numTasks)
       else
-        dfSubset.coalesce(numWorkers)
+        dfSubset.coalesce(numTasks)
     } else
         dfSubset
 
@@ -430,10 +430,10 @@ trait VowpalWabbitBase extends Wrappable
       .appendParamIfNotThere("q", "quadratic", interactions)
 
     // call training
-    val trainingResults = (if (numWorkers == 1)
+    val trainingResults = (if (numTasks == 1)
       trainInternal(df, vwArgs.result)
     else
-      trainInternalDistributed(df, vwArgs, numWorkers))
+      trainInternalDistributed(df, vwArgs, numTasks))
 
     // store results in model
     applyTrainingResultsToModel(model, trainingResults, dataset)

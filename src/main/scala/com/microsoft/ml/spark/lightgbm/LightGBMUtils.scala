@@ -111,10 +111,10 @@ object LightGBMUtils {
     * waits for the host:port from the executors, and then sends back the
     * information to the executors.
     *
-    * @param numWorkers The total number of training workers to wait for.
+    * @param numTasks The total number of training tasks to wait for.
     * @return The address and port of the driver socket.
     */
-  def createDriverNodesThread(numWorkers: Int, df: DataFrame,
+  def createDriverNodesThread(numTasks: Int, df: DataFrame,
                               log: Logger, timeout: Double,
                               barrierExecutionMode: Boolean,
                               driverServerPort: Int): (String, Int, Future[Unit]) = {
@@ -150,8 +150,8 @@ object LightGBMUtils {
           }
         }
       } else {
-        log.info(s"driver expecting $numWorkers connections...")
-        while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
+        log.info(s"driver expecting $numTasks connections...")
+        while (hostAndPorts.size + emptyWorkerCounter < numTasks) {
           log.info("driver accepting a new connection...")
           val driverSocket = driverServerSocket.accept()
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))

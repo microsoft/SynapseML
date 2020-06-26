@@ -47,12 +47,12 @@ class LightGBMRanker(override val uid: String)
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
+  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getObjective, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, modelStr,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
       getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
@@ -84,7 +84,7 @@ class LightGBMRanker(override val uid: String)
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
 
   override def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
-                                numWorkers: Int): DataFrame = {
+                                numTasks: Int): DataFrame = {
     if (getRepartitionByGroupingColumn) {
       val repartitionedDataset = getOptGroupCol match {
         case None => dataset
@@ -95,9 +95,9 @@ class LightGBMRanker(override val uid: String)
           df
         }
       }
-      super.prepareDataframe(repartitionedDataset, trainingCols, numWorkers)
+      super.prepareDataframe(repartitionedDataset, trainingCols, numTasks)
     } else {
-      super.prepareDataframe(dataset, trainingCols, numWorkers)
+      super.prepareDataframe(dataset, trainingCols, numTasks)
     }
   }
 }

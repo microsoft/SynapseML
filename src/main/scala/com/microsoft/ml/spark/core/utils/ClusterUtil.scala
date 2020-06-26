@@ -11,29 +11,29 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 import org.slf4j.Logger
 
 object ClusterUtil {
-  /** Get number of workers from dummy dataset for 1 executor.
+  /** Get number of tasks from dummy dataset for 1 executor.
     * Note: all executors have same number of cores,
     * and this is more reliable than getting value from conf.
     * @param dataset The dataset containing the current spark session.
-    * @return The number of workers per executor.
+    * @return The number of tasks per executor.
     */
-  def getNumWorkersPerExecutor(dataset: Dataset[_], log: Logger): Int = {
+  def getNumTasksPerExecutor(dataset: Dataset[_], log: Logger): Int = {
     val spark = dataset.sparkSession
     val confTaskCpus = getTaskCpus(dataset, log)
     try {
       val confCores = spark.sparkContext.getConf.get("spark.executor.cores").toInt
-      val workersPerExec = confCores / confTaskCpus
-      log.info(s"ClusterUtils calculated num workers per executor as $workersPerExec from $confCores " +
+      val tasksPerExec = confCores / confTaskCpus
+      log.info(s"ClusterUtils calculated num tasks per executor as $tasksPerExec from $confCores " +
         s"cores and $confTaskCpus task CPUs")
-      workersPerExec
+      tasksPerExec
     } catch {
       case _: NoSuchElementException =>
         // If spark.executor.cores is not defined, get the cores based on master
         val defaultNumCores = getDefaultNumExecutorCores(spark, log)
-        val workersPerExec = defaultNumCores / confTaskCpus
-        log.info(s"ClusterUtils calculated num workers per executor as $workersPerExec from " +
+        val tasksPerExec = defaultNumCores / confTaskCpus
+        log.info(s"ClusterUtils calculated num tasks per executor as $tasksPerExec from " +
           s"default num cores($defaultNumCores) from master and $confTaskCpus task CPUs")
-        workersPerExec
+        tasksPerExec
     }
   }
 
@@ -137,17 +137,17 @@ object ClusterUtil {
       .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
   }
 
-  /** Returns the number of executors * number of workers.
+  /** Returns the number of executors * number of tasks.
     * @param dataset The dataset containing the current spark session.
-    * @param numWorkersPerExec The number of cores per executor.
-    * @return The number of executors * number of workers.
+    * @param numTasksPerExec The number of tasks per executor.
+    * @return The number of executors * number of tasks.
     */
-  def getNumExecutorWorkers(dataset: Dataset[_], numWorkersPerExec: Int, log: Logger): Int = {
+  def getNumExecutorTasks(dataset: Dataset[_], numTasksPerExec: Int, log: Logger): Int = {
     val executors = getExecutors(dataset)
     log.info(s"Retrieving executors...")
     if (!executors.isEmpty) {
-      log.info(s"Retrieved num executors ${executors.length} with num cores per executor ${numWorkersPerExec}")
-      executors.length * numWorkersPerExec
+      log.info(s"Retrieved num executors ${executors.length} with num tasks per executor $numTasksPerExec")
+      executors.length * numTasksPerExec
     } else {
       log.info(s"Could not retrieve executors from blockmanager, trying to get from configuration...")
       val master = dataset.sparkSession.sparkContext.master
