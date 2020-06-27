@@ -114,7 +114,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      * new cluster with more CPU cores or repartition the input RDD(s) to reduce the
      * number of slots required to run this barrier stage.
      *
-     * Hence we still need to estimate the number of workers and repartition even when using
+     * Hence we still need to estimate the number of tasks and repartition even when using
      * barrier execution, which is unfortunate as repartition is more expensive than coalesce.
      */
     if (getUseBarrierExecutionMode) {
