@@ -18,7 +18,7 @@ import scala.math.min
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
   with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
 
-  /** Trains the LightGBM model.
+  /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
     * @param dataset The input dataset to train.
     * @return The trained model.
@@ -144,11 +144,35 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
+  /**
+    * Retrieves the categorical indexes in the features column.
+    * @param df The dataset to train on.
+    * @return the categorical indexes in the features column.
+    */
+  private def getCategoricalIndexes(df: DataFrame): Array[Int] = {
+    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
+    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
+    LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol, getSlotNames,
+      categoricalSlotIndexesArr, categoricalSlotNamesArr)
+  }
+
+  /**
+    * Inner train method for LightGBM learners.  Calculates the number of workers,
+    * creates a driver thread, and runs mapPartitions on the dataset.
+    * @param dataset The dataset to train on.
+    * @param batchIndex In running in batch training mode, gets the batch number.
+    * @return The LightGBM Model from the trained LightGBM Booster.
+    */
   protected def innerTrain(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
     val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
+    val numWorkers =
+      if (getNumTasks > 0) getNumTasks
+      else {
+        val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
+        min(numExecutorCores, dataset.rdd.getNumPartitions)
+      }
     // Only get the relevant columns
     val trainingCols = getTrainingCols()
 
@@ -163,11 +187,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      */
     val encoder = Encoders.kryo[LightGBMBooster]
 
-    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
-    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol, getSlotNames,
-      categoricalSlotIndexesArr, categoricalSlotNamesArr)
-    val trainParams = getTrainParams(numWorkers, categoricalIndexes, dataset)
+    val trainParams = getTrainParams(numWorkers, getCategoricalIndexes(df), dataset)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
     val (trainingData, validationData) =
