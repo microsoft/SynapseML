@@ -166,12 +166,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def innerTrain(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
-    val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
     // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
     val numTasks =
       if (getNumTasks > 0) getNumTasks
       else {
-        val numExecutorWorkers = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
+        val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
         min(numExecutorTasks, dataset.rdd.getNumPartitions)
       }
     // Only get the relevant columns
