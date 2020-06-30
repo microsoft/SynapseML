@@ -171,7 +171,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val numTasks =
       if (getNumTasks > 0) getNumTasks
       else {
-        val numExecutorWorkers = ClusterUtil.getNumExecutorTasks(dataset, numCoresPerExec, log)
+        val numExecutorWorkers = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
         min(numExecutorTasks, dataset.rdd.getNumPartitions)
       }
     // Only get the relevant columns
