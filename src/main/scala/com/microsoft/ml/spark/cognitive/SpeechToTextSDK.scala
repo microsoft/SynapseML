@@ -273,7 +273,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
           body ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", fn)
         } else if (getRecordAudioData && !OsUtils.IsWindows) {
           val fn = row.getAs[String](getRecordedFileNameCol)
-          body ++ Seq("|", "tee", fn)
+          Seq("/bin/sh", "-c",  (body ++ Seq("|", "tee", fn)).mkString(" "))
         } else {
           body
         }
