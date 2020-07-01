@@ -38,7 +38,6 @@ RUN apt-get update && \
     pip3 install numpy && \
     pip3 install matplotlib && \
     pip3 install pandas==0.24.1 && \
-    pip3 install fbprophet && \
     pip3 install scikit-learn && \
     pip3 install pyarrow==0.11.1 && \
     apt-get clean && \
