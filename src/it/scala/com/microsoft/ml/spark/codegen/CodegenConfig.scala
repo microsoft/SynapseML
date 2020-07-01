@@ -59,6 +59,9 @@ object Config {
         |CNTK library, images, and text.
         |"\""
         |
+        |__version__ = "${BuildInfo.pythonizedVersion}"
+        |__spark_package_version__ = "${BuildInfo.version}"
+        |
         |$importString
         |""".stripMargin
   }
