@@ -177,7 +177,7 @@ class BingImageSearch(override val uid: String)
   def setWidth(v: Int): this.type = setScalarParam(width, v)
   def setWidthCol(v: String): this.type = setVectorParam(width, v)
 
-  val size = new ServiceParam[Int](this, "size",
+  val size = new ServiceParam[String](this, "size",
     "Filter images by the following sizes:" +
       "Small: Return images that are less than 200x200 pixels" +
       "Medium: Return images that are greater than or equal to 200x200 " +
@@ -190,7 +190,7 @@ class BingImageSearch(override val uid: String)
       "For example, you may use height and size to request " +
       "small images that are 150 pixels tall.",
     isURLParam = true)
-  def setSize(v: Int): this.type = setScalarParam(size, v)
+  def setSize(v: String): this.type = setScalarParam(size, v)
   def setSizeCol(v: String): this.type = setVectorParam(size, v)
 
   val imageContent = new ServiceParam[String](this, "imageContent",

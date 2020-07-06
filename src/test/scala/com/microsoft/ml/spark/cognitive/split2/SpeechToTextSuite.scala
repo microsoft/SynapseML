@@ -15,6 +15,8 @@ import org.scalactic.Equality
 
 trait SpeechKey {
   lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
+  lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.SpeechApiKey)
+
 }
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
