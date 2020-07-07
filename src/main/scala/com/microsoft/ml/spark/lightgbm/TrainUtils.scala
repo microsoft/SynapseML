@@ -38,7 +38,7 @@ private object TrainUtils extends Serializable {
         })
         val numCols = rowsAsDoubleArray.head.length
         val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-        log.info(s"LightGBM worker generating dense dataset with $numRows rows and $numCols columns")
+        log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
           slotNames, trainParams))
       } else {
@@ -48,7 +48,7 @@ private object TrainUtils extends Serializable {
         })
         val numCols = rowsAsSparse(0).size
         val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-        log.info(s"LightGBM worker generating sparse dataset with $numRows rows and $numCols columns")
+        log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
         Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
       }
 
@@ -234,7 +234,7 @@ private object TrainUtils extends Serializable {
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
         learningRate)
       if (newLearningRate != learningRate) {
-        log.info(s"LightGBM worker calling LGBM_BoosterResetParameter to reset learningRate" +
+        log.info(s"LightGBM task calling LGBM_BoosterResetParameter to reset learningRate" +
           s" (newLearningRate: $newLearningRate)")
         LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterPtr.get,
           s"learning_rate=$newLearningRate"), "Booster Reset learning_rate Param")
@@ -242,7 +242,7 @@ private object TrainUtils extends Serializable {
       }
 
       try {
-        log.info("LightGBM worker calling LGBM_BoosterUpdateOneIter")
+        log.info("LightGBM task calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
         LightGBMUtils.validate(result, "Booster Update One Iter")
         isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
@@ -251,8 +251,8 @@ private object TrainUtils extends Serializable {
       } catch {
         case _: java.lang.Exception =>
           isFinished = true
-          log.warn("LightGBM reached early termination on one worker," +
-            " stopping training on worker. This message should rarely occur")
+          log.warn("LightGBM reached early termination on one task," +
+            " stopping training on task. This message should rarely occur")
       }
 
       val trainEvalResults: Option[Map[String, Double]] = if (trainParams.isProvideTrainingMetric && !isFinished) {
@@ -407,18 +407,18 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  private def findOpenPort(defaultListenPort: Int, numCoresPerExec: Int, log: Logger): Socket = {
-    val basePort = defaultListenPort + (LightGBMUtils.getId() * numCoresPerExec)
+  private def findOpenPort(defaultListenPort: Int, numTasksPerExec: Int, log: Logger): Socket = {
+    val basePort = defaultListenPort + (LightGBMUtils.getId() * numTasksPerExec)
     if (basePort > LightGBMConstants.MaxPort) {
       throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
     }
     var localListenPort = basePort
     var foundPort = false
-    var workerServerSocket: Socket = null
+    var taskServerSocket: Socket = null
     while (!foundPort) {
       try {
-        workerServerSocket = new Socket()
-        workerServerSocket.bind(new InetSocketAddress(localListenPort))
+        taskServerSocket = new Socket()
+        taskServerSocket.bind(new InetSocketAddress(localListenPort))
         foundPort = true
       } catch {
         case _: IOException =>
@@ -433,7 +433,7 @@ private object TrainUtils extends Serializable {
       }
     }
     log.info(s"Successfully bound to port $localListenPort")
-    workerServerSocket
+    taskServerSocket
   }
 
   def setFinishedStatus(networkParams: NetworkParams,
@@ -460,18 +460,18 @@ private object TrainUtils extends Serializable {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
-            val workerStatus =
+            val taskStatus =
               if (emptyPartition) {
                 log.info("send empty status to driver")
                 LightGBMConstants.IgnoreStatus
               } else {
-                val workerHost = driverSocket.getLocalAddress.getHostAddress
-                val workerInfo = s"$workerHost:$localListenPort"
-                log.info(s"send current worker info to driver: $workerInfo ")
-                workerInfo
+                val taskHost = driverSocket.getLocalAddress.getHostAddress
+                val taskInfo = s"$taskHost:$localListenPort"
+                log.info(s"send current task info to driver: $taskInfo ")
+                taskInfo
               }
             // Send the current host:port to the driver
-            driverOutput.write(s"$workerStatus\n")
+            driverOutput.write(s"$taskStatus\n")
             driverOutput.flush()
             // If barrier execution mode enabled, create a barrier across tasks
             if (networkParams.barrierExecutionMode) {
@@ -481,13 +481,13 @@ private object TrainUtils extends Serializable {
                 setFinishedStatus(networkParams, localListenPort, log)
               }
             }
-            if (workerStatus != LightGBMConstants.IgnoreStatus) {
+            if (taskStatus != LightGBMConstants.IgnoreStatus) {
               // Wait to get the list of nodes from the driver
               val nodes = driverInput.readLine()
               log.info(s"LightGBM worker got nodes for network init: $nodes")
               nodes
             } else {
-              workerStatus
+              taskStatus
             }
         }.get
     }.get
@@ -534,27 +534,27 @@ private object TrainUtils extends Serializable {
 
   def trainLightGBM(batchIndex: Int, networkParams: NetworkParams, columnParams: ColumnParams,
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
-                    trainParams: TrainParams, numCoresPerExec: Int, schema: StructType)
+                    trainParams: TrainParams, numTasksPerExec: Int, schema: StructType)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val emptyPartition = !inputRows.hasNext
     // Ideally we would start the socket connections in the C layer, this opens us up for
     // race conditions in case other applications open sockets on cluster, but usually this
     // should not be a problem
-    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numCoresPerExec, log)) {
+    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numTasksPerExec, log)) {
       openPort =>
         val localListenPort = openPort.getLocalPort
         // Initialize the native library
         LightGBMUtils.initializeNativeLibrary()
-        log.info(s"LightGBM worker connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
+        log.info(s"LightGBM task connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
         (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
     }.get
 
     if (emptyPartition) {
-      log.warn("LightGBM worker encountered empty partition, for best performance ensure no partitions empty")
+      log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions empty")
       List[LightGBMBooster]().toIterator
     } else {
       // Initialize the network communication
-      log.info(s"LightGBM worker listening on: $localListenPort")
+      log.info(s"LightGBM task listening on: $localListenPort")
       // Return booster only from main worker to reduce network communication overhead
       val mainWorkerPort = getMainWorkerPort(nodes, log)
       val returnBooster = mainWorkerPort == localListenPort
