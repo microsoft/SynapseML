@@ -1,4 +1,5 @@
 FROM openjdk:8-jdk-slim-buster
+LABEL maintainer="Dalitso Banda dalitsohb@gmail.com"
 
 # Get Spark from US Apache mirror.
 ENV APACHE_SPARK_VERSION 2.4.5
