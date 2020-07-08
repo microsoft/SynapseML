@@ -232,6 +232,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       val queue = new LinkedBlockingQueue[Option[String]]()
 
       def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
+        println(e)
         if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
           queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
         }
