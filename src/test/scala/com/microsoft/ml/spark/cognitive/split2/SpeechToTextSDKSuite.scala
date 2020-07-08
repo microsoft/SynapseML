@@ -6,6 +6,8 @@ package com.microsoft.ml.spark.cognitive.split2
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
+import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
 import com.microsoft.ml.spark.cognitive.{SpeechResponse, SpeechToText, SpeechToTextSDK}
 import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -16,8 +18,12 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
+trait CustomSpeechKey {
+  lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
+}
+
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
-  with SpeechKey {
+  with CognitiveKey with CustomSpeechKey {
 
   import session.implicits._
 
@@ -31,7 +37,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   val jaccardThreshold = 0.9
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
-    .setSubscriptionKey(speechKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
@@ -85,7 +91,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
       "wav",
-      uri, speechKey, profanity, language, format, None)
+      uri, cognitiveKey, profanity, language, format, None)
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -247,7 +253,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
 
   test("API vs. SDK") {
     val stt = new SpeechToText()
-      .setSubscriptionKey(speechKey)
+      .setSubscriptionKey(cognitiveKey)
       .setLocation(region)
       .setOutputCol("text")
       .setAudioDataCol("audio")
