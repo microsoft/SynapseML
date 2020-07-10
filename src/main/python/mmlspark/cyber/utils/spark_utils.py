@@ -1,6 +1,5 @@
-from typing import List, Union
+from typing import Any, List, Union
 
-from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param
 from pyspark.sql import DataFrame, SparkSession, functions as f, types as t
 from pyspark.sql.window import Window
@@ -37,6 +36,7 @@ class DataFrameUtils:
         """
         return DataFrameUtils.get_spark_session(df).createDataFrame([], df.schema)
 
+    # noinspection PyDefaultArgument
     @staticmethod
     def zip_with_index(
             df: DataFrame,
@@ -58,7 +58,8 @@ class DataFrameUtils:
             optional column name or list of columns names that define a partitioning to assign indices independently to,
             e.g., assign sequential indices separately to each distinct tenant
         order_by_col : Union[List[str], str]
-            optional order by column name or list of columns that are used for sorting the data frame or partitions before indexing
+            optional order by column name or list of columns that are used for sorting
+            the data frame or partitions before indexing
         """
         if df is None:
             raise ValueError("df cannot be None")
@@ -111,6 +112,7 @@ def make_get_param(param_name: str):
 
 def make_set_param(param_name: str):
     def set_param(this, value):
+        # noinspection PyProtectedMember
         return this._set(**{param_name: value})
 
     return set_param
@@ -118,14 +120,35 @@ def make_set_param(param_name: str):
 
 class ExplainBuilder:
     @staticmethod
-    def build(explainable: Union[Estimator, Transformer], **kwargs):
-        # copy to avoid changing while iterating
-        param_map = dict(explainable.__dict__)
+    def get_methods(the_explainable):
+        return [method_name for method_name in dir(the_explainable) if callable(getattr(the_explainable, method_name))]
+
+    @staticmethod
+    def get_method(the_explainable, the_method_name):
+        try:
+            return getattr(type(the_explainable), the_method_name)
+        except AttributeError:
+            return None
+
+    @staticmethod
+    def copy_params(from_explainable: Any, to_explainable: Any):
+        param_map = {
+            varname: vv for varname, vv in from_explainable.__dict__.items()
+            if isinstance(varname, str) and isinstance(vv, Param)
+        }
 
         for varname, vv in param_map.items():
-            if not isinstance(varname, str) or not isinstance(vv, Param):
-                continue
+            setattr(to_explainable.__class__, varname, vv)
 
+    @staticmethod
+    def build(explainable: Any, **kwargs):
+        # copy to avoid changing while iterating
+        param_map = {
+            varname: vv for varname, vv in explainable.__dict__.items()
+            if isinstance(varname, str) and isinstance(vv, Param)
+        }
+
+        for varname, vv in param_map.items():
             param_name = from_camel_case(vv.name)
             assert param_name != vv.name, f"must use a camelCase name so that it is different from camel_case"
 
@@ -144,7 +167,11 @@ class ExplainBuilder:
             if add_getter_and_setter:
                 setattr(explainable.__class__, to_camel_case('get', param_name), getter)
                 setattr(explainable.__class__, to_camel_case('set', param_name), setter)
+            else:
+                assert ExplainBuilder.get_method(explainable, to_camel_case('get', param_name)) is not None, 'no_getter'
+                assert ExplainBuilder.get_method(explainable, to_camel_case('set', param_name)) is not None, 'no_setter'
 
             setattr(explainable.__class__, f"{param_name}", property(getter, setter))
 
+        # noinspection PyProtectedMember
         explainable._set(**kwargs)

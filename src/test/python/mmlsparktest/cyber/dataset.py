@@ -9,7 +9,7 @@ import itertools
 
 
 class DataFactory:
-    def __init__(self):
+    def __init__(self, single_component: bool = True):
         self.hr_users = ['hr_user_' + str(i) for i in range(7)]
         self.hr_resources = ['hr_res_' + str(i) for i in range(30)]
 
@@ -18,6 +18,11 @@ class DataFactory:
 
         self.eng_users = ['eng_user_' + str(i) for i in range(10)]
         self.eng_resources = ['eng_res_' + str(i) for i in range(50)]
+
+        if single_component:
+            self.join_resources = ['ffa']
+        else:
+            self.join_resources = []
 
         self.rand = random.Random(42)
 
@@ -38,7 +43,13 @@ class DataFactory:
         return self.to_pdf(user_lst, res_lst, likelihood_lst)
 
     def edges_between(self, users, resources, ratio, full_node_coverage, not_set=None):
+        import itertools
+
+        if len(users) == 0 or len(resources) == 0:
+            return []
+
         required_edge_cnt = len(users) * len(resources) * ratio
+
         tups = []
         seen = set([])
         seen_users = set([])
@@ -51,11 +62,14 @@ class DataFactory:
                 or (full_node_coverage and (len(seen_users) < len(users)) or (len(seen_resources) < len(resources))):
 
             if cart is not None:
+                assert len(cart) > 0, cart
                 ii = self.rand.randint(0, len(cart) - 1)
                 ui, ri = cart[ii]
                 cart[ii] = cart[-1]
                 cart.pop()
             else:
+                assert len(users) > 0, users
+                assert len(resources) > 0, resources
                 ui = self.rand.randint(0, len(users) - 1)
                 ri = self.rand.randint(0, len(resources) - 1)
 
@@ -79,6 +93,10 @@ class DataFactory:
 
     def create_clustered_training_data(self, ratio=0.25):
         return self.tups2pdf(
+            self.edges_between(self.hr_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.fin_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.eng_users, self.join_resources, 1.0, True) +
+
             self.edges_between(self.hr_users, self.hr_resources, ratio, True) +
             self.edges_between(self.fin_users, self.fin_resources, ratio, True) +
             self.edges_between(self.eng_users, self.eng_resources, ratio, True)
@@ -91,6 +109,10 @@ class DataFactory:
         ) if train is not None else None
 
         return self.tups2pdf(
+            self.edges_between(self.hr_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.fin_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.eng_users, self.join_resources, 1.0, True) +
+
             self.edges_between(self.hr_users, self.hr_resources, 0.025, False, not_set) +
             self.edges_between(self.fin_users, self.fin_resources, 0.05, False, not_set) +
             self.edges_between(self.eng_users, self.eng_resources, 0.035, False, not_set)
@@ -98,6 +120,10 @@ class DataFactory:
 
     def create_clustered_inter_test_data(self):
         return self.tups2pdf(
+            self.edges_between(self.hr_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.fin_users, self.join_resources, 1.0, True) +
+            self.edges_between(self.eng_users, self.join_resources, 1.0, True) +
+
             self.edges_between(self.hr_users, self.fin_resources, 0.025, False) +
             self.edges_between(self.hr_users, self.eng_resources, 0.025, False) +
             self.edges_between(self.fin_users, self.hr_resources, 0.05, False) +

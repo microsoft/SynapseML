@@ -3,7 +3,7 @@
 
 import unittest
 from pyspark.sql import functions as f, types as t, SparkSession, SQLContext
-from mmlspark.cyber.feature_engineering import scalers
+from mmlspark.cyber.feature import scalers
 from mmlsparktest.spark import *
 
 

@@ -2,7 +2,7 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import unittest
-from pyspark.sql import DataFrame, functions as f, SparkSession, SQLContext
+from pyspark.sql import DataFrame, functions as f
 from mmlspark.cyber.anomaly.complement_access import ComplementAccessTransformer
 from mmlsparktest.spark import *
 

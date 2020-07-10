@@ -2,8 +2,8 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import unittest
-from typing import Dict, Set, Type, Union
-from pyspark.sql import DataFrame, functions as f, SparkSession, SQLContext
+from typing import Dict, List, Set, Optional, Union
+from pyspark.sql import DataFrame, functions as f
 from mmlspark.cyber.feature import indexers
 from mmlspark.cyber.anomaly.collaborative_filtering import \
     AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, \
@@ -14,11 +14,15 @@ from mmlsparktest.spark import *
 epsilon = 10 ** -3
 
 
+def materialized_cache(df: DataFrame) -> DataFrame:
+    return df.sql_ctx.createDataFrame(df.toPandas(), df.schema).coalesce(1).cache()
+
+
 class BasicStats:
-    def __init__(self, count: int, min: float, max: float, mean: float, std: float):
+    def __init__(self, count: int, min_value: float, max_value: float, mean: float, std: float):
         self.count = count
-        self.min = min
-        self.max = max
+        self.min = min_value
+        self.max = max_value
         self.mean = mean
         self.std = std
 
@@ -43,16 +47,16 @@ class StatsMap:
         return self.stats_map.get(tenant)
 
     def get_tenants(self) -> Set[str]:
-        return self.stats_map.keys()
+        return set(self.stats_map.keys())
 
     def get_stats(self) -> Set[BasicStats]:
-        return self.stats_map.values()
+        return set(self.stats_map.values())
 
     def __repr__(self):
         return self.stats_map.__repr__()
 
 
-def create_stats(df, tenant_col: str, value_col: str = AccessAnomalyConfig.default_output_col) -> BasicStats:
+def create_stats(df, tenant_col: str, value_col: str = AccessAnomalyConfig.default_output_col) -> StatsMap:
     stat_rows = df.groupBy(tenant_col).agg(
         f.count('*').alias('__count__'),
         f.min(f.col(value_col)).alias('__min__'),
@@ -72,6 +76,23 @@ def create_stats(df, tenant_col: str, value_col: str = AccessAnomalyConfig.defau
     return StatsMap(stats_map)
 
 
+def get_department(the_col: Union[str, f.Column]) -> f.Column:
+    _the_col = the_col if isinstance(the_col, f.Column) else f.col(the_col)
+    return f.element_at(f.split(_the_col, '_'), 1)
+
+
+def without_ffa(df: DataFrame, res_col_p: Optional[str] = None) -> DataFrame:
+    res_col = AccessAnomalyConfig.default_res_col if res_col_p is None else res_col_p
+    return df.filter(get_department(res_col) != 'ffa')
+
+
+single_component_data = True
+
+
+def create_data_factory():
+    return DataFactory(single_component_data)
+
+
 class Dataset:
     def __init__(self):
         num_tenants = 2
@@ -81,9 +102,11 @@ class Dataset:
         self.inter_test = None
 
         for tid in range(num_tenants):
-            training_pdf = DataFactory().create_clustered_training_data(0.25)
-            intra_test_pdf = DataFactory().create_clustered_intra_test_data(training_pdf)
-            inter_test_pdf = DataFactory().create_clustered_inter_test_data()
+            factory = create_data_factory()
+
+            training_pdf = factory.create_clustered_training_data(0.25)
+            intra_test_pdf = factory.create_clustered_intra_test_data(training_pdf)
+            inter_test_pdf = factory.create_clustered_inter_test_data()
 
             curr_training = sc.createDataFrame(training_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col, f.lit(tid)
@@ -101,16 +124,16 @@ class Dataset:
             self.intra_test = self.intra_test.union(curr_intra_test) if self.intra_test is not None else curr_intra_test
             self.inter_test = self.inter_test.union(curr_inter_test) if self.inter_test is not None else curr_inter_test
 
-        self.training = self.training.cache()
-        self.intra_test = self.intra_test.cache()
-        self.inter_test = self.inter_test.cache()
+        self.training = materialized_cache(self.training)
+        self.intra_test = materialized_cache(self.intra_test)
+        self.inter_test = materialized_cache(self.inter_test)
 
-        assert self.training.join(
+        assert without_ffa(self.training.join(
             self.intra_test,
             [AccessAnomalyConfig.default_tenant_col,
              AccessAnomalyConfig.default_user_col,
              AccessAnomalyConfig.default_res_col]
-        ).count() == 0
+        )).count() == 0, f"self.training.join is not 0"
 
         self.num_users = self.training.select(
             AccessAnomalyConfig.default_tenant_col, AccessAnomalyConfig.default_user_col
@@ -126,11 +149,11 @@ class Dataset:
 
     @staticmethod
     def create_new_training(ratio: float) -> DataFrame:
-        training_pdf = DataFactory().create_clustered_training_data(ratio)
+        training_pdf = create_data_factory().create_clustered_training_data(ratio)
 
-        return sc.createDataFrame(training_pdf).withColumn(
+        return materialized_cache(sc.createDataFrame(training_pdf).withColumn(
             AccessAnomalyConfig.default_tenant_col, f.lit(0)
-        ).cache()
+        ))
 
     def get_default_access_anomaly_model(self):
         if self.default_access_anomaly_model is not None:
@@ -138,6 +161,7 @@ class Dataset:
 
         access_anomaly = AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col, max_iter=10)
         self.default_access_anomaly_model = access_anomaly.fit(self.training)
+        self.default_access_anomaly_model.preserve_history = False
         return self.default_access_anomaly_model
 
 
@@ -198,6 +222,15 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         assert user_vectors[0] == [-0.5, -0.5, 3.0, -0.5]
 
     def test_model_end2end(self):
+        def create_df(name_col: str, vec_col: str, num: int, suffix: List[int]) -> DataFrame:
+            return sc.createDataFrame([
+                ['0',
+                 '{0}_{1}'.format(name_col, i),
+                 [float(i % 10), float((i + 1) % (num / 2))] + suffix] for i in range(num)
+            ],
+                [tenant_col, name_col, vec_col]
+            ).cache()
+
         num_users = 10
         num_resources = 25
 
@@ -208,17 +241,8 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         res_vec_col = AccessAnomalyConfig.default_res_col + '_vec'
         likelihood_col = AccessAnomalyConfig.default_likelihood_col
 
-        user_model_df = sc.createDataFrame([
-            ['0',
-             'roy_{0}'.format(i),
-             [float(i % 10), float((i + 1) % (num_users / 2)), 0.0, 1.0]] for i in range(num_users)],
-            [tenant_col, user_col, user_vec_col]).cache()
-
-        res_model_df = sc.createDataFrame([
-            ['0,'
-             'res_{0}'.format(i),
-             [float(i % 10), float((i + 1) % num_resources / 2), 1.0, 0.0]] for i in range(num_resources)],
-            [tenant_col, res_col, res_vec_col]).cache()
+        user_model_df = create_df(user_col, user_vec_col, num_users, [1.0, 0.0]).cache()
+        res_model_df = create_df(res_col, res_vec_col, num_resources, [0.0, 1.0]).cache()
 
         df = (user_model_df
               .select(tenant_col, user_col)
