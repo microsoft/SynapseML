@@ -31,7 +31,7 @@ object LightGBMConstants {
   /** Multiclass classification objective
     */
   val MulticlassObjective: String = "multiclass"
-  /** Ignore worker status, used to ignore workers that get empty partitions
+  /** Ignore task status, used to ignore tasks that get empty partitions
     */
   val IgnoreStatus: String = "ignore"
   /** Barrier execution flag telling driver that all tasks have completed

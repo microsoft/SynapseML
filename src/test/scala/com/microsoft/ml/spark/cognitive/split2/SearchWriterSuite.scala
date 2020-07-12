@@ -8,7 +8,7 @@ import java.util.UUID
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive.RESTHelpers._
 import com.microsoft.ml.spark.cognitive._
-import com.microsoft.ml.spark.cognitive.split1.VisionKey
+import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
@@ -23,7 +23,7 @@ trait AzureSearchKey {
 }
 
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
-  with TransformerFuzzing[AddDocuments] with VisionKey {
+  with TransformerFuzzing[AddDocuments] with CognitiveKey {
 
   import session.implicits._
 
@@ -308,7 +308,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     ).toDF("searchAction", "id", "url")
 
     val tdf = new AnalyzeImage()
-      .setSubscriptionKey(visionKey)
+      .setSubscriptionKey(cognitiveKey)
       .setLocation("eastus")
       .setImageUrlCol("url")
       .setOutputCol("analyzed")

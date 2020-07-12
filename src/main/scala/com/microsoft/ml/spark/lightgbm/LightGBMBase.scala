@@ -18,7 +18,7 @@ import scala.math.min
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
   with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
 
-  /** Trains the LightGBM model.
+  /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
     * @param dataset The input dataset to train.
     * @return The trained model.
@@ -92,9 +92,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   }
 
   protected def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
-                                 numWorkers: Int): DataFrame = {
+                                 numTasks: Int): DataFrame = {
     val df = castColumns(dataset, trainingCols)
-    // Reduce number of partitions to number of executor cores
+    // Reduce number of partitions to number of executor tasks
     /* Note: with barrier execution mode we must use repartition instead of coalesce when
      * running on spark standalone.
      * Using coalesce, we get the error:
@@ -114,18 +114,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      * new cluster with more CPU cores or repartition the input RDD(s) to reduce the
      * number of slots required to run this barrier stage.
      *
-     * Hence we still need to estimate the number of workers and repartition even when using
+     * Hence we still need to estimate the number of tasks and repartition even when using
      * barrier execution, which is unfortunate as repartition is more expensive than coalesce.
      */
     if (getUseBarrierExecutionMode) {
       val numPartitions = df.rdd.getNumPartitions
-      if (numPartitions > numWorkers) {
-        df.repartition(numWorkers)
+      if (numPartitions > numTasks) {
+        df.repartition(numTasks)
       } else {
         df
       }
     } else {
-      df.coalesce(numWorkers)
+      df.coalesce(numTasks)
     }
   }
 
@@ -144,18 +144,42 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
+  /**
+    * Retrieves the categorical indexes in the features column.
+    * @param df The dataset to train on.
+    * @return the categorical indexes in the features column.
+    */
+  private def getCategoricalIndexes(df: DataFrame): Array[Int] = {
+    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
+    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
+    LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol, getSlotNames,
+      categoricalSlotIndexesArr, categoricalSlotNamesArr)
+  }
+
+  /**
+    * Inner train method for LightGBM learners.  Calculates the number of workers,
+    * creates a driver thread, and runs mapPartitions on the dataset.
+    * @param dataset The dataset to train on.
+    * @param batchIndex In running in batch training mode, gets the batch number.
+    * @return The LightGBM Model from the trained LightGBM Booster.
+    */
   protected def innerTrain(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
     val sc = dataset.sparkSession.sparkContext
-    val numCoresPerExec = ClusterUtil.getNumCoresPerExecutor(dataset, log)
-    val numExecutorCores = ClusterUtil.getNumExecutorCores(dataset, numCoresPerExec, log)
-    val numWorkers = min(numExecutorCores, dataset.rdd.getNumPartitions)
+    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
+    // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
+    val numTasks =
+      if (getNumTasks > 0) getNumTasks
+      else {
+        val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
+        min(numExecutorTasks, dataset.rdd.getNumPartitions)
+      }
     // Only get the relevant columns
     val trainingCols = getTrainingCols()
 
-    val df = prepareDataframe(dataset, trainingCols, numWorkers)
+    val df = prepareDataframe(dataset, trainingCols, numTasks)
 
     val (inetAddress, port, future) =
-      LightGBMUtils.createDriverNodesThread(numWorkers, df, log, getTimeout, getUseBarrierExecutionMode,
+      LightGBMUtils.createDriverNodesThread(numTasks, df, log, getTimeout, getUseBarrierExecutionMode,
         getDriverListenPort)
 
     /* Run a parallel job via map partitions to initialize the native library and network,
@@ -163,11 +187,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      */
     val encoder = Encoders.kryo[LightGBMBooster]
 
-    val categoricalSlotIndexesArr = get(categoricalSlotIndexes).getOrElse(Array.empty[Int])
-    val categoricalSlotNamesArr = get(categoricalSlotNames).getOrElse(Array.empty[String])
-    val categoricalIndexes = LightGBMUtils.getCategoricalIndexes(df, getFeaturesCol, getSlotNames,
-      categoricalSlotIndexesArr, categoricalSlotNamesArr)
-    val trainParams = getTrainParams(numWorkers, categoricalIndexes, dataset)
+    val trainParams = getTrainParams(numTasks, getCategoricalIndexes(df), dataset)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
     val (trainingData, validationData) =
@@ -180,7 +200,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val schema = preprocessedDF.schema
     val columnParams = ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
     val mapPartitionsFunc = TrainUtils.trainLightGBM(batchIndex, networkParams, columnParams, validationData, log,
-      trainParams, numCoresPerExec, schema)(_)
+      trainParams, numTasksPerExec, schema)(_)
     val lightGBMBooster =
       if (getUseBarrierExecutionMode) {
         preprocessedDF.rdd.barrier().mapPartitions(mapPartitionsFunc).reduce((booster1, _) => booster1)
@@ -208,7 +228,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     *
     * @return train parameters.
     */
-  protected def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
+  protected def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
 
   protected def stringFromTrainedModel(model: TrainedModel): String
 

@@ -13,11 +13,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 
-trait FaceKey {
-  lazy val faceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.FaceApiKey)
-}
-
-class DetectFaceSuite extends TransformerFuzzing[DetectFace] with FaceKey {
+class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
   import session.implicits._
 
@@ -26,8 +22,8 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with FaceKey {
   ).toDF("url")
 
   lazy val face = new DetectFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("face")
     .setReturnFaceId(true)
@@ -53,7 +49,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with FaceKey {
   override def reader: MLReadable[_] = DetectFace
 }
 
-class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with FaceKey {
+class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with CognitiveKey {
 
   import session.implicits._
 
@@ -64,8 +60,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Face
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -83,8 +79,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Face
     row.getAs[String]("id"))
 
   lazy val findSimilar = new FindSimilarFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setOutputCol("similar")
     .setFaceIdCol("id")
     .setFaceIds(faceIds)
@@ -103,7 +99,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Face
   override def reader: MLReadable[_] = FindSimilarFace
 }
 
-class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with FaceKey {
+class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 
   import session.implicits._
 
@@ -114,8 +110,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with FaceKey {
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -133,8 +129,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with FaceKey {
     row.getAs[String]("id"))
 
   lazy val group = new GroupFaces()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setOutputCol("grouping")
     .setFaceIds(faceIds)
 
@@ -152,7 +148,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with FaceKey {
   override def reader: MLReadable[_] = GroupFaces
 }
 
-class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey {
+class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with CognitiveKey {
 
   import session.implicits._
 
@@ -179,8 +175,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey 
   lazy val bradFaceIds = bradFaces.map(Person.addFace(_, pgId, bradId))
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -212,8 +208,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey 
   }
 
   lazy val id = new IdentifyFaces()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setFaceIdsCol("faces")
     .setPersonGroupId(pgId)
     .setOutputCol("identified_faces")
@@ -233,7 +229,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with FaceKey 
   override def reader: MLReadable[_] = IdentifyFaces
 }
 
-class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with FaceKey {
+class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {
 
   import session.implicits._
 
@@ -244,8 +240,8 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with FaceKey {
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -262,8 +258,8 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with FaceKey {
     "faceId2", lit(faceIdDF.take(1).head.getString(0)))
 
   lazy val verify = new VerifyFaces()
-    .setSubscriptionKey(faceKey)
-    .setLocation("eastus2")
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
     .setOutputCol("same")
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2")

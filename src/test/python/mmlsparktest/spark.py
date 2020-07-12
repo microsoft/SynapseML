@@ -3,11 +3,12 @@
 
 from pyspark.sql import SparkSession, SQLContext
 import os
+import mmlspark
 
 spark = SparkSession.builder \
     .master("local[*]") \
     .appName("PysparkTests") \
-    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + os.environ["MML_VERSION"]) \
+    .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:" + mmlspark.__spark_package_version__) \
     .config("spark.executor.heartbeatInterval", "60s") \
     .config("spark.sql.shuffle.partitions", 10) \
     .config("spark.sql.crossJoin.enabled", "true") \

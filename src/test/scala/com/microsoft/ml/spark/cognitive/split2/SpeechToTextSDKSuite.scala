@@ -6,17 +6,24 @@ package com.microsoft.ml.spark.cognitive.split2
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
+import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
 import com.microsoft.ml.spark.cognitive.{SpeechResponse, SpeechToText, SpeechToTextSDK}
 import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
+trait CustomSpeechKey {
+  lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
+}
+
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
-  with SpeechKey {
+  with CognitiveKey with CustomSpeechKey {
 
   import session.implicits._
 
@@ -30,12 +37,16 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   val jaccardThreshold = 0.9
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
-    .setSubscriptionKey(speechKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
     .setLanguage("en-US")
     .setProfanity("Masked")
+
+  def customSdk: SpeechToTextSDK = sdk
+    .setSubscriptionKey(customSpeechKey)
+    .setEndpointId("395cdcf7-e7db-4083-aebe-868a7d80ca74")
 
   lazy val audioPaths = Seq("audio1.wav", "audio2.wav", "audio3.mp3").map(new File(resourcesDir, _))
 
@@ -80,7 +91,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
       "wav",
-      uri, speechKey, profanity, language, format, None)
+      uri, cognitiveKey, profanity, language, format, None)
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -163,6 +174,10 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     dfTest("simple", audioDf1, text1, sdk = sdk.setStreamIntermediateResults(false))
   }
 
+  test("Custom SDK Usage") {
+    dfTest("simple", audioDf1, text1, sdk = customSdk)
+  }
+
   test("Detailed SDK Usage Audio 2") {
     dfTest("detailed", audioDf2, text2)
   }
@@ -199,7 +214,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
 
   test("m3u8 based access") {
     val streamUrl = "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8"
-    val sdk2 = sdk.setExtraFfmpegArgs(Array("-acodec", "mp3", "-ab", "257k", "-f", "mp3", "-t", "60"))
+    val sdk2 = sdk.setExtraFfmpegArgs(Array("-t", "60"))
       .setLanguage("fr-FR")
     // 20 seconds of streaming
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
@@ -211,9 +226,34 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
     }
   }
 
+  test("m3u8 file writing") {
+    val streamUrl = "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8"
+    val outputMp3 = new File(savePath, "output.mp3")
+    val outputJson = new File(savePath, "output.json")
+
+    try{
+      val sdk2 = sdk.setExtraFfmpegArgs(Array("-t", "20"))
+        .setRecordedFileNameCol("recordedFile")
+        .setRecordAudioData(true)
+        .setLanguage("en-US")
+
+      // 20 seconds of streaming
+      val uriDf = Seq(Tuple2(streamUrl, outputMp3.toString))
+        .toDF("audio", "recordedFile")
+      sdk2.transform(uriDf).write.mode("overwrite").json(outputJson.toString)
+
+      assert(outputMp3.exists())
+      assert(outputJson.exists())
+    } finally {
+      FileUtils.forceDelete(outputMp3)
+      FileUtils.forceDelete(outputJson)
+    }
+
+  }
+
   test("API vs. SDK") {
     val stt = new SpeechToText()
-      .setSubscriptionKey(speechKey)
+      .setSubscriptionKey(cognitiveKey)
       .setLocation(region)
       .setOutputCol("text")
       .setAudioDataCol("audio")

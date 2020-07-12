@@ -11,7 +11,6 @@ import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
-import org.apache.spark.lightgbm.BlockManagerUtils
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
@@ -111,10 +110,10 @@ object LightGBMUtils {
     * waits for the host:port from the executors, and then sends back the
     * information to the executors.
     *
-    * @param numWorkers The total number of training workers to wait for.
+    * @param numTasks The total number of training tasks to wait for.
     * @return The address and port of the driver socket.
     */
-  def createDriverNodesThread(numWorkers: Int, df: DataFrame,
+  def createDriverNodesThread(numTasks: Int, df: DataFrame,
                               log: Logger, timeout: Double,
                               barrierExecutionMode: Boolean,
                               driverServerPort: Int): (String, Int, Future[Unit]) = {
@@ -128,7 +127,7 @@ object LightGBMUtils {
       driverServerSocket.setSoTimeout(duration.toMillis.toInt)
     }
     val f = Future {
-      var emptyWorkerCounter = 0
+      var emptyTaskCounter = 0
       val hostAndPorts = ListBuffer[(Socket, String)]()
       if (barrierExecutionMode) {
         log.info(s"driver using barrier execution mode")
@@ -139,28 +138,28 @@ object LightGBMUtils {
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
           if (comm == LightGBMConstants.FinishedStatus) {
-            log.info("driver received all workers from barrier stage")
+            log.info("driver received all tasks from barrier stage")
             finished = true
           } else if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from worker")
+            log.info("driver received ignore status from task")
           } else {
-            log.info(s"driver received socket from worker: $comm")
+            log.info(s"driver received socket from task: $comm")
             val socketAndComm = (driverSocket, comm)
             hostAndPorts += socketAndComm
           }
         }
       } else {
-        log.info(s"driver expecting $numWorkers connections...")
-        while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
+        log.info(s"driver expecting $numTasks connections...")
+        while (hostAndPorts.size + emptyTaskCounter < numTasks) {
           log.info("driver accepting a new connection...")
           val driverSocket = driverServerSocket.accept()
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
           if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from worker")
-            emptyWorkerCounter += 1
+            log.info("driver received ignore status from task")
+            emptyTaskCounter += 1
           } else {
-            log.info(s"driver received socket from worker: $comm")
+            log.info(s"driver received socket from task: $comm")
             val socketAndComm = (driverSocket, comm)
             hostAndPorts += socketAndComm
           }
@@ -187,13 +186,13 @@ object LightGBMUtils {
 
   /** Returns an integer ID for the current node.
     *
-    * @return In cluster, returns the executor id.  In local case, returns the worker id.
+    * @return In cluster, returns the executor id.  In local case, returns the task id.
     */
   def getId(): Int = {
     val executorId = SparkEnv.get.executorId
     val ctx = TaskContext.get
     val partId = ctx.partitionId
-    // If driver, this is only in test scenario, make each partition a separate worker
+    // If driver, this is only in test scenario, make each partition a separate task
     val id = if (executorId == "driver") partId else executorId
     val idAsInt = id.toString.toInt
     idAsInt

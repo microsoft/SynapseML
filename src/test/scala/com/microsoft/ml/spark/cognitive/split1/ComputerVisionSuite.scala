@@ -14,11 +14,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
-trait VisionKey {
-  lazy val visionKey = sys.env.getOrElse("VISION_API_KEY", Secrets.VisionApiKey)
+trait CognitiveKey {
+  lazy val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
 }
 
-class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
+class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -29,7 +29,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
   ).toDF("url")
 
   lazy val ocr = new OCR()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setDefaultLanguage("en")
     .setImageUrlCol("url")
@@ -42,7 +42,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
     .select("imageBytes")
 
   lazy val bytesOCR = new OCR()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setDefaultLanguage("en")
     .setImageBytesCol("imageBytes")
@@ -52,7 +52,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
   test("Getters") {
     assert(ocr.getDetectOrientation)
     assert(ocr.getImageUrlCol === "url")
-    assert(ocr.getSubscriptionKey == visionKey)
+    assert(ocr.getSubscriptionKey == cognitiveKey)
     assert(bytesOCR.getImageBytesCol === "imageBytes")
   }
 
@@ -81,7 +81,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with VisionKey with Flaky {
   override def reader: MLReadable[_] = OCR
 }
 
-class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey with Flaky {
+class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -92,7 +92,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
   ).toDF("url", "language")
 
   def baseAI: AnalyzeImage = new AnalyzeImage()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("features")
 
@@ -190,7 +190,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with VisionKey 
 
 }
 
-class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKey with Flaky {
+class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with CognitiveKey with Flaky {
 
   import com.microsoft.ml.spark.FluentAPI._
   import session.implicits._
@@ -202,7 +202,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
   ).toDF("url")
 
   lazy val rt: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setMode("Printed")
@@ -215,7 +215,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
     .select("imageBytes")
 
   lazy val bytesRT: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageBytesCol("imageBytes")
     .setMode("Printed")
@@ -247,7 +247,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText] with VisionKe
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
-  with VisionKey with Flaky {
+  with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -256,7 +256,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   ).toDF("url")
 
   lazy val celeb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setModel("celebrities")
     .setLocation("eastus")
     .setImageUrlCol("url")
@@ -268,7 +268,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .select("imageBytes")
 
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setModel("celebrities")
     .setLocation("eastus")
     .setImageBytesCol("imageBytes")
@@ -303,7 +303,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 }
 
 class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
-  with VisionKey with Flaky {
+  with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -312,7 +312,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
   ).toDF("url")
 
   lazy val t: GenerateThumbnails = new GenerateThumbnails()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageUrlCol("url")
@@ -324,7 +324,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     .select("imageBytes")
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageBytesCol("imageBytes")
@@ -346,7 +346,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
   override def reader: MLReadable[_] = GenerateThumbnails
 }
 
-class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey with Flaky {
+class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -355,7 +355,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey with Fla
   ).toDF("url")
 
   lazy val t: TagImage = new TagImage()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("tags")
@@ -366,7 +366,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey with Fla
     .select("imageBytes")
 
   lazy val bytesTI: TagImage = new TagImage()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageBytesCol("imageBytes")
     .setOutputCol("tags")
@@ -402,7 +402,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with VisionKey with Fla
 }
 
 class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
-  with VisionKey with Flaky {
+  with CognitiveKey with Flaky {
 
   import session.implicits._
 
@@ -411,7 +411,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
   ).toDF("url")
 
   lazy val t: DescribeImage = new DescribeImage()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setMaxCandidates(3)
     .setImageUrlCol("url")
@@ -423,7 +423,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     .select("imageBytes")
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
-    .setSubscriptionKey(visionKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setMaxCandidates(3)
     .setImageBytesCol("imageBytes")

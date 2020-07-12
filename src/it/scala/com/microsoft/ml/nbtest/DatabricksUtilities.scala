@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
-  val Region = "eastus2"
+  val Region = "eastus"
   val PoolName = "mmlspark-build"
   val AdbRuntime = "5.5.x-scala2.11"
   val NumWorkers = 5

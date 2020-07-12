@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{BufferedInputStream, ByteArrayInputStream, InputStream}
+import java.io.{BufferedInputStream, ByteArrayInputStream, File, FileOutputStream, InputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.concurrent.LinkedBlockingQueue
@@ -32,6 +32,10 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import scala.language.existentials
+
+object OsUtils {
+  val IsWindows: Boolean = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0
+}
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
@@ -73,6 +77,32 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
   def getAudioDataCol: String = $(audioDataCol)
 
+  val recordAudioData = new BooleanParam(this, "recordAudioData",
+    "Whether to record audio data to a file location, for use only with m3u8 streams"
+  )
+
+  val endpointId = new Param[String](this, "endpointId",
+    "endpoint for custom speech models"
+  )
+
+  def setEndpointId(v: String): this.type = set(endpointId, v)
+
+  def getEndpointId: String = $(endpointId)
+
+  def setRecordAudioData(v: Boolean): this.type = set(recordAudioData, v)
+
+  def getRecordAudioData: Boolean = $(recordAudioData)
+
+  setDefault(recordAudioData -> false)
+
+  val recordedFileNameCol = new Param[String](this, "recordedFileNameCol",
+    "Column holding file names to write audio data to if ``recordAudioData'' is set to true"
+  )
+
+  def setRecordedFileNameCol(v: String): this.type = set(recordedFileNameCol, v)
+
+  def getRecordedFileNameCol: String = $(recordedFileNameCol)
+
   val fileType = new ServiceParam[String](
     this, "fileType", "The file type of the sound files, supported types: wav, ogg, mp3")
 
@@ -93,14 +123,14 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
-  val extraFfmpegArgs = new StringArrayParam(this, "extraFfmpegArgs", "extra arguments to " +
-    "pass to ffmpeg if used for decoding")
+  val extraFfmpegArgs = new StringArrayParam(this, "extraFfmpegArgs",
+    "extra arguments to for ffmpeg output decoding")
 
-  setDefault(extraFfmpegArgs -> Array("-acodec", "mp3", "-ab", "257k", "-f", "mp3"))
-
-  def setExtraFfmpegArgs(v: Array[String]): this.type =set(extraFfmpegArgs, v)
+  def setExtraFfmpegArgs(v: Array[String]): this.type = set(extraFfmpegArgs, v)
 
   def getExtraFfmpegArgs: Array[String] = $(extraFfmpegArgs)
+
+  setDefault(extraFfmpegArgs -> Array())
 
   val streamIntermediateResults = new BooleanParam(this, "streamIntermediateResults",
     "Whether or not to immediately return itermediate results, or group in a sequence"
@@ -182,6 +212,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
                        ): Iterator[SpeechResponse] = {
     val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
     assert(speechConfig != null)
+    get(endpointId).foreach(id => speechConfig.setEndpointId(id))
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
     speechConfig.setSpeechRecognitionLanguage(language)
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
@@ -201,6 +232,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       val queue = new LinkedBlockingQueue[Option[String]]()
 
       def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
+        println(e)
         if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
           queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
         }
@@ -216,7 +248,10 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       new BlockingQueueIterator[String](queue, {
         recognizer.stopContinuousRecognitionAsync.get()
         pullStream.close()
-      }).map(jsonString => jsonString.parseJson.convertTo[SpeechResponse])
+      }).map { jsonString =>
+        println(jsonString)
+        jsonString.parseJson.convertTo[SpeechResponse]
+      }
     } finally {
       speechConfig.close()
       audioConfig.close()
@@ -229,13 +264,28 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
                         dynamicParamRow: Row): (InputStream, String) = {
     if (isUriAudio) {
       val uri = row.getAs[String](getAudioDataCol)
+      val ffmpegCommand: Seq[String] = {
+        val body = Seq("ffmpeg", "-y",
+          "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
+          "-i", uri) ++ getExtraFfmpegArgs ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", "pipe:1")
+
+        if (getRecordAudioData && OsUtils.IsWindows) {
+          val fn = row.getAs[String](getRecordedFileNameCol)
+          body ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", fn)
+        } else if (getRecordAudioData && !OsUtils.IsWindows) {
+          val fn = row.getAs[String](getRecordedFileNameCol)
+          Seq("/bin/sh", "-c",  (body ++ Seq("|", "tee", fn)).mkString(" "))
+        } else {
+          body
+        }
+      }
+
       val extension = FilenameUtils.getExtension(new URI(uri).getPath).toLowerCase()
       if (extension == "m3u8" && uri.startsWith("http")) {
         val stream = new ProcessBuilder()
           .redirectError(Redirect.INHERIT)
           .redirectInput(Redirect.INHERIT)
-          .command(
-            Seq("ffmpeg", "-y", "-i", uri) ++ getExtraFfmpegArgs.toSeq ++ Seq("pipe:1"): _*)
+          .command(ffmpegCommand: _*)
           .start()
           .getInputStream
         (stream, "mp3")
@@ -282,6 +332,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
         }
       }
     }
+
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
