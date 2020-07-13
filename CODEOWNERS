@@ -12,4 +12,8 @@ train/           @imatiach-msft
 recommendation/  @dciborow
 
 # Dalitso's Areas
-/tools/helm      @dbanda
+tools/helm/      @dbanda
+
+# Markus' Areas
+vw/              @eisber
+isolationforest/ @eisber

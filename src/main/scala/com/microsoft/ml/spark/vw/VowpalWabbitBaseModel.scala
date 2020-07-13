@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.vw
 
-import org.apache.spark.SparkContext
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -13,6 +12,8 @@ import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.{VowpalWabbitArguments, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
+
+import scala.io.Source
 
 case class PathAndData(path: String, bytes: Array[Byte])
 
@@ -63,8 +64,22 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   val model = new ByteArrayParam(this, "model", "The VW model....")
 
   def setModel(v: Array[Byte]): this.type = set(model, v)
-
   def getModel: Array[Byte] = $(model)
+
+  def getReadableModel: String = {
+    val readableModelFile = java.io.File.createTempFile("vowpalwabbit", ".txt")
+
+    try
+    {
+      // start VW, write the model, stop
+      new VowpalWabbitNative(s"--readable_model ${readableModelFile.getAbsolutePath}", getModel).close
+
+      // need to read the model after the VW object is disposed as this triggers the file write
+      Source.fromFile(readableModelFile).mkString
+    }
+    finally
+      readableModelFile.delete
+ }
 
   // Perf stats parameter
   val performanceStatistics = new DataFrameParam(this,
@@ -72,7 +87,6 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
     "Performance statistics collected during training")
 
   def setPerformanceStatistics(v: DataFrame): this.type = set(performanceStatistics, v)
-
   def getPerformanceStatistics: DataFrame = $(performanceStatistics)
 
   protected def predictInternal(featureColIndices: Array[NamespaceInfo], row: Row): Double = {

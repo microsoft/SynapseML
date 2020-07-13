@@ -12,7 +12,7 @@ import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.env.StreamUtilities._
-import com.microsoft.ml.spark.io.http.HasHttpClient
+import com.microsoft.ml.spark.io.split2.HasHttpClient
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
-  val Region = "eastus2"
+  val Region = "eastus"
   val PoolName = "mmlspark-build"
   val AdbRuntime = "5.5.x-scala2.11"
   val NumWorkers = 5
@@ -54,7 +54,7 @@ object DatabricksUtilities extends HasHttpClient {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 30 * 60 * 1000
+  val TimeoutInMillis: Int = 40 * 60 * 1000
 
   val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
@@ -169,7 +169,7 @@ object DatabricksUtilities extends HasHttpClient {
          | "cluster_id": "$clusterId",
          | "libraries": $Libraries
          |}
-      """.stripMargin,List(100, 500, 1000, 10000, 20000))
+      """.stripMargin)
     ()
   }
 

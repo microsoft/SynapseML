@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.lightgbm.split1
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
+import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -15,16 +16,29 @@ import com.microsoft.ml.spark.stages.{MultiColumnAdapter, SPConstants, Stratifie
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
-import org.scalactic.Equality
-import org.scalatest.Assertion
+import org.slf4j.Logger
+
+@SerialVersionUID(100L)
+class TrainDelegate extends LightGBMDelegate {
+
+  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+                               previousLearningRate: Double): Double = {
+    if (curIters == 0) {
+      previousLearningRate
+    } else {
+      previousLearningRate * 0.05
+    }
+  }
+
+}
 
 // scalastyle:off magic.number
 trait LightGBMTestUtils extends TestBase {
@@ -85,11 +99,25 @@ trait LightGBMTestUtils extends TestBase {
     assert(model.fit(df).transform(df).collect().length > 0)
   }
 
-  def assertImportanceLengths(fitModel: Model[_] with HasFeatureImportanceGetters, df: DataFrame): Unit = {
+  def assertImportanceLengths(fitModel: Model[_] with LightGBMModelMethods, df: DataFrame): Unit = {
     val splitLength = fitModel.getFeatureImportances("split").length
     val gainLength = fitModel.getFeatureImportances("gain").length
     val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
     assert(splitLength == gainLength && splitLength == featuresLength)
+  }
+
+  def assertFeatureShapLengths(fitModel: Model[_] with LightGBMModelMethods, features: Vector, df: DataFrame): Unit = {
+    val shapLength = fitModel.getFeatureShaps(features).length
+    val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
+    assert(shapLength == featuresLength + 1)
+  }
+
+  def validateHeadRowShapValues(evaluatedDf: DataFrame, expectedShape: Int): Unit = {
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == expectedShape)
   }
 
   lazy val numPartitions = 2
@@ -101,10 +129,12 @@ trait LightGBMTestUtils extends TestBase {
     LightGBMConstants.DefaultLocalListenPort + portIndex
   }
 
-  val boostingTypes = Array("gbdt", "rf", "dart", "goss")
+  val boostingTypes: Array[String] = Array("gbdt", "rf", "dart", "goss")
   val featuresCol = "features"
   val labelCol = "labels"
   val rawPredCol = "rawPrediction"
+  val leafPredCol = "leafPrediction"
+  val featuresShapCol = "featuresShap"
   val initScoreCol = "initScore"
   val predCol = "prediction"
   val probCol = "probability"
@@ -134,14 +164,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .transform(df).drop(categoricalColumns: _*)
       .withColumnRenamed("c_y", labelCol)
     df2
-  }.cache()
+    }.cache()
   lazy val indexedBankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol,
       oneHotEncodeCategoricals = false).transform(unfeaturizedBankTrainDF)
-  }.cache()
+    }.cache()
   lazy val bankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
-  }.cache()
+    }.cache()
 
   val binaryObjective = "binary"
   val multiclassObject = "multiclass"
@@ -197,6 +227,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setNumIterations(10)
       .setObjective(binaryObjective)
       .setLabelCol(labelCol)
+      .setLeafPredictionCol(leafPredCol)
+      .setFeaturesShapCol(featuresShapCol)
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -226,13 +258,17 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
 
-  ignore("Verify LightGBM Classifier with batch training") {
+  test("Verify LightGBM Classifier with batch training") {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
   }
 
   def assertBinaryImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {
     assert(binaryEvaluator.evaluate(sdf1) < binaryEvaluator.evaluate(sdf2))
+  }
+
+  def assertMulticlassImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {
+    assert(multiclassEvaluator.evaluate(sdf1) < multiclassEvaluator.evaluate(sdf2))
   }
 
   def assertBinaryImprovement(v1: LightGBMClassifier, train1: DataFrame, test1: DataFrame,
@@ -245,10 +281,19 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val convertUDF = udf((vector: DenseVector) => vector(1))
     val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
     val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
-      .drop(predCol, rawPredCol, probCol)
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
     val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertBinaryImprovement(scoredDF1, scoredDF2)
+  }
+
+  ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
+    val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
+    val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
+      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
+    val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
+
+    assertMulticlassImprovement(scoredDF1, scoredDF2)
   }
 
   test("Verify LightGBM Classifier with min gain to split parameter") {
@@ -258,13 +303,18 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
+  test("Verify LightGBM Classifier with num tasks parameter") {
+    val numTasks = Array(0, 1, 2)
+    numTasks.foreach(nTasks => assertFitWithoutErrors(baseModel.setNumTasks(nTasks), pimaDF))
+  }
+
   test("Verify LightGBM Classifier with max delta step parameter") {
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
-    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(100)
+    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumIterations(200)
     val scoredDF1 = baseModelWithLR.fit(train).transform(test)
-    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.1).fit(train).transform(test)
+    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.5).fit(train).transform(test)
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
@@ -341,6 +391,103 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(metric > 0.8)
   }
 
+  test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val delegate = new TrainDelegate()
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setDelegate(delegate)
+      .setLearningRate(0.1)
+      .setNumIterations(2)  // expected learning_rate: iters 0 => 0.1, iters 1 => 0.005
+
+    val model = untrainedModel.fit(train)
+
+    // Verify updating learning_rate
+    assert(model.getModel.model.contains("learning_rate: 0.005"))
+  }
+
+  test("Verify LightGBM Classifier leaf prediction") {
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val leafIndices: Array[Double] = evaluatedDf.select(leafPredCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(leafIndices.length == model.getModel.numTotalModel)
+
+    // leaf index's value >= 0 and integer
+    leafIndices.foreach { index =>
+      assert(index >= 0)
+      assert(index == index.toInt)
+    }
+
+    // if leaf prediction is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setLeafPredictionCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(leafPredCol))
+  }
+
+  test("Verify Binary LightGBM Classifier local feature importance SHAP values") {
+    val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    validateHeadRowShapValues(evaluatedDf, model.getModel.numFeatures + 1)
+
+    // if featuresShap is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(featuresShapCol))
+  }
+
+  test("Verify Multiclass LightGBM Classifier local feature importance SHAP values") {
+    val Array(train, test) = breastTissueDF.select(labelCol, featuresCol).randomSplit(Array(0.8, 0.2), seed)
+
+    val untrainedModel = new LightGBMClassifier()
+      .setLabelCol(labelCol)
+      .setFeaturesCol(featuresCol)
+      .setPredictionCol(predCol)
+      .setDefaultListenPort(getAndIncrementPort())
+      .setObjective(multiclassObject)
+      .setFeaturesShapCol(featuresShapCol)
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    validateHeadRowShapValues(evaluatedDf, (model.getModel.numFeatures + 1) * model.getModel.numClasses)
+  }
+
+  test("Verify LightGBM Classifier with slot names parameter") {
+
+    val originalDf = readCSV(DatasetUtils.binaryTrainFile("PimaIndian.csv").toString).repartition(numPartitions)
+      .withColumnRenamed("Diabetes mellitus", labelCol)
+
+    val originalSlotNames = Array("Number of times pregnant",
+      "Plasma glucose concentration a 2 hours in an oral glucose tolerance test",
+      "Diastolic blood pressure (mm Hg)", "Triceps skin fold thickness (mm)", "2-Hour serum insulin (mu U/ml)",
+      "Body mass index (weight in kg/(height in m)^2)", "Diabetes pedigree function","Age (years)")
+
+    val newDf = new VectorAssembler().setInputCols(originalSlotNames).setOutputCol(featuresCol).transform(originalDf)
+    val newSlotNames = originalSlotNames.map(name => if(name == "Age (years)") "Age_years" else name)
+
+    // define slot names that has a slot renamed "Age (years)" to "Age_years"
+    val untrainedModel = baseModel.setSlotNames(newSlotNames)
+
+    assert(untrainedModel.getSlotNames.length == newSlotNames.length)
+    assert(untrainedModel.getSlotNames.contains("Age_years"))
+
+    val model = untrainedModel.fit(newDf)
+
+    // Verify the Age_years column that is renamed  used in some tree in the model
+    assert(model.getModel.model.contains("Age_years"))
+  }
+
   test("Verify LightGBM Classifier won't get stuck on empty partitions") {
     val baseDF = pimaDF.select(labelCol, featuresCol)
     val df = baseDF.mapPartitions { rows =>
@@ -395,9 +542,9 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnBinaryCsvFile(fileName: String,
                                    labelColumnName: String,
                                    decimals: Int): Unit = {
-    boostingTypes.foreach { boostingType =>
-      test("Verify LightGBMClassifier can be trained " +
-        s"and scored on $fileName with boosting type $boostingType", TestBase.Extended) {
+    test("Verify LightGBMClassifier can be trained " +
+      s"and scored on $fileName", TestBase.Extended) {
+      boostingTypes.foreach { boostingType =>
         val df = loadBinary(fileName, labelColumnName)
         val model = baseModel
           .setBoostingType(boostingType)
@@ -428,10 +575,11 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   def verifyLearnerOnMulticlassCsvFile(fileName: String,
                                        labelColumnName: String,
                                        precision: Double): Unit = {
-    lazy val df = loadMulticlass(fileName, labelColumnName).cache()
-    boostingTypes.foreach { boostingType =>
-      test(s"Verify LightGBMClassifier can be trained and scored " +
-        s"on multiclass $fileName with boosting type $boostingType", TestBase.Extended) {
+    test(s"Verify LightGBMClassifier can be trained and scored " +
+      s"on multiclass $fileName", TestBase.Extended) {
+      lazy val df = loadMulticlass(fileName, labelColumnName).cache()
+      boostingTypes.foreach { boostingType =>
+
         val model = baseModel
           .setObjective(multiclassObject)
           .setBoostingType(boostingType)
@@ -450,8 +598,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
         addBenchmark(s"LightGBMClassifier_${fileName}_$boostingType",
           multiclassEvaluator.evaluate(tdf), precision)
       }
+      df.unpersist()
     }
-    df.unpersist()
   }
 
   override def testObjects(): Seq[TestObject[LightGBMClassifier]] = {
@@ -481,11 +629,19 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
       // Verify can load model from file
       val resultsFromString = LightGBMClassificationModel
-        .loadNativeModelFromString(oldModelString, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+        .loadNativeModelFromString(oldModelString)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
-      val resultsFromFile = LightGBMClassificationModel.
-        loadNativeModelFromFile(modelPath, labelColumnName, featuresCol, rawPredictionColName = rawPredCol)
+      val resultsFromFile = LightGBMClassificationModel
+        .loadNativeModelFromFile(modelPath)
+        .setFeaturesCol(featuresCol)
+        .setRawPredictionCol(rawPredCol)
+        .setLeafPredictionCol(leafPredCol)
+        .setFeaturesShapCol(featuresShapCol)
         .transform(df)
 
       val resultsOriginal = fitModel.transform(df)

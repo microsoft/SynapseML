@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
 import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils, TrainUtils}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, monotonically_increasing_id, _}
@@ -48,7 +49,6 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .drop("features")
       .withColumnRenamed("_features", "features")
       .cache()
-
   }
 
   def baseModel: LightGBMRanker = {
@@ -57,6 +57,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       .setFeaturesCol(featuresCol)
       .setGroupCol(queryCol)
       .setDefaultListenPort(getAndIncrementPort())
+      .setRepartitionByGroupingColumn(false)
       .setNumLeaves(5)
       .setNumIterations(10)
   }
@@ -102,6 +103,28 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
       df.withColumn(queryCol, col(queryCol).cast("Int")))
     assertFitWithoutErrors(baseModel.setEvalAt(1 to 3 toArray),
       df.withColumn(queryCol, concat(lit("str_"), col(queryCol))))
+  }
+
+  test("Verify LightGBM Ranker feature shaps") {
+    val baseDF = Seq(
+      (0L, 1, 1.2, 2.3),
+      (0L, 0, 3.2, 2.35),
+      (1L, 0, 1.72, 1.39),
+      (1L, 1, 1.82, 3.8)
+    ).toDF(queryCol, labelCol, "f1", "f2")
+
+    val df = new VectorAssembler()
+      .setInputCols(Array("f1", "f2"))
+      .setOutputCol(featuresCol)
+      .transform(baseDF)
+      .select(queryCol, labelCol, featuresCol)
+
+    val fitModel = baseModel.setEvalAt(1 to 3 toArray).fit(df)
+
+    val featuresInput = Vectors.dense(Array[Double](0.0, 0.0))
+    assert(fitModel.numFeatures == 2)
+    assertFeatureShapLengths(fitModel, featuresInput, df)
+    assert(fitModel.predict(featuresInput) == fitModel.getFeatureShaps(featuresInput).sum)
   }
 
   test("verify cardinality counts: int") {

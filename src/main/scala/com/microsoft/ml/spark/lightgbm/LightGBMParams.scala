@@ -17,6 +17,15 @@ trait LightGBMExecutionParams extends Wrappable {
   def getParallelism: String = $(parallelism)
   def setParallelism(value: String): this.type = set(parallelism, value)
 
+  val topK = new IntParam(this, "topK",
+    "The top_k value used in Voting parallel, " +
+      "set this to larger value for more accurate result, but it will slow down the training speed. " +
+      "It should be greater than 0")
+  setDefault(topK -> LightGBMConstants.DefaultTopK)
+
+  def getTopK: Int = $(topK)
+  def setTopK(value: Int): this.type = set(topK, value)
+
   val defaultListenPort = new IntParam(this, "defaultListenPort",
     "The default listen port on executors, used for testing")
 
@@ -24,6 +33,14 @@ trait LightGBMExecutionParams extends Wrappable {
   def setDefaultListenPort(value: Int): this.type = set(defaultListenPort, value)
 
   setDefault(defaultListenPort -> LightGBMConstants.DefaultLocalListenPort)
+
+  val driverListenPort = new IntParam(this, "driverListenPort",
+    "The listen port on a driver. Default value is 0 (random)")
+
+  def getDriverListenPort: Int = $(driverListenPort)
+  def setDriverListenPort(value: Int): this.type = set(driverListenPort, value)
+
+  setDefault(driverListenPort -> LightGBMConstants.DefaultDriverListenPort)
 
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
   setDefault(timeout -> 1200)
@@ -44,10 +61,86 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getNumBatches: Int = $(numBatches)
   def setNumBatches(value: Int): this.type = set(numBatches, value)
+
+  val repartitionByGroupingColumn = new BooleanParam(this, "repartitionByGroupingColumn",
+    "Repartition training data according to grouping column, on by default.")
+  setDefault(repartitionByGroupingColumn -> true)
+
+  def getRepartitionByGroupingColumn: Boolean = $(repartitionByGroupingColumn)
+  def setRepartitionByGroupingColumn(value: Boolean): this.type = set(repartitionByGroupingColumn, value)
+
+  val numTasks = new IntParam(this, "numTasks",
+    "Advanced parameter to specify the number of tasks.  " +
+      "MMLSpark tries to guess this based on cluster configuration, but this parameter can be used to override.")
+  setDefault(numTasks -> 0)
+
+  def getNumTasks: Int = $(numTasks)
+  def setNumTasks(value: Int): this.type = set(numTasks, value)
+}
+
+/** Defines common parameters across all LightGBM learners related to learning score evolution.
+  */
+trait LightGBMLearnerParams extends Wrappable {
+  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
+  setDefault(earlyStoppingRound -> 0)
+
+  def getEarlyStoppingRound: Int = $(earlyStoppingRound)
+  def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
+
+  val improvementTolerance = new DoubleParam(this, "improvementTolerance",
+    "Tolerance to consider improvement in metric")
+  setDefault(improvementTolerance -> 0.0)
+
+  def getImprovementTolerance: Double = $(improvementTolerance)
+  def setImprovementTolerance(value: Double): this.type = set(improvementTolerance, value)
+}
+
+/** Defines common parameters across all LightGBM learners related to histogram bin construction.
+  */
+trait LightGBMBinParams extends Wrappable {
+  val maxBin = new IntParam(this, "maxBin", "Max bin")
+  setDefault(maxBin -> 255)
+
+  def getMaxBin: Int = $(maxBin)
+  def setMaxBin(value: Int): this.type = set(maxBin, value)
+
+  val binSampleCount = new IntParam(this, "binSampleCount", "Number of samples considered at computing histogram bins")
+  setDefault(binSampleCount -> 200000)
+
+  def getBinSampleCount: Int = $(binSampleCount)
+  def setBinSampleCount(value: Int): this.type = set(binSampleCount, value)
+}
+
+/** Defines parameters for slots across all LightGBM learners.
+ */
+trait LightGBMSlotParams extends Wrappable {
+  val slotNames = new StringArrayParam(this, "slotNames",
+    "List of slot names in the features column")
+
+  def getSlotNames: Array[String] = $(slotNames)
+  def setSlotNames(value: Array[String]): this.type = set(slotNames, value)
+
+  setDefault(slotNames -> Array.empty)
+
+  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
+    "List of categorical column indexes, the slot index in the features column")
+
+  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
+  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
+
+  setDefault(categoricalSlotIndexes -> Array.empty)
+
+  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
+    "List of categorical column slot names, the slot name in the features column")
+
+  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
+  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
+
+  setDefault(categoricalSlotNames -> Array.empty)
 }
 
 /** Defines parameters for fraction across all LightGBM learners.
- */
+  */
 trait LightGBMFractionParams extends Wrappable {
   val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
   setDefault(baggingFraction->1)
@@ -74,10 +167,46 @@ trait LightGBMFractionParams extends Wrappable {
   def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 }
 
+/** Defines common prediction parameters across LightGBM Ranker, Classifier and Regressor
+  */
+trait LightGBMPredictionParams extends Wrappable {
+  val leafPredictionCol = new Param[String](this, "leafPredictionCol",
+    "Predicted leaf indices's column name")
+  setDefault(leafPredictionCol -> "")
+
+  def getLeafPredictionCol: String = $(leafPredictionCol)
+  def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
+
+  val featuresShapCol = new Param[String](this, "featuresShapCol",
+    "Output SHAP vector column name after prediction containing the feature contribution values")
+  setDefault(featuresShapCol -> "")
+
+  def getFeaturesShapCol: String = $(featuresShapCol)
+  def setFeaturesShapCol(value: String): this.type = set(featuresShapCol, value)
+}
+
+/** Defines parameters for LightGBM models
+  */
+trait LightGBMModelParams extends Wrappable {
+  val lightGBMBooster = new LightGBMBoosterParam(this, "lightGBMBooster",
+    "The trained LightGBM booster")
+
+  def getLightGBMBooster: LightGBMBooster = $(lightGBMBooster)
+  def setLightGBMBooster(value: LightGBMBooster): this.type = set(lightGBMBooster, value)
+
+  /**
+    * Alias for same method
+    * @return The LightGBM Booster.
+    */
+  def getModel: LightGBMBooster = this.getLightGBMBooster
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams with LightGBMFractionParams {
+  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
+  with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
+  with LightGBMPredictionParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -99,18 +228,12 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val objective = new Param[String](this, "objective",
     "The Objective. For regression applications, this can be: " +
-    "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
-    "For classification applications, this can be: binary, multiclass, or multiclassova. ")
+      "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
+      "For classification applications, this can be: binary, multiclass, or multiclassova. ")
   setDefault(objective -> "regression")
 
   def getObjective: String = $(objective)
   def setObjective(value: String): this.type = set(objective, value)
-
-  val maxBin = new IntParam(this, "maxBin", "Max bin")
-  setDefault(maxBin -> 255)
-
-  def getMaxBin: Int = $(maxBin)
-  def setMaxBin(value: Int): this.type = set(maxBin, value)
 
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
@@ -123,12 +246,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBaggingSeed: Int = $(baggingSeed)
   def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
-
-  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
-  setDefault(earlyStoppingRound -> 0)
-
-  def getEarlyStoppingRound: Int = $(earlyStoppingRound)
-  def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)
@@ -155,18 +272,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
 
-  val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
-    "List of categorical column indexes, the slot index in the features column")
-
-  def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
-  def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
-
-  val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
-    "List of categorical column slot names, the slot name in the features column")
-
-  def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
-  def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
-
   val boostFromAverage = new BooleanParam(this, "boostFromAverage",
     "Adjusts initial score to the mean of labels for faster convergence")
   setDefault(boostFromAverage -> true)
@@ -176,8 +281,8 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val boostingType = new Param[String](this, "boostingType",
     "Default gbdt = traditional Gradient Boosting Decision Tree. Options are: " +
-    "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
-    "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
+      "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
+      "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
   setDefault(boostingType -> "gbdt")
 
   def getBoostingType: String = $(boostingType)
@@ -204,7 +309,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val metric = new Param[String](this, "metric",
     "Metrics to be evaluated on the evaluation data.  Options are: " +
-     "empty string or not specified means that metric corresponding to specified " +
+      "empty string or not specified means that metric corresponding to specified " +
       "objective will be used (this is possible only for pre-defined objective functions, " +
       "otherwise no evaluation metric will be added). " +
       "None (string, not a None value) means that no metric will be registered, a" +
@@ -263,4 +368,11 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getMinDataInLeaf: Int = $(minDataInLeaf)
   def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
+
+  var delegate: Option[LightGBMDelegate] = None
+  def getDelegate: Option[LightGBMDelegate] = delegate
+  def setDelegate(delegate: LightGBMDelegate): this.type = {
+    this.delegate = Option(delegate)
+    this
+  }
 }

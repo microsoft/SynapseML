@@ -11,7 +11,7 @@ name := "mmlspark"
 organization := "com.microsoft.ml.spark"
 scalaVersion := "2.11.12"
 
-val sparkVersion = "2.4.3"
+val sparkVersion = "2.4.5"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
@@ -22,12 +22,14 @@ libraryDependencies ++= Seq(
   "com.microsoft.cntk" % "cntk" % "2.4",
   "org.openpnp" % "opencv" % "3.2.0-1",
   "com.jcraft" % "jsch" % "0.1.54",
-  "com.jcraft" % "jsch" % "0.1.54",
+  "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.11.0",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
-  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.100",
-  "com.github.vowpalwabbit" %  "vw-jni" % "8.7.0.3"
-    from "file:///mnt/c/work/vowpal_wabbit/java/target/vw-jni-8.7.0.3.jar"
+  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
+  "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
+  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2",
+  "org.apache.spark" %% "spark-avro" % sparkVersion
 )
+resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
 //noinspection ScalaStyle
 lazy val IntegrationTest2 = config("it").extend(Test)
@@ -58,8 +60,12 @@ cleanCondaEnvTask := {
     new File(".")) ! s.log
 }
 
+def isWindows: Boolean = {
+  sys.props("os.name").toLowerCase.contains("windows")
+}
+
 def osPrefix: Seq[String] = {
-  if (sys.props("os.name").toLowerCase.contains("windows")) {
+  if (isWindows) {
     Seq("cmd", "/C")
   } else {
     Seq()
@@ -94,6 +100,15 @@ generatePythonDoc := {
   Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
     join(pythonSrcDir.toString, "mmlspark")) ! s.log
 
+}
+
+val pythonizedVersion = settingKey[String]("Pythonized version")
+pythonizedVersion := {
+  if (version.value.contains("-")){
+    version.value.split("-".head).head + ".dev1"
+  }else{
+    version.value
+  }
 }
 
 def uploadToBlob(source: String, dest: String,
@@ -159,14 +174,6 @@ publishR := {
   singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
 
-def pythonizeVersion(v: String): String = {
-  if (v.contains("-")){
-    v.split("-".head).head + ".dev1"
-  }else{
-    v
-  }
-}
-
 packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
@@ -178,8 +185,7 @@ packagePythonTask := {
   Process(
     activateCondaEnv ++
       Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
-    pythonSrcDir,
-    "MML_PY_VERSION" -> pythonizeVersion(version.value)) ! s.log
+    pythonSrcDir) ! s.log
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -190,7 +196,7 @@ installPipPackageTask := {
   packagePythonTask.value
   Process(
     activateCondaEnv ++ Seq("pip", "install",
-      s"mmlspark-${pythonizeVersion(version.value)}-py2.py3-none-any.whl"),
+      s"mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl"),
     pythonPackageDir) ! s.log
 }
 
@@ -200,19 +206,20 @@ testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
   Process(
-    activateCondaEnv ++ Seq("pytest",
+    activateCondaEnv ++ Seq("python",
+      "-m",
+      "pytest",
       "--cov=mmlspark",
-      "--junitxml=target/python-test-results.xml",
+      "--junitxml=../../../../python-test-results.xml",
       "--cov-report=xml",
-      "target/scala-2.11/generated/test/python/mmlspark"
+      "mmlsparktest"
     ),
-    new File("."),
-    "MML_VERSION" -> version.value
+    new File("target/scala-2.11/generated/test/python/"),
   ) ! s.log
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2019-05-02.tgz"
+val datasetName = "datasets-2020-01-20.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
@@ -315,7 +322,7 @@ val settings = Seq(
   logBuffered in Test := false,
   buildInfoKeys := Seq[BuildInfoKey](
     name, version, scalaVersion, sbtVersion,
-    baseDirectory, datasetDir),
+    baseDirectory, datasetDir, pythonizedVersion),
   parallelExecution in Test := false,
   test in assembly := {},
   assemblyMergeStrategy in assembly := {

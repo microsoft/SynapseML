@@ -11,7 +11,6 @@ import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
-import org.apache.spark.lightgbm.BlockManagerUtils
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
@@ -28,6 +27,13 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 object LightGBMUtils {
   def validate(result: Int, component: String): Unit = {
     if (result == -1) {
+      throw new Exception(component + " call failed in LightGBM with error: "
+        + lightgbmlib.LGBM_GetLastError())
+    }
+  }
+
+  def validateArray(result: SWIGTYPE_p_void, component: String): Unit = {
+    if (result == null) {
       throw new Exception(component + " call failed in LightGBM with error: "
         + lightgbmlib.LGBM_GetLastError())
     }
@@ -67,12 +73,15 @@ object LightGBMUtils {
 
   def getCategoricalIndexes(df: DataFrame,
                             featuresCol: String,
+                            slotNames: Array[String],
                             categoricalColumnIndexes: Array[Int],
                             categoricalColumnSlotNames: Array[String]): Array[Int] = {
-    val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
-    val featuresSchema = df.schema(featuresCol)
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    val categoricalIndexes =
+    val categoricalIndexes = if(slotNames.nonEmpty) {
+      categoricalColumnSlotNames.map(slotNames.indexOf(_))
+    } else {
+      val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
+      val featuresSchema = df.schema(featuresCol)
+      val metadata = AttributeGroup.fromStructField(featuresSchema)
       if (metadata.attributes.isEmpty) Array[Int]()
       else {
         metadata.attributes.get.zipWithIndex.flatMap {
@@ -91,6 +100,8 @@ object LightGBMUtils {
             }
         }
       }
+    }
+
     categoricalColumnIndexes.union(categoricalIndexes).distinct
   }
 
@@ -99,23 +110,24 @@ object LightGBMUtils {
     * waits for the host:port from the executors, and then sends back the
     * information to the executors.
     *
-    * @param numWorkers The total number of training workers to wait for.
+    * @param numTasks The total number of training tasks to wait for.
     * @return The address and port of the driver socket.
     */
-  def createDriverNodesThread(numWorkers: Int, df: DataFrame,
+  def createDriverNodesThread(numTasks: Int, df: DataFrame,
                               log: Logger, timeout: Double,
-                              barrierExecutionMode: Boolean): (String, Int, Future[Unit]) = {
+                              barrierExecutionMode: Boolean,
+                              driverServerPort: Int): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
     implicit val context: ExecutionContextExecutor =
       ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
-    val driverServerSocket = new ServerSocket(0)
+    val driverServerSocket = new ServerSocket(driverServerPort)
     // Set timeout on socket
     val duration = Duration(timeout, SECONDS)
     if (duration.isFinite()) {
       driverServerSocket.setSoTimeout(duration.toMillis.toInt)
     }
     val f = Future {
-      var emptyWorkerCounter = 0
+      var emptyTaskCounter = 0
       val hostAndPorts = ListBuffer[(Socket, String)]()
       if (barrierExecutionMode) {
         log.info(s"driver using barrier execution mode")
@@ -126,28 +138,28 @@ object LightGBMUtils {
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
           if (comm == LightGBMConstants.FinishedStatus) {
-            log.info("driver received all workers from barrier stage")
+            log.info("driver received all tasks from barrier stage")
             finished = true
           } else if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from worker")
+            log.info("driver received ignore status from task")
           } else {
-            log.info(s"driver received socket from worker: $comm")
+            log.info(s"driver received socket from task: $comm")
             val socketAndComm = (driverSocket, comm)
             hostAndPorts += socketAndComm
           }
         }
       } else {
-        log.info(s"driver expecting $numWorkers connections...")
-        while (hostAndPorts.size + emptyWorkerCounter < numWorkers) {
+        log.info(s"driver expecting $numTasks connections...")
+        while (hostAndPorts.size + emptyTaskCounter < numTasks) {
           log.info("driver accepting a new connection...")
           val driverSocket = driverServerSocket.accept()
           val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
           val comm = reader.readLine()
           if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from worker")
-            emptyWorkerCounter += 1
+            log.info("driver received ignore status from task")
+            emptyTaskCounter += 1
           } else {
-            log.info(s"driver received socket from worker: $comm")
+            log.info(s"driver received socket from task: $comm")
             val socketAndComm = (driverSocket, comm)
             hostAndPorts += socketAndComm
           }
@@ -174,13 +186,13 @@ object LightGBMUtils {
 
   /** Returns an integer ID for the current node.
     *
-    * @return In cluster, returns the executor id.  In local case, returns the worker id.
+    * @return In cluster, returns the executor id.  In local case, returns the task id.
     */
   def getId(): Int = {
     val executorId = SparkEnv.get.executorId
     val ctx = TaskContext.get
     val partId = ctx.partitionId
-    // If driver, this is only in test scenario, make each partition a separate worker
+    // If driver, this is only in test scenario, make each partition a separate task
     val id = if (executorId == "driver") partId else executorId
     val idAsInt = id.toString.toInt
     idAsInt
@@ -189,10 +201,10 @@ object LightGBMUtils {
   def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
   (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
     val numCols = rowsAsDoubleArray.head.length
-    val data = lightgbmlib.new_doubleArray(numCols * numRows)
+    val data = lightgbmlib.new_doubleArray(numCols.toLong * numRows.toLong)
     rowsAsDoubleArray.zipWithIndex.foreach(ri =>
       ri._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, value._2 + (ri._2 * numCols), value._1)))
+        lightgbmlib.doubleArray_setitem(data, (value._2 + (ri._2 * numCols)).toLong, value._1)))
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
@@ -204,6 +216,7 @@ object LightGBMUtils {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      s"bin_construct_sample_cnt=${trainParams.binSampleCount}" +
       (if (trainParams.categoricalFeatures.isEmpty) ""
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64

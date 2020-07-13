@@ -11,9 +11,10 @@ import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegress
 import com.microsoft.ml.spark.stages.MultiColumnAdapter
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{avg, col, lit, when}
 
 // scalastyle:off magic.number
@@ -110,7 +111,7 @@ class VerifyLightGBMRegressor extends Benchmarks
       .withColumnRenamed("M-class flares production by this region", labelCol)
 
     LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
-  }.cache()
+    }.cache()
 
   def regressionEvaluator: RegressionEvaluator = {
     new RegressionEvaluator()
@@ -146,14 +147,35 @@ class VerifyLightGBMRegressor extends Benchmarks
     assertFitWithoutErrors(cv, airfoilDF)
   }
 
+  test("Verify LightGBM Regressor features shap") {
+    val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setFeaturesShapCol(featuresShapCol)
+      .setCategoricalSlotNames(flareDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+
+    val evaluatedDf = model.transform(test)
+
+    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
+      case Row(v: Vector) => v
+    }.first.toArray
+
+    assert(featuresShap.length == (model.getModel.numFeatures + 1))
+
+    // if featuresShap is not wanted, it is possible to remove it.
+    val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
+    assert(!evaluatedDf2.columns.contains(featuresShapCol))
+  }
+
   def verifyLearnerOnRegressionCsvFile(fileName: String,
                                        labelCol: String,
                                        decimals: Int,
                                        columnsFilter: Option[Seq[String]] = None): Unit = {
-    lazy val df = loadRegression(fileName, labelCol, columnsFilter).cache()
-    boostingTypes.foreach { boostingType =>
-      test(s"Verify LightGBMRegressor can be trained " +
-        s"and scored on $fileName with boosting type $boostingType") {
+    test(s"Verify LightGBMRegressor can be trained " +
+      s"and scored on $fileName ") {
+      lazy val df = loadRegression(fileName, labelCol, columnsFilter).cache()
+      boostingTypes.foreach { boostingType =>
+
         val model = baseModel.setBoostingType(boostingType)
 
         if (boostingType == "rf") {
@@ -166,8 +188,8 @@ class VerifyLightGBMRegressor extends Benchmarks
         addBenchmark(s"LightGBMRegressor_${fileName}_$boostingType",
           regressionEvaluator.evaluate(fitModel.transform(df)), decimals, higherIsBetter = false)
       }
+      df.unpersist()
     }
-    df.unpersist()
   }
 
   override def testObjects(): Seq[TestObject[LightGBMRegressor]] = {

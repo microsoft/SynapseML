@@ -7,16 +7,19 @@ package com.microsoft.ml.spark.lightgbm
   */
 abstract class TrainParams extends Serializable {
   def parallelism: String
+  def topK: Int
   def numIterations: Int
   def learningRate: Double
   def numLeaves: Int
   def maxBin: Int
+  def binSampleCount: Int
   def baggingFraction: Double
   def posBaggingFraction: Double
   def negBaggingFraction: Double
   def baggingFreq: Int
   def baggingSeed: Int
   def earlyStoppingRound: Int
+  def improvementTolerance: Double
   def featureFraction: Double
   def maxDepth: Int
   def minSumHessianInLeaf: Double
@@ -34,12 +37,14 @@ abstract class TrainParams extends Serializable {
   def maxDeltaStep: Double
   def maxBinByFeature: Array[Int]
   def minDataInLeaf: Int
+  def featureNames: Array[String]
+  def delegate: Option[LightGBMDelegate]
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
     // let's fetch and print training metrics in `TrainUtils.scala` through JNI.
-    s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism num_iterations=$numIterations " +
-      s"learning_rate=$learningRate num_leaves=$numLeaves " +
+    s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism top_k=$topK " +
+      s"num_iterations=$numIterations learning_rate=$learningRate num_leaves=$numLeaves " +
       s"max_bin=$maxBin bagging_fraction=$baggingFraction pos_bagging_fraction=$posBaggingFraction " +
       s"neg_bagging_fraction=$negBaggingFraction bagging_freq=$baggingFreq " +
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
@@ -54,17 +59,19 @@ abstract class TrainParams extends Serializable {
 
 /** Defines the Booster parameters passed to the LightGBM classifier.
   */
-case class ClassifierTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
-                                 numLeaves: Int, maxBin: Int,
+case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
+                                 numLeaves: Int, maxBin: Int, binSampleCount: Int,
                                  baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                 baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
+                                 improvementTolerance: Double, featureFraction: Double,
                                  maxDepth: Int, minSumHessianInLeaf: Double,
                                  numMachines: Int, objective: String, modelString: Option[String],
                                  isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
                                  numClass: Int, boostFromAverage: Boolean,
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int)
+                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
+                                 featureNames: Array[String], delegate: Option[LightGBMDelegate])
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -76,17 +83,19 @@ case class ClassifierTrainParams(parallelism: String, numIterations: Int, learni
 
 /** Defines the Booster parameters passed to the LightGBM regressor.
   */
-case class RegressorTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
+case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
                                 numLeaves: Int, objective: String, alpha: Double,
-                                tweedieVariancePower: Double, maxBin: Int,
+                                tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
                                 baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
+                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
+                                improvementTolerance: Double, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                                 modelString: Option[String], verbosity: Int,
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
-                                maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int)
+                                maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
+                                featureNames: Array[String], delegate: Option[LightGBMDelegate])
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -96,17 +105,18 @@ case class RegressorTrainParams(parallelism: String, numIterations: Int, learnin
 
 /** Defines the Booster parameters passed to the LightGBM ranker.
   */
-case class RankerTrainParams(parallelism: String, numIterations: Int, learningRate: Double,
-                             numLeaves: Int, objective: String, maxBin: Int,
+case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
+                             numLeaves: Int, objective: String, maxBin: Int, binSampleCount: Int,
                              baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, featureFraction: Double,
-                             maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
+                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, improvementTolerance: Double,
+                             featureFraction: Double, maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                              modelString: Option[String], verbosity: Int,
                              categoricalFeatures: Array[Int], boostingType: String,
                              lambdaL1: Double, lambdaL2: Double, maxPosition: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
-                             maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int)
+                             maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
+                             featureNames: Array[String], delegate: Option[LightGBMDelegate])
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =

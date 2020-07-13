@@ -4,15 +4,13 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
@@ -38,26 +36,33 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  def getTrainParams(numWorkers: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
+  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    ClassifierTrainParams(getParallelism, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
-      getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
-      getBaggingFreq, getBaggingSeed, getEarlyStoppingRound,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numWorkers, getObjective, modelStr,
+    ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
+      getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
+      getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, getObjective, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
-      getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf)
+      getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
     val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
-    new LightGBMClassificationModel(uid, lightGBMBooster, getLabelCol, getFeaturesCol,
-      getPredictionCol, getProbabilityCol, getRawPredictionCol,
-      if (isDefined(thresholds)) Some(getThresholds) else None, classifierTrainParams.numClass)
+    val model = new LightGBMClassificationModel(uid)
+      .setLightGBMBooster(lightGBMBooster)
+      .setFeaturesCol(getFeaturesCol)
+      .setPredictionCol(getPredictionCol)
+      .setProbabilityCol(getProbabilityCol)
+      .setRawPredictionCol(getRawPredictionCol)
+      .setLeafPredictionCol(getLeafPredictionCol)
+      .setFeaturesShapCol(getFeaturesShapCol)
+      .setActualNumClasses(classifierTrainParams.numClass)
+    if (isDefined(thresholds)) model.setThresholds(getThresholds) else model
   }
 
   def stringFromTrainedModel(model: LightGBMClassificationModel): String = {
@@ -67,34 +72,22 @@ class LightGBMClassifier(override val uid: String)
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
 }
 
-trait HasFeatureImportanceGetters {
-  val model: LightGBMBooster
+/** Special parameter for classification model for actual number of classes in dataset
+  */
+trait HasActualNumClasses extends Params {
+  val actualNumClasses = new IntParam(this, "actualNumClasses",
+    "Inferred number of classes based on dataset metadata or, if there is no metadata, unique count")
 
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    model.getFeatureImportances(importanceType)
-  }
-
+  def getActualNumClasses: Int = $(actualNumClasses)
+  def setActualNumClasses(value: Int): this.type = set(actualNumClasses, value)
 }
 
 /** Model produced by [[LightGBMClassifier]]. */
 @InternalWrapper
-class LightGBMClassificationModel(
-  override val uid: String, override val model: LightGBMBooster, labelColName: String,
-  featuresColName: String, predictionColName: String, probColName: String,
-  rawPredictionColName: String, thresholdValues: Option[Array[Double]],
-  actualNumClasses: Int)
+class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
-    with HasFeatureImportanceGetters
-    with ConstructorWritable[LightGBMClassificationModel] {
-
-  // Update the underlying Spark ML com.microsoft.ml.spark.core.serialize.params
-  // (for proper serialization to work we put them on constructor instead of using copy as in Spark ML)
-  set(labelCol, labelColName)
-  set(featuresCol, featuresColName)
-  set(predictionCol, predictionColName)
-  set(probabilityCol, probColName)
-  set(rawPredictionCol, rawPredictionColName)
-  if (thresholdValues.isDefined) set(thresholds, thresholdValues.get)
+      with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
+      with HasActualNumClasses with ComplexParamsWritable {
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to
@@ -126,15 +119,18 @@ class LightGBMClassificationModel(
       numColsOutput += 1
     }
     if (getPredictionCol.nonEmpty) {
-      val predUDF = if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
-        // Note: Only call raw2prediction if thresholds not defined
-        udf(raw2prediction _).apply(col(getRawPredictionCol))
-      } else if (getProbabilityCol.nonEmpty) {
-        udf(probability2prediction _).apply(col(getProbabilityCol))
-      } else {
-        udf(predict _).apply(col(getFeaturesCol))
-      }
+      val predUDF = predictColumn
       outputData = outputData.withColumn(getPredictionCol, predUDF)
+      numColsOutput += 1
+    }
+    if (getLeafPredictionCol.nonEmpty) {
+      val predLeafUDF = udf(predictLeaf _)
+      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
+      numColsOutput += 1
+    }
+    if (getFeaturesShapCol.nonEmpty) {
+      val featureShapUDF = udf(featuresShap _)
+      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
       numColsOutput += 1
     }
 
@@ -150,58 +146,50 @@ class LightGBMClassificationModel(
       " raw2probabilityInPlace should not be called!")
   }
 
-  override def numClasses: Int = this.actualNumClasses
+  override def numClasses: Int = getActualNumClasses
 
   override protected def predictRaw(features: Vector): Vector = {
-    Vectors.dense(model.score(features, true, true))
+    Vectors.dense(getModel.score(features, true, true))
   }
 
   override protected def predictProbability(features: Vector): Vector = {
-    Vectors.dense(model.score(features, false, true))
+    Vectors.dense(getModel.score(features, false, true))
   }
 
-  override def copy(extra: ParamMap): LightGBMClassificationModel =
-    new LightGBMClassificationModel(uid, model, labelColName, featuresColName, predictionColName, probColName,
-      rawPredictionColName, thresholdValues, actualNumClasses)
+  override def copy(extra: ParamMap): LightGBMClassificationModel = defaultCopy(extra)
 
-  override val ttag: TypeTag[LightGBMClassificationModel] =
-    typeTag[LightGBMClassificationModel]
-
-  override def objectsToSave: List[Any] =
-    List(uid, model, getLabelCol, getFeaturesCol, getPredictionCol,
-         getProbabilityCol, getRawPredictionCol, thresholdValues, actualNumClasses)
+  protected def predictColumn: Column = {
+    if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
+      // Note: Only call raw2prediction if thresholds not defined
+      udf(raw2prediction _).apply(col(getRawPredictionCol))
+    } else if (getProbabilityCol.nonEmpty) {
+      udf(probability2prediction _).apply(col(getProbabilityCol))
+    } else {
+      udf(predict _).apply(col(getFeaturesCol))
+    }
+  }
 
   def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
     val session = SparkSession.builder().getOrCreate()
-    model.saveNativeModel(session, filename, overwrite)
+    getModel.saveNativeModel(session, filename, overwrite)
   }
-
-  def getModel: LightGBMBooster = this.model
 }
 
-object LightGBMClassificationModel extends ConstructorReadable[LightGBMClassificationModel] {
-  def loadNativeModelFromFile(filename: String, labelColName: String = "label",
-                              featuresColName: String = "features", predictionColName: String = "prediction",
-                              probColName: String = "probability",
-                              rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
+object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassificationModel] {
+  def loadNativeModelFromFile(filename: String): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
     val lightGBMBooster = new LightGBMBooster(text)
-    val actualNumClasses = lightGBMBooster.getNumClasses()
-    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
+    val actualNumClasses = lightGBMBooster.numClasses
+    new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)
   }
 
-  def loadNativeModelFromString(model: String, labelColName: String = "label",
-                                featuresColName: String = "features", predictionColName: String = "prediction",
-                                probColName: String = "probability",
-                                rawPredictionColName: String = "rawPrediction"): LightGBMClassificationModel = {
+  def loadNativeModelFromString(model: String): LightGBMClassificationModel = {
     val uid = Identifiable.randomUID("LightGBMClassifier")
     val lightGBMBooster = new LightGBMBooster(model)
-    val actualNumClasses = lightGBMBooster.getNumClasses()
-    new LightGBMClassificationModel(uid, lightGBMBooster, labelColName, featuresColName,
-      predictionColName, probColName, rawPredictionColName, None, actualNumClasses)
+    val actualNumClasses = lightGBMBooster.numClasses
+    new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)
   }
 }

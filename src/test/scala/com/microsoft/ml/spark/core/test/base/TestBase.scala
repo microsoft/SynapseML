@@ -42,7 +42,7 @@ trait LinuxOnly extends TestBase {
 
 trait Flaky extends TestBase {
 
-  val retyMillis: Array[Int] = Array(0, 100, 100)
+  val retyMillis: Array[Int] = Array(0, 1000, 5000)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*) {
@@ -306,9 +306,9 @@ trait DataFrameEquality extends TestBase {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(10000, false)
+      df1.show(10)
       println("df2:")
-      df2.show(10000, false)
+      df2.show(10)
     }
     assert(result)
   }
