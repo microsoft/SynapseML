@@ -89,7 +89,7 @@ class IdIndexer(Estimator, HasInputCol, HasOutputCol):
         )
 
     @timefunc
-    def _fit(self, df: DataFrame) -> DataFrame:
+    def _fit(self, df: DataFrame) -> IdIndexerModel:
         return IdIndexerModel(
             self.input_col, self.partition_key, self.output_col, self._make_vocab_df(df).cache()
         )
@@ -97,6 +97,7 @@ class IdIndexer(Estimator, HasInputCol, HasOutputCol):
 
 class MultiIndexerModel(Transformer):
     def __init__(self, models: List[IdIndexerModel]):
+        super().__init__()
         self.models = models
 
     def get_model_by_input_col(self, input_col):
@@ -134,6 +135,7 @@ class MultiIndexerModel(Transformer):
 
 class MultiIndexer(Estimator):
     def __init__(self, indexers: List[IdIndexer]):
+        super().__init__()
         self.indexers = indexers
 
     @timefunc

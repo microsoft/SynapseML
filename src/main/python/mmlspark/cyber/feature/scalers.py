@@ -219,12 +219,12 @@ class StandardScalarScaler(PerPartitionScalarScalerEstimator):
         )
 
 
-class MinMaxScalarScalerConfig:
+class LinearScalarScalerConfig:
     min_actual_value_token = '__min_actual_value__'
     max_actual_value_token = '__max_actual_value__'
 
 
-class MinMaxScalarScalerModel(PerPartitionScalarScalerModel):
+class LinearScalarScalerModel(PerPartitionScalarScalerModel):
     def __init__(self,
                  input_col: str,
                  partition_key: Optional[str],
@@ -243,9 +243,9 @@ class MinMaxScalarScalerModel(PerPartitionScalarScalerModel):
 
         def actual_delta():
             return f.col(
-                MinMaxScalarScalerConfig.max_actual_value_token
+                LinearScalarScalerConfig.max_actual_value_token
             ) - f.col(
-                MinMaxScalarScalerConfig.min_actual_value_token
+                LinearScalarScalerConfig.min_actual_value_token
             )
 
         def a():
@@ -254,7 +254,7 @@ class MinMaxScalarScalerModel(PerPartitionScalarScalerModel):
         def b():
             return f.when(actual_delta() != f.lit(0),
                           self.max_required_value - a() * f.col(
-                              MinMaxScalarScalerConfig.max_actual_value_token)
+                              LinearScalarScalerConfig.max_actual_value_token)
                           ).otherwise(f.lit((self.min_required_value + self.max_required_value) / 2.0))
 
         def norm(x):
@@ -265,8 +265,8 @@ class MinMaxScalarScalerModel(PerPartitionScalarScalerModel):
     def _make_unpartitioned_stats_method(self) -> Callable:
         assert isinstance(self.per_group_stats, Dict)
 
-        min_actual_value = self.per_group_stats[MinMaxScalarScalerConfig.min_actual_value_token]
-        max_actual_value = self.per_group_stats[MinMaxScalarScalerConfig.max_actual_value_token]
+        min_actual_value = self.per_group_stats[LinearScalarScalerConfig.min_actual_value_token]
+        max_actual_value = self.per_group_stats[LinearScalarScalerConfig.max_actual_value_token]
 
         delta = max_actual_value - min_actual_value
 
@@ -280,7 +280,7 @@ class MinMaxScalarScalerModel(PerPartitionScalarScalerModel):
         return norm
 
 
-class MinMaxScalarScaler(PerPartitionScalarScalerEstimator):
+class LinearScalarScaler(PerPartitionScalarScalerEstimator):
     minRequiredValue = Param(
         Params._dummy(),
         "minRequiredValue",
@@ -309,12 +309,12 @@ class MinMaxScalarScaler(PerPartitionScalarScalerEstimator):
         input_col = self.input_col
 
         return [
-            f.min(f.col(input_col)).alias(MinMaxScalarScalerConfig.min_actual_value_token),
-            f.max(f.col(input_col)).alias(MinMaxScalarScalerConfig.max_actual_value_token)
+            f.min(f.col(input_col)).alias(LinearScalarScalerConfig.min_actual_value_token),
+            f.max(f.col(input_col)).alias(LinearScalarScalerConfig.max_actual_value_token)
         ]
 
     def _create_model(self, per_group_stats: Union[DataFrame, Dict[str, float]]) -> PerPartitionScalarScalerModel:
-        return MinMaxScalarScalerModel(
+        return LinearScalarScalerModel(
             self.input_col,
             self.partition_key,
             self.output_col,

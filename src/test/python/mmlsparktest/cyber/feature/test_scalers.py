@@ -2,8 +2,10 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import unittest
-from pyspark.sql import functions as f, types as t, SparkSession, SQLContext
+from typing import Type
+from pyspark.sql import functions as f, types as t
 from mmlspark.cyber.feature import scalers
+from mmlsparktest.cyber.explain_tester import ExplainTester
 from mmlsparktest.spark import *
 
 
@@ -29,7 +31,7 @@ class TestScalers(unittest.TestCase):
         )
 
     def test_unpartitioned_min_max_scaler(self):
-        ls = scalers.MinMaxScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
+        ls = scalers.LinearScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
         df = self.create_sample_dataframe()
         model = ls.fit(df)
@@ -42,7 +44,7 @@ class TestScalers(unittest.TestCase):
         ).count()
 
     def test_partitioned_min_max_scaler(self):
-        ls = scalers.MinMaxScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
+        ls = scalers.LinearScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
         df = self.create_sample_dataframe()
         model = ls.fit(df)
@@ -108,6 +110,28 @@ class TestScalers(unittest.TestCase):
                 assert the_std == 0.0
                 assert len(tenant_scores) == 1
                 assert tenant_scores[0] == 0.0
+
+
+class TestStandardScalarScalerExplain(ExplainTester):
+    def test_explain(self):
+        types = [str, float]
+
+        def counts(c: int, tt: Type):
+            return tt not in types or c > 0
+
+        params = ['inputCol', 'partitionKey', 'outputCol', 'coefficientFactor']
+        self.check_explain(scalers.StandardScalarScaler('input', 'tenant', 'output'), params, counts)
+
+
+class TestLinearScalarScalerExplain(ExplainTester):
+    def test_explain(self):
+        types = [str, float]
+
+        def counts(c: int, tt: Type):
+            return tt not in types or c > 0
+
+        params = ['inputCol', 'partitionKey', 'outputCol', 'minRequiredValue', 'maxRequiredValue']
+        self.check_explain(scalers.LinearScalarScaler('input', 'tenant', 'output'), params, counts)
 
 
 if __name__ == "__main__":
