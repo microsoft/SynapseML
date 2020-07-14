@@ -292,8 +292,12 @@ class VerifyContextualBandit extends TestBase {
     import session.implicits._
 
     val someDF = Seq(
-      ("thing", "thing", "thing", 1, 0.8)
-    ).toDF("shared", "action1", "action2", "reward", "prob")
+      ("thing", "thing", "thing", 0,1, 0.8),
+        ("thing", "thing", "thing", 0,1, 0.8),
+        ("thing", "thing", "thing", 0,1, 0.8)
+    ).toDF("shared", "action1", "action2", "chosen_action", "reward", "prob")
+      .coalesce(1)
+      .cache()
 
     val shared_featurizer = new VowpalWabbitFeaturizer()
       .setInputCols(Array("shared"))
@@ -314,7 +318,7 @@ class VerifyContextualBandit extends TestBase {
     val pipeline = new Pipeline()
       .setStages(Array(shared_featurizer, action_one_featurizer, action_two_featurizer, action_merger))
     val model = pipeline.fit(someDF)
-    val v2 = model.transform(someDF).select("shared_features", "actions", "reward", "prob")
+    val v2 = model.transform(someDF)
 
     v2.show(false)
 
@@ -322,10 +326,12 @@ class VerifyContextualBandit extends TestBase {
       .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("reward")
       .setProbabilityCol("prob")
-      .setActionCol("actions")
+      .setChosenActionCol("chosen_action")
       .setSharedCol("shared_features")
+      .setFeaturesCol("actions")
 
-    cb.fit(v2)
+    val m = cb.fit(v2)
+    println(m.get_estimate())
   }
 
   test( "Verify action merger can merge two columns") {

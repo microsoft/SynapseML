@@ -15,9 +15,11 @@ import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import org.apache.spark.sql.types.StructType
+import vowpalWabbit.responses.ActionProbs
 
 import collection.mutable.Stack
 import scala.math.exp
+import scala.math.max
 
 object VowpalWabbitContextualBandit extends DefaultParamsReadable[VowpalWabbitContextualBandit]
 
@@ -46,6 +48,37 @@ class ExampleStack(val vw: VowpalWabbitNative) {
       stack.pop.close()
 }
 
+// https://github.com/VowpalWabbit/estimators/blob/master/ips_snips.py
+class Estimator
+{
+  var n: Float = 0
+  var N: Float = 0
+  var d: Float = 0
+  var Ne: Float = 0
+  var c: Float = 0
+
+  def add_example(p_log: Float, r:  Float, p_pred: Float, count: Int = 1): Unit = {
+    N += count
+    if (p_pred > 0) {
+      val p_over_p = p_pred/p_log
+      d += p_over_p*count
+      Ne += count
+      if (r != 0) {
+          n += r*p_over_p*count
+          c = max(c, r*p_over_p)
+      }
+    }
+  }
+
+  def get_snips_estimate(): Float = {
+    n/N
+  }
+
+  def get_ips_estimate: Float = {
+    n/d
+  }
+}
+
 @InternalWrapper
 trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
@@ -66,36 +99,19 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
   setDefault(probabilityCol -> "probability")
 
-  val actionCol = new Param[String](this, "actionCol", "Column name of chosen action")
-  def getActionCol: String = $(actionCol)
-  def setActionCol(value: String): this.type = set(actionCol, value)
-  setDefault(actionCol -> "chosenAction")
+  val chosenActionCol = new Param[String](this, "chosenActionCol", "Column name of chosen action")
+  def getChosenActionCol: String = $(chosenActionCol)
+  def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
+  setDefault(chosenActionCol -> "chosenAction")
 
-  protected override def getAdditionalColumns(): Seq[String] = Seq(getActionCol, getProbabilityCol, getSharedCol)
+  val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures", "Additional feature columns")
+  def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
+  def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
 
-//  override def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample, Int) => Unit = {
-//    if (getArgs.contains("--ccb_explore_adf"))
-//      throw new UnsupportedOperationException("TODO")
-//    else if (getArgs.contains("--cb_explore_adf"))
-//      createContextualBanditLabelSetter(schema)
-//    else
-//      throw new UnsupportedOperationException("Must either be cb_explore_adf or ccb_explore_adf mode")
-//  }
-//
-//  private def createContextualBanditLabelSetter(schema: StructType): (Row, VowpalWabbitExample, Int) => Unit = {
-//    val actionIdx = schema.fieldIndex(getActionCol)
-//    val labelIdx = schema.fieldIndex(getLabelCol)
-//    val probabilityIdx = schema.fieldIndex(getProbabilityCol)
-//
-//    // TODO: update jar
-//    (row: Row, ex: VowpalWabbitExample, idx: Int) => {
-//      if (idx == 0)
-//        ex.setSharedLabel
-//      else if (row.getInt(actionIdx) == idx)
-//        // cost = -label (reward)
-//        ex.setContextualBanditLabel(idx, -row.getDouble(labelIdx), row.getDouble(probabilityIdx))
-//    }
-//  }
+  val estimator: Estimator = new Estimator
+
+  // Used in the base class to remove unneeded columns
+  protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
   // TODO: fix validation
   override def transformSchema(schema: StructType): StructType = schema
@@ -104,32 +120,45 @@ class VowpalWabbitContextualBandit(override val uid: String)
                          inputRows: Iterator[Row],
                          ctx: TrainContext
                         ) = {
-    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
+    val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
+    val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
+
+    val actionNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(
       schema,
       getHashSeed,
-      Seq(getFeaturesCol) ++ getAdditionalFeatures)
+      allActionFeatureColumns)
 
-    val sharedNs = VowpalWabbitUtil.generateNamespaceInfo(schema, getHashSeed, getSharedCol)
-    val actionColIdx = schema.fieldIndex(getActionCol)
+    val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
+    val chosenActionColIdx = schema.fieldIndex(getChosenActionCol)
     val labelIdx = schema.fieldIndex(getLabelCol)
     val probabilityIdx = schema.fieldIndex(getProbabilityCol)
 
     val exampleStack = new ExampleStack(ctx.vw)
 
     for (row <- inputRows) {
-      VowpalWabbitUtil.prepareMultilineExample(row, featureColIndices, sharedNs, ctx.vw, exampleStack,
+      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, ctx.vw, exampleStack,
         examples => {
           // it's one-based but we need to skip the shared example anyway
-          val selectedActionIdx = row.getInt(actionColIdx)
+          val selectedActionIdx = row.getInt(chosenActionColIdx)
+          val reward = row.getDouble(labelIdx)
+          val cost = -1 * reward
+          val loggedProbability = row.getDouble(probabilityIdx)
 
-          // set the label for learning
+          // Set the label for learning
           examples(selectedActionIdx).setContextualBanditLabel(
             selectedActionIdx,
-            -row.getDouble(labelIdx),
-            row.getDouble(probabilityIdx))
+            cost,
+            loggedProbability)
 
-          // learn from the examples
+          // Learn from the examples
           ctx.vw.learn(examples)
+          val pred: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
+          println(pred)
+          val probs = pred.getActionProbs
+
+          val selectedActionIdxZeroBased = selectedActionIdx-1
+
+          estimator.add_example(loggedProbability.asInstanceOf[Float], cost.asInstanceOf[Float], probs.apply(selectedActionIdxZeroBased).getProbability)
         })
     }
    }
@@ -142,6 +171,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
       .setPredictionCol(getPredictionCol)
 
     trainInternal(dataset, model)
+    model.estimator = estimator
+    model
   }
 
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)
@@ -154,35 +185,42 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
 
   override def transformSchema(schema: StructType): StructType = schema
 
+
   lazy val exampleStack = new ExampleStack(vw)
 
+  var estimator: Estimator = _
+  def get_estimate() : Float = {
+   estimator.get_ips_estimate
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val featureColumnNames = Seq(getFeaturesCol) ++ getAdditionalFeatures + getSharedCol
-    val featureColumns = dataset.schema.filter({ f => featureColumnNames.contains(f.name) })
-
-    val featureSchema = StructType(featureColumns)
-
-    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
-      featureSchema,
-      vwArgs.getHashSeed,
-      Seq(getFeaturesCol) ++ getAdditionalFeatures)
-
-    val sharedNs = VowpalWabbitUtil.generateNamespaceInfo(featureSchema, getHashSeed, getSharedCol)
-
-    val predictUDF = udf { (row: Row) => {
-      VowpalWabbitUtil.prepareMultilineExample(row, featureColIndices, sharedNs, vw, exampleStack,
-        examples =>
-          vw.predict(examples)
-            .asInstanceOf[vowpalWabbit.responses.ActionProbs]
-            .getActionProbs
-            .sortBy { _.getAction }
-            .map { _.getProbability.toDouble }
-        )
-    }}
-
-    dataset.withColumn(
-      $(predictionCol),
-      predictUDF(struct(featureColumns.map(f => col(f.name)): _*)))
+//    val featureColumnNames = Seq(getFeaturesCol) ++ getAdditionalFeatures + getSharedCol
+//    val featureColumns = dataset.schema.filter({ f => featureColumnNames.contains(f.name) })
+//
+//    val featureSchema = StructType(featureColumns)
+//
+//    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
+//      featureSchema,
+//      vwArgs.getHashSeed,
+//      Seq(getFeaturesCol) ++ getAdditionalFeatures)
+//
+//    val sharedNs = VowpalWabbitUtil.generateNamespaceInfo(featureSchema, getHashSeed, getSharedCol)
+//
+//    val predictUDF = udf { (row: Row) => {
+//      VowpalWabbitUtil.prepareMultilineExample(row, featureColIndices, sharedNs, vw, exampleStack,
+//        examples =>
+//          vw.predict(examples)
+//            .asInstanceOf[vowpalWabbit.responses.ActionProbs]
+//            .getActionProbs
+//            .sortBy { _.getAction }
+//            .map { _.getProbability.toDouble }
+//        )
+//    }}
+//
+//    dataset.withColumn(
+//      $(predictionCol),
+//      predictUDF(struct(featureColumns.map(f => col(f.name)): _*)))
+    dataset.toDF
   }
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {

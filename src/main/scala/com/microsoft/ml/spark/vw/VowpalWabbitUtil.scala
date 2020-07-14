@@ -53,42 +53,51 @@ object VowpalWabbitUtil
     sharedExample
   }
 
+  private def createSharedExample(row: Row,
+                                  sharedNamespaces: Array[NamespaceInfo],
+                                  exampleStack: ExampleStack): VowpalWabbitExample = {
+    val sharedExample = exampleStack.getOrCreateExample()
+    // Mark example as shared.
+    sharedExample.setSharedLabel()
+    // Add all of the namespaces into this VW example.
+    addFeaturesToExample(sharedNamespaces, row, sharedExample)
+
+    sharedExample
+  }
+
   def prepareMultilineExample[T](row: Row,
-                                 featureColIndices: Array[NamespaceInfo],
-                                 sharedNs: NamespaceInfo,
+                                 actionNamespaceInfos: Array[NamespaceInfo],
+                                 sharedNamespaceInfos: Array[NamespaceInfo],
                                  vw: VowpalWabbitNative,
                                  exampleStack: ExampleStack,
                                  fun: (Array[VowpalWabbitExample]) => T): T = {
     // first example is the shared feature example
-    val sharedExample = createSharedExample(row, sharedNs, exampleStack)
+    val sharedExample = createSharedExample(row, sharedNamespaceInfos, exampleStack)
 
     // transfer actions
-    val actions0 = row.getAs[Seq[Vector]](featureColIndices(0).colIdx)
+    val actions_for_zeroth_namespace = row.getAs[Seq[Vector]](actionNamespaceInfos.head.colIdx)
 
-    // each features column is a Seq[Vector]
+    // Seq[Seq[Vector]] - each features column is a Seq[Vector]
     // first index  ... namespaces
     // second index ... actions
-    val actionFeatures = featureColIndices.map(ns => row.getAs[Seq[Vector]](ns.colIdx).toArray)
+    val actionFeaturesForEachNamespace = actionNamespaceInfos.map(namespaceInfo => row.getAs[Seq[Vector]](namespaceInfo.colIdx).toArray)
 
     // loop over actions
-    val examples = (for (actionIdx <- 0 until actions0.length) yield {
-      val ex = exampleStack.getOrCreateExample
+    val examples = (for (actionIdx <- actions_for_zeroth_namespace.indices) yield {
+      val vwExample = exampleStack.getOrCreateExample()
 
-     // loop over namespaces
-      for ((ns, i) <- featureColIndices.zipWithIndex)
-        addFeaturesToExample(actionFeatures(i)(actionIdx), ns, ex)
+      // loop over namespaces
+      for ((namespace, namespaceIndex) <- actionNamespaceInfos.zipWithIndex)
+        addFeaturesToExample(actionFeaturesForEachNamespace(namespaceIndex)(actionIdx), namespace, vwExample)
 
-      ex
+      vwExample
     }).toArray // make sure it materializes
 
     // signal end of multi-line
-    val newLineEx = exampleStack.getOrCreateExample
-    newLineEx.makeEmpty
+    val newLineEx = exampleStack.getOrCreateExample()
+    newLineEx.makeEmpty()
 
     val allExamples = sharedExample +: examples :+ newLineEx
-
-    //      val exStr = allExamples.mkString("\n")
-    //      println(s"Examples: $exStr")
 
     try {
       // execute function
