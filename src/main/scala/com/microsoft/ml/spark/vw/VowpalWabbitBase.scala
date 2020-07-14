@@ -234,13 +234,13 @@ trait VowpalWabbitBase extends Wrappable
       for (row <- inputRows) {
         ctx.nativeIngestTime.measure {
           // transfer label
-          applyLabel(row, example, 0)
+          applyLabel(row, example)
 
           for (ns <- featureColIndices)
             row.get(ns.colIdx) match {
-              case dense: DenseVector => ex.addToNamespaceDense(ns.featureGroup,
+              case dense: DenseVector => example.addToNamespaceDense(ns.featureGroup,
                 ns.hash, dense.values)
-              case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
+              case sparse: SparseVector => example.addToNamespaceSparse(ns.featureGroup,
                 sparse.indices, sparse.values)
             }
 
@@ -316,6 +316,7 @@ trait VowpalWabbitBase extends Wrappable
       val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
         else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
         StreamUtilities.using(vw.createExample()) { ex =>
+            val trainContext = new TrainContext(vw)
             // pass data to VW native part
             totalTime.measure {
               trainRow(schema, inputRows, trainContext)

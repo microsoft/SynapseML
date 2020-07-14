@@ -8,15 +8,17 @@ import java.nio.file.Files
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.lightgbm.{LightGBMRegressionModel, LightGBMRegressor}
-import com.microsoft.ml.spark.vw.{VowpalWabbitBaseModel, VowpalWabbitContextualBandit}
+import com.microsoft.ml.spark.vw.{VowpalWabbitBaseModel, VowpalWabbitContextualBandit, VowpalWabbitFeaturizer}
 import org.apache.spark.ml.util.{Identifiable, MLReadable}
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.Pipeline
+import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.util.Random
 
@@ -196,6 +198,7 @@ class VerifyContextualBandit extends TestBase {
 
     // 2. evaluate policy
     df = policy.transform(df)
+    df.show
 
     // 3. sample from distribution over actions
     df = Simulator.sampleAction(df).cache()
@@ -224,7 +227,7 @@ class VerifyContextualBandit extends TestBase {
     newPolicy.setTestArgs("--quiet")
 
     df = newPolicy.transform(df)
-
+    df.show
     //    df.show(10, false)
     //    df.where("reward == 1")
     //      .withColumn("predictedAction",
@@ -264,5 +267,79 @@ class VerifyContextualBandit extends TestBase {
     for (i <- 0 to 10) {
       policy = epochVowpalWabbit(policy, 100, i + 42)
     }
+  }
+
+  /*
+    transform dataframe to sparse vectors
+    a thing to collapse multiple columns to one sequence
+
+    search for withcolumn in: https://github.com/Azure/mmlspark/blob/04a2fbd31ea3adc857d7d29d6155e00df7532414/src/main/scala/com/microsoft/ml/spark/vw/VowpalWabbitClassifier.scala
+
+  */
+  test( "Verify VW Contextual  - SIMPLE") {
+    import session.implicits._
+
+    val someDF = Seq(
+      (new SparseVector(1, Array(0),Array(1)), Seq(new SparseVector(1, Array(0), Array(1.0))))
+    ).toDF("shared", "action")
+
+//    val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[Vector](0)
+
+    someDF.show
+  }
+
+  test( "Verify VW Contextual  - featurizer") {
+    import session.implicits._
+
+    val someDF = Seq(
+      ("thing", "thing", "thing", 1, 0.8)
+    ).toDF("shared", "action1", "action2", "reward", "prob")
+
+    val shared_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("shared"))
+      .setOutputCol("shared_features")
+
+    val action_one_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action1"))
+      .setOutputCol("action1_features")
+
+    val action_two_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action2"))
+      .setOutputCol("action2_features")
+
+    val action_merger = new ActionMerger()
+      .setInputCols(Array("action1_features", "action2_features"))
+      .setOutputCol("actions")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(shared_featurizer, action_one_featurizer, action_two_featurizer, action_merger))
+    val model = pipeline.fit(someDF)
+    val v2 = model.transform(someDF).select("shared_features", "actions", "reward", "prob")
+
+    v2.show(false)
+
+    val cb = new VowpalWabbitContextualBandit()
+      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setLabelCol("reward")
+      .setProbabilityCol("prob")
+      .setActionCol("actions")
+      .setSharedCol("shared_features")
+
+    cb.fit(v2)
+  }
+
+  test( "Verify action merger can merge two columns") {
+    import session.implicits._
+
+    val someDF = Seq(
+      ("thing1", "thing2")
+    ).toDF("col1", "col2")
+
+    val action_merger = new ActionMerger()
+      .setInputCols(Array("col1", "col2"))
+      .setOutputCol("combined_things")
+    val v1 = action_merger.transform(someDF)
+    val result = v1.collect.head.getAs[Seq[String]]("combined_things")
+    assert(result == Seq("thing1", "thing2"))
   }
 }
