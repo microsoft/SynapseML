@@ -125,8 +125,9 @@ class AccessAnomalyConfig:
     default_algo_cf_params = CfAlgoParams(True)
 
 
-class UserResourceFeatureVectorMapping:
+class _UserResourceFeatureVectorMapping:
     """
+    Private class used to pass the mappings as calculated by the AccessAnomaliesEstimator.
     An object representing the user and resource models
     (mapping from name to latent vector)
     and the relevant column names
@@ -171,7 +172,7 @@ class UserResourceFeatureVectorMapping:
         :param res_feature_vector_mapping_df: optional new resource model mapping names to latent vectors
         :return:
         """
-        return UserResourceFeatureVectorMapping(
+        return _UserResourceFeatureVectorMapping(
             self.tenant_col,
             self.user_col,
             self.user_vec_col,
@@ -225,7 +226,7 @@ class AccessAnomalyModel(Transformer):
     """
     A pyspark.ml.Transformer model that can predict anomaly scores for user, resource access pairs
     """
-    def __init__(self, user_res_feature_vector_mapping: UserResourceFeatureVectorMapping, output_col: str):
+    def __init__(self, user_res_feature_vector_mapping: _UserResourceFeatureVectorMapping, output_col: str):
         super().__init__()
         self.user_res_feature_vector_mapping = user_res_feature_vector_mapping
 
@@ -637,7 +638,7 @@ class AccessAnomaly(Estimator):
 
         return user_mapping_df, res_mapping_df
 
-    def create_spark_model_vectors_df(self, df: DataFrame) -> UserResourceFeatureVectorMapping:
+    def create_spark_model_vectors_df(self, df: DataFrame) -> _UserResourceFeatureVectorMapping:
         tenant_col = self.tenant_col
         indexed_user_col = self.indexed_user_col
         user_vec_col = self.user_vec_col
@@ -690,7 +691,7 @@ class AccessAnomaly(Estimator):
 
         assert user_mapping_df is not None and res_mapping_df is not None
 
-        return UserResourceFeatureVectorMapping(
+        return _UserResourceFeatureVectorMapping(
             tenant_col,
             indexed_user_col,
             user_vec_col,
@@ -759,7 +760,7 @@ class AccessAnomaly(Estimator):
         ).transform(access_df)
 
         return AccessAnomalyModel(
-            UserResourceFeatureVectorMapping(
+            _UserResourceFeatureVectorMapping(
                 tenant_col=self.tenant_col,
                 user_col=self.user_col,
                 user_vec_col=self.user_vec_col,
@@ -820,7 +821,7 @@ class ModelNormalizeTransformer:
 
         return append_bias
 
-    def transform(self, user_res_cf_df_model: UserResourceFeatureVectorMapping) -> UserResourceFeatureVectorMapping:
+    def transform(self, user_res_cf_df_model: _UserResourceFeatureVectorMapping) -> _UserResourceFeatureVectorMapping:
         likelihood_col_token = '__likelihood__'
 
         dot = _make_dot()
