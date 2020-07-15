@@ -8,10 +8,10 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 
-object VowpalWabbitUtil
-{
+object VowpalWabbitUtil {
   /**
     * Generate namespace info (hash, feature group, field index) for supplied columns.
+    *
     * @param schema data frame schema to lookup column indices.
     * @return
     */
@@ -38,20 +38,6 @@ object VowpalWabbitUtil
       case sparse: SparseVector => ex.addToNamespaceSparse(ns.featureGroup,
         sparse.indices, sparse.values)
     }
-
-  private def createSharedExample(row: Row,
-                                  sharedNs: NamespaceInfo,
-                                  exampleStack: ExampleStack): VowpalWabbitExample = {
-    val sharedExample = exampleStack.getOrCreateExample
-
-    // mark example as shared
-    sharedExample.setSharedLabel
-
-    // TODO: support multiple shared feature columns
-    addFeaturesToExample(Array(sharedNs), row, sharedExample)
-
-    sharedExample
-  }
 
   private def createSharedExample(row: Row,
                                   sharedNamespaces: Array[NamespaceInfo],
@@ -93,11 +79,7 @@ object VowpalWabbitUtil
       vwExample
     }).toArray // make sure it materializes
 
-    // signal end of multi-line
-    val newLineEx = exampleStack.getOrCreateExample()
-    newLineEx.makeEmpty()
-
-    val allExamples = sharedExample +: examples :+ newLineEx
+    val allExamples = sharedExample +: examples //:+ newLineEx
 
     try {
       // execute function

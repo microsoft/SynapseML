@@ -95,7 +95,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   }
 
   private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int): Featurizer = {
-    // println(s"Array namespace: $name")
     new SeqFeaturizer(idx, name, getFeaturizer(name, dataType.elementType, nullable, idx, this.getSeed))
   }
 

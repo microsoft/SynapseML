@@ -51,7 +51,7 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
       vwArgs.getHashSeed,
       Seq(getFeaturesCol) ++ getAdditionalFeatures)
 
-    // define DUF
+    // define UDF
     val predictUDF = udf { (namespaces: Row) => predictInternal(featureColIndices, namespaces) }
 
     // add prediction column
