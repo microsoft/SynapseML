@@ -9,9 +9,10 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, StructType}
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 import scala.collection.mutable
 import scala.math.max
@@ -106,8 +107,55 @@ class VowpalWabbitContextualBandit(override val uid: String)
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
-  // TODO: fix validation
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transformSchema(schema: StructType): StructType = {
+    val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
+    val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
+    val actionCol = getChosenActionCol
+    val labelCol = getLabelCol
+    val probCol = getProbabilityCol
+
+    // Validate action columns
+    for (colName <- allActionFeatureColumns)
+    {
+      val dt = schema(colName).dataType
+      assert(dt match {
+        case ArrayType(VectorType, _ ) => true
+        case _ => false
+      }, colName + " must be a list of sparse vectors of features. Found: " + dt.toString + ". Each item in the list corresponds to a specific action and the overall list is the namespace.")
+    }
+
+    // Validate shared columns
+    for (colName <- allSharedFeatureColumns)
+    {
+      val dt = schema(colName).dataType
+      assert(dt match {
+        case VectorType => true
+        case _ => false
+      }, colName + " must be a sparse vector of features. Found " + dt.toString + ".")
+    }
+
+    val actionDt = schema(actionCol).dataType
+    assert(actionDt match {
+      case IntegerType => true
+      case _ => false
+    }, actionCol + " must be an integer. Found: " + actionDt.toString)
+
+    val labelDt = schema(labelCol).dataType
+    assert(labelDt match {
+      case IntegerType => true
+      case DoubleType => true
+      case _ => false
+    }, labelCol + " must be an double. Found: " + labelDt.toString)
+
+    val probDt = schema(probCol).dataType
+    assert(probDt match {
+      case IntegerType => true
+      case DoubleType => true
+      case _ => false
+    }, probCol + " must be an double. Found: " + probDt.toString)
+
+    schema
+  }
 
   protected override def trainRow(schema: StructType,
                                   inputRows: Iterator[Row],

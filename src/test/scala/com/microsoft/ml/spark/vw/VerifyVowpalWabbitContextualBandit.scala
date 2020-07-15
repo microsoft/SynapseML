@@ -14,7 +14,9 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1, 0.8),
       ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4, 0.8),
       ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 0, 0.8)
-    ).toDF("shared", "action1", "action2_feat1", "action2_feat2", "chosen_action", "reward", "prob")
+    ).toDF("shared", "action1", "action2_feat1", "action2_feat2", "chosen_action", "cost", "prob")
+      .coalesce(1)
+      .cache()
 
     val shared_featurizer = new VowpalWabbitFeaturizer()
       .setInputCols(Array("shared"))
@@ -35,13 +37,13 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     val pipeline = new Pipeline()
       .setStages(Array(shared_featurizer, action_one_featurizer, action_two_featurizer, action_merger))
     val model = pipeline.fit(df)
-    val transformedDf = model.transform(df).select("chosen_action", "reward", "prob", "shared_features", "action_features")
+    val transformedDf = model.transform(df).select("chosen_action", "cost", "prob", "shared_features", "action_features")
 
     transformedDf.show(false)
 
     val cb = new VowpalWabbitContextualBandit()
       .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
-      .setLabelCol("reward")
+      .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
       .setSharedCol("shared_features")
@@ -49,7 +51,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .setUseBarrierExecutionMode(false)
 
     val m = cb.fit(transformedDf)
-    m.getPerformanceStatistics.select("ipsEstimate", "snipsEstimate").show
+    m.getPerformanceStatistics.show//.select("ipsEstimate", "snipsEstimate").show
   }
 
   test("Verify ColumnVectorSequencer can merge two columns") {
@@ -59,11 +61,65 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       ("thing1", "thing2")
     ).toDF("col1", "col2")
 
+
     val sequencer = new ColumnVectorSequencer()
       .setInputCols(Array("col1", "col2"))
       .setOutputCol("combined_things")
     val transformedDf = sequencer.transform(df)
     val result = transformedDf.collect.head.getAs[Seq[String]]("combined_things")
     assert(result == Seq("thing1", "thing2"))
+  }
+
+  test("Verify columns are correct data type") {
+    import session.implicits._
+
+    val cb_with_incorrect_action_col = new VowpalWabbitContextualBandit()
+      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setLabelCol("cost")
+      .setProbabilityCol("prob")
+      .setChosenActionCol("chosen_action")
+      .setSharedCol("shared")
+      .setFeaturesCol("action1")
+      .setUseBarrierExecutionMode(false)
+
+    val untransformed_df = Seq(
+      ("shared_f", "action1_f", 1, 1, 0.8)
+    ).toDF("shared", "action1", "chosen_action", "cost", "prob")
+
+    assertThrows[AssertionError](cb_with_incorrect_action_col.fit(untransformed_df))
+
+    val shared_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("shared"))
+      .setOutputCol("shared_features")
+    val action_one_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action1"))
+      .setOutputCol("action1_features")
+    val action_merger = new ColumnVectorSequencer()
+      .setInputCols(Array("action1_features"))
+      .setOutputCol("action_features")
+    val cb = new VowpalWabbitContextualBandit()
+      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setLabelCol("cost")
+      .setProbabilityCol("prob")
+      .setChosenActionCol("chosen_action")
+      .setSharedCol("shared_features")
+      .setFeaturesCol("action_features")
+      .setUseBarrierExecutionMode(false)
+
+    val pipeline = new Pipeline()
+      .setStages(Array(shared_featurizer, action_one_featurizer, action_merger, cb))
+    pipeline.fit(untransformed_df)
+
+    val untransformed_df_with_decimal_chosen_action = Seq(
+      ("shared_f", "action1_f", 1.5, 1, 0.8)
+    ).toDF("shared", "action1", "chosen_action", "cost", "prob")
+
+    assertThrows[AssertionError](pipeline.fit(untransformed_df_with_decimal_chosen_action))
+
+    val untransformed_df_with_string_prob = Seq(
+      ("shared_f", "action1_f", 1.5, 1, "I'm a prob!")
+    ).toDF("shared", "action1", "chosen_action", "cost", "prob")
+
+    assertThrows[AssertionError](pipeline.fit(untransformed_df_with_string_prob))
   }
 }

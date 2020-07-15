@@ -10,7 +10,8 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.array
-import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.{ArrayType, StructType};
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 object ColumnVectorSequencer extends ComplexParamsReadable[ColumnVectorSequencer]
 
@@ -22,7 +23,11 @@ class ColumnVectorSequencer(override val uid: String) extends Transformer
 
   override def copy(extra: ParamMap): ColumnVectorSequencer = defaultCopy(extra)
 
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transformSchema(schema: StructType): StructType = {
+    val firstDt = schema(getInputCols(0)).dataType
+    getInputCols.tail.foreach(col => assert(schema(col).dataType == firstDt))
+    schema.add(getOutputCol, ArrayType(firstDt))
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val inputCols = getInputCols
