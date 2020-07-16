@@ -45,32 +45,32 @@ class ExampleStack(val vw: VowpalWabbitNative) {
 
 // https://github.com/VowpalWabbit/estimators/blob/master/ips_snips.py
 class ContextualBanditMetrics extends Serializable {
-  var n: Double = 0
-  var N: Double = 0
-  var d: Double = 0
-  var Ne: Double = 0
-  var c: Double = 0
+  var snips_numerator: Double = 0
+  var total_events: Double = 0
+  var snips_denominator: Double = 0
+  var policy_events: Double = 0 // the number of times the policy had a nonzero probability on the action played
+  var max_ips_numerator: Double = 0
 
   // r is a reward
-  def add_example(p_log: Double, r: Double, p_pred: Double, count: Int = 1): Unit = {
-    N += count
+  def add_example(p_log: Double, reward: Double, p_pred: Double, count: Int = 1): Unit = {
+    total_events += count
     if (p_pred > 0) {
       val p_over_p = p_pred / p_log
-      d += p_over_p * count
-      Ne += count
-      if (r != 0) {
-        n += r * p_over_p * count
-        c = max(c, r * p_over_p)
+      snips_denominator += p_over_p * count
+      policy_events += count
+      if (reward != 0) {
+        snips_numerator += reward * p_over_p * count
+        max_ips_numerator = max(max_ips_numerator, reward * p_over_p)
       }
     }
   }
 
   def get_snips_estimate(): Double = {
-    n / N
+    snips_numerator / total_events
   }
 
   def get_ips_estimate(): Double = {
-    n / d
+    snips_numerator / snips_denominator
   }
 }
 
