@@ -33,9 +33,9 @@ class TestScalers(unittest.TestCase):
     def test_unpartitioned_min_max_scaler(self):
         ls = scalers.LinearScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
-        df = self.create_sample_dataframe()
+        df = self.create_sample_dataframe().cache()
         model = ls.fit(df)
-        new_df = model.transform(df)
+        new_df = model.transform(df).cache()
 
         assert new_df.count() == df.count()
 
