@@ -239,18 +239,9 @@ trait VowpalWabbitBase extends Wrappable
           // transfer label
           applyLabel(row, example)
 
-          for (ns <- featureColIndices)
-            row.get(ns.colIdx) match {
-              case dense: DenseVector => example.addToNamespaceDense(ns.featureGroup,
-                ns.hash, dense.values)
-              case sparse: SparseVector => example.addToNamespaceSparse(ns.featureGroup,
-                sparse.indices, sparse.values)
-            }
-
           // transfer features
           VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
         }
-
 
         // learn and cleanup
         ctx.learnTime.measure {
