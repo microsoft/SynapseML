@@ -39,8 +39,6 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     val model = pipeline.fit(df)
     val transformedDf = model.transform(df).select("chosen_action", "cost", "prob", "shared_features", "action_features")
 
-    transformedDf.show(false)
-
     val cb = new VowpalWabbitContextualBandit()
       .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
@@ -51,7 +49,8 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .setUseBarrierExecutionMode(false)
 
     val m = cb.fit(transformedDf)
-    m.getPerformanceStatistics.show//.select("ipsEstimate", "snipsEstimate").show
+    assert(m.getPerformanceStatistics.select("ipsEstimate").first.getDouble(0) > 0)
+    assert(m.getPerformanceStatistics.select("snipsEstimate").first.getDouble(0) > 0)
   }
 
   test("Verify ColumnVectorSequencer can merge two columns") {
