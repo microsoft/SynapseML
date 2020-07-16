@@ -115,12 +115,12 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
     assert(v1.numNonzeros == 2)
 
-    val namespaceFeatures = VowpalWabbitMurmur.hash("in", 0)
-    // TODO
+    // Seems a little counterintuitive but the namespaceHash is formed form the output column name and not the
+    // input column.
     assert(v1.indices(0) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarkus", namespaceFeatures)))
+      VowpalWabbitMurmur.hash("markus", namespaceFeatures)))
     assert(v1.indices(1) == (defaultMask &
-      VowpalWabbitMurmur.hash("inmarie", namespaceFeatures)))
+      VowpalWabbitMurmur.hash("marie", namespaceFeatures)))
     assert(v1.values(0) == 1.0)
     assert(v1.values(1) == 1.0)
   }
