@@ -35,4 +35,3 @@ class MapStringFeaturizer(override val fieldIdx: Int,
     }
   }
 }
-

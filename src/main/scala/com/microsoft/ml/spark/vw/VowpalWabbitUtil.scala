@@ -61,15 +61,16 @@ object VowpalWabbitUtil {
     val sharedExample = createSharedExample(row, sharedNamespaceInfos, exampleStack)
 
     // transfer actions
-    val actions_for_zeroth_namespace = row.getAs[Seq[Vector]](actionNamespaceInfos.head.colIdx)
+    val actionsForZerothNamespace = row.getAs[Seq[Vector]](actionNamespaceInfos.head.colIdx)
 
     // Seq[Seq[Vector]] - each features column is a Seq[Vector]
     // first index  ... namespaces
     // second index ... actions
-    val actionFeaturesForEachNamespace = actionNamespaceInfos.map(namespaceInfo => row.getAs[Seq[Vector]](namespaceInfo.colIdx).toArray)
+    val actionFeaturesForEachNamespace = actionNamespaceInfos.map(
+      namespaceInfo => row.getAs[Seq[Vector]](namespaceInfo.colIdx).toArray)
 
     // loop over actions
-    val examples = (for (actionIdx <- actions_for_zeroth_namespace.indices) yield {
+    val examples = (for (actionIdx <- actionsForZerothNamespace.indices) yield {
       val vwExample = exampleStack.getOrCreateExample()
 
       // loop over namespaces

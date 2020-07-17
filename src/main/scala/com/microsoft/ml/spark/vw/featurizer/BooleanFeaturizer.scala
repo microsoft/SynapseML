@@ -50,4 +50,3 @@ class BooleanFeaturizer(override val fieldIdx: Int,
     }
   }
 }
-

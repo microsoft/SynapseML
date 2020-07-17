@@ -43,4 +43,3 @@ class MapFeaturizer[T](override val fieldIdx: Int, override val columnName: Stri
     }
   }
 }
-

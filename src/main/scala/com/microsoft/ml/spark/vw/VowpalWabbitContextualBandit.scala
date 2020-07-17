@@ -45,32 +45,32 @@ class ExampleStack(val vw: VowpalWabbitNative) {
 
 // https://github.com/VowpalWabbit/estimators/blob/master/ips_snips.py
 class ContextualBanditMetrics extends Serializable {
-  var snips_numerator: Double = 0
-  var total_events: Double = 0
-  var snips_denominator: Double = 0
-  var policy_events: Double = 0 // the number of times the policy had a nonzero probability on the action played
-  var max_ips_numerator: Double = 0
+  var snipsNumerator: Double = 0
+  var totalEvents: Double = 0
+  var snipsDenominator: Double = 0
+  var offlinePolicyEvents: Double = 0 // the number of times the policy had a nonzero probability on the action played
+  var maxIpsNumerator: Double = 0
 
   // r is a reward
-  def add_example(p_log: Double, reward: Double, p_pred: Double, count: Int = 1): Unit = {
-    total_events += count
-    if (p_pred > 0) {
-      val p_over_p = p_pred / p_log
-      snips_denominator += p_over_p * count
-      policy_events += count
+  def add_example(pLoggingPolicy: Double, reward: Double, pEvalPolicy: Double, count: Int = 1): Unit = {
+    totalEvents += count
+    if (pEvalPolicy > 0) {
+      val p_over_p = pEvalPolicy / pLoggingPolicy
+      snipsDenominator += p_over_p * count
+      offlinePolicyEvents += count
       if (reward != 0) {
-        snips_numerator += reward * p_over_p * count
-        max_ips_numerator = max(max_ips_numerator, reward * p_over_p)
+        snipsNumerator += reward * p_over_p * count
+        maxIpsNumerator = max(maxIpsNumerator, reward * p_over_p)
       }
     }
   }
 
   def get_snips_estimate(): Double = {
-    snips_numerator / snips_denominator
+    snipsNumerator / snipsDenominator
   }
 
   def get_ips_estimate(): Double = {
-    snips_numerator / total_events
+    snipsNumerator / totalEvents
   }
 }
 
@@ -89,7 +89,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
     with VowpalWabbitContextualBanditBase {
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBandit"))
 
-  val probabilityCol = new Param[String](this, "probabilityCol", "Column name of probability of chosen action")
+  val probabilityCol = new Param[String](this, "probabilityCol",
+    "Column name of probability of chosen action")
   def getProbabilityCol: String = $(probabilityCol)
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
   setDefault(probabilityCol -> "probability")
@@ -99,7 +100,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
   setDefault(chosenActionCol -> "chosenAction")
 
-  val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures", "Additional namespaces for the shared example")
+  val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures",
+    "Additional namespaces for the shared example")
   def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
   def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
   setDefault(additionalSharedFeatures -> Array.empty)
@@ -119,9 +121,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
     {
       val dt = schema(colName).dataType
       assert(dt match {
-        case ArrayType(VectorType, _ ) => true
+        case ArrayType(VectorType, _) => true
         case _ => false
-      },  s"$colName must be a list of sparse vectors of features. Found: $dt. Each item in the list corresponds to a specific action and the overall list is the namespace.")
+      },  s"$colName must be a list of sparse vectors of features. Found: $dt. Each item in the list corresponds to a" +
+        s" specific action and the overall list is the namespace.")
     }
 
     // Validate shared columns
@@ -201,7 +204,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
           val probs = prediction.getActionProbs
           val selectedActionIdxZeroBased = selectedActionIdx - 1
-          ctx.contextualBanditMetrics.add_example(loggedProbability, cost, probs.apply(selectedActionIdxZeroBased).getProbability)
+          ctx.contextualBanditMetrics.add_example(loggedProbability, cost,
+            probs.apply(selectedActionIdxZeroBased).getProbability)
         })
     }
   }
