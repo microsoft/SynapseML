@@ -3,6 +3,8 @@
 
 from mmlspark.vw._VowpalWabbitContextualBandit import _VowpalWabbitContextualBandit, _VowpalWabbitContextualBanditModel
 from pyspark.ml.common import inherit_doc
+from pyspark import SparkContext, SQLContext
+from pyspark.sql import DataFrame
 
 @inherit_doc
 class VowpalWabbitContextualBandit(_VowpalWabbitContextualBandit):
@@ -34,3 +36,8 @@ class VowpalWabbitContextualBanditModel(_VowpalWabbitContextualBanditModel):
 
     def getReadableModel(self):
         return self._java_obj.getReadableModel()
+
+    def getPerformanceStatistics(self):
+        ctx = SparkContext._active_spark_context
+        sql_ctx = SQLContext.getOrCreate(ctx)
+        return DataFrame(self._java_obj.getPerformanceStatistics(), sql_ctx)

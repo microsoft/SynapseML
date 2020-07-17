@@ -71,7 +71,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             .setUseBarrierExecutionMode(False)
         estimator2.setInitialModel(model1)
 
-        model2 = estimator2.fit(featurized_data)
+        estimator2.fit(featurized_data)
 
     def test_performance_statistics(self):
         featurized_data = self.get_data()
@@ -79,10 +79,10 @@ class VowpalWabbitSpec(unittest.TestCase):
             .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
             .setUseBarrierExecutionMode(False)
         model1 = estimator1.fit(featurized_data)
-        # TODO: Uncomment and convert to proper Python once getPerformanceStatistics is exposed
-        # stats = model1.getPerformanceStatistics()
-        # assert stats.select("ipsEstimate").first.getDouble(0) > 0
-        # assert stats.select("snipsEstimate").first.getDouble(0) > 0
+
+        stats = model1.getPerformanceStatistics()
+        assert float(stats.first()["ipsEstimate"]) > 0
+        assert float(stats.first()["snipsEstimate"]) > 0
 
 if __name__ == "__main__":
     result = unittest.main()
