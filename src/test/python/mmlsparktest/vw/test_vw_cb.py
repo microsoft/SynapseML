@@ -53,7 +53,6 @@ class VowpalWabbitSpec(unittest.TestCase):
             self.assertTrue(os.stat(modelFile).st_size > 0)
 
     def test_save_model(self):
-        pass
         self.save_model(VowpalWabbitContextualBandit()
                         .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
                         .setUseBarrierExecutionMode(False))
