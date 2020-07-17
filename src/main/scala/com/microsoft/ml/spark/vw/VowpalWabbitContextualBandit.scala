@@ -55,12 +55,12 @@ class ContextualBanditMetrics extends Serializable {
   def add_example(pLoggingPolicy: Double, reward: Double, pEvalPolicy: Double, count: Int = 1): Unit = {
     totalEvents += count
     if (pEvalPolicy > 0) {
-      val p_over_p = pEvalPolicy / pLoggingPolicy
-      snipsDenominator += p_over_p * count
+      val pOverP = pEvalPolicy / pLoggingPolicy
+      snipsDenominator += pOverP * count
       offlinePolicyEvents += count
       if (reward != 0) {
-        snipsNumerator += reward * p_over_p * count
-        maxIpsNumerator = max(maxIpsNumerator, reward * p_over_p)
+        snipsNumerator += reward * pOverP * count
+        maxIpsNumerator = max(maxIpsNumerator, reward * pOverP)
       }
     }
   }

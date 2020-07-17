@@ -76,7 +76,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       case ByteType => getNumericFeaturizer[Byte](prefixName, nullable, idx, namespaceHash, 0)
       case BooleanType => new BooleanFeaturizer(idx, prefixName, namespaceHash, getMask)
       case StringType => getStringFeaturizer(name, prefixName, idx, namespaceHash)
-      case arr: ArrayType if arr.elementType == DataTypes.StringType => getArrayFeaturizer("", arr, nullable, idx, namespaceHash)
+      case arr: ArrayType if arr.elementType == DataTypes.StringType
+        => getArrayFeaturizer("", arr, nullable, idx, namespaceHash)
       // Arrays of strings never use a prefix and use the column name namespace hash
       case arr: ArrayType => getArrayFeaturizer(name, arr, nullable, idx)
       case struct: StructType => getStructFeaturizer(struct, name, nullable, idx)
@@ -96,7 +97,8 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, zero)
   }
 
-  private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int, namespaceHash: Int = this.getSeed): Featurizer = {
+  private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int,
+                                 namespaceHash: Int = this.getSeed): Featurizer = {
     new SeqFeaturizer(idx, name, getFeaturizer(name, dataType.elementType, nullable, idx, namespaceHash))
   }
 
