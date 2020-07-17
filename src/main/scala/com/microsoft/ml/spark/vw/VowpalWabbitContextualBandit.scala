@@ -233,8 +233,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
-    transformImplInternal(dataset)
-      .withColumn($(predictionCol), col($(rawPredictionCol)))
+    throw new NotImplementedError("transformImpl is not implemented")
   }
 
   override def predict(features: Row): Double = {
