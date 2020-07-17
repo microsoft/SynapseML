@@ -121,7 +121,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
       assert(dt match {
         case ArrayType(VectorType, _ ) => true
         case _ => false
-      }, colName + " must be a list of sparse vectors of features. Found: " + dt.toString + ". Each item in the list corresponds to a specific action and the overall list is the namespace.")
+      },  s"$colName must be a list of sparse vectors of features. Found: $dt. Each item in the list corresponds to a specific action and the overall list is the namespace.")
     }
 
     // Validate shared columns
@@ -131,28 +131,28 @@ class VowpalWabbitContextualBandit(override val uid: String)
       assert(dt match {
         case VectorType => true
         case _ => false
-      }, colName + " must be a sparse vector of features. Found " + dt.toString + ".")
+      }, s"$colName must be a sparse vector of features. Found $dt")
     }
 
     val actionDt = schema(actionCol).dataType
     assert(actionDt match {
       case IntegerType => true
       case _ => false
-    }, actionCol + " must be an integer. Found: " + actionDt.toString)
+    },  s" $actionCol must be an integer. Found: $actionDt")
 
     val labelDt = schema(labelCol).dataType
     assert(labelDt match {
       case IntegerType => true
       case DoubleType => true
       case _ => false
-    }, labelCol + " must be an double. Found: " + labelDt.toString)
+    }, s"$labelCol must be an double. Found: $labelDt")
 
     val probDt = schema(probCol).dataType
     assert(probDt match {
       case IntegerType => true
       case DoubleType => true
       case _ => false
-    }, probCol + " must be an double. Found: " + probDt.toString)
+    }, s"$probCol must be an double. Found: $probDt")
 
     schema
   }
