@@ -79,7 +79,7 @@ object VowpalWabbitUtil {
       vwExample
     }).toArray // make sure it materializes
 
-    val allExamples = sharedExample +: examples //:+ newLineEx
+    val allExamples = sharedExample +: examples
 
     try {
       // execute function
