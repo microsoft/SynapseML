@@ -29,7 +29,8 @@ class VowpalWabbitSpec(unittest.TestCase):
             ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4.0, 0.8),
-            ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 0.0, 0.8)], schema)
+            ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 0.0, 0.8)], schema)\
+            .coalesce(1)
 
         # featurize data
         shared_featurizer = VowpalWabbitFeaturizer(inputCols=['shared_text'], outputCol='shared')
