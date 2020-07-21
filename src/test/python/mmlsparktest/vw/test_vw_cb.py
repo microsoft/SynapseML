@@ -6,9 +6,9 @@ import pyspark
 
 from mmlsparktest.spark import *
 
-from mmlspark.vw.VowpalWabbitContextualBandit import VowpalWabbitContextualBandit
-from mmlspark.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
-from mmlspark.vw.ColumnVectorSequencer import ColumnVectorSequencer
+from mmlspark.vw import VowpalWabbitContextualBandit
+from mmlspark.vw import VowpalWabbitFeaturizer
+from mmlspark.vw import ColumnVectorSequencer
 
 from pyspark.sql.types import *
 from pyspark.ml import Pipeline
@@ -25,7 +25,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             StructField("label", DoubleType()),
             StructField("probability", DoubleType())])
 
-        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+            data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
             ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4.0, 0.8),

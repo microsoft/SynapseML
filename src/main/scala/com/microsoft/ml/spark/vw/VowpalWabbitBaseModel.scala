@@ -89,7 +89,7 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   def setPerformanceStatistics(v: DataFrame): this.type = set(performanceStatistics, v)
   def getPerformanceStatistics: DataFrame = $(performanceStatistics)
 
-  protected def predictInternal(featureColIndices: Array[NamespaceInfo], row: Row): Double = {
+  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], row: Row): Double = {
     example.clear()
 
     // transfer features

@@ -19,7 +19,7 @@ import scala.collection.mutable
   */
 private[ml] class MapFeaturizer[T](override val fieldIdx: Int, override val columnName: String, val namespaceHash: Int,
                        val mask: Int, val valueFeaturizer: T => Double)
-  extends Featurizer(fieldIdx)  {
+  extends Featurizer(fieldIdx) {
 
   /**
     * Featurize a single row.

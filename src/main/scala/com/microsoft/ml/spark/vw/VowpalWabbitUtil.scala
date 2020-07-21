@@ -23,7 +23,7 @@ object VowpalWabbitUtil {
   def generateNamespaceInfo(schema: StructType, hashSeed: Int, col: String): NamespaceInfo =
     NamespaceInfo(VowpalWabbitMurmur.hash(col, hashSeed), col.charAt(0), schema.fieldIndex(col))
 
-  def addFeaturesToExample(featureColIndices: Array[NamespaceInfo],
+  def addFeaturesToExample(featureColIndices: Seq[NamespaceInfo],
                            row: Row,
                            ex: VowpalWabbitExample): Unit =
     for (ns <- featureColIndices)
