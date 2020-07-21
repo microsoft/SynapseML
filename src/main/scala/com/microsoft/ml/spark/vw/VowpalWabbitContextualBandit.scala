@@ -4,15 +4,14 @@
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, IntegerType, StructType}
+import org.apache.spark.sql.types._
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 
 import scala.collection.mutable
 import scala.math.max

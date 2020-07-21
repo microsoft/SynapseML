@@ -5,22 +5,18 @@ package com.microsoft.ml.spark.vw
 
 import java.util.UUID
 
-import org.apache.spark.TaskContext
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.DefaultParamsWritable
-import org.apache.spark.sql.functions.{col, struct, udf}
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
-import org.apache.spark.internal._
-import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import org.vowpalwabbit.spark._
 import com.microsoft.ml.spark.core.contracts.{HasWeightCol, Wrappable}
 import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
 import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
-import org.apache.spark.ml.ComplexParamsWritable
+import org.apache.spark.TaskContext
+import org.apache.spark.internal._
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util.DefaultParamsWritable
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.vowpalwabbit.spark._
 
-import scala.collection.JavaConverters._
 import scala.math.min
 
 case class NamespaceInfo(hash: Int, featureGroup: Char, colIdx: Int)

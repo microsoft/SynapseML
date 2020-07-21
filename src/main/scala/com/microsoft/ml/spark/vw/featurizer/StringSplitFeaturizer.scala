@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.vw.featurizer
 
-import com.microsoft.ml.spark.vw.VowpalWabbitMurmurWithPrefix
 import org.apache.spark.sql.Row
 
 import scala.collection.mutable
