@@ -16,7 +16,7 @@ import scala.util.matching.Regex
   * @param namespaceHash pre-hashed namespace.
   * @param mask bit mask applied to final hash.
   */
-class StringSplitFeaturizer(override val fieldIdx: Int,
+private[ml] class StringSplitFeaturizer(override val fieldIdx: Int,
                             override val columnName: String,
                             val namespaceHash: Int,
                             val mask: Int)

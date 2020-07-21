@@ -15,7 +15,7 @@ import scala.collection.mutable
   * @param namespaceHash pre-hashed namespace.
   * @param mask bit mask applied to final hash.
   */
-class BooleanFeaturizer(override val fieldIdx: Int,
+private[ml] class BooleanFeaturizer(override val fieldIdx: Int,
                         override val columnName: String,
                         namespaceHash: Int, mask: Int)
   extends Featurizer(fieldIdx) with ElementFeaturizer[Boolean] {

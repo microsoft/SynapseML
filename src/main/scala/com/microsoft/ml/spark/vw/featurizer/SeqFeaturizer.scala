@@ -12,7 +12,7 @@ import scala.collection.mutable
   * @param fieldIdx input field index.
   * @param columnName used as feature name prefix.
   */
-class SeqFeaturizer[E](override val fieldIdx: Int,
+private[ml] class SeqFeaturizer[E](override val fieldIdx: Int,
                        override val columnName: String,
                        val featurizer: Featurizer)
   extends Featurizer(fieldIdx) with ElementFeaturizer[Seq[E]] {

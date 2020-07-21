@@ -12,7 +12,7 @@ import scala.collection.mutable
   * Featurize numeric values into native VW structure. ((hash(column name):value)
   * @param fieldIdx input field index.
   */
-class StructFeaturizer(override val fieldIdx: Int,
+private[ml] class StructFeaturizer(override val fieldIdx: Int,
                        override val columnName: String,
                        fieldFeaturizer: Seq[Featurizer])
   extends Featurizer(fieldIdx) with ElementFeaturizer[Row] {
@@ -40,7 +40,7 @@ class StructFeaturizer(override val fieldIdx: Int,
   }
 }
 
-class NullableStructFeaturizer(override val fieldIdx: Int,
+private[ml] class NullableStructFeaturizer(override val fieldIdx: Int,
                                override val columnName: String,
                                fieldFeaturizer: Seq[Featurizer])
  extends StructFeaturizer(fieldIdx, columnName, fieldFeaturizer) {

@@ -106,11 +106,18 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
   setDefault(additionalSharedFeatures -> Array.empty)
 
+  val epsilon = new DoubleParam(this, "epsilon", "epsilon used for exploration")
+  setDefault(epsilon -> 0.05)
+
+  def getEpsilon: Double = $(epsilon)
+  def setEpsilon(value: Double): this.type = set(epsilon, value)
+
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
   protected override def addExtraArgs(args: StringBuilder): Unit = {
     args.appendParamIfNotThere("cb_explore_adf")
+    args.appendParamIfNotThere("epsilon", "epsilon", epsilon)
   }
 
   override def transformSchema(schema: StructType): StructType = {

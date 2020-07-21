@@ -15,7 +15,7 @@ import scala.collection.mutable
   * @param namespaceHash pre-hashed namespace.
   * @param mask bit mask applied to final hash.
   */
-class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
+private[ml] class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
                                  override val columnName: String,
                                  val namespaceHash: Int,
                                  val mask: Int,

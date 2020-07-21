@@ -14,7 +14,7 @@ import scala.collection.mutable
   * @param namespaceHash pre-hashed namespace.
   * @param mask bit mask applied to final hash.
   */
-class StringFeaturizer(override val fieldIdx: Int,
+private[ml] class StringFeaturizer(override val fieldIdx: Int,
                        override val columnName: String,
                        val namespaceHash: Int,
                        val mask: Int)
