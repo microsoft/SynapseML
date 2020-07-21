@@ -11,14 +11,17 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.array
 import org.apache.spark.sql.types.{ArrayType, StructType};
 
-object ColumnVectorSequencer extends ComplexParamsReadable[ColumnVectorSequencer]
+object VectorZipper extends ComplexParamsReadable[VectorZipper]
 
-class ColumnVectorSequencer(override val uid: String) extends Transformer
+/**
+  * Combine one or more input columns into a sequence in the output column.
+  */
+class VectorZipper(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("ColumnVectorSequencer"))
 
-  override def copy(extra: ParamMap): ColumnVectorSequencer = defaultCopy(extra)
+  override def copy(extra: ParamMap): VectorZipper = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     val firstDt = schema(getInputCols(0)).dataType

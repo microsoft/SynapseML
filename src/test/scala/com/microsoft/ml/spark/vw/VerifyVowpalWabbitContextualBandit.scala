@@ -31,7 +31,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .setInputCols(Array("action2_feat1", "action2_feat2"))
       .setOutputCol("action2_features")
 
-    val action_merger = new ColumnVectorSequencer()
+    val action_merger = new VectorZipper()
       .setInputCols(Array("action1_features", "action2_features"))
       .setOutputCol("action_features")
 
@@ -61,8 +61,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       ("thing1", "thing2")
     ).toDF("col1", "col2")
 
-
-    val sequencer = new ColumnVectorSequencer()
+    val sequencer = new VectorZipper()
       .setInputCols(Array("col1", "col2"))
       .setOutputCol("combined_things")
     val transformedDf = sequencer.transform(df)
@@ -94,7 +93,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     val action_one_featurizer = new VowpalWabbitFeaturizer()
       .setInputCols(Array("action1"))
       .setOutputCol("action1_features")
-    val action_merger = new ColumnVectorSequencer()
+    val action_merger = new VectorZipper()
       .setInputCols(Array("action1_features"))
       .setOutputCol("action_features")
     val cb = new VowpalWabbitContextualBandit()
