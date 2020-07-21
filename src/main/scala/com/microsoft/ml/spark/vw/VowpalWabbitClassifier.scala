@@ -21,7 +21,7 @@ object VowpalWabbitClassifier extends DefaultParamsReadable[VowpalWabbitClassifi
 
 @InternalWrapper
 class VowpalWabbitClassifier(override val uid: String)
-  extends ProbabilisticClassifier[Vector, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
+  extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
@@ -59,7 +59,7 @@ class VowpalWabbitClassifier(override val uid: String)
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
 @InternalWrapper
 class VowpalWabbitClassificationModel(override val uid: String)
-  extends ProbabilisticClassificationModel[Vector, VowpalWabbitClassificationModel]
+  extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel {
 
   def numClasses: Int = 2
@@ -89,11 +89,13 @@ class VowpalWabbitClassificationModel(override val uid: String)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  protected override def predictRaw(features: Vector): Vector = {
+  override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector =
+  {
     throw new NotImplementedError("Not implemented")
   }
 
-  protected override def raw2probabilityInPlace(rawPrediction: Vector): Vector= {
+  override protected def predictRaw(features: Row): Vector =
+  {
     throw new NotImplementedError("Not implemented")
   }
 }
