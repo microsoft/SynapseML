@@ -234,16 +234,6 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
 
   override def transformSchema(schema: StructType): StructType = schema
 
-  lazy val exampleStack = new ExampleStack(vw)
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    throw new NotImplementedError("transform is not implemented")
-  }
-
-  protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
-    throw new NotImplementedError("transformImpl is not implemented")
-  }
-
   override def predict(features: Row): Double = {
     throw new NotImplementedError("predict is not implemented")
   }
