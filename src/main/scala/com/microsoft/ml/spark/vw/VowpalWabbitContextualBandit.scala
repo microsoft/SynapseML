@@ -9,7 +9,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, StructType}
+import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, IntegerType, StructType}
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -151,6 +151,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     assert(labelDt match {
       case IntegerType => true
       case DoubleType => true
+      case FloatType => true
       case _ => false
     }, s"$labelCol must be an double. Found: $labelDt")
 
@@ -178,8 +179,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
     val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
     val chosenActionColIdx = schema.fieldIndex(getChosenActionCol)
-    val labelIdx = schema.fieldIndex(getLabelCol)
-    val probabilityIdx = schema.fieldIndex(getProbabilityCol)
+    val labelGetter = getAsFloat(schema, schema.fieldIndex(getLabelCol))
+    val probabilityGetter = getAsFloat(schema, schema.fieldIndex(getProbabilityCol))
 
     val exampleStack = new ExampleStack(ctx.vw)
 
@@ -192,8 +193,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
             throw new IllegalArgumentException("Chosen action index is 1 based - cannot be 0")
           }
 
-          val cost = row.getDouble(labelIdx)
-          val loggedProbability = row.getDouble(probabilityIdx)
+          val cost = labelGetter(row)
+          val loggedProbability = probabilityGetter(row)
 
           // Set the label for learning
           examples(selectedActionIdx).setContextualBanditLabel(

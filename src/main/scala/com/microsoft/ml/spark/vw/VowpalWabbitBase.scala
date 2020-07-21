@@ -158,6 +158,7 @@ trait VowpalWabbitBase extends Wrappable
         sb
       }
     }
+
     def appendParamIfNotThere[T](optionLong: String): StringBuilder = {
       if (s"--${optionLong}".r.findAllIn(sb.toString).hasNext) {
         sb
@@ -184,24 +185,25 @@ trait VowpalWabbitBase extends Wrappable
 
   protected def getAdditionalColumns(): Seq[String] = Seq.empty
 
-  protected def createLabelSetter(schema: StructType) = {
+  // support numeric types as input
+  protected def getAsFloat(schema: StructType, idx: Int): Row => Float = {
+    schema.fields(idx).dataType match {
+      case _: DoubleType => {
+        log.warn(s"Casting column '${schema.fields(idx).name}' to float. Loss of precision.")
+        (row: Row) => row.getDouble(idx).toFloat
+      }
+      case _: FloatType => (row: Row) => row.getFloat(idx)
+      case _: IntegerType => (row: Row) => row.getInt(idx).toFloat
+      case _: LongType => (row: Row) => row.getLong(idx).toFloat
+    }
+  }
+
+  protected def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample) => Unit = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
 
-    // support numeric types as input
-    def getAsFloat(idx: Int) =
-      schema.fields(idx).dataType match {
-        case _: DoubleType => {
-          log.warn(s"Casting column '${schema.fields(idx).name}' to float. Loss of precision.")
-          (row: Row) => row.getDouble(idx).toFloat
-        }
-        case _: FloatType => (row: Row) => row.getFloat(idx)
-        case _: IntegerType => (row: Row) => row.getInt(idx).toFloat
-        case _: LongType => (row: Row) => row.getLong(idx).toFloat
-      }
-
-    val labelGetter = getAsFloat(labelColIdx)
+    val labelGetter = getAsFloat(schema, labelColIdx)
     if (get(weightCol).isDefined) {
-      val weightGetter = getAsFloat(schema.fieldIndex(getWeightCol))
+      val weightGetter = getAsFloat(schema, schema.fieldIndex(getWeightCol))
       (row: Row, ex: VowpalWabbitExample) =>
         ex.setLabel(weightGetter(row), labelGetter(row))
     }
