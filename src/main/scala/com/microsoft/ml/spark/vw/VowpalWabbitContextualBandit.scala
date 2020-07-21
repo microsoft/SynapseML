@@ -109,6 +109,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
+  protected override def addExtraArgs(args: StringBuilder): Unit = {
+    args.appendParamIfNotThere("cb_explore_adf")
+  }
+
   override def transformSchema(schema: StructType): StructType = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures

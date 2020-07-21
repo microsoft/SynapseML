@@ -442,6 +442,12 @@ trait VowpalWabbitBase extends Wrappable
     model.setPerformanceStatistics(diagRdd)
   }
 
+  /***
+    * Allow subclasses to add further arguments
+    * @param args argument builder to append to
+    */
+  protected def addExtraArgs(args: StringBuilder): Unit = {}
+
   /**
     * Main training loop
     *
@@ -482,6 +488,9 @@ trait VowpalWabbitBase extends Wrappable
       .appendParamIfNotThere("l2", "l2", l2)
       .appendParamIfNotThere("ignore", "ignore", ignoreNamespaces)
       .appendParamIfNotThere("q", "quadratic", interactions)
+
+    // Allows subclasses to add further specific args
+    addExtraArgs(vwArgs)
 
     // call training
     val trainingResults = (if (numTasks == 1)
