@@ -245,8 +245,12 @@ trait VowpalWabbitBase extends Wrappable
 
         // learn and cleanup
         ctx.learnTime.measure {
-          example.learn()
-          example.clear()
+          try {
+            example.learn()
+          }
+          finally {
+            example.clear()
+          }
         }
       }
     }
