@@ -158,6 +158,16 @@ trait VowpalWabbitBase extends Wrappable
         sb
       }
     }
+    def appendParamIfNotThere[T](optionLong: String): StringBuilder = {
+      if (s"--${optionLong}".r.findAllIn(sb.toString).hasNext) {
+        sb
+      }
+      else {
+        sb.append(s" --$optionLong")
+
+        sb
+      }
+    }
   }
 
   val hashSeed = new IntParam(this, "hashSeed", "Seed used for hashing")
@@ -287,8 +297,8 @@ trait VowpalWabbitBase extends Wrappable
           nativeIngestTime.elapsed,
           learnTime.elapsed,
           multipassTime.elapsed,
-          contextualBanditMetrics.get_ips_estimate(),
-          contextualBanditMetrics.get_snips_estimate()
+          contextualBanditMetrics.getIpsEstimate(),
+          contextualBanditMetrics.getSnipsEstimate()
         ))).iterator
     }
   }
@@ -356,8 +366,8 @@ trait VowpalWabbitBase extends Wrappable
             nativeIngestTime.elapsed,
             learnTime.elapsed,
             multipassTime.elapsed,
-            trainContext.contextualBanditMetrics.get_ips_estimate(),
-            trainContext.contextualBanditMetrics.get_snips_estimate()))
+            trainContext.contextualBanditMetrics.getIpsEstimate(),
+            trainContext.contextualBanditMetrics.getSnipsEstimate()))
       }.get // this will throw if there was an exception
 
       Seq(TrainingResult(model, stats)).iterator
