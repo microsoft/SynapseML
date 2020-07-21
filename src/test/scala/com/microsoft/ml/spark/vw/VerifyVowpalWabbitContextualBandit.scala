@@ -73,7 +73,8 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     import session.implicits._
 
     val cb_with_incorrect_action_col = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setArgs("--quiet")
+      .setEpsilon(0.2)
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
