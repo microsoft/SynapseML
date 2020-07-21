@@ -52,10 +52,10 @@ class ContextualBanditMetrics extends Serializable {
   var maxIpsNumerator: Double = 0
 
   // r is a reward
-  def add_example(pLoggingPolicy: Double, reward: Double, pEvalPolicy: Double, count: Int = 1): Unit = {
+  def addExample(probLoggingPolicy: Double, reward: Double, probEvalPolicy: Double, count: Int = 1): Unit = {
     totalEvents += count
-    if (pEvalPolicy > 0) {
-      val pOverP = pEvalPolicy / pLoggingPolicy
+    if (probEvalPolicy > 0) {
+      val pOverP = probEvalPolicy / probLoggingPolicy
       snipsDenominator += pOverP * count
       offlinePolicyEvents += count
       if (reward != 0) {
@@ -65,11 +65,11 @@ class ContextualBanditMetrics extends Serializable {
     }
   }
 
-  def get_snips_estimate(): Double = {
+  def getSnipsEstimate(): Double = {
     snipsNumerator / snipsDenominator
   }
 
-  def get_ips_estimate(): Double = {
+  def getIpsEstimate(): Double = {
     snipsNumerator / totalEvents
   }
 }
@@ -208,7 +208,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
           val probs = prediction.getActionProbs
           val selectedActionIdxZeroBased = selectedActionIdx - 1
-          ctx.contextualBanditMetrics.add_example(loggedProbability, cost,
+          ctx.contextualBanditMetrics.addExample(loggedProbability, cost,
             probs.apply(selectedActionIdxZeroBased).getProbability)
         })
     }
