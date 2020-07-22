@@ -5,6 +5,8 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.tuning.ParamGridBuilder
 
 class VerifyVowpalWabbitContextualBandit extends TestBase {
   test("Verify VerifyVowpalWabbitContextualBandit can be run on toy dataset") {
@@ -110,6 +112,8 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .setStages(Array(shared_featurizer, action_one_featurizer, action_merger, cb))
     pipeline.fit(untransformed_df)
 
+    pipeline.fit(untransformed_df, Array(new ParamMap()))
+
     val untransformed_df_with_decimal_chosen_action = Seq(
       ("shared_f", "action1_f", 1.5, 1, 0.8)
     ).toDF("shared", "action1", "chosen_action", "cost", "prob")
@@ -121,5 +125,56 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     ).toDF("shared", "action1", "chosen_action", "cost", "prob")
 
     assertThrows[AssertionError](pipeline.fit(untransformed_df_with_string_prob))
+  }
+
+  test("Verify can use paralellized fit") {
+    import session.implicits._
+
+    val df = Seq(
+      ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1, 0.8),
+      ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1, 0.8),
+      ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4, 0.8),
+      ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 0, 0.8)
+    ).toDF("shared", "action1", "action2_feat1", "action2_feat2", "chosen_action", "cost", "prob")
+      .coalesce(1)
+      .cache()
+
+    val shared_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("shared"))
+      .setOutputCol("shared_features")
+    val action_one_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action1"))
+      .setOutputCol("action1_features")
+    val action_two_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action2_feat1", "action2_feat2"))
+      .setOutputCol("action2_features")
+    val action_merger = new VectorZipper()
+      .setInputCols(Array("action1_features", "action2_features"))
+      .setOutputCol("action_features")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(shared_featurizer, action_one_featurizer, action_two_featurizer, action_merger))
+    val model = pipeline.fit(df)
+    val transformedDf = model.transform(df).select("chosen_action", "cost", "prob", "shared_features", "action_features")
+    transformedDf.cache()
+
+    val cb = new VowpalWabbitContextualBandit()
+      .setArgs("--quiet")
+      .setLabelCol("cost")
+      .setProbabilityCol("prob")
+      .setChosenActionCol("chosen_action")
+      .setSharedCol("shared_features")
+      .setFeaturesCol("action_features")
+      .setParallelismForParamListFit(4)
+      .setUseBarrierExecutionMode(false)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(cb.learningRate, Array(0.5, 0.05, 0.001))
+      .addGrid(cb.epsilon, Array(0.1, 0.2, 0.4))
+      .build()
+
+    val m = cb.fit(transformedDf, paramGrid).map(model => model.getPerformanceStatistics).reduce((a,b) => a.union(b)).drop("timeLearnPercentage", "timeSparkReadPercentage", "timeLearnPercentage", "timeMarshalPercentage")
+    m.show(false)
+
   }
 }

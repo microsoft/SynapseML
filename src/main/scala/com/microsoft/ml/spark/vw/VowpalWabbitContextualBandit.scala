@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
+import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -14,6 +15,7 @@ import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
 
 import scala.collection.mutable
+import scala.concurrent.Future
 import scala.math.max
 
 object VowpalWabbitContextualBandit extends DefaultParamsReadable[VowpalWabbitContextualBandit]
@@ -85,7 +87,7 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
 @InternalWrapper
 class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
-    with VowpalWabbitContextualBanditBase {
+    with VowpalWabbitContextualBanditBase with HasParallelismInjected {
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBandit"))
 
   val probabilityCol = new Param[String](this, "probabilityCol",
@@ -110,6 +112,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
   def getEpsilon: Double = $(epsilon)
   def setEpsilon(value: Double): this.type = set(epsilon, value)
+
+  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
 
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
@@ -229,6 +233,21 @@ class VowpalWabbitContextualBandit(override val uid: String)
       .setPredictionCol(getPredictionCol)
 
     trainInternal(dataset, model)
+  }
+
+  override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+    transformSchema(dataset.schema, logging = true)
+
+    // Create execution context based on $(parallelism)
+    val executionContext = getExecutionContextProxy
+
+    val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
+      Future[VowpalWabbitContextualBanditModel] {
+        fit(dataset, paramMap)
+      }(executionContext)
+    }
+
+    awaitFutures(modelFutures).map(model => model.setParent(this))
   }
 
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)
