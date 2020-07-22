@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol, Wrappa
 import com.microsoft.ml.spark.vw.featurizer._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, IntParam, ParamMap, StringArrayParam}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{StringType, _}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
@@ -76,8 +76,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       case ByteType => getNumericFeaturizer[Byte](prefixName, nullable, idx, namespaceHash, 0)
       case BooleanType => new BooleanFeaturizer(idx, prefixName, namespaceHash, getMask)
       case StringType => getStringFeaturizer(name, prefixName, idx, namespaceHash)
-      case arr: ArrayType if arr.elementType == DataTypes.StringType
-        => getArrayFeaturizer("", arr, nullable, idx, namespaceHash)
+      case ArrayType(t: StringType, _) => getArrayFeaturizer("", ArrayType(t), nullable, idx, namespaceHash)
       // Arrays of strings never use a prefix and use the column name namespace hash
       case arr: ArrayType => getArrayFeaturizer(name, arr, nullable, idx)
       case struct: StructType => getStructFeaturizer(struct, name, nullable, idx)
@@ -85,7 +84,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       case m: Any => getOtherFeaturizer(m, prefixName, idx)
     }
   }
-
+  
   private def getNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](prefixName: String,
                                                                        nullable: Boolean,
                                                                        idx: Int,
