@@ -2,7 +2,6 @@ __author__ = 'rolevin'
 
 from typing import List
 
-from mmlspark.cyber.utils.common import timefunc
 from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
 
 from pyspark.ml import Estimator, Transformer
@@ -23,14 +22,12 @@ class IdIndexerModel(Transformer, HasInputCol, HasOutputCol):
         ExplainBuilder.build(self, inputCol=input_col, partitionKey=partition_key, outputCol=output_col)
         self._vocab_df = vocab_df
 
-    @timefunc
     def undo_transform(self, df: DataFrame) -> DataFrame:
         ucols = [self.partition_key, self.output_col]
         vocab_df = self._vocab_df
 
         return df.join(vocab_df, on=ucols, how='left_outer')
 
-    @timefunc
     def _transform(self, df):
         ucols = [self.partition_key, self.input_col]
 
@@ -88,7 +85,6 @@ class IdIndexer(Estimator, HasInputCol, HasOutputCol):
             col_name=self.getOutputCol()
         )
 
-    @timefunc
     def _fit(self, df: DataFrame) -> IdIndexerModel:
         return IdIndexerModel(
             self.input_col, self.partition_key, self.output_col, self._make_vocab_df(df).cache()
@@ -114,7 +110,6 @@ class MultiIndexerModel(Transformer):
 
         return None
 
-    @timefunc
     def undo_transform(self, df: DataFrame) -> DataFrame:
         curr_df = df.cache()
 
@@ -123,7 +118,6 @@ class MultiIndexerModel(Transformer):
 
         return curr_df
 
-    @timefunc
     def _transform(self, df: DataFrame) -> DataFrame:
         curr_df = df.cache()
 
@@ -138,6 +132,5 @@ class MultiIndexer(Estimator):
         super().__init__()
         self.indexers = indexers
 
-    @timefunc
     def _fit(self, df: DataFrame) -> MultiIndexerModel:
         return MultiIndexerModel([i.fit(df) for i in self.indexers])

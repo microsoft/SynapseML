@@ -39,70 +39,6 @@ def _make_dot():
     return dot
 
 
-class CfAlgoParams:
-    """
-    Parameter for the AccessAnomaly Estimator indicating
-    if to use implicit or explicit feedback versions of the ALS algorithm
-    and additional parameters that are relevant for the implicit/explicit versions
-    """
-    def __init__(self, implicit: bool):
-        self._implicit = implicit
-        self._alpha: Optional[float] = None
-        self._complementset_factor: Optional[int] = None
-        self._neg_score: Optional[float] = None
-
-        # set default values
-        if implicit:
-            self.set_alpha(1.0)
-        else:
-            self.set_complementset_factor(2)
-            self.set_neg_score(1.0)
-
-    @property
-    def implicit(self) -> bool:
-        return self._implicit
-
-    @property
-    def alpha(self) -> Optional[float]:
-        """
-        Relevant for the implicit version only
-        :return: alpha value (see descriptions in explainParam of AccessAnomaly)
-        """
-        return self._alpha
-
-    @property
-    def complementset_factor(self) -> Optional[int]:
-        """
-        Relevant for the explicit version only
-        :return: complementset_factor value (see descriptions in explainParam of AccessAnomaly)
-        """
-        return self._complementset_factor
-
-    @property
-    def neg_score(self) -> Optional[float]:
-        """
-        Relevant for the explicit version only
-        :return: neg_score value (see descriptions in explainParam of AccessAnomaly)
-        """
-        return self._neg_score
-
-    def set_alpha(self, value: float):
-        assert self.implicit
-        self._alpha = value
-        return self
-
-    def set_complementset_factor(self, value: int):
-        assert not self.implicit
-        self._complementset_factor = value
-        return self
-
-    def set_neg_score(self, value: float):
-        assert not self.implicit
-        assert value > 0.0
-        self._neg_score = value
-        return self
-
-
 class AccessAnomalyConfig:
     """
     Define default values for AccessAnomaly Params
@@ -122,7 +58,11 @@ class AccessAnomalyConfig:
     default_low_value = 5.0
     default_high_value = 10.0
 
-    default_algo_cf_params = CfAlgoParams(True)
+    default_apply_implicit_cf = True
+    default_alpha = 1.0
+
+    default_complementset_factor = 2
+    default_neg_score = 1.0
 
 
 class _UserResourceFeatureVectorMapping:
@@ -485,21 +425,35 @@ class AccessAnomaly(Estimator):
         "(defaults to 10.0)."
     )
 
-    algoCfParams = Param(
+    applyImplicitCf = Param(
         Params._dummy(),
-        "algoCfParams",
-        "algoCfParams is comprised of the following items: "
-        "'implicit' specifies whether to use the explicit feedback ALS variant or one adapted "
-        "for implicit feedback data (defaults to false which means using explicit feedback). "
-        "'alpha' is a parameter applicable to the implicit feedback variant of ALS that governs "
-        "the baseline confidence in preference observations (defaults to 1.0). "
-        "'complementset_factor' is a parameter applicable to the explicit feedback variant of ALS that governs "
-        "that is used to generate a sample from the complement set of "
-        "(user, res) access patterns seen in the training data. "
-        "For example, a value of 2 indicates that the complement set should be an "
-        "order of twice the size of the distinct (user, res) pairs in the training. (defaults to 2)."
-        "'neg_score' is a parameter applicable to the explicit feedback variant of ALS that governs "
-        "the value to assign to the values of the complement set. (defaults to 1.0)."
+        "applyImplicitCf",
+        "specifies whether to use the implicit/explicit feedback ALS for the data "
+        "(defaults to True which means using implicit feedback)."
+    )
+
+    alphaParam = Param(
+        Params._dummy(),
+        "alphaParam",
+        "alphaParam is a parameter applicable to the implicit feedback variant "
+        "of ALS that governs the baseline confidence in preference observations."
+        "(defaults to 1.0)."
+    )
+
+    complementsetFactor = Param(
+        Params._dummy(),
+        "complementsetFactor",
+        "complementsetFactor is a parameter applicable to the implicit feedback variant "
+        "of ALS that governs the baseline confidence in preference observations."
+        "(defaults to 2)."
+    )
+
+    negScore = Param(
+        Params._dummy(),
+        "negScore",
+        "negScore is a parameter applicable to the explicit feedback variant of ALS that governs "
+        "the value to assign to the values of the complement set."
+        "(defaults to 1.0)."
     )
 
     historyAccessDf = Param(
@@ -522,18 +476,33 @@ class AccessAnomaly(Estimator):
                  separate_tenants: bool = AccessAnomalyConfig.default_separate_tenants,
                  low_value: Optional[float] = AccessAnomalyConfig.default_low_value,
                  high_value: Optional[float] = AccessAnomalyConfig.default_high_value,
-                 algo_cf_params: CfAlgoParams = AccessAnomalyConfig.default_algo_cf_params,
+                 apply_implicit_cf: bool = AccessAnomalyConfig.default_apply_implicit_cf,
+                 alpha_param: Optional[float] = None,
+                 complementset_factor: Optional[int] = None,
+                 neg_score: Optional[float] = None,
                  history_access_df: Optional[DataFrame] = None):
 
         super().__init__()
+
+        if apply_implicit_cf:
+            alpha_param = alpha_param if alpha_param is not None else AccessAnomalyConfig.default_alpha
+            assert complementset_factor is None and neg_score is None
+        else:
+            assert alpha_param is None
+
+            complementset_factor = \
+                complementset_factor if complementset_factor is not None else AccessAnomalyConfig.default_complementset_factor
+
+            neg_score = neg_score \
+                if neg_score is not None else AccessAnomalyConfig.default_neg_score
 
         # must either both be None or both be not None
         assert (low_value is None) == (high_value is None)
         assert low_value is None or low_value >= 1.0
         assert (low_value is None or high_value is None) or high_value > low_value
         assert \
-            (low_value is None or algo_cf_params.neg_score is None) or \
-            (low_value is not None and algo_cf_params.neg_score < low_value)
+            (low_value is None or neg_score is None) or \
+            (low_value is not None and neg_score < low_value)
 
         spark_utils.ExplainBuilder.build(
             self,
@@ -549,7 +518,10 @@ class AccessAnomaly(Estimator):
             separateTenants=separate_tenants,
             lowValue=low_value,
             highValue=high_value,
-            algoCfParams=algo_cf_params,
+            applyImplicitCf=apply_implicit_cf,
+            alphaParam=alpha_param,
+            complementsetFactor=complementset_factor,
+            negScore=neg_score,
             historyAccessDf=history_access_df
         )
 
@@ -589,9 +561,9 @@ class AccessAnomaly(Estimator):
         indexed_res_col = self.indexed_res_col
         scaled_likelihood_col = self.scaled_likelihood_col
 
-        if not self.algo_cf_params.implicit:
-            complementset_factor = self.algo_cf_params.complementset_factor
-            neg_score = self.algo_cf_params.neg_score
+        if not self.apply_implicit_cf:
+            complementset_factor = self.complementset_factor
+            neg_score = self.neg_score
             assert complementset_factor is not None and neg_score is not None
 
             comp_df = ComplementAccessTransformer(
@@ -656,7 +628,7 @@ class AccessAnomaly(Estimator):
             regParam=self.reg_param,
             numUserBlocks=num_blocks,
             numItemBlocks=num_blocks,
-            implicitPrefs=self.algo_cf_params.implicit,
+            implicitPrefs=self.apply_implicit_cf,
             userCol=self.indexed_user_col,
             itemCol=self.indexed_res_col,
             ratingCol=self.scaled_likelihood_col,
@@ -664,7 +636,7 @@ class AccessAnomaly(Estimator):
             coldStartStrategy='drop'
         )
 
-        alpha = self.algo_cf_params.alpha
+        alpha = self.alpha_param
 
         if alpha is not None:
             als.setAlpha(alpha)

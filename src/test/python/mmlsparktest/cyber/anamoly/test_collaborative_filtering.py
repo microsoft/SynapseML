@@ -5,10 +5,11 @@ import unittest
 from typing import Dict, Optional, Set, Type, Union
 from pyspark.sql import DataFrame, types as t, functions as f
 from mmlspark.cyber.feature import indexers
+from mmlspark.cyber.dataset import DataFactory
 from mmlspark.cyber.anomaly.collaborative_filtering import \
-    AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, ConnectedComponents, \
-    UserResourceFeatureVectorMapping, ModelNormalizeTransformer, CfAlgoParams
-from mmlsparktest.cyber.dataset import DataFactory
+    AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, ConnectedComponents, ModelNormalizeTransformer, \
+    _UserResourceFeatureVectorMapping as UserResourceFeatureVectorMapping
+
 from mmlsparktest.cyber.explain_tester import ExplainTester
 from mmlsparktest.spark import *
 
@@ -91,7 +92,7 @@ single_component_data = True
 
 
 def create_data_factory():
-    return DataFactory(single_component_data)
+    return DataFactory(single_component=single_component_data)
 
 
 class Dataset:
@@ -380,7 +381,10 @@ class TestAccessAnomalyExplain(ExplainTester):
             'separateTenants',
             'lowValue',
             'highValue',
-            'algoCfParams',
+            'applyImplicitCf',
+            'alphaParam',
+            'complementsetFactor',
+            'negScore',
             'historyAccessDf'
         ]
 
@@ -399,7 +403,7 @@ class TestAccessAnomaly(unittest.TestCase):
         access_anomaly = AccessAnomaly(
             tenant_col=AccessAnomalyConfig.default_tenant_col,
             max_iter=10,
-            algo_cf_params=CfAlgoParams(False)
+            apply_implicit_cf=False
         )
 
         tenant_col = access_anomaly.tenant_col
@@ -645,7 +649,7 @@ class TestConnectedComponents:
         user_col = 'user'
         res_col = 'res'
 
-        df = sc.createDataFrame(DataFactory(False).create_clustered_training_data()).withColumn(
+        df = sc.createDataFrame(DataFactory(single_component=False).create_clustered_training_data()).withColumn(
             tenant_col,
             f.lit(0)
         )
