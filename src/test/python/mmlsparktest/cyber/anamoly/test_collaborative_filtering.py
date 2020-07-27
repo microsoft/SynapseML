@@ -161,7 +161,7 @@ class Dataset:
         if self.default_access_anomaly_model is not None:
             return self.default_access_anomaly_model
 
-        access_anomaly = AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col, max_iter=10)
+        access_anomaly = AccessAnomaly(tenantCol=AccessAnomalyConfig.default_tenant_col, maxIter=10)
         self.default_access_anomaly_model = access_anomaly.fit(self.training)
         self.default_access_anomaly_model.preserve_history = False
         return self.default_access_anomaly_model
@@ -393,7 +393,7 @@ class TestAccessAnomalyExplain(ExplainTester):
         def counts(c: int, tt: Type):
             return tt not in types or c > 0
 
-        self.check_explain(AccessAnomaly(tenant_col=AccessAnomalyConfig.default_tenant_col), params, counts)
+        self.check_explain(AccessAnomaly(tenantCol=AccessAnomalyConfig.default_tenant_col), params, counts)
 
 
 class TestAccessAnomaly(unittest.TestCase):
@@ -401,9 +401,9 @@ class TestAccessAnomaly(unittest.TestCase):
         training = Dataset.create_new_training(1.0).cache()
 
         access_anomaly = AccessAnomaly(
-            tenant_col=AccessAnomalyConfig.default_tenant_col,
-            max_iter=10,
-            apply_implicit_cf=False
+            tenantCol=AccessAnomalyConfig.default_tenant_col,
+            maxIter=10,
+            applyImplicitCf=False
         )
 
         tenant_col = access_anomaly.tenant_col

@@ -334,6 +334,7 @@ class ConnectedComponents:
         )
 
 
+# noinspection PyPep8Naming
 class AccessAnomaly(Estimator):
     """
     This is the AccessAnomaly, a pyspark.ml.Estimator which
@@ -464,65 +465,65 @@ class AccessAnomaly(Estimator):
     )
 
     def __init__(self,
-                 tenant_col: str = AccessAnomalyConfig.default_tenant_col,
-                 user_col: str = AccessAnomalyConfig.default_user_col,
-                 res_col: str = AccessAnomalyConfig.default_res_col,
-                 likelihood_col: str = AccessAnomalyConfig.default_likelihood_col,
-                 output_col: str = AccessAnomalyConfig.default_output_col,
-                 rank_param: int = AccessAnomalyConfig.default_rank,
-                 max_iter: int = AccessAnomalyConfig.default_max_iter,
-                 reg_param: float = AccessAnomalyConfig.default_reg_param,
-                 num_blocks: Optional[int] = AccessAnomalyConfig.default_num_blocks,
-                 separate_tenants: bool = AccessAnomalyConfig.default_separate_tenants,
-                 low_value: Optional[float] = AccessAnomalyConfig.default_low_value,
-                 high_value: Optional[float] = AccessAnomalyConfig.default_high_value,
-                 apply_implicit_cf: bool = AccessAnomalyConfig.default_apply_implicit_cf,
-                 alpha_param: Optional[float] = None,
-                 complementset_factor: Optional[int] = None,
-                 neg_score: Optional[float] = None,
-                 history_access_df: Optional[DataFrame] = None):
+                 tenantCol: str = AccessAnomalyConfig.default_tenant_col,
+                 userCol: str = AccessAnomalyConfig.default_user_col,
+                 resCol: str = AccessAnomalyConfig.default_res_col,
+                 likelihoodCol: str = AccessAnomalyConfig.default_likelihood_col,
+                 outputCol: str = AccessAnomalyConfig.default_output_col,
+                 rankParam: int = AccessAnomalyConfig.default_rank,
+                 maxIter: int = AccessAnomalyConfig.default_max_iter,
+                 regParam: float = AccessAnomalyConfig.default_reg_param,
+                 numBlocks: Optional[int] = AccessAnomalyConfig.default_num_blocks,
+                 separateTenants: bool = AccessAnomalyConfig.default_separate_tenants,
+                 lowValue: Optional[float] = AccessAnomalyConfig.default_low_value,
+                 highValue: Optional[float] = AccessAnomalyConfig.default_high_value,
+                 applyImplicitCf: bool = AccessAnomalyConfig.default_apply_implicit_cf,
+                 alphaParam: Optional[float] = None,
+                 complementsetFactor: Optional[int] = None,
+                 negScore: Optional[float] = None,
+                 historyAccessDf: Optional[DataFrame] = None):
 
         super().__init__()
 
-        if apply_implicit_cf:
-            alpha_param = alpha_param if alpha_param is not None else AccessAnomalyConfig.default_alpha
-            assert complementset_factor is None and neg_score is None
+        if applyImplicitCf:
+            alphaParam = alphaParam if alphaParam is not None else AccessAnomalyConfig.default_alpha
+            assert complementsetFactor is None and negScore is None
         else:
-            assert alpha_param is None
+            assert alphaParam is None
 
-            complementset_factor = \
-                complementset_factor if complementset_factor is not None else AccessAnomalyConfig.default_complementset_factor
+            complementsetFactor = \
+                complementsetFactor if complementsetFactor is not None else AccessAnomalyConfig.default_complementset_factor
 
-            neg_score = neg_score \
-                if neg_score is not None else AccessAnomalyConfig.default_neg_score
+            negScore = negScore \
+                if negScore is not None else AccessAnomalyConfig.default_neg_score
 
         # must either both be None or both be not None
-        assert (low_value is None) == (high_value is None)
-        assert low_value is None or low_value >= 1.0
-        assert (low_value is None or high_value is None) or high_value > low_value
+        assert (lowValue is None) == (highValue is None)
+        assert lowValue is None or lowValue >= 1.0
+        assert (lowValue is None or highValue is None) or highValue > lowValue
         assert \
-            (low_value is None or neg_score is None) or \
-            (low_value is not None and neg_score < low_value)
+            (lowValue is None or negScore is None) or \
+            (lowValue is not None and negScore < lowValue)
 
         spark_utils.ExplainBuilder.build(
             self,
-            tenantCol=tenant_col,
-            userCol=user_col,
-            resCol=res_col,
-            likelihoodCol=likelihood_col,
-            outputCol=output_col,
-            rankParam=rank_param,
-            maxIter=max_iter,
-            regParam=reg_param,
-            numBlocks=num_blocks,
-            separateTenants=separate_tenants,
-            lowValue=low_value,
-            highValue=high_value,
-            applyImplicitCf=apply_implicit_cf,
-            alphaParam=alpha_param,
-            complementsetFactor=complementset_factor,
-            negScore=neg_score,
-            historyAccessDf=history_access_df
+            tenantCol=tenantCol,
+            userCol=userCol,
+            resCol=resCol,
+            likelihoodCol=likelihoodCol,
+            outputCol=outputCol,
+            rankParam=rankParam,
+            maxIter=maxIter,
+            regParam=regParam,
+            numBlocks=numBlocks,
+            separateTenants=separateTenants,
+            lowValue=lowValue,
+            highValue=highValue,
+            applyImplicitCf=applyImplicitCf,
+            alphaParam=alphaParam,
+            complementsetFactor=complementsetFactor,
+            negScore=negScore,
+            historyAccessDf=historyAccessDf
         )
 
     # --- getters and setters
