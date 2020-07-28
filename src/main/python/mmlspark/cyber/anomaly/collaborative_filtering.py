@@ -155,6 +155,7 @@ class _UserResourceFeatureVectorMapping:
         ).distinct().count() == self.res_feature_vector_mapping_df.count()
 
 
+# noinspection PyPep8Naming
 class AccessAnomalyModel(Transformer):
     outputCol = Param(
         Params._dummy(),
@@ -166,9 +167,9 @@ class AccessAnomalyModel(Transformer):
     """
     A pyspark.ml.Transformer model that can predict anomaly scores for user, resource access pairs
     """
-    def __init__(self, user_res_feature_vector_mapping: _UserResourceFeatureVectorMapping, output_col: str):
+    def __init__(self, userResourceFeatureVectorMapping: _UserResourceFeatureVectorMapping, outputCol: str):
         super().__init__()
-        self.user_res_feature_vector_mapping = user_res_feature_vector_mapping
+        self.user_res_feature_vector_mapping = userResourceFeatureVectorMapping
 
         has_user2component_mappings = self.user_res_feature_vector_mapping.user2component_mappings_df is not None
         has_res2component_mappings = self.user_res_feature_vector_mapping.res2component_mappings_df is not None
@@ -200,7 +201,7 @@ class AccessAnomalyModel(Transformer):
             self._user_mapping_df = self.user_res_feature_vector_mapping.user_feature_vector_mapping_df
             self._res_mapping_df = self.user_res_feature_vector_mapping.res_feature_vector_mapping_df
 
-        spark_utils.ExplainBuilder.build(self, outputCol=output_col)
+        spark_utils.ExplainBuilder.build(self, outputCol=outputCol)
 
     @property
     def tenant_col(self):
@@ -278,12 +279,13 @@ class AccessAnomalyModel(Transformer):
         )
 
 
+# noinspection PyPep8Naming
 class ConnectedComponents:
-    def __init__(self, tenant_col: str, user_col: str, res_col: str, component_col_name: str = 'component'):
-        self.tenant_col = tenant_col
-        self.user_col = user_col
+    def __init__(self, tenantCol: str, userCol: str, res_col: str, componentColName: str = 'component'):
+        self.tenant_col = tenantCol
+        self.user_col = userCol
         self.res_col = res_col
-        self.component_col_name = component_col_name
+        self.component_col_name = componentColName
 
     def transform(self, df: DataFrame) -> Tuple[DataFrame, DataFrame]:
         edges = df.select(self.tenant_col, self.user_col, self.res_col).distinct().orderBy(
