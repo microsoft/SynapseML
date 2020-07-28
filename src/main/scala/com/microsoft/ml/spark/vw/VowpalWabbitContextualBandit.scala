@@ -5,8 +5,10 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
+import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.tuning.{CrossValidator, TrainValidationSplit}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
 import org.apache.spark.sql._
@@ -75,6 +77,35 @@ class ContextualBanditMetrics extends Serializable {
   }
 }
 
+case class ResultThing(value: Float)
+
+class Thing(override val uid: String) extends HasParallelismInjected
+{
+  def this() = this(Identifiable.randomUID("Thing"))
+
+  override def copy(extra: ParamMap): Thing = defaultCopy(extra)
+
+  def setParallelismInternal(value: Int): this.type = set(parallelism, value)
+
+  def doThing(dataset: DataFrame): Seq[Unit] = {
+    val r = scala.util.Random
+    val executionContext = getExecutionContextProxy
+
+    val encoder = Encoders.kryo[ResultThing]
+
+    val modelFutures = (0 to 10).map { num =>
+      Future[Unit] {
+        Thread.sleep(r.nextInt(2000))
+        val t = dataset.mapPartitions(rowIt => Seq(ResultThing(3)).toIterator)(encoder).collect()
+        println(dataset.count() + "+"+num + t)
+
+      }(executionContext)
+    }.toArray
+
+    awaitFutures(modelFutures)
+  }
+}
+
 @InternalWrapper
 trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
@@ -113,8 +144,6 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def getEpsilon: Double = $(epsilon)
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
-  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
-
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
@@ -122,6 +151,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
     args.appendParamIfNotThere("cb_explore_adf")
     args.appendParamIfNotThere("epsilon", "epsilon", epsilon)
   }
+
+  def setParallelism(value: Int): this.type = set(parallelism, value)
 
   override def transformSchema(schema: StructType): StructType = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
@@ -237,17 +268,22 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
   override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
     transformSchema(dataset.schema, logging = true)
-
+    log.error(s"Parallelism: $getParallelism")
     // Create execution context based on $(parallelism)
     val executionContext = getExecutionContextProxy
-
     val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
       Future[VowpalWabbitContextualBanditModel] {
-        fit(dataset, paramMap)
+        log.error(s"Future $paramIndex started")
+        val result = fit(dataset, paramMap)
+        log.error(s"Future $paramIndex ended")
+        result
       }(executionContext)
     }
 
-    awaitFutures(modelFutures).map(model => model.setParent(this))
+    log.error("Before await")
+    val r = awaitFutures(modelFutures).map(model => model.setParent(this))
+    log.error("After await")
+    r
   }
 
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)
