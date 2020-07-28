@@ -85,8 +85,8 @@ class Thing(override val uid: String) extends HasParallelismInjected
 
   override def copy(extra: ParamMap): Thing = defaultCopy(extra)
 
-  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
-  
+  def setParallelism(value: Int): this.type = set(parallelism, value)
+
   def doThing(dataset: DataFrame): Seq[Unit] = {
     val r = scala.util.Random
     val executionContext = getExecutionContextProxy
@@ -144,6 +144,9 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def getEpsilon: Double = $(epsilon)
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
+  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
+
+
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
 
@@ -151,8 +154,6 @@ class VowpalWabbitContextualBandit(override val uid: String)
     args.appendParamIfNotThere("cb_explore_adf")
     args.appendParamIfNotThere("epsilon", "epsilon", epsilon)
   }
-
-  def setParallelism(value: Int): this.type = set(parallelism, value)
 
   override def transformSchema(schema: StructType): StructType = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
