@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.cognitive.split2
 
 import java.net.{URI, URL}
 
-import com.microsoft.ml.spark.Secrets
+import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
 import com.microsoft.ml.spark.cognitive.{SpeechResponse, SpeechToText}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
@@ -13,12 +13,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-trait SpeechKey {
-  lazy val speechKey = sys.env.getOrElse("SPEECH_API_KEY", Secrets.SpeechApiKey)
-}
-
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
-  with SpeechKey {
+  with CognitiveKey {
 
   import session.implicits._
 
@@ -30,7 +26,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   val format = "simple"
 
   lazy val stt = new SpeechToText()
-    .setSubscriptionKey(speechKey)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")

@@ -60,8 +60,12 @@ cleanCondaEnvTask := {
     new File(".")) ! s.log
 }
 
+def isWindows: Boolean = {
+  sys.props("os.name").toLowerCase.contains("windows")
+}
+
 def osPrefix: Seq[String] = {
-  if (sys.props("os.name").toLowerCase.contains("windows")) {
+  if (isWindows) {
     Seq("cmd", "/C")
   } else {
     Seq()
@@ -96,6 +100,15 @@ generatePythonDoc := {
   Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
     join(pythonSrcDir.toString, "mmlspark")) ! s.log
 
+}
+
+val pythonizedVersion = settingKey[String]("Pythonized version")
+pythonizedVersion := {
+  if (version.value.contains("-")){
+    version.value.split("-".head).head + ".dev1"
+  }else{
+    version.value
+  }
 }
 
 def uploadToBlob(source: String, dest: String,
@@ -161,14 +174,6 @@ publishR := {
   singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
 
-def pythonizeVersion(v: String): String = {
-  if (v.contains("-")){
-    v.split("-".head).head + ".dev1"
-  }else{
-    v
-  }
-}
-
 packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
@@ -180,8 +185,7 @@ packagePythonTask := {
   Process(
     activateCondaEnv ++
       Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
-    pythonSrcDir,
-    "MML_PY_VERSION" -> pythonizeVersion(version.value)) ! s.log
+    pythonSrcDir) ! s.log
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -191,8 +195,8 @@ installPipPackageTask := {
   publishLocal.value
   packagePythonTask.value
   Process(
-    activateCondaEnv ++ Seq("pip", "install",
-      s"mmlspark-${pythonizeVersion(version.value)}-py2.py3-none-any.whl"),
+    activateCondaEnv ++ Seq("pip", "install", "-I",
+      s"mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl"),
     pythonPackageDir) ! s.log
 }
 
@@ -211,7 +215,6 @@ testPythonTask := {
       "mmlsparktest"
     ),
     new File("target/scala-2.11/generated/test/python/"),
-    "MML_VERSION" -> version.value
   ) ! s.log
 }
 
@@ -319,7 +322,7 @@ val settings = Seq(
   logBuffered in Test := false,
   buildInfoKeys := Seq[BuildInfoKey](
     name, version, scalaVersion, sbtVersion,
-    baseDirectory, datasetDir),
+    baseDirectory, datasetDir, pythonizedVersion),
   parallelExecution in Test := false,
   test in assembly := {},
   assemblyMergeStrategy in assembly := {

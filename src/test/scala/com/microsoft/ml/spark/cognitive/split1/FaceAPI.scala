@@ -15,12 +15,11 @@ import org.apache.http.entity.StringEntity
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-object FaceUtils {
+object FaceUtils extends CognitiveKey {
 
   import RESTHelpers._
 
-  val BaseURL = "https://eastus2.api.cognitive.microsoft.com/face/v1.0/"
-  lazy val FaceKey = sys.env.getOrElse("FACE_API_KEY", Secrets.FaceApiKey)
+  val BaseURL = "https://eastus.api.cognitive.microsoft.com/face/v1.0/"
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -33,7 +32,7 @@ object FaceUtils {
     request.setURI(new URI(BaseURL + path + paramString))
 
     retry(List(100, 500, 1000), { () =>
-      request.addHeader("Ocp-Apim-Subscription-Key", FaceKey)
+      request.addHeader("Ocp-Apim-Subscription-Key", cognitiveKey)
       request.addHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
