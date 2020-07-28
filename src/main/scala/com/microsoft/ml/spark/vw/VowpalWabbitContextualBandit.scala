@@ -85,8 +85,8 @@ class Thing(override val uid: String) extends HasParallelismInjected
 
   override def copy(extra: ParamMap): Thing = defaultCopy(extra)
 
-  def setParallelismInternal(value: Int): this.type = set(parallelism, value)
-
+  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
+  
   def doThing(dataset: DataFrame): Seq[Unit] = {
     val r = scala.util.Random
     val executionContext = getExecutionContextProxy
