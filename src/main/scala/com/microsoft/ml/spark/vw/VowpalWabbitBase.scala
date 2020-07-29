@@ -380,12 +380,10 @@ trait VowpalWabbitBase extends Wrappable
     // important to trigger collect() here so that the spanning tree is still up
     if (getUseBarrierExecutionMode)
     {
-      log.error("getUseBarrierExecutionMode = true")
       df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect()
     }
     else
     {
-      log.error("getUseBarrierExecutionMode = false")
       df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect()
     }
   }
@@ -474,10 +472,10 @@ trait VowpalWabbitBase extends Wrappable
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
-    log.error(s"numTasksPerExec: $numTasksPerExec")
-    log.error(s"numExecutorTasks: $numExecutorTasks")
-    log.error(s"numTasks: $numTasks")
-    log.error(s"getNumPartitions: ${dataset.rdd.getNumPartitions}")
+    log.info(s"numTasksPerExec: $numTasksPerExec")
+    log.info(s"numExecutorTasks: $numExecutorTasks")
+    log.info(s"numTasks: $numTasks")
+    log.info(s"getNumPartitions: ${dataset.rdd.getNumPartitions}")
 
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
@@ -512,7 +510,7 @@ trait VowpalWabbitBase extends Wrappable
     // Allows subclasses to add further specific args
     addExtraArgs(vwArgs)
 
-    log.error(s"Num tasks: $numTasks")
+    log.info(s"Num tasks: $numTasks")
     // call training
     val trainingResults = (if (numTasks == 1)
       trainInternal(df, vwArgs.result)

@@ -8,10 +8,13 @@ from mmlsparktest.spark import *
 
 from mmlspark.vw import VowpalWabbitContextualBandit
 from mmlspark.vw import VowpalWabbitFeaturizer
-from mmlspark.vw import ColumnVectorSequencer
+from mmlspark.vw import VectorZipper
 
+from pyspark.ml.tuning import ParamGridBuilder
 from pyspark.sql.types import *
 from pyspark.ml import Pipeline
+from pyspark.ml.wrapper import *
+from pyspark.ml.common import inherit_doc, _java2py, _py2java
 
 class VowpalWabbitSpec(unittest.TestCase):
 
@@ -25,7 +28,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             StructField("label", DoubleType()),
             StructField("probability", DoubleType())])
 
-            data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
             ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4.0, 0.8),
@@ -36,7 +39,7 @@ class VowpalWabbitSpec(unittest.TestCase):
         shared_featurizer = VowpalWabbitFeaturizer(inputCols=['shared_text'], outputCol='shared')
         action_one_featurizer = VowpalWabbitFeaturizer(inputCols=['action1'], outputCol='action1_features')
         action_two_featurizer = VowpalWabbitFeaturizer(inputCols=['action2_feat1','action2_feat2'], outputCol='action2_features')
-        action_merger = ColumnVectorSequencer(inputCols=['action1_features','action2_features'], outputCol='features')
+        action_merger = VectorZipper(inputCols=['action1_features','action2_features'], outputCol='features')
         pipeline = Pipeline(stages=[shared_featurizer, action_one_featurizer, action_two_featurizer, action_merger])
         tranformation_pipeline = pipeline.fit(data)
 
@@ -83,6 +86,21 @@ class VowpalWabbitSpec(unittest.TestCase):
         stats = model1.getPerformanceStatistics()
         assert float(stats.first()["ipsEstimate"]) > 0
         assert float(stats.first()["snipsEstimate"]) > 0
+
+    def test_parallel_fit(self):
+        featurized_data = self.get_data()
+        estimator1 = VowpalWabbitContextualBandit() \
+            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
+            .setParallelism(6) \
+            .setUseBarrierExecutionMode(False)
+
+        paramGrid = ParamGridBuilder() \
+            .addGrid(estimator1.learningRate, [0.5, 0.1, 0.005, 0.14]) \
+            .addGrid(estimator1.l2, [10.0, 20.0]) \
+            .build()
+
+        models = estimator1.parallelFit(featurized_data, paramGrid)
+        models[0].getPerformanceStatistics().show()
 
 if __name__ == "__main__":
     result = unittest.main()

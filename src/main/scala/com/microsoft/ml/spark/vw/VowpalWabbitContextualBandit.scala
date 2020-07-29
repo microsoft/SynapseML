@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.vw
 
+import java.util
+
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.classification.LogisticRegression
@@ -267,24 +269,29 @@ class VowpalWabbitContextualBandit(override val uid: String)
     trainInternal(dataset, model)
   }
 
-  override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+    override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
     transformSchema(dataset.schema, logging = true)
-    log.error(s"Parallelism: $getParallelism")
+      log.info(s"Parallelism: $getParallelism")
+
     // Create execution context based on $(parallelism)
     val executionContext = getExecutionContextProxy
     val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
       Future[VowpalWabbitContextualBanditModel] {
-        log.error(s"Future $paramIndex started")
+        log.info(s"Future $paramIndex started with params: $paramMap")
         val result = fit(dataset, paramMap)
-        log.error(s"Future $paramIndex ended")
+        log.info(s"Future $paramIndex ended")
         result
       }(executionContext)
     }
 
-    log.error("Before await")
-    val r = awaitFutures(modelFutures).map(model => model.setParent(this))
-    log.error("After await")
-    r
+    awaitFutures(modelFutures).map(model => model.setParent(this))
+  }
+
+  def parallelFit(dataset: Dataset[_], paramMaps: util.ArrayList[ParamMap]): util.List[VowpalWabbitContextualBanditModel] = {
+    import scala.collection.JavaConverters._
+
+    val convertedArray: Array[ParamMap] = new Array[ParamMap](paramMaps.size())
+    fit(dataset, paramMaps.toArray(convertedArray)).asJava
   }
 
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)

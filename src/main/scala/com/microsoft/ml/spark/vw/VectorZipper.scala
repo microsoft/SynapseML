@@ -19,7 +19,7 @@ object VectorZipper extends ComplexParamsReadable[VectorZipper]
 class VectorZipper(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable {
 
-  def this() = this(Identifiable.randomUID("ColumnVectorSequencer"))
+  def this() = this(Identifiable.randomUID("VectorZipper"))
 
   override def copy(extra: ParamMap): VectorZipper = defaultCopy(extra)
 
