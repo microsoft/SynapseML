@@ -4,7 +4,7 @@
 import unittest
 from typing import Type
 from pyspark.sql import functions as f, types as t
-from mmlspark.cyber.feature import scalers
+from mmlspark.cyber.feature import LinearScalarScaler, StandardScalarScaler
 from mmlsparktest.cyber.explain_tester import ExplainTester
 from mmlsparktest.spark import *
 
@@ -31,7 +31,7 @@ class TestScalers(unittest.TestCase):
         )
 
     def test_unpartitioned_min_max_scaler(self):
-        ls = scalers.LinearScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
+        ls = LinearScalarScaler('score', None, 'new_score', 5, 9, use_pandas=False)
 
         df = self.create_sample_dataframe().cache()
         model = ls.fit(df)
@@ -44,7 +44,7 @@ class TestScalers(unittest.TestCase):
         ).count()
 
     def test_partitioned_min_max_scaler(self):
-        ls = scalers.LinearScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
+        ls = LinearScalarScaler('score', 'tenant', 'new_score', 1, 2, use_pandas=False)
 
         df = self.create_sample_dataframe()
         model = ls.fit(df)
@@ -68,7 +68,7 @@ class TestScalers(unittest.TestCase):
         assert t3_arr[0]['new_score'] == 1.5
 
     def test_unpartitioned_standard_scaler(self):
-        ls = scalers.StandardScalarScaler('score', None, 'new_score', 1.0, use_pandas=False)
+        ls = StandardScalarScaler('score', None, 'new_score', 1.0, use_pandas=False)
 
         df = self.create_sample_dataframe()
         model = ls.fit(df)
@@ -82,7 +82,7 @@ class TestScalers(unittest.TestCase):
         assert abs(new_scores.to_numpy().std() - 1.0) < 0.0001
 
     def test_partitioned_standard_scaler(self):
-        ls = scalers.StandardScalarScaler('score', 'tenant', 'new_score', 1.0, use_pandas=False)
+        ls = StandardScalarScaler('score', 'tenant', 'new_score', 1.0, use_pandas=False)
 
         df = self.create_sample_dataframe()
         model = ls.fit(df)
@@ -120,7 +120,7 @@ class TestStandardScalarScalerExplain(ExplainTester):
             return tt not in types or c > 0
 
         params = ['inputCol', 'partitionKey', 'outputCol', 'coefficientFactor']
-        self.check_explain(scalers.StandardScalarScaler('input', 'tenant', 'output'), params, counts)
+        self.check_explain(StandardScalarScaler('input', 'tenant', 'output'), params, counts)
 
 
 class TestLinearScalarScalerExplain(ExplainTester):
@@ -131,7 +131,7 @@ class TestLinearScalarScalerExplain(ExplainTester):
             return tt not in types or c > 0
 
         params = ['inputCol', 'partitionKey', 'outputCol', 'minRequiredValue', 'maxRequiredValue']
-        self.check_explain(scalers.LinearScalarScaler('input', 'tenant', 'output'), params, counts)
+        self.check_explain(LinearScalarScaler('input', 'tenant', 'output'), params, counts)
 
 
 if __name__ == "__main__":
