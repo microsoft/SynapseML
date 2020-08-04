@@ -8,7 +8,7 @@ from typing import Dict, Optional, Set, Type, Union
 from pandas.testing import assert_frame_equal
 from pyspark.sql import DataFrame, types as t, functions as f
 from mmlspark.cyber.feature import indexers
-from mmlspark.cyber.dataset import DataFactory
+from mmlspark.cyber import DataFactory
 from mmlspark.cyber.anomaly.collaborative_filtering import \
     AccessAnomaly, AccessAnomalyModel, AccessAnomalyConfig, ConnectedComponents, ModelNormalizeTransformer, \
     _UserResourceFeatureVectorMapping as UserResourceFeatureVectorMapping
