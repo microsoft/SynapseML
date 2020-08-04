@@ -222,7 +222,7 @@ class AccessAnomalyModel(Transformer):
             t.StructField('has_res_feature_vector_mapping_df', t.BooleanType(), False)
         ])
 
-    def save(self, the_path: str, path_suffix: str = '', the_format: str = 'parquet'):
+    def save(self, path: str, path_suffix: str = '', output_format: str = 'parquet'):
         dfs = [
             self.user_res_feature_vector_mapping.history_access_df,
             self.user_res_feature_vector_mapping.user2component_mappings_df,
@@ -252,36 +252,36 @@ class AccessAnomalyModel(Transformer):
             )
         ], AccessAnomalyModel._metadata_schema())
 
-        metadata_df.write.format(the_format).save(os.path.join(the_path, 'metadata_df', path_suffix))
+        metadata_df.write.format(output_format).save(os.path.join(path, 'metadata_df', path_suffix))
 
         if self.user_res_feature_vector_mapping.history_access_df is not None:
-            self.user_res_feature_vector_mapping.history_access_df.write.format(the_format).save(
-                os.path.join(the_path, 'history_access_df', path_suffix)
+            self.user_res_feature_vector_mapping.history_access_df.write.format(output_format).save(
+                os.path.join(path, 'history_access_df', path_suffix)
             )
 
         if self.user_res_feature_vector_mapping.user2component_mappings_df is not None:
-            self.user_res_feature_vector_mapping.user2component_mappings_df.write.format(the_format).save(
-                os.path.join(the_path, 'user2component_mappings_df', path_suffix)
+            self.user_res_feature_vector_mapping.user2component_mappings_df.write.format(output_format).save(
+                os.path.join(path, 'user2component_mappings_df', path_suffix)
             )
 
         if self.user_res_feature_vector_mapping.res2component_mappings_df is not None:
-            self.user_res_feature_vector_mapping.res2component_mappings_df.write.format(the_format).save(
-                os.path.join(the_path, 'res2component_mappings_df', path_suffix)
+            self.user_res_feature_vector_mapping.res2component_mappings_df.write.format(output_format).save(
+                os.path.join(path, 'res2component_mappings_df', path_suffix)
             )
 
         if self.user_res_feature_vector_mapping.user_feature_vector_mapping_df is not None:
-            self.user_res_feature_vector_mapping.user_feature_vector_mapping_df.write.format(the_format).save(
-                os.path.join(the_path, 'user_feature_vector_mapping_df', path_suffix)
+            self.user_res_feature_vector_mapping.user_feature_vector_mapping_df.write.format(output_format).save(
+                os.path.join(path, 'user_feature_vector_mapping_df', path_suffix)
             )
 
         if self.user_res_feature_vector_mapping.res_feature_vector_mapping_df is not None:
-            self.user_res_feature_vector_mapping.res_feature_vector_mapping_df.write.format(the_format).save(
-                os.path.join(the_path, 'res_feature_vector_mapping_df', path_suffix)
+            self.user_res_feature_vector_mapping.res_feature_vector_mapping_df.write.format(output_format).save(
+                os.path.join(path, 'res_feature_vector_mapping_df', path_suffix)
             )
 
     @staticmethod
-    def load(spark: SQLContext, the_full_path: str, the_format: str = 'parquet') -> 'AccessAnomalyModel':
-        metadata_df = spark.read.format(the_format).load(os.path.join(the_full_path, 'metadata_df'))
+    def load(spark: SQLContext, path: str, output_format: str = 'parquet') -> 'AccessAnomalyModel':
+        metadata_df = spark.read.format(output_format).load(os.path.join(path, 'metadata_df'))
         assert metadata_df.count() == 1
 
         metadata_row = metadata_df.collect()[0]
@@ -299,24 +299,24 @@ class AccessAnomalyModel(Transformer):
         has_user_feature_vector_mapping_df = metadata_row['has_user_feature_vector_mapping_df']
         has_res_feature_vector_mapping_df = metadata_row['has_res_feature_vector_mapping_df']
 
-        history_access_df = spark.read.format(the_format).load(
-            os.path.join(the_full_path, 'history_access_df')
+        history_access_df = spark.read.format(output_format).load(
+            os.path.join(path, 'history_access_df')
         ) if has_history_access_df else None
 
-        user2component_mappings_df = spark.read.format(the_format).load(
-            os.path.join(the_full_path, 'user2component_mappings_df')
+        user2component_mappings_df = spark.read.format(output_format).load(
+            os.path.join(path, 'user2component_mappings_df')
         ) if has_user2component_mappings_df else None
 
-        res2component_mappings_df = spark.read.format(the_format).load(
-            os.path.join(the_full_path, 'res2component_mappings_df')
+        res2component_mappings_df = spark.read.format(output_format).load(
+            os.path.join(path, 'res2component_mappings_df')
         ) if has_res2component_mappings_df else None
 
-        user_feature_vector_mapping_df = spark.read.format(the_format).load(
-            os.path.join(the_full_path, 'user_feature_vector_mapping_df')
+        user_feature_vector_mapping_df = spark.read.format(output_format).load(
+            os.path.join(path, 'user_feature_vector_mapping_df')
         ) if has_user_feature_vector_mapping_df else None
 
-        res_feature_vector_mapping_df = spark.read.format(the_format).load(
-            os.path.join(the_full_path, 'res_feature_vector_mapping_df')
+        res_feature_vector_mapping_df = spark.read.format(output_format).load(
+            os.path.join(path, 'res_feature_vector_mapping_df')
         ) if has_res_feature_vector_mapping_df else None
 
         return AccessAnomalyModel(
