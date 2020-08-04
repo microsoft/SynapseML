@@ -1,5 +1,6 @@
 __author__ = 'rolevin'
 
+import os
 from typing import List, Optional, Tuple
 
 from mmlspark.cyber.anomaly.complement_access import ComplementAccessTransformer
@@ -8,6 +9,7 @@ from mmlspark.cyber.utils import spark_utils
 
 import numpy as np
 
+from pyspark import SQLContext  # noqa
 from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.recommendation import ALS
@@ -202,6 +204,136 @@ class AccessAnomalyModel(Transformer):
             self._res_mapping_df = self.user_res_feature_vector_mapping.res_feature_vector_mapping_df
 
         spark_utils.ExplainBuilder.build(self, outputCol=outputCol)
+
+    @staticmethod
+    def _metadata_schema() -> t.StructType:
+        return t.StructType([
+            t.StructField('tenant_col', t.StringType(), False),
+            t.StructField('user_col', t.StringType(), False),
+            t.StructField('user_vec_col', t.StringType(), False),
+            t.StructField('res_col', t.StringType(), False),
+            t.StructField('res_vec_col', t.StringType(), False),
+            t.StructField('output_col', t.StringType(), False),
+
+            t.StructField('has_history_access_df', t.BooleanType(), False),
+            t.StructField('has_user2component_mappings_df', t.BooleanType(), False),
+            t.StructField('has_res2component_mappings_df', t.BooleanType(), False),
+            t.StructField('has_user_feature_vector_mapping_df', t.BooleanType(), False),
+            t.StructField('has_res_feature_vector_mapping_df', t.BooleanType(), False)
+        ])
+
+    def save(self, path: str, path_suffix: str = '', output_format: str = 'parquet'):
+        dfs = [
+            self.user_res_feature_vector_mapping.history_access_df,
+            self.user_res_feature_vector_mapping.user2component_mappings_df,
+            self.user_res_feature_vector_mapping.res2component_mappings_df,
+            self.user_res_feature_vector_mapping.user_feature_vector_mapping_df,
+            self.user_res_feature_vector_mapping.res_feature_vector_mapping_df
+        ]
+
+        adf = next(iter([df for df in dfs if df is not None]))
+        assert adf is not None
+
+        spark = spark_utils.DataFrameUtils.get_spark_session(adf)
+
+        metadata_df = spark.createDataFrame([
+            (
+                self.tenant_col,
+                self.user_col,
+                self.user_vec_col,
+                self.res_col,
+                self.res_vec_col,
+                self.output_col,
+                self.user_res_feature_vector_mapping.history_access_df is not None,
+                self.user_res_feature_vector_mapping.user2component_mappings_df is not None,
+                self.user_res_feature_vector_mapping.res2component_mappings_df is not None,
+                self.user_res_feature_vector_mapping.user_feature_vector_mapping_df is not None,
+                self.user_res_feature_vector_mapping.res_feature_vector_mapping_df is not None
+            )
+        ], AccessAnomalyModel._metadata_schema())
+
+        metadata_df.write.format(output_format).save(os.path.join(path, 'metadata_df', path_suffix))
+
+        if self.user_res_feature_vector_mapping.history_access_df is not None:
+            self.user_res_feature_vector_mapping.history_access_df.write.format(output_format).save(
+                os.path.join(path, 'history_access_df', path_suffix)
+            )
+
+        if self.user_res_feature_vector_mapping.user2component_mappings_df is not None:
+            self.user_res_feature_vector_mapping.user2component_mappings_df.write.format(output_format).save(
+                os.path.join(path, 'user2component_mappings_df', path_suffix)
+            )
+
+        if self.user_res_feature_vector_mapping.res2component_mappings_df is not None:
+            self.user_res_feature_vector_mapping.res2component_mappings_df.write.format(output_format).save(
+                os.path.join(path, 'res2component_mappings_df', path_suffix)
+            )
+
+        if self.user_res_feature_vector_mapping.user_feature_vector_mapping_df is not None:
+            self.user_res_feature_vector_mapping.user_feature_vector_mapping_df.write.format(output_format).save(
+                os.path.join(path, 'user_feature_vector_mapping_df', path_suffix)
+            )
+
+        if self.user_res_feature_vector_mapping.res_feature_vector_mapping_df is not None:
+            self.user_res_feature_vector_mapping.res_feature_vector_mapping_df.write.format(output_format).save(
+                os.path.join(path, 'res_feature_vector_mapping_df', path_suffix)
+            )
+
+    @staticmethod
+    def load(spark: SQLContext, path: str, output_format: str = 'parquet') -> 'AccessAnomalyModel':
+        metadata_df = spark.read.format(output_format).load(os.path.join(path, 'metadata_df'))
+        assert metadata_df.count() == 1
+
+        metadata_row = metadata_df.collect()[0]
+
+        tenant_col = metadata_row['tenant_col']
+        user_col = metadata_row['user_col']
+        user_vec_col = metadata_row['user_vec_col']
+        res_col = metadata_row['res_col']
+        res_vec_col = metadata_row['res_vec_col']
+        output_col = metadata_row['output_col']
+
+        has_history_access_df = metadata_row['has_history_access_df']
+        has_user2component_mappings_df = metadata_row['has_user2component_mappings_df']
+        has_res2component_mappings_df = metadata_row['has_res2component_mappings_df']
+        has_user_feature_vector_mapping_df = metadata_row['has_user_feature_vector_mapping_df']
+        has_res_feature_vector_mapping_df = metadata_row['has_res_feature_vector_mapping_df']
+
+        history_access_df = spark.read.format(output_format).load(
+            os.path.join(path, 'history_access_df')
+        ) if has_history_access_df else None
+
+        user2component_mappings_df = spark.read.format(output_format).load(
+            os.path.join(path, 'user2component_mappings_df')
+        ) if has_user2component_mappings_df else None
+
+        res2component_mappings_df = spark.read.format(output_format).load(
+            os.path.join(path, 'res2component_mappings_df')
+        ) if has_res2component_mappings_df else None
+
+        user_feature_vector_mapping_df = spark.read.format(output_format).load(
+            os.path.join(path, 'user_feature_vector_mapping_df')
+        ) if has_user_feature_vector_mapping_df else None
+
+        res_feature_vector_mapping_df = spark.read.format(output_format).load(
+            os.path.join(path, 'res_feature_vector_mapping_df')
+        ) if has_res_feature_vector_mapping_df else None
+
+        return AccessAnomalyModel(
+            _UserResourceFeatureVectorMapping(
+                tenant_col,
+                user_col,
+                user_vec_col,
+                res_col,
+                res_vec_col,
+                history_access_df,
+                user2component_mappings_df,
+                res2component_mappings_df,
+                user_feature_vector_mapping_df,
+                res_feature_vector_mapping_df
+            ),
+            output_col
+        )
 
     @property
     def tenant_col(self):
