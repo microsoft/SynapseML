@@ -1,8 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import os
+import tempfile
 import unittest
 from typing import Dict, Optional, Set, Type, Union
+from pandas.testing import assert_frame_equal
 from pyspark.sql import DataFrame, types as t, functions as f
 from mmlspark.cyber.feature import indexers
 from mmlspark.cyber.dataset import DataFactory
@@ -397,6 +400,52 @@ class TestAccessAnomalyExplain(ExplainTester):
 
 
 class TestAccessAnomaly(unittest.TestCase):
+    def test_save_and_load(self):
+        model = data_set.get_default_access_anomaly_model()
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            model.save(tmpdirname)
+            loaded_model = AccessAnomalyModel.load(sc, tmpdirname)
+            assert loaded_model is not None
+
+            tenant_col = model.tenant_col
+            user_col = model.user_col
+            user_vec_col = model.user_vec_col
+            res_col = model.res_col
+            res_vec_col = model.res_vec_col
+
+            assert loaded_model.tenant_col == tenant_col
+            assert loaded_model.user_col == user_col
+            assert loaded_model.user_vec_col == user_vec_col
+            assert loaded_model.res_col == res_col
+            assert loaded_model.res_vec_col == res_vec_col
+
+            intra_test_scored = model.transform(data_set.intra_test).orderBy(
+                tenant_col,
+                user_col,
+                res_col
+            )
+            intra_test_scored_tag = loaded_model.transform(data_set.intra_test).orderBy(
+                tenant_col,
+                user_col,
+                res_col
+            )
+
+            assert_frame_equal(intra_test_scored.toPandas(), intra_test_scored_tag.toPandas())
+
+            inter_test_scored = model.transform(data_set.inter_test).orderBy(
+                tenant_col,
+                user_col,
+                res_col
+            )
+            inter_test_scored_tag = loaded_model.transform(data_set.inter_test).orderBy(
+                tenant_col,
+                user_col,
+                res_col
+            )
+
+            assert_frame_equal(inter_test_scored.toPandas(), inter_test_scored_tag.toPandas())
+
     def test_enrich_and_normalize(self):
         training = Dataset.create_new_training(1.0).cache()
 
