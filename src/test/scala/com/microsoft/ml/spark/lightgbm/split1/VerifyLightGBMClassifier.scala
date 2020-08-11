@@ -169,6 +169,18 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol,
       oneHotEncodeCategoricals = false).transform(unfeaturizedBankTrainDF)
     }.cache()
+  lazy val indexedTaskDF: DataFrame = {
+    val categoricalColumns = Array("TaskNm", "QueueName")
+    val newCategoricalColumns: Array[String] = categoricalColumns.map("c_" + _)
+    val df = readCSV(DatasetUtils.binaryTrainFile("task.train.csv").toString).repartition(numPartitions)
+    val df2 = new MultiColumnAdapter().setInputCols(categoricalColumns).setOutputCols(newCategoricalColumns)
+      .setBaseStage(new StringIndexer())
+      .fit(df)
+      .transform(df).drop(categoricalColumns: _*)
+      .withColumnRenamed("TaskFailed10", labelCol)
+      .drop(Array("IsControl10", "RanAsSystem10", "IsDAAMachine10", "IsUx", "IsClient"): _*)
+    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol, oneHotEncodeCategoricals = false).transform(df2)
+  }.cache()
   lazy val bankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
     }.cache()
@@ -378,7 +390,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
   }
 
-  test("Verify LightGBM Classifier categorical parameter") {
+  test("Verify LightGBM Classifier categorical parameter for sparse dataset") {
     val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
     val untrainedModel = baseModel
       .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
@@ -389,6 +401,20 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.8)
+  }
+
+  test("Verify LightGBM Classifier categorical parameter for dense dataset") {
+    val Array(train, test) = indexedTaskDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedTaskDF.columns.filter(_.startsWith("c_")))
+    val model = untrainedModel.fit(train)
+    // Verify non-zero categorical features used in some tree in the model
+    val numCats = Range(1, 5).map(cat => s"num_cat=${cat}")
+    assert(numCats.exists(model.getModel.model.contains(_)))
+    val metric = binaryEvaluator
+      .evaluate(model.transform(test))
+    // Verify we get good result
+    assert(metric > 0.7)
   }
 
   test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
