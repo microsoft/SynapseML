@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
+import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{Estimator, Model}
@@ -14,6 +15,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.language.existentials
 import scala.math.min
+import scala.util.matching.Regex
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
   with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
@@ -156,6 +158,25 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       categoricalSlotIndexesArr, categoricalSlotNamesArr)
   }
 
+  private def validateSlotNames(df: DataFrame, columnParams: ColumnParams, trainParams: TrainParams): Unit = {
+    val schema = df.schema
+    val featuresSchema = schema.fields(schema.fieldIndex(getFeaturesCol))
+    val metadata = AttributeGroup.fromStructField(featuresSchema)
+    if (metadata.attributes.isDefined) {
+      val slotNamesOpt = TrainUtils.getSlotNames(df.schema,
+        columnParams.featuresColumn, metadata.attributes.get.length, trainParams)
+      val pattern = new Regex("[\",:\\[\\]{}]")
+      slotNamesOpt.foreach(slotNames => {
+        val badSlotNames = slotNames.flatMap(slotName =>
+          if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
+        if (!badSlotNames.isEmpty) {
+          val errorMsg = s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}"
+          throw new IllegalArgumentException(errorMsg)
+        }
+      })
+    }
+  }
+
   /**
     * Inner train method for LightGBM learners.  Calculates the number of workers,
     * creates a driver thread, and runs mapPartitions on the dataset.
@@ -199,6 +220,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val preprocessedDF = preprocessData(trainingData)
     val schema = preprocessedDF.schema
     val columnParams = ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
+    validateSlotNames(preprocessedDF, columnParams, trainParams)
     val mapPartitionsFunc = TrainUtils.trainLightGBM(batchIndex, networkParams, columnParams, validationData, log,
       trainParams, numTasksPerExec, schema)(_)
     val lightGBMBooster =

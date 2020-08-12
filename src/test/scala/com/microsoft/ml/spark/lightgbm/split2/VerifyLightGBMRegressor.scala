@@ -129,6 +129,12 @@ class VerifyLightGBMRegressor extends Benchmarks
     assert(metric < 0.6)
   }
 
+  test("Verify LightGBM Regressor with bad column names fails early") {
+    val baseModelWithBadSlots = baseModel.setSlotNames(Range(0, 22).map(i =>
+      "Invalid characters \",:[]{} " + i).toArray)
+    interceptWithoutLogging[IllegalArgumentException]{baseModelWithBadSlots.fit(flareDF).transform(flareDF).collect()}
+  }
+
   test("Verify LightGBM Regressor with tweedie distribution") {
     val model = baseModel.setObjective("tweedie").setTweedieVariancePower(1.5)
 
