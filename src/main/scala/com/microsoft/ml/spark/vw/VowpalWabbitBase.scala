@@ -18,6 +18,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.vowpalwabbit.spark._
 
 import scala.math.min
+import scala.util.{Failure, Success}
 
 case class NamespaceInfo(hash: Int, featureGroup: Char, colIdx: Int)
 
@@ -327,7 +328,7 @@ trait VowpalWabbitBase extends Wrappable
       else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
         val trainContext = new TrainContext(vw)
 
-        StreamUtilities.using(vw.createExample()) { ex =>
+        val result = StreamUtilities.using(vw.createExample()) { ex =>
           // pass data to VW native part
           totalTime.measure {
             trainRow(schema, inputRows, trainContext)
@@ -339,6 +340,11 @@ trait VowpalWabbitBase extends Wrappable
                 vw.performRemainingPasses()
             }
           }
+        }
+
+        // If the using statement failed rethrow here.
+        result match {
+          case Failure(exception) => throw exception
         }
 
         // only export the model on the first partition
