@@ -113,8 +113,13 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
   def getSharedCol: String = $(sharedCol)
   def setSharedCol(value: String): this.type = set(sharedCol, value)
-
   setDefault(sharedCol -> "shared")
+
+  val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures",
+    "Additional namespaces for the shared example")
+  def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
+  def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
+  setDefault(additionalSharedFeatures -> Array.empty)
 }
 
 @InternalWrapper
@@ -134,12 +139,6 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
   setDefault(chosenActionCol -> "chosenAction")
 
-  val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures",
-    "Additional namespaces for the shared example")
-  def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
-  def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
-  setDefault(additionalSharedFeatures -> Array.empty)
-
   val epsilon = new DoubleParam(this, "epsilon", "epsilon used for exploration")
   setDefault(epsilon -> 0.05)
 
@@ -150,7 +149,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
 
   // Used in the base class to remove unneeded columns from the dataframe.
-  protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol)
+  protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures
 
   protected override def addExtraArgs(args: StringBuilder): Unit = {
     args.appendParamIfNotThere("cb_explore_adf")
@@ -264,6 +263,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
       .setSharedCol(getSharedCol)
+      .setAdditionalSharedFeatures(getAdditionalSharedFeatures)
       .setPredictionCol(getPredictionCol)
 
     trainInternal(dataset, model)
