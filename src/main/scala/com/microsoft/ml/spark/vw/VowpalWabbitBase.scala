@@ -345,6 +345,7 @@ trait VowpalWabbitBase extends Wrappable
         // If the using statement failed rethrow here.
         result match {
           case Failure(exception) => throw exception
+          case Success(_) => Unit
         }
 
         // only export the model on the first partition
