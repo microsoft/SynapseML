@@ -17,6 +17,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
+import org.apache.spark.sql.functions.{col, struct, udf}
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -81,8 +82,7 @@ class ContextualBanditMetrics extends Serializable {
 
 case class ResultThing(value: Float)
 
-class Thing(override val uid: String) extends HasParallelismInjected
-{
+class Thing(override val uid: String) extends HasParallelismInjected {
   def this() = this(Identifiable.randomUID("Thing"))
 
   override def copy(extra: ParamMap): Thing = defaultCopy(extra)
@@ -99,7 +99,7 @@ class Thing(override val uid: String) extends HasParallelismInjected
       Future[Unit] {
         Thread.sleep(r.nextInt(2000))
         val t = dataset.mapPartitions(rowIt => Seq(ResultThing(3)).toIterator)(encoder).collect()
-        println(dataset.count() + "+"+num + t)
+        println(dataset.count() + "+" + num + t)
 
       }(executionContext)
     }.toArray
@@ -111,14 +111,20 @@ class Thing(override val uid: String) extends HasParallelismInjected
 @InternalWrapper
 trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
+
   def getSharedCol: String = $(sharedCol)
+
   def setSharedCol(value: String): this.type = set(sharedCol, value)
+
   setDefault(sharedCol -> "shared")
 
   val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures",
     "Additional namespaces for the shared example")
+
   def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
+
   def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
+
   setDefault(additionalSharedFeatures -> Array.empty)
 }
 
@@ -130,19 +136,26 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
   val probabilityCol = new Param[String](this, "probabilityCol",
     "Column name of probability of chosen action")
+
   def getProbabilityCol: String = $(probabilityCol)
+
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
+
   setDefault(probabilityCol -> "probability")
 
   val chosenActionCol = new Param[String](this, "chosenActionCol", "Column name of chosen action")
+
   def getChosenActionCol: String = $(chosenActionCol)
+
   def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
+
   setDefault(chosenActionCol -> "chosenAction")
 
   val epsilon = new DoubleParam(this, "epsilon", "epsilon used for exploration")
   setDefault(epsilon -> 0.05)
 
   def getEpsilon: Double = $(epsilon)
+
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
   def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
@@ -164,19 +177,17 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val probCol = getProbabilityCol
 
     // Validate action columns
-    for (colName <- allActionFeatureColumns)
-    {
+    for (colName <- allActionFeatureColumns) {
       val dt = schema(colName).dataType
       assert(dt match {
         case ArrayType(VectorType, _) => true
         case _ => false
-      },  s"$colName must be a list of sparse vectors of features. Found: $dt. Each item in the list corresponds to a" +
+      }, s"$colName must be a list of sparse vectors of features. Found: $dt. Each item in the list corresponds to a" +
         s" specific action and the overall list is the namespace.")
     }
 
     // Validate shared columns
-    for (colName <- allSharedFeatureColumns)
-    {
+    for (colName <- allSharedFeatureColumns) {
       val dt = schema(colName).dataType
       assert(dt match {
         case VectorType => true
@@ -188,7 +199,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     assert(actionDt match {
       case IntegerType => true
       case _ => false
-    },  s" $actionCol must be an integer. Found: $actionDt")
+    }, s" $actionCol must be an integer. Found: $actionDt")
 
     val labelDt = schema(labelCol).dataType
     assert(labelDt match {
@@ -269,9 +280,9 @@ class VowpalWabbitContextualBandit(override val uid: String)
     trainInternal(dataset, model)
   }
 
-    override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+  override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
     transformSchema(dataset.schema, logging = true)
-      log.info(s"Parallelism: $getParallelism")
+    log.info(s"Parallelism: $getParallelism")
 
     // Create execution context based on $(parallelism)
     val executionContext = getExecutionContextProxy
@@ -302,10 +313,42 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel with VowpalWabbitContextualBanditBase {
 
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
+    val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
+
+    val schema = dataset.schema
+    val exampleStack = new ExampleStack(vw)
+    val actionNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(
+      schema,
+      getHashSeed,
+      allActionFeatureColumns)
+
+    val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
+
+    val predictUDF = udf { (row: Row) => {
+      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack,
+        examples => {
+          vw.predict(examples)
+            .asInstanceOf[vowpalWabbit.responses.ActionProbs]
+            .getActionProbs
+            .sortBy {
+              _.getAction
+            }
+            .map {
+              _.getProbability.toDouble
+            }
+        })
+    }
+    }
+
+    dataset.withColumn(
+      $(predictionCol),
+      predictUDF(struct(dataset.columns.map(dataset(_)): _*)))
+  }
 
   override def predict(features: Row): Double = {
-    throw new NotImplementedError("predict is not implemented")
+    throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of probabilities not a single double. Use transform instead.")
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

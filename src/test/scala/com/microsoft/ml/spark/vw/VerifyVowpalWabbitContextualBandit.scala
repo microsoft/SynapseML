@@ -247,6 +247,81 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     assert(m.getPerformanceStatistics.select("snipsEstimate").first.getDouble(0) > 0)
   }
 
+  test("Verify can predict on the resulting model") {
+    import session.implicits._
+
+    val df = Seq(
+      ("shared_f",  "shared_f2","action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 1, 0.8),
+      ("shared_f","shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=1", "action2_ns2", 2, 1, 0.8),
+      ("shared_f","shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=1", "action2_ns2", 2, 4, 0.8),
+      ("shared_f","shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 0, 0.8)
+    ).toDF("shared_ns1", "shared_ns2", "action1_ns1", "action1_ns2", "action2_f1_ns1", "action2_f2_ns1", "action2_f1_ns2", "chosen_action", "cost", "prob")
+      .coalesce(1)
+      .cache()
+
+    val shared_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("shared_ns1"))
+      .setOutputCol("shared_features_ns1")
+
+    val shared_featurizer2 = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("shared_ns2"))
+      .setOutputCol("shared_features_ns2")
+
+    val a1_ns1_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action1_ns1"))
+      .setOutputCol("action1_features_ns1")
+
+    val a1_ns2_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action1_ns2"))
+      .setOutputCol("action1_features_ns2")
+
+    val a2_ns1_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action2_f1_ns1", "action2_f2_ns1"))
+      .setOutputCol("action2_features_ns1")
+
+    val a2_ns2_featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(Array("action2_f1_ns2"))
+      .setOutputCol("action2_features_ns2")
+
+    val action_merger_ns1 = new VectorZipper()
+      .setInputCols(Array("action1_features_ns1", "action2_features_ns1"))
+      .setOutputCol("action_features_ns1")
+
+    val action_merger_ns2 = new VectorZipper()
+      .setInputCols(Array("action1_features_ns2", "action2_features_ns2"))
+      .setOutputCol("action_features_ns2")
+
+    val pipeline = new Pipeline()
+      .setStages(Array(shared_featurizer, shared_featurizer2, a1_ns1_featurizer, a1_ns2_featurizer, a2_ns1_featurizer, a2_ns2_featurizer, action_merger_ns1, action_merger_ns2))
+    val model = pipeline.fit(df)
+    val transformedDf = model.transform(df)
+
+    val cb = new VowpalWabbitContextualBandit()
+      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setLabelCol("cost")
+      .setProbabilityCol("prob")
+      .setChosenActionCol("chosen_action")
+      .setSharedCol("shared_features_ns1")
+      .setAdditionalSharedFeatures(Array("shared_features_ns2"))
+      .setFeaturesCol("action_features_ns1")
+      .setAdditionalFeatures(Array("action_features_ns2"))
+      .setUseBarrierExecutionMode(false)
+
+    val m = cb.fit(transformedDf)
+
+    val predict_set = Seq(
+      ("shared_f",  "shared_f2","action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 1, 0.8),
+      ("shared_f","shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=1", "action2_ns2", 2, 1, 0.8)
+    ).toDF("shared_ns1", "shared_ns2", "action1_ns1", "action1_ns2", "action2_f1_ns1", "action2_f2_ns1", "action2_f1_ns2", "chosen_action", "cost", "prob")
+      .coalesce(1)
+      .cache()
+
+    val newtrasds = model.transform(predict_set)
+    val results = m.transform(newtrasds)
+
+    results.show(false)
+  }
+
 
 
 

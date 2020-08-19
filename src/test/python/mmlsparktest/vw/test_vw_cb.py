@@ -166,5 +166,14 @@ class VowpalWabbitSpec(unittest.TestCase):
         assert float(stats.first()["snipsEstimate"]) > 0
 
 
+    def test_prediction(self):
+        featurized_data = self.get_data_two_shared()
+        estimator1 = VowpalWabbitContextualBandit() \
+            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
+            .setAdditionalSharedFeatures(["shared2"]) \
+            .setUseBarrierExecutionMode(False)
+        model1 = estimator1.fit(featurized_data)
+        model1.transform(featurized_data).collect()
+
 if __name__ == "__main__":
     result = unittest.main()
