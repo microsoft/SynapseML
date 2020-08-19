@@ -155,7 +155,7 @@ Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/MMLSpark%20Examples%20v1.0.0-rc2.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc2.dbc`
 
 ### Apache Livy
 
