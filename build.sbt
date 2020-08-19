@@ -9,9 +9,8 @@ import scala.sys.process.Process
 val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
-scalaVersion := "2.11.12"
-
-val sparkVersion = "2.4.5"
+scalaVersion := "2.12.10"
+val sparkVersion = "3.0.0"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
@@ -26,7 +25,7 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
   "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
-  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2",
+  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "1.0.0",
   "org.apache.spark" %% "spark-avro" % sparkVersion
 )
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
@@ -82,9 +81,12 @@ def activateCondaEnv: Seq[String] = {
   }
 }
 
+val scalaMajorVersion  = settingKey[String]("scalaMajorVersion")
+scalaMajorVersion  := {scalaVersion.value.split(".".toCharArray).dropRight(0).mkString(".")}
+
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
-val genDir = join("target", "scala-2.11", "generated")
-val unidocDir = join("target", "scala-2.11", "unidoc")
+val genDir = join("target", s"scala-${scalaMajorVersion}", "generated")
+val unidocDir = join("target", s"scala-${scalaMajorVersion}", "unidoc")
 val pythonSrcDir = join(genDir.toString, "src", "python")
 val unifiedDocDir = join(genDir.toString, "doc")
 val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
@@ -169,7 +171,7 @@ val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
-  val rPackage = join("target", "scala-2.11", "generated", "package", "R")
+  val rPackage = join("target", s"scala-${scalaMajorVersion}", "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString,rPackage.getName, "rrr", s.log)
 }
@@ -178,7 +180,7 @@ packagePythonTask := {
   val s = streams.value
   (run in IntegrationTest2).toTask("").value
   createCondaEnvTask.value
-  val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
+  val destPyDir = join("target", s"scala-${scalaMajorVersion}", "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
   FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
 
@@ -214,7 +216,7 @@ testPythonTask := {
       "--cov-report=xml",
       "mmlsparktest"
     ),
-    new File("target/scala-2.11/generated/test/python/"),
+    new File(s"target/scala-${scalaMajorVersion}/generated/test/python/"),
   ) ! s.log
 }
 
@@ -223,7 +225,7 @@ val datasetName = "datasets-2020-01-20.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
-  join(target.value.toString, "scala-2.11", "datasets", datasetName.split(".".toCharArray.head).head)
+  join(target.value.toString, s"scala-${scalaMajorVersion}", "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
 getDatasetsTask := {
@@ -245,7 +247,7 @@ genBuildInfo := {
       |---------------
       |
       |### Maven Coordinates
-      | `${organization.value}:${name.value}_2.11:${version.value}`
+      | `${organization.value}:${name.value}_${scalaMajorVersion}:${version.value}`
       |
       |### Maven Resolver
       | `https://mmlspark.azureedge.net/maven`

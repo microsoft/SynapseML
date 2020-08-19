@@ -22,8 +22,8 @@ abstract class SparkBindings[T: TypeTag] extends Serializable {
   // you should make a single converter before using it in a udf so
   // that the slow resolving and binding is not in the hotpath
   def makeFromRowConverter: Row => T = {
-    val enc1 = enc.resolveAndBind()
-    val rowEnc1 = rowEnc.resolveAndBind();
+    val enc1 = enc.resolveAndBind().deserializer
+    val rowEnc1 = rowEnc.resolveAndBind().serializer;
     { r: Row => enc1.fromRow(rowEnc1.toRow(r)) }
   }
 
