@@ -313,12 +313,14 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel with VowpalWabbitContextualBanditBase {
 
+  lazy val exampleStack = new ExampleStack(vw)
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
 
     val schema = dataset.schema
-    val exampleStack = new ExampleStack(vw)
+
     val actionNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(
       schema,
       getHashSeed,
