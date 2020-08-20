@@ -15,7 +15,14 @@ from pyspark.sql.types import *
 from pyspark.ml import Pipeline
 from pyspark.ml.wrapper import *
 from pyspark.ml.common import inherit_doc, _java2py, _py2java
+from pyspark.sql.utils import AnalysisException
 
+def has_column(df, col):
+    try:
+        df[col]
+        return True
+    except AnalysisException:
+        return False
 
 class VowpalWabbitSpec(unittest.TestCase):
     def get_data(self):
@@ -165,15 +172,16 @@ class VowpalWabbitSpec(unittest.TestCase):
         assert float(stats.first()["ipsEstimate"]) > 0
         assert float(stats.first()["snipsEstimate"]) > 0
 
-
-    def test_prediction(self):
+    def test_model_prediction(self):
         featurized_data = self.get_data_two_shared()
         estimator1 = VowpalWabbitContextualBandit() \
             .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
             .setAdditionalSharedFeatures(["shared2"]) \
+            .setPredictionCol("output_prediction")\
             .setUseBarrierExecutionMode(False)
         model1 = estimator1.fit(featurized_data)
-        model1.transform(featurized_data).collect()
+        df = model1.transform(featurized_data)
+        assert has_column(df, "output_prediction")
 
 if __name__ == "__main__":
     result = unittest.main()

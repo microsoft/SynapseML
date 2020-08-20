@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.vw
 import java.util
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.io.http.SharedVariable
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -14,6 +15,7 @@ import org.apache.spark.ml.tuning.{CrossValidator, TrainValidationSplit}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
@@ -313,7 +315,11 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel with VowpalWabbitContextualBanditBase {
 
-  lazy val exampleStack = new ExampleStack(vw)
+  val exampleStack: SharedVariable[ExampleStack] = SharedVariable { new ExampleStack(vw) }
+
+  override def transformSchema(schema: StructType): StructType = {
+    schema.add(getPredictionCol, ArrayType(DoubleType))
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
@@ -328,8 +334,8 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
 
     val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
 
-    val predictUDF = udf { (row: Row) => {
-      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack,
+    val predictUDF = udf { (row: Row) =>
+      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
         examples => {
           vw.predict(examples)
             .asInstanceOf[vowpalWabbit.responses.ActionProbs]
@@ -342,8 +348,9 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
             }
         })
     }
-    }
 
+    // We're intentionally not using map partition here because there is only a single model instance.
+    // Eventually it would be good to be able to send the model to each partition.
     dataset.withColumn(
       $(predictionCol),
       predictUDF(struct(dataset.columns.map(dataset(_)): _*)))
