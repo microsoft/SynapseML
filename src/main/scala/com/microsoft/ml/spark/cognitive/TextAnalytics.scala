@@ -227,7 +227,7 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) {
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1-preview/entities")
 }
 
-object KeyPhraseExtractor extends ComplexParamsReadable[EntityDetector]
+object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) {
@@ -271,5 +271,19 @@ class TextSentimentV3(override val uid: String)
       request
     }
   }
+
+}
+
+object KeyPhraseExtractorV3 extends ComplexParamsReadable[KeyPhraseExtractorV3]
+
+class KeyPhraseExtractorV3(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV3"))
+
+  override def responseDataType: StructType = KeyPhraseResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
 
 }

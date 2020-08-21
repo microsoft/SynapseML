@@ -224,6 +224,40 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
   override def reader: MLReadable[_] = KeyPhraseExtractor
 }
 
+class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractorV3] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("en", null)
+  ).toDF("lang", "text")
+
+  lazy val t: KeyPhraseExtractorV3 = new KeyPhraseExtractorV3()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+    .setLanguageCol("lang")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = t.transform(df).withColumn("phrases",
+      col("replies").getItem(0).getItem("keyPhrases"))
+      .select("phrases").collect().toList
+
+    println(results)
+
+    assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
+    assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
+  }
+
+  override def testObjects(): Seq[TestObject[KeyPhraseExtractorV3]] =
+    Seq(new TestObject[KeyPhraseExtractorV3](t, df))
+
+  override def reader: MLReadable[_] = KeyPhraseExtractorV3
+}
+
 class NERSuite extends TransformerFuzzing[NER] with TextKey {
   import session.implicits._
 

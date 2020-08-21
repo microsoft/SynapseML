@@ -118,3 +118,7 @@ object KeyPhraseResponse extends SparkBindings[TAResponse[KeyPhraseScore]]
 
 case class KeyPhraseScore(id: String, keyPhrases: Seq[String])
 
+object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
+
+case class KeyPhraseScoreV3(id: String, keyPhrases: Seq[String], warnings: Seq[String])
+
