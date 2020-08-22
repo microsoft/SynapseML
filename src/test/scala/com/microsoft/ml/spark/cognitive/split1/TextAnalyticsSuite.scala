@@ -296,3 +296,42 @@ class NERSuite extends TransformerFuzzing[NER] with TextKey {
 
   override def reader: MLReadable[_] = NER
 }
+
+class NERSuiteV3 extends TransformerFuzzing[NERV3] with TextKey {
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("1", "en", "I had a wonderful trip to Seattle last week."),
+    ("2", "en", "I visited Space Needle 2 times.")
+  ).toDF("id", "language", "text")
+
+  lazy val n: NERV3 = new NERV3()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setLanguage("en")
+    .setOutputCol("response")
+
+  test("Basic Usage") {
+    val results = n.transform(df)
+    val matches = results.withColumn("match",
+      col("response")
+        .getItem(0)
+        .getItem("entities")
+        .getItem(1))
+      .select("match")
+
+    val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
+    
+    assert(testRow.getAs[String]("text") === "Seattle")
+    assert(testRow.getAs[Int]("offset") === 26)
+    assert(testRow.getAs[Int]("length") === 7)
+    assert(testRow.getAs[Double]("confidenceScore") === 0.82)
+    assert(testRow.getAs[String]("category") === "Location")
+
+  }
+
+  override def testObjects(): Seq[TestObject[NERV3]] =
+    Seq(new TestObject[NERV3](n, df))
+
+  override def reader: MLReadable[_] = NER
+}

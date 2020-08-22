@@ -285,5 +285,16 @@ class KeyPhraseExtractorV3(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+}
 
+object NERV3 extends ComplexParamsReadable[NERV3]
+
+class NERV3(override val uid: String) extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("NERV3"))
+
+  override def responseDataType: StructType = NERResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
 }

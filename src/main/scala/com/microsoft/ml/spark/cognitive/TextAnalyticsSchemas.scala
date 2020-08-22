@@ -112,6 +112,20 @@ case class NERMatch(text: String,
                     offset: Int,
                     length: Int)
 
+object NERResponseV3 extends SparkBindings[TAResponse[NERDocV3]]
+
+case class NERDocV3(id: String,
+                    entities: Seq[NEREntityV3],
+                    warnings: Seq[TAWarning],
+                    statistics: Option[DocumentStatistics])
+
+case class NEREntityV3(text: String,
+                     category: String,
+                     subcategory: Option[String] = None,
+                     offset: Integer,
+                     length: Integer,
+                     confidenceScore: Double)
+
 // KeyPhrase Schemas
 
 object KeyPhraseResponse extends SparkBindings[TAResponse[KeyPhraseScore]]
@@ -120,5 +134,14 @@ case class KeyPhraseScore(id: String, keyPhrases: Seq[String])
 
 object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
 
-case class KeyPhraseScoreV3(id: String, keyPhrases: Seq[String], warnings: Seq[String])
+case class KeyPhraseScoreV3(id: String,
+                            keyPhrases: Seq[String],
+                            warnings: Seq[TAWarning],
+                            statistics: Option[DocumentStatistics])
 
+case class TAWarning(// Error code.
+                    code: String,
+                    // Warning message.
+                    message: String,
+                    // A JSON pointer reference indicating the target object.
+                    targetRef: Option[String] = None)
