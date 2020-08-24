@@ -132,6 +132,37 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
   override def reader: MLReadable[_] = EntityDetector
 }
 
+class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetectorV3] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("1", "Microsoft released Windows 10"),
+    ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
+  ).toDF("id", "text")
+
+  lazy val detector: EntityDetectorV3 = new EntityDetectorV3()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+    .setLanguage("en")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = detector.transform(df)
+      .withColumn("entities",
+        col("replies").getItem(0).getItem("entities").getItem("name"))
+      .select("id", "entities").collect().toList
+    println(results)
+    assert(results.head.getSeq[String](1).toSet
+      .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
+  }
+
+  override def testObjects(): Seq[TestObject[EntityDetectorV3]] =
+    Seq(new TestObject[EntityDetectorV3](detector, df))
+
+  override def reader: MLReadable[_] = EntityDetectorV3
+}
+
 trait TextSentimentBaseSuite extends TestBase with TextKey {
   import session.implicits._
 

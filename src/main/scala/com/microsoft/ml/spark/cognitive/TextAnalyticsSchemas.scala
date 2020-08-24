@@ -98,6 +98,22 @@ case class Entity(name: String,
 
 case class Match(text: String, offset: Int, length: Int)
 
+object DetectEntitiesResponseV3 extends SparkBindings[TAResponse[DetectEntitiesScoreV3]]
+
+case class DetectEntitiesScoreV3(id: String,
+                               entities: Seq[EntityV3],
+                               warnings: Seq[TAWarning],
+                               statistics: Option[DocumentStatistics])
+
+case class EntityV3(name: String,
+                    matches: Seq[MatchV3],
+                    language: String,
+                    id: Option[String],
+                    url: String,
+                    dataSource: String)
+
+case class MatchV3(confidenceScore: Double, text: String, offset: Int, length: Int)
+
 // NER Schemas
 
 object LocalNERResponse extends SparkBindings[TAResponse[LocalNERScore]]

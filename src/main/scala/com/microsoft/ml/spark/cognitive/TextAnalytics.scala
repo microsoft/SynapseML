@@ -312,3 +312,17 @@ class LanguageDetectorV3(override val uid: String)
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
 
 }
+
+object EntityDetectorV3 extends ComplexParamsReadable[EntityDetectorV3]
+
+class EntityDetectorV3(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("EntityDetectorV3"))
+
+  override def responseDataType: StructType = DetectEntitiesResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+
+}
