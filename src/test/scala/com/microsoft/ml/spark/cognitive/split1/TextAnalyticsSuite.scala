@@ -70,6 +70,38 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
   override def reader: MLReadable[_] = LanguageDetector
 }
 
+class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetectorV3] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    "Hello World",
+    "Bonjour tout le monde",
+    "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
+    ":) :( :D"
+  ).toDF("text")
+
+  lazy val detector: LanguageDetectorV3 = new LanguageDetectorV3()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val replies = detector.transform(df)
+      .withColumn("lang", col("replies").getItem(0)
+        .getItem("detectedLanguage")
+        .getItem("name"))
+      .select("lang")
+      .collect().toList
+    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
+  }
+
+  override def testObjects(): Seq[TestObject[LanguageDetectorV3]] =
+    Seq(new TestObject[LanguageDetectorV3](detector, df))
+
+  override def reader: MLReadable[_] = LanguageDetectorV3
+}
+
 class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKey {
 
   import session.implicits._
@@ -321,7 +353,7 @@ class NERSuiteV3 extends TransformerFuzzing[NERV3] with TextKey {
       .select("match")
 
     val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
-    
+
     assert(testRow.getAs[String]("text") === "Seattle")
     assert(testRow.getAs[Int]("offset") === 26)
     assert(testRow.getAs[Int]("length") === 7)
@@ -333,5 +365,5 @@ class NERSuiteV3 extends TransformerFuzzing[NERV3] with TextKey {
   override def testObjects(): Seq[TestObject[NERV3]] =
     Seq(new TestObject[NERV3](n, df))
 
-  override def reader: MLReadable[_] = NER
+  override def reader: MLReadable[_] = NERV3
 }

@@ -69,6 +69,15 @@ case class DetectLanguageScore(id: String, detectedLanguages: Seq[DetectedLangua
 
 case class DetectedLanguage(name: String, iso6391Name: String, score: Double)
 
+object DetectLanguageResponseV3 extends SparkBindings[TAResponse[DocumentLanguageV3]]
+
+case class DocumentLanguageV3(id: String,
+                              detectedLanguage: Option[DetectedLanguageV3],
+                              warnings: Seq[TAWarning],
+                              statistics: Option[DocumentStatistics])
+
+case class DetectedLanguageV3(name: String, iso6391Name: String, confidenceScore: Double)
+
 // Detect Entities Schemas
 
 object DetectEntitiesResponse extends SparkBindings[TAResponse[DetectEntitiesScore]]

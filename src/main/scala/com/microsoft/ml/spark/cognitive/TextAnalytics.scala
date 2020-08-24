@@ -298,3 +298,17 @@ class NERV3(override val uid: String) extends TextAnalyticsBase(uid) {
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
 }
+
+object LanguageDetectorV3 extends ComplexParamsReadable[LanguageDetectorV3]
+
+class LanguageDetectorV3(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("LanguageDetectorV3"))
+
+  override def responseDataType: StructType = DetectLanguageResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
+
+}
