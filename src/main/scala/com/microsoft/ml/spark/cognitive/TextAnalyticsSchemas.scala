@@ -53,13 +53,18 @@ case class SentimentScoredDocument(id: String,
                                    sentiment: String,
                                    statistics: Option[DocumentStatistics],
                                    documentScores: SentimentScoreV3,
-                                   sentences: Seq[Sentence])
+                                   sentences: Seq[Sentence],
+                                   warnings: Seq[TAWarning])
 
 case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
 
-case class Sentence(sentiment: String, sentenceScores: SentimentScoreV3, offset: Int, length: Int)
+case class Sentence(text: Option[String],
+                    sentiment: String,
+                    confidenceScores: SentimentScoreV3,
+                    offset: Int,
+                    length: Int)
 
-case class DocumentStatistics(charactersCount:Int, transactionsCount: Int)
+case class DocumentStatistics(charactersCount: Int, transactionsCount: Int)
 
 // Detect Language Schemas
 

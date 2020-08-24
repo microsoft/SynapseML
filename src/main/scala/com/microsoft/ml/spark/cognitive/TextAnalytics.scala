@@ -263,7 +263,7 @@ class TextSentimentV3(override val uid: String)
   override def responseDataType: StructType = SentimentResponseV3.schema
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0-preview.1/sentiment")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/sentiment")
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
