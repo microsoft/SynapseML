@@ -39,12 +39,6 @@ object TAJSONFormat {
 
 }
 
-// Sentiment schemas
-
-object SentimentResponse extends SparkBindings[TAResponse[SentimentScore]]
-
-case class SentimentScore(id: String, score: Float)
-
 // SentimentV3 Schemas
 
 object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocumentV3]]
@@ -68,12 +62,6 @@ case class DocumentStatistics(charactersCount: Int, transactionsCount: Int)
 
 // Detect Language Schemas
 
-object DetectLanguageResponse extends SparkBindings[TAResponse[DetectLanguageScore]]
-
-case class DetectLanguageScore(id: String, detectedLanguages: Seq[DetectedLanguage])
-
-case class DetectedLanguage(name: String, iso6391Name: String, score: Double)
-
 object DetectLanguageResponseV3 extends SparkBindings[TAResponse[DocumentLanguageV3]]
 
 case class DocumentLanguageV3(id: String,
@@ -84,19 +72,6 @@ case class DocumentLanguageV3(id: String,
 case class DetectedLanguageV3(name: String, iso6391Name: String, confidenceScore: Double)
 
 // Detect Entities Schemas
-
-object DetectEntitiesResponse extends SparkBindings[TAResponse[DetectEntitiesScore]]
-
-case class DetectEntitiesScore(id: String, entities: Seq[Entity])
-
-case class Entity(name: String,
-                  matches: Seq[Match],
-                  wikipediaLanguage: String,
-                  wikipediaId: String,
-                  wikipediaUrl: String,
-                  bingId: String)
-
-case class Match(text: String, offset: Int, length: Int)
 
 object DetectEntitiesResponseV3 extends SparkBindings[TAResponse[DetectEntitiesScoreV3]]
 
@@ -116,32 +91,6 @@ case class MatchV3(confidenceScore: Double, text: String, offset: Int, length: I
 
 // NER Schemas
 
-object LocalNERResponse extends SparkBindings[TAResponse[LocalNERScore]]
-
-case class LocalNERScore(id: String, entities: Seq[LocalNEREntity])
-
-case class LocalNEREntity(value: String,
-                     startIndex: Int,
-                     precision: Double,
-                     category: String)
-
-object NERResponse extends SparkBindings[TAResponse[NERDoc]]
-
-case class NERDoc(id: String, entities: Seq[NEREntity])
-
-case class NEREntity(name: String,
-                     matches: Seq[NERMatch],
-                     `type`: Option[String],
-                     subtype: Option[String],
-                     wikipediaLanguage: Option[String],
-                     wikipediaId: Option[String],
-                     wikipediaUrl: Option[String],
-                     bingId: Option[String])
-
-case class NERMatch(text: String,
-                    offset: Int,
-                    length: Int)
-
 object NERResponseV3 extends SparkBindings[TAResponse[NERDocV3]]
 
 case class NERDocV3(id: String,
@@ -157,10 +106,6 @@ case class NEREntityV3(text: String,
                      confidenceScore: Double)
 
 // KeyPhrase Schemas
-
-object KeyPhraseResponse extends SparkBindings[TAResponse[KeyPhraseScore]]
-
-case class KeyPhraseScore(id: String, keyPhrases: Seq[String])
 
 object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
 

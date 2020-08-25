@@ -324,5 +324,4 @@ class EntityDetectorV3(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
-
 }
