@@ -47,14 +47,14 @@ case class SentimentScore(id: String, score: Float)
 
 // SentimentV3 Schemas
 
-object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocument]]
+object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocumentV3]]
 
-case class SentimentScoredDocument(id: String,
-                                   sentiment: String,
-                                   statistics: Option[DocumentStatistics],
-                                   documentScores: SentimentScoreV3,
-                                   sentences: Seq[Sentence],
-                                   warnings: Seq[TAWarning])
+case class SentimentScoredDocumentV3(id: String,
+                                     sentiment: String,
+                                     statistics: Option[DocumentStatistics],
+                                     documentScores: SentimentScoreV3,
+                                     sentences: Seq[Sentence],
+                                     warnings: Seq[TAWarning])
 
 case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
 
