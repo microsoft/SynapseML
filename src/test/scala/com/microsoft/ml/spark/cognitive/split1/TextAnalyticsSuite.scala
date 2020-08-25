@@ -17,7 +17,7 @@ trait TextKey {
   lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
 }
 
-class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with TextKey {
+class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextKey {
 
   import session.implicits._
 
@@ -28,7 +28,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
     ":) :( :D"
   ).toDF("text2")
 
-  lazy val detector: LanguageDetector = new LanguageDetector()
+  lazy val detector: LanguageDetectorV2 = new LanguageDetectorV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
     .setTextCol("text2")
@@ -64,10 +64,10 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
     assert(languages("Spanish") && languages("English"))
   }
 
-  override def testObjects(): Seq[TestObject[LanguageDetector]] =
-    Seq(new TestObject[LanguageDetector](detector, df))
+  override def testObjects(): Seq[TestObject[LanguageDetectorV2]] =
+    Seq(new TestObject[LanguageDetectorV2](detector, df))
 
-  override def reader: MLReadable[_] = LanguageDetector
+  override def reader: MLReadable[_] = LanguageDetectorV2
 }
 
 class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetectorV3] with TextKey {
@@ -102,7 +102,7 @@ class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetectorV3] wit
   override def reader: MLReadable[_] = LanguageDetectorV3
 }
 
-class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKey {
+class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with TextKey {
 
   import session.implicits._
 
@@ -111,7 +111,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
     ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
   ).toDF("id", "text")
 
-  lazy val detector: EntityDetector = new EntityDetector()
+  lazy val detector: EntityDetectorV2 = new EntityDetectorV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
     .setLanguage("en")
@@ -126,10 +126,10 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
       .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
   }
 
-  override def testObjects(): Seq[TestObject[EntityDetector]] =
-    Seq(new TestObject[EntityDetector](detector, df))
+  override def testObjects(): Seq[TestObject[EntityDetectorV2]] =
+    Seq(new TestObject[EntityDetectorV2](detector, df))
 
-  override def reader: MLReadable[_] = EntityDetector
+  override def reader: MLReadable[_] = EntityDetectorV2
 }
 
 class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetectorV3] with TextKey {
@@ -216,9 +216,9 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentimentV3] with Text
   override def reader: MLReadable[_] = TextSentimentV3
 }
 
-class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSentimentBaseSuite {
+class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSentimentBaseSuite {
 
-  lazy val t: TextSentiment = new TextSentiment()
+  lazy val t: TextSentimentV2 = new TextSentimentV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
     .setLanguageCol("lang")
@@ -235,7 +235,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSent
   }
 
   test("batch usage"){
-    val t = new TextSentiment()
+    val t = new TextSentimentV2()
       .setSubscriptionKey(textKey)
       .setLocation("eastus")
       .setTextCol("text")
@@ -247,13 +247,13 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSent
     assert(replies.length == 6)
   }
 
-  override def testObjects(): Seq[TestObject[TextSentiment]] =
-    Seq(new TestObject[TextSentiment](t, df))
+  override def testObjects(): Seq[TestObject[TextSentimentV2]] =
+    Seq(new TestObject[TextSentimentV2](t, df))
 
-  override def reader: MLReadable[_] = TextSentiment
+  override def reader: MLReadable[_] = TextSentimentV2
 }
 
-class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] with TextKey {
+class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] with TextKey {
 
   import session.implicits._
 
@@ -264,7 +264,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
     ("en", null)
   ).toDF("lang", "text")
 
-  lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
+  lazy val t: KeyPhraseExtractorV2 = new KeyPhraseExtractorV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
     .setLanguageCol("lang")
@@ -281,10 +281,10 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
     assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
   }
 
-  override def testObjects(): Seq[TestObject[KeyPhraseExtractor]] =
-    Seq(new TestObject[KeyPhraseExtractor](t, df))
+  override def testObjects(): Seq[TestObject[KeyPhraseExtractorV2]] =
+    Seq(new TestObject[KeyPhraseExtractorV2](t, df))
 
-  override def reader: MLReadable[_] = KeyPhraseExtractor
+  override def reader: MLReadable[_] = KeyPhraseExtractorV2
 }
 
 class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractorV3] with TextKey {
@@ -321,7 +321,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractorV3]
   override def reader: MLReadable[_] = KeyPhraseExtractorV3
 }
 
-class NERSuite extends TransformerFuzzing[NER] with TextKey {
+class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -329,7 +329,7 @@ class NERSuite extends TransformerFuzzing[NER] with TextKey {
     ("2", "en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
   ).toDF("id", "language", "text")
 
-  lazy val n: NER = new NER()
+  lazy val n: NERV2 = new NERV2()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setLanguage("en")
@@ -354,10 +354,10 @@ class NERSuite extends TransformerFuzzing[NER] with TextKey {
 
   }
 
-  override def testObjects(): Seq[TestObject[NER]] =
-    Seq(new TestObject[NER](n, df))
+  override def testObjects(): Seq[TestObject[NERV2]] =
+    Seq(new TestObject[NERV2](n, df))
 
-  override def reader: MLReadable[_] = NER
+  override def reader: MLReadable[_] = NERV2
 }
 
 class NERSuiteV3 extends TransformerFuzzing[NERV3] with TextKey {
