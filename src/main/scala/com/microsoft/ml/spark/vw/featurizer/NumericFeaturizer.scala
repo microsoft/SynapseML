@@ -38,7 +38,7 @@ private[ml] class NumericFeaturizer[T: Numeric](override val fieldIdx: Int,
                 indices: mutable.ArrayBuilder[Int],
                 values: mutable.ArrayBuilder[Double]): Unit = {
     // Note: 0 valued features are always filtered.
-    if (value != zero) {
+    if (value != zero.zero) {
       indices += featureIdx + idx
       // This is weird but zero is a numeric typeclass that is used to convert the generic T to a double.
       values += zero.toDouble(value)
