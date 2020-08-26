@@ -162,7 +162,6 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
   def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
 
-
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns(): Seq[String] =
     Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures

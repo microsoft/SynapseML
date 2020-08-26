@@ -66,7 +66,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
                             namespaceHash: Int): Featurizer = {
 
     val prefixName = if (getPrefixStringsWithColumnName) name else ""
-
     dataType match {
       case DoubleType => getNumericFeaturizer[Double](prefixName, nullable, idx, namespaceHash, 0)
       case FloatType => getNumericFeaturizer[Float](prefixName, nullable, idx, namespaceHash, 0)
@@ -84,16 +83,16 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       case m: Any => getOtherFeaturizer(m, prefixName, idx)
     }
   }
-  
-  private def getNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](prefixName: String,
+
+  private def getNumericFeaturizer[T](prefixName: String,
                                                                        nullable: Boolean,
                                                                        idx: Int,
                                                                        namespaceHash: Int,
-                                                                       zero: T): Featurizer = {
+                                                                       zero: T)(implicit n: Numeric[T]): Featurizer = {
     if (nullable)
-      new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, zero)
+      new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, n)
     else
-      new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, zero)
+      new NumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, n)
   }
 
   private def getArrayFeaturizer(name: String, dataType: ArrayType, nullable: Boolean, idx: Int,

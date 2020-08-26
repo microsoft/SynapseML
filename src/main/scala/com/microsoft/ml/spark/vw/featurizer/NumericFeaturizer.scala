@@ -15,11 +15,11 @@ import scala.collection.mutable
   * @param namespaceHash pre-hashed namespace.
   * @param mask bit mask applied to final hash.
   */
-private[ml] class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
+private[ml] class NumericFeaturizer[T: Numeric](override val fieldIdx: Int,
                                  override val columnName: String,
                                  val namespaceHash: Int,
                                  val mask: Int,
-                                 val zero: T)
+                                 val zero: Numeric[T])
   extends Featurizer(fieldIdx) with ElementFeaturizer[T] {
 
   /**
@@ -40,17 +40,18 @@ private[ml] class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override
     // Note: 0 valued features are always filtered.
     if (value != zero) {
       indices += featureIdx + idx
-      values += value.toDouble
+      // This is weird but zero is a numeric typeclass that is used to convert the generic T to a double.
+      values += zero.toDouble(value)
     }
     ()
   }
 }
 
-class NullableNumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override val fieldIdx: Int,
+class NullableNumericFeaturizer[T: Numeric](override val fieldIdx: Int,
                            override val columnName: String,
                            override val namespaceHash: Int,
                            override val mask: Int,
-                           override val zero: T)
+                           override val zero: Numeric[T])
   extends NumericFeaturizer[T](fieldIdx, columnName, namespaceHash, mask, zero) {
   override def featurize(row: Row,
                          indices: mutable.ArrayBuilder[Int],

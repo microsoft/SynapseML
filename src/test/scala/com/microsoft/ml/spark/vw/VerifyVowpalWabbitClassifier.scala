@@ -17,7 +17,6 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 
 class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
-class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"
   val numPartitions = 2
 
