@@ -6,6 +6,7 @@ from pyspark.ml.common import inherit_doc
 from pyspark import SparkContext, SQLContext
 from pyspark.sql import DataFrame
 
+
 @inherit_doc
 class VowpalWabbitRegressor(_VowpalWabbitRegressor):
     def _create_model(self, java_model):
@@ -19,6 +20,7 @@ class VowpalWabbitRegressor(_VowpalWabbitRegressor):
         Initialize the estimator with a previously trained model.
         """
         self._java_obj.setInitialModel(model._java_obj.getModel())
+
 
 @inherit_doc
 class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):

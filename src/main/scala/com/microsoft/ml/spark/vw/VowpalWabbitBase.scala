@@ -386,20 +386,15 @@ trait VowpalWabbitBase extends Wrappable
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
     // important to trigger collect() here so that the spanning tree is still up
     if (getUseBarrierExecutionMode)
-    {
       df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect()
-    }
     else
-    {
       df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect()
-    }
   }
 
   /**
     * Setup spanning tree and invoke training.
-    *
-    * @param df       input data.
-    * @param vwArgs   VW command line arguments.
+    * @param df input data.
+    * @param vwArgs VW command line arguments.
     * @param numTasks number of target tasks.
     * @return
     */
@@ -469,7 +464,6 @@ trait VowpalWabbitBase extends Wrappable
 
   /**
     * Main training loop
-    *
     * @param dataset input data.
     * @return binary VW model.
     */
@@ -478,12 +472,6 @@ trait VowpalWabbitBase extends Wrappable
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
-
-    log.info(s"numTasksPerExec: $numTasksPerExec")
-    log.info(s"numExecutorTasks: $numExecutorTasks")
-    log.info(s"numTasks: $numTasks")
-    log.info(s"getNumPartitions: ${dataset.rdd.getNumPartitions}")
-
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
     val dfSubset = dataset.toDF().select((
@@ -517,8 +505,7 @@ trait VowpalWabbitBase extends Wrappable
     // Allows subclasses to add further specific args
     addExtraArgs(vwArgs)
 
-    log.info(s"Num tasks: $numTasks")
-    // call training
+     // call training
     val trainingResults = (if (numTasks == 1)
       trainInternal(df, vwArgs.result)
     else

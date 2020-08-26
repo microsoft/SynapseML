@@ -179,10 +179,10 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .build()
 
     val m = cb.fit(transformedDf, paramGrid).map(model => model.getPerformanceStatistics).reduce((a,b) => a.union(b)).drop("timeLearnPercentage", "timeSparkReadPercentage", "timeLearnPercentage", "timeMarshalPercentage")
-    m.show(false)
+    assert(m.select("ipsEstimate").first.getDouble(0) > 0)
   }
 
-  test("Verify can suppliy additional namespaces") {
+  test("Verify can supply additional namespaces") {
     import session.implicits._
 
     val df = Seq(
@@ -304,10 +304,12 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .setSharedCol("shared_features_ns1")
       .setAdditionalSharedFeatures(Array("shared_features_ns2"))
       .setFeaturesCol("action_features_ns1")
+      .setPredictionCol("output_prediction")
       .setAdditionalFeatures(Array("action_features_ns2"))
       .setUseBarrierExecutionMode(false)
 
     val m = cb.fit(transformedDf)
+    assert(m.getPerformanceStatistics.select("ipsEstimate").first.getDouble(0) > 0)
 
     val predict_set = Seq(
       ("shared_f",  "shared_f2","action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 1, 0.8),
@@ -316,13 +318,8 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .coalesce(1)
       .cache()
 
-    val newtrasds = model.transform(predict_set)
-    val results = m.transform(newtrasds)
-
-    results.show(false)
+    val transformed_predict_set = model.transform(predict_set)
+    val results = m.transform(transformed_predict_set)
+    assert(results.collect.head.getAs[Seq[Float]]("output_prediction").length == 2)
   }
-
-
-
-
 }

@@ -158,7 +158,8 @@ class VowpalWabbitSpec(unittest.TestCase):
             .build()
 
         models = estimator1.parallelFit(featurized_data, paramGrid)
-        models[0].getPerformanceStatistics().show()
+        for model in models:
+            assert float(model.getPerformanceStatistics().first()["ipsEstimate"]) > 0
 
     def test_setAdditionalSharedFeatures(self):
         featurized_data = self.get_data_two_shared()
@@ -182,6 +183,8 @@ class VowpalWabbitSpec(unittest.TestCase):
         model1 = estimator1.fit(featurized_data)
         df = model1.transform(featurized_data)
         assert has_column(df, "output_prediction")
+        # There are two actions so the output should be the same size
+        assert len(df.first()["output_prediction"]) == 2
 
 if __name__ == "__main__":
     result = unittest.main()

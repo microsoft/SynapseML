@@ -9,6 +9,7 @@ from pyspark.sql import DataFrame
 from pyspark.ml.wrapper import JavaWrapper
 from pyspark.ml.common import _py2java, _java2py
 
+
 def to_java_params(sc, model, pyParamMap):
     paramMap = JavaWrapper._new_java_obj("org.apache.spark.ml.param.ParamMap")
     for param, value in pyParamMap.items():
@@ -35,9 +36,10 @@ class VowpalWabbitContextualBandit(_VowpalWabbitContextualBandit):
     def parallelFit(self, dataset, param_maps):
         sc = SparkContext._active_spark_context
         self._transfer_params_to_java()
-        javaParamMaps =  [to_java_params(sc, self, x) for x in param_maps]
+        javaParamMaps = [to_java_params(sc, self, x) for x in param_maps]
         javaModels = self._java_obj.parallelFit(dataset._jdf, javaParamMaps)
         return [self._copyValues(self._create_model(x)) for x in javaModels]
+
 
 @inherit_doc
 class VowpalWabbitContextualBanditModel(_VowpalWabbitContextualBanditModel):

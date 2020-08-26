@@ -4,13 +4,13 @@ import unittest
 import tempfile
 import pyspark
 
-from mmlsparktest.spark import *
-
-from mmlspark.vw import VowpalWabbitClassifier
-from mmlspark.vw import VowpalWabbitRegressor
-from mmlspark.vw import VowpalWabbitFeaturizer
+from mmlspark.vw.VowpalWabbitClassifier import VowpalWabbitClassifier
+from mmlspark.vw.VowpalWabbitRegressor import VowpalWabbitRegressor
+from mmlspark.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
 from pyspark.sql.types import *
+from mmlsparktest.spark import *
+
 
 class VowpalWabbitSpec(unittest.TestCase):
 
