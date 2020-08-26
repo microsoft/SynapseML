@@ -178,7 +178,7 @@ object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 class TextSentimentV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("TextSentiment"))
+  def this() = this(Identifiable.randomUID("TextSentimentV2"))
 
   override def responseDataType: StructType = SentimentResponseV2.schema
 
@@ -192,7 +192,7 @@ object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 class LanguageDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("LanguageDetector"))
+  def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
 
   override def responseDataType: StructType = DetectLanguageResponseV2.schema
 
@@ -206,7 +206,7 @@ object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 class EntityDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("EntityDetector"))
+  def this() = this(Identifiable.randomUID("EntityDetectorV2"))
 
   override def responseDataType: StructType = DetectEntitiesResponseV2.schema
 
@@ -219,7 +219,7 @@ object NERV2 extends ComplexParamsReadable[NERV2]
 
 class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("NER"))
+  def this() = this(Identifiable.randomUID("NERV2"))
 
   override def responseDataType: StructType = NERResponseV2.schema
 
@@ -232,7 +232,7 @@ object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 class KeyPhraseExtractorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
+  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
 
   override def responseDataType: StructType = KeyPhraseResponseV2.schema
 
@@ -241,9 +241,9 @@ class KeyPhraseExtractorV2(override val uid: String)
 
 }
 
-object TextSentimentV3 extends ComplexParamsReadable[TextSentimentV3]
+object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
-class TextSentimentV3(override val uid: String)
+class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("TextSentimentV3"))
@@ -274,9 +274,9 @@ class TextSentimentV3(override val uid: String)
 
 }
 
-object KeyPhraseExtractorV3 extends ComplexParamsReadable[KeyPhraseExtractorV3]
+object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
-class KeyPhraseExtractorV3(override val uid: String)
+class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractorV3"))
@@ -287,9 +287,9 @@ class KeyPhraseExtractorV3(override val uid: String)
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
 }
 
-object NERV3 extends ComplexParamsReadable[NERV3]
+object NER extends ComplexParamsReadable[NER]
 
-class NERV3(override val uid: String) extends TextAnalyticsBase(uid) {
+class NER(override val uid: String) extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("NERV3"))
 
@@ -299,9 +299,9 @@ class NERV3(override val uid: String) extends TextAnalyticsBase(uid) {
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
 }
 
-object LanguageDetectorV3 extends ComplexParamsReadable[LanguageDetectorV3]
+object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
-class LanguageDetectorV3(override val uid: String)
+class LanguageDetector(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("LanguageDetectorV3"))
@@ -313,9 +313,9 @@ class LanguageDetectorV3(override val uid: String)
 
 }
 
-object EntityDetectorV3 extends ComplexParamsReadable[EntityDetectorV3]
+object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
-class EntityDetectorV3(override val uid: String)
+class EntityDetector(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("EntityDetectorV3"))
