@@ -483,10 +483,12 @@ trait VowpalWabbitBase extends Wrappable
 
     // Reduce number of partitions to number of executor cores
     val df = if (dataset.rdd.getNumPartitions > numTasks) {
-      if (getUseBarrierExecutionMode) // see [SPARK-24820][SPARK-24821]
-      dfSubset.repartition(numTasks)
-        else
+      if (getUseBarrierExecutionMode) { // see [SPARK-24820][SPARK-24821]
+        dfSubset.repartition(numTasks)
+      }
+      else {
         dfSubset.coalesce(numTasks)
+      }
     } else
       dfSubset
 

@@ -164,7 +164,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
 
   // Used in the base class to remove unneeded columns from the dataframe.
-  protected override def getAdditionalColumns(): Seq[String] = Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures
+  protected override def getAdditionalColumns(): Seq[String] =
+    Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures
 
   protected override def addExtraArgs(args: StringBuilder): Unit = {
     args.appendParamIfNotThere("cb_explore_adf")
@@ -300,7 +301,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
     awaitFutures(modelFutures).map(model => model.setParent(this))
   }
 
-  def parallelFit(dataset: Dataset[_], paramMaps: util.ArrayList[ParamMap]): util.List[VowpalWabbitContextualBanditModel] = {
+  def parallelFit(dataset: Dataset[_], paramMaps: util.ArrayList[ParamMap]):
+  util.List[VowpalWabbitContextualBanditModel] = {
     import scala.collection.JavaConverters._
 
     val convertedArray: Array[ParamMap] = new Array[ParamMap](paramMaps.size())
@@ -315,7 +317,9 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel with VowpalWabbitContextualBanditBase {
 
-  val exampleStack: SharedVariable[ExampleStack] = SharedVariable { new ExampleStack(vw) }
+  val exampleStack: SharedVariable[ExampleStack] = SharedVariable {
+    new ExampleStack(vw)
+  }
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getPredictionCol, ArrayType(DoubleType))
@@ -357,7 +361,8 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of probabilities not a single double. Use transform instead.")
+    throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of " +
+      "probabilities not a single double. Use transform instead.")
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

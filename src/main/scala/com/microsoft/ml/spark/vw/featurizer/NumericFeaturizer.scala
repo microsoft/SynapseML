@@ -25,7 +25,7 @@ private[ml] class NumericFeaturizer[T <: AnyVal{ def toDouble:Double }](override
   /**
     * Pre-hashed feature index.
     */
-  val featureIdx = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
+  val featureIdx: Int = mask & VowpalWabbitMurmur.hash(columnName, namespaceHash)
 
   override def featurize(row: Row,
                          indices: mutable.ArrayBuilder[Int],
