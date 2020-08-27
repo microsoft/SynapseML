@@ -128,45 +128,24 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
     assertThrows[AssertionError](pipeline.fit(untransformedDfWithStringProb))
   }
 
-  test("Verify can use paralellized fit") {
-    import session.implicits._
+  test("Verify raises exception when used with incompatible args") {
+    val df = CBDatasetHelper.getCBDataset(session)
+    assertThrows[NotImplementedError](
+      new VowpalWabbitContextualBandit().setArgs("--quiet --cb --episilon 0.5").fit(df))
+    assertThrows[NotImplementedError](
+      new VowpalWabbitContextualBandit().setArgs("--quiet --cb_explore").fit(df))
+    assertThrows[NotImplementedError](
+      new VowpalWabbitContextualBandit().setArgs("--quiet --cb_adf").fit(df))
+    new VowpalWabbitContextualBandit().setArgs("--quiet --cb_explore_adf").fit(df)
+  }
 
-    val df = Seq(
-      ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1, 0.8),
-      ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1, 0.8),
-      ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4, 0.8),
-      ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 0, 0.8)
-    ).toDF("shared", "action1", "action2_feat1", "action2_feat2", "chosen_action", "cost", "prob")
+  test("Verify can use paralellized fit") {
+    val df = CBDatasetHelper.getCBDataset(session)
       .coalesce(1)
       .cache()
 
-    val sharedFeaturizer = new VowpalWabbitFeaturizer()
-      .setInputCols(Array("shared"))
-      .setOutputCol("shared_features")
-    val actionOneFeaturizer = new VowpalWabbitFeaturizer()
-      .setInputCols(Array("action1"))
-      .setOutputCol("action1_features")
-    val actionTwoFeaturizer = new VowpalWabbitFeaturizer()
-      .setInputCols(Array("action2_feat1", "action2_feat2"))
-      .setOutputCol("action2_features")
-    val actionMerger = new VectorZipper()
-      .setInputCols(Array("action1_features", "action2_features"))
-      .setOutputCol("action_features")
-
-    val pipeline = new Pipeline()
-      .setStages(Array(sharedFeaturizer, actionOneFeaturizer, actionTwoFeaturizer, actionMerger))
-    val model = pipeline.fit(df)
-    val transformedDf = model.transform(df)
-      .select("chosen_action", "cost", "prob", "shared_features", "action_features")
-    transformedDf.cache()
-
     val cb = new VowpalWabbitContextualBandit()
       .setArgs("--quiet")
-      .setLabelCol("cost")
-      .setProbabilityCol("prob")
-      .setChosenActionCol("chosen_action")
-      .setSharedCol("shared_features")
-      .setFeaturesCol("action_features")
       .setParallelismForParamListFit(4)
       .setUseBarrierExecutionMode(false)
 
@@ -175,11 +154,10 @@ class VerifyVowpalWabbitContextualBandit extends TestBase {
       .addGrid(cb.epsilon, Array(0.1, 0.2, 0.4))
       .build()
 
-    val m = cb.fit(transformedDf, paramGrid)
+    val m = cb.fit(df, paramGrid)
       .map(model => model.getPerformanceStatistics)
       .reduce((a, b) => a.union(b))
-      .drop("timeLearnPercentage", "timeSparkReadPercentage", "timeLearnPercentage", "timeMarshalPercentage")
-    assert(m.select("ipsEstimate").first.getDouble(0) > 0)
+    assert(m.select("ipsEstimate").first.getDouble(0) < 0)
   }
 
   test("Verify can supply additional namespaces") {

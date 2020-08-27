@@ -9,11 +9,11 @@ import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
-class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalWabbitContextualBandit]{
-  def readCSV(fileName: String, fileLocation: String): DataFrame = {
+object CBDatasetHelper {
+  def readCSV(session: SparkSession, fileName: String, fileLocation: String): DataFrame = {
     session.read
       .option("header", "true")
       .option("inferSchema", "true")
@@ -22,28 +22,24 @@ class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalW
       .csv(fileLocation)
   }
 
-  override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {
+  def getCBDataset(session: SparkSession): DataFrame = {
     val fileName = "cbdata.train.csv"
-    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,"VowpalWabbit", "Train", fileName).toString
-    val rawDataset = readCSV(fileName, fileLocation)
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "VowpalWabbit", "Train", fileName).toString
+    val rawDataset = readCSV(session, fileName, fileLocation)
       .repartition(1)
-
-    rawDataset.printSchema()
 
     // schema inference didn't seem to work so we need to convert a few columns.
     val dataset = rawDataset
       .withColumn("chosen_action", col("chosen_action").cast("Int"))
+      .withColumnRenamed("chosen_action", "chosenAction")
       .withColumn("cost", col("cost").cast("Double"))
+      .withColumnRenamed("cost", "label")
       .withColumn("prob", col("prob").cast("Double"))
+      .withColumnRenamed("prob", "probability")
 
-    dataset.printSchema()
-    dataset.show(false)
-    println("count")
-    println(dataset.count())
-    println("count")
     val sharedFeaturizer = new VowpalWabbitFeaturizer()
-      .setInputCols(Array("shared_id","shared_major","shared_hobby","shared_fav_character"))
-      .setOutputCol("shared_features")
+      .setInputCols(Array("shared_id", "shared_major", "shared_hobby", "shared_fav_character"))
+      .setOutputCol("shared")
 
     val actionOneFeaturizer = new VowpalWabbitFeaturizer()
       .setInputCols(Array("action1_topic"))
@@ -62,28 +58,25 @@ class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalW
       .setOutputCol("action5_features")
 
     val actionMerger = new VectorZipper()
-      .setInputCols(Array("action1_features", "action2_features","action3_features","action4_features",
+      .setInputCols(Array("action1_features", "action2_features", "action3_features", "action4_features",
         "action5_features"))
-      .setOutputCol("action_features")
+      .setOutputCol("features")
 
     val pipeline = new Pipeline()
       .setStages(Array(sharedFeaturizer, actionOneFeaturizer, actionTwoFeaturizer, actionThreeFeaturizer,
         actionFourFeaturizer, actionFiveFeaturizer, actionMerger))
 
     val transformPipeline = pipeline.fit(dataset)
+    transformPipeline.transform(dataset)
+  }
+}
 
+class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalWabbitContextualBandit] {
+  override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {
+    val trainData = CBDatasetHelper.getCBDataset(session)
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
-      .setLabelCol("cost")
-      .setProbabilityCol("prob")
-      .setChosenActionCol("chosen_action")
-      .setSharedCol("shared_features")
-      .setFeaturesCol("action_features")
-
-    val trainData = transformPipeline.transform(dataset)
-    trainData.show(false)
-    val model = cb.fit(trainData)
-
+      .setArgs("--quiet")
+    cb.fit(trainData)
     Seq(new TestObject(
       cb,
       trainData))

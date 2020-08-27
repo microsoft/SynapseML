@@ -152,6 +152,15 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val labelCol = getLabelCol
     val probCol = getProbabilityCol
 
+    // Validate args
+    val allArgs = getArgs
+    if (allArgs.matches("^.*--(cb_explore|cb|cb_adf)( |$).*$"))
+    {
+      throw new NotImplementedError("VowpalWabbitContextualBandit is only compatible with contextual bandit problems" +
+        " with action dependent features which produce a probability distributions. These are problems which are " +
+        "used with VowpalWabbit with the '--cb_explore_adf' flag.")
+    }
+
     // Validate action columns
     for (colName <- allActionFeatureColumns) {
       val dt = schema(colName).dataType
