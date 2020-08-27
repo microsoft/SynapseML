@@ -13,7 +13,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.tuning.{CrossValidator, TrainValidationSplit}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, PredictionModel, Predictor}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, PredictionModel, Predictor}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
@@ -286,7 +286,9 @@ class VowpalWabbitContextualBandit(override val uid: String)
 @InternalWrapper
 class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
-    with VowpalWabbitBaseModel with VowpalWabbitContextualBanditBase {
+    with VowpalWabbitBaseModel
+    with VowpalWabbitContextualBanditBase
+    with ComplexParamsWritable {
 
   val exampleStack: SharedVariable[ExampleStack] = SharedVariable {
     new ExampleStack(vw)
