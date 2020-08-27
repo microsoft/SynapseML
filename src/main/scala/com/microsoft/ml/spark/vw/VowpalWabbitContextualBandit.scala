@@ -82,34 +82,6 @@ class ContextualBanditMetrics extends Serializable {
   }
 }
 
-case class ResultThing(value: Float)
-
-class Thing(override val uid: String) extends HasParallelismInjected {
-  def this() = this(Identifiable.randomUID("Thing"))
-
-  override def copy(extra: ParamMap): Thing = defaultCopy(extra)
-
-  def setParallelism(value: Int): this.type = set(parallelism, value)
-
-  def doThing(dataset: DataFrame): Seq[Unit] = {
-    val r = scala.util.Random
-    val executionContext = getExecutionContextProxy
-
-    val encoder = Encoders.kryo[ResultThing]
-
-    val modelFutures = (0 to 10).map { num =>
-      Future[Unit] {
-        Thread.sleep(r.nextInt(2000))
-        val t = dataset.mapPartitions(rowIt => Seq(ResultThing(3)).toIterator)(encoder).collect()
-        println(dataset.count() + "+" + num + t)
-
-      }(executionContext)
-    }.toArray
-
-    awaitFutures(modelFutures)
-  }
-}
-
 @InternalWrapper
 trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
