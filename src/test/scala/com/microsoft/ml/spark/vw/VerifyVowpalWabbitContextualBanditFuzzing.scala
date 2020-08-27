@@ -1,5 +1,8 @@
 package com.microsoft.ml.spark.vw
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.test.benchmarks.DatasetUtils
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.util.MLReadable
@@ -17,7 +20,9 @@ class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalW
   }
 
   override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {
-    val rawDataset = readCSV("cbdata.csv", "/home/jack/w/repos/mmlspark/cbdata.csv")
+    val fileName = "cbdata.train.csv"
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,"VowpalWabbit", "Train", fileName).toString
+    val rawDataset = readCSV(fileName, fileLocation)
       .repartition(1)
 
     rawDataset.printSchema()
