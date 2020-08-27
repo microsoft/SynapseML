@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
@@ -17,12 +17,13 @@ import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 
 import scala.math.exp
 
-object VowpalWabbitClassifier extends DefaultParamsReadable[VowpalWabbitClassifier]
+object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifier]
 
 @InternalWrapper
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
+  with ComplexParamsWritable
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
 
@@ -60,7 +61,8 @@ class VowpalWabbitClassifier(override val uid: String)
 @InternalWrapper
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
-    with VowpalWabbitBaseModel {
+    with VowpalWabbitBaseModel
+    with ComplexParamsWritable {
 
   def numClasses: Int = 2
 

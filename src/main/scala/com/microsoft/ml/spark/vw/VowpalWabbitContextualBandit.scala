@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.math.max
 
-object VowpalWabbitContextualBandit extends DefaultParamsReadable[VowpalWabbitContextualBandit]
+object VowpalWabbitContextualBandit extends ComplexParamsReadable[VowpalWabbitContextualBandit]
 
 class ExampleStack(val vw: VowpalWabbitNative) {
   val stack = new mutable.Stack[VowpalWabbitExample]
@@ -105,7 +105,9 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
 @InternalWrapper
 class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
-    with VowpalWabbitContextualBanditBase with HasParallelismInjected {
+    with VowpalWabbitContextualBanditBase
+    with HasParallelismInjected
+    with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBandit"))
 
   val probabilityCol = new Param[String](this, "probabilityCol",

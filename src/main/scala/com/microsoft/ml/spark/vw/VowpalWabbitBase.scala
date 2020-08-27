@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
 import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
+import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.col
@@ -68,7 +69,6 @@ trait HasAdditionalFeatures extends Params {
   */
 @InternalWrapper
 trait VowpalWabbitBase extends Wrappable
-  with DefaultParamsWritable
   with HasWeightCol
   with HasAdditionalFeatures
   with Logging {

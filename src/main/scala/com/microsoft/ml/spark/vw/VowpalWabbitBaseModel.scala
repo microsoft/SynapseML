@@ -23,7 +23,6 @@ case class PathAndData(path: String, bytes: Array[Byte])
 trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
   with org.apache.spark.ml.param.shared.HasRawPredictionCol
   with HasAdditionalFeatures
-  with ComplexParamsWritable
 {
   @transient
   lazy val vw = new VowpalWabbitNative(s"--testonly ${getTestArgs}", getModel)
