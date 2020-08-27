@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.build.BuildInfo
@@ -59,7 +62,8 @@ class VerifyVowpalWabbitContextualBanditFuzzing extends EstimatorFuzzing[VowpalW
       .setOutputCol("action5_features")
 
     val actionMerger = new VectorZipper()
-      .setInputCols(Array("action1_features", "action2_features","action3_features","action4_features","action5_features"))
+      .setInputCols(Array("action1_features", "action2_features","action3_features","action4_features",
+        "action5_features"))
       .setOutputCol("action_features")
 
     val pipeline = new Pipeline()
