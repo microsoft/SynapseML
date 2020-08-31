@@ -37,7 +37,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             StructField("probability", DoubleType())
         ])
 
-        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+        data = spark.createDataFrame([
             ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1.0, 0.8),
             ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 4.0, 0.8),
@@ -76,7 +76,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             StructField("probability", DoubleType())
         ])
 
-        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
+        data = spark.createDataFrame([
             ("shared_f", "shared_f2", "action1_f", "action2_f", "action2_f2=0", 1, 1.0, 0.8),
             ("shared_f", "shared_f2", "action1_f", "action2_f", "action2_f2=1", 2, 1.0, 0.8),
             ("shared_f", "shared_f2", "action1_f", "action2_f", "action2_f2=1", 2, 4.0, 0.8),
