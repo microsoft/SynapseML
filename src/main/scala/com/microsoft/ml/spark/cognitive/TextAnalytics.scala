@@ -173,77 +173,77 @@ trait HasLanguage extends HasServiceParams {
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 }
 
-object TextSentiment extends ComplexParamsReadable[TextSentiment]
+object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
-class TextSentiment(override val uid: String)
+class TextSentimentV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("TextSentiment"))
+  def this() = this(Identifiable.randomUID("TextSentimentV2"))
 
-  override def responseDataType: StructType = SentimentResponse.schema
+  override def responseDataType: StructType = SentimentResponseV2.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
 
 }
 
-object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
+object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 
-class LanguageDetector(override val uid: String)
+class LanguageDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("LanguageDetector"))
+  def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
 
-  override def responseDataType: StructType = DetectLanguageResponse.schema
+  override def responseDataType: StructType = DetectLanguageResponseV2.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
 
 }
 
-object EntityDetector extends ComplexParamsReadable[EntityDetector]
+object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 
-class EntityDetector(override val uid: String)
+class EntityDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("EntityDetector"))
+  def this() = this(Identifiable.randomUID("EntityDetectorV2"))
 
-  override def responseDataType: StructType = DetectEntitiesResponse.schema
+  override def responseDataType: StructType = DetectEntitiesResponseV2.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
 
 }
 
-object NER extends ComplexParamsReadable[NER]
+object NERV2 extends ComplexParamsReadable[NERV2]
 
-class NER(override val uid: String) extends TextAnalyticsBase(uid) {
+class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("NER"))
+  def this() = this(Identifiable.randomUID("NERV2"))
 
-  override def responseDataType: StructType = NERResponse.schema
+  override def responseDataType: StructType = NERResponseV2.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1-preview/entities")
 }
 
-object KeyPhraseExtractor extends ComplexParamsReadable[EntityDetector]
+object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 
-class KeyPhraseExtractor(override val uid: String)
+class KeyPhraseExtractorV2(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
+  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
 
-  override def responseDataType: StructType = KeyPhraseResponse.schema
+  override def responseDataType: StructType = KeyPhraseResponseV2.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
 
 }
 
-object TextSentimentV3 extends ComplexParamsReadable[TextSentimentV3]
+object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
-class TextSentimentV3(override val uid: String)
+class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
   def this() = this(Identifiable.randomUID("TextSentimentV3"))
@@ -263,7 +263,7 @@ class TextSentimentV3(override val uid: String)
   override def responseDataType: StructType = SentimentResponseV3.schema
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0-preview.1/sentiment")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/sentiment")
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
@@ -272,4 +272,56 @@ class TextSentimentV3(override val uid: String)
     }
   }
 
+}
+
+object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
+
+class KeyPhraseExtractor(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV3"))
+
+  override def responseDataType: StructType = KeyPhraseResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+}
+
+object NER extends ComplexParamsReadable[NER]
+
+class NER(override val uid: String) extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("NERV3"))
+
+  override def responseDataType: StructType = NERResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
+}
+
+object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
+
+class LanguageDetector(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("LanguageDetectorV3"))
+
+  override def responseDataType: StructType = DetectLanguageResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
+
+}
+
+object EntityDetector extends ComplexParamsReadable[EntityDetector]
+
+class EntityDetector(override val uid: String)
+  extends TextAnalyticsBase(uid) {
+
+  def this() = this(Identifiable.randomUID("EntityDetectorV3"))
+
+  override def responseDataType: StructType = DetectEntitiesResponseV3.schema
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
 }
