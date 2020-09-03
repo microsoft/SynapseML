@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
   "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.11.0",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
-  "com.github.vowpalwabbit" % "vw-jni" % "8.7.0.3",
+  "com.github.vowpalwabbit" % "vw-jni" % "8.8.1",
   "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2",
   "org.apache.spark" %% "spark-avro" % sparkVersion
 )
@@ -219,7 +219,7 @@ testPythonTask := {
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2020-01-20.tgz"
+val datasetName = "datasets-2020-08-27.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
