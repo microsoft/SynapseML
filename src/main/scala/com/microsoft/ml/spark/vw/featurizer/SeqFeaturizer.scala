@@ -11,14 +11,13 @@ import scala.collection.mutable
   * Featurize array of strings into native VW structure. (hash(column name + k):1)
   * @param fieldIdx input field index.
   * @param columnName used as feature name prefix.
-  * @param namespaceHash pre-hashed namespace.
-  * @param mask bit mask applied to final hash.
   */
-class StringArrayFeaturizer(override val fieldIdx: Int,
-                            override val columnName: String,
-                            val namespaceHash: Int,
-                            val mask: Int)
-  extends Featurizer(fieldIdx) {
+private[ml] class SeqFeaturizer[E](override val fieldIdx: Int,
+                       override val columnName: String,
+                       val featurizer: Featurizer)
+  extends Featurizer(fieldIdx) with ElementFeaturizer[Seq[E]] {
+
+  private val elementFeaturizer = featurizer.asInstanceOf[ElementFeaturizer[E]]
 
   /**
     * Featurize a single row.
@@ -29,10 +28,15 @@ class StringArrayFeaturizer(override val fieldIdx: Int,
     *       Also due to SparseVector limitations we don't support 64bit indices (e.g. indices are signed 32bit ints)
     */
   override def featurize(row: Row, indices: mutable.ArrayBuilder[Int], values: mutable.ArrayBuilder[Double]): Unit = {
-    for (s <- row.getSeq[String](fieldIdx)) {
-      indices += mask & hasher.hash(s, namespaceHash)
-      values += 1.0
-    }
+    // loop over sequence and pass the offset
+    featurize(0, row.getSeq[E](fieldIdx), indices, values)
+  }
+
+  def featurize(idx: Int,
+                value: Seq[E],
+                indices: mutable.ArrayBuilder[Int],
+                values: mutable.ArrayBuilder[Double]): Unit = {
+    for((v, i) <- value.view.zipWithIndex)
+      elementFeaturizer.featurize(i, v, indices, values)
   }
 }
-

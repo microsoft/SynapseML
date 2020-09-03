@@ -9,6 +9,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param.{ByteArrayParam, DataFrameParam, Param}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, struct, udf}
+import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.{VowpalWabbitArguments, VowpalWabbitExample, VowpalWabbitMurmur, VowpalWabbitNative}
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 
@@ -22,7 +23,6 @@ case class PathAndData(path: String, bytes: Array[Byte])
 trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeaturesCol
   with org.apache.spark.ml.param.shared.HasRawPredictionCol
   with HasAdditionalFeatures
-  with ComplexParamsWritable
 {
   @transient
   lazy val vw = new VowpalWabbitNative(s"--testonly ${getTestArgs}", getModel)
@@ -40,18 +40,23 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   def setTestArgs(value: String): this.type = set(testArgs, value)
 
   protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
-    val featureColIndices = (Seq(getFeaturesCol) ++ getAdditionalFeatures)
-      .zipWithIndex.map { case (col, index) => NamespaceInfo(
-      VowpalWabbitMurmur.hash(col, vwArgs.getHashSeed),
-      col.charAt(0),
-      index)
-    }
+    // select the columns we care for
+    val featureColumnNames = Seq(getFeaturesCol) ++ getAdditionalFeatures
+    val featureColumns = dataset.schema.filter({ f => featureColumnNames.contains(f.name) })
 
+    // pre-compute namespace hashes
+    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
+      StructType(featureColumns),
+      vwArgs.getHashSeed,
+      Seq(getFeaturesCol) ++ getAdditionalFeatures)
+
+    // define UDF
     val predictUDF = udf { (namespaces: Row) => predictInternal(featureColIndices, namespaces) }
 
-    val allCols = Seq(col($(featuresCol))) ++ getAdditionalFeatures.map(col)
-
-    dataset.withColumn($(rawPredictionCol), predictUDF(struct(allCols: _*)))
+    // add prediction column
+    dataset.withColumn(
+      $(rawPredictionCol),
+      predictUDF(struct(featureColumns.map(f => col(f.name)): _*)))
   }
 
   // Model parameter
@@ -83,16 +88,11 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   def setPerformanceStatistics(v: DataFrame): this.type = set(performanceStatistics, v)
   def getPerformanceStatistics: DataFrame = $(performanceStatistics)
 
-  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], namespaces: Row): Double = {
+  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], row: Row): Double = {
     example.clear()
 
-    for (ns <- featureColIndices)
-      namespaces.get(ns.colIdx) match {
-        case dense: DenseVector => example.addToNamespaceDense(ns.featureGroup,
-          ns.hash, dense.values)
-        case sparse: SparseVector => example.addToNamespaceSparse(ns.featureGroup,
-          sparse.indices, sparse.values)
-      }
+    // transfer features
+    VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
 
     // TODO: surface prediction confidence
     example.predict.asInstanceOf[ScalarPrediction].getValue.toDouble

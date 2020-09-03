@@ -12,12 +12,13 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.ml.regression.RegressionModel
 
-object VowpalWabbitRegressor extends DefaultParamsReadable[VowpalWabbitRegressor]
+object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
 
 @InternalWrapper
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
+    with ComplexParamsWritable
 {
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 

@@ -8,7 +8,7 @@ import org.apache.spark.sql.Row
 
 import scala.collection.mutable
 
-abstract class Featurizer(val fieldIdx: Int) extends Serializable {
+private[ml] abstract class Featurizer(val fieldIdx: Int) extends Serializable {
 
   val columnName: String
 
