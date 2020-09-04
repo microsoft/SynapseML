@@ -6,7 +6,7 @@
   <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true"><parameters>
     <parameter name="maxLineLength">120</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
-  <check level="error" class="org.scalastyle.file.RegexChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.file.RegexChecker" enabled="false"><parameters>
     <parameter name="regex">
 
 
