@@ -266,7 +266,7 @@ and some necessary custom wrappers may be missing.
 
 -   Explore [our collaboration with Apache Spark] on image analysis.
 
-[new website]: https://mmlspark.blob.core.windows.net/website/index.html "aka.ms/spark"
+[website]: https://mmlspark.blob.core.windows.net/website/index.html "aka.ms/spark"
 
 [the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
 
