@@ -28,11 +28,15 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   import session.implicits._
 
   val region = "eastus"
-  lazy val resourcesDir = new File(getClass.getResource("/").toURI)
+  lazy val resourcesDir = new File(new File(getClass.getResource("/").toURI)
+    .toString.replaceAll("it-classes", "test-classes"))
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
   val profanity = "masked"
   val format = "simple"
+
+  val streamUrl = "https://bitdash-a.akamaihd.net/content/MI201109210084_1/" +
+    "m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8"
 
   val jaccardThreshold = 0.9
 
@@ -213,9 +217,8 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("m3u8 based access") {
-    val streamUrl = "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8"
     val sdk2 = sdk.setExtraFfmpegArgs(Array("-t", "60"))
-      .setLanguage("fr-FR")
+      .setLanguage("en-US")
     // 20 seconds of streaming
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1(streamUrl))
@@ -227,7 +230,6 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("m3u8 file writing") {
-    val streamUrl = "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8"
     val outputMp3 = new File(savePath, "output.mp3")
     val outputJson = new File(savePath, "output.json")
 
