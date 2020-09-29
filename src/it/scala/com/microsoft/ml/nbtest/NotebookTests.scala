@@ -7,7 +7,7 @@ package com.microsoft.ml.nbtest
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.nbtest.DatabricksUtilities._
+import com.microsoft.ml.nbtest.DatabricksUtilities
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -17,42 +17,78 @@ import scala.language.existentials
 class NotebookTests extends TestBase {
 
   test("Databricks Notebooks") {
-    val clusterId = createClusterInPool(ClusterName, PoolId)
+    val clusterId = DatabricksUtilities.createClusterInPool(DatabricksUtilities.ClusterName, DatabricksUtilities.PoolId)
     try {
       println("Checking if cluster is active")
       tryWithRetries(Seq.fill(60*15)(1000).toArray){() =>
-        assert(isClusterActive(clusterId))}
+        assert(DatabricksUtilities.isClusterActive(clusterId))}
       println("Installing libraries")
-      installLibraries(clusterId)
+      DatabricksUtilities.installLibraries(clusterId)
       tryWithRetries(Seq.fill(60*3)(1000).toArray){() =>
-        assert(isClusterActive(clusterId))}
-      println(s"Creating folder $Folder")
-      workspaceMkDir(Folder)
+        assert(DatabricksUtilities.isClusterActive(clusterId))}
+      val folder = DatabricksUtilities.Folder
+      println(s"Creating folder $folder")
+      DatabricksUtilities.workspaceMkDir(folder)
       println(s"Submitting jobs")
-      val jobIds = NotebookFiles.map(uploadAndSubmitNotebook(clusterId, _))
+      val jobIds = DatabricksUtilities.NotebookFiles.map(DatabricksUtilities.uploadAndSubmitNotebook(clusterId, _))
       println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
       try {
-        val monitors = jobIds.map((runId: Int) => monitorJob(runId, TimeoutInMillis, logLevel = 2))
+        val monitors = jobIds.map((runId: Int) => DatabricksUtilities.monitorJob(
+          runId,
+          DatabricksUtilities.TimeoutInMillis,
+          logLevel = 2))
         println(s"Monitoring Jobs...")
         val failures = monitors
-          .map(Await.ready(_, Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+          .map(Await.ready(_, Duration(DatabricksUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
           .filter(_.isFailure)
         assert(failures.isEmpty)
       } catch {
         case t: Throwable =>
           jobIds.foreach { jid =>
             println(s"Cancelling job $jid")
-            cancelRun(jid)
+            DatabricksUtilities.cancelRun(jid)
           }
           throw t
       }
     } finally {
-      deleteCluster(clusterId)
+      DatabricksUtilities.deleteCluster(clusterId)
+    }
+  }
+
+  test("Synapse Notebooks PROD") {
+    val livyPort = "8998"
+    val livyIP = sys.env("LIVY_IP")
+    val livyURL = s"http://${livyIP.trim.replace("'","")}:$livyPort"
+
+    val clusterId = DatabricksUtilities.createClusterInPool(DatabricksUtilities.ClusterName, DatabricksUtilities.PoolId)
+    try {
+      val jobIds = DatabricksUtilities.NotebookFiles.map(DatabricksUtilities.uploadAndSubmitNotebook(clusterId, _))
+      println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
+      try {
+        val monitors = jobIds.map((runId: Int) => DatabricksUtilities.monitorJob(
+          runId,
+          DatabricksUtilities.TimeoutInMillis,
+          logLevel = 2))
+        println(s"Monitoring Jobs...")
+        val failures = monitors
+          .map(Await.ready(_, Duration(DatabricksUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+          .filter(_.isFailure)
+        assert(failures.isEmpty)
+      } catch {
+        case t: Throwable =>
+          jobIds.foreach { jid =>
+            println(s"Cancelling job $jid")
+            DatabricksUtilities.cancelRun(jid)
+          }
+          throw t
+      }
+    } finally {
+      DatabricksUtilities.deleteCluster(clusterId)
     }
   }
 
   ignore("list running jobs for convenievce") {
-    val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
+    val obj = DatabricksUtilities.databricksGet("jobs/runs/list?active_only=true&limit=1000")
     println(obj)
   }
 
