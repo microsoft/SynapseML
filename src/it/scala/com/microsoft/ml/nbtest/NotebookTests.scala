@@ -7,7 +7,6 @@ package com.microsoft.ml.nbtest
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.nbtest.DatabricksUtilities
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
