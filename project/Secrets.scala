@@ -9,7 +9,7 @@ import sbt.{SettingKey, TaskKey}
 
 object Secrets {
   private val kvName = "mmlspark-keys"
-  private val subscriptionID = "ce1dee05-8cf6-4ad6-990a-9c80868800ba"
+  private val subscriptionID = "f9b96b36-1f5e-4021-8959-51527e26e6d3"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase

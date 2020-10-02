@@ -38,6 +38,8 @@ object LivyUtilities {
 
   lazy val Token: String = sys.env.getOrElse("MML_SYNAPSE_TOKEN", Secrets.AdbToken)
 
+  val Folder = s"/MMLSparkBuild/build_${BuildInfo.version}"
+
   def poll (id: Int, livyUrl: String, backoffs: List[Int] = List(100, 500, 1000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/batches/$id")
     val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backoffs, close=false)
@@ -66,7 +68,10 @@ object LivyUtilities {
     if (batch.state == "success") {
       batch
     }else{
-      val waitTime : Int = backoffs.headOption.getOrElse(assert(false, "cannot poll"))
+      val waitTime : Int = backoffs.headOption.getOrElse(-1)
+      if (waitTime == -1){
+        assert(false, "cannot poll")
+      }
       if (batch.state == "dead"){
         postMortem(batch, livyUrl)
       }

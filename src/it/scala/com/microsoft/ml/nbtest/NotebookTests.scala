@@ -86,6 +86,10 @@ class NotebookTests extends TestBase {
     }
   }
 
+  test("TestRun") {
+    println("Hello world")
+  }
+
   ignore("list running jobs for convenievce") {
     val obj = DatabricksUtilities.databricksGet("jobs/runs/list?active_only=true&limit=1000")
     println(obj)
