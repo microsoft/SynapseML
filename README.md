@@ -130,6 +130,32 @@ documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 
 ## Setup and installation
 
+### Python
+
+To try out MMLSpark on a Python (or Conda) installation you can get Spark
+installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
+the above example, or from python:
+
+```python
+import pyspark
+spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
+            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3") \
+            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
+            .getOrCreate()
+import mmlspark
+```
+
+### SBT
+
+If you are building a Spark application in Scala, add the following lines to
+your `build.sbt`:
+
+```scala
+resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"
+
+```
+
 ### Spark package
 
 MMLSpark can be conveniently installed on existing Spark clusters via the
@@ -202,31 +228,7 @@ MMLSpark can be used to train deep learning models on GPU nodes from a Spark
 application.  See the instructions for [setting up an Azure GPU
 VM](docs/gpu-setup.md).
 
-### Python
 
-To try out MMLSpark on a Python (or Conda) installation you can get Spark
-installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
-the above example, or from python:
-
-```python
-import pyspark
-spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3") \
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
-            .getOrCreate()
-import mmlspark
-```
-
-### SBT
-
-If you are building a Spark application in Scala, add the following lines to
-your `build.sbt`:
-
-```scala
-resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"
-
-```
 
 ### Building from source
 
