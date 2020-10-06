@@ -224,7 +224,7 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
   override def responseDataType: StructType = NERResponseV2.schema
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1-preview/entities")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1/entities")
 }
 
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
