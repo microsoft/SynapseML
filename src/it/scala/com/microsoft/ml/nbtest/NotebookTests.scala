@@ -15,7 +15,7 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class NotebookTests extends TestBase {
 
-  test("Databricks Notebooks") {
+  test("Databricks") {
     val clusterId = DatabricksUtilities.createClusterInPool(DatabricksUtilities.ClusterName, DatabricksUtilities.PoolId)
     try {
       println("Checking if cluster is active")
