@@ -225,10 +225,6 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
     .setDefaultLanguage("de")
     .setOutputCol("replies")
 
-  test("TestRun") {
-    println("Hello world")
-  }
-
   test("Basic Usage") {
     val results = t.transform(df).withColumn("score",
       col("replies").getItem(0).getItem("score"))
