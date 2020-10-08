@@ -77,7 +77,7 @@ jobs:
       env:
         STORAGE_KEY: $(storage-key)
 
-- job: E2E Databricks
+- job: E2E_Databricks
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
@@ -118,7 +118,7 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-- job: E2E Synapse
+- job: E2E_Synapse
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-16.04
