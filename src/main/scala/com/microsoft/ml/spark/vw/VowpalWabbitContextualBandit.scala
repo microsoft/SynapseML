@@ -248,8 +248,12 @@ class VowpalWabbitContextualBandit(override val uid: String)
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
           val probs = prediction.getActionProbs
           val selectedActionIdxZeroBased = selectedActionIdx - 1
-          ctx.contextualBanditMetrics.addExample(loggedProbability, cost,
-            probs.apply(selectedActionIdxZeroBased).getProbability)
+          probs.find(item => item.getAction() == selectedActionIdxZeroBased) match {
+            case Some(evalProb) =>
+              ctx.contextualBanditMetrics.addExample(loggedProbability, cost,evalProb.getProbability())
+            case None => log.warn(s"No action found for index: ${selectedActionIdxZeroBased} " +
+              s"in ${probs.mkString("Array(", ", ", ")")}.")
+          }
         })
     }
   }
