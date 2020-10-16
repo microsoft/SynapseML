@@ -149,7 +149,12 @@ object LivyUtilities {
   }
 
   private def convertNotebook(notebookPath: String): File = {
-    exec(s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+    val os = sys.props("os.name").toLowerCase
+    os match {
+      case x if x contains "windows" => exec(s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+      case _ => exec(s"conda activate bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+    }
+
     new File(notebookPath.replace(".ipynb", ".py"))
   }
 
