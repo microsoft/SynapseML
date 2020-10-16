@@ -19,6 +19,7 @@ import org.json4s._
 import org.spark_project.guava.io.BaseEncoding
 import spray.json._
 import DefaultJsonProtocol._
+import sys.process._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException, blocking}
