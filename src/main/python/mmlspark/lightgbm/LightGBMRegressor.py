@@ -2,9 +2,6 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import sys
-from pyspark import SQLContext
-from pyspark import SparkContext
-
 if sys.version >= '3':
     basestring = str
 
