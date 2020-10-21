@@ -132,9 +132,8 @@ documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 
 ### Python
 
-To try out MMLSpark on a Python (or Conda) installation you can get Spark
-installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
-the above example, or from python:
+To try out MMLSpark on a Python (or Conda) installation, you can get Spark
+installed via pip with `pip install pyspark mmlspark`.  You can then use the above example, or load Spark session like this:
 
 ```python
 import pyspark
