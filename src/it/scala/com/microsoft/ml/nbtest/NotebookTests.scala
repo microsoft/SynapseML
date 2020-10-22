@@ -63,7 +63,7 @@ class NotebookTests extends TestBase {
                   poolName +
                   "/batches"
     val livyBatches = LivyUtilities.NotebookFiles.map(LivyUtilities.uploadAndSubmitNotebook(livyUrl, _))
-    println(s"Submitted ${livyBatches.length} for execution: " +
+    println(s"Submitted ${livyBatches.length} jobs for execution: " +
       s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}")}")
     try {
       val batchFutures = livyBatches.map((batch: LivyBatch) => {
