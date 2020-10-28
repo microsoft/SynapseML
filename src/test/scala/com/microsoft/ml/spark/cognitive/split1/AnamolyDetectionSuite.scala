@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, collect_list, lit, struct}
 
 trait AnomalyKey {
@@ -166,8 +166,9 @@ class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalie
     .setGranularity("monthly")
 
   test("Basic Usage"){
-    sad.transform(sdf)
-      .show(truncate=false)
+    val result = sad.transform(sdf)
+      .collect().head.getAs[Row]("anomalies")
+    assert(!result.getBoolean(0))
   }
 
   test("Reverse Reverse!"){

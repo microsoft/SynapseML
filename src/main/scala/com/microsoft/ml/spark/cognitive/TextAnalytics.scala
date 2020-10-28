@@ -69,7 +69,6 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         val post = new HttpPost(getUrl)
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
         post.setHeader("Content-Type", "application/json")
-        CognitiveServiceUtils.setUA(post)
         val texts = getValue(row, text)
 
         val languages = (getValueOpt(row, language) match {

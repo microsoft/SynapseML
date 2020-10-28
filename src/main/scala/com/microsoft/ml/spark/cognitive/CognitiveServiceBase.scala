@@ -177,13 +177,6 @@ object URLEncodingUtils {
   }
 }
 
-object CognitiveServiceUtils {
-
-  def setUA(req: HttpRequestBase): Unit = {
-    req.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}")
-  }
-}
-
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
   protected def prepareUrl: Row => String = {
@@ -223,7 +216,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
         getValueOpt(row, subscriptionKey).foreach(
           req.setHeader(subscriptionKeyHeaderName, _))
         req.setHeader("Content-Type", contentType(row))
-        CognitiveServiceUtils.setUA(req)
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
