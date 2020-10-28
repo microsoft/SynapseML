@@ -160,7 +160,7 @@ case class RequestLineData(method: String,
 object RequestLineData extends SparkBindings[RequestLineData]
 
 object HeaderValues {
-  lazy val PlatformInfo: String = sys.env.get("MMLSPARK_PLATFORM_INFO").map(" " + _).getOrElse("")
+  lazy val PlatformInfo: String = sys.env.get("MMLSPARK_PLATFORM_INFO").map(" " + _).getOrElse(" no-platform-info")
 }
 
 case class HTTPRequestData(requestLine: RequestLineData,
