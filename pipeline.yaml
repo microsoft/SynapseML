@@ -37,7 +37,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Style Check'
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection'
         scriptLocation: inlineScript
         inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
 
