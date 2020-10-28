@@ -54,7 +54,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -90,7 +90,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -107,7 +107,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'MMLSpark Connection 2'
+        azureSubscription:  'MMLSpark Connection 4'
         scriptLocation: inlineScript
         inlineScript: 'sbt it:test'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -236,13 +236,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
@@ -319,7 +319,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
@@ -328,7 +328,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         scriptLocation: inlineScript
         inlineScript: |
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
@@ -348,13 +348,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Connection 4'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
