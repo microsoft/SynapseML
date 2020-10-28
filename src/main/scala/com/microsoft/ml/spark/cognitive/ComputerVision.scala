@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cognitive
 import java.net.URI
 import java.util.concurrent.TimeoutException
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.io.http._
 import com.microsoft.ml.spark.stages.UDFTransformer
@@ -82,7 +83,6 @@ trait HasImageInput extends HasImageUrl
         req.setURI(new URI(rowToUrl(row)))
         getValueOpt(row, subscriptionKey).foreach(
           req.setHeader(subscriptionKeyHeaderName, _))
-        CognitiveServiceUtils.setUA(req)
         req match {
           case er: HttpEntityEnclosingRequestBase =>
             rowToEntity(row).foreach(er.setEntity)
@@ -278,7 +278,7 @@ class RecognizeText(override val uid: String)
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    CognitiveServiceUtils.setUA(get)
+    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
