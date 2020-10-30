@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.stages
 
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.Column
@@ -16,12 +17,12 @@ import scala.collection.mutable
 object udfs {
 
   def get_value_at(colName: String, i: Int): Column = {
-    udf({
+    UDFUtils.oldUdf({
       vec: org.apache.spark.ml.linalg.Vector => vec(i)
     }, DoubleType)(col(colName))
   }
 
-  val to_vector: UserDefinedFunction = udf({
+  val to_vector: UserDefinedFunction = UDFUtils.oldUdf({
     arr: Seq[Double] => Vectors.dense(arr.toArray)
   }, VectorType)
 

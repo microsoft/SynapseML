@@ -11,7 +11,7 @@ import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.types.{DataType, StructField, StructType}
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset}
 import org.apache.spark.sql.functions.col
 
@@ -75,7 +75,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   }
 
   def getDataType: DataType =  {
-    if (isSet(udfScala)) getUDF.dataType
+    if (isSet(udfScala)) StringType
     else getUDPyF.dataType
   }
 

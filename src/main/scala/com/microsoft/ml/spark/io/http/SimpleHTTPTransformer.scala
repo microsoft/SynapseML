@@ -8,6 +8,7 @@ import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.ml.spark.stages.{DropColumns, FlattenBatch, HasMiniBatcher, Lambda}
 import org.apache.commons.io.IOUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -53,10 +54,10 @@ object ErrorUtils extends Serializable {
 
   def addErrorUDF: UserDefinedFunction = {
     val fromRow = HTTPResponseData.makeFromRowConverter
-    udf(addError(fromRow) _, ErrorSchema)
+    UDFUtils.oldUdf(addError(fromRow) _, ErrorSchema)
   }
 
-  val NullifyResponseUDF: UserDefinedFunction = udf(nullifyResponse _, HTTPSchema.Response)
+  val NullifyResponseUDF: UserDefinedFunction = UDFUtils.oldUdf(nullifyResponse _, HTTPSchema.Response)
 
 }
 

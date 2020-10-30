@@ -114,7 +114,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
           filteredResult.map(_ => emptyUnsafeRow)
         } else {
           val converter = RowEncoder(requiredSchema)
-          filteredResult.map(row => converter.toRow(row))
+          filteredResult.map(row => converter.createSerializer()(row))
         }
       }
     }

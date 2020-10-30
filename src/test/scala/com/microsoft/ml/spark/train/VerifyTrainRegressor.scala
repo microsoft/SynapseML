@@ -12,6 +12,7 @@ import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.ml.{Estimator, PipelineStage}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.Seq
@@ -70,7 +71,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
     val dataset = createMockDataset
     val castLabelCol = "cast_" + mockLabelColumn
     for (outputType <-
-         Seq(IntegerType, LongType, ByteType, BooleanType, FloatType, DoubleType, ShortType)) {
+           Seq(IntegerType, LongType, ByteType, BooleanType, FloatType, DoubleType, ShortType)) {
       val modifiedDataset = dataset.withColumn(castLabelCol, dataset(mockLabelColumn).cast(outputType))
       val linearRegressor = TrainRegressorTestUtilities.createLinearRegressor(castLabelCol)
       TrainRegressorTestUtilities.trainScoreDataset(castLabelCol, modifiedDataset, linearRegressor)
@@ -135,7 +136,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
 
   override def testObjects(): Seq[TestObject[TrainRegressor]] = Seq(
     new TestObject(TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn),
-                   createMockDataset))
+      createMockDataset))
 
 }
 
@@ -167,7 +168,7 @@ object TrainRegressorTestUtilities {
   }
 
   def trainScoreDataset(labelColumn: String, dataset: DataFrame, trainRegressor: Estimator[TrainedRegressorModel])
-      : DataFrame = {
+  : DataFrame = {
     val data = dataset.randomSplit(Seq(0.6, 0.4).toArray, 42)
     val trainData = data(0)
     val testData = data(1)

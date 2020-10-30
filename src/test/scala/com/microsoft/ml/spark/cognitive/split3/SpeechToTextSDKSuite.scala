@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cognitive.split3
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
+import com.microsoft.cognitiveservices.speech.SpeechConfig
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
@@ -218,9 +219,9 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   }
 
   test("SAS URL based access") {
-    val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
-      "?st=2020-03-17T16%3A17%3A41Z&se=2026-03-18T16%3A17%3A00Z&sp=rl" +
-      "&sv=2018-03-28&sr=b&sig=RbTzSQkKrIs3q9qmWFSNhwVpFED9COR4uqEIJyG2u7o%3D"
+    val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav?sv=2019-12-12" +
+      "&st=2021-01-25T16%3A40%3A13Z&se=2024-01-26T16%3A40%3A00Z" +
+      "&sr=b&sp=r&sig=NpFm%2FJemAJOGIya1ykQ6f80YdvwpiAuJjnb2RVDtKro%3D"
 
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1(sasURL))
@@ -324,6 +325,13 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
+  test("foo"){
+    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(
+      new URI("https://eastus.api.cognitive.microsoft.com/sts/v1.0/issuetoken"),
+      "2f89346fdf6745ad81ee6f92e639bb5d")
+    println(speechConfig)
+  }
+
   test("dialogue with participants") {
     val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
     val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
@@ -380,8 +388,8 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
 
   test("SAS URL based access") {
     val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
-      "?st=2020-03-17T16%3A17%3A41Z&se=2026-03-18T16%3A17%3A00Z&sp=rl" +
-      "&sv=2018-03-28&sr=b&sig=RbTzSQkKrIs3q9qmWFSNhwVpFED9COR4uqEIJyG2u7o%3D"
+      "?sv=2019-12-12&st=2021-01-25T16%3A40%3A13Z&se=2024-01-26T16%3A40%3A00Z&sr=b&sp=r" +
+      "&sig=NpFm%2FJemAJOGIya1ykQ6f80YdvwpiAuJjnb2RVDtKro%3D"
 
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1(sasURL))

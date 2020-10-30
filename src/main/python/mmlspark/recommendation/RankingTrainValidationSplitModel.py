@@ -7,7 +7,7 @@ if sys.version >= '3':
     basestring = str
 
 from pyspark.ml.common import inherit_doc
-from pyspark.ml.tuning import ValidatorParams
+from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.util import *
 from mmlspark.recommendation._RankingTrainValidationSplitModel import _RankingTrainValidationSplitModel
 from pyspark.ml.wrapper import JavaParams
@@ -16,7 +16,7 @@ from pyspark.ml.common import _py2java
 
 # Load information from java_stage to the instance.
 @inherit_doc
-class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, ValidatorParams):
+class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, _ValidatorParams):
 
     def __init__(self, bestModel=None, validationMetrics=[]):
         super(RankingTrainValidationSplitModel, self).__init__()

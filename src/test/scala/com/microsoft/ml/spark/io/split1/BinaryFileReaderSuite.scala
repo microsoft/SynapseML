@@ -17,6 +17,7 @@ import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.binary.BinaryFileFormat
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.StringType
 
@@ -36,7 +37,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
 
   object UDFs extends Serializable {
     val CifarDirectoryVal = cifarDirectory
-    val Rename = udf({ x: String => new Path(x).getName}, StringType)
+    val Rename = UDFUtils.oldUdf({ x: String => new Path(x).getName}, StringType)
   }
 
   test("binary dataframe") {
@@ -125,7 +126,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .option("subsample", .5)
       .load(cifarDirectory)
     df.show()
-    assert(df.count() > 0 && df.count() < 6)
+    assert(df.count() > 0 && df.count() <= 6)
   }
 
   test("structured streaming with binary files") {
@@ -157,7 +158,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .withColumn("path", UDFs.Rename(col("path")))
     imageDF.printSchema()
     val count = imageDF.count()
-    assert(count > 0 && count < 6)
+    assert(count > 0 && count <= 6)
     val saveDir = new File(tmpDir.toFile, "binaries").toString
     imageDF.write.mode("overwrite")
       .format(classOf[BinaryFileFormat].getName)

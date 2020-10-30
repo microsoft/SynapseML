@@ -443,7 +443,7 @@ class AssembleFeaturesModel(val uid: String,
         val outputColsKeys = columnNamesToFeaturize.categoricalColumns.values
         val inputCols = inputColsKeys.toArray
         val outputCols = outputColsKeys.toArray
-        val ohe = new OneHotEncoderEstimator()
+        val ohe = new OneHotEncoder()
           .setInputCols(inputCols).setOutputCols(outputCols)
           .fit(stringFeaturizedData)
         columnsToDrop = columnsToDrop.union(columnNamesToFeaturize.categoricalColumns.keys.toSeq)

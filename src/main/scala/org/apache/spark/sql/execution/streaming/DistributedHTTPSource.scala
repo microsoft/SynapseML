@@ -19,6 +19,7 @@ import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
@@ -128,7 +129,7 @@ class JVMSharedServer(name: String, host: String,
   def getRequests(start: Long, end: Long): immutable.IndexedSeq[(ID, Body)] = synchronized {
     // Increment the current batch so new requests are routed to the next batch
     if (end == currentBatch) incrementCurrentBatch()
-    val requests = (start to end).flatMap { i =>
+    val requests = ((start + 1) to end).flatMap { i =>
         val mcm = batchesToRequests.getOrElse(i, new MultiChannelMap[ID, Request](nPartitions))
         mcm.nextList().map(p => (p._1, p._2._1))
       }
@@ -250,7 +251,8 @@ class DistributedHTTPSource(name: String,
   }
 
   private[spark] val serverInfoDFStreaming = {
-    val serverInfoConfRDD = serverInfoDF.rdd.map(infoEnc.toRow)
+    val serializer = infoEnc.createSerializer()
+    val serverInfoConfRDD = serverInfoDF.rdd.map(serializer)
     sqlContext.sparkSession.internalCreateDataFrame(
       serverInfoConfRDD, schema, isStreaming = true)
   }
@@ -272,11 +274,11 @@ class DistributedHTTPSource(name: String,
 
   /** Returns the data that is between the offsets (`start`, `end`]. */
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = synchronized {
-    val startOrdinal =
-      start.flatMap(LongOffset.convert).getOrElse(LongOffset(-1)).offset
-    val endOrdinal = LongOffset.convert(end).getOrElse(LongOffset(-1)).offset
-    val toRow = HTTPRequestData.makeToRowConverter
+    val startOrdinal = start.map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset
+    val endOrdinal = Option(end).map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset
 
+
+    val toRow = HTTPRequestData.makeToRowConverter
     serverInfoDFStreaming.mapPartitions { _ =>
       val s = server.get
       s.updateCurrentBatch(currentOffset.offset)
@@ -287,22 +289,22 @@ class DistributedHTTPSource(name: String,
     }(RowEncoder(HTTPSourceV2.Schema))
   }
 
-  override def commit(end: Offset): Unit = synchronized {
-    val newOffset = LongOffset.convert(end).getOrElse(
+  override def commit(end: OffsetV2): Unit = synchronized {
+    val newOffset = Option(end).map(_.asInstanceOf[LongOffset]).getOrElse(
       sys.error(s"DistributedHTTPSource.commit() received an offset ($end) that did not " +
         s"originate with an instance of this class")
     )
     if (newOffset.offset < lastOffsetCommitted.offset) {
       sys.error(s"Offsets committed out of order: $lastOffsetCommitted followed by $end")
     }
-    serverInfoDF.foreachPartition(_ =>
+    serverInfoDF.foreachPartition((f: Iterator[Row]) =>
       server.get.trimBatchesBefore(newOffset.offset))
     lastOffsetCommitted = newOffset
   }
 
   /** Stop this source. */
   override def stop(): Unit = synchronized {
-    serverInfoDF.foreachPartition(_ =>
+    serverInfoDF.foreachPartition((f: Iterator[Row]) =>
       server.get.stop())
     ()
   }
@@ -365,7 +367,7 @@ class DistributedHTTPSink(val options: Map[String, String])
   if (!options.contains("name")) {
     throw new AnalysisException("Set a name of an API to reply to")
   }
-  val name: String = options("name")
+  override def name: String = options("name")
 
   DistributedHTTPSink.ActiveSinks.update(name, this)
 

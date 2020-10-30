@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.featurize.text
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -88,7 +89,7 @@ class PageSplitter(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.toDF().withColumn(getOutputCol, udf(split _, ArrayType(StringType))(col(getInputCol)))
+    dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol)))
   }
 
   override def copy(extra: ParamMap): MultiNGram =

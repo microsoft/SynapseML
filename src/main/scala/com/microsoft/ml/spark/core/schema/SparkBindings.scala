@@ -22,25 +22,25 @@ abstract class SparkBindings[T: TypeTag] extends Serializable {
   // you should make a single converter before using it in a udf so
   // that the slow resolving and binding is not in the hotpath
   def makeFromRowConverter: Row => T = {
-    val enc1 = enc.resolveAndBind()
-    val rowEnc1 = rowEnc.resolveAndBind();
-    { r: Row => enc1.fromRow(rowEnc1.toRow(r)) }
+    val enc1 = enc.resolveAndBind().createDeserializer()
+    val rowEnc1 = rowEnc.resolveAndBind().createSerializer();
+    { r: Row => enc1(rowEnc1(r)) }
   }
 
   def makeFromInternalRowConverter: InternalRow => T = {
-    val enc1 = enc.resolveAndBind();
-    { r: InternalRow => enc1.fromRow(r) }
+    val enc1 = enc.resolveAndBind().createDeserializer();
+    { r: InternalRow => enc1(r) }
   }
 
   def makeToRowConverter: T => Row = {
-    val enc1 = enc.resolveAndBind()
-    val rowEnc1 = rowEnc.resolveAndBind();
-    { v: T => rowEnc1.fromRow(enc1.toRow(v)) }
+    val enc1 = enc.resolveAndBind().createSerializer()
+    val rowEnc1 = rowEnc.resolveAndBind().createDeserializer();
+    { v: T => rowEnc1(enc1(v)) }
   }
 
   def makeToInternalRowConverter: T => InternalRow = {
-    val enc1 = enc.resolveAndBind();
-    { v: T => enc1.toRow(v) }
+    val enc1 = enc.resolveAndBind().createSerializer();
+    { v: T => enc1(v) }
   }
 
 }

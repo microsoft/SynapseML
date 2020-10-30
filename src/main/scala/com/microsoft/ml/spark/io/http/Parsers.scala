@@ -18,6 +18,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
+import org.apache.spark.injections.UDFUtils
 
 import scala.reflect.runtime.universe.TypeTag
 
@@ -89,7 +90,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
 
   val udfScala = new UDFParam(
       this, "udfScala", "User Defined Function to be applied to the DF input col",
-      { x: UserDefinedFunction => x.dataType == HTTPSchema.Request })
+      { x: UserDefinedFunction => UDFUtils.unpackUdf(x)._2 == HTTPSchema.Request })
 
   val udfPython = new UDPyFParam(
       this, "udfPython", "User Defined Python Function to be applied to the DF input col",
@@ -116,11 +117,11 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
   }
 
   def setUDF[T](f: T => HttpRequestBase): this.type = {
-    setUDF(udf({ x: T => new HTTPRequestData(f(x)) }, HTTPSchema.Request))
+    setUDF(UDFUtils.oldUdf({ x: T => new HTTPRequestData(f(x)) }, HTTPSchema.Request))
   }
 
   def setNullableUDF[T](f: T => Option[HttpRequestBase]): this.type = {
-    setUDF(udf({ x: T => f(x).map(new HTTPRequestData(_)) }, HTTPSchema.Request))
+    setUDF(UDFUtils.oldUdf({ x: T => f(x).map(new HTTPRequestData(_)) }, HTTPSchema.Request))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -137,7 +138,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
 }
 
 abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOutputCol with Wrappable {
-  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 }
 
 object JSONOutputParser extends ComplexParamsReadable[JSONOutputParser]
@@ -170,8 +171,8 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
     value.map(set(postProcessor, _)).getOrElse(clear(postProcessor)).asInstanceOf[this.type]
   }
 
-  def setPostProcessFunc(f: AnyRef, dt: DataType): this.type = {
-    setPostProcessor(Some(new UDFTransformer().setUDF(udf(f,dt))))
+  def setPostProcessFunc[A, B](f: A => B, dt: DataType): this.type = {
+    setPostProcessor(Some(new UDFTransformer().setUDF(UDFUtils.oldUdf(f,dt))))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -259,13 +260,16 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
 
   override def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.Response)
-    schema.add(getOutputCol, {
+
+    def test_method: DataType = {
       (get(udfScala), get(udfPython)) match {
-        case (Some(f), None) => f.dataType
+        case (Some(f), None) => StringType
         case (None, Some(f)) => f.dataType
         case _ => throw new IllegalArgumentException("Need to set either parseOutput or parseOutputPy")
       }
-    })
+    }
+
+    schema.add(getOutputCol, test_method)
   }
 
 }
