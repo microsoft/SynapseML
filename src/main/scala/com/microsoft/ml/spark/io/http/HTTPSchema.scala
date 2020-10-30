@@ -33,7 +33,7 @@ case class HeaderData(name: String, value: String) {
 
 }
 
-object HeaderData  extends SparkBindings[HeaderData]
+object HeaderData extends SparkBindings[HeaderData]
 
 case class EntityData(content: Array[Byte],
                       contentEncoding: Option[HeaderData],
@@ -45,23 +45,23 @@ case class EntityData(content: Array[Byte],
 
   def this(e: HttpEntity) = {
     this(
-         try {
-           IOUtils.toByteArray(e.getContent)
-         } catch {
-           case _: SocketException => Array() //TODO investigate why sockets fail sometimes
-         },
-         Option(e.getContentEncoding).map(new HeaderData(_)),
-         Option(e.getContentLength),
-         Option(e.getContentType).map(new HeaderData(_)),
-         e.isChunked,
-         e.isRepeatable,
-         e.isStreaming)
+      try {
+        IOUtils.toByteArray(e.getContent)
+      } catch {
+        case _: SocketException => Array() //TODO investigate why sockets fail sometimes
+      },
+      Option(e.getContentEncoding).map(new HeaderData(_)),
+      Option(e.getContentLength),
+      Option(e.getContentType).map(new HeaderData(_)),
+      e.isChunked,
+      e.isRepeatable,
+      e.isStreaming)
   }
 
   def toHttpCore: HttpEntity = {
     val e = new ByteArrayEntity(content)
     contentEncoding.foreach { ce => e.setContentEncoding(ce.toHTTPCore) }
-    contentLength.foreach { cl => assert(e.getContentLength == cl)}
+    contentLength.foreach { cl => assert(e.getContentLength == cl) }
     contentType.foreach(h => e.setContentType(h.toHTTPCore))
     e.setChunked(isChunked)
     assert(e.isRepeatable == isRepeatable)
@@ -79,8 +79,8 @@ case class StatusLineData(protocolVersion: ProtocolVersionData,
 
   def this(s: StatusLine) = {
     this(new ProtocolVersionData(s.getProtocolVersion),
-         s.getStatusCode,
-         s.getReasonPhrase)
+      s.getStatusCode,
+      s.getReasonPhrase)
   }
 
 }
@@ -94,9 +94,9 @@ case class HTTPResponseData(headers: Array[HeaderData],
 
   def this(response: CloseableHttpResponse) = {
     this(response.getAllHeaders.map(new HeaderData(_)),
-         Option(response.getEntity).map(new EntityData(_)),
-         new StatusLineData(response.getStatusLine),
-         response.getLocale.toString)
+      Option(response.getEntity).map(new EntityData(_)),
+      new StatusLineData(response.getStatusLine),
+      response.getLocale.toString)
   }
 
   def respondToHTTPExchange(request: HttpExchange): Unit = {
@@ -151,13 +151,17 @@ case class RequestLineData(method: String,
 
   def this(l: RequestLine) = {
     this(l.getMethod,
-         l.getUri,
-         Some(new ProtocolVersionData(l.getProtocolVersion)))
+      l.getUri,
+      Some(new ProtocolVersionData(l.getProtocolVersion)))
   }
 
 }
 
 object RequestLineData extends SparkBindings[RequestLineData]
+
+object HeaderValues {
+  lazy val PlatformInfo: String = sys.env.get("MMLSPARK_PLATFORM_INFO").map(" " + _).getOrElse(" no-platform-info")
+}
 
 case class HTTPRequestData(requestLine: RequestLineData,
                            headers: Array[HeaderData],
@@ -165,23 +169,23 @@ case class HTTPRequestData(requestLine: RequestLineData,
 
   def this(r: HttpRequestBase) = {
     this(new RequestLineData(r.getRequestLine),
-         r.getAllHeaders.map(new HeaderData(_)),
-         r match {
-           case re: HttpEntityEnclosingRequestBase => Option(re.getEntity).map(new EntityData(_))
-           case _ => None
-         })
+      r.getAllHeaders.map(new HeaderData(_)),
+      r match {
+        case re: HttpEntityEnclosingRequestBase => Option(re.getEntity).map(new EntityData(_))
+        case _ => None
+      })
   }
 
   def toHTTPCore: HttpRequestBase = {
     val request = requestLine.method.toUpperCase match {
-      case "GET"     => new HttpGet()
-      case "HEAD"    => new HttpHead()
-      case "DELETE"  => new HttpDelete()
+      case "GET" => new HttpGet()
+      case "HEAD" => new HttpHead()
+      case "DELETE" => new HttpDelete()
       case "OPTIONS" => new HttpOptions()
-      case "TRACE"   => new HttpTrace()
-      case "POST"    => new HttpPost()
-      case "PUT"     => new HttpPut()
-      case "PATCH"   => new HttpPatch()
+      case "TRACE" => new HttpTrace()
+      case "POST" => new HttpPost()
+      case "PUT" => new HttpPut()
+      case "PATCH" => new HttpPatch()
     }
     request match {
       case re: HttpEntityEnclosingRequestBase =>
@@ -194,7 +198,8 @@ case class HTTPRequestData(requestLine: RequestLineData,
     requestLine.protocolVersion.foreach(pv =>
       request.setProtocolVersion(pv.toHTTPCore))
     request.setHeaders(headers.map(_.toHTTPCore) ++
-        Array(new BasicHeader("User-Agent", s"mmlspark/${BuildInfo.version}")))
+      Array(new BasicHeader(
+        "User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")))
     request
   }
 
@@ -203,18 +208,18 @@ case class HTTPRequestData(requestLine: RequestLineData,
 object HTTPRequestData extends SparkBindings[HTTPRequestData] {
   def fromHTTPExchange(httpEx: HttpExchange): HTTPRequestData = {
     val requestHeaders = httpEx.getRequestHeaders
-    val isChunked = Option(requestHeaders.getFirst("Transfer-Encoding")=="chunked").getOrElse(false)
+    val isChunked = Option(requestHeaders.getFirst("Transfer-Encoding") == "chunked").getOrElse(false)
     HTTPRequestData(
       RequestLineData(
         httpEx.getRequestMethod,
         httpEx.getRequestURI.toString,
-        Option(httpEx.getProtocol).map{ p =>
+        Option(httpEx.getProtocol).map { p =>
           val Array(v, n) = p.split("/".toCharArray.head)
           val Array(major, minor) = n.split(".".toCharArray.head)
           ProtocolVersionData(v, major.toInt, minor.toInt)
         }),
       httpEx.getRequestHeaders.asScala.flatMap {
-        case (k, vs) => vs.map(v => HeaderData(k,v))
+        case (k, vs) => vs.map(v => HeaderData(k, v))
       }.toArray,
       Some(EntityData(
         IOUtils.toByteArray(httpEx.getRequestBody),
@@ -338,5 +343,6 @@ object HTTPSchema {
   def to_http_request(urlCol: String, headersCol: String, methodCol: String, jsonEntityCol: String): Column = {
     to_http_request(col(urlCol), col(headersCol), col(methodCol), col(jsonEntityCol))
   }
+
   //scalastyle:on
 }

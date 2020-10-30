@@ -17,7 +17,7 @@ trait TextKey {
   lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
 }
 
-class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with TextKey {
+class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextKey {
 
   import session.implicits._
 
@@ -28,7 +28,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
     ":) :( :D"
   ).toDF("text2")
 
-  lazy val detector: LanguageDetector = new LanguageDetector()
+  lazy val detector: LanguageDetectorV2 = new LanguageDetectorV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
     .setTextCol("text2")
@@ -64,13 +64,45 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetector] with Te
     assert(languages("Spanish") && languages("English"))
   }
 
+  override def testObjects(): Seq[TestObject[LanguageDetectorV2]] =
+    Seq(new TestObject[LanguageDetectorV2](detector, df))
+
+  override def reader: MLReadable[_] = LanguageDetectorV2
+}
+
+class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    "Hello World",
+    "Bonjour tout le monde",
+    "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
+    ":) :( :D"
+  ).toDF("text")
+
+  lazy val detector: LanguageDetector = new LanguageDetector()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val replies = detector.transform(df)
+      .withColumn("lang", col("replies").getItem(0)
+        .getItem("detectedLanguage")
+        .getItem("name"))
+      .select("lang")
+      .collect().toList
+    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
+  }
+
   override def testObjects(): Seq[TestObject[LanguageDetector]] =
     Seq(new TestObject[LanguageDetector](detector, df))
 
   override def reader: MLReadable[_] = LanguageDetector
 }
 
-class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKey {
+class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with TextKey {
 
   import session.implicits._
 
@@ -79,7 +111,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
     ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
   ).toDF("id", "text")
 
-  lazy val detector: EntityDetector = new EntityDetector()
+  lazy val detector: EntityDetectorV2 = new EntityDetectorV2()
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
     .setLanguage("en")
@@ -90,6 +122,37 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetector] with TextKe
       .withColumn("entities",
         col("replies").getItem(0).getItem("entities").getItem("name"))
       .select("id", "entities").collect().toList
+    assert(results.head.getSeq[String](1).toSet
+      .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
+  }
+
+  override def testObjects(): Seq[TestObject[EntityDetectorV2]] =
+    Seq(new TestObject[EntityDetectorV2](detector, df))
+
+  override def reader: MLReadable[_] = EntityDetectorV2
+}
+
+class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("1", "Microsoft released Windows 10"),
+    ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
+  ).toDF("id", "text")
+
+  lazy val detector: EntityDetector = new EntityDetector()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+    .setLanguage("en")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = detector.transform(df)
+      .withColumn("entities",
+        col("replies").getItem(0).getItem("entities").getItem("name"))
+      .select("id", "entities").collect().toList
+    println(results)
     assert(results.head.getSeq[String](1).toSet
       .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
   }
@@ -113,8 +176,8 @@ trait TextSentimentBaseSuite extends TestBase with TextKey {
   ).toDF("lang", "text")
 }
 
-class TextSentimentV3Suite extends TransformerFuzzing[TextSentimentV3] with TextSentimentBaseSuite {
-  lazy val t: TextSentimentV3 = new TextSentimentV3()
+class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSentimentBaseSuite {
+  lazy val t: TextSentiment = new TextSentiment()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setLanguageCol("lang")
@@ -132,43 +195,6 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentimentV3] with Text
     assert(
       results(0).getSeq[Row](0).head.getString(0) == "positive" &&
       results(2).getSeq[Row](0).head.getString(0) == "negative")
-  }
-
-  test("batch usage"){
-    val t = new TextSentimentV3()
-      .setSubscriptionKey(textKey)
-      .setLocation("eastus")
-      .setTextCol("text")
-      .setLanguage("en")
-      .setOutputCol("score")
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
-    val tdf = t.transform(batchedDF)
-    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
-    assert(replies.length == 6)
-  }
-
-  override def testObjects(): Seq[TestObject[TextSentimentV3]] =
-    Seq(new TestObject[TextSentimentV3](t, df))
-
-  override def reader: MLReadable[_] = TextSentimentV3
-}
-
-class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSentimentBaseSuite {
-
-  lazy val t: TextSentiment = new TextSentiment()
-    .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
-    .setLanguageCol("lang")
-    .setDefaultLanguage("de")
-    .setOutputCol("replies")
-
-  test("Basic Usage") {
-    val results = t.transform(df).withColumn("score",
-      col("replies").getItem(0).getItem("score"))
-      .select("score").collect().toList
-
-    assert(List(4,5).forall(results(_).get(0) == null))
-    assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
   }
 
   test("batch usage"){
@@ -190,7 +216,78 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentiment] with TextSent
   override def reader: MLReadable[_] = TextSentiment
 }
 
-class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] with TextKey {
+class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSentimentBaseSuite {
+
+  lazy val t: TextSentimentV2 = new TextSentimentV2()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
+    .setLanguageCol("lang")
+    .setDefaultLanguage("de")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = t.transform(df).withColumn("score",
+      col("replies").getItem(0).getItem("score"))
+      .select("score").collect().toList
+
+    assert(List(4,5).forall(results(_).get(0) == null))
+    assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
+  }
+
+  test("batch usage"){
+    val t = new TextSentimentV2()
+      .setSubscriptionKey(textKey)
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setLanguage("en")
+      .setOutputCol("score")
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
+    val tdf = t.transform(batchedDF)
+    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
+    assert(replies.length == 6)
+  }
+
+  override def testObjects(): Seq[TestObject[TextSentimentV2]] =
+    Seq(new TestObject[TextSentimentV2](t, df))
+
+  override def reader: MLReadable[_] = TextSentimentV2
+}
+
+class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] with TextKey {
+
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("en", null)
+  ).toDF("lang", "text")
+
+  lazy val t: KeyPhraseExtractorV2 = new KeyPhraseExtractorV2()
+    .setSubscriptionKey(textKey)
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+    .setLanguageCol("lang")
+    .setOutputCol("replies")
+
+  test("Basic Usage") {
+    val results = t.transform(df).withColumn("phrases",
+      col("replies").getItem(0).getItem("keyPhrases"))
+      .select("phrases").collect().toList
+
+    println(results)
+
+    assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
+    assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
+  }
+
+  override def testObjects(): Seq[TestObject[KeyPhraseExtractorV2]] =
+    Seq(new TestObject[KeyPhraseExtractorV2](t, df))
+
+  override def reader: MLReadable[_] = KeyPhraseExtractorV2
+}
+
+class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] with TextKey {
 
   import session.implicits._
 
@@ -203,7 +300,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
 
   lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -224,7 +321,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractor] wit
   override def reader: MLReadable[_] = KeyPhraseExtractor
 }
 
-class NERSuite extends TransformerFuzzing[NER] with TextKey {
+class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -232,7 +329,7 @@ class NERSuite extends TransformerFuzzing[NER] with TextKey {
     ("2", "en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
   ).toDF("id", "language", "text")
 
-  lazy val n: NER = new NER()
+  lazy val n: NERV2 = new NERV2()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setLanguage("en")
@@ -254,6 +351,45 @@ class NERSuite extends TransformerFuzzing[NER] with TextKey {
     assert(testRow.getAs[String]("text") === "Jeff")
     assert(testRow.getAs[Int]("offset") === 0)
     assert(testRow.getAs[Int]("length") === 4)
+
+  }
+
+  override def testObjects(): Seq[TestObject[NERV2]] =
+    Seq(new TestObject[NERV2](n, df))
+
+  override def reader: MLReadable[_] = NERV2
+}
+
+class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
+  import session.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("1", "en", "I had a wonderful trip to Seattle last week."),
+    ("2", "en", "I visited Space Needle 2 times.")
+  ).toDF("id", "language", "text")
+
+  lazy val n: NER = new NER()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setLanguage("en")
+    .setOutputCol("response")
+
+  test("Basic Usage") {
+    val results = n.transform(df)
+    val matches = results.withColumn("match",
+      col("response")
+        .getItem(0)
+        .getItem("entities")
+        .getItem(1))
+      .select("match")
+
+    val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
+
+    assert(testRow.getAs[String]("text") === "Seattle")
+    assert(testRow.getAs[Int]("offset") === 26)
+    assert(testRow.getAs[Int]("length") === 7)
+    assert(testRow.getAs[Double]("confidenceScore") === 0.82)
+    assert(testRow.getAs[String]("category") === "Location")
 
   }
 
