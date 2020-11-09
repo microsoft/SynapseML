@@ -69,7 +69,6 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         val post = new HttpPost(getUrl)
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
         post.setHeader("Content-Type", "application/json")
-        CognitiveServiceUtils.setUA(post)
         val texts = getValue(row, text)
 
         val languages = (getValueOpt(row, language) match {
@@ -224,7 +223,7 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
   override def responseDataType: StructType = NERResponseV2.schema
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1-preview/entities")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1/entities")
 }
 
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
