@@ -7,16 +7,15 @@ package com.microsoft.ml.nbtest
 import java.util.concurrent.TimeUnit
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.nbtest.DatabricksUtilities
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
 class NotebookTests extends TestBase {
 
-  test("Databricks Notebooks") {
+  test("Databricks") {
     val clusterId = DatabricksUtilities.createClusterInPool(DatabricksUtilities.ClusterName, DatabricksUtilities.PoolId)
     try {
       println("Checking if cluster is active")
@@ -55,35 +54,44 @@ class NotebookTests extends TestBase {
     }
   }
 
-  test("Synapse Notebooks PROD") {
-    val livyPort = "8998"
-    val livyIP = sys.env("LIVY_IP")
-    val livyURL = s"http://${livyIP.trim.replace("'","")}:$livyPort"
-
-    val clusterId = DatabricksUtilities.createClusterInPool(DatabricksUtilities.ClusterName, DatabricksUtilities.PoolId)
+  test("SynapsePROD") {
+    val workspaceName = "mmlsparkdemosynws"
+    val poolName = "sparkpool1"
+    val livyUrl = "https://" +
+                  workspaceName +
+                  ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+                  poolName +
+                  "/batches"
+    val livyBatches = LivyUtilities.NotebookFiles.map(LivyUtilities.uploadAndSubmitNotebook(livyUrl, _))
+    println(s"Submitted ${livyBatches.length} jobs for execution: " +
+      s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}")}")
     try {
-      val jobIds = DatabricksUtilities.NotebookFiles.map(DatabricksUtilities.uploadAndSubmitNotebook(clusterId, _))
-      println(s"Submitted ${jobIds.length} for execution: ${jobIds.toList}")
-      try {
-        val monitors = jobIds.map((runId: Int) => DatabricksUtilities.monitorJob(
-          runId,
-          DatabricksUtilities.TimeoutInMillis,
-          logLevel = 2))
-        println(s"Monitoring Jobs...")
-        val failures = monitors
-          .map(Await.ready(_, Duration(DatabricksUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
-          .filter(_.isFailure)
-        assert(failures.isEmpty)
-      } catch {
-        case t: Throwable =>
-          jobIds.foreach { jid =>
-            println(s"Cancelling job $jid")
-            DatabricksUtilities.cancelRun(jid)
+      val batchFutures = livyBatches.map((batch: LivyBatch) => {
+        Future {
+          if (batch.state != "success"){
+            if (batch.state == "error") {
+              LivyUtilities.postMortem(batch, livyUrl)
+              throw new RuntimeException(s"${batch.id} returned with state ${batch.state}")
+            }
+            else{
+              LivyUtilities.retry(batch.id, livyUrl, LivyUtilities.TimeoutInMillis, System.currentTimeMillis())
+            }
           }
-          throw t
-      }
-    } finally {
-      DatabricksUtilities.deleteCluster(clusterId)
+        }(ExecutionContext.global)
+      })
+
+      val failures = batchFutures
+        .map(Await.ready(_, Duration(LivyUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+        .filter(_.isFailure)
+      assert(failures.isEmpty)
+    }
+    catch {
+      case t: Throwable =>
+        livyBatches.foreach { batch =>
+          println(s"Cancelling job ${batch.id}")
+          LivyUtilities.cancelRun(livyUrl, batch.id)
+        }
+        throw t
     }
   }
 
