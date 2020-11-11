@@ -2,7 +2,9 @@
 
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
     \- Make sure to download JDK 1.8 if you don't have it
-2) Git Clone Repository
+3) Fork the repository on github
+    \- This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
+2) Git Clone your fork, or the repo directly
     \- `git clone https://github.com/Azure/mmlspark.git`
 3) Run sbt to compile and grab datasets
     \- `cd mmlspark`
