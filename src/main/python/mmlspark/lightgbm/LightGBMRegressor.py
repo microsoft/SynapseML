@@ -66,9 +66,8 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
             dense_values = [float(v) for v in vector]
             return list(self._java_obj.getDenseFeatureShaps(dense_values))
         elif isinstance(vector, SparseVector):
-            sparse_size = [float(v) for v in vector.size]
             sparse_indices = [int(i) for i in vector.indices]
             sparse_values = [float(v) for v in vector.values]
-            return list(self._java_obj.getSparseFeatureShaps(sparse_size, sparse_indices, sparse_values))
+            return list(self._java_obj.getSparseFeatureShaps(vector.size, sparse_indices, sparse_values))
         else:
             raise TypeError("Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type")
