@@ -1,13 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.nbtest
+package com.microsoft.ml.spark.nbtest
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
 import java.util.concurrent.TimeoutException
 
-import com.microsoft.ml.nbtest.SprayImplicits._
+import com.microsoft.ml.spark.nbtest.SprayImplicits._
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
