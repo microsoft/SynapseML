@@ -39,7 +39,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Connection 4'
         scriptLocation: inlineScript
-        inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
+        inlineScript: 'sbt scalastyle test:scalastyle'
 
 - job: Publish
   cancelTimeoutInMinutes: 0
@@ -109,7 +109,7 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Connection 4'
         scriptLocation: inlineScript
-        inlineScript: 'sbt it:test'
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.codegen.**"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
