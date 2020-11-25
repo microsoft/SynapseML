@@ -22,11 +22,11 @@ val excludes = Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-tags" % sparkVersion % "it,test",
-  "org.scalactic" %% "scalactic" % "3.0.5" % "it,test",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "it,test",
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "org.scalactic" %% "scalactic" % "3.0.5" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   "io.spray" %% "spray-json" % "1.3.2" excludeAll (excludes: _*),
   "com.microsoft.cntk" % "cntk" % "2.4" excludeAll (excludes: _*),
   "org.openpnp" % "opencv" % "3.2.0-1" excludeAll (excludes: _*),
@@ -61,9 +61,6 @@ pomPostProcess := { (node: XmlNode) =>
 }
 
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
-
-//noinspection ScalaStyle
-lazy val IntegrationTest2 = config("it").extend(Test)
 
 def join(folders: String*): File = {
   folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
@@ -199,7 +196,7 @@ publishDocs := {
 val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
-  (run in IntegrationTest2).toTask("").value
+  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
   val rPackage = join("target", "scala-2.11", "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)
@@ -207,7 +204,7 @@ publishR := {
 
 packagePythonTask := {
   val s = streams.value
-  (run in IntegrationTest2).toTask("").value
+  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
   createCondaEnvTask.value
   val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
@@ -296,7 +293,6 @@ val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
   (Compile / compile).toTask.value
   (Test / compile).toTask.value
-  (IntegrationTest2 / compile).toTask.value
   getDatasetsTask.value
 }
 
@@ -367,11 +363,9 @@ val settings = Seq(
     case x => MergeStrategy.first
   },
   assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
-  buildInfoPackage := "com.microsoft.ml.spark.build") ++
-  inConfig(IntegrationTest2)(Defaults.testSettings)
+  buildInfoPackage := "com.microsoft.ml.spark.build") //++
 
 lazy val mmlspark = (project in file("."))
-  .configs(IntegrationTest2)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(ScalaUnidocPlugin)
   .settings(settings: _*)
