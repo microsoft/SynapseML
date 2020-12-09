@@ -109,7 +109,7 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Connection 4'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.codegen.**"'
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.**"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
