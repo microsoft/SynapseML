@@ -213,7 +213,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK]
   }
 
   test("Detailed SDK with mp3 (Linux only)") {
-    dfTest("detailed", audioDf3, text3, sdk = sdk.setFileType("mp3"), verbose = true, threshold = .7)
+    dfTest("detailed", audioDf3, text3, sdk = sdk.setFileType("mp3"), verbose = true, threshold = .6)
   }
 
   test("m3u8 based access") {
