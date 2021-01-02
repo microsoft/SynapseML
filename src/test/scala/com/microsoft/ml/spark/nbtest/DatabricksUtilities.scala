@@ -28,7 +28,7 @@ object DatabricksUtilities extends HasHttpClient {
   // ADB Info
   val Region = "eastus"
   val PoolName = "mmlspark-build"
-  val AdbRuntime = "5.5.x-scala2.11"
+  val AdbRuntime = "6.4.x-scala2.11"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -50,7 +50,9 @@ object DatabricksUtilities extends HasHttpClient {
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
     Map("pypi" -> Map("package" -> "nltk")),
-    Map("pypi" -> Map("package" -> "bs4"))
+    Map("pypi" -> Map("package" -> "bs4")),
+    Map("pypi" -> Map("package" -> "plotly")),
+    Map("pypi" -> Map("package" -> "Pillow"))
   ).toJson.compactPrint
 
   // Execution Params
