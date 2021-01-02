@@ -281,7 +281,8 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       }
 
       val extension = FilenameUtils.getExtension(new URI(uri).getPath).toLowerCase()
-      if (extension == "m3u8" && uri.startsWith("http")) {
+
+      if (Set("m3u8", "m4a")(extension) && uri.startsWith("http")) {
         val stream = new ProcessBuilder()
           .redirectError(Redirect.INHERIT)
           .redirectInput(Redirect.INHERIT)
