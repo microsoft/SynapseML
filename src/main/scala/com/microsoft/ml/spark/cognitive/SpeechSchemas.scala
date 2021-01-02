@@ -13,8 +13,8 @@ case class DetailedSpeechResponse(Confidence: Double,
                                   Display: String)
 
 case class SpeechResponse(RecognitionStatus: String,
-                          Offset: Int,
-                          Duration: Int,
+                          Offset: Long,
+                          Duration: Long,
                           Id: Option[String],
                           DisplayText: Option[String],
                           NBest: Option[Seq[DetailedSpeechResponse]]
