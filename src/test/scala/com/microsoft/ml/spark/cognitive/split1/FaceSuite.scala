@@ -10,8 +10,10 @@ import com.microsoft.ml.spark.cognitive.cognitive.Face
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, lit, explode}
 import org.apache.spark.sql.{DataFrame, Row}
+import org.scalactic.Equality
+import org.scalatest.Assertion
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
@@ -31,6 +33,11 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     .setReturnFaceAttributes(Seq(
       "age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
       "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise"))
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+    def prep(df: DataFrame) = df.select(explode(col("face"))).select("col.*").drop("faceId")
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
 
   test("Basic Usage") {
     face.transform(df)
