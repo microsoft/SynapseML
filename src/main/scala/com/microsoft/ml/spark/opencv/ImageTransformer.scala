@@ -261,6 +261,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
         ImageInjections.decode(null, bytes).getOrElse(return None).getStruct(0)
       case (row: Row, "image") =>
         row
+      case (_, mode) =>
+        throw new MatchError(s"Unknown decoder mode $mode")
     }
 
     val (path, img) = row2mat(decoded)

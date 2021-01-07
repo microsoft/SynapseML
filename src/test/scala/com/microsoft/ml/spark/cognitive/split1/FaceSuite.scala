@@ -5,12 +5,10 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.Secrets
-import com.microsoft.ml.spark.cognitive.cognitive.Face
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, lit, explode}
+import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion

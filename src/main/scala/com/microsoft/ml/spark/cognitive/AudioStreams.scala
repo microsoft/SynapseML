@@ -61,9 +61,9 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
     val bitsPerSample = readUInt16(reader)
     assert(formatTag == 1, "PCM") // PCM
 
-    assert(channels == 1, "single channel")
-    assert(samplesPerSec == 16000, "samples per second")
-    assert(bitsPerSample == 16, "bits per sample")
+    assert(channels == 1, "file needs to be single channel")
+    assert(samplesPerSec == 16000, "file needs to have 16000 samples per second")
+    assert(bitsPerSample == 16, "file needs to have 16 bits per sample")
 
     // Until now we have read 16 bytes in format, the rest is cbSize and is ignored
     // for now.
