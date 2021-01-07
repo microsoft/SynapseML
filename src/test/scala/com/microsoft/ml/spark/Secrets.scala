@@ -28,6 +28,9 @@ object Secrets {
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
   lazy val CustomSpeechApiKey: String = getSecret("custom-speech-api-key")
+  lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
+  lazy val ConversationTranscriptionKey: String = getSecret("conversation-transcription-key")
+
   lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingImageSearchKey: String = getSecret("bing-image-search-key")

@@ -273,6 +273,10 @@ jobs:
         PACKAGE: "cognitive.split2"
         FFMPEG: "true"
         FLAKY: "true"
+      cognitive3:
+        PACKAGE: "cognitive.split3"
+        FFMPEG: "true"
+        FLAKY: "true"
       core:
         PACKAGE: "core"
       downloader:
@@ -312,8 +316,6 @@ jobs:
         PACKAGE: "train"
       vw:
         PACKAGE: "vw"
-      cyber:
-        PACKAGE: "cyber"
   steps:
     - template: templates/ivy_cache_2.yml
     - task: AzureCLI@1

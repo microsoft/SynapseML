@@ -433,6 +433,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
         None
       case (ArrayType(FloatType, _), FloatType) =>
         None
+      case _ =>
+        throw new IllegalArgumentException(s"unsupported column and element type: $colType and $targetElementType")
     }
 
     funcOpt.map { f =>
@@ -473,6 +475,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
               floatToDV(col(name)).alias(name)
             case StructField(name, ArrayType(DoubleType, _), _, _) =>
               doubleToDV(col(name)).alias(name)
+            case _ =>
+              throw new MatchError("Improper column type")
           }
         case sf => col(sf.name)
       }
