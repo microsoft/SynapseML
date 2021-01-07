@@ -5,9 +5,7 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import java.net.URI
 
-import com.microsoft.ml.spark.Secrets
-import com.microsoft.ml.spark.cognitive.cognitive._
-import com.microsoft.ml.spark.cognitive.{RESTHelpers, URLEncodingUtils}
+import com.microsoft.ml.spark.cognitive.{RESTHelpers, URLEncodingUtils, _}
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._

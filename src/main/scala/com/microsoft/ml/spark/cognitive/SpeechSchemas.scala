@@ -12,18 +12,47 @@ case class DetailedSpeechResponse(Confidence: Double,
                                   MaskedITN: String,
                                   Display: String)
 
+trait SharedSpeechFields {
+  def RecognitionStatus: String
+
+  def Offset: Long
+
+  def Duration: Long
+
+  def DisplayText: Option[String]
+
+  def NBest: Option[Seq[DetailedSpeechResponse]]
+}
+
 case class SpeechResponse(RecognitionStatus: String,
                           Offset: Long,
                           Duration: Long,
                           Id: Option[String],
                           DisplayText: Option[String],
                           NBest: Option[Seq[DetailedSpeechResponse]]
-                          )
+                         ) extends SharedSpeechFields
 
 object SpeechResponse extends SparkBindings[SpeechResponse]
+
+case class TranscriptionResponse(RecognitionStatus: String,
+                                 Offset: Long,
+                                 Duration: Long,
+                                 Id: Option[String],
+                                 DisplayText: Option[String],
+                                 NBest: Option[Seq[DetailedSpeechResponse]],
+                                 SpeakerId: String,
+                                 Type: String,
+                                 UtteranceId: String) extends SharedSpeechFields
+
+object TranscriptionResponse extends SparkBindings[TranscriptionResponse]
+
+case class TranscriptionParticipant(name: String, language: String, signature: String)
 
 object SpeechFormat extends DefaultJsonProtocol {
   implicit val DetailedSpeechResponseFormat: RootJsonFormat[DetailedSpeechResponse] =
     jsonFormat5(DetailedSpeechResponse.apply)
   implicit val SpeechResponseFormat: RootJsonFormat[SpeechResponse] = jsonFormat6(SpeechResponse.apply)
+  implicit val TranscriptionResponseFormat: RootJsonFormat[TranscriptionResponse] =
+    jsonFormat9(TranscriptionResponse.apply)
+
 }

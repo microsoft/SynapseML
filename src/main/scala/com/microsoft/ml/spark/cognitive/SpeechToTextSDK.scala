@@ -3,19 +3,22 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.io.{BufferedInputStream, ByteArrayInputStream, File, FileOutputStream, InputStream}
+import java.io.{BufferedInputStream, ByteArrayInputStream, Closeable, InputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
+import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.internal.AudioStreamContainerFormat
+import com.microsoft.cognitiveservices.speech.transcription.{
+  Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant
+}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.io.http.HasURL
 import com.microsoft.ml.spark.{CompressedStream, WavStream}
 import org.apache.commons.io.FilenameUtils
@@ -40,7 +43,7 @@ object OsUtils {
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
 private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
-                                           onFinish: => Unit) extends Iterator[T] {
+                                           onClose: => Unit) extends Iterator[T] with Closeable {
   var nextVar: Option[T] = None
   var isDone = false
   var takeAnother = true
@@ -52,9 +55,19 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
       isDone = nextVar.isEmpty
     }
     if (isDone) {
-      onFinish
+      close()
     }
     !isDone
+  }
+
+  override def close(): Unit = {
+    onClose
+  }
+
+  // This is for occurance that someone starts pulling rows but doesen't finish, like in a df.show
+  override def finalize(): Unit = {
+    onClose
+    super.finalize()
   }
 
   override def next(): T = {
@@ -63,11 +76,13 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
   }
 }
 
-class SpeechToTextSDK(override val uid: String) extends Transformer
+abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
   with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
 
-  def this() = this(Identifiable.randomUID("SpeechToTextSDK"))
+  type ResponseType <: SharedSpeechFields
+
+  val responseTypeBinding: SparkBindings[ResponseType]
 
   val audioDataCol = new Param[String](this, "audioDataCol",
     "Column holding audio data, must be either ByteArrays or Strings representing file URIs"
@@ -118,6 +133,14 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     isRequired = true,
     isURLParam = true
   )
+
+  val participants = new ServiceParam[Seq[(String, String, String)]](
+    this, "participants",
+    "A list of conversation participants (emil, language, user)")
+
+  def setParticipants(v: Seq[(String, String, String)]): this.type = setScalarParam(participants, v)
+
+  def setParticipantsCol(v: String): this.type = setVectorParam(participants, v)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
@@ -178,13 +201,13 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
   setDefault(profanity -> ServiceParamData(None, Some("Masked")))
   setDefault(format -> ServiceParamData(None, Some("Simple")))
 
-  def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
+  protected def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
       def onEvent(var1: Any, var2: T): Unit = f(var1, var2)
     }
   }
 
-  private[ml] def getAudioFormat(fileType: String, default: Option[String]): AudioStreamFormat = {
+  protected def getAudioFormat(fileType: String, default: Option[String]): AudioStreamFormat = {
     fileType.toLowerCase match {
       case "wav" =>
         AudioStreamFormat.getDefaultInputFormat
@@ -197,64 +220,6 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
         getAudioFormat(default.get, None)
       case _ =>
         throw new IllegalArgumentException(s"Could not identify codec $fileType")
-    }
-  }
-
-  /** @return text transcription of the audio */
-  def inputStreamToText(stream: InputStream,
-                        audioFormat: String,
-                        uri: URI,
-                        speechKey: String,
-                        profanity: String,
-                        language: String,
-                        format: String,
-                        defaultAudioFormat: Option[String]
-                       ): Iterator[SpeechResponse] = {
-    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
-    assert(speechConfig != null)
-    get(endpointId).foreach(id => speechConfig.setEndpointId(id))
-    speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
-    speechConfig.setSpeechRecognitionLanguage(language)
-    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
-
-    val af = getAudioFormat(audioFormat, defaultAudioFormat)
-    val pullStream = if (audioFormat == "wav") {
-      AudioInputStream.createPullStream(new WavStream(stream), af)
-    } else {
-      AudioInputStream.createPullStream(new CompressedStream(stream), af)
-    }
-    val audioConfig = AudioConfig.fromStreamInput(pullStream)
-    try {
-      val recognizer = new SpeechRecognizer(speechConfig, audioConfig)
-      val connection = Connection.fromRecognizer(recognizer)
-      connection.setMessageProperty("speech.config", "application",
-        s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
-      val queue = new LinkedBlockingQueue[Option[String]]()
-
-      def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
-        println(e)
-        if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
-          queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
-        }
-      }
-
-      def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
-        queue.put(None)
-      }
-
-      recognizer.recognized.addEventListener(makeEventHandler[SpeechRecognitionEventArgs](recognizedHandler))
-      recognizer.sessionStopped.addEventListener(makeEventHandler[SessionEventArgs](sessionStoppedHandler))
-      recognizer.startContinuousRecognitionAsync.get
-      new BlockingQueueIterator[String](queue, {
-        recognizer.stopContinuousRecognitionAsync.get()
-        pullStream.close()
-      }).map { jsonString =>
-        println(jsonString)
-        jsonString.parseJson.convertTo[SpeechResponse]
-      }
-    } finally {
-      speechConfig.close()
-      audioConfig.close()
     }
   }
 
@@ -274,7 +239,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
           body ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", fn)
         } else if (getRecordAudioData && !OsUtils.IsWindows) {
           val fn = row.getAs[String](getRecordedFileNameCol)
-          Seq("/bin/sh", "-c",  (body ++ Seq("|", "tee", fn)).mkString(" "))
+          Seq("/bin/sh", "-c", (body ++ Seq("|", "tee", fn)).mkString(" "))
         } else {
           body
         }
@@ -307,8 +272,19 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
   }
 
+  def inputStreamToText(stream: InputStream,
+                        audioFormat: String,
+                        uri: URI,
+                        speechKey: String,
+                        profanity: String,
+                        language: String,
+                        format: String,
+                        defaultAudioFormat: Option[String],
+                        participants: Seq[TranscriptionParticipant]
+                       ): Iterator[ResponseType]
+
   protected def transformAudioRows(dynamicParamColName: String,
-                                   toRow: SpeechResponse => Row,
+                                   toRow: ResponseType => Row,
                                    bconf: Broadcast[SConf],
                                    isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
@@ -325,7 +301,11 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
           getValue(dynamicParamRow, profanity),
           getValue(dynamicParamRow, language),
           getValue(dynamicParamRow, format),
-          getValueOpt(dynamicParamRow, fileType))
+          getValueOpt(dynamicParamRow, fileType),
+          getValueOpt(dynamicParamRow, participants)
+            .getOrElse(Seq())
+            .map(t => TranscriptionParticipant(t._1, t._2, t._3))
+        )
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))
         } else {
@@ -334,6 +314,32 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       }
     }
 
+  }
+
+  def getPullStream(stream: InputStream,
+                    audioFormat: String,
+                    defaultAudioFormat: Option[String]): PullAudioInputStream = {
+    val af = getAudioFormat(audioFormat, defaultAudioFormat)
+    val pullStream = if (audioFormat == "wav") {
+      AudioInputStream.createPullStream(new WavStream(stream), af)
+    } else {
+      AudioInputStream.createPullStream(new CompressedStream(stream), af)
+    }
+    pullStream
+  }
+
+  def getSpeechConfig(uri: URI,
+                      speechKey: String,
+                      language: String,
+                      profanity: String,
+                      format: String): SpeechConfig = {
+    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
+    assert(speechConfig != null)
+    get(endpointId).foreach(id => speechConfig.setEndpointId(id))
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
+    speechConfig.setSpeechRecognitionLanguage(language)
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
+    speechConfig
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -351,9 +357,9 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
     }
     val enrichedDf = df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
     val addedSchema = if (getStreamIntermediateResults) {
-      SpeechResponse.schema
+      responseTypeBinding.schema
     } else {
-      ArrayType(SpeechResponse.schema)
+      ArrayType(responseTypeBinding.schema)
     }
 
     val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
@@ -364,7 +370,7 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       case BinaryType => false
       case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
     }
-    val toRow = SpeechResponse.makeToRowConverter
+    val toRow = responseTypeBinding.makeToRowConverter
     enrichedDf.mapPartitions(transformAudioRows(
       dynamicParamColName,
       toRow,
@@ -383,9 +389,143 @@ class SpeechToTextSDK(override val uid: String) extends Transformer
       case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
     }
     if (getStreamIntermediateResults) {
-      schema.add(getOutputCol, SpeechResponse.schema)
+      schema.add(getOutputCol, responseTypeBinding.schema)
     } else {
-      schema.add(getOutputCol, ArrayType(SpeechResponse.schema))
+      schema.add(getOutputCol, ArrayType(responseTypeBinding.schema))
+    }
+  }
+}
+
+class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
+
+  override type ResponseType = SpeechResponse
+
+  override val responseTypeBinding: SparkBindings[SpeechResponse] = SpeechResponse
+
+  def this() = this(Identifiable.randomUID("SpeechToTextSDK"))
+
+  /** @return text transcription of the audio */
+  def inputStreamToText(stream: InputStream,
+                        audioFormat: String,
+                        uri: URI,
+                        speechKey: String,
+                        profanity: String,
+                        language: String,
+                        format: String,
+                        defaultAudioFormat: Option[String],
+                        participants: Seq[TranscriptionParticipant]
+                       ): Iterator[SpeechResponse] = {
+
+    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, format)
+    val pullStream = getPullStream(stream, audioFormat, defaultAudioFormat)
+    val audioConfig = AudioConfig.fromStreamInput(pullStream)
+    val recognizer = new SpeechRecognizer(speechConfig, audioConfig)
+    val connection = Connection.fromRecognizer(recognizer)
+    connection.setMessageProperty("speech.config", "application",
+      s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
+    val queue = new LinkedBlockingQueue[Option[String]]()
+
+    def recognizedHandler(s: Any, e: SpeechRecognitionEventArgs): Unit = {
+      if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
+        queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
+      }
+    }
+
+    def cleanUp(): Unit = {
+      recognizer.stopContinuousRecognitionAsync().get()
+      pullStream.close()
+      speechConfig.close()
+      audioConfig.close()
+    }
+
+    def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
+      queue.put(None)
+      cleanUp()
+    }
+
+    recognizer.recognized.addEventListener(makeEventHandler(recognizedHandler))
+    recognizer.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
+    recognizer.startContinuousRecognitionAsync.get
+    new BlockingQueueIterator[String](queue, cleanUp).map { jsonString =>
+      //println(jsonString)
+      jsonString.parseJson.convertTo[SpeechResponse]
+    }
+  }
+}
+
+object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
+
+class ConversationTranscription(override val uid: String) extends SpeechSDKBase {
+
+  override type ResponseType = TranscriptionResponse
+
+  override val responseTypeBinding: SparkBindings[TranscriptionResponse] = TranscriptionResponse
+
+  def this() = this(Identifiable.randomUID("ConversationTranscription"))
+
+  /** @return text transcription of the audio */
+  def inputStreamToText(stream: InputStream,
+                        audioFormat: String,
+                        uri: URI,
+                        speechKey: String,
+                        profanity: String,
+                        language: String,
+                        format: String,
+                        defaultAudioFormat: Option[String],
+                        participants: Seq[TranscriptionParticipant]
+                       ): Iterator[TranscriptionResponse] = {
+    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, format)
+    speechConfig.setProperty("ConversationTranscriptionInRoomAndOnline", "true")
+    speechConfig.setServiceProperty("transcriptionMode",
+      "RealTimeAndAsync", ServicePropertyChannel.UriQueryParameter)
+
+    val guid = UUID.randomUUID().toString
+    val conversation = Conversation.createConversationAsync(speechConfig, guid).get()
+    participants.foreach(p =>
+      conversation.addParticipantAsync(
+        Participant.from(p.name, p.language, p.signature)
+      ).get()
+    )
+
+    val pullStream = getPullStream(stream, audioFormat, defaultAudioFormat)
+    val audioConfig = AudioConfig.fromStreamInput(pullStream)
+
+    val transcriber = new ConversationTranscriber(audioConfig)
+
+    // TODO fix this spelling in 1.15 update
+    conversation.getProperties.setProperty("DifferenciateGuestSpeakers", "true")
+
+    transcriber.joinConversationAsync(conversation).get()
+    val connection = Connection.fromRecognizer(transcriber)
+    connection.setMessageProperty("speech.config", "application",
+      s"""{"name":"mmlspark", "version": "${BuildInfo.version}"}""")
+    val queue = new LinkedBlockingQueue[Option[String]]()
+
+    def cleanUp(): Unit = {
+      transcriber.stopTranscribingAsync().get()
+      conversation.close()
+      pullStream.close()
+      speechConfig.close()
+      audioConfig.close()
+    }
+
+    def recognizedHandler(s: Any, e: ConversationTranscriptionEventArgs): Unit = {
+      if (e.getResult.getReason eq ResultReason.RecognizedSpeech) {
+        queue.put(Some(e.getResult.getProperties.getProperty(PropertyId.SpeechServiceResponse_JsonResult)))
+      }
+    }
+
+    def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
+      queue.put(None)
+      cleanUp()
+    }
+
+    transcriber.transcribed.addEventListener(makeEventHandler(recognizedHandler))
+    transcriber.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
+    transcriber.startTranscribingAsync().get
+    new BlockingQueueIterator[String](queue, cleanUp()).map { jsonString =>
+      //println(jsonString)
+      jsonString.parseJson.convertTo[TranscriptionResponse]
     }
   }
 
