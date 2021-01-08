@@ -212,13 +212,8 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
   }
 }
 
-class RecognizeText(override val uid: String)
-  extends CognitiveServicesBaseWithoutHandler(uid)
-    with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation {
 
-  def this() = this(Identifiable.randomUID("RecognizeText"))
-
+trait HasAsyncReply extends Params {
   val backoffs: IntArrayParam = new IntArrayParam(
     this, "backoffs", "array of backoffs to use in the handler")
 
@@ -250,6 +245,61 @@ class RecognizeText(override val uid: String)
   setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
   //scalastyle:on magic.number
 
+  private def queryForResult(key: Option[String],
+                             client: CloseableHttpClient,
+                             location: URI): Option[HTTPResponseData] = {
+    val get = new HttpGet()
+    get.setURI(location)
+    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
+    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
+    get.releaseConnection()
+    val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
+      .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
+    status.map(_.toLowerCase()).flatMap {
+      case "succeeded" | "failed" => Some(resp)
+      case "notstarted" | "running" => None
+      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    }
+  }
+
+  protected def handlingFunc(client: CloseableHttpClient,
+                             request: HTTPRequestData): HTTPResponseData = {
+    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
+    if (response.statusLine.statusCode == 202) {
+      val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)
+      val maxTries = getMaxPollingRetries
+      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
+      val it = (0 to maxTries).toIterator.flatMap { _ =>
+        queryForResult(key, client, location).orElse({
+          blocking {
+            Thread.sleep(getPollingDelay.toLong)
+          }
+          None
+        })
+      }
+      if (it.hasNext) {
+        it.next()
+      } else {
+        throw new TimeoutException(
+          s"Querying for results did not complete within $maxTries tries")
+      }
+    } else {
+      response
+    }
+  }
+
+}
+
+
+class RecognizeText(override val uid: String)
+  extends CognitiveServicesBaseWithoutHandler(uid)
+    with HasAsyncReply
+    with HasImageInput with HasCognitiveServiceInput
+    with HasInternalJsonOutputParser with HasSetLocation {
+
+  def this() = this(Identifiable.randomUID("RecognizeText"))
+
   val mode = new ServiceParam[String](this, "mode",
     "If this parameter is set to 'Printed', " +
       "printed text recognition is performed. If 'Handwritten' is specified," +
@@ -272,50 +322,56 @@ class RecognizeText(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
 
-  private def queryForResult(key: Option[String],
-                             client: CloseableHttpClient,
-                             location: URI): Option[HTTPResponseData] = {
-    val get = new HttpGet()
-    get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
-    get.releaseConnection()
-    val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
-      .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
-    status.flatMap {
-      case "Succeeded" | "Failed" => Some(resp)
-      case "NotStarted" | "Running" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
-  }
-
-  override protected def handlingFunc(client: CloseableHttpClient,
-                                      request: HTTPRequestData): HTTPResponseData = {
-    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 202) {
-      val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)
-      val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {Thread.sleep(getPollingDelay.toLong)}
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
-      }
-    } else {
-      response
-    }
-  }
-
   override protected def responseDataType: DataType = RTResponse.schema
 }
+
+object Read extends ComplexParamsReadable[Read] {
+  def flatten(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = ReadResponse.makeFromRowConverter
+    new UDFTransformer()
+      .setUDF(udf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.readResults.map(_.lines.map(_.text).mkString(" ")).mkString(" "))
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+}
+
+class Read(override val uid: String)
+  extends CognitiveServicesBaseWithoutHandler(uid)
+    with HasAsyncReply
+    with HasImageInput with HasCognitiveServiceInput
+    with HasInternalJsonOutputParser with HasSetLocation {
+
+  def this() = this(Identifiable.randomUID("Read"))
+
+  val language = new ServiceParam[String](this, "language",
+    "IThe BCP-47 language code of the text in the document. Currently," +
+      " only English (en), Dutch (nl), French (fr), German (de), Italian (it), Portuguese (pt)," +
+      " and Spanish (es) are supported." +
+      " Read supports auto language identification and multilanguage documents," +
+      " so only provide a language code if you would like to force the documented" +
+      " to be processed as that specific language.",
+    { spd: ServiceParamData[String] =>
+      spd.data.get match {
+        case Left(_) => true
+        case Right(s) => Set("en", "nl", "fr", "de", "it", "pt", "es")(s)
+      }
+    }, isURLParam = true)
+
+  def setLanguage(v: String): this.type = setScalarParam(language, v)
+
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v3.1/read/analyze")
+
+  override protected def responseDataType: DataType = ReadResponse.schema
+}
+
 
 object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with Serializable
 
