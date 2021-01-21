@@ -39,6 +39,13 @@ object LightGBMUtils {
     }
   }
 
+  def validateJArray(result: Array[Double], component: String): Unit = {
+    if (result == null) {
+      throw new Exception(component + " call failed in LightGBM with error: "
+        + lightgbmlib.LGBM_GetLastError())
+    }
+  }
+
   /** Loads the native shared object binaries lib_lightgbm.so and lib_lightgbm_swig.so
     */
   def initializeNativeLibrary(): Unit = {
