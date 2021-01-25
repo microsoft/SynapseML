@@ -110,23 +110,25 @@ class TimeIntervalMiniBatchTransformerSuite
 
 }
 
+object FlattenBatchUtils extends Serializable {
+  def nullify(arr: Seq[Int]): Seq[Int] = {
+    if (arr.head == 7){
+      null
+    }else{
+      arr
+    }
+  }
+}
+
 class FlattenBatchSuite extends TransformerFuzzing[FlattenBatch] {
   import session.implicits._
   lazy val n = 1000
   lazy val df: DataFrame = sc.parallelize((1 to n).zip(List.fill(n)("foo"))).toDF("in1", "in2")
 
   test("null support"){
-    def nullify(arr: Seq[Int]): Seq[Int] = {
-      if (arr.head == 7){
-        null
-      }else{
-        arr
-      }
-    }
-
     val batchedDf = new stages.FixedMiniBatchTransformer().setBatchSize(3).transform(df)
     val nullifiedDf = batchedDf.withColumn(
-      "nullCol", udf(nullify _, ArrayType(IntegerType))(col("in1")))
+      "nullCol", udf(FlattenBatchUtils.nullify _, ArrayType(IntegerType))(col("in1")))
     assert(new FlattenBatch().transform(nullifiedDf).count() == 1000)
   }
 

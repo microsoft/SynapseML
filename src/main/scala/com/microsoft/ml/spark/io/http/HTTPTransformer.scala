@@ -57,9 +57,13 @@ trait HTTPParams extends Wrappable {
   /** @group setParam */
   def setConcurrentTimeout(value: Double): this.type = set(concurrentTimeout, value)
 
+  def setConcurrentTimeout(value: Option[Double]): this.type = value match {
+    case Some(v) => setConcurrentTimeout(v)
+    case None => clear(concurrentTimeout)
+  }
+
   setDefault(concurrency -> 1,
-    timeout -> 60.0,
-    concurrentTimeout -> 100.0)
+    timeout -> 60.0)
 
 }
 
@@ -90,7 +94,9 @@ class HTTPTransformer(val uid: String)
     getConcurrency match {
       case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout*1000).toInt)
       case n if n > 1 =>
-        val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong) //scalastyle:ignore magic.number
+        val dur = get(concurrentTimeout)
+          .map(ct => Duration.fromNanos((ct* math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
+          .getOrElse(Duration.Inf)
         val ec = ExecutionContext.global
         new AsyncHTTPClient(getHandler,n, dur, (getTimeout*1000).toInt)(ec)
     }
