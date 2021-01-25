@@ -124,7 +124,7 @@ class SimpleHTTPTransformer(val uid: String)
     val client = Some(new HTTPTransformer()
       .setHandler(getHandler)
       .setConcurrency(getConcurrency)
-      .setConcurrentTimeout(getConcurrentTimeout)
+      .setConcurrentTimeout(get(concurrentTimeout))
       .setInputCol(parsedInputCol)
       .setOutputCol(unparsedOutputCol))
 

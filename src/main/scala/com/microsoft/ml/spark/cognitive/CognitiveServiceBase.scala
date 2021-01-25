@@ -291,7 +291,7 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
         .setOutputParser(getInternalOutputParser(schema))
         .setHandler(handlingFunc)
         .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(getConcurrentTimeout)
+        .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
       new DropColumns().setCol(dynamicParamColName)
     )

@@ -10,7 +10,6 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.sparkproject.dmg.pmml.True
 
 trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
