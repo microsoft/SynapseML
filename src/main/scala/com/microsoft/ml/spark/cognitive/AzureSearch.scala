@@ -113,7 +113,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
         .setOutputParser(getInternalOutputParser(schema))
         .setHandler(handlingFunc)
         .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(getConcurrentTimeout)
+        .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol)
     )
 
