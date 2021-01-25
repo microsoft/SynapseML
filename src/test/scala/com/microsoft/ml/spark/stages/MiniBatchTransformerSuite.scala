@@ -5,12 +5,14 @@ package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.stages
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.scalatest.Assertion
+import org.apache.spark.sql.functions.{udf, col}
 
 trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
   import session.implicits._
@@ -112,6 +114,21 @@ class FlattenBatchSuite extends TransformerFuzzing[FlattenBatch] {
   import session.implicits._
   lazy val n = 1000
   lazy val df: DataFrame = sc.parallelize((1 to n).zip(List.fill(n)("foo"))).toDF("in1", "in2")
+
+  test("null support"){
+    def nullify(arr: Seq[Int]): Seq[Int] = {
+      if (arr.head == 7){
+        null
+      }else{
+        arr
+      }
+    }
+
+    val batchedDf = new stages.FixedMiniBatchTransformer().setBatchSize(3).transform(df)
+    val nullifiedDf = batchedDf.withColumn(
+      "nullCol", udf(nullify _, ArrayType(IntegerType))(col("in1")))
+    assert(new FlattenBatch().transform(nullifiedDf).count() == 1000)
+  }
 
   override def testObjects(): Seq[TestObject[FlattenBatch]] = Seq(
     new TestObject[FlattenBatch](
