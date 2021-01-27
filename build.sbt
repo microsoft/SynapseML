@@ -38,7 +38,7 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6" excludeAll (excludes: _*),
   "org.apache.httpcomponents" % "httpmime" % "4.5.6" excludeAll (excludes: _*),
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180" excludeAll (excludes: _*),
-  "com.github.vowpalwabbit" % "vw-jni" % "8.8.1" excludeAll (excludes: _*),
+  "com.github.vowpalwabbit" % "vw-jni" % "8.9.1" excludeAll (excludes: _*),
   "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1" excludeAll (excludes: _*),
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided"
 )
