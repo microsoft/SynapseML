@@ -13,6 +13,7 @@ import AnomalyDetectorProtocol._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.ErrorUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.sql.functions.{arrays_zip, col, collect_list, explode, size, struct, udf}
 import spray.json._
@@ -204,7 +205,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
       .withColumn(inputsCol, struct(
         col(getTimestampCol).alias("timestamp"),
         col(getValueCol).alias("value")))
-    val sortUDF = udf(sortWithContext _,
+    val sortUDF = UDFUtils.oldUdf(sortWithContext _,
       new StructType()
         .add(inputsCol, ArrayType(TimeSeriesPoint.schema))
         .add(contextCol, ArrayType(inputDF.schema(contextCol).dataType))
@@ -224,7 +225,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
       col(getErrorCol),
       explode(arrays_zip(
         col(contextCol),
-        udf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
+        UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
           col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
       )).alias(getOutputCol)
     ).select(

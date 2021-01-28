@@ -43,7 +43,7 @@ trait HasHttpClient {
     .create().setDefaultRequestConfig(requestConfig).build()
 }
 
-trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
+trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
 
   def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
@@ -68,7 +68,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
     val res = client.execute(post)
     val t1 = System.nanoTime()
 
-    assert(targetCode == res.getStatusLine.getStatusCode)
+    assert(targetCode === res.getStatusLine.getStatusCode)
     val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
       null
     } else {
@@ -91,7 +91,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
   def sendStringRequestAsync(client: CloseableHttpClient, url: String = url): Future[(String, Double)] = {
     Future {
       sendStringRequest(client, url = url)
-    }
+    }(ExecutionContext.global)
   }
 
   def sendJsonRequest(client: CloseableHttpClient, map: Map[String, Any], url: String): String = {
@@ -120,7 +120,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
   def sendJsonRequestAsync(client: CloseableHttpClient, map: Map[String, Any], url: String = url): Future[String] = {
     Future {
       sendJsonRequest(client, map, url = url)
-    }
+    }(ExecutionContext.global)
   }
 
   def sendFileRequest(client: CloseableHttpClient, url: String = url): (String, Double) = {
@@ -148,7 +148,7 @@ trait HTTPTestUtils extends WithFreeUrl with HasHttpClient {
 
   def stddev(xs: List[Int], avg: Double): Double = xs match {
     case Nil => 0.0
-    case ys => math.sqrt((0.0 /: ys) {
+    case ys => math.sqrt(ys.foldLeft(0.0) {
       (a, e) => a + math.pow(e - avg, 2.0)
     } / xs.size)
   }

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.http
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.io.http.HandlingUtils.HandlerFunc
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -21,10 +22,10 @@ trait HasHandler extends Params {
     this, "handler", "Which strategy to use when handling requests")
 
   /** @group getParam */
-  def getHandler: HandlerFunc = $(handler).f.asInstanceOf[HandlerFunc]
+  def getHandler: HandlerFunc = UDFUtils.unpackUdf($(handler))._1.asInstanceOf[HandlerFunc]
 
   def setHandler(v: HandlerFunc): HasHandler.this.type = {
-    set(handler, udf(v, StringType))
+    set(handler, UDFUtils.oldUdf(v, StringType))
   }
 }
 

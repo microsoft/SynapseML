@@ -24,10 +24,10 @@ import spray.json._
 import org.apache.http.entity.ContentType
 import org.apache.spark.ml.ComplexParamsReadable
 import com.microsoft.ml.spark.io.http.HandlingUtils._
-import scala.concurrent.blocking
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
+import org.apache.spark.injections.UDFUtils
 
+import scala.concurrent.blocking
+import scala.collection.JavaConverters._
 import scala.language.existentials
 
 trait HasImageUrl extends HasServiceParams {
@@ -167,7 +167,7 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
   def flatten(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = OCRResponse.makeFromRowConverter
     new UDFTransformer()
-      .setUDF(udf(
+      .setUDF(UDFUtils.oldUdf(
         { r: Row =>
           Option(r).map(fromRow).map { resp =>
             resp.regions.map(
@@ -201,7 +201,7 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
   def flatten(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = RTResponse.makeFromRowConverter
     new UDFTransformer()
-      .setUDF(udf(
+      .setUDF(UDFUtils.oldUdf(
         { r: Row =>
           Option(r).map(fromRow).map(
             _.recognitionResult.lines.map(_.text).mkString(" "))
@@ -329,7 +329,7 @@ object Read extends ComplexParamsReadable[Read] {
   def flatten(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = ReadResponse.makeFromRowConverter
     new UDFTransformer()
-      .setUDF(udf(
+      .setUDF(UDFUtils.oldUdf(
         { r: Row =>
           Option(r).map(fromRow).map(
             _.analyzeResult.readResults.map(_.lines.map(_.text).mkString(" ")).mkString(" "))
@@ -474,7 +474,7 @@ object RecognizeDomainSpecificContent
   def getMostProbableCeleb(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = DSIRResponse.makeFromRowConverter
     new UDFTransformer()
-      .setUDF(udf(
+      .setUDF(UDFUtils.oldUdf(
         { r: Row =>
           Option(r).map { r =>
             fromRow(r).result.celebrities.flatMap {

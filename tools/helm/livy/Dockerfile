@@ -96,6 +96,6 @@ WORKDIR ${LIVY_HOME}
 RUN mkdir logs
 
 #hive needed for livy pyspark
-RUN wget https://repo1.maven.org/maven2/org/apache/spark/spark-hive_2.11/2.4.5/spark-hive_2.11-2.4.5.jar -P /opt/spark/jars
+RUN wget https://repo1.maven.org/maven2/org/apache/spark/spark-hive_2.12/2.4.5/spark-hive_2.12-2.4.5.jar -P /opt/spark/jars
 
 CMD ["sh", "-c", "echo '\nspark.driver.host' $(hostname -i) >> /opt/spark/conf/spark-defaults.conf && echo '\nlivy.spark.master' $SPARK_MASTER >> /livy/conf/livy.conf && bin/livy-server"]

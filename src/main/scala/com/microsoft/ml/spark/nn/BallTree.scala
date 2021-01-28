@@ -7,7 +7,6 @@ import java.io._
 import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],
@@ -163,9 +162,9 @@ object ConditionalBallTree {
                   labels: java.util.ArrayList[L],
                   leafSize: Int): ConditionalBallTree[L, V] = {
     ConditionalBallTree(
-      keys.toIndexedSeq.map(vals => DenseVector(vals.toList.toArray)),
-      values.toIndexedSeq,
-      labels.toIndexedSeq,
+      keys.asScala.map(vals => DenseVector(vals.asScala.toArray)).toIndexedSeq,
+      values.asScala.toIndexedSeq,
+      labels.asScala.toIndexedSeq,
       leafSize)
   }
 
@@ -245,7 +244,7 @@ case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[D
   def findMaximumInnerProducts(queryPoint: java.util.ArrayList[Double],
                                conditioner: java.util.Set[L],
                                k: Int): java.util.List[BestMatch] = {
-    findMaximumInnerProducts(new DenseVector(queryPoint.toList.toArray), conditioner.toSet, k).asJava
+    findMaximumInnerProducts(new DenseVector(queryPoint.asScala.toArray), conditioner.asScala.toSet, k).asJava
   }
 
   def findMaximumInnerProducts(queryPoint: DenseVector[Double],

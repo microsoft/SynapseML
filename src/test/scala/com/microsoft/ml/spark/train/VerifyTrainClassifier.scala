@@ -133,7 +133,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   verifyMultiClassCSV("abalone.csv", "Rings", 2, true)
   // Has multiple columns with the same name.  Spark doesn't seem to be able to handle that yet.
   // verifyLearnerOnMulticlassCsvFile("arrhythmia.csv",               "Arrhythmia")
-  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, true)
+  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, false)
   verifyMultiClassCSV("CarEvaluation.csv", "Col7", 2, true)
   // Getting "code generation" exceeded max size limit error
   // verifyLearnerOnMulticlassCsvFile("mnist.train.csv",              "Label")

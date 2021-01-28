@@ -8,6 +8,7 @@ import java.net._
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.StreamUtilities._
+import com.microsoft.ml.spark.downloader.FaultToleranceUtils
 import org.apache.spark.{BarrierTaskContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -546,7 +547,9 @@ private object TrainUtils extends Serializable {
         // Initialize the native library
         LightGBMUtils.initializeNativeLibrary()
         log.info(s"LightGBM task connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-        (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
+        FaultToleranceUtils.retryWithTimeout() {
+          (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
+        }
     }.get
 
     if (emptyPartition) {

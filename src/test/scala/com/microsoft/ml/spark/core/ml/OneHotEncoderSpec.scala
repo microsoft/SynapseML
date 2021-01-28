@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.core.ml
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark._
-import org.apache.spark.ml.feature.OneHotEncoderEstimator
+import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.DataFrame
 
@@ -22,7 +22,7 @@ class OneHotEncoderSpec extends TestBase {
       .toDF("id", "categoryIndex")
 
     val encoded =
-      new OneHotEncoderEstimator()
+      new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
         .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -45,7 +45,7 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded = new OneHotEncoderEstimator()
+    val encoded = new OneHotEncoder()
       .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
       .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -68,7 +68,7 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded = new OneHotEncoderEstimator().setDropLast(false)
+    val encoded = new OneHotEncoder().setDropLast(false)
       .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
       .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -83,7 +83,7 @@ class OneHotEncoderSpec extends TestBase {
 
   private def testOHE(data: DataFrame) = {
     assertSparkException[SparkException](
-      new OneHotEncoderEstimator()
+      new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("encodedOutput")),
       data.toDF("id", "categoryIndex"))
   }

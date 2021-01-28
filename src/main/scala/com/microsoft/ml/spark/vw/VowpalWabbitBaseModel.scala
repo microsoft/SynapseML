@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.vw
 
+import com.microsoft.ml.spark.downloader.FaultToleranceUtils
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -25,7 +26,9 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
   with HasAdditionalFeatures
 {
   @transient
-  lazy val vw = new VowpalWabbitNative(s"--testonly ${getTestArgs}", getModel)
+  lazy val vw = FaultToleranceUtils.retryWithTimeout() {
+    new VowpalWabbitNative(s"--testonly ${getTestArgs}", getModel)
+  }
 
   @transient
   lazy val example: VowpalWabbitExample = vw.createExample()

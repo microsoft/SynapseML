@@ -96,7 +96,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
     throw new NotImplementedError("Not implemented")
   }
 
-  override protected def predictRaw(features: Row): Vector =
+  override def predictRaw(features: Row): Vector =
   {
     throw new NotImplementedError("Not implemented")
   }

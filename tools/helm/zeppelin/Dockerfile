@@ -87,7 +87,7 @@ RUN echo "$LOG_TAG install nodejs" && \
     git status  && \
     mv /tmp/patch_beam.patch . && \
     git apply --ignore-space-change --ignore-whitespace patch_beam.patch && \
-     ./dev/change_scala_version.sh 2.11 && \
+     ./dev/change_scala_version.sh 2.12 && \
     # dendencies
     apt-get -y update && \
     apt-get install -y git libfontconfig r-base-dev r-cran-evaluate wget grep curl sed && \
@@ -101,7 +101,7 @@ RUN echo "$LOG_TAG install nodejs" && \
 
 RUN cd ${Z_HOME}_src && \
     export MAVEN_OPTS="-Xmx2048m -XX:MaxPermSize=256m" && \
-    mvn -e -B package -DskipTests -Pscala-2.11 -Pbuild-distr && \
+    mvn -e -B package -DskipTests -Pscala-2.12 -Pbuild-distr && \
     tar xvf ${Z_HOME}_src/zeppelin-distribution/target/zeppelin-0.9.0-SNAPSHOT.tar.gz && \
     rm -rf ${Z_HOME}/* && \
     mv zeppelin-0.9.0-SNAPSHOT ${Z_HOME}_dist && \

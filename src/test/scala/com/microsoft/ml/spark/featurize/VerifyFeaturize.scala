@@ -142,7 +142,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       benchmarkStringTempFile.toString,
       historicStringFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[SparseVector](featuresColumn).size == 11)
+    assert(result.first().getAs[SparseVector](featuresColumn).size == 10)
   }
 
   test("Featurizing with date and timestamp columns") {
@@ -236,7 +236,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       benchmarkStringMissingsTempFile.toString,
       historicStringMissingsFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[DenseVector](featuresColumn).size == 8)
+    assert(result.first().getAs[DenseVector](featuresColumn).size == 7)
   }
 
   test("Featurizing with categorical columns - using one hot encoding") {

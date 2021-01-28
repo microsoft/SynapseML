@@ -2,13 +2,13 @@ import unittest
 
 from typing import List, Tuple
 
-from pyspark.sql import DataFrame, SparkSession, SQLContext
+from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType, StructField, StringType
 
 from pyspark.ml import Transformer
-from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
+from pyspark.ml.param.shared import Param, Params
 
-from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
+from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder, HasSetInputCol, HasSetOutputCol
 from mmlsparktest.spark import *
 
 
@@ -64,7 +64,7 @@ class TestDataFrameUtils(unittest.TestCase):
 
 
 class TestExplainBuilder(unittest.TestCase):
-    class ExplainableObj(Transformer, HasInputCol, HasOutputCol):
+    class ExplainableObj(Transformer, HasSetInputCol, HasSetOutputCol):
         partitionKey = Param(
             Params._dummy(),
             "partitionKey",

@@ -148,11 +148,11 @@ class LightGBMClassificationModel(override val uid: String)
 
   override def numClasses: Int = getActualNumClasses
 
-  override protected def predictRaw(features: Vector): Vector = {
+  override def predictRaw(features: Vector): Vector = {
     Vectors.dense(getModel.score(features, true, true))
   }
 
-  override protected def predictProbability(features: Vector): Vector = {
+  override def predictProbability(features: Vector): Vector = {
     Vectors.dense(getModel.score(features, false, true))
   }
 

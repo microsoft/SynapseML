@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
 import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.ml.spark.featurize.ValueIndexer
@@ -361,32 +361,34 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with validation dataset") {
-    val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
+    tryWithRetries(Array(0, 0, 0, 0)) { () => // TODO fix flakiness
+      val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
 
-    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.1, 0.6, 0.3), seed)
-    val valid = validIntermediate.withColumn(validationCol, lit(true))
-    val trainAndValid = train.union(valid.orderBy(rand()))
+      val Array(train, validIntermediate, test) = df.randomSplit(Array(0.1, 0.6, 0.3), seed)
+      val valid = validIntermediate.withColumn(validationCol, lit(true))
+      val trainAndValid = train.union(valid.orderBy(rand()))
 
-    // model1 should overfit on the given dataset
-    val model1 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(200)
-      .setIsUnbalance(true)
+      // model1 should overfit on the given dataset
+      val model1 = baseModel
+        .setNumLeaves(100)
+        .setNumIterations(200)
+        .setIsUnbalance(true)
 
-    // model2 should terminate early before overfitting
-    val model2 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(200)
-      .setIsUnbalance(true)
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(5)
+      // model2 should terminate early before overfitting
+      val model2 = baseModel
+        .setNumLeaves(100)
+        .setNumIterations(200)
+        .setIsUnbalance(true)
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(5)
 
-    // Assert evaluation metric improves
-    Array("auc", "binary_logloss", "binary_error").foreach { metric =>
-      assertBinaryImprovement(
-        model1, train, test,
-        model2.setMetric(metric), trainAndValid, test
-      )
+      // Assert evaluation metric improves
+      Array("auc", "binary_logloss", "binary_error").foreach { metric =>
+        assertBinaryImprovement(
+          model1, train, test,
+          model2.setMetric(metric), trainAndValid, test
+        )
+      }
     }
   }
 

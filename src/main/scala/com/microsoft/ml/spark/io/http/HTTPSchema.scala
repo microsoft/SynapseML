@@ -14,13 +14,13 @@ import org.apache.http._
 import org.apache.http.client.methods._
 import org.apache.http.entity.{ByteArrayEntity, StringEntity}
 import org.apache.http.message.BasicHeader
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, lit, struct, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StringType}
 import org.apache.spark.sql.{Column, Row}
 
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 case class HeaderData(name: String, value: String) {
@@ -219,7 +219,7 @@ object HTTPRequestData extends SparkBindings[HTTPRequestData] {
           ProtocolVersionData(v, major.toInt, minor.toInt)
         }),
       httpEx.getRequestHeaders.asScala.flatMap {
-        case (k, vs) => vs.map(v => HeaderData(k, v))
+        case (k, vs) => vs.asScala.map(v => HeaderData(k, v))
       }.toArray,
       Some(EntityData(
         IOUtils.toByteArray(httpEx.getRequestBody),
@@ -261,7 +261,7 @@ object HTTPSchema {
 
   private def entity_to_string_udf: UserDefinedFunction = {
     val fromRow = EntityData.makeFromRowConverter
-    udf({ x: Row =>
+    UDFUtils.oldUdf({ x: Row =>
       val sOpt = Option(x).flatMap(r => entityToString(fromRow(r)))
       sOpt.orNull
     }, StringType)
@@ -270,13 +270,13 @@ object HTTPSchema {
   def entity_to_string(c: Column): Column = entity_to_string_udf(c)
 
   private val string_to_entity_udf: UserDefinedFunction =
-    udf({ x: String => stringToEntity(x) }, EntityData.schema)
+    UDFUtils.oldUdf({ x: String => stringToEntity(x) }, EntityData.schema)
 
   def string_to_entity(c: Column): Column = string_to_entity_udf(c)
 
   private def request_to_string_udf: UserDefinedFunction = {
     val fromRow = HTTPRequestData.makeFromRowConverter
-    udf({ x: Row =>
+    UDFUtils.oldUdf({ x: Row =>
       val sOpt = Option(x)
         .flatMap(r => fromRow(r).entity)
         .map(entityToString)
@@ -295,7 +295,7 @@ object HTTPSchema {
   }
 
   private val string_to_response_udf: UserDefinedFunction =
-    udf(stringToResponse _, HTTPResponseData.schema)
+    UDFUtils.oldUdf(stringToResponse _, HTTPResponseData.schema)
 
   def string_to_response(str: Column, code: Column = lit(200), reason: Column = lit("Success")): Column =
     string_to_response_udf(str, code, reason)
@@ -309,7 +309,7 @@ object HTTPSchema {
   }
 
   private val empty_response_udf: UserDefinedFunction =
-    udf(emptyResponse _, HTTPResponseData.schema)
+    UDFUtils.oldUdf(emptyResponse _, HTTPResponseData.schema)
 
   def empty_response(code: Column = lit(200), reason: Column = lit("Success")): Column =
     empty_response_udf(code, reason)
@@ -323,7 +323,7 @@ object HTTPSchema {
   }
 
   private val binary_to_response_udf: UserDefinedFunction =
-    udf(binaryToResponse _, HTTPResponseData.schema)
+    UDFUtils.oldUdf(binaryToResponse _, HTTPResponseData.schema)
 
   def binary_to_response(ba: Column, code: Column = lit(200), reason: Column = lit("Success")): Column =
     binary_to_response_udf(ba, code, reason)
