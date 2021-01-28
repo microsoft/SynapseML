@@ -28,9 +28,9 @@ class IDFSpec extends TestBase {
 
     val lines = rescaledData.getSVCol("features")
     val trueLines = List(
-      new SparseVector(20, Array(0,  9), Array(0.6931471805599453, 0.28768207245178085)),
-      new SparseVector(20, Array(9, 15), Array(0.28768207245178085, 0.6931471805599453)),
-      new SparseVector(20, Array(6, 13), Array(0.6931471805599453, 0.6931471805599453))
+      new SparseVector(20, Array(8,  16), Array(0.28768207245178085,0.28768207245178085)),
+      new SparseVector(20, Array(15, 16), Array(0.6931471805599453,0.28768207245178085)),
+      new SparseVector(20, Array(6, 8), Array(0.6931471805599453,0.28768207245178085))
     )
     assert(lines === trueLines)
   }

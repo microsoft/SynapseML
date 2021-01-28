@@ -81,9 +81,9 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
 
   /** Returns the data that is between the offsets (`start`, `end`]. */
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = synchronized {
-    val startOrdinal =
-      start.flatMap(LongOffset.convert).getOrElse(LongOffset(-1)).offset.toInt + 1
-    val endOrdinal = LongOffset.convert(end).getOrElse(LongOffset(-1)).offset.toInt + 1
+    val startOrdinal = start.map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset.toInt + 1
+    val endOrdinal = Option(end).map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset.toInt + 1
+
     val hrdToIr = HTTPRequestData.makeToInternalRowConverter
 
     // Internal buffer only holds the batches after lastOffsetCommitted
@@ -117,17 +117,13 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
   }
 
   override def commit(end: Offset): Unit = synchronized {
-    val newOffset = LongOffset.convert(end).getOrElse(
-      sys.error(s"TextSocketStream.commit() received an offset ($end) that did not " +
-                  s"originate with an instance of this class"))
-
-    val offsetDiff = (newOffset.offset - lastOffsetCommitted.offset).toInt
-
+    val newOffset = end.json().toInt
+    val offsetDiff = (newOffset - lastOffsetCommitted.offset).toInt
     if (offsetDiff < 0) {
       sys.error(s"Offsets committed out of order: $lastOffsetCommitted followed by $end")
     }
     requests.trimStart(offsetDiff)
-    lastOffsetCommitted = newOffset
+    lastOffsetCommitted = LongOffset(newOffset)
   }
 
   /** Stop this source. */

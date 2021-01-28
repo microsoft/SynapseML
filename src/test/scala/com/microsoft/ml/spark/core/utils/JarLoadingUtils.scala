@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.core.utils
 
 import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.scalatest.exceptions.TestFailedException
-import org.spark_project.guava.reflect.ClassPath
+import org.sparkproject.guava.reflect.ClassPath
 
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, _}

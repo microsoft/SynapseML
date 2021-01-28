@@ -175,3 +175,17 @@ class ExplainBuilder:
 
         # noinspection PyProtectedMember
         explainable._set(**kwargs)
+
+class HasSetInputCol(HasInputCol):
+    def setInputCol(self, value):
+        """
+        Sets the value of :py:attr:`inputCol`.
+        """
+        return self.set(self.inputCol, value)
+
+class HasSetOutputCol(HasOutputCol):
+    def setOutputCol(self, value):
+        """
+        Sets the value of :py:attr:`outputCol`.
+        """
+        return self.set(self.outputCol, value)

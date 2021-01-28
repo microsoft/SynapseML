@@ -250,7 +250,7 @@ jobs:
         chmod +x .codecov
         echo "Starting Codecov Upload"
         ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 

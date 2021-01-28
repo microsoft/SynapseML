@@ -2,14 +2,14 @@ __author__ = 'rolevin'
 
 from typing import List
 
-from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder
+from mmlspark.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder, HasSetInputCol, HasSetOutputCol
 
 from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
 from pyspark.sql import DataFrame, functions as f
 
 
-class IdIndexerModel(Transformer, HasInputCol, HasOutputCol):
+class IdIndexerModel(Transformer, HasSetInputCol, HasSetOutputCol):
     partitionKey = Param(
         Params._dummy(),
         "partitionKey",
@@ -43,7 +43,7 @@ class IdIndexerModel(Transformer, HasInputCol, HasOutputCol):
         )
 
 
-class IdIndexer(Estimator, HasInputCol, HasOutputCol):
+class IdIndexer(Estimator, HasSetInputCol, HasSetOutputCol):
     partitionKey = Param(
         Params._dummy(),
         "partitionKey",

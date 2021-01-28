@@ -69,7 +69,7 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |    @keyword_only
         |    def __init__(self, $classParamsString):
         |        super($entryPointName, self).__init__()
-        |        self._java_obj = self._new_java_obj(\"$entryPointQualifiedName\")
+        |        self._java_obj = self._new_java_obj(\"$entryPointQualifiedName\", self.uid)
         |$paramDefinitionsAndDefaultsString
         |        if hasattr(self, \"_input_kwargs\"):
         |            kwargs = self._input_kwargs

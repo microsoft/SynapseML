@@ -11,12 +11,15 @@ import scala.sys.process.Process
 val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.10"
+val sparkVersion = "3.0.1"
 
-val sparkVersion = "2.4.5"
+//val scalaMajorVersion  = settingKey[String]("scalaMajorVersion")
+//scalaMajorVersion  := {scalaVersion.value.split(".".toCharArray).dropRight(0).mkString(".")}
+val scalaMajorVersion = 2.12
 
 val excludes = Seq(
-  ExclusionRule("org.apache.spark", "spark-tags_2.11"),
+  ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
   ExclusionRule("org.scalatic"),
   ExclusionRule("org.scalatest")
 )
@@ -35,9 +38,9 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6" excludeAll (excludes: _*),
   "org.apache.httpcomponents" % "httpmime" % "4.5.6" excludeAll (excludes: _*),
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180" excludeAll (excludes: _*),
-  "com.github.vowpalwabbit" % "vw-jni" % "8.8.1" excludeAll (excludes: _*),
-  "com.linkedin.isolation-forest" %% "isolation-forest_2.4.3" % "0.3.2" excludeAll (excludes: _*),
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
+  "com.github.vowpalwabbit" % "vw-jni" % "8.9.1" excludeAll (excludes: _*),
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1" excludeAll (excludes: _*),
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided"
 )
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
@@ -111,9 +114,11 @@ def activateCondaEnv: Seq[String] = {
   }
 }
 
+
+
 val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
-val genDir = join("target", "scala-2.11", "generated")
-val unidocDir = join("target", "scala-2.11", "unidoc")
+val genDir = join("target", s"scala-${scalaMajorVersion}", "generated")
+val unidocDir = join("target", s"scala-${scalaMajorVersion}", "unidoc")
 val pythonSrcDir = join(genDir.toString, "src", "python")
 val unifiedDocDir = join(genDir.toString, "doc")
 val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
@@ -198,7 +203,7 @@ val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
   (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
-  val rPackage = join("target", "scala-2.11", "generated", "package", "R")
+  val rPackage = join("target", s"scala-${scalaMajorVersion}", "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)
 }
@@ -207,7 +212,7 @@ packagePythonTask := {
   val s = streams.value
   (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
   createCondaEnvTask.value
-  val destPyDir = join("target", "scala-2.11", "classes", "mmlspark")
+  val destPyDir = join("target", s"scala-${scalaMajorVersion}", "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
   FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
 
@@ -243,7 +248,7 @@ testPythonTask := {
       "--cov-report=xml",
       "mmlsparktest"
     ),
-    new File("target/scala-2.11/generated/test/python/"),
+    new File(s"target/scala-${scalaMajorVersion}/generated/test/python/")
   ) ! s.log
 }
 
@@ -252,7 +257,7 @@ val datasetName = "datasets-2020-08-27.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 datasetDir := {
-  join(target.value.toString, "scala-2.11", "datasets", datasetName.split(".".toCharArray.head).head)
+  join(target.value.toString, s"scala-${scalaMajorVersion}", "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
 getDatasetsTask := {
@@ -270,19 +275,19 @@ genBuildInfo := {
 
   val buildInfo =
     s"""
-       |MMLSpark Build and Release Information
-       |---------------
-       |
-       |### Maven Coordinates
-       | `${organization.value}:${name.value}_2.11:${version.value}`
-       |
-       |### Maven Resolver
-       | `https://mmlspark.azureedge.net/maven`
-       |
-       |### Documentation Pages:
-       |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
-       |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
-       |
+      |MMLSpark Build and Release Information
+      |---------------
+      |
+      |### Maven Coordinates
+      | `${organization.value}:${name.value}_${scalaMajorVersion}:${version.value}`
+      |
+      |### Maven Resolver
+      | `https://mmlspark.azureedge.net/maven`
+      |
+      |### Documentation Pages:
+      |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
+      |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
+      |
     """.stripMargin
 
   val infoFile = join("target", "Build.md")
@@ -364,7 +369,7 @@ val settings = Seq(
     case x => MergeStrategy.first
   },
   assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
-  buildInfoPackage := "com.microsoft.ml.spark.build") //++
+  buildInfoPackage := "com.microsoft.ml.spark.build")
 
 lazy val mmlspark = (project in file("."))
   .enablePlugins(BuildInfoPlugin)
@@ -414,3 +419,5 @@ pgpPublicRing := {
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
 publishTo := sonatypePublishToBundle.value
+
+// Cache Break 1

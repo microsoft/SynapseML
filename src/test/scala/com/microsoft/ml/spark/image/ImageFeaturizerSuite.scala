@@ -17,6 +17,7 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.powerbi.PowerBIWriter
 import com.microsoft.ml.spark.io.split1.FileReaderUtils
 import org.apache.commons.io.FileUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
@@ -178,7 +179,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     println(images.count())
 
     val result = resNetModel().setInputCol("image").transform(images)
-      .withColumn("foo", udf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
+      .withColumn("foo", UDFUtils.oldUdf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
     PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))

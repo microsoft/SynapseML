@@ -16,7 +16,7 @@ import com.microsoft.ml.spark.io.split2.HasHttpClient
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
-import org.spark_project.guava.io.BaseEncoding
+import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
@@ -27,8 +27,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "mmlspark-build"
-  val AdbRuntime = "6.4.x-scala2.11"
+  val PoolName = "mmlspark-build-3"
+  val AdbRuntime = "7.5.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -61,6 +61,10 @@ object DatabricksUtilities extends HasHttpClient {
   val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
   ).get
+
+  val ParallizableNotebooks = NotebookFiles.filterNot(_.getName.contains("Vowpal"))
+
+  val NonParallizableNotebooks = NotebookFiles.filter(_.getName.contains("Vowpal"))
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
     try {

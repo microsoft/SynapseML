@@ -3,10 +3,10 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import org.scalatest.Assertion
 
-class BatchIteratorSuite extends TestBase {
+class BatchIteratorSuite extends TestBase with Flaky {
 
   def delayedIterator(n: Int, wait: Int = 5): Iterator[Int] = {
     (1 to n).toIterator.map { x =>

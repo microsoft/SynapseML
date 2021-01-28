@@ -15,9 +15,9 @@ import org.apache.log4j.LogManager
 import org.apache.spark.sql.SparkSession
 import spray.json._
 
-import scala.collection.JavaConversions._
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Abstract representation of a repository for future expansion
@@ -44,6 +44,20 @@ object FaultToleranceUtils {
         retryWithTimeout(times-1, timeout)(f)
     }
   }
+
+  val Backoffs: Seq[Int] = Seq(0, 100, 200, 500)
+
+  def retryWithTimeout[T](times: Seq[Int] = Backoffs)(f: => T): T ={
+    try {
+      f
+    } catch {
+      case e: Exception if times.nonEmpty =>
+        println(s"Received exception on call, retrying: $e")
+        Thread.sleep(times.head)
+        retryWithTimeout(times.tail)(f)
+    }
+  }
+
 }
 
 /** Exception returned if a repo cannot find the file
@@ -143,7 +157,7 @@ private[spark] class DefaultModelRepo(val baseURL: URL) extends Repository[Model
     val url = join(baseURL, "MANIFEST")
     val manifestStream = toStream(url)
     try {
-      val modelStreams = IOUtils.readLines(manifestStream).map(fn => toStream(join(baseURL, fn)))
+      val modelStreams = IOUtils.readLines(manifestStream).asScala.map(fn => toStream(join(baseURL, fn)))
       try {
         modelStreams.map(s => IOUtils.toString(s).parseJson.convertTo[ModelSchema])
       } finally {
@@ -252,7 +266,7 @@ class ModelDownloader(val spark: SparkSession,
   }
 
   def downloadByName(name: String): ModelSchema = {
-    val models = remoteModels.filter(_.name == name).toList
+    val models = remoteModels.asScala.filter(_.name == name).toList
     if (models.length != 1) {
       throw new IllegalArgumentException(s"there are ${models.length} models with the same name")
     }
@@ -262,7 +276,7 @@ class ModelDownloader(val spark: SparkSession,
   /** @param models An iterable of remote model schemas
     * @return An list of local model schema whose URI's points to the model's location (on HDFS or local)
     */
-  def downloadModels(models: Iterable[ModelSchema] = remoteModels.toIterable): List[ModelSchema] =
+  def downloadModels(models: Iterable[ModelSchema] = remoteModels.asScala.toIterable): List[ModelSchema] =
   // Call toList so that all models are downloaded when downloadModels are called
     models.map(downloadModel).toList
 
@@ -271,6 +285,6 @@ class ModelDownloader(val spark: SparkSession,
     */
   def downloadModels(models: util.ArrayList[ModelSchema]): util.List[ModelSchema] =
   // Call toList so that all models are downloaded when downloadModels are called
-    models.map(downloadModel).toList.asJava
+    models.asScala.map(downloadModel).toList.asJava
 
 }

@@ -12,6 +12,7 @@ import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import javax.imageio.ImageIO
 import javax.swing.{ImageIcon, JFrame, JLabel}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SpLogging}
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.sql.Row
@@ -47,13 +48,13 @@ object Superpixel {
 
   def getSuperpixelUDF(inputType: DataType, cellSize: Double, modifier: Double): UserDefinedFunction = {
     if (ImageSchemaUtils.isImage(inputType)) {
-      udf({ row: Row =>
+      UDFUtils.oldUdf({ row: Row =>
         SuperpixelData.fromSuperpixel(
           new Superpixel(ImageUtils.toBufferedImage(row), cellSize, modifier)
         )
       }, SuperpixelData.Schema)
     } else if (inputType == BinaryType) {
-      udf({ bytes: Array[Byte] =>
+      UDFUtils.oldUdf({ bytes: Array[Byte] =>
         val biOpt = ImageUtils.safeRead(bytes)
         biOpt.map(bi => SuperpixelData.fromSuperpixel(
           new Superpixel(bi, cellSize, modifier)
@@ -69,14 +70,14 @@ object Superpixel {
     ImageUtils.toSparkImage(bi).getStruct(0)
   }
 
-  val MaskImageUDF: UserDefinedFunction = udf(maskImageHelper _, ImageSchema.columnSchema)
+  val MaskImageUDF: UserDefinedFunction = UDFUtils.oldUdf(maskImageHelper _, ImageSchema.columnSchema)
 
   def maskBinaryHelper(img: Array[Byte], sp: Row, states: Seq[Boolean]): Row = {
     val biOpt = maskBinary(img, SuperpixelData.fromRow(sp), states.toArray)
     biOpt.map(ImageUtils.toSparkImage(_).getStruct(0)).orNull
   }
 
-  val MaskBinaryUDF: UserDefinedFunction = udf(maskBinaryHelper _, ImageSchema.columnSchema)
+  val MaskBinaryUDF: UserDefinedFunction = UDFUtils.oldUdf(maskBinaryHelper _, ImageSchema.columnSchema)
 
   def displayImage(img: BufferedImage): JFrame = {
     val frame: JFrame = new JFrame()

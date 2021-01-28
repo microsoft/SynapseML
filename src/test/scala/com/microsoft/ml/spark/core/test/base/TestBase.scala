@@ -180,7 +180,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
           case t: Transformer => t
           case _ => sys.error(s"Unknown PipelineStage value: $stage")
         }
-        transformer.transform(data).foreachPartition { it => it.toList; () }
+        transformer.transform(data).foreachPartition { it: Iterator[Row] => it.toList; () }
       }
       ()
     }

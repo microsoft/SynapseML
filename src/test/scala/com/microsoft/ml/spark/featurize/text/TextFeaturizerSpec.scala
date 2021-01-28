@@ -50,8 +50,8 @@ class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
     assert(linesRaw.length == 4)
     assert(linesTok.length == 4)
     assert(linesNgram.length == 4)
-    assert(linesRaw(0)(0) == 0.9162907318741551)
-    assert(linesTok(1)(9) == 0.5108256237659907)
+    assert(linesRaw(0)(0) == 0.0)
+    assert(linesTok(1)(9) == 0.0)
     assert(linesNgram(2)(7) == 1.8325814637483102)
     assert(linesNgram(3)(1) == 0.0)
   }

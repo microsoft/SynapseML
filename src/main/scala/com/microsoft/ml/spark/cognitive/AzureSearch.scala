@@ -13,13 +13,14 @@ import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
-import org.apache.spark.sql.functions.{col, struct, to_json, udf, expr}
+import org.apache.spark.sql.functions.{col, expr, struct, to_json, udf}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.microsoft.ml.spark.cognitive.AzureSearchProtocol._
 import spray.json._
 import DefaultJsonProtocol._
+import org.apache.spark.injections.UDFUtils
 
 import scala.collection.JavaConverters._
 
@@ -249,7 +250,8 @@ object AzureSearchWriter extends IndexParser with SLogging {
       .setOutputCol("out")
       .setErrorCol("error")
       .transform(df1)
-      .withColumn("error", udf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
+      .withColumn("error",
+        UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }
 
   private def isEdmCollection(t: String): Boolean = {
@@ -326,7 +328,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
   }
 
   def write(df: DataFrame, options: Map[String, String] = Map()): Unit = {
-    prepareDF(df, options).foreachPartition(it => it.foreach(_ => ()))
+    prepareDF(df, options).foreach(_ => ())
   }
 
   def stream(df: DataFrame, options: java.util.HashMap[String, String]): DataStreamWriter[Row] = {

@@ -3,50 +3,88 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import com.microsoft.ml.spark._
+import java.util
+
 import com.microsoft.ml.spark.io.http.HTTPResponseData
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.DataSourceRegister
-import org.apache.spark.sql.sources.v2._
-import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter
-import org.apache.spark.sql.sources.v2.writer.{DataWriter, DataWriterFactory, WriterCommitMessage}
-import org.apache.spark.sql.streaming.OutputMode
+import org.apache.spark.sql.connector.catalog.{SupportsWrite, Table, TableCapability}
+import org.apache.spark.sql.connector.write.streaming.{StreamingDataWriterFactory, StreamingWrite}
+import org.apache.spark.sql.connector.write._
+import org.apache.spark.sql.internal.connector.{SimpleTableProvider, SupportsStreamingUpdate}
+import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class HTTPSinkProviderV2 extends DataSourceV2
-  with StreamWriteSupport
-  with DataSourceRegister {
+case class HTTPRelation(override val sqlContext: SQLContext, data: DataFrame)
+  extends BaseRelation {
+  override def schema: StructType = data.schema
+}
 
-  override def createStreamWriter(queryId: String,
-                                  schema: StructType,
-                                  mode: OutputMode,
-                                  options: DataSourceOptions): StreamWriter = {
-    new HTTPWriter(schema, options)
+
+object HTTPSinkTable extends Table with SupportsWrite {
+
+  override def name(): String = "console"
+
+  override def schema(): StructType = StructType(Nil)
+
+  override def capabilities(): util.Set[TableCapability] = {
+    Set(TableCapability.STREAMING_WRITE).asJava
+  }
+
+  override def newWriteBuilder(info: LogicalWriteInfo): WriteBuilder = {
+    new WriteBuilder with SupportsTruncate with SupportsStreamingUpdate {
+      private val inputSchema: StructType = info.schema()
+
+      override def truncate(): WriteBuilder = this
+
+      override def update(): WriteBuilder = this
+
+      override def buildForStreaming(): StreamingWrite = {
+        assert(inputSchema != null)
+        new HTTPWriter(inputSchema, info.options)
+      }
+    }
+  }
+}
+
+
+class HTTPSinkProviderV2 extends SimpleTableProvider
+  with DataSourceRegister
+  with CreatableRelationProvider {
+
+  override def getTable(options: CaseInsensitiveStringMap): Table = {
+    HTTPSinkTable
+  }
+
+  def createRelation(sqlContext: SQLContext,
+                     mode: SaveMode,
+                     parameters: Map[String, String],
+                     data: DataFrame): BaseRelation = {
+    HTTPRelation(sqlContext, data)
   }
 
   def shortName(): String = "HTTPv2"
 }
 
 /** Common methods used to create writes for the the console sink */
-class HTTPWriter(schema: StructType, options: DataSourceOptions)
-  extends StreamWriter with Logging {
+class HTTPWriter(schema: StructType, options: CaseInsensitiveStringMap)
+  extends StreamingWrite with Logging {
 
-  protected val idCol: String = options.get("idCol").orElse("id")
-  protected val replyCol: String = options.get("replyCol").orElse("reply")
-  protected val name: String = options.get("name").get
+  protected val idCol: String = options.getOrDefault("idCol", "id")
+  protected val replyCol: String = options.getOrDefault("replyCol", "reply")
+  protected val name: String = options.get("name")
 
   val idColIndex: Int = schema.fieldIndex(idCol)
   val replyColIndex: Int = schema.fieldIndex(replyCol)
 
   assert(SparkSession.getActiveSession.isDefined)
 
-  def createWriterFactory(): DataWriterFactory[InternalRow] =
-    HTTPWriterFactory(idColIndex, replyColIndex, name)
 
   override def commit(epochId: Long, messages: Array[WriterCommitMessage]): Unit = {}
 
@@ -54,22 +92,23 @@ class HTTPWriter(schema: StructType, options: DataSourceOptions)
     HTTPSourceStateHolder.cleanUp(name)
   }
 
+  override def createStreamingWriterFactory(info: PhysicalWriteInfo): StreamingDataWriterFactory =
+    HTTPWriterFactory(idColIndex, replyColIndex, name)
 }
 
-private[streaming] case class HTTPWriterFactory(idColIndex: Int,
-                                                replyColIndex: Int,
-                                                name: String)
-  extends DataWriterFactory[InternalRow] {
-  def createDataWriter(partitionId: Int, taskId: Long, epochId: Long): DataWriter[InternalRow] = {
-    new HTTPDataWriter(partitionId, idColIndex, replyColIndex, name, epochId)
+private[streaming] case class HTTPWriterFactory(idColIndex: Int, replyColIndex: Int, name: String)
+  extends StreamingDataWriterFactory {
+  override def createWriter(partitionId: Int, taskId: Long, epochId: Long): DataWriter[InternalRow] = {
+    new HTTPDataWriter(partitionId, epochId, idColIndex, replyColIndex, name)
   }
 }
 
-private[streaming] class HTTPDataWriter(partitionId: Int,
+
+private[streaming] class HTTPDataWriter(val partitionId: Int,
+                                        val epochId: Long,
                                         val idColIndex: Int,
                                         val replyColIndex: Int,
-                                        val name: String,
-                                        epochId: Long)
+                                        val name: String)
   extends DataWriter[InternalRow] with Logging {
   logInfo(s"Creating writer on PID:$partitionId")
   HTTPSourceStateHolder.getServer(name).commit(epochId - 1, partitionId)
@@ -98,6 +137,12 @@ private[streaming] class HTTPDataWriter(partitionId: Int,
   }
 
   override def abort(): Unit = {
+    if (TaskContext.get().getKillReason().contains("Stage cancelled")) {
+      HTTPSourceStateHolder.cleanUp(name)
+    }
+  }
+
+  override def close(): Unit = {
     if (TaskContext.get().getKillReason().contains("Stage cancelled")) {
       HTTPSourceStateHolder.cleanUp(name)
     }

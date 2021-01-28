@@ -8,6 +8,7 @@ import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
@@ -138,7 +139,7 @@ object HandlingUtils extends SparkLogging {
   }
 
   def advancedUDF(retryTimes: Int*): UserDefinedFunction =
-    udf(advanced(retryTimes: _*) _, StringType)
+    UDFUtils.oldUdf(advanced(retryTimes: _*) _, StringType)
 
   def basic(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
     val req = request.toHTTPCore
@@ -147,7 +148,7 @@ object HandlingUtils extends SparkLogging {
     data
   }
 
-  def basicUDF: UserDefinedFunction = udf(basic _, StringType)
+  def basicUDF: UserDefinedFunction = UDFUtils.oldUdf(basic _, StringType)
 }
 
 class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,

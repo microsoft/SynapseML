@@ -12,6 +12,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.binary.ConfUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
@@ -30,7 +31,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
     val fromRow = BingImagesResponse.makeFromRowConverter
     Lambda(_
       .withColumn(urlCol, explode(
-        udf({ rOpt: Row =>
+        UDFUtils.oldUdf({ rOpt: Row =>
           Option(rOpt).map(r => fromRow(r).value.map(_.contentUrl))
         }, ArrayType(StringType))(col(imageCol))))
       .select(urlCol)

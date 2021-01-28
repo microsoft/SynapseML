@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.test.base.LinuxOnly
 import org.apache.commons.io.IOUtils
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
 
@@ -44,7 +44,7 @@ class CNTKBindingSuite extends LinuxOnly with CNTKTestUtils {
                   inFvv: FloatVectorVector,
                   outFvv: FloatVectorVector,
                   outputNum: Int = 3): Seq[Seq[Float]] = {
-    val inputVar = model.getArguments()(0)
+    val inputVar = model.getArguments.asScala.head
     val inputShape = inputVar.getShape
     val inputVal = Value.createDenseFloat(inputShape, inFvv, DeviceDescriptor.getCPUDevice)
     val inputDataMap = new UnorderedMapVariableValuePtr()
