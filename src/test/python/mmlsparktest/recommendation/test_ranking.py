@@ -3,17 +3,17 @@
 
 # Prepare training and test data.
 import unittest
+
 from mmlspark.recommendation.RankingAdapter import RankingAdapter
 from mmlspark.recommendation.RankingEvaluator import RankingEvaluator
 from mmlspark.recommendation.RankingTrainValidationSplit import RankingTrainValidationSplit
 from mmlspark.recommendation.RecommendationIndexer import RecommendationIndexer
 from mmlspark.recommendation.SAR import SAR
+from mmlsparktest.spark import *
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
-from pyspark.sql.types import *
-from mmlsparktest.spark import *
 
 
 class RankingSpec(unittest.TestCase):
@@ -56,7 +56,7 @@ class RankingSpec(unittest.TestCase):
             ["originalCustomerID", "newCategoryID", "rating", "notTime"])
         return ratings
 
-    def ignore_adapter_evaluator(self):
+    def test_adapter_evaluator(self):
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
@@ -81,7 +81,7 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
-    def ignore_adapter_evaluator_sar(self):
+    def test_adapter_evaluator_sar(self):
         ratings = self.getRatings()
 
         user_id = "originalCustomerID"
@@ -107,7 +107,7 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
-    def ignore_all_tiny(self):
+    def test_all_tiny(self):
         ratings = RankingSpec.getRatings()
 
         customerIndex = StringIndexer() \
@@ -128,7 +128,7 @@ class RankingSpec(unittest.TestCase):
             .setItemCol(ratingsIndex.getOutputCol())
 
         alsModel = als.fit(transformedDf)
-        usersRecs = alsModel._call_java("recommendForAllUsers", 3)
+        usersRecs = alsModel.recommendForAllUsers(3)
         print(usersRecs.take(1))
 
         paramGrid = ParamGridBuilder() \
