@@ -34,24 +34,6 @@ class RankingTrainValidationSplit(Estimator, ValidatorSetterParams):
         "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)",
     )
 
-    def setEstimator(self, value):
-        """
-        Sets the value of :py:attr:`estimator`.
-        """
-        return self._set(estimator=value)
-
-    def setEvaluator(self, value):
-        """
-        Sets the value of :py:attr:`evaluator`.
-        """
-        return self._set(evaluator=value)
-
-    def setEstimatorParamMaps(self, value):
-        """
-        Sets the value of :py:attr:`estimatorParamMaps`.
-        """
-        return self._set(estimatorParamMaps=value)
-
     def setTrainRatio(self, value):
         """
         Sets the value of :py:attr:`trainRatio`.

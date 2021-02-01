@@ -49,24 +49,6 @@ class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, Valida
     def recommendForAllItems(self, numUsers):
         return self.bestModel._call_java("recommendForAllItems", numUsers)
 
-    def setEstimator(self, value):
-        """
-        Sets the value of :py:attr:`estimator`.
-        """
-        return self._set(estimator=value)
-
-    def setEvaluator(self, value):
-        """
-        Sets the value of :py:attr:`evaluator`.
-        """
-        return self._set(evaluator=value)
-
-    def setEstimatorParamMaps(self, value):
-        """
-        Sets the value of :py:attr:`estimatorParamMaps`.
-        """
-        return self._set(estimatorParamMaps=value)
-
     @classmethod
     def _from_java(cls, java_stage):
         """
