@@ -1,0 +1,14 @@
+name: mmlspark
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - pyspark=3.0.1
+  - requests
+  - pip:
+    - wheel
+    - sphinx
+    - sphinx_rtd_theme
+    - coverage
+    - pytest
+    - pytest-cov

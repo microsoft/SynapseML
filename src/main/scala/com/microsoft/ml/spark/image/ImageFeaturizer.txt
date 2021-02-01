@@ -1,0 +1,18 @@
+The ``ImageFeaturizer`` relies on a ``CNTKModel`` to do the
+featurization of the image(s).  One can set this model using the
+modelLocation parameter.  To map the nodes of the ``CNTKModel`` onto the
+standard "layers" structure of a feed forward neural net, one needs to
+supply a list of node names that range from the output node, back
+towards the input node of the CNTK Function.  This list does not need to
+be exhaustive, and is provided to you if you use a model downloaded
+from ``ModelDownloader``.  One can find this layer list in the schema
+of the downloaded model.
+
+The ``ImageFeaturizer`` takes an input column of images (the type
+returned by the ``ImageReader``), automatically resizes them to fit the
+``CNTKModel``'s inputs, and feeds them through a pre-trained CNTK model.
+One can truncate the model using the ``cutOutputLayers`` parameter that
+determines how many layers to truncate from the output of the network.
+For example, layer=0 means that no layers are removed, layer=2 means
+that the ``ImageFeaturizer`` returns the activations of the layer that
+is two layers from the output layer, and so on.

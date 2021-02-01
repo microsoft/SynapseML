@@ -1,86 +1,103 @@
-# MMLSpark Development
+# MMLSpark Development Setup
 
-## Repository Layout
+1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
+    - Make sure to download JDK 11 if you don't have it
+3) Fork the repository on github
+    - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
+2) Git Clone your fork, or the repo directly
+    - `git clone https://github.com/Azure/mmlspark.git`
+3) Run sbt to compile and grab datasets
+    - `cd mmlspark`
+    - `sbt setup`
+4) [Install IntelliJ](https://www.jetbrains.com/idea/download)
+    - Install Scala plugins during install
+5) Configure IntelliJ
+    - **OPEN** the mmlspark directory
+    - If the project does not automatically import,click on `build.sbt` and import project
 
-* `runme`:    main build entry point
-* `src/`:     scala and python sources
-  - `core/`:  shared functionality
-  - `project/`: sbt build-related materials
-* `tools/`:   build-related and other meta tools
+# Publishing and Using Build Secrets
 
+To use secrets in the build you must be part of the mmlspark keyvault
+ and azure subscription. If you are MSFT internal would like to be 
+ added please reach out `mmlspark-support@microsoft.com`
 
-## Build
+# SBT Command Guide
 
-### Build Environment
+## Scala build commands
 
-Currently, this code is developed and built on Linux.  The main build entry
-point, `./runme`, will install the needed packages.  When everything is
-installed, you can use `./runme` again to do a build.
+### `compile`, `test:compile` and `it:compile`
 
+Compiles the main, test, and integration test classes respectively
 
-### Development
+### `test`
 
-From now on, you can continue using `./runme` for builds.  Alternatively, use
-`sbt full-build` to do the build directly through SBT.  The output will show
-the individual steps that are running, and you can use them directly as usual
-with SBT.  For example, use `sbt "project foo-bar" test` to run the tests of
-the `foo-bar` sub-project, or `sbt ~compile` to do a full compilation step
-whenever any file changes.
+Runs all mmlspark tests
 
-Note that the SBT environment is set up in a way that makes *all* code in
-`com.microsoft.ml.spark` available in the Scala console that you get when you
-run `sbt console`.  This can be a very useful debugging tool, since you get to
-play with your code in an interactive REPL.
+### `scalastyle`
 
-Every once in a while the installed libraries will be updated.  In this case,
-executing `./runme` will update the libraries, and the next run will do a build
-as usual.  If you're using `sbt` directly, it will warn you whenever there was
-a change to the library configurations.
+Runs scalastyle check
 
-Note: the libraries are all installed in `$HOME/lib` with a few
-executable symlinks in `$HOME/bin`.  The environment is configured in
-`$HOME/.mmlspark_profile` which will be executed whenever a shell starts.
-Occasionally, `./runme` will tell you that there was an update to the
-`.mmlspark_profile` file --- when this happens, you can start a new shell
-to get the updated version, but you can also apply the changes to your
-running shell with `. ~/.mmlspark_profile` which will evaluate its
-contents and save a shell restart.
+### `unidoc`
 
+Generates documentation for scala sources
 
-## Adding a Module
+## Python Commands
 
-To add a new module, create a directory with an appropriate name, and in the
-new directory create a `build.sbt` file.  The contents of `build.sbt` is
-optional, and can be completely empty: its presence will make the build include
-your directory as a sub-project which gets included in SBT work.
+### `createCondaEnv`
 
-You can put the usual SBT customizations in your `build.sbt`, for example:
+Creates a conda environment `mmlspark` from `environment.yaml` if it does not already exist. 
+This env is used for python testing. **Activate this env before using python build commands.**
 
-   ```scala
-   version := "1.0"
-   name := "A Useful Module"
-   ```
+### `cleanCondaEnv`
 
-In addition, there are a few utilities in `Extras` that can be useful to
-specify some things.  Currently, there is only one such utility:
+Removes `mmlspark` conda env
 
-   ```scala
-   Extras.noJar
-   ```
+### `packagePython`
 
-putting this in your `build.sbt` indicates that no `.jar` file should be
-created for your sub-project in the `package` step.  (Useful, for example, for
-build tools and test-only directories.)
+Compiles scala, runs python generation scripts, and creates a wheel
 
-Finally, whenever SBT runs it generates an `autogen.sbt` file that specifies
-the sub-projects.  This file is generated automatically so there is no need to
-edit a central file when you add a module, and therefore customizing what
-appears in it is done via "meta comments" in your `build.sbt`.  This is
-currently used to specify dependencies for your sub-project --- in most cases
-you will want to add this:
+### `generatePythonDoc`
 
-   ```scala
-   //> DependsOn: core
-   ```
+Generates documentation for generated python code
 
-to use the shared code in the `common` sub-project.
+### `installPipPackage`
+
+Installs generated python wheel into existing env
+
+### `testPython`
+
+Generates and runs python tests
+
+## Environment + Publishing Commands
+
+### `getDatasets`
+
+Downloads all datasets used in tests to target folder
+
+### `setup`
+
+Combination of `compile`, `test:compile`, `it:compile`, `getDatasets`
+
+### `package`
+
+Packages the library into a jar
+
+### `publishBlob`
+
+Publishes Jar to mmlspark's azure blob based maven repo. (Requires Keys)
+
+### `publishLocal`
+
+Publishes library to local maven repo
+
+### `publishDocs`
+
+Publishes scala and python doc to mmlspark's build azure storage account. (Requires Keys)
+
+### `publishSigned`
+
+Publishes the library to sonatype staging repo
+
+### `sonatypeRelease`
+
+Promotes the published sonatype artifact

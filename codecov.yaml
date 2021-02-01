@@ -1,0 +1,28 @@
+codecov:
+  notify:
+    require_ci_to_pass: no
+
+coverage:
+  precision: 2
+  round: down
+  range: "50...100"
+  status:
+    project:
+      default: off
+      scala:
+        flags: scala
+        target: auto
+      python:
+        flags: python
+        target: auto
+    patch:
+      default: off
+    changes: no
+
+flags:
+  scala:
+    paths:
+      - src/main/scala
+  python:
+    paths:
+      - src/main/python

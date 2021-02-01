@@ -9,107 +9,108 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder '.', '/vagrant', disabled: true
   config.ssh.forward_agent = true
   config.ssh.forward_x11 = true
-  config.vm.box = "bento/ubuntu-16.04"
+  config.vm.box = "bento/ubuntu-18.04"
   config.vm.boot_timeout = 600
   config.vm.provider "hyperv" do |h|
     h.maxmemory = 4096
-  end
+end
 
-  # Disable automatic box update checking. If you disable this, then
-  # boxes will only be checked for updates when the user runs
-  # `vagrant box outdated`. This is not recommended.
-  # config.vm.box_check_update = false
+# Disable automatic box update checking. If you disable this, then
+# boxes will only be checked for updates when the user runs
+# `vagrant box outdated`. This is not recommended.
+# config.vm.box_check_update = false
 
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine. In the example below,
-  # accessing "localhost:8080" will access port 80 on the guest machine.
-  # NOTE: This will enable public access to the opened port
-  # config.vm.network "forwarded_port", guest: 80, host: 8080
+# Create a forwarded port mapping which allows access to a specific port
+# within the machine from a port on the host machine. In the example below,
+# accessing "localhost:8080" will access port 80 on the guest machine.
+# NOTE: This will enable public access to the opened port
+# config.vm.network "forwarded_port", guest: 80, host: 8080
 
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine and only allow access
-  # via 127.0.0.1 to disable public access
-  # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
+# Create a forwarded port mapping which allows access to a specific port
+# within the machine from a port on the host machine and only allow access
+# via 127.0.0.1 to disable public access
+# config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
 
-  # Create a private network, which allows host-only access to the machine
-  # using a specific IP.
-  # config.vm.network "private_network", ip: "192.168.33.10"
+# Create a private network, which allows host-only access to the machine
+# using a specific IP.
+# config.vm.network "private_network", ip: "192.168.33.10"
 
-  # Create a public network, which generally matched to bridged network.
-  # Bridged networks make the machine appear as another physical device on
-  # your network.
-  # config.vm.network "public_network"
+# Create a public network, which generally matched to bridged network.
+# Bridged networks make the machine appear as another physical device on
+# your network.
+# config.vm.network "public_network"
 
-  # Share an additional folder to the guest VM. The first argument is
-  # the path on the host to the actual folder. The second argument is
-  # the path on the guest to mount the folder. And the optional third
-  # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
+# Share an additional folder to the guest VM. The first argument is
+# the path on the host to the actual folder. The second argument is
+# the path on the guest to mount the folder. And the optional third
+# argument is a set of non-required options.
+# config.vm.synced_folder "../data", "/vagrant_data"
 
-  # Provider-specific configuration so you can fine-tune various
-  # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
-  #
-  # config.vm.provider "virtualbox" do |vb|
-  #   # Display the VirtualBox GUI when booting the machine
-  #   vb.gui = true
-  #
-  #   # Customize the amount of memory on the VM:
-  #   vb.memory = "1024"
-  # end
-  #
-  # View the documentation for the provider you are using for more
-  # information on available options.
+# Provider-specific configuration so you can fine-tune various
+# backing providers for Vagrant. These expose provider-specific options.
+# Example for VirtualBox:
+#
+# config.vm.provider "virtualbox" do |vb|
+#   # Display the VirtualBox GUI when booting the machine
+#   vb.gui = true
+#
+#   # Customize the amount of memory on the VM:
+#   vb.memory = "1024"
+# end
+#
+# View the documentation for the provider you are using for more
+# information on available options.
 
-  # Enable provisioning with a shell script. Additional provisioners such as
-  # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
-  # documentation for more information about their specific syntax and use.
-  config.vm.provision "shell", inline: <<-SHELL
-     apt-get update
-	 apt-get install -y git curl bzip2 wget tar unzip xauth
-	 apt-get install -y libpng12-0 libjasper1 libopenmpi1.10 libgomp1 libxext-dev \
-	 	libxrender-dev libxslt1.1 libxtst-dev libgtk2.0-0 libcanberra-gtk-module \
-		libfontconfig1 libxrender1 libxtst6 libxi6
-	
-	# Install Intellij	
-	ed=C
-	# Fetch the most recent version
-	VERSION="173.4674.33"
-	# Prepend base URL for download
-	URL="https://www.jetbrains.com/intellij-repository/releases/com/jetbrains/intellij/idea/ideaI$ed/$VERSION/ideaI$ed-$VERSION.zip"
-	echo $URL
-	# Truncate filename
-	FILE=$(basename ${URL})
-	# Set download directory
-	HOME_DIR=/home/vagrant/
-	DEST=${HOME_DIR}Downloads/$FILE
-	DIR=${HOME_DIR}Downloads/idea
-	echo "Downloading idea-I$ed-$VERSION to $DEST..."
+# Enable provisioning with a shell script. Additional provisioners such as
+# Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
+# documentation for more information about their specific syntax and use.
+config.vm.provision "shell", inline: <<-SHELL
+  echo "deb https://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+  sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
+  apt-get update
+  apt-get install -y git curl bzip2 wget tar xauth
+  apt-get install -y libpng12-0 libjasper1 libopenmpi1.10 libgomp1 libxext-dev \
+  libxrender-dev libxslt1.1 libxtst-dev libgtk2.0-0 libcanberra-gtk-module \
+  libfontconfig1 libxrender1 libxtst6 libxi6
+  apt-get install -y openjdk-8-jdk sbt
 
-	mkdir -p ${HOME_DIR}Downloads/
-	# Download binary
-	wget -cO ${DEST} ${URL} --read-timeout=5 --tries=0 --progress=bar:force
-	echo "Download complete!"
-	# Untar file
-	mkdir $DIR
-	sudo unzip ${DEST} -d ${DIR}
-	# Grab executable folder
-	BIN="$DIR/bin"
-	# Add permissions to install directory
-	sudo chmod -R +rwx ${DIR}
-	# Create symlink entry
-	echo "alias idea=${BIN}/idea.sh" >> /home/vagrant/.bashrc
-	 echo "Done."	
+  # Install Intellij	
+  ed=C
+  # Fetch the most recent version
+  VERSION="2019.1.2"
+  # Prepend base URL for download
+  URL="https://download.jetbrains.com/idea/ideaI$ed-$VERSION.tar.gz"
+  echo $URL
+  # Truncate filename
+  FILE=$(basename ${URL})
+  # Set download directory
+  HOME_DIR=/home/vagrant
+  DEST=${HOME_DIR}/Downloads/$FILE
+  DIR=${HOME_DIR}/idea
+  echo "Downloading idea-I$ed-$VERSION to $DEST..."
 
-  	SHELL
+  mkdir -p ${HOME_DIR}/Downloads/
+  # Download binary
+  wget -cO ${DEST} ${URL} --read-timeout=5 --tries=0 --progress=bar:force
+  echo "Download complete!"
+  # Untar file
+  mkdir -p ${DIR}
+  sudo tar xzf ${DEST} --strip-components=1 -C ${DIR}
+  # Grab executable folder
+  BIN="$DIR/bin"
+  # Add permissions to install directory
+  sudo chmod -R +rwx ${DIR}
+  # Create symlink entry
+  echo "alias idea=${BIN}/idea.sh" >> /home/vagrant/.bashrc
+  echo "Done"	
+SHELL
 
 config.vm.provision "shell", privileged: false, inline: <<-SHELL
-  	# Install mmlspark
-	cd ${HOME_DIR}
-	git clone https://github.com/Azure/mmlspark.git 
-	cd mmlspark
-	./runme TESTS="None" #Installs prereqs
-	./runme TESTS="None" #Runs the build
-  	SHELL
+  # Install mmlspark
+  cd ${HOME_DIR}
+  git clone https://github.com/Azure/mmlspark.git
+  cd mmlspark
+  sbt setup
+SHELL
 
 end

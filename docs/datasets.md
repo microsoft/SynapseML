@@ -12,8 +12,8 @@ original dataset is from [the UCI Machine Learning
 Repository](https://archive.ics.uci.edu/ml/datasets/Adult).  The example dataset
 has been cleaned of rows with missing values.
 
-Reference: *Kohavi, R., Becker, B., (1996)*, \
-    [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml), Irvine, CA, \
+Reference: _Kohavi, R., Becker, B., (1996)_, \\
+    [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml), Irvine, CA, \\
     University of California, School of Information and Computer Science.
 
 ## Book Reviews from Amazon
@@ -32,9 +32,9 @@ the original dataset is available from [Dredze's
 page](http://www.cs.jhu.edu/~mdredze/datasets/sentiment/).  The example dataset
 has been sampled down to 10000 rows.
 
-Reference: *Biographies, Bollywood, Boom-boxes and Blenders: Domain Adaptation
-for Sentiment Classification*, \
-    John Blitzer, Mark Dredze, and Fernando Pereira \
+Reference: _Biographies, Bollywood, Boom-boxes and Blenders: Domain Adaptation
+for Sentiment Classification_, \\
+    John Blitzer, Mark Dredze, and Fernando Pereira \\
     Association of Computational Linguistics (ACL), 2007.
 
 ## CIFAR-10 Images
@@ -51,8 +51,8 @@ packaged into a gzipped tar archive.  See notebook [301 - CIFAR10 CNTK CNN
 Evaluation](../notebooks/samples/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb)
 for an example how to extract the image data.
 
-Reference: [*Learning Multiple Layers of Features from Tiny
-Images*](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf), \
+Reference: [_Learning Multiple Layers of Features from Tiny
+Images_](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf), \\
     Alex Krizhevsky, Mater thesis, 2009.
 
 ## Flight On-Time Performance
@@ -70,6 +70,6 @@ site](http://www.transtats.bts.gov/DL_SelectFields.asp?Table_ID=236&DB_Short_Nam
 The example dataset contains a subset of columns from original data, to trim the
 data size.
 
-Reference: *TranStats data collection*, \
-    Bureau of Transportation Statistics, \
+Reference: _TranStats data collection_, \\
+    Bureau of Transportation Statistics, \\
     U.S. Department of Transportation.

@@ -1,0 +1,22 @@
+# For general updates to the library
+*                @mhamilton723 @drdarshan
+
+# Ilya's Areas
+lightgbm/        @imatiach-msft
+automl/          @imatiach-msft
+featurize/       @imatiach-msft
+featurize/text/  @mhamilton723
+train/           @imatiach-msft
+
+# Dan's Areas
+recommendation/  @dciborow
+
+# Dalitso's Areas
+tools/helm/      @dbanda
+
+# Markus' Areas
+vw/              @eisber
+isolationforest/ @eisber
+
+#Roy's Areas
+cyber/           @rolevin

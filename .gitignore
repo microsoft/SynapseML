@@ -18,13 +18,29 @@
 *.exe
 *.pyc
 *.pyo
+*.iml
 
 # Generic editors
 .vscode
 .idea
+
+# Vagrant configuration
+/tools/vagrant/.vagrant
 
 # Common things
 *~
 .#*
 .*.swp
 .DS_Store
+
+# Target dir
+**/target/*
+
+# python test coverage
+.coverage
+coverage.xml
+htmlcov
+
+# Files created by remark-link
+package-lock.json
+node_modules/
