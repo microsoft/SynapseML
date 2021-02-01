@@ -3,21 +3,19 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
-from pyspark.ml.common import inherit_doc
-from pyspark.ml.tuning import _ValidatorParams
-from pyspark.ml.util import *
 from mmlspark.recommendation._RankingTrainValidationSplitModel import _RankingTrainValidationSplitModel
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.util import *
-from pyspark.ml.common import _py2java
+
+from mmlspark.recommendation.ValidatorSetterParams import ValidatorSetterParams
+
 
 # Load information from java_stage to the instance.
 @inherit_doc
-class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, _ValidatorParams):
-
+class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, ValidatorSetterParams):
     def __init__(self, bestModel=None, validationMetrics=[]):
         super(RankingTrainValidationSplitModel, self).__init__()
         #: best model from cross validation
@@ -48,8 +46,8 @@ class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, _Valid
     def recommendForAllUsers(self, numItems):
         return self.bestModel._call_java("recommendForAllUsers", numItems)
 
-    def recommendForAllItems(self, numItems):
-        return self.bestModel._call_java("recommendForAllItems", numItems)
+    def recommendForAllItems(self, numUsers):
+        return self.bestModel._call_java("recommendForAllItems", numUsers)
 
     @classmethod
     def _from_java(cls, java_stage):
@@ -57,14 +55,8 @@ class RankingTrainValidationSplitModel(_RankingTrainValidationSplitModel, _Valid
         Given a Java TrainValidationSplitModel, create and return a Python wrapper of it.
         Used for ML persistence.
         """
-
-        # Load information from java_stage to the instance.
         bestModel = JavaParams._from_java(java_stage.getBestModel())
-        estimator, epms, evaluator = super(RankingTrainValidationSplitModel,
-                                           cls)._from_java_impl(java_stage)
-        # Create a new instance of this stage.
-        py_stage = cls(bestModel=bestModel).setEstimator(estimator)
-        py_stage = py_stage.setEstimatorParamMaps(epms).setEvaluator(evaluator)
+        py_stage = cls(bestModel=bestModel)
 
         py_stage._resetUid(java_stage.uid())
         return py_stage

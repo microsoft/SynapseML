@@ -1,34 +1,38 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
-import sys
-from mmlspark.recommendation.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel as tvmodel
-from mmlspark.recommendation._RankingTrainValidationSplit import _RankingTrainValidationSplit
+from mmlspark.recommendation.ValidatorSetterParams import ValidatorSetterParams
 from pyspark import keyword_only
-from pyspark.ml.param import Params
-from pyspark.ml.tuning import _ValidatorParams
-from pyspark.ml.util import *
-from pyspark import keyword_only
+from pyspark.ml import Estimator
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.util import *
 from pyspark.ml.wrapper import JavaParams
-from pyspark.ml import Estimator
 
-
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 
 @inherit_doc
-class RankingTrainValidationSplit(Estimator, _ValidatorParams):
-    trainRatio = Param(Params._dummy(), "trainRatio", "Param for ratio between train and\
-         validation data. Must be between 0 and 1.", typeConverter=TypeConverters.toFloat)
-    userCol = Param(Params._dummy(), "userCol",
-                    "userCol: column name for user ids. Ids must be within the integer value range. (default: user)")
+class RankingTrainValidationSplit(Estimator, ValidatorSetterParams):
+    trainRatio = Param(
+        Params._dummy(),
+        "trainRatio",
+        "Param for ratio between train and\
+         validation data. Must be between 0 and 1.",
+        typeConverter=TypeConverters.toFloat,
+    )
+    userCol = Param(
+        Params._dummy(),
+        "userCol",
+        "userCol: column name for user ids. Ids must be within the integer value range. (default: user)",
+    )
     ratingCol = Param(Params._dummy(), "ratingCol", "ratingCol: column name for ratings (default: rating)")
 
-    itemCol = Param(Params._dummy(), "itemCol",
-                    "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)")
+    itemCol = Param(
+        Params._dummy(),
+        "itemCol",
+        "itemCol: column name for item ids. Ids must be within the integer value range. (default: item)",
+    )
 
     def setTrainRatio(self, value):
         """
@@ -44,63 +48,43 @@ class RankingTrainValidationSplit(Estimator, _ValidatorParams):
 
     def setItemCol(self, value):
         """
-
-        Args:
-
-            itemCol (str): column name for item ids. Ids must be within the integer value range. (default: item)
-
+        Sets the value of :py:attr:`itemCol`.
         """
         self._set(itemCol=value)
         return self
 
     def getItemCol(self):
         """
-
-        Returns:
-
-            str: column name for item ids. Ids must be within the integer value range. (default: item)
+        Gets the value of :py:attr:`itemCol`.
         """
         return self.getOrDefault(self.itemCol)
 
     def setRatingCol(self, value):
         """
-
-        Args:
-
-            ratingCol (str): column name for ratings (default: rating)
-
+        Sets the value of :py:attr:`ratingCol`.
         """
         self._set(ratingCol=value)
         return self
 
     def getRatingCol(self):
         """
-
-        Returns:
-
-            str: column name for ratings (default: rating)
+        Gets the value of :py:attr:`ratingCol`.
         """
         return self.getOrDefault(self.ratingCol)
 
     def setUserCol(self, value):
         """
-
-        Args:
-
-            userCol (str): column name for user ids. Ids must be within the integer value range. (default: user)
-
+        Sets the value of :py:attr:`userCol`.
         """
         self._set(userCol=value)
         return self
 
     def getUserCol(self):
         """
-
-        Returns:
-
-            str: column name for user ids. Ids must be within the integer value range. (default: user)
+        Gets the value of :py:attr:`userCol`.
         """
         return self.getOrDefault(self.userCol)
+
     @keyword_only
     def __init__(self, estimator=None, estimatorParamMaps=None, evaluator=None, seed=None):
         """
@@ -142,6 +126,7 @@ class RankingTrainValidationSplit(Estimator, _ValidatorParams):
 
     def _create_model(self, java_model):
         from mmlspark.recommendation.RankingTrainValidationSplitModel import RankingTrainValidationSplitModel
+
         model = RankingTrainValidationSplitModel._from_java(java_model)
         return model
 
@@ -153,8 +138,9 @@ class RankingTrainValidationSplit(Estimator, _ValidatorParams):
 
         estimator, epms, evaluator = super(RankingTrainValidationSplit, self)._to_java_impl()
 
-        _java_obj = JavaParams._new_java_obj("com.microsoft.ml.spark.recommendation.RankingTrainValidationSplit",
-                                             self.uid)
+        _java_obj = JavaParams._new_java_obj(
+            "com.microsoft.ml.spark.recommendation.RankingTrainValidationSplit", self.uid
+        )
         _java_obj.setEstimatorParamMaps(epms)
         _java_obj.setEvaluator(evaluator)
         _java_obj.setEstimator(estimator)
