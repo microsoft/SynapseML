@@ -4,22 +4,28 @@
 # Prepare training and test data.
 import unittest
 
-from mmlspark.recommendation.RankingAdapter import RankingAdapter
-from mmlspark.recommendation.RankingEvaluator import RankingEvaluator
-from mmlspark.recommendation.RankingTrainValidationSplit import RankingTrainValidationSplit
-from mmlspark.recommendation.RecommendationIndexer import RecommendationIndexer
-from mmlspark.recommendation.SAR import SAR
+from mmlspark.recommendation import RankingAdapter
+from mmlspark.recommendation import RankingEvaluator
+from mmlspark.recommendation import RankingTrainValidationSplit
+from mmlspark.recommendation import RecommendationIndexer
+from mmlspark.recommendation import SAR
 from mmlsparktest.spark import *
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
-from pyspark.ml.tuning import *
+from pyspark.ml.tuning import ParamGridBuilder
+
+USER_ID = "originalCustomerID"
+ITEM_ID = "newCategoryID"
+RATING_ID = 'rating'
+USER_ID_INDEX = "customerID"
+ITEM_ID_INDEX = "itemID"
 
 
 class RankingSpec(unittest.TestCase):
 
     @staticmethod
-    def getRatings():
+    def get_ratings():
         ratings = spark.createDataFrame([
             (0, 1, 4, 4),
             (0, 3, 1, 1),
@@ -56,49 +62,15 @@ class RankingSpec(unittest.TestCase):
             ["originalCustomerID", "newCategoryID", "rating", "notTime"])
         return ratings
 
-    def test_adapter_evaluator(self):
-        ratings = self.getRatings()
-
-        user_id = "originalCustomerID"
-        item_id = "newCategoryID"
-        rating_id = 'rating'
-
-        user_id_index = "customerID"
-        item_id_index = "itemID"
-
-        recommendation_indexer = RecommendationIndexer(userInputCol=user_id, userOutputCol=user_id_index,
-                                                       itemInputCol=item_id, itemOutputCol=item_id_index)
-
-        als = ALS(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
-
-        adapter = RankingAdapter(mode='allUsers', k=5, recommender=als)
-
-        pipeline = Pipeline(stages=[recommendation_indexer, adapter])
-        output = pipeline.fit(ratings).transform(ratings)
-        print(str(output.take(1)) + "\n")
-
-        metrics = ['ndcgAt', 'fcp', 'mrr']
-        for metric in metrics:
-            print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
-
-    def test_adapter_evaluator_sar(self):
-        ratings = self.getRatings()
-
-        user_id = "originalCustomerID"
-        item_id = "newCategoryID"
-        rating_id = 'rating'
-
-        user_id_index = "customerID"
-        item_id_index = "itemID"
+    @staticmethod
+    def adapter_evaluator(algo):
+        ratings = RankingSpec.get_ratings()
 
         recommendation_indexer = RecommendationIndexer(
-            userInputCol=user_id, userOutputCol=user_id_index,
-            itemInputCol=item_id, itemOutputCol=item_id_index)
+            userInputCol=USER_ID, userOutputCol=USER_ID_INDEX,
+            itemInputCol=ITEM_ID, itemOutputCol=ITEM_ID_INDEX)
 
-        sar = SAR(userCol=user_id_index, itemCol=item_id_index, ratingCol=rating_id)
-
-        adapter = RankingAdapter(mode='allUsers', k=5, recommender=sar)
-
+        adapter = RankingAdapter(mode='allUsers', k=5, recommender=algo)
         pipeline = Pipeline(stages=[recommendation_indexer, adapter])
         output = pipeline.fit(ratings).transform(ratings)
         print(str(output.take(1)) + "\n")
@@ -107,51 +79,46 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
+    def test_adapter_evaluator_als(self):
+        als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(als)
+
+    def test_adapter_evaluator_sar(self):
+        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(sar)
+
     def test_all_tiny(self):
-        ratings = RankingSpec.getRatings()
+        ratings = self.get_ratings()
 
-        customerIndex = StringIndexer() \
-            .setInputCol("originalCustomerID") \
-            .setOutputCol("customerID")
+        customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
+        ratings_index = StringIndexer(inputCol=ITEM_ID, outputCol=ITEM_ID_INDEX)
 
-        ratingsIndex = StringIndexer() \
-            .setInputCol("newCategoryID") \
-            .setOutputCol("itemID")
+        pipeline = Pipeline(stages=[customer_index, ratings_index])
+        transformed_df = pipeline.fit(ratings).transform(ratings)
 
-        pipeline = Pipeline(stages=[customerIndex, ratingsIndex])
+        als = ALS(userCol=customer_index.getOutputCol(), ratingCol=RATING_ID, itemCol=ratings_index.getOutputCol())
+        als_model = als.fit(transformed_df)
+        users_recs = als_model.recommendForAllUsers(3)
+        print("One Sample User Recommendation: " + str(users_recs.take(1)))
 
-        transformedDf = pipeline.fit(ratings).transform(ratings)
-
-        als = ALS() \
-            .setUserCol(customerIndex.getOutputCol()) \
-            .setRatingCol('rating') \
-            .setItemCol(ratingsIndex.getOutputCol())
-
-        alsModel = als.fit(transformedDf)
-        usersRecs = alsModel.recommendForAllUsers(3)
-        print(usersRecs.take(1))
-
-        paramGrid = ParamGridBuilder() \
+        param_grid = ParamGridBuilder() \
             .addGrid(als.regParam, [1.0]) \
             .build()
 
         evaluator = RankingEvaluator()
 
-        tvRecommendationSplit = RankingTrainValidationSplit() \
-            .setEstimator(als) \
-            .setEvaluator(evaluator) \
-            .setEstimatorParamMaps(paramGrid) \
-            .setTrainRatio(0.8) \
-            .setUserCol(customerIndex.getOutputCol()) \
+        tv_recommendation_split = RankingTrainValidationSplit(estimator=als, evaluator=evaluator) \
+            .setEstimatorParamMaps(param_grid) \
+            .setUserCol(customer_index.getOutputCol()) \
+            .setItemCol(ratings_index.getOutputCol()).setRatingCol('rating') \
             .setRatingCol('rating') \
-            .setItemCol(ratingsIndex.getOutputCol())
+            .setTrainRatio(0.8)
 
-        tvmodel = tvRecommendationSplit.fit(transformedDf)
+        tv_model = tv_recommendation_split.fit(transformed_df)
+        users_recs = tv_model.bestModel._call_java("recommendForAllUsers", 3)
 
-        usersRecs = tvmodel.bestModel._call_java("recommendForAllUsers", 3)
-
-        print(usersRecs.take(1))
-        print(tvmodel.validationMetrics)
+        print("Sample User Recommendation: " + str(users_recs.take(1)))
+        print("Validation Metrics: " + str(tv_model.validationMetrics))
 
 
 if __name__ == "__main__":
