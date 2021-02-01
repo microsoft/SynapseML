@@ -4,11 +4,9 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
-from pyspark.ml.param.shared import *
-from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from mmlspark.recommendation._SARModel import _SARModel as sarModel
 
