@@ -6,13 +6,14 @@ package com.microsoft.ml.spark.stages
 import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.scalatest.Assertion
-import org.apache.spark.sql.functions.{udf, col}
+import org.apache.spark.sql.functions.{col, udf}
 
 trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
   import session.implicits._
@@ -128,7 +129,7 @@ class FlattenBatchSuite extends TransformerFuzzing[FlattenBatch] {
   test("null support"){
     val batchedDf = new stages.FixedMiniBatchTransformer().setBatchSize(3).transform(df)
     val nullifiedDf = batchedDf.withColumn(
-      "nullCol", udf(FlattenBatchUtils.nullify _, ArrayType(IntegerType))(col("in1")))
+      "nullCol", UDFUtils.oldUdf(FlattenBatchUtils.nullify _, ArrayType(IntegerType))(col("in1")))
     assert(new FlattenBatch().transform(nullifiedDf).count() == 1000)
   }
 
