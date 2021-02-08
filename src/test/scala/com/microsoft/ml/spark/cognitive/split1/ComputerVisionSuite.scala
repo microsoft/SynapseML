@@ -28,6 +28,12 @@ trait OCRUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
   ).toDF("url")
 
+
+  lazy val pdfDf: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
+  ).toDF("url")
+
+
   lazy val bytesDF: DataFrame = BingImageSearch
     .downloadFromUrls("url", "imageBytes", 4, 10000)
     .transform(df)
@@ -267,6 +273,14 @@ class ReadSuite extends TransformerFuzzing[Read]
     val headStr = results.head.getString(0)
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+  }
+
+  test("Basic Usage with pdf") {
+    val results = pdfDf.mlTransform(read, Read.flatten("ocr", "ocr"))
+      .select("ocr")
+      .collect()
+    val headStr = results.head.getString(0)
+    println(headStr)
   }
 
   test("Basic Usage with Bytes") {
