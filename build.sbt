@@ -414,3 +414,4 @@ pgpPublicRing := {
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
 publishTo := sonatypePublishToBundle.value
+
