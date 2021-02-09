@@ -235,8 +235,8 @@ publishPython := {
   publishLocal.value
   packagePythonTask.value
   singleUploadToBlob(
-    join(pythonPackageDir.toString, "mmlspark-1.0.0.dev1-py2.py3-none-any.whl").toString,
-    version.value + "/mmlspark-1.0.0.dev1-py2.py3-none-any.whl",
+    join(pythonPackageDir.toString, s"${pythonizedVersion.value}-py2.py3-none-any.whl").toString,
+    version.value + s"/${pythonizedVersion.value}-py2.py3-none-any.whl",
     "pip", s.log)
 }
 
