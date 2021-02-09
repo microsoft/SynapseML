@@ -229,6 +229,17 @@ installPipPackageTask := {
     pythonPackageDir) ! s.log
 }
 
+val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
+publishPython := {
+  val s = streams.value
+  publishLocal.value
+  packagePythonTask.value
+  singleUploadToBlob(
+    join(pythonPackageDir.toString, "mmlspark-1.0.0.dev1-py2.py3-none-any.whl").toString,
+    version.value + "/mmlspark-1.0.0.dev1-py2.py3-none-any.whl",
+    "pip", s.log)
+}
+
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 
 testPythonTask := {
