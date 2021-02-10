@@ -108,7 +108,7 @@ See our [notebooks](notebooks/samples/) for all examples.
 
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb "CIFAR10 CNTK CNN Training"
 
-[example 11]: [notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb](https://github.com/Azure/mmlspark/blob/master/notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) "Access Anomalies documenation, training and evaluation example"
+[example 11]: notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb "Access Anomalies documenation, training and evaluation example"
 
 ## A short example
 
