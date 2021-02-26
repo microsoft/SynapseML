@@ -2,7 +2,7 @@
 
 # Microsoft Machine Learning for Apache Spark
 
-[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+[![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/Azure.mmlspark?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=15131&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
 [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
 
