@@ -12,6 +12,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql.functions.{col, to_json, udf}
@@ -47,12 +48,12 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .format(imageFormat)
       .load(cifarDirectory)
       .sample(.5,0)
-    assert(imageDF.count() == 4 || imageDF.count() == 3)
+    assert(Set(2,3,4)(imageDF.count().toInt))
   }
 
   object UDFs extends Serializable {
     val CifarDirectoryVal = cifarDirectory
-    val Rename = udf({ x: String => x.split("/").last }, StringType)
+    val Rename = UDFUtils.oldUdf({ x: String => x.split("/").last }, StringType)
   }
 
   def recursiveListFiles(f: File): Array[File] = {
@@ -144,7 +145,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .withColumn("filenames", UDFs.Rename(col("image.origin")))
 
     imageDF.printSchema()
-    assert(imageDF.count() == 4 || imageDF.count() == 3)
+    assert(Set(2,3,4)(imageDF.count().toInt))
     val saveDir = new File(tmpDir.toFile, "images").toString
     imageDF.write.mode("overwrite")
       .format(classOf[PatchedImageFileFormat].getName)
@@ -155,7 +156,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .read
       .format(imageFormat)
       .load(saveDir)
-    assert(newImageDf.count() == 4 || newImageDf.count() == 3)
+    assert(Set(2,3,4)(newImageDf.count().toInt))
     assert(ImageSchemaUtils.isImage(newImageDf.schema("image").dataType))
   }
 

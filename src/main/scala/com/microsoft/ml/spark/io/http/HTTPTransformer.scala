@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.http
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.io.http.HandlingUtils.HandlerFunc
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -21,10 +22,10 @@ trait HasHandler extends Params {
     this, "handler", "Which strategy to use when handling requests")
 
   /** @group getParam */
-  def getHandler: HandlerFunc = $(handler).f.asInstanceOf[HandlerFunc]
+  def getHandler: HandlerFunc = UDFUtils.unpackUdf($(handler))._1.asInstanceOf[HandlerFunc]
 
   def setHandler(v: HandlerFunc): HasHandler.this.type = {
-    set(handler, udf(v, StringType))
+    set(handler, UDFUtils.oldUdf(v, StringType))
   }
 }
 
@@ -56,9 +57,13 @@ trait HTTPParams extends Wrappable {
   /** @group setParam */
   def setConcurrentTimeout(value: Double): this.type = set(concurrentTimeout, value)
 
+  def setConcurrentTimeout(value: Option[Double]): this.type = value match {
+    case Some(v) => setConcurrentTimeout(v)
+    case None => clear(concurrentTimeout)
+  }
+
   setDefault(concurrency -> 1,
-    timeout -> 60.0,
-    concurrentTimeout -> 100.0)
+    timeout -> 60.0)
 
 }
 
@@ -89,7 +94,9 @@ class HTTPTransformer(val uid: String)
     getConcurrency match {
       case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout*1000).toInt)
       case n if n > 1 =>
-        val dur = Duration.fromNanos((getConcurrentTimeout * math.pow(10, 9)).toLong) //scalastyle:ignore magic.number
+        val dur = get(concurrentTimeout)
+          .map(ct => Duration.fromNanos((ct* math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
+          .getOrElse(Duration.Inf)
         val ec = ExecutionContext.global
         new AsyncHTTPClient(getHandler,n, dur, (getTimeout*1000).toInt)(ec)
     }

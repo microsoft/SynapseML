@@ -50,7 +50,7 @@ class MultiColumnAdapterSpec extends TestBase with EstimatorFuzzing[MultiColumnA
     assert(lines1 === trueLines1)
 
     val lines2 = stringIndexedDF.getColAs[Array[String]]("output2")
-    val trueLines2 = mutable.ArraySeq(1, 0, 0, 2)
+    val trueLines2 = mutable.ArraySeq(2, 0, 0, 1)
     assert(lines2 === trueLines2)
   }
   def testObjects(): Seq[TestObject[MultiColumnAdapter]] = List(new TestObject(adaptedEstimator, wordDF))

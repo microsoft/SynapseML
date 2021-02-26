@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.automl
 
 import org.apache.spark.ml.param._
 
-import scala.collection.{JavaConversions, mutable}
+import scala.collection.{JavaConverters, mutable}
 import scala.util.Random
 
 abstract class RangeHyperParam[T](val min: T, val max: T, val seed: Long) extends Dist[T] {
@@ -77,7 +77,7 @@ object HyperParamUtils {
     * @return A RangeHyperParam matched to the given type for min and max values.
     */
   def getDiscreteHyperParam(values: java.util.ArrayList[_], seed: Long = 0): DiscreteHyperParam[_] = {
-    val valuesList = JavaConversions.asScalaBuffer(values).toList
+    val valuesList = JavaConverters.asScalaBuffer(values).toList
     new DiscreteHyperParam(valuesList, seed)
   }
 }

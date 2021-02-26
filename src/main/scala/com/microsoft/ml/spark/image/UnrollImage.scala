@@ -10,6 +10,7 @@ import java.awt.image.BufferedImage
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vectors, Vector => SVector}
@@ -208,7 +209,7 @@ class UnrollBinaryImage(val uid: String) extends Transformer
     val df = dataset.toDF
     assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 
-    val unrollUDF = udf({ bytes: Array[Byte] =>
+    val unrollUDF = UDFUtils.oldUdf({ bytes: Array[Byte] =>
       unrollBytes(bytes, get(width), get(height), get(nChannels)) }, VectorType)
 
     df.withColumn($(outputCol), unrollUDF(df($(inputCol))))

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io
 
 import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPSchema}
 import org.apache.spark.binary.BinaryFileFormat
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql._
@@ -112,6 +113,13 @@ case class DataFrameExtensions(df: DataFrame) {
     }
   }
 
+  private def partialJsonParsingSuccess(a: Any): Boolean = {
+    a match {
+      case null => false //scalastyle:ignore null
+      case _ => true
+    }
+  }
+
   /**
     *
     * @param apiName
@@ -141,8 +149,8 @@ case class DataFrameExtensions(df: DataFrame) {
           parsedDf.select(idCol, "parsed.*")
         } else {
           val successCol = parsingCheck.toLowerCase  match {
-            case "full"  => udf({x: Any => !fullJsonParsingSuccess(x)}, BooleanType)(col("parsed"))
-            case "partial" => col("parsed").isNull
+            case "full"  => UDFUtils.oldUdf({x: Any => !fullJsonParsingSuccess(x)}, BooleanType)(col("parsed"))
+            case "partial" => UDFUtils.oldUdf({x: Any => !partialJsonParsingSuccess(x)}, BooleanType)(col("parsed"))
             case _ => throw new IllegalArgumentException(
               s"Need to use either full, partial, or none. Received $parsingCheck")
           }
@@ -153,7 +161,7 @@ case class DataFrameExtensions(df: DataFrame) {
                 ServingUDFs.sendReplyUDF(
                   lit(apiName),
                   ServingUDFs.makeReplyUDF(
-                    udf(jsonParsingError(schema) _, StringType)(col("body")),
+                    UDFUtils.oldUdf(jsonParsingError(schema) _, StringType)(col("body")),
                     StringType,
                     code = lit(400), //scalastyle:ignore magic.number
                     reason = lit("JSON Parsing Failure")),
@@ -163,8 +171,7 @@ case class DataFrameExtensions(df: DataFrame) {
                 .otherwise(lit(null))) //scalastyle:ignore null
             .filter(col("didReply").isNull)
 
-          df1.withColumn("parsed", udf({ x: Row =>
-            println(x)
+          df1.withColumn("parsed", UDFUtils.oldUdf({ x: Row =>
             x
           }, df1.schema("parsed").dataType)(col("parsed")))
             .select(idCol, "parsed.*")

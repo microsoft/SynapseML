@@ -174,7 +174,7 @@ abstract class PySparkWrapperParamsTest(entryPoint: Params,
     if (entryPointName.contains("LightGBM") || entryPointName.contains("VowpalWabbit"))
       ""
     else if (entryPointName.contains("Regressor"))
-      tryFitTemplate(entryPointName, "LinearRegression(solver=\"l-bfgs\")")
+      tryFitTemplate(entryPointName, "LinearRegression()")
     else if (entryPointName.contains("Classifier"))
       tryFitTemplate(entryPointName, "LogisticRegression()")
     else if (entryPointName.contains("MultiColumnAdapter"))

@@ -34,7 +34,7 @@ class RecommendationIndexerSpec extends RankingTestBase with EstimatorFuzzing[Re
       .setK(5)
       .setNItems(10)
 
-    assert(evaluator.setMetricName("fcp").evaluate(output) == 0.05)
+    assert(evaluator.setMetricName("fcp").evaluate(output) == 0.2)
   }
 
 }

@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.{BooleanParam, Param, ServiceParam, ServiceParamData}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
@@ -118,7 +119,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
     val innerFields = innerResponseDataType.fields.filter(_.name != "id")
 
-    val unpackBatchUDF = udf({ rowOpt: Row =>
+    val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val documents = row.getSeq[Row](1).map(doc =>
           (doc.getString(0).toInt, doc)).toMap
@@ -149,7 +150,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         .setOutputParser(getInternalOutputParser(schema))
         .setHandler(getHandler)
         .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(getConcurrentTimeout)
+        .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
       new UDFTransformer()
         .setInputCol(getOutputCol)

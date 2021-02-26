@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.stages
 
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -57,7 +57,7 @@ class DynamicBufferedBatcher[T](val it: Iterator[T],
     assert(hasNext)
     val results = new java.util.ArrayList[T]()
     queue.drainTo(results)
-    if (results.isEmpty) List(queue.take()) else results.toList
+    if (results.isEmpty) List(queue.take()) else results.asScala.toList
   }
 
 }
@@ -140,12 +140,12 @@ class TimeIntervalBatcher[T](val it: Iterator[T],
   override def next(): List[T] = {
     val start = System.currentTimeMillis()
     val buffer: ListBuffer[T] = mutable.ListBuffer()
-    buffer.add(it.next())
+    buffer += it.next()
     while (
       (System.currentTimeMillis()-start < millis) &&
         buffer.lengthCompare(maxBufferSize) < 0 &&
         it.hasNext
-    ){buffer.add(it.next())}
+    ){buffer += it.next()}
     buffer.toList
   }
 

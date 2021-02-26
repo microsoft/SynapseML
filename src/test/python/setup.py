@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mmlsparktest",
-    version=os.environ["MML_PY_VERSION"],
+    version=0.1,
     description="Microsoft ML for Spark Tests",
     long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
                      "contributions to the Apache Spark ecosystem",

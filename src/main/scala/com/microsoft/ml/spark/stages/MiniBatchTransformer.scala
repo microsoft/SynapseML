@@ -177,9 +177,19 @@ class FlattenBatch(val uid: String)
   def this() = this(Identifiable.randomUID("FlattenBatch"))
 
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
-    val innerLength = nestedSeq.head.length
-    assert(nestedSeq.forall(_.lengthCompare(innerLength) == 0))
-    (0 until innerLength).map(i => nestedSeq.map(innerSeq => innerSeq(i)))
+    val innerLength = nestedSeq.filter {
+      case null => false
+      case _ => true
+    }.head.length
+
+    assert(nestedSeq.forall{
+      case null => true
+      case innerSeq => innerSeq.lengthCompare(innerLength) == 0
+    })
+    (0 until innerLength).map(i => nestedSeq.map{
+      case null => null
+      case innerSeq => innerSeq(i)
+    })
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {

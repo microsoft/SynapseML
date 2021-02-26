@@ -1,7 +1,7 @@
 steps:
   - task: Cache@2
     inputs:
-      key: 'ivy2 | "$(Agent.OS)" | **/build.sbt'
+      key: 'ivy3 | "$(Agent.OS)" | **/build.sbt'
       restoreKeys: |
         ivy2 | "$(Agent.OS)"
         ivy2

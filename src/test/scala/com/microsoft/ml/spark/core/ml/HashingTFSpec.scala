@@ -22,10 +22,10 @@ class HashingTFSpec extends TestBase {
     val lines = hashDF.getSVCol("hashedTF")
 
     val trueLines = List(
-      new SparseVector(262144, Array(36073, 51654, 113890, 139098, 242088), Array(1.0, 2.0, 1.0, 1.0, 1.0)),
-      new SparseVector(262144, Array(113890), Array(1.0)),
-      new SparseVector(262144, Array(13671, 142455), Array(1.0, 1.0)),
-      new SparseVector(262144, Array(24152, 74466, 122984), Array(1.0, 1.0, 1.0))
+      new SparseVector(262144, Array(44775,108437,156204,215198,221693), Array(1.0,1.0,1.0,2.0,1.0)),
+      new SparseVector(262144, Array(156204), Array(1.0)),
+      new SparseVector(262144, Array(46243,142455), Array(1.0, 1.0)),
+      new SparseVector(262144, Array(134093,228158,257491), Array(1.0, 1.0, 1.0))
     )
     assert(lines === trueLines)
   }
@@ -45,10 +45,10 @@ class HashingTFSpec extends TestBase {
     }
     val trueResults = Array(
       new SparseVector(1,      Array(0), Array(8.0)),
-      new SparseVector(5,      Array(0, 2, 3), Array(4.0, 2.0, 2.0)),
-      new SparseVector(100,    Array(0, 10, 18, 33, 62, 67, 80), Array(1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0)),
-      new SparseVector(100000, Array(5833, 9467, 16680, 29018, 68900, 85762, 97510),
-        Array(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0))
+      new SparseVector(5,      Array(0,1,2,3), Array(2.0,2.0,1.0,3.0)),
+      new SparseVector(100,    Array(5,16,18,32,33,70,91), Array(1.0,1.0,2.0,1.0,1.0,1.0,1.0)),
+      new SparseVector(100000, Array(17405,37332,54133,54316,55591,75270,98718),
+        Array(1.0,1.0,1.0,1.0,1.0,1.0,2.0))
     )
     assert(fsResults === trueResults)
   }

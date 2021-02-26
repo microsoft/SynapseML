@@ -8,6 +8,7 @@ import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
@@ -111,13 +112,17 @@ object HandlingUtils extends SparkLogging {
     } else {
       response.close()
       Thread.sleep(retriesLeft.head.toLong)
-      sendWithRetries(client, request, retriesLeft.tail)
+      if (code == 429) { // Do not count rate limiting in number of failures
+        sendWithRetries(client, request, retriesLeft)
+      } else {
+        sendWithRetries(client, request, retriesLeft.tail)
+      }
     }
   }
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
-    try{
+    try {
       val req = request.toHTTPCore
       val message = req match {
         case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
@@ -138,7 +143,7 @@ object HandlingUtils extends SparkLogging {
   }
 
   def advancedUDF(retryTimes: Int*): UserDefinedFunction =
-    udf(advanced(retryTimes: _*) _, StringType)
+    UDFUtils.oldUdf(advanced(retryTimes: _*) _, StringType)
 
   def basic(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
     val req = request.toHTTPCore
@@ -147,7 +152,7 @@ object HandlingUtils extends SparkLogging {
     data
   }
 
-  def basicUDF: UserDefinedFunction = udf(basic _, StringType)
+  def basicUDF: UserDefinedFunction = UDFUtils.oldUdf(basic _, StringType)
 }
 
 class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
@@ -157,11 +162,15 @@ class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
                      (override implicit val ec: ExecutionContext)
   extends AsyncClient(concurrency, timeout)(ec) with HTTPClient {
   override def handle(client: CloseableHttpClient,
-                      request: HTTPRequestData): HTTPResponseData = blocking {handler(client, request)}
+                      request: HTTPRequestData): HTTPResponseData = blocking {
+    handler(client, request)
+  }
 }
 
 class SingleThreadedHTTPClient(val handler: HandlingUtils.HandlerFunc, val requestTimeout: Int)
   extends HTTPClient with SingleThreadedClient {
   override def handle(client: CloseableHttpClient,
-                      request: HTTPRequestData): HTTPResponseData = blocking {handler(client, request)}
+                      request: HTTPRequestData): HTTPResponseData = blocking {
+    handler(client, request)
+  }
 }

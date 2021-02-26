@@ -8,7 +8,6 @@ import java.net.URI
 import org.apache.commons.codec.digest.DigestUtils
 import spray.json._
 
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 private[spark] object NamingConventions {
@@ -66,7 +65,7 @@ case class ModelSchema(name: String,
            uri: URI, hash: String, size: Long, inputNode: Int, numLayers: Int,
            layerNames: java.util.ArrayList[String]) = {
     this(name, dataset, modelType, uri, hash, size,
-      inputNode, numLayers, layerNames.toList.toArray)
+      inputNode, numLayers, layerNames.asScala.toArray)
   }
 
   override def updateURI(newURI: URI): this.type = this.copy(uri = newURI).asInstanceOf[this.type]
