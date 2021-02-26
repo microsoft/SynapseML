@@ -203,7 +203,7 @@ jobs:
     - task: GitHubRelease@0
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        gitHubConnection: 'MMLSPark Github via PAT'
+        gitHubConnection: 'MMLSpark Github Auth'
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'
         target: '$(Build.SourceVersion)'
