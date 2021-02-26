@@ -234,6 +234,17 @@ installPipPackageTask := {
     pythonPackageDir) ! s.log
 }
 
+val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
+publishPython := {
+  val s = streams.value
+  publishLocal.value
+  packagePythonTask.value
+  singleUploadToBlob(
+    join(pythonPackageDir.toString, s"${pythonizedVersion.value}-py2.py3-none-any.whl").toString,
+    version.value + s"/${pythonizedVersion.value}-py2.py3-none-any.whl",
+    "pip", s.log)
+}
+
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 
 testPythonTask := {
@@ -419,5 +430,3 @@ pgpPublicRing := {
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
 publishTo := sonatypePublishToBundle.value
-
-// Cache Break 1
