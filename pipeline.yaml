@@ -203,7 +203,7 @@ jobs:
     - task: GitHubRelease@0
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        gitHubConnection: 'MMLSpark Github Auth'
+        gitHubConnection: 'Azure'
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'
         target: '$(Build.SourceVersion)'
