@@ -37,7 +37,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Style Check'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt scalastyle test:scalastyle'
 
@@ -54,7 +54,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -90,7 +90,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -107,7 +107,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'MMLSpark Connection 4'
+        azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.**"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -132,7 +132,7 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
@@ -142,14 +142,14 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
         tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'build'
         buildContext: "."
@@ -159,7 +159,7 @@ jobs:
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
@@ -167,7 +167,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'build'
         buildContext: "."
@@ -180,7 +180,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
@@ -203,7 +203,7 @@ jobs:
     - task: GitHubRelease@0
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        gitHubConnection: 'MMLSPark Github via PAT'
+        gitHubConnection: 'MMLSpark Github'
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'
         target: '$(Build.SourceVersion)'
@@ -236,13 +236,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
@@ -321,7 +321,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
@@ -330,7 +330,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
@@ -350,13 +350,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
