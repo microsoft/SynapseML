@@ -39,13 +39,13 @@ case class ReadAnalyzeResult(version: String,
                              readResults: Seq[ReadResult])
 
 case class ReadResult(page: Int,
-                      language: String,
+                      language: Option[String],
                       angle: Double,
-                      width: Int,
-                      height: Int,
+                      width: Double,
+                      height: Double,
                       unit: String,
                       lines: Array[ReadLine])
 
-case class ReadLine(boundingBox: Array[Int], text: String, words: Array[ReadWord])
+case class ReadLine(boundingBox: Array[Double], text: String, words: Array[ReadWord])
 
-case class ReadWord(boundingBox: Array[Int], text: String, confidence: Double)
+case class ReadWord(boundingBox: Array[Double], text: String, confidence: Double)

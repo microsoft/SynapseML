@@ -9,23 +9,29 @@ import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.typedLit
+import org.apache.spark.sql.functions.{corr, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 import com.microsoft.ml.spark.FluentAPI._
+import com.microsoft.ml.spark.featurize.text.PageSplitter
 
 trait CognitiveKey {
   lazy val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
 }
 
 trait OCRUtils extends TestBase {
+
   import session.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+  ).toDF("url")
+
+  lazy val pdfDf: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
   ).toDF("url")
 
   lazy val bytesDF: DataFrame = BingImageSearch
@@ -84,6 +90,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 
   override def reader: MLReadable[_] = OCR
 }
+
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveKey with Flaky {
 
   import session.implicits._
@@ -154,7 +161,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     val fromRow = AIResponse.makeFromRowConverter
     val responses = ai.transform(df).select("features")
       .collect().toList.map(r =>
-        fromRow(r.getStruct(0)))
+      fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
   }
@@ -257,6 +264,7 @@ class ReadSuite extends TransformerFuzzing[Read]
     def prep(df: DataFrame) = {
       df.select("url", "ocr.analyzeResult.readResults")
     }
+
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
@@ -267,6 +275,17 @@ class ReadSuite extends TransformerFuzzing[Read]
     val headStr = results.head.getString(0)
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+  }
+
+  test("Basic Usage with pdf") {
+    val results = pdfDf.mlTransform(read, Read.flatten("ocr", "ocr"))
+      .select("ocr")
+      .collect()
+    val headStr = results.head.getString(0)
+    val correctPrefix = "Full Tree Conditioned Tree Component Space " +
+      "Efficiency Measured Data O(n × d) 380 MB Tree O((2n/l) × d)"
+
+    assert(headStr.startsWith(correctPrefix))
   }
 
   test("Basic Usage with Bytes") {
