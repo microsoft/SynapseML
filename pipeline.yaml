@@ -132,7 +132,7 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
@@ -142,14 +142,14 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
         tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'build'
         buildContext: "."
@@ -159,7 +159,7 @@ jobs:
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
@@ -167,7 +167,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'build'
         buildContext: "."
@@ -180,7 +180,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
