@@ -380,7 +380,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
       col("response")
         .getItem(0)
         .getItem("entities")
-        .getItem(1))
+        .getItem(0))
       .select("match")
 
     val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
@@ -388,7 +388,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
     assert(testRow.getAs[String]("text") === "Seattle")
     assert(testRow.getAs[Int]("offset") === 26)
     assert(testRow.getAs[Int]("length") === 7)
-    assert(testRow.getAs[Double]("confidenceScore") === 0.82)
+    assert(testRow.getAs[Double]("confidenceScore") > 0.8)
     assert(testRow.getAs[String]("category") === "Location")
 
   }
