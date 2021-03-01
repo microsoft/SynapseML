@@ -10,6 +10,8 @@ train/           @imatiach-msft
 
 # Dan's Areas
 recommendation/  @dciborow
+recommendation/  @miguelgfierro
+recommendation/  @gramhagen
 
 # Dalitso's Areas
 tools/helm/      @dbanda
@@ -17,6 +19,7 @@ tools/helm/      @dbanda
 # Markus' Areas
 vw/              @eisber
 isolationforest/ @eisber
+recommendation/  @eisber
 
 #Roy's Areas
 cyber/           @rolevin
