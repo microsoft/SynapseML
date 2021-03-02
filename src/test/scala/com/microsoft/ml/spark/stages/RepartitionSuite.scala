@@ -11,7 +11,7 @@ import org.apache.spark.ml.util.MLReadable
 
 class RepartitionSuite extends TestBase with TransformerFuzzing[Repartition] {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val input = Seq(
     (0, "guitars", "drums"),

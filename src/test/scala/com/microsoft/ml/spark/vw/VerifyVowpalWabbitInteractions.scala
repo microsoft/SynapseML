@@ -10,9 +10,9 @@ import org.apache.spark.ml.util.MLReadable
 
 class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[VowpalWabbitInteractions] {
 
-  case class Data(val v1: Vector, val v2: Vector, val v3: Vector)
+  case class Data(v1: Vector, v2: Vector, v3: Vector)
 
-  lazy val df = session.createDataFrame(Seq(Data(
+  lazy val df = spark.createDataFrame(Seq(Data(
     Vectors.dense(Array(1.0, 2.0, 3.0)),
     Vectors.sparse(8, Array(5), Array(4.0)),
     Vectors.sparse(11, Array(8, 9), Array(7.0, 8.0))

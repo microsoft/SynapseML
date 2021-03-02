@@ -23,7 +23,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   val imageFormat: String = classOf[PatchedImageFileFormat].getName
 
   test("image dataframe") {
-    val images = session.read.format(imageFormat)
+    val images = spark.read.format(imageFormat)
       .option("dropInvalid", true)
       .load(FileUtilities.join(groceriesDirectory, "**").toString)
     println(time {
@@ -43,7 +43,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read images with subsample") {
-    val imageDF = session
+    val imageDF = spark
       .read
       .format(imageFormat)
       .load(cifarDirectory)
@@ -65,7 +65,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     val prefix = if (OsUtils.IsWindows) "" else "file://"
     val files = recursiveListFiles(new File(cifarDirectory))
       .toSeq.map(f => Tuple1(prefix + f.toString))
-    val df = session
+    val df = spark
       .createDataFrame(files)
       .toDF("filenames")
     val imageDF = ImageUtils.readFromPaths(df, "filenames")
@@ -77,7 +77,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       (f.getAbsolutePath, new Base64().encodeAsString(
         IOUtils.toByteArray(new FileInputStream(f))))
     )
-    val df = session
+    val df = spark
       .createDataFrame(base64Strings)
       .toDF("filenames","bytes")
     val imageDF = ImageUtils.readFromStrings(df, "bytes")
@@ -85,7 +85,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read from strings 2") {
-    import session.implicits._
+    import spark.implicits._
 
     val df = sc.parallelize(Seq(Tuple1("" +
       "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAJhElEQVR4nAXBWW+c13kA4HPes3z7zPfND" +
@@ -137,7 +137,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("write images with subsample function 2") {
-    val imageDF = session
+    val imageDF = spark
       .read
       .format(imageFormat)
       .load(cifarDirectory)
@@ -152,7 +152,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .option("pathCol", "filenames")
       .save(saveDir)
 
-    val newImageDf = session
+    val newImageDf = spark
       .read
       .format(imageFormat)
       .load(saveDir)
@@ -162,7 +162,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
 
   test("structured streaming with images") {
     val schema = ImageSchema.imageSchema
-    val imageDF = session
+    val imageDF = spark
       .readStream
       .format(imageFormat)
       .schema(schema)
@@ -174,7 +174,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .start()
 
     tryWithRetries() { () =>
-      val df = session.sql("select * from images")
+      val df = spark.sql("select * from images")
       assert(df.count() == 6)
       println("success")
     }

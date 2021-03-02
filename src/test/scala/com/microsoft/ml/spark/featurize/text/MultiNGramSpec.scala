@@ -11,7 +11,7 @@ import scala.collection.mutable
 
 class MultiNGramSpec extends TransformerFuzzing[MultiNGram] {
 
-  lazy val dfRaw = session
+  lazy val dfRaw = spark
     .createDataFrame(Seq(
       (0, "Hi I"),
       (1, "I wish for snow today"),

@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 
 class UDFSuite extends TestBase {
-  import session.implicits._
+  import spark.implicits._
 
   def makeFakeData(rows: Int, size: Int): DataFrame = {
     List

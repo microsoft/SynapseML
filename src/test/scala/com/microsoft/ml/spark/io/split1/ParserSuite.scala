@@ -46,7 +46,7 @@ trait ParserUtils extends WithServer {
 class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[JSONInputParser]] = makeTestObject(
     new JSONInputParser().setInputCol("data").setOutputCol("out")
-      .setUrl(url), session)
+      .setUrl(url), spark)
 
   override def reader: MLReadable[_] = JSONInputParser
 }
@@ -54,14 +54,14 @@ class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with Pars
 class JsonOutputParserSuite extends TransformerFuzzing[JSONOutputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[JSONOutputParser]] = makeTestObject(
     new JSONOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
-      .setDataType(new StructType().add("foo", StringType)), session)
+      .setDataType(new StructType().add("foo", StringType)), spark)
 
   override def reader: MLReadable[_] = JSONOutputParser
 }
 
 class StringOutputParserSuite extends TransformerFuzzing[StringOutputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[StringOutputParser]] = makeTestObject(
-    new StringOutputParser().setInputCol("unparsedOutput").setOutputCol("out"), session)
+    new StringOutputParser().setInputCol("unparsedOutput").setOutputCol("out"), spark)
 
   override def reader: MLReadable[_] = StringOutputParser
 }
@@ -69,7 +69,7 @@ class StringOutputParserSuite extends TransformerFuzzing[StringOutputParser] wit
 class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[CustomInputParser]] = makeTestObject(
     new CustomInputParser().setInputCol("data").setOutputCol("out")
-      .setUDF({ x: Int => new HttpPost(s"http://$x") }), session)
+      .setUDF({ x: Int => new HttpPost(s"http://$x") }), spark)
 
   override def reader: MLReadable[_] = CustomInputParser
 }
@@ -77,7 +77,7 @@ class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with 
 class CustomOutputParserSuite extends TransformerFuzzing[CustomOutputParser] with ParserUtils {
   override def testObjects(): Seq[TestObject[CustomOutputParser]] = makeTestObject(
     new CustomOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
-      .setUDF({ x: HTTPResponseData => x.locale }), session)
+      .setUDF({ x: HTTPResponseData => x.locale }), spark)
 
   override def reader: MLReadable[_] = CustomOutputParser
 }

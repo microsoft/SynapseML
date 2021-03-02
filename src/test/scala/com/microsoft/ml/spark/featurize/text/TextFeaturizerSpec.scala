@@ -9,7 +9,7 @@ import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.ml.util.MLReadable
 
 class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
-  lazy val dfRaw = session
+  lazy val dfRaw = spark
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
                          (2, "we Cant go to the park, because of the snow!"),

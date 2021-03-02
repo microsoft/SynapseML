@@ -23,7 +23,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
   val mockLabelColumn = "Label"
 
   def createMockDataset: DataFrame = {
-    session.createDataFrame(Seq(
+    spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (2, 4, 0.78, 0.99, 2),
@@ -107,7 +107,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
   test("Verify regressor can be trained and scored on airfoil_self_noise-train-csv") {
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
       "Regression", "Train", "airfoil_self_noise.train.csv").toString
-    val dataset = session.read.format("com.databricks.spark.csv")
+    val dataset = spark.read.format("com.databricks.spark.csv")
       .option("header", "true").option("inferSchema", "true")
       .option("delimiter", ",").option("treatEmptyValuesAsNulls", "false")
       .load(fileLocation)
@@ -122,7 +122,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
   test("Verify regressor can be trained and scored on CASP-train-csv") {
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
       "Regression", "Train", "CASP.train.csv").toString
-    val dataset = session.read.format("com.databricks.spark.csv")
+    val dataset = spark.read.format("com.databricks.spark.csv")
       .option("header", "true").option("inferSchema", "true")
       .option("delimiter", ",").option("treatEmptyValuesAsNulls", "false")
       .load(fileLocation)

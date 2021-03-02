@@ -3,76 +3,203 @@
 
 package com.microsoft.ml.spark.core.test.fuzzing
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import com.microsoft.ml.spark.core.test.base.DataFrameEquality
+import com.microsoft.ml.spark.codegen.Config
+import com.microsoft.ml.spark.core.env.FileUtilities
+import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.ParamPair
+import org.apache.spark.ml.param.{DataFrameEquality, ExternalPythonWrappableParam, ParamPair, PythonWrappableParam}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 
-case class TestObject[S <: PipelineStage](stage: S,
-                                          fitDF: DataFrame,
-                                          transDF: DataFrame,
-                                          validateDF: Option[DataFrame]) {
-  def this(stage: S, df: DataFrame) = {
+/**
+  * Class for holding test information, call by name to avoid uneccesary computations in test generations
+  *
+  * @param stage         Pipeline stage for testing
+  * @param fitDFArg      Dataframe to fit
+  * @param transDFArg    Dataframe to transform
+  * @param validateDFArg Optional dataframe to validate against
+  * @tparam S The type of the stage
+  */
+class TestObject[S <: PipelineStage](val stage: S,
+                                     fitDFArg: => DataFrame,
+                                     transDFArg: => DataFrame,
+                                     validateDFArg: => Option[DataFrame]) {
+  lazy val fitDF: DataFrame = fitDFArg
+  lazy val transDF: DataFrame = transDFArg
+  lazy val validateDF: Option[DataFrame] = validateDFArg
+
+  def this(stage: S, df: => DataFrame) = {
     this(stage, df, df, None)
   }
 
-  def this(stage: S, fitDF: DataFrame, transDF: DataFrame) = {
+  def this(stage: S, fitDF: => DataFrame, transDF: => DataFrame) = {
     this(stage, fitDF, transDF, None)
   }
 
 }
 
-trait PyTestFuzzing[S <: PipelineStage] extends DataFrameEquality {
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
 
   def pyTestObjects(): Seq[TestObject[S]]
 
-  val savedDatasetFolder: File = new File("???")
-  // TODO make this Desired location + stage name
+  val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
-  def saveDatasets(): Unit = {
-    // TODO implement this body
+  val testDataDir: File = FileUtilities.join(
+    Config.TestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def saveDataset(df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(testDataDir, s"$name.parquet").toString)
   }
 
-  def pythonizeParam(p: ParamPair[_]): String = {
-    p.param.name + "=" + p.value
-    // TODO make this a valid scala to python setter converter.
-    // TODO Maybe look at JsonEncode function
+  def saveModel(model: S, name: String): Unit = {
+    model match {
+      case writable: MLWritable =>
+        writable.write.overwrite().save(new File(testDataDir, s"$name.model").toString)
+      case _ =>
+        throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
+    }
 
   }
 
-  def pyTest(stage: S, fitPath: File, testPath: File): String = {
-    val paramMap = stage.extractParamMap()
-    stage match {
-      case t: Transformer => ???
-      //s"transformer = ${stage.getClass.getName.split(".").last}()" +
-      //  s""
-      //TODO fill this in along with estimator case
-      // import stuff
-      // load fitting and testing dfs from paths
-      // instantiatie the python wrapper with parameters gotten from stage's param map
-      // pyStage.transform
-      // transformer test logic here
-      case e: Estimator[_] => ??? // estimator test logic here
-      case _ => throw new MatchError(s"Stage $stage should be a transformer or estimator")
+  def saveTestData(): Unit = {
+    testDataDir.mkdirs()
+    pyTestObjects().zipWithIndex.foreach { case (to, i) =>
+      saveModel(to.stage, s"model-$i")
+      //saveDataset(to.fitDF, s"fit-$i")
+      //saveDataset(to.transDF, s"trans-$i")
+      //to.validateDF.foreach(saveDataset(_, s"val-$i"))
     }
   }
 
-  def getPyTests(): Seq[String] = {
-    pyTestObjects().zipWithIndex.map { case (req, i) =>
-      pyTest(req.stage,
-        new File(new File(savedDatasetFolder, i.toString), "fit"),
-        new File(new File(savedDatasetFolder, i.toString), "transform"))
+  def pythonizeParam[T](p: ParamPair[T]): String = {
+    p.param match {
+      case pwp: PythonWrappableParam[_] =>
+        pwp.costructorBasedValue(p.value.asInstanceOf[pwp.InnerType])
+      case _: ComplexParam[_] =>
+        throw new NotImplementedError("No translation found for complex parameter")
+      case _ =>
+        s"""${p.param.name}=${PythonWrappableParam.defaultPythonize(p.value, p.param)}"""
     }
+  }
+
+  def makePyTests(testObject: TestObject[S], num: Int): String = {
+    val stage = testObject.stage
+    val fullParamMap = stage.extractParamMap().toSeq
+    val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
+
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+
+    def testBody(paramMap: Seq[ParamPair[_]]) = {
+      val externalLoadlingLines = paramMap.flatMap { pp =>
+        pp.param match {
+          case ep: ExternalPythonWrappableParam[_] =>
+            Some(ep.loadParameter(num))
+          case _ => None
+        }
+      }.mkString("\n")
+      s"""
+         |def test_${stageName}_constructor_$num(self):
+         |${indent(externalLoadlingLines, 1)}
+         |
+         |    model = $stageName(
+         |${indent(paramMap.map(pythonizeParam(_)).mkString(",\n"), 2)}
+         |    )
+         |
+         |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
+         |
+         |""".stripMargin
+    }
+
+
+    try {
+      testBody(fullParamMap)
+    } catch {
+      case _: NotImplementedError =>
+        println(s"could not generate full test for ${stageName}, resorting to partial test")
+        testBody(partialParamMap)
+    }
+  }
+
+  def indent(test: String, numTabs: Int): String = {
+    test.split("\n".toCharArray).map(l => "    " * numTabs + l).mkString("\n")
+  }
+
+  def camelToSnake(str: String): String = {
+    val headInUpperCase = str.takeWhile(c => c.isUpper || c.isDigit)
+    val tailAfterHeadInUppercase = str.dropWhile(c => c.isUpper || c.isDigit)
+
+    if (tailAfterHeadInUppercase.isEmpty) headInUpperCase.toLowerCase else {
+      val firstWord = if (!headInUpperCase.dropRight(1).isEmpty) {
+        headInUpperCase.last match {
+          case c: Any if (c.isDigit) => headInUpperCase
+          case _ => headInUpperCase.dropRight(1).toLowerCase
+        }
+      } else {
+        headInUpperCase.toLowerCase + tailAfterHeadInUppercase.takeWhile(c => c.isLower)
+      }
+
+      if (firstWord == str.toLowerCase) {
+        firstWord
+      } else {
+        s"${firstWord}_${camelToSnake(str.drop(firstWord.length))}"
+      }
+
+    }
+  }
+
+
+  def makePyTestFile(): Unit = {
+    spark
+    saveTestData()
+    val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
+    val stage = pyTestObjects().head.stage
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
+    val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "mmlspark")
+    val testClass =
+      s"""import unittest
+         |from mmlsparktest.spark import *
+         |from $importPathString import $stageName
+         |from os.path import join
+         |import json
+         |
+         |test_data_dir = "${testDataDir.toString.replaceAllLiterally("\\", "\\\\")}"
+         |
+         |
+         |class $testClassName(unittest.TestCase):
+         |    def assert_correspondence(self, model, name, num):
+         |        model.write().overwrite().save(join(test_data_dir, name))
+         |        sc._jvm.com.microsoft.ml.spark.core.utils.ModelEquality.assertEqual(
+         |            "${stage.getClass.getName}",
+         |            str(join(test_data_dir, name)),
+         |            str(join(test_data_dir, "model-{}.model".format(num)))
+         |        )
+         |
+         |${indent(generatedTests.mkString("\n\n"), 1)}
+         |
+         |if __name__ == "__main__":
+         |    result = unittest.main()
+         |
+         |""".stripMargin
+
+    val testFolders = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.ml.spark", "mmlsparktest").split(".".toCharArray)
+    val testDir = FileUtilities.join((Seq(Config.PyTestDir.toString) ++ testFolders.toSeq): _*)
+    testDir.mkdirs()
+    Files.write(
+      FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".py").toPath,
+      testClass.getBytes(StandardCharsets.UTF_8))
   }
 
 }
 
-trait ExperimentFuzzing[S <: PipelineStage] extends DataFrameEquality {
+trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
 
   def experimentTestObjects(): Seq[TestObject[S]]
 
@@ -96,13 +223,13 @@ trait ExperimentFuzzing[S <: PipelineStage] extends DataFrameEquality {
     }
   }
 
-  test("Experiment Fuzzing"){
+  test("Experiment Fuzzing") {
     testExperiments()
   }
 
 }
 
-trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrameEquality {
+trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase with DataFrameEquality {
   def serializationTestObjects(): Seq[TestObject[S]]
 
   def reader: MLReadable[_]
@@ -112,11 +239,11 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
   val useShm = sys.env.getOrElse("MMLSPARK_TEST_SHM", "false").toBoolean
 
   lazy val savePath: String = {
-    if (useShm){
+    if (useShm) {
       val f = new File(s"/dev/shm/SavedModels-${System.currentTimeMillis()}")
       f.mkdir()
       f.toString
-    }else{
+    } else {
       Files.createTempDirectory("SavedModels-").toString
     }
   }
@@ -124,9 +251,9 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
   val ignoreEstimators: Boolean = false
 
   private def testSerializationHelper(path: String,
-                                  stage: PipelineStage with MLWritable,
-                                  reader: MLReadable[_],
-                                  fitDF: DataFrame, transDF: DataFrame): Unit = {
+                                      stage: PipelineStage with MLWritable,
+                                      reader: MLReadable[_],
+                                      fitDF: DataFrame, transDF: DataFrame): Unit = {
     try {
       stage.write.overwrite().save(path)
       assert(new File(path).exists())
@@ -138,7 +265,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
           assertDFEq(df1, df2)
         case (t1: Transformer, t2: Transformer) =>
           val df1 = t1.transform(transDF)
-          val df2 =t2.transform(transDF)
+          val df2 = t2.transform(transDF)
           assertDFEq(df1, df2)
         case _ => throw new IllegalArgumentException(s"$stage and $loadedStage do not have proper types")
       }
@@ -149,7 +276,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
   }
 
   def testSerialization(): Unit = {
-    try{
+    try {
       serializationTestObjects().foreach { req =>
         val fitStage = req.stage match {
           case stage: Estimator[_] =>
@@ -174,14 +301,14 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends DataFrame
     }
   }
 
-  test("Serialization Fuzzing"){
+  test("Serialization Fuzzing") {
     testSerialization()
   }
 
 }
 
-trait Fuzzing[S <: PipelineStage with MLWritable] extends PyTestFuzzing[S]
-  with SerializationFuzzing[S] with ExperimentFuzzing[S] {
+trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 

@@ -81,6 +81,8 @@ class BingImageSearch(override val uid: String)
     isRequired = true, isURLParam = true)
   def setQuery(v: String): this.type = setScalarParam(q, v)
   def setQueryCol(v: String): this.type = setVectorParam(q, v)
+  def setQ(v: String): this.type = setScalarParam(q, v)
+  def setQCol(v: String): this.type = setVectorParam(q, v)
 
   val count = new ServiceParam[Int](this, "count",
     "The number of image results to return in the response." +
@@ -112,6 +114,8 @@ class BingImageSearch(override val uid: String)
     isURLParam = true)
   def setMarket(v: String): this.type = setScalarParam(mkt, v)
   def setMarketCol(v: String): this.type = setVectorParam(mkt, v)
+  def setMkt(v: String): this.type = setScalarParam(mkt, v)
+  def setMktCol(v: String): this.type = setVectorParam(mkt, v)
 
   val imageType = new ServiceParam[String](this, "imageType",
     "Filter images by the following image types:" +

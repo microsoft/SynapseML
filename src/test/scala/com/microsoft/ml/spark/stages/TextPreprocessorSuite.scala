@@ -14,7 +14,7 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
   val inputCol = "words1"
   val outputCol = "out"
 
-  lazy val expectedResult = session.createDataFrame(Seq(
+  lazy val expectedResult = spark.createDataFrame(Seq(
     (toMap1, "The sad sap boy drank sap"),
     (toMap2, "The sap sap drank sap"),
     ("foo", "foo"),

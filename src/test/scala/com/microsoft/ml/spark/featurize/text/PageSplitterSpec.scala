@@ -8,7 +8,7 @@ import org.apache.spark.ml.util.MLReadable
 
 class PageSplitterSpec extends TransformerFuzzing[PageSplitter] {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df = Seq(
     "words words  words     wornssaa ehewjkdiw weijnsikjn xnh",

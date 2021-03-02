@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 
 class RankingEvaluatorSpec extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   test("testAllTrue") {
     val df = Seq((Array(1, 2, 3), Array(1, 2, 3)))

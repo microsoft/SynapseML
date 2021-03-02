@@ -23,7 +23,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
 
   val mockLabelColumn = "Label"
   def createMockDataset: DataFrame = {
-    session.createDataFrame(Seq(
+    spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (0, 4, 0.78, 0.99, 2),
@@ -65,7 +65,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
   verifyBinaryCsv("bank.train.csv",                   "y", 2, false)
   verifyBinaryCsv("TelescopeData.csv",                " Class", 2, false)
 
-  test("Compare benchmark results file to generated file", TestBase.Extended) {
+  test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
   }
 
@@ -73,7 +73,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
                       labelCol: String,
                       decimals: Int,
                       includeNaiveBayes: Boolean): Unit = {
-    test("Verify classifier can be trained and scored on " + fileName, TestBase.Extended) {
+    test("Verify classifier can be trained and scored on " + fileName) {
       val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
       val bestModel = tuneDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
       val bestMetric = bestModel.bestMetric
@@ -85,7 +85,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
                           labelCol: String,
                           decimals: Int,
                           includeNaiveBayes: Boolean): Unit = {
-    test("Verify classifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
+    test("Verify classifier can be trained and scored on multiclass " + fileName) {
       val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
       val bestModel = tuneDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
       val bestMetric = bestModel.bestMetric
@@ -100,7 +100,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
                   includeNaiveBayes: Boolean): TuneHyperparametersModel = {
     // TODO: Add other file types for testing
     val dataset: DataFrame =
-    session.read.format("com.databricks.spark.csv")
+    spark.read.format("com.databricks.spark.csv")
       .option("header", "true").option("inferSchema", "true")
       .option("treatEmptyValuesAsNulls", "false")
       .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")

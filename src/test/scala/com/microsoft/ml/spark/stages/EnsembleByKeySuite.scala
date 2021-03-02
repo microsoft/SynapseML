@@ -12,7 +12,7 @@ import org.apache.spark.sql.DataFrame
 class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey] {
 
   test("Should work on Dataframes doubles or vectors") {
-    val scoreDF = session.createDataFrame(Seq(
+    val scoreDF = spark.createDataFrame(Seq(
       (0, "foo", 1.0, .1),
       (1, "bar", 4.0, -2.0),
       (1, "bar", 0.0, -3.0)))
@@ -36,7 +36,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
   }
 
   test("should support collapsing or not") {
-    val scoreDF = session.createDataFrame(
+    val scoreDF = spark.createDataFrame(
         Seq((0, "foo", 1.0, .1),
             (1, "bar", 4.0, -2.0),
             (1, "bar", 0.0, -3.0)))
@@ -54,7 +54,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
   }
 
   lazy val testDF: DataFrame = {
-    val initialTestDF = session.createDataFrame(
+    val initialTestDF = spark.createDataFrame(
       Seq((0, "foo", 1.0, .1),
         (1, "bar", 4.0, -2.0),
         (1, "bar", 0.0, -3.0)))
@@ -75,7 +75,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
   }
 
   test("should overwrite a column if instructed") {
-    val scoreDF = session.createDataFrame(
+    val scoreDF = spark.createDataFrame(
         Seq((0, "foo", 1.0, .1),
             (1, "bar", 4.0, -2.0),
             (1, "bar", 0.0, -3.0)))

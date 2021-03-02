@@ -22,7 +22,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
   def getAlaTrainDataFrame(localNumPartitions: Int = numPartitions): Dataset[Row] = {
     val fileLocation = DatasetUtils.binaryTrainFile("a1a.train.svmlight").toString
-    session.read.format("libsvm").load(fileLocation).repartition(localNumPartitions)
+    spark.read.format("libsvm").load(fileLocation).repartition(localNumPartitions)
   }
 
   test ("Verify VowpalWabbit Classifier can save native model and test audit output") {
@@ -263,7 +263,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
       .setPrefixStringsWithColumnName(false)
       .setOutputCol("features")
 
-    val dataset  = session.createDataFrame(Seq(
+    val dataset  = spark.createDataFrame(Seq(
       ClassificationInput[String](1, "marie markus fun"),
       ClassificationInput[String](0, "marie markus no fun")
     )).repartition(1)
@@ -286,7 +286,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     * @return A dataframe from read CSV file.
     */
   def readCSV(fileName: String, fileLocation: String): DataFrame = {
-    session.read
+    spark.read
       .option("header", "true").option("inferSchema", "true")
       .option("treatEmptyValuesAsNulls", "false")
       .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
@@ -298,7 +298,6 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
   override def testObjects(): Seq[TestObject[VowpalWabbitClassifier]] = {
     val dataset = getAlaTrainDataFrame()
-
     Seq(new TestObject(
       new VowpalWabbitClassifier(),
       dataset))

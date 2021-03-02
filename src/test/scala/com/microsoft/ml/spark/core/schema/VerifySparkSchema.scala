@@ -13,7 +13,7 @@ class VerifySparkSchema extends TestBase {
   val probabilityColumn = "probability"
   val scoredLabelsColumn = "scored label"
   test("Spark schema should be able to set and get label, score, probability and scored labels column name") {
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       (0, Array("Hi", "I", "can", "not", "foo"), 0.50, 0.60, 0),
       (1, Array("I"),                            0.40, 0.50, 1),
       (2, Array("Logistic", "regression"),       0.78, 0.99, 2),

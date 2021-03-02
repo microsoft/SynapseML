@@ -17,7 +17,7 @@ trait AnomalyKey {
 
 trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("1972-01-01T00:00:00Z", 826.0),
@@ -144,7 +144,7 @@ class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalie
     ("1973-03-01T00:00:00Z", 9000.0)
   )
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val sdf: DataFrame = baseSeq.map(p => (p._1,p._2,1.0))
     .++(baseSeq.map(p => (p._1,p._2,2.0)))

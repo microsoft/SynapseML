@@ -24,14 +24,31 @@ import scala.reflect.ClassTag
 // Common test tags
 object TestBase {
 
-  // Long, network, etc -- not running by default in local runs
-  object Extended extends Tag("com.microsoft.ml.spark.test.tags.extended")
-
-  // Depends on build environment (specifically, logged in through the az cli)
-  object BuildServer extends Tag("com.microsoft.ml.spark.test.tags.buildserver")
-
   // Run only on Linux
   object LinuxOnly extends Tag("com.microsoft.ml.spark.test.tags.linuxonly")
+
+  def sc: SparkContext = spark.sparkContext
+  def ssc: StreamingContext = new StreamingContext(sc, SparkSeconds(1))
+
+  private var SparkInternal: Option[SparkSession] = None
+  def resetSparkSession(numRetries: Int = 1, numCores: Option[Int] = None): Unit = {
+    SparkInternal.foreach(_.close())
+    SparkInternal = Some(
+      SparkSessionFactory.getSession(s"$this", numRetries=numRetries, numCores=numCores)
+    )
+  }
+
+  def stopSparkSession(): Unit = {
+    SparkInternal.foreach(_.close())
+    SparkInternal = None
+  }
+
+  def spark: SparkSession = {
+    if (SparkInternal.isEmpty){
+      resetSparkSession()
+    }
+    SparkInternal.get
+  }
 
 }
 
@@ -72,25 +89,10 @@ trait TimeLimitedFlaky extends TestBase with TimeLimits {
 }
 
 abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
-  // "This Is A Bad Thing" according to my research. However, this is
-  // just for tests so maybe ok. A better design would be to break the
-  // session stuff into TestSparkSession as a trait and have test suites
-  // that need it "with TestSparkSession" instead, but that's a lot of
-  // changes right now and maybe not desired.
 
-  protected val numRetries = 1
-  protected val numCores: Option[Int] = None
-  protected val logLevel = "WARN"
-  private var sessionInitialized = false
-  protected lazy val session: SparkSession = {
-    info(s"Creating a spark session for suite $this")
-    sessionInitialized = true
-    SparkSessionFactory
-      .getSession(s"$this", logLevel = logLevel, numRetries, numCores)
-  }
-
-  protected lazy val sc: SparkContext = session.sparkContext
-  protected lazy val ssc: StreamingContext = new StreamingContext(sc, SparkSeconds(1))
+  lazy val spark = TestBase.spark
+  lazy val sc = TestBase.sc
+  lazy val ssc = TestBase.ssc
 
   protected lazy val dir = SparkSessionFactory.WorkingDir
 
@@ -126,9 +128,6 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   protected override def beforeAll(): Unit = {
-    if (sessionInitialized) {
-      info(s"Parallelism: ${session.sparkContext.defaultParallelism.toString}")
-    }
     suiteElapsed = 0
   }
 
@@ -136,10 +135,6 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     logTime(s"Suite $this", suiteElapsed, 10000)
     if (tmpDirCreated) {
       FileUtils.forceDelete(tmpDir.toFile)
-    }
-    if (sessionInitialized) {
-      info("Shutting down spark session")
-      session.stop()
     }
   }
 
@@ -186,7 +181,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     }
   }
 
-  import session.implicits._
+  import spark.implicits._
 
   def makeBasicDF(): DataFrame = {
     Seq(
@@ -205,7 +200,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   def verifyResult(expected: DataFrame, result: DataFrame): Boolean = {
-    assert(expected.count == result.count)
+    assert(expected.count === result.count)
     assert(expected.schema.length == result.schema.length)
     (expected.columns zip result.columns).forall { case (x, y) => x == y }
   }
@@ -225,92 +220,18 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   def getTime[R](n: Int)(block: => R): (Seq[R], Long) = {
     val t0 = System.nanoTime()
-    val results = (1 to n).map(i => block)
+    val results = (1 to n).map(_ => block)
     val t1 = System.nanoTime()
     (results, (t1 - t0) / n)
   }
 
-  private def logTime(name: String, time: Long, threshold: Long) = {
+  private def logTime(name: String, time: Long, threshold: Long): Unit = {
     val msg = s"$name took ${time / 1000.0}s"
     if (time > threshold) {
       alert(msg)
     } else {
       info(msg)
     }
-  }
-
-}
-
-trait DataFrameEquality extends TestBase {
-  val epsilon = 1e-4
-  implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
-
-  implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
-    def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr: DenseVector =>
-        a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
-    }
-  }
-
-  implicit lazy val rowEq: Equality[Row] = new Equality[Row] {
-    def areEqual(a: Row, bAny: Any): Boolean = bAny match {
-      case b: Row =>
-        if (a.length != b.length) {
-          return false
-        }
-        (0 until a.length).forall(j => {
-          a(j) match {
-            case lhs: DenseVector =>
-              lhs === b(j)
-            case lhs: Array[Byte] =>
-              lhs === b(j)
-            case lhs: Double if lhs.isNaN =>
-              b(j).asInstanceOf[Double].isNaN
-            case lhs: Double =>
-              b(j).asInstanceOf[Double] === lhs
-            case lhs =>
-              lhs === b(j)
-          }
-        })
-    }
-  }
-
-  val sortInDataframeEquality = false
-
-  val baseDfEq: Equality[DataFrame] = new Equality[DataFrame] {
-    def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
-      case ds: Dataset[_] =>
-        val b = ds.toDF()
-        if (a.columns !== b.columns) {
-          return false
-        }
-        val (aList, bList) = if (sortInDataframeEquality) {
-          (a.sort(a.columns.sorted.map(col): _*).collect(),
-            b.sort(b.columns.sorted.map(col): _*).collect())
-        } else {
-          (a.collect(), b.collect())
-        }
-
-        if (aList.length != bList.length) {
-          return false
-        }
-        aList.zip(bList).forall { case (rowA, rowB) =>
-          rowA === rowB
-        }
-    }
-  }
-
-  implicit lazy val dfEq: Equality[DataFrame] = baseDfEq
-
-  def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
-    val result = eq.areEqual(df1, df2)
-    if (!result) {
-      println("df1:")
-      df1.show(10)
-      println("df2:")
-      df2.show(10)
-    }
-    assert(result)
   }
 
 }

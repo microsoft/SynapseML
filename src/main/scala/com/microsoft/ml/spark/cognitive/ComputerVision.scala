@@ -192,8 +192,6 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
 
-  def setDefaultLanguage(v: String): this.type = setDefaultValue(language, v)
-
   override def responseDataType: DataType = OCRResponse.schema
 }
 
@@ -293,7 +291,7 @@ trait HasAsyncReply extends Params {
 
 
 class RecognizeText(override val uid: String)
-  extends CognitiveServicesBaseWithoutHandler(uid)
+  extends CognitiveServicesBaseNoHandler(uid)
     with HasAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation {
@@ -304,11 +302,9 @@ class RecognizeText(override val uid: String)
     "If this parameter is set to 'Printed', " +
       "printed text recognition is performed. If 'Handwritten' is specified," +
       " handwriting recognition is performed",
-    { spd: ServiceParamData[String] =>
-      spd.data.get match {
-        case Left(_) => true
-        case Right(s) => Set("Printed", "Handwritten")(s)
-      }
+    {
+      case Left(_) => true
+      case Right(s) => Set("Printed", "Handwritten")(s)
     }, isURLParam = true)
 
   def getMode: String = getScalarParam(mode)
@@ -341,7 +337,7 @@ object Read extends ComplexParamsReadable[Read] {
 }
 
 class Read(override val uid: String)
-  extends CognitiveServicesBaseWithoutHandler(uid)
+  extends CognitiveServicesBaseNoHandler(uid)
     with HasAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation {
@@ -355,11 +351,9 @@ class Read(override val uid: String)
       " Read supports auto language identification and multilanguage documents," +
       " so only provide a language code if you would like to force the documented" +
       " to be processed as that specific language.",
-    { spd: ServiceParamData[String] =>
-      spd.data.get match {
-        case Left(_) => true
-        case Right(s) => Set("en", "nl", "fr", "de", "it", "pt", "es")(s)
-      }
+    {
+      case Left(_) => true
+      case Right(s) => Set("en", "nl", "fr", "de", "it", "pt", "es")(s)
     }, isURLParam = true)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
@@ -401,13 +395,12 @@ class AnalyzeImage(override val uid: String)
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
-    { spd: ServiceParamData[Seq[String]] =>
-      spd.data.get match {
-        case Left(seq) => seq.forall(Set(
-          "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Brands", "Objects"
-        ))
-        case _ => true
-      }
+    {
+      case Left(seq) => seq.forall(Set(
+        "Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Brands", "Objects"
+      ))
+      case _ => true
+
     },
     isURLParam = true,
     toValueString = { seq => seq.mkString(",") }
@@ -425,11 +418,9 @@ class AnalyzeImage(override val uid: String)
 
   val details = new ServiceParam[Seq[String]](
     this, "details", "what visual feature types to return",
-    { spd: ServiceParamData[Seq[String]] =>
-      spd.data.get match {
-        case Left(seq) => seq.forall(Set("Celebrities", "Landmarks"))
-        case _ => true
-      }
+    {
+      case Left(seq) => seq.forall(Set("Celebrities", "Landmarks"))
+      case _ => true
     },
     isURLParam = true,
     toValueString = { seq => seq.mkString(",") }
@@ -454,10 +445,6 @@ class AnalyzeImage(override val uid: String)
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
-
-  def setDefaultLanguage(v: String): this.type = setDefaultValue(language, v)
-
-  setDefault(language, ServiceParamData(None, Some("en")))
 
   def this() = this(Identifiable.randomUID("AnalyzeImage"))
 
@@ -525,22 +512,18 @@ class TagImage(override val uid: String)
 
   override def responseDataType: DataType = TagImagesResponse.schema
 
-  private def validateLanguage(spd: ServiceParamData[String]): Boolean = {
-    spd.data.forall {
-      case Left(lang) => Set("en", "es", "ja", "pt", "zh")(lang)
-      case _ => true
-    }
-  }
-
   val language = new ServiceParam[String](this, "language",
     "The desired language for output generation.",
-    isRequired = false, isURLParam = true, isValid = validateLanguage)
+    isRequired = false, isURLParam = true,
+    isValid = {
+      case Left(lang) => Set("en", "es", "ja", "pt", "zh")(lang)
+      case _ => true
+    })
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
-  setDefault(language -> ServiceParamData(None, Some("en")))
 }
 
 object DescribeImage extends ComplexParamsReadable[DescribeImage]
@@ -564,14 +547,11 @@ class DescribeImage(override val uid: String)
 
   def setMaxCandidatesCol(v: String): this.type = setVectorParam(maxCandidates, v)
 
-  setDefault(maxCandidates, ServiceParamData(None, Some(1)))
 
   val language = new ServiceParam[String](this, "language", "Language of image description",
-    isValid = { spd: ServiceParamData[String] =>
-      spd.data.forall {
-        case Left(lang) => Set("en", "ja", "pt", "zh")(lang)
-        case _ => true
-      }
+    isValid = {
+      case Left(lang) => Set("en", "ja", "pt", "zh")(lang)
+      case _ => true
     },
     isURLParam = true
   )
@@ -579,7 +559,5 @@ class DescribeImage(override val uid: String)
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
-
-  setDefault(language, ServiceParamData(None, Some("en")))
 
 }
