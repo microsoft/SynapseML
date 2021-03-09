@@ -53,7 +53,7 @@ def get_ratings():
 def test_random_split():
     df = get_ratings()
     train, test = RecoUtils.spark_random_split(df)
-    als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+    als = ALS(userCol=USER_ID, itemCol=ITEM_ID, ratingCol=RATING_ID)
     model = als.fit(train)
 
     users = train.select(USER_ID).distinct()
