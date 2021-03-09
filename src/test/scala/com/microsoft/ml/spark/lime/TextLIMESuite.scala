@@ -18,7 +18,7 @@ import org.scalatest.Assertion
 
 class TextLIMESuite extends TransformerFuzzing[TextLIME] {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("hi this is example 1", 1.0),
@@ -80,7 +80,7 @@ class TextLIMESuite extends TransformerFuzzing[TextLIME] {
 
   override def reader: MLReadable[_] = ImageLIME
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(
       df1.select("interpretationTokens", "text", "label"),
       df2.select("interpretationTokens", "text", "label"))(eq)

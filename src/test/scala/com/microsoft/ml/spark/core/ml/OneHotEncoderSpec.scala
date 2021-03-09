@@ -13,7 +13,7 @@ import org.apache.spark.sql.DataFrame
 class OneHotEncoderSpec extends TestBase {
 
   test("expand category indicies") {
-    val df = session.createDataFrame(Seq((0, 0.0),
+    val df = spark.createDataFrame(Seq((0, 0.0),
                                          (1, 1.0),
                                          (2, 0.0),
                                          (3, 2.0),
@@ -36,7 +36,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   test("support interger indicies") {
-    val df = session.createDataFrame(Seq((0, 0),
+    val df = spark.createDataFrame(Seq((0, 0),
                                          (1, 1),
                                          (2, 0),
                                          (3, 2),
@@ -59,7 +59,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   test("support not dropping the last feature") {
-    val df = session.createDataFrame(Seq((0, 0.0),
+    val df = spark.createDataFrame(Seq((0, 0.0),
                                          (1, 1.0),
                                          (2, 0.0),
                                          (3, 2.0),
@@ -89,11 +89,11 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   test("raise an error when applied to a null array") {
-    testOHE(session.createDataFrame(Seq((0, Some(0.0)), (1, Some(1.0)), (2, None))))
+    testOHE(spark.createDataFrame(Seq((0, Some(0.0)), (1, Some(1.0)), (2, None))))
   }
   test("raise an error when it receives a strange float") {
-    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, 0.4))))
-    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, -1.0))))
+    testOHE(spark.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, 0.4))))
+    testOHE(spark.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, -1.0))))
   }
 
 }

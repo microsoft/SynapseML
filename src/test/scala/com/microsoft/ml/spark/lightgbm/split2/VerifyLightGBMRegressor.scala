@@ -41,7 +41,7 @@ class VerifyLightGBMRegressor extends Benchmarks
     super.testSerialization()
   }
 
-  test("Compare benchmark results file to generated file", TestBase.Extended) {
+  test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
   }
 

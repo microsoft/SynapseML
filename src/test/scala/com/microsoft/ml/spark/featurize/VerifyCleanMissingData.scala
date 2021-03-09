@@ -14,7 +14,7 @@ import org.apache.spark.sql.DataFrame
 class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissingData] {
 
   override val epsilon: Double = 0.01
-  import session.implicits._
+  import spark.implicits._
 
   //scalastyle:off null
   def createMockDataset: DataFrame = {

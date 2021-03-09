@@ -28,9 +28,6 @@ abstract class WrapperGenerator {
                                entryPointName: String,
                                entryPointQualifiedName: String): WritableWrapper
 
-  def generateEvaluatorTestWrapper(entryPoint: Evaluator,
-                                   entryPointName: String,
-                                   entryPointQualifiedName: String): Option[WritableWrapper]
 
   def generateEstimatorWrapper(entryPoint: Estimator[_],
                                entryPointName: String,
@@ -38,34 +35,23 @@ abstract class WrapperGenerator {
                                companionModelName: String,
                                companionModelQualifiedName: String): WritableWrapper
 
-  def generateEstimatorTestWrapper(entryPoint: Estimator[_],
-                                   entryPointName: String,
-                                   entryPointQualifiedName: String,
-                                   companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper]
 
   def generateTransformerWrapper(entryPoint: Transformer,
                                  entryPointName: String,
                                  entryPointQualifiedName: String): WritableWrapper
 
-  def generateTransformerTestWrapper(entryPoint: Transformer,
-                                     entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper]
 
   def wrapperDir: File
-
-  def wrapperTestDir: File
 
   def writeWrappersToFile(myClass: Class[_], qualifiedClassName: String): Unit = {
     try {
       val classInstance = myClass.newInstance()
 
-      val (wrapper: WritableWrapper, wrapperTests: Option[WritableWrapper]) =
+      val wrapper: WritableWrapper =
         classInstance match {
           case t: Transformer =>
             val className = wrapperName(myClass)
-            (generateTransformerWrapper(t, className, qualifiedClassName),
-              generateTransformerTestWrapper(t, className, qualifiedClassName))
+            generateTransformerWrapper(t, className, qualifiedClassName)
           case e: Estimator[_] =>
             val sc = iterate[Class[_]](myClass)(_.getSuperclass)
               .find(c => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")(
@@ -87,16 +73,13 @@ abstract class WrapperGenerator {
             }
 
             val className = wrapperName(myClass)
-            (generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass),
-              generateEstimatorTestWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass))
+            generateEstimatorWrapper(e, className, qualifiedClassName, modelClass, modelQualifiedClass)
           case ev: Evaluator =>
             val className = wrapperName(myClass)
-            (generateEvaluatorWrapper(ev, className, qualifiedClassName),
-              generateEvaluatorTestWrapper(ev, className, qualifiedClassName))
+            generateEvaluatorWrapper(ev, className, qualifiedClassName)
           case _ => return
         }
       wrapper.writeWrapperToFile(wrapperDir)
-      if (wrapperTests.isDefined) wrapperTests.get.writeWrapperToFile(wrapperTestDir)
       if (DebugMode) println(s"Generated wrapper for class ${myClass.getSimpleName}")
     } catch {
       // Classes without default constructor
@@ -122,8 +105,6 @@ object PySparkWrapperGenerator {
 class PySparkWrapperGenerator extends WrapperGenerator {
   override def wrapperDir: File = new File(PySrcDir, "mmlspark")
 
-  override def wrapperTestDir: File = new File(PyTestDir, "mmlsparktest")
-
   // check if the class is annotated with InternalWrapper
   private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {
     val typ: ClassSymbol = runtimeMirror(myClass.getClassLoader).classSymbol(myClass)
@@ -148,14 +129,6 @@ class PySparkWrapperGenerator extends WrapperGenerator {
       entryPointQualifiedName)
   }
 
-  def generateEvaluatorTestWrapper(entryPoint: Evaluator,
-                                   entryPointName: String,
-                                   entryPointQualifiedName: String): Option[WritableWrapper] = {
-    Some(new PySparkEvaluatorTestWrapper(entryPoint,
-      entryPointName,
-      entryPointQualifiedName))
-  }
-
   def generateEstimatorWrapper(entryPoint: Estimator[_],
                                entryPointName: String,
                                entryPointQualifiedName: String,
@@ -168,29 +141,12 @@ class PySparkWrapperGenerator extends WrapperGenerator {
       companionModelQualifiedName)
   }
 
-  def generateEstimatorTestWrapper(entryPoint: Estimator[_],
-                                   entryPointName: String,
-                                   entryPointQualifiedName: String,
-                                   companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper] = {
-    Some(new PySparkEstimatorWrapperTest(entryPoint,
-      entryPointName,
-      entryPointQualifiedName,
-      companionModelName,
-      companionModelQualifiedName))
-  }
-
   def generateTransformerWrapper(entryPoint: Transformer,
                                  entryPointName: String,
                                  entryPointQualifiedName: String): WritableWrapper = {
     new PySparkTransformerWrapper(entryPoint, entryPointName, entryPointQualifiedName)
   }
 
-  def generateTransformerTestWrapper(entryPoint: Transformer,
-                                     entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper] = {
-    Some(new PySparkTransformerWrapperTest(entryPoint, entryPointName, entryPointQualifiedName))
-  }
 }
 
 object SparklyRWrapperGenerator {
@@ -201,8 +157,6 @@ object SparklyRWrapperGenerator {
 
 class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
   override def wrapperDir: File = RSrcDir
-
-  override def wrapperTestDir: File = RTestDir
 
   // description file; need to encode version as decimal
   val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
@@ -274,30 +228,15 @@ class SparklyRWrapperGenerator(mmlVer: String) extends WrapperGenerator {
       companionModelQualifiedName)
   }
 
-  def generateEstimatorTestWrapper(entryPoint: Estimator[_],
-                                   entryPointName: String,
-                                   entryPointQualifiedName: String,
-                                   companionModelName: String,
-                                   companionModelQualifiedName: String): Option[WritableWrapper] = {
-    None
-  }
-
   def generateTransformerWrapper(entryPoint: Transformer,
                                  entryPointName: String,
                                  entryPointQualifiedName: String): WritableWrapper = {
     new SparklyRTransformerWrapper(entryPoint, entryPointName, entryPointQualifiedName)
   }
 
-  def generateTransformerTestWrapper(entryPoint: Transformer,
-                                     entryPointName: String,
-                                     entryPointQualifiedName: String): Option[WritableWrapper] = {
-    None
-  }
 
   override def generateEvaluatorWrapper(entryPoint: Evaluator, entryPointName: String,
                                         entryPointQualifiedName: String): WritableWrapper =
     new SparklyREvaluatorWrapper(entryPoint, entryPointName, entryPointQualifiedName)
 
-  override def generateEvaluatorTestWrapper(entryPoint: Evaluator, entryPointName: String,
-                                            entryPointQualifiedName: String): Option[WritableWrapper] = None
 }

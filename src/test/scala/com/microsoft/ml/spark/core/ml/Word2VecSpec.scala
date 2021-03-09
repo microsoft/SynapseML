@@ -12,7 +12,7 @@ import org.apache.spark.sql.DataFrame
 class Word2VecSpec extends TestBase {
 
   def genTokenizedText(): DataFrame = {
-    session.createDataFrame(Seq(
+    spark.createDataFrame(Seq(
       (0, Array("I", "walked", "the", "dog", "down", "the", "street")),
       (1, Array("I", "walked", "with", "the", "dog")),
       (2, Array("I", "walked", "the", "pup"))
@@ -48,7 +48,7 @@ class Word2VecSpec extends TestBase {
   }
 
   test("raise an error when applied to a null array") {
-    val tokenDataFrame = session.createDataFrame(Seq(
+    val tokenDataFrame = spark.createDataFrame(Seq(
       (0, Some(Array("Hi", "I", "can", "not", "foo"))),
       (1, None))
     ).toDF("label", "tokens")
@@ -71,7 +71,7 @@ class Word2VecSpec extends TestBase {
   test("return a vector of zeros when it encounters an OOV word") {
     val df = genTokenizedText()
     val model = genW2V().setVectorSize(2).setMinCount(1).setInputCol("words").setOutputCol("features").fit(df)
-    val df2 = session.createDataFrame(Seq(
+    val df2 = spark.createDataFrame(Seq(
       (0, Array("ketchup")))).toDF("label", "words")
     val results = model.transform(df2)
     val lines = results.getDVCol("features")

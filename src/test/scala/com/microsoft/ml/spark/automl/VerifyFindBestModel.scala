@@ -18,7 +18,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
   val mockLabelColumn = "Label"
 
   def createMockDataset: DataFrame = {
-    session.createDataFrame(Seq(
+    spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (0, 4, 0.78, 0.99, 2),

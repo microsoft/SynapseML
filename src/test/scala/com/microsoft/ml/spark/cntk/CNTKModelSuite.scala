@@ -26,7 +26,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   // TODO: Move away from getTempDirectoryPath and have TestBase provide one
 
   def testModel(minibatchSize: Int = 10): CNTKModel = {
-    session // make sure session is loaded
+    spark // make sure session is loaded
     new CNTKModel()
       .setModelLocation(modelPath)
       .setInputCol(inputCol)
@@ -45,7 +45,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   }
 
   def testModelDouble(minibatchSize: Int = 10): CNTKModel = {
-    session // make sure session is loaded
+    spark // make sure session is loaded
     new CNTKModel()
       .setModelLocation(doubleModelFile.toString)
       .setInputCol(inputCol)
@@ -54,9 +54,9 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputNodeIndex(0)
   }
 
-  lazy val images = testImages(session)
+  lazy val images = testImages(spark)
 
-  import session.implicits._
+  import spark.implicits._
 
   private def checkParameters(minibatchSize: Int) = {
     val model = testModel(minibatchSize)
@@ -66,7 +66,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   test("A CNTK model should be able to support setting the input and output node") {
     val model = testModel().setInputNodeIndex(0)
-    val data = makeFakeData(session, 30, featureVectorLength)
+    val data = makeFakeData(spark, 30, featureVectorLength)
     val result = model.transform(data)
     assert(result.select(outputCol).count() == 30)
   }
@@ -78,7 +78,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputCol(outputCol)
       .setOutputNode("z")
 
-    val data = makeFakeData(session, 10, featureVectorLength).coalesce(1)
+    val data = makeFakeData(spark, 10, featureVectorLength).coalesce(1)
     val result = model.transform(data)
     assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
     assert(result.select(outputCol).count() == 10)
@@ -91,14 +91,14 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
       .setOutputNode("nonexistant-node")
       .setModelLocation(modelPath)
 
-    val data = makeFakeData(session, 3, featureVectorLength)
+    val data = makeFakeData(spark, 3, featureVectorLength)
     intercept[IllegalArgumentException] {
       model.transform(data).collect()
     }
   }
 
   def testCNN(model: CNTKModel, doubleInput: Boolean, shape: Int = featureVectorLength): Unit = {
-    val data = makeFakeData(session, 3, shape, doubleInput)
+    val data = makeFakeData(spark, 3, shape, doubleInput)
     val result = model.transform(data)
     assert(result.select(outputCol).collect()(0).getAs[DenseVector](0).size == 10)
     assert(result.count() == 3)
@@ -138,7 +138,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
 
   test("A CNTK model should output Vectors and interop with other estimators") {
     val model = testModel()
-    val data = makeFakeData(session, 3, featureVectorLength, outputDouble = true)
+    val data = makeFakeData(spark, 3, featureVectorLength, outputDouble = true)
     val result = model.transform(data)
     assert(result.select(outputCol).schema.fields(0).dataType == VectorType)
 
@@ -163,7 +163,7 @@ class CNTKModelSuite extends LinuxOnly with CNTKTestUtils with TransformerFuzzin
   }
 
   test("A CNTK model should work on an empty dataframe") {
-    val images = session.createDataFrame(
+    val images = spark.createDataFrame(
       sc.emptyRDD[Row], new StructType().add(inputCol, ArrayType(FloatType, false)))
     val model = testModel()
     val result = model.transform(images)

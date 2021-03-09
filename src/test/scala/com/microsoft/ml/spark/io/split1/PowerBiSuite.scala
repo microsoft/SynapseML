@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
 class PowerBiSuite extends TestBase with FileReaderUtils {
 
   lazy val url: String = sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL)
-  lazy val df: DataFrame = session
+  lazy val df: DataFrame = spark
     .createDataFrame(Seq(
       (Some(0), "a"),
       (Some(1), "b"),
@@ -30,14 +30,14 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
   lazy val bigdf: DataFrame = (1 to 5).foldRight(df) { case (_, ldf) => ldf.union(df) }.repartition(2)
   lazy val delayDF: DataFrame = {
     val rows = Array.fill(100){df.collect()}.flatten.toList.asJava
-    val df2 = session
+    val df2 = spark
       .createDataFrame(rows, df.schema)
       .coalesce(1).cache()
     df2.count()
     df2.map({x => Thread.sleep(10); x})(RowEncoder(df2.schema))
   }
 
-  test("write to powerBi", TestBase.BuildServer) {
+  test("write to powerBi") {
     PowerBIWriter.write(df, url)
   }
 
@@ -70,9 +70,9 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
     }
   }
 
-  test("stream to powerBi", TestBase.BuildServer) {
+  test("stream to powerBi") {
     bigdf.write.parquet(tmpDir + File.separator + "powerBI.parquet")
-    val sdf = session.readStream.schema(df.schema).parquet(tmpDir + File.separator + "powerBI.parquet")
+    val sdf = spark.readStream.schema(df.schema).parquet(tmpDir + File.separator + "powerBI.parquet")
     val q1 = PowerBIWriter.stream(sdf, url).start()
     q1.processAllAvailable()
   }

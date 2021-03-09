@@ -8,7 +8,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 class ClassBalancerSuite extends EstimatorFuzzing[ClassBalancer] {
-  lazy val df: DataFrame = session
+  lazy val df: DataFrame = spark
     .createDataFrame(Seq((0, 1.0, "Hi I"),
                          (1, 1.0, "I wish for snow today"),
                          (2, 2.0, "I wish for snow today"),

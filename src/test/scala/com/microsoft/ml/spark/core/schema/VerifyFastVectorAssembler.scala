@@ -17,7 +17,7 @@ class VerifyFastVectorAssembler extends TestBase {
 
   val inputCols = Array("a", "b", "c", "d", "e")
   val outputCol = "testCol"
-  lazy val mockDataset = session.createDataFrame(Seq(
+  lazy val mockDataset = spark.createDataFrame(Seq(
     (0, 2, 0.5, 0.6, 0),
     (1, 3, 0.4, 0.5, 1),
     (2, 4, 0.78, 0.99, 2),
@@ -91,7 +91,7 @@ class VerifyFastVectorAssembler extends TestBase {
   def createCategoricalData: (Array[String], String, DataFrame) = {
     val inputCols = Array("a", "b", "c", "d", "e")
 
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       ("hello", 2, 0.5, 0.6, 0),
       ("how", 3, 0.4, 0.5, 1),
       ("are", 4, 0.78, 0.99, 2),

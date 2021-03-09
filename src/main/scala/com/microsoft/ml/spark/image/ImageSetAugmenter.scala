@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.image
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.opencv.{Flip, ImageTransformer}
 import org.apache.spark.ml._
 import org.apache.spark.ml.image.ImageSchema
@@ -15,7 +15,7 @@ import org.apache.spark.sql.types._
 object ImageSetAugmenter extends DefaultParamsReadable[ImageSetAugmenter]
 
 class ImageSetAugmenter(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable {
 
   def this() = this(Identifiable.randomUID("ImageSetAugmenter"))
 

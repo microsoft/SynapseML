@@ -19,7 +19,7 @@ trait TextKey {
 
 class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "Hello World",
@@ -72,7 +72,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with 
 
 class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "Hello World",
@@ -104,7 +104,7 @@ class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with 
 
 class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("1", "Microsoft released Windows 10"),
@@ -134,7 +134,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with Text
 
 class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("1", "Microsoft released Windows 10"),
@@ -164,7 +164,7 @@ class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with Text
 }
 
 trait TextSentimentBaseSuite extends TestBase with TextKey {
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
@@ -181,7 +181,6 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setLanguageCol("lang")
-    .setDefaultLanguage("de")
     .setModelVersion("latest")
     .setShowStats(true)
     .setOutputCol("replies")
@@ -222,7 +221,6 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
     .setSubscriptionKey(textKey)
     .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
     .setLanguageCol("lang")
-    .setDefaultLanguage("de")
     .setOutputCol("replies")
 
   test("Basic Usage") {
@@ -255,7 +253,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
 
 class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
@@ -289,7 +287,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] w
 
 class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] with TextKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
@@ -322,7 +320,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 }
 
 class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("1", "en", "Jeff bought three dozen eggs because there was a 50% discount."),
@@ -361,7 +359,7 @@ class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
 }
 
 class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("1", "en", "I had a wonderful trip to Seattle last week."),

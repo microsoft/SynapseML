@@ -8,7 +8,7 @@ import org.apache.spark.ml.util.MLReadable
 
 class CacherSuite extends TransformerFuzzing[Cacher] {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df = Seq((0, "guitars", "drums"),
                (1, "piano", "trumpet"),

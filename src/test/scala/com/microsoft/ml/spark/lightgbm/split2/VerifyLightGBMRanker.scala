@@ -22,18 +22,18 @@ import org.scalatest.Matchers._
 class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRanker]
   with LightGBMTestUtils {
 
-  import session.implicits._
+  import spark.implicits._
 
   val queryCol = "query"
 
   lazy val rankingDF: DataFrame = {
-    val df1 = session.read.format("libsvm")
+    val df1 = spark.read.format("libsvm")
       .load(DatasetUtils.rankingTrainFile("rank.train").toString)
       .withColumn("iid", monotonically_increasing_id())
 
     def createRows = udf((colValue: Int, index: Int) => List.fill(colValue)(index).toArray)
 
-    val df2 = session.read.format("csv")
+    val df2 = spark.read.format("csv")
       .option("inferSchema", value = true)
       .load(DatasetUtils.rankingTrainFile("rank.train.query").toString)
       .withColumn("index", monotonically_increasing_id())

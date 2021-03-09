@@ -178,13 +178,13 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   // Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
 
   def baseReaderDist: DataStreamReader = {
-    session.readStream.distributedServer
+    spark.readStream.distributedServer
       .address(host, port, "foo")
       .option("maxPartitions", 3)
   }
 
   def baseReader: DataStreamReader = {
-    session.readStream.server
+    spark.readStream.server
       .address(host, port, "foo")
       .option("maxPartitions", 3)
   }
@@ -215,7 +215,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       .withColumn("reply", string_to_response(col("contentLength").cast(StringType))))
   }
 
-  test("standard client", TestBase.Extended) {
+  test("standard client") {
     val server = createServer().start()
     using(server) {
       waitForServer(server)
@@ -234,7 +234,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     }
   }
 
-  test("test implicits", TestBase.Extended) {
+  test("test implicits") {
     val server = baseWriter(baseReader
       .load()
       .withColumn("contentLength", col("request.entity.contentLength"))
@@ -259,7 +259,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   }
 
-  test("test implicits 2", TestBase.Extended) {
+  test("test implicits 2") {
 
     val server = baseWriter(baseReader
       .load()
@@ -281,7 +281,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     }
   }
 
-  test("test implicits 2 distributed", TestBase.Extended) {
+  test("test implicits 2 distributed") {
 
     val server = baseWriterDist(baseReaderDist
       .load()
@@ -306,7 +306,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   }
 
-  test("python client", TestBase.Extended) {
+  test("python client") {
     val server = createServer().start()
 
     using(server) {
@@ -361,7 +361,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   }
 
-  test("async client", TestBase.Extended) {
+  test("async client") {
     val server = createServer().start()
 
     using(server) {
@@ -402,9 +402,9 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new FooHolder
       }
 
-      import session.sqlContext.implicits._
+      import spark.sqlContext.implicits._
 
-      val DF: DataFrame = session.sparkContext.parallelize(Seq(Tuple1("placeholder")))
+      val DF: DataFrame = spark.sparkContext.parallelize(Seq(Tuple1("placeholder")))
         .toDF("plcaholder")
         .mapPartitions { _ =>
           Foo.get.increment()

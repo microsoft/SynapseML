@@ -19,6 +19,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
+import spray.json.DefaultJsonProtocol._
 
 @InternalWrapper
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
@@ -288,12 +289,11 @@ class RankingTrainValidationSplitModel(
   extends Model[RankingTrainValidationSplitModel] with Wrappable
     with ComplexParamsWritable {
 
-  def setValidationMetrics(value: Array[_]): this.type = set(validationMetrics, value)
+  def setValidationMetrics(value: Seq[Double]): this.type = set(validationMetrics, value)
 
-  val validationMetrics = new ArrayParam(this, "validationMetrics", "Best Model")
-
+  val validationMetrics = new TypedArrayParam[Double](this, "validationMetrics", "Best Model")
   /** @group getParam */
-  def getValidationMetrics: Array[_] = $(validationMetrics)
+  def getValidationMetrics: Seq[_] = $(validationMetrics)
 
   def setBestModel(value: Model[_]): this.type = set(bestModel, value)
 
