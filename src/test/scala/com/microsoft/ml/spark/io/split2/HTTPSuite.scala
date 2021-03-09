@@ -14,8 +14,8 @@ import org.apache.spark.sql.types.StringType
 
 class HTTPSuite extends TestBase with HTTPTestUtils {
 
-  test("stream from HTTP", TestBase.Extended) {
-    val q1 = session.readStream.format(classOf[HTTPSourceProvider].getName)
+  test("stream from HTTP") {
+    val q1 = spark.readStream.format(classOf[HTTPSourceProvider].getName)
       .option("host", host)
       .option("port", port.toString)
       .option("path", apiPath)

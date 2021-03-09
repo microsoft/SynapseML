@@ -1,11 +1,13 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 import java.io.IOException
 import java.util.Base64
 
-import sys.process._
+import spray.json.DefaultJsonProtocol._
 import spray.json._
-import DefaultJsonProtocol._
-import org.apache.commons.io.IOUtils
-import sbt.{SettingKey, TaskKey}
+
+import scala.sys.process._
 
 object Secrets {
   private val kvName = "mmlspark-keys"

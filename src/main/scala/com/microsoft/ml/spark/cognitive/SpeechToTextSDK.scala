@@ -197,9 +197,9 @@ abstract class SpeechSDKBase extends Transformer
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
-  setDefault(language -> ServiceParamData(None, Some("en-us")))
-  setDefault(profanity -> ServiceParamData(None, Some("Masked")))
-  setDefault(format -> ServiceParamData(None, Some("Simple")))
+  setDefault(language -> Left("en-us"))
+  setDefault(profanity -> Left("Masked"))
+  setDefault(format -> Left("Simple"))
 
   protected def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {

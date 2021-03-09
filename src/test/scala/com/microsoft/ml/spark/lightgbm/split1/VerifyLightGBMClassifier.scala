@@ -49,7 +49,7 @@ trait LightGBMTestUtils extends TestBase {
     * @return A dataframe from read CSV file.
     */
   def readCSV(fileLocation: String): DataFrame = {
-    session.read
+    spark.read
       .option("header", "true").option("inferSchema", "true")
       .option("treatEmptyValuesAsNulls", "false")
       .option("delimiter", if (fileLocation.endsWith(".csv")) "," else "\t")
@@ -218,7 +218,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     outputFileName = "model.txt",
     colsToVerify = Array("Diabetes pedigree function", "Age (years)"))
 
-  test("Compare benchmark results file to generated file", TestBase.Extended) {
+  test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
   }
 
@@ -571,7 +571,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
                                    labelColumnName: String,
                                    decimals: Int): Unit = {
     test("Verify LightGBMClassifier can be trained " +
-      s"and scored on $fileName", TestBase.Extended) {
+      s"and scored on $fileName") {
       boostingTypes.foreach { boostingType =>
         val df = loadBinary(fileName, labelColumnName)
         val model = baseModel
@@ -604,7 +604,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
                                        labelColumnName: String,
                                        precision: Double): Unit = {
     test(s"Verify LightGBMClassifier can be trained and scored " +
-      s"on multiclass $fileName", TestBase.Extended) {
+      s"on multiclass $fileName") {
       lazy val df = loadMulticlass(fileName, labelColumnName).cache()
       boostingTypes.foreach { boostingType =>
 

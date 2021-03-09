@@ -14,6 +14,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.mutable
+import spray.json.DefaultJsonProtocol._
 
 object MultiNGram extends DefaultParamsReadable[MultiNGram]
 
@@ -29,16 +30,12 @@ class MultiNGram(override val uid: String)
   setDefault(outputCol, uid + "_output")
 
   val lengths =
-    new ArrayParam(this, "lengths",
-      "the collection of lengths to use for ngram extraction")
+    new TypedArrayParam[Int](this, "lengths",
+      "the collection of lengths to use for ngram extraction", {x=>true})
 
-  def getLengths: Array[Int] = $(lengths)
-    .toArray.map {
-    case i: scala.math.BigInt => i.toInt
-    case i: java.lang.Integer => i.toInt
-  }
+  def getLengths: Seq[Int] = $(lengths)
 
-  def setLengths(v: Array[Int]): this.type = set(lengths, v)
+  def setLengths(v: Seq[Int]): this.type = set(lengths, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF()
@@ -48,7 +45,7 @@ class MultiNGram(override val uid: String)
     val models = getLengths.zip(intermediateOutputCols).map { case (n, out) =>
       new NGram().setN(n).setInputCol(getInputCol).setOutputCol(out)
     }
-    val intermediateDF = NamespaceInjections.pipelineModel(models).transform(df)
+    val intermediateDF = NamespaceInjections.pipelineModel(models.toArray).transform(df)
     intermediateDF.map { row =>
       val mergedNGrams = intermediateOutputCols
         .map(col => row.getAs[Seq[String]](col))

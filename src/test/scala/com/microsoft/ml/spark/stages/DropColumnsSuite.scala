@@ -3,13 +3,14 @@
 
 package com.microsoft.ml.spark.stages
 
+import com.microsoft.ml.spark.codegen.Config
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{PyTestFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 
 class DropColumnsSuite extends TestBase with TransformerFuzzing[DropColumns] {
 
-  import session.implicits._
+  import spark.implicits._
 
   test("Drop no columns in a data frame") {
     val input = makeBasicDF()

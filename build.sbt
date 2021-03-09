@@ -20,28 +20,29 @@ val scalaMajorVersion = 2.12
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
-  ExclusionRule("org.scalatic"),
   ExclusionRule("org.scalatest")
 )
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
-  "org.scalactic" %% "scalactic" % "3.0.5" % "test",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-  "io.spray" %% "spray-json" % "1.3.2" excludeAll (excludes: _*),
-  "com.microsoft.cntk" % "cntk" % "2.4" excludeAll (excludes: _*),
-  "org.openpnp" % "opencv" % "3.2.0-1" excludeAll (excludes: _*),
-  "com.jcraft" % "jsch" % "0.1.54" excludeAll (excludes: _*),
-  "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0" excludeAll (excludes: _*),
-  "org.apache.httpcomponents" % "httpclient" % "4.5.6" excludeAll (excludes: _*),
-  "org.apache.httpcomponents" % "httpmime" % "4.5.6" excludeAll (excludes: _*),
-  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180" excludeAll (excludes: _*),
-  "com.github.vowpalwabbit" % "vw-jni" % "8.9.1" excludeAll (excludes: _*),
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1" excludeAll (excludes: _*),
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided"
-)
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
+"org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "org.scalatest" %% "scalatest" % "3.0.5" % "test")
+
+libraryDependencies ++= Seq(
+  "org.scalactic" %% "scalactic" % "3.0.5",
+  "io.spray" %% "spray-json" % "1.3.2",
+  "com.microsoft.cntk" % "cntk" % "2.4",
+  "org.openpnp" % "opencv" % "3.2.0-1",
+  "com.jcraft" % "jsch" % "0.1.54",
+  "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+  "org.apache.httpcomponents" % "httpclient" % "4.5.6",
+  "org.apache.httpcomponents" % "httpmime" % "4.5.6",
+  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
+  "com.github.vowpalwabbit" % "vw-jni" % "8.9.1",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1",
+).map(d => d excludeAll (excludes: _*))
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
@@ -114,9 +115,18 @@ def activateCondaEnv: Seq[String] = {
   }
 }
 
+val codegenTask = TaskKey[Unit]("codegen", "Generate Code")
+codegenTask := {
+  val s = streams.value
+  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
+}
 
+val testgenTask = TaskKey[Unit]("testgen", "Generate Tests")
+testgenTask := {
+  val s = streams.value
+  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.TestGen").value
+}
 
-val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
 val genDir = join("target", s"scala-${scalaMajorVersion}", "generated")
 val unidocDir = join("target", s"scala-${scalaMajorVersion}", "unidoc")
 val pythonSrcDir = join(genDir.toString, "src", "python")
@@ -124,17 +134,6 @@ val unifiedDocDir = join(genDir.toString, "doc")
 val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
 val pythonPackageDir = join(genDir.toString, "package", "python")
 val pythonTestDir = join(genDir.toString, "test", "python")
-
-val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
-generatePythonDoc := {
-  val s = streams.value
-  installPipPackageTask.value
-  Process(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
-  Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
-
-}
 
 val pythonizedVersion = settingKey[String]("Pythonized version")
 pythonizedVersion := {
@@ -180,6 +179,17 @@ def singleUploadToBlob(source: String, dest: String,
   Process(osPrefix ++ command) ! log
 }
 
+val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
+generatePythonDoc := {
+  val s = streams.value
+  installPipPackageTask.value
+  Process(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
+    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+  Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
+    join(pythonSrcDir.toString, "mmlspark")) ! s.log
+
+}
+
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
   val s = streams.value
@@ -208,9 +218,10 @@ publishR := {
   singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)
 }
 
+val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
 packagePythonTask := {
   val s = streams.value
-  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
+  codegenTask.value
   createCondaEnvTask.value
   val destPyDir = join("target", s"scala-${scalaMajorVersion}", "classes", "mmlspark")
   if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
@@ -223,7 +234,6 @@ packagePythonTask := {
 }
 
 val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
-
 installPipPackageTask := {
   val s = streams.value
   publishLocal.value
@@ -250,6 +260,7 @@ val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 testPythonTask := {
   val s = streams.value
   installPipPackageTask.value
+  testgenTask.value
   Process(
     activateCondaEnv ++ Seq("python",
       "-m",

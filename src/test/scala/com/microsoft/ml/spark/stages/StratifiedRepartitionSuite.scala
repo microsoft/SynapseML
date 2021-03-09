@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
 class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[StratifiedRepartition] {
 
-  import session.implicits._
+  import spark.implicits._
 
   val values = "values"
   val colors = "colors"

@@ -222,11 +222,16 @@ jobs:
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
-    - bash: |
-        source activate mmlspark
-        (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-        sbt coverage testPython
-      displayName: Test Python Code
+    - task: AzureCLI@1
+      displayName: 'Test Python Code'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate mmlspark
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt coverage testPython
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:

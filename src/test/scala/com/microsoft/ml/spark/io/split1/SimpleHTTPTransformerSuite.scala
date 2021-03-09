@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.{StringType, StructType}
 class SimpleHTTPTransformerSuite
   extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = sc.parallelize((1 to 10).map(Tuple1(_))).toDF("data")
 

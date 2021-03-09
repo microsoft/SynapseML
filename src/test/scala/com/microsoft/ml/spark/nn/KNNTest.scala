@@ -28,7 +28,7 @@ class KNNTest extends EstimatorFuzzing[KNN] with BallTreeTestBase {
     }
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(
       df1.select("features", "values", "matches.distance"),
       df2.select("features", "values", "matches.distance")
@@ -63,7 +63,7 @@ class ConditionalKNNTest extends EstimatorFuzzing[ConditionalKNN] with BallTreeT
     }
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(
       df1.select("features", "values", "matches.distance"),
       df2.select("features", "values", "matches.distance")

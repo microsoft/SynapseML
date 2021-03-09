@@ -9,7 +9,7 @@ import java.net.URL
 
 import breeze.linalg.{*, DenseMatrix}
 import breeze.stats.distributions.Rand
-import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
@@ -19,6 +19,7 @@ import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
@@ -28,7 +29,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 trait LimeTestBase extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val nRows = 100
   lazy val d1 = 3
@@ -114,11 +115,11 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     .setModifier(modifier)
     .setNSamples(3)
 
-  lazy val df: DataFrame = session
+  lazy val df: DataFrame = spark
     .read.binary.load(greyhoundImageLocation)
     .select(col("value.bytes").alias(inputCol))
 
-  lazy val imageDf: DataFrame = session
+  lazy val imageDf: DataFrame = spark
     .read.image.load(greyhoundImageLocation)
     .select(col("image").alias(inputCol))
 
@@ -128,13 +129,13 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     assert(resVec.argmax == 172)
   }
 
-  test("LIME on Binary types", TestBase.Extended) {
+  test("LIME on Binary types") {
     val result: DataFrame = lime.setNSamples(20).transform(df)
     result.show()
   }
 
   test("basic functionality") {
-    import session.implicits._
+    import spark.implicits._
 
     val df = Seq(
       (1, "foo", "foo1", 11),
@@ -151,7 +152,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     rdf.show()
   }
 
-  test("LIME on image Types", TestBase.Extended) {
+  test("LIME on image Types") {
     val result: DataFrame = lime.setNSamples(20).transform(imageDf)
     result.printSchema()
 

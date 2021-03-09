@@ -51,12 +51,12 @@ object CategoricalUtilities {
     bldr.putBoolean(Ordinal, false)
     bldr.putBoolean(HasNullLevels, hasNullLevels)
     dataType match {
-      case DataTypes.StringType  => bldr.putStringArray(ValuesString, levels.asInstanceOf[Array[String]])
-      case DataTypes.DoubleType  => bldr.putDoubleArray(ValuesDouble, levels.asInstanceOf[Array[Double]])
+      case DataTypes.StringType  => bldr.putStringArray(ValuesString, levels.map(_.asInstanceOf[String]))
+      case DataTypes.DoubleType  => bldr.putDoubleArray(ValuesDouble, levels.map(_.asInstanceOf[Double]))
       // Ints require special treatment, because Spark does not have putIntArray yet:
-      case DataTypes.IntegerType => bldr.putLongArray(ValuesInt, levels.asInstanceOf[Array[Int]].map(_.toLong))
-      case DataTypes.LongType    => bldr.putLongArray(ValuesLong, levels.asInstanceOf[Array[Long]])
-      case DataTypes.BooleanType => bldr.putBooleanArray(ValuesBool, levels.asInstanceOf[Array[Boolean]])
+      case DataTypes.IntegerType => bldr.putLongArray(ValuesInt, levels.map(_.asInstanceOf[Int].toLong))
+      case DataTypes.LongType    => bldr.putLongArray(ValuesLong, levels.map(_.asInstanceOf[Long]))
+      case DataTypes.BooleanType => bldr.putBooleanArray(ValuesBool, levels.map(_.asInstanceOf[Boolean]))
       case _           => throw new UnsupportedOperationException("Unsupported categorical data type: " + dataType)
     }
     val metadata = bldr.build()

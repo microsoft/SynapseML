@@ -9,7 +9,7 @@ import org.apache.spark.ml.util.MLReadable
 
 class SelectColumnsSuite extends TestBase with TransformerFuzzing[SelectColumns] {
 
-  import session.implicits._
+  import spark.implicits._
 
   test("Select all columns in a data frame") {
     val input = makeBasicDF()

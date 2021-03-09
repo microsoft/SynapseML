@@ -13,7 +13,7 @@ import org.apache.spark.sql.types._
 
 class VerifyDataConversions extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   val testVal: Long = (Int.MaxValue).toLong + 100
   val testShort: Integer = Short.MaxValue + 100

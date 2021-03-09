@@ -25,7 +25,7 @@ trait AzureSearchKey {
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   with TransformerFuzzing[AddDocuments] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   private val testServiceName = "mmlspark-azure-search"
 

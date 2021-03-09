@@ -27,18 +27,18 @@ import org.apache.spark.sql.types.StringType
 trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
 
   lazy val modelDir = new File(filesRoot, "CNTKModel")
-  lazy val modelDownloader = new ModelDownloader(session, modelDir.toURI)
+  lazy val modelDownloader = new ModelDownloader(spark, modelDir.toURI)
 
   lazy val resNetUri: URI = new File(modelDir, "ResNet50_ImageNet.model").toURI
   lazy val resNet: ModelSchema = modelDownloader.downloadByName("ResNet50")
 
-  lazy val images: DataFrame = session.read.image.load(imagePath)
+  lazy val images: DataFrame = spark.read.image.load(imagePath)
     .withColumnRenamed("image", inputCol)
-  lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
+  lazy val binaryImages: DataFrame = spark.read.binary.load(imagePath)
     .select(col("value.bytes").alias(inputCol))
 
   lazy val groceriesPath = FileUtilities.join(BuildInfo.datasetDir, "Images","Grocery")
-  lazy val groceryImages: DataFrame = session.read.image
+  lazy val groceryImages: DataFrame = spark.read.image
     .option("dropInvalid", true)
     .load(groceriesPath + "**")
     .withColumnRenamed("image", inputCol)
@@ -51,11 +51,11 @@ trait NetworkUtils extends CNTKTestUtils with FileReaderUtils {
     loc
   }
 
-  lazy val greyscaleImage: DataFrame = session
+  lazy val greyscaleImage: DataFrame = spark
     .read.image.load(greyscaleImageLocation)
     .select(col("image").alias(inputCol))
 
-  lazy val greyscaleBinary: DataFrame = session
+  lazy val greyscaleBinary: DataFrame = spark
     .read.binary.load(greyscaleImageLocation)
     .select(col("value.bytes").alias(inputCol))
 
@@ -70,7 +70,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   with NetworkUtils {
 
   test("Image featurizer should reproduce the CIFAR10 experiment") {
-    print(session)
+    print(spark)
     val model = new ImageFeaturizer()
       .setInputCol(inputCol)
       .setOutputCol(outputCol)
@@ -90,7 +90,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .setCutOutputLayers(0)
       .setLayerNames(Array("z"))
 
-    val imageDF = session
+    val imageDF = spark
       .readStream
       .image
       .load(cifarDirectory)
@@ -104,7 +104,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
 
     try {
       tryWithRetries() { () =>
-        assert(session.sql("select * from images").count() == 6)
+        assert(spark.sql("select * from images").count() == 6)
       }
     } finally {
       q1.stop()
@@ -117,7 +117,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("the Image feature should work with the modelSchema + new images") {
-    val newImages = session.read.image
+    val newImages = spark.read.image
       .load(cifarDirectory)
       .withColumnRenamed("image", "cntk_images")
 
@@ -125,26 +125,26 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     compareToTestModel(result)
   }
 
-  test("Image featurizer should work with ResNet50", TestBase.Extended) {
+  test("Image featurizer should work with ResNet50") {
     val result = resNetModel().transform(images)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
 
-  test("Image featurizer should work with ResNet50 in greyscale", TestBase.Extended) {
+  test("Image featurizer should work with ResNet50 in greyscale") {
     val result = resNetModel().transform(greyscaleImage)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
 
-  test("Image featurizer should work with ResNet50 in greyscale binary", TestBase.Extended) {
+  test("Image featurizer should work with ResNet50 in greyscale binary") {
     val result = resNetModel().transform(greyscaleBinary)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
 
-  test("Image featurizer should work with ResNet50 Binary + nulls", TestBase.Extended) {
-    import session.implicits._
+  test("Image featurizer should work with ResNet50 Binary + nulls") {
+    import spark.implicits._
     val corruptImage = Seq("fooo".toCharArray.map(_.toByte))
       .toDF(inputCol)
     val df = binaryImages.union(corruptImage)
@@ -154,8 +154,8 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     assert(result(0).getAs[DenseVector](0).size == 1000)
   }
 
-  test("Image featurizer should work with ResNet50 Binary 2 + nulls", TestBase.Extended) {
-    import session.implicits._
+  test("Image featurizer should work with ResNet50 Binary 2 + nulls") {
+    import spark.implicits._
     val corruptImage = Seq("fooo".toCharArray.map(_.toByte))
       .toDF(inputCol)
     val df = binaryImages.union(corruptImage)
@@ -165,8 +165,8 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     assert(result(0).getAs[DenseVector](0).size == 1000)
   }
 
-  test("Image featurizer should correctly classify an image", TestBase.Extended) {
-    val testImg: DataFrame = session
+  test("Image featurizer should correctly classify an image") {
+    val testImg: DataFrame = spark
       .read.image.load(s"$filesRoot/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg")
       .withColumnRenamed("image", inputCol)
     val result = resNetModel().transform(testImg)
@@ -174,7 +174,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     assert(resVec.argmax == 760)
   }
 
-  test("Image featurizer should work with ResNet50 and powerBI", TestBase.Extended) {
+  test("Image featurizer should work with ResNet50 and powerBI") {
     val images = groceryImages.withColumnRenamed(inputCol, "image").coalesce(1)
     println(images.count())
 
@@ -185,7 +185,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
   }
 
-  test("test layers of network", TestBase.Extended) {
+  test("test layers of network") {
     (0 to 9).foreach({ i =>
       val model = new ImageFeaturizer()
         .setModel(resNet)

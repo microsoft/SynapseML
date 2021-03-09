@@ -16,7 +16,7 @@ import scala.util.Random
 class DownloaderSuite extends TestBase {
 
   lazy val saveDir = Files.createTempDirectory("Models-").toFile
-  lazy val d = new ModelDownloader(session, saveDir.toURI)
+  lazy val d = new ModelDownloader(spark, saveDir.toURI)
 
   test("retry utility should catch flakiness"){
     (1 to 20).foreach { i =>
@@ -38,7 +38,7 @@ class DownloaderSuite extends TestBase {
     }
   }
 
-  test("A downloader should be able to download a model", TestBase.Extended) {
+  test("A downloader should be able to download a model") {
     val m = d.remoteModels.asScala.filter(_.name == "CNN").next()
     val schema = d.downloadModel(m)
     println(schema)
@@ -47,7 +47,7 @@ class DownloaderSuite extends TestBase {
   }
 
   ignore("A downloader should be able to get all Models " +
-    "and maybeDownload should be fast if models are downloaded", TestBase.Extended) {
+    "and maybeDownload should be fast if models are downloaded") {
     val (modTimes, modTimes2) = FaultToleranceUtils.retryWithTimeout(10, Duration.apply(500, "seconds")) {
       d.downloadModels()
       val modTimes = d.localModels.asScala.map(s =>
