@@ -80,22 +80,19 @@ jobs:
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/'
         Contents: '**/*SNAPSHOT*'
-        TargetFolder: 'publishArtifact'
+        TargetFolder: 'publishArtifact/jar'
         OverWrite: true
-        displayName: Copy jar files
     - task: CopyFiles@2
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/generated/package/python/'
         Contents: '**/*.whl'
         TargetFolder: 'publishArtifact/python'
         OverWrite: true
-        displayName: Copy whl files
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: 'publishArtifact/jar'
+        targetPath: 'publishArtifact'
         artifact: 'mmlspark'
         publishLocation: 'pipeline'
-        displayName: Publish Pipeline Artifact
 
 - job: E2E
   cancelTimeoutInMinutes: 0
