@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -20,10 +19,10 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMBase[LightGBMClassificationModel] {
+
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
@@ -83,11 +82,14 @@ trait HasActualNumClasses extends Params {
 }
 
 /** Model produced by [[LightGBMClassifier]]. */
-@InternalWrapper
 class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
       with HasActualNumClasses with ComplexParamsWritable {
+
+  def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to

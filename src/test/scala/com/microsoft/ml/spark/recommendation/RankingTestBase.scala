@@ -70,6 +70,7 @@ trait RankingTestBase extends TestBase {
     .setUserCol(recommendationIndexer.getUserOutputCol)
     .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
+    .setSeed(0)
 
   val sar: SAR = new SAR()
     .setUserCol(recommendationIndexer.getUserOutputCol)

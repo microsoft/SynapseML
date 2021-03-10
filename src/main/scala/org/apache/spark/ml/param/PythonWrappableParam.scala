@@ -4,20 +4,27 @@
 package org.apache.spark.ml.param
 
 import spray.json._
+import java.lang.{StringBuilder => JStringBuilder}
+
+trait PythonPrinter extends CompactPrinter {
+  override protected def printLeaf(x: JsValue, sb: JStringBuilder): Unit = {
+    x match {
+      case JsNull      => sb.append("None")
+      case JsTrue      => sb.append("True")
+      case JsFalse     => sb.append("False")
+      case JsNumber(x) => sb.append(x)
+      case JsString(x) => printString(x, sb)
+      case _           => throw new IllegalStateException
+    }
+  }
+}
+
+object PythonPrinter extends PythonPrinter
 
 object PythonWrappableParam {
 
   def defaultPythonize[T](value: T, jsonFunc: T => String): String = {
-    value match {
-      case v: String =>
-        s""""$v""""
-      case _: Double | _: Int | _: Long =>
-        s"""${value.toString}"""
-      case v: Boolean =>
-        s"""${v.toString.capitalize}"""
-      case v =>
-        s"""json.loads('${jsonFunc(v)}')"""
-    }
+    PythonPrinter(jsonFunc(value).parseJson)
   }
 
   def defaultPythonize[T](value: T)(implicit dataFormat: JsonFormat[T]): String = {

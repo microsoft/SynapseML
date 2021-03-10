@@ -21,7 +21,14 @@ object UntypedArrayParamJsonProtocol extends DefaultJsonProtocol {
       }
 
       def read(value: JsValue): Any = value match {
-        case v: JsNumber => v.value
+        case v: JsNumber =>
+          val num = v.value
+          num match {
+            case _ if num.isValidInt => num.toInt
+            case _ if num.isValidLong => num.toLong
+            case _ if num.isExactDouble || num.isBinaryDouble || num.isDecimalDouble => num.toDouble
+            case _ => num
+          }
         case v: JsString => v.value
         case v: JsBoolean => v.value
         case _ => throw new IllegalArgumentException(s"Cannot deserialize ${value}")

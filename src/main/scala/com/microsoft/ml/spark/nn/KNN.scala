@@ -4,7 +4,8 @@
 package com.microsoft.ml.spark.nn
 
 import breeze.linalg.{DenseVector => BDV}
-import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol}
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._

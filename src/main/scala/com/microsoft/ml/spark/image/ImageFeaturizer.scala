@@ -6,8 +6,8 @@ package com.microsoft.ml.spark.image
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
 import com.microsoft.ml.spark.cntk.CNTKModel
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.downloader.ModelSchema
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -36,10 +36,11 @@ object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
   *
   * @param uid the uid of the image transformer
   */
-@InternalWrapper
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
   with Wrappable with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
+
+  override protected lazy val pyInternalWrapper = true
 
   // Parameters related to the inner model
 

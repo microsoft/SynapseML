@@ -12,6 +12,8 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import com.microsoft.ml.spark.codegen.Wrappable
+
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
   val Epsilon = 1e-15

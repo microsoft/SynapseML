@@ -8,21 +8,12 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark.lightgbm._LightGBMRegressor import _LightGBMRegressor
-from mmlspark.lightgbm._LightGBMRegressor import _LightGBMRegressionModel
+from mmlspark.lightgbm._LightGBMRegressionModel import _LightGBMRegressionModel
 from pyspark import SparkContext
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.linalg import SparseVector, DenseVector
 from pyspark.ml.wrapper import JavaParams
 from mmlspark.core.serialize.java_params_patch import *
-
-@inherit_doc
-class LightGBMRegressor(_LightGBMRegressor):
-    def _create_model(self, java_model):
-        model = LightGBMRegressionModel()
-        model._java_obj = java_model
-        model._transfer_params_from_java()
-        return model
 
 @inherit_doc
 class LightGBMRegressionModel(_LightGBMRegressionModel):

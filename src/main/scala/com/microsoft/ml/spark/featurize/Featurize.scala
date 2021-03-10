@@ -3,16 +3,27 @@
 
 package com.microsoft.ml.spark.featurize
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import org.apache.spark.annotation.DeveloperApi
+import java.sql.{Date, Timestamp}
+import java.time.temporal.ChronoField
+
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
+import com.microsoft.ml.spark.featurize.text.TextFeaturizer
+import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
+import org.apache.spark.ml.feature.{Imputer, OneHotEncoder, SQLTransformer, VectorAssembler}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
-private[spark] object FeaturizeUtilities
-{
+import scala.collection.mutable
+
+private[spark] object FeaturizeUtilities {
   // 2^18 features by default
   val NumFeaturesDefault = 262144
   // 2^12 features for tree-based or NN-based learners
@@ -23,27 +34,17 @@ object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with DefaultParamsWritable {
+  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols {
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
-  /** Feature columns - the columns to be featurized
-    * @group param
-    */
-  val featureColumns: MapArrayParam = new MapArrayParam(this, "featureColumns", "Feature columns")
-
-  /** @group getParam */
-  final def getFeatureColumns: Map[String, Seq[String]] = $(featureColumns)
-
-  /** @group setParam */
-  def setFeatureColumns(value: Map[String, Seq[String]]): this.type = set(featureColumns, value)
-
   /** One hot encode categorical columns when true; default is true
+    *
     * @group param
     */
   val oneHotEncodeCategoricals: Param[Boolean] = new BooleanParam(this,
     "oneHotEncodeCategoricals",
-    "One-hot encode categoricals")
+    "One-hot encode categorical columns")
 
   setDefault(oneHotEncodeCategoricals -> true)
 
@@ -54,27 +55,117 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   def setOneHotEncodeCategoricals(value: Boolean): this.type = set(oneHotEncodeCategoricals, value)
 
   /** Number of features to hash string columns to
+    *
     * @group param
     */
-  val numberOfFeatures: IntParam = new IntParam(this, "numberOfFeatures",
-      "Number of features to hash string columns to")
-  setDefault(numberOfFeatures -> FeaturizeUtilities.NumFeaturesDefault)
+  val numFeatures: IntParam = new IntParam(this, "numFeatures",
+    "Number of features to hash string columns to")
+  setDefault(numFeatures -> FeaturizeUtilities.NumFeaturesDefault)
 
   /** @group getParam */
-  final def getNumberOfFeatures: Int = $(numberOfFeatures)
+  final def getNumFeatures: Int = $(numFeatures)
 
   /** @group setParam */
-  def setNumberOfFeatures(value: Int): this.type = set(numberOfFeatures, value)
+  def setNumFeatures(value: Int): this.type = set(numFeatures, value)
 
-  /** Specifies whether to allow featurization of images */
-  val allowImages: Param[Boolean] = new BooleanParam(this, "allowImages", "Allow featurization of images")
-  setDefault(allowImages -> false)
+  val imputeMissing: Param[Boolean] = new BooleanParam(this, "imputeMissing",
+    "Whether to impute missing values")
+  setDefault(imputeMissing -> true)
 
   /** @group getParam */
-  final def getAllowImages: Boolean = $(allowImages)
+  final def getImputeMissing: Boolean = $(imputeMissing)
 
   /** @group setParam */
-  def setAllowImages(value: Boolean): this.type = set(allowImages, value)
+  def setImputeMissing(value: Boolean): this.type = set(imputeMissing, value)
+
+  //noinspection ScalaStyle
+  def featurizeSingleColumn(dataset: Dataset[_], col: String): (Pipeline, String) = {
+    val usedColumns: mutable.HashSet[String] = new mutable.HashSet() ++ dataset.columns
+    val colsToDrop: mutable.HashSet[String] = new mutable.HashSet()
+    var newCol = col
+    var oldCol = col
+    var dType = dataset.schema(newCol).dataType
+
+    def updateNewCol(prefix: String): Unit = {
+      oldCol = newCol
+      newCol = findUnusedColumnName(col + prefix)(usedColumns.toSet)
+      usedColumns += newCol
+      colsToDrop += newCol
+    }
+
+    val metadata = dataset.schema(oldCol).metadata
+    val isCategorical = getOneHotEncodeCategoricals &&
+      metadata.contains("ml_attr") &&
+      metadata.getMetadata("ml_attr").contains("type") &&
+      metadata.getMetadata("ml_attr").getString("type") == "nominal"
+
+    val caster = dType match {
+      case _ if isCategorical =>
+        updateNewCol("_encoded")
+        dType = VectorType
+        Some(new OneHotEncoder().setInputCol(oldCol).setOutputCol(newCol))
+      case _: FloatType | _: LongType | _: IntegerType =>
+        updateNewCol("_cast")
+        dType = DoubleType
+        Some(new SQLTransformer().setStatement(s"SELECT *, cast(`$oldCol` as double) AS `$newCol` FROM __THIS__"))
+      case _ =>
+        None
+    }
+
+    val imputer = dType match {
+      case _: DoubleType if getImputeMissing =>
+        updateNewCol("_imputed")
+        Some(new CleanMissingData().setInputCols(Array(oldCol)).setOutputCols(Array(newCol)))
+      case _ =>
+        None
+    }
+
+    val featurizer = {
+      dType match {
+        case _: StringType =>
+          val oldCol2 = oldCol
+          val m0 = new Lambda().setTransform(df => df.na.fill("", Seq(oldCol2))).setTransformSchema({ x => x })
+          updateNewCol("_featurized")
+          val m1 = new TextFeaturizer().setNumFeatures(getNumFeatures).setInputCol(oldCol).setOutputCol(newCol)
+          updateNewCol("_selected")
+          val m2 = new CountSelector().setInputCol(oldCol).setOutputCol(newCol)
+          Some(new Pipeline().setStages(Array(m0, m1, m2)))
+        case _: TimestampType =>
+          updateNewCol("_featurized")
+          val featurizeUdf = udf((ts: Timestamp) => {
+            val localDate = ts.toLocalDateTime
+            Vectors.dense(Array[Double](
+              ts.getTime.toDouble,
+              localDate.getYear.toDouble,
+              localDate.getDayOfWeek.getValue.toDouble,
+              localDate.getMonth.getValue.toDouble,
+              localDate.getDayOfMonth.toDouble,
+              localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
+              localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
+              localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
+          })
+          Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
+        case _: DateType =>
+          updateNewCol("_featurized")
+          val featurizeUdf = udf((d: Date) => {
+            val localDate = d.toLocalDate
+            Vectors.dense(Array[Double](d.getTime.toDouble,
+              localDate.getYear.toDouble,
+              localDate.getDayOfWeek.getValue.toDouble,
+              localDate.getMonth.getValue.toDouble,
+              localDate.getDayOfMonth.toDouble))
+          })
+          Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
+        case _ =>
+          None
+      }
+    }
+
+    val dropper = Some(new DropColumns().setCols((colsToDrop - newCol).toArray))
+    val pipe = new Pipeline().setStages(Seq(caster, imputer, featurizer, dropper).flatten.toArray)
+
+    (pipe, newCol)
+  }
 
   /** Featurizes the dataset.
     *
@@ -82,29 +173,20 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     * @return The featurized model.
     */
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    val pipeline = assembleFeaturesEstimators(getFeatureColumns)
-    pipeline.fit(dataset)
-  }
-
-  private def assembleFeaturesEstimators(featureColumns: Map[String, Seq[String]]): Pipeline = {
-    val assembleFeaturesEstimators = featureColumns.map(newColToFeatures => {
-      new AssembleFeatures()
-        .setColumnsToFeaturize(newColToFeatures._2.toArray)
-        .setFeaturesCol(newColToFeatures._1)
-        .setNumberOfFeatures(getNumberOfFeatures)
-        .setOneHotEncodeCategoricals(getOneHotEncodeCategoricals)
-        .setAllowImages(getAllowImages)
-    }).toArray
-
-    new Pipeline().setStages(assembleFeaturesEstimators)
+    val (pipes, newCols) = getInputCols.map(featurizeSingleColumn(dataset, _)).unzip
+    val va = new VectorAssembler().setInputCols(newCols).setOutputCol(getOutputCol).setHandleInvalid("skip")
+    val dropper = new DropColumns().setCols(newCols.diff(getInputCols))
+    val stages = pipes.toSeq ++ Seq(va) ++ Seq(dropper)
+    val pipe = new Pipeline().setStages(stages.toArray)
+    val fitModel = pipe.fit(dataset)
+    fitModel
   }
 
   override def copy(extra: ParamMap): Estimator[PipelineModel] = {
     new Featurize()
   }
 
-  @DeveloperApi
   override def transformSchema(schema: StructType): StructType =
-    assembleFeaturesEstimators(getFeatureColumns).transformSchema(schema)
+    schema.add(getOutputCol, VectorType)
 
 }

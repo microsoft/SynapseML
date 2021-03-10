@@ -179,7 +179,8 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .transform(df).drop(categoricalColumns: _*)
       .withColumnRenamed("TaskFailed10", labelCol)
       .drop(Array("IsControl10", "RanAsSystem10", "IsDAAMachine10", "IsUx", "IsClient"): _*)
-    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol, oneHotEncodeCategoricals = false).transform(df2)
+    val tdf = LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol, oneHotEncodeCategoricals = false).transform(df2)
+    tdf
   }.cache()
   lazy val bankTrainDF: DataFrame = {
     LightGBMUtils.getFeaturizer(unfeaturizedBankTrainDF, labelCol, featuresCol).transform(unfeaturizedBankTrainDF)
@@ -241,6 +242,10 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
       .setFeaturesShapCol(featuresShapCol)
+  }
+
+  test("foo"){
+    new LightGBMClassifier().makePyFile()
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -394,8 +399,11 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
   test("Verify LightGBM Classifier categorical parameter for sparse dataset") {
     val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
-    val untrainedModel = baseModel
-      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+    val categoricalSlotNames = indexedBankTrainDF.schema(featuresCol)
+      .metadata.getMetadata("ml_attr").getMetadata("attrs").
+      getMetadataArray("numeric").map(_.getString("name"))
+      .filter(_.startsWith("c_"))
+    val untrainedModel = baseModel.setCategoricalSlotNames(categoricalSlotNames)
     val model = untrainedModel.fit(train)
     // Verify categorical features used in some tree in the model
     assert(model.getModel.model.contains("num_cat=1"))
@@ -407,8 +415,12 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
   test("Verify LightGBM Classifier categorical parameter for dense dataset") {
     val Array(train, test) = indexedTaskDF.randomSplit(Array(0.8, 0.2), seed)
+    val categoricalSlotNames = indexedTaskDF.schema(featuresCol)
+      .metadata.getMetadata("ml_attr").getMetadata("attrs").
+      getMetadataArray("numeric").map(_.getString("name"))
+      .filter(_.startsWith("c_"))
     val untrainedModel = baseModel
-      .setCategoricalSlotNames(indexedTaskDF.columns.filter(_.startsWith("c_")))
+      .setCategoricalSlotNames(categoricalSlotNames)
     val model = untrainedModel.fit(train)
     // Verify non-zero categorical features used in some tree in the model
     val numCats = Range(1, 5).map(cat => s"num_cat=${cat}")
