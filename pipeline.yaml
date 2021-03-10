@@ -76,6 +76,23 @@ jobs:
       displayName: Publish Badges
       env:
         STORAGE_KEY: $(storage-key)
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/'
+        Contents: '**/*.jar'
+        TargetFolder: 'publishArtifact'
+        OverWrite: true
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/generated/package/python/'
+        Contents: '**/*.whl'
+        TargetFolder: 'publishArtifact'
+        OverWrite: true
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: 'publishArtifact'
+        artifact: 'mmlspark'
+        publishLocation: 'pipeline'
 
 - job: E2E
   cancelTimeoutInMinutes: 0
