@@ -360,7 +360,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     )
   }
 
-  test("Verify LightGBM Classifier with validation dataset") {
+  ignore("Verify LightGBM Classifier with validation dataset") {
     tryWithRetries(Array(0, 0, 0, 0)) { () => // TODO fix flakiness
       val df = taskDF.orderBy(rand()).withColumn(validationCol, lit(false))
 
