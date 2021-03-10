@@ -79,7 +79,11 @@ jobs:
     - task: CopyFiles@2
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/'
-        Contents: '**/*SNAPSHOT*'
+        Contents: |
+          '*/*.jar'
+          '*/*.jar.asc'
+          '*/*.pom'
+          '*/*.pom.asc'
         TargetFolder: 'publishArtifact/jar'
         OverWrite: true
     - task: CopyFiles@2
