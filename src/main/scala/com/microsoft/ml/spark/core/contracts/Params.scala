@@ -5,14 +5,6 @@ package com.microsoft.ml.spark.core.contracts
 
 import org.apache.spark.ml.param._
 
-trait HasAdditionalPythonMethods extends Params {
-  def additionalPythonMethods(): String = {
-    ""
-  }
-}
-
-//Trait used to opt into code generation
-trait Wrappable extends HasAdditionalPythonMethods
 
 trait HasInputCol extends Params {
   /** The name of the input column

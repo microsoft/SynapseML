@@ -16,6 +16,7 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.io.split1.FileReaderUtils
 import com.microsoft.ml.spark.stages.UDFTransformer
+import com.microsoft.ml.spark.stages.udfs.get_value_udf
 import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
@@ -97,7 +98,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   lazy val getGreyhoundClass: UDFTransformer = new UDFTransformer()
     .setInputCol(resNetTransformer.getOutputCol)
     .setOutputCol(resNetTransformer.getOutputCol)
-    .setUDF(UDFUtils.oldUdf({ vec: org.apache.spark.ml.linalg.Vector => vec(172) }, DoubleType))
+    .setUDF(get_value_udf(172))
 
   lazy val pipeline: PipelineModel = NamespaceInjections.pipelineModel(
     Array(resNetTransformer, getGreyhoundClass))

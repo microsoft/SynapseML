@@ -9,13 +9,13 @@ import java.nio.file.Files
 
 import com.microsoft.ml.spark.codegen.Config
 import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameEquality, ExternalPythonWrappableParam, ParamPair, PythonWrappableParam}
+import org.apache.spark.ml.param.{DataFrameEquality, ExternalPythonWrappableParam, ParamPair}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
+import com.microsoft.ml.spark.codegen.GenerationUtils._
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -67,35 +67,26 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
   }
 
+  val testFitting = false
+
   def saveTestData(): Unit = {
     testDataDir.mkdirs()
     pyTestObjects().zipWithIndex.foreach { case (to, i) =>
       saveModel(to.stage, s"model-$i")
-      //saveDataset(to.fitDF, s"fit-$i")
-      //saveDataset(to.transDF, s"trans-$i")
-      //to.validateDF.foreach(saveDataset(_, s"val-$i"))
+      if (testFitting) {
+        saveDataset(to.fitDF, s"fit-$i")
+        saveDataset(to.transDF, s"trans-$i")
+        to.validateDF.foreach(saveDataset(_, s"val-$i"))
+      }
     }
   }
 
-  def pythonizeParam[T](p: ParamPair[T]): String = {
-    p.param match {
-      case pwp: PythonWrappableParam[_] =>
-        pwp.costructorBasedValue(p.value.asInstanceOf[pwp.InnerType])
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
-      case _ =>
-        s"""${p.param.name}=${PythonWrappableParam.defaultPythonize(p.value, p.param)}"""
-    }
-  }
-
-  def makePyTests(testObject: TestObject[S], num: Int): String = {
-    val stage = testObject.stage
+  def pyTestInstantiateModel(stage: S, num: Int): String = {
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
-
     val stageName = stage.getClass.getName.split(".".toCharArray).last
 
-    def testBody(paramMap: Seq[ParamPair[_]]) = {
+    def instantiateModel(paramMap: Seq[ParamPair[_]]) = {
       val externalLoadlingLines = paramMap.flatMap { pp =>
         pp.param match {
           case ep: ExternalPythonWrappableParam[_] =>
@@ -104,53 +95,52 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
         }
       }.mkString("\n")
       s"""
-         |def test_${stageName}_constructor_$num(self):
-         |${indent(externalLoadlingLines, 1)}
+         |$externalLoadlingLines
          |
-         |    model = $stageName(
-         |${indent(paramMap.map(pythonizeParam(_)).mkString(",\n"), 2)}
-         |    )
-         |
-         |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
+         |model = $stageName(
+         |${indent(paramMap.map(pythonizeParam(_)).mkString(",\n"), 1)}
+         |)
          |
          |""".stripMargin
     }
 
-
     try {
-      testBody(fullParamMap)
+      instantiateModel(fullParamMap)
     } catch {
       case _: NotImplementedError =>
         println(s"could not generate full test for ${stageName}, resorting to partial test")
-        testBody(partialParamMap)
+        instantiateModel(partialParamMap)
     }
   }
 
-  def indent(test: String, numTabs: Int): String = {
-    test.split("\n".toCharArray).map(l => "    " * numTabs + l).mkString("\n")
-  }
 
-  def camelToSnake(str: String): String = {
-    val headInUpperCase = str.takeWhile(c => c.isUpper || c.isDigit)
-    val tailAfterHeadInUppercase = str.dropWhile(c => c.isUpper || c.isDigit)
-
-    if (tailAfterHeadInUppercase.isEmpty) headInUpperCase.toLowerCase else {
-      val firstWord = if (!headInUpperCase.dropRight(1).isEmpty) {
-        headInUpperCase.last match {
-          case c: Any if (c.isDigit) => headInUpperCase
-          case _ => headInUpperCase.dropRight(1).toLowerCase
-        }
-      } else {
-        headInUpperCase.toLowerCase + tailAfterHeadInUppercase.takeWhile(c => c.isLower)
-      }
-
-      if (firstWord == str.toLowerCase) {
-        firstWord
-      } else {
-        s"${firstWord}_${camelToSnake(str.drop(firstWord.length))}"
-      }
-
+  def makePyTests(testObject: TestObject[S], num: Int): String = {
+    val stage = testObject.stage
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val fittingTest = stage match {
+      case _: Estimator[_] if testFitting =>
+        s"""
+           |fdf = spark.read.parquet(join(test_data_dir, "fit-$num.parquet"))
+           |tdf = spark.read.parquet(join(test_data_dir, "trans-$num.parquet"))
+           |model.fit(fdf).transform(tdf).show()
+           |""".stripMargin
+      case _: Transformer if testFitting =>
+        s"""
+           |tdf = spark.read.parquet(join(test_data_dir, "trans-$num.parquet"))
+           |model.transform(tdf).show()
+           |""".stripMargin
+      case _ => ""
     }
+
+    s"""
+       |def test_${stageName}_constructor_$num(self):
+       |${indent(pyTestInstantiateModel(stage, num), 1)}
+       |
+       |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
+       |
+       |${indent(fittingTest, 1)}
+       |
+       |""".stripMargin
   }
 
 
@@ -236,7 +226,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 
   def modelReader: MLReadable[_]
 
-  val useShm = sys.env.getOrElse("MMLSPARK_TEST_SHM", "false").toBoolean
+  val useShm: Boolean = sys.env.getOrElse("MMLSPARK_TEST_SHM", "false").toBoolean
 
   lazy val savePath: String = {
     if (useShm) {

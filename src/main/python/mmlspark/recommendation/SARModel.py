@@ -8,10 +8,10 @@ if sys.version >= "3":
     basestring = str
 
 from mmlspark.core.schema.Utils import *
-from mmlspark.recommendation._SARModel import _SARModel as sarModel
+from mmlspark.recommendation._SARModel import _SARModel
 
 
 @inherit_doc
-class SARModel(sarModel):
+class SARModel(_SARModel):
     def recommendForAllUsers(self, numItems):
         return self._call_java("recommendForAllUsers", numItems)

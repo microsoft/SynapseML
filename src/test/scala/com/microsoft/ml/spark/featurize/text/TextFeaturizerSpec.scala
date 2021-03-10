@@ -5,10 +5,13 @@ package com.microsoft.ml.spark.featurize.text
 
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.ml.util.MLReadable
 
 class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
+  override val testFitting = true
+
   lazy val dfRaw = spark
     .createDataFrame(Seq((0, "Hi I"),
                          (1, "I wish for snow today"),
@@ -78,5 +81,5 @@ class TextFeaturizerSpec extends EstimatorFuzzing[TextFeaturizer]{
     List(new TestObject(new TextFeaturizer().setInputCol("sentence"), dfRaw))
 
   override def reader: MLReadable[_] = TextFeaturizer
-  override def modelReader: MLReadable[_] = TextFeaturizerModel
+  override def modelReader: MLReadable[_] = PipelineModel
 }

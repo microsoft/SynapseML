@@ -5,9 +5,8 @@ package com.microsoft.ml.spark.train
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
-import com.microsoft.ml.spark.core.serialize.ConstructorReadable
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
@@ -17,10 +16,7 @@ import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
-
 /** Trains a regression model. */
-@InternalWrapper
 class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] {
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
@@ -93,9 +89,10 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     val featureColumns = convertedLabelDataset.columns.filter(col => col != labelColumn).toSeq
 
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(getFeaturesCol -> featureColumns))
+      .setOutputCol(getFeaturesCol)
+      .setInputCols(featureColumns.toArray)
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
-      .setNumberOfFeatures(featuresToHashTo)
+      .setNumFeatures(featuresToHashTo)
 
     val featurizedModel = featurizer.fit(convertedLabelDataset)
     val processedData   = featurizedModel.transform(convertedLabelDataset)
@@ -109,7 +106,10 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
 
     // Note: The fit shouldn't do anything here
     val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
-    new TrainedRegressorModel(uid, labelColumn, pipelineModel, getFeaturesCol)
+    new TrainedRegressorModel()
+      .setLabelCol(labelColumn)
+      .setModel(pipelineModel)
+      .setFeaturesCol(getFeaturesCol)
   }
 
   override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = {
@@ -133,33 +133,28 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   * @param model The trained model
   * @param featuresColumn The features column
   */
-@InternalWrapper
-class TrainedRegressorModel(val uid: String,
-                            val labelColumn: String,
-                            override val model: PipelineModel,
-                            val featuresColumn: String)
-    extends AutoTrainedModel[TrainedRegressorModel](model) {
+class TrainedRegressorModel(val uid: String)
+    extends AutoTrainedModel[TrainedRegressorModel]
+      with Wrappable {
 
-  val ttag: TypeTag[TrainedRegressorModel] = typeTag[TrainedRegressorModel]
-  val objectsToSave: List[Any] = List(uid, labelColumn, model, featuresColumn)
+  def this() = this(Identifiable.randomUID("TrainedRegressorModel"))
 
-  override def copy(extra: ParamMap): TrainedRegressorModel =
-    new TrainedRegressorModel(uid, labelColumn, model.copy(extra), featuresColumn)
+  override def copy(extra: ParamMap): TrainedRegressorModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // re-featurize and score the data
-    val scoredData = model.transform(dataset)
+    val scoredData = getModel.transform(dataset)
 
     // Drop the vectorized features column
-    val cleanedScoredData = scoredData.drop(featuresColumn)
+    val cleanedScoredData = scoredData.drop(getFeaturesCol)
 
     // Update the schema - TODO: create method that would generate GUID and add it to the scored model
     val moduleName = SchemaConstants.ScoreModelPrefix + UUID.randomUUID().toString
-    val labelColumnExists = cleanedScoredData.columns.contains(labelColumn)
+    val labelColumnExists = cleanedScoredData.columns.contains(getLabelCol)
     val schematizedScoredDataWithLabel =
       if (!labelColumnExists) cleanedScoredData
       else SparkSchema.setLabelColumnName(
-        cleanedScoredData, moduleName, labelColumn, SchemaConstants.RegressionKind)
+        cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
 
     SparkSchema.setScoresColumnName(
       schematizedScoredDataWithLabel.withColumnRenamed(
@@ -175,4 +170,4 @@ class TrainedRegressorModel(val uid: String,
     TrainRegressor.validateTransformSchema(schema)
 }
 
-object TrainedRegressorModel extends ConstructorReadable[TrainedRegressorModel]
+object TrainedRegressorModel extends ComplexParamsReadable[TrainedRegressorModel]

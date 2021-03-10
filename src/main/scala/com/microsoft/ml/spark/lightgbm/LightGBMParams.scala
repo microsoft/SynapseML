@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.contracts.{HasInitScoreCol, HasValidationIndicatorCol, HasWeightCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInitScoreCol, HasValidationIndicatorCol, HasWeightCol}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 

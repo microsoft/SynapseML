@@ -5,20 +5,17 @@ package com.microsoft.ml.spark.train
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.core.utils.CastUtilities._
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.core.utils.CastUtilities._
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.ml._
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *
@@ -49,7 +46,6 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * Multilayer Perceptron Classifier
   * In addition to any generic learner that inherits from Predictor.
   */
-@InternalWrapper
 class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] {
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
@@ -147,9 +143,10 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
 
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(getFeaturesCol -> featureColumns))
+      .setOutputCol(getFeaturesCol)
+      .setInputCols(featureColumns.toArray)
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
-      .setNumberOfFeatures(featuresToHashTo)
+      .setNumFeatures(featuresToHashTo)
     val featurizedModel = featurizer.fit(convertedLabelDataset)
     val processedData = featurizedModel.transform(convertedLabelDataset)
 
@@ -172,7 +169,12 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
 
     // Note: The fit shouldn't do anything here
     val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
-    new TrainedClassifierModel(uid, getLabelCol, pipelineModel, levels, getFeaturesCol)
+    val model = new TrainedClassifierModel()
+      .setLabelCol(getLabelCol)
+      .setModel(pipelineModel)
+      .setFeaturesCol(getFeaturesCol)
+
+    levels.map(l => model.setLevels(l.toArray)).getOrElse(model)
   }
 
   def getFeaturizeParams: (Boolean, Boolean, Int) = {
@@ -272,39 +274,34 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 }
 
 /** Model produced by [[TrainClassifier]]. */
-@InternalWrapper
-class TrainedClassifierModel(val uid: String,
-                             val labelColumn: String,
-                             override val model: PipelineModel,
-                             val levels: Option[Array[_]],
-                             val featuresColumn: String)
-    extends AutoTrainedModel[TrainedClassifierModel](model) {
+class TrainedClassifierModel(val uid: String)
+    extends AutoTrainedModel[TrainedClassifierModel] with Wrappable {
 
-  val ttag: TypeTag[TrainedClassifierModel] = typeTag[TrainedClassifierModel]
-  val objectsToSave: List[AnyRef] = List(uid, labelColumn, model, levels, featuresColumn)
+  def this() = this(Identifiable.randomUID("TrainClassifierModel"))
 
-  override def copy(extra: ParamMap): TrainedClassifierModel =
-    new TrainedClassifierModel(uid,
-      labelColumn,
-      model.copy(extra),
-      levels,
-      featuresColumn)
+  val levels = new UntypedArrayParam(this, "levels", "the levels")
+
+  def getLevels: Array[Any] = $(levels)
+
+  def setLevels(v: Array[Any]): this.type = set(levels, v)
+
+  override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val hasScoreCols = hasScoreColumns(model.stages.last)
+    val hasScoreCols = hasScoreColumns(getLastStage)
 
     // re-featurize and score the data
-    val scoredData = model.transform(dataset)
+    val scoredData = getModel.transform(dataset)
 
     // Drop the vectorized features column
-    val cleanedScoredData = scoredData.drop(featuresColumn)
+    val cleanedScoredData = scoredData.drop(getFeaturesCol)
 
     // Update the schema - TODO: create method that would generate GUID and add it to the scored model
     val moduleName = SchemaConstants.ScoreModelPrefix + UUID.randomUUID().toString
-    val labelColumnExists = cleanedScoredData.columns.contains(labelColumn)
+    val labelColumnExists = cleanedScoredData.columns.contains(getLabelCol)
     val schematizedScoredDataWithLabel =
       if (labelColumnExists) {
-        SparkSchema.setLabelColumnName(cleanedScoredData, moduleName, labelColumn, SchemaConstants.ClassificationKind)
+        SparkSchema.setLabelColumnName(cleanedScoredData, moduleName, getLabelCol, SchemaConstants.ClassificationKind)
       } else {
         cleanedScoredData
       }
@@ -331,16 +328,16 @@ class TrainedClassifierModel(val uid: String,
         schematizedScoredDataWithScores)
 
     val scoredDataWithUpdatedScoredLevels =
-      if (levels.isEmpty) scoredDataWithUpdatedScoredLabels
+      if (get(levels).isEmpty) scoredDataWithUpdatedScoredLabels
       else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLabels,
         SchemaConstants.ScoredLabelsColumn,
-        levels.get)
+        getLevels)
 
     // add metadata to the scored labels and true labels for the levels in label column
-    if (levels.isEmpty || !labelColumnExists) scoredDataWithUpdatedScoredLevels
+    if (get(levels).isEmpty || !labelColumnExists) scoredDataWithUpdatedScoredLevels
     else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLevels,
-      labelColumn,
-      levels.get)
+      getLabelCol,
+      getLevels)
   }
 
   private def setMetadataForColumnName(setter: (DataFrame, String, String, String) => DataFrame,
@@ -360,7 +357,7 @@ class TrainedClassifierModel(val uid: String,
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType =
-    TrainClassifier.validateTransformSchema(hasScoreColumns(model.stages.last), schema)
+    TrainClassifier.validateTransformSchema(hasScoreColumns(getLastStage), schema)
 
   def hasScoreColumns(model: Transformer): Boolean = {
     model match {
@@ -371,4 +368,4 @@ class TrainedClassifierModel(val uid: String,
   }
 }
 
-object TrainedClassifierModel extends ConstructorReadable[TrainedClassifierModel]
+object TrainedClassifierModel extends ComplexParamsReadable[TrainedClassifierModel]
