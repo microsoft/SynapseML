@@ -6,6 +6,7 @@
     - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
 2) Git Clone your fork, or the repo directly
     - `git clone https://github.com/Azure/mmlspark.git`
+    - NOTE: If you would like to contribute to mmlspark regularly, add your fork as a remote named ``origin`` and Azure/mmlspark as a remote named ``upstream``
 3) Run sbt to compile and grab datasets
     - `cd mmlspark`
     - `sbt setup`
