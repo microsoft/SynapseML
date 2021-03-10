@@ -17,6 +17,7 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
+import com.microsoft.ml.spark.codegen.GenerationUtils
 
 object ClassifierTestUtils {
 
@@ -129,6 +130,8 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
     val logisticRegressor = createLR.setLabelCol(mockLabelCol)
     trainScoreDataset(mockLabelCol, dataset, logisticRegressor)
   }
+
+  override val testFitting: Boolean = true
 
   verifyMultiClassCSV("abalone.csv", "Rings", 2, true)
   // Has multiple columns with the same name.  Spark doesn't seem to be able to handle that yet.

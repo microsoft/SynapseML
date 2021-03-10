@@ -27,7 +27,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
-"org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 
 libraryDependencies ++= Seq(

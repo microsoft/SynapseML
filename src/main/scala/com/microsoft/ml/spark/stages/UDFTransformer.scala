@@ -3,9 +3,10 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasInputCols, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasInputCols, HasOutputCol}
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
 import org.apache.spark.ml.util.Identifiable
@@ -21,10 +22,12 @@ object UDFTransformer extends ComplexParamsReadable[UDFTransformer]
   * returns a dataframe comprised of the original columns with the output column as the result of the
   * udf applied to the input column
   */
-@InternalWrapper
 class UDFTransformer(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable
   with HasInputCol with HasInputCols with HasOutputCol {
   def this() = this(Identifiable.randomUID("UDFTransformer"))
+
+  override protected lazy val pyInternalWrapper = true
+
   val udfScalaKey = "udfScala"
   val udfPythonKey = "udf"
   val invalidColumnSetError = s"If using multiple columns, only use set inputCols"
@@ -75,7 +78,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   }
 
   def getDataType: DataType =  {
-    if (isSet(udfScala)) StringType
+    if (isSet(udfScala)) UDFUtils.unpackUdf(getUDF)._2
     else getUDPyF.dataType
   }
 

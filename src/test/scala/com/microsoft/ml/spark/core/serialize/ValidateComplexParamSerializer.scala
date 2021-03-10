@@ -14,7 +14,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 class TestEstimatorBase(val uid: String) extends Transformer {
-  def this() = this(Identifiable.randomUID("Test"))
+  def this() = this(Identifiable.randomUID("TestEstimatorBase"))
 
   def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
 
@@ -33,7 +33,7 @@ trait HasByteArrayParam extends Params {
 }
 
 trait HasStringParam extends Params {
-  val stringParam = new Param[String](this, "s", "bar")
+  val stringParam = new Param[String](this, "stringParam", "bar")
 
   def getStringParam: String = $(stringParam)
 
@@ -41,15 +41,24 @@ trait HasStringParam extends Params {
 }
 
 class ComplexParamTest(override val uid: String) extends TestEstimatorBase(uid)
-  with HasByteArrayParam with ComplexParamsWritable
+  with HasByteArrayParam with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("ComplexParamTest"))
+}
+
 object ComplexParamTest extends ComplexParamsReadable[ComplexParamTest]
 
 class StandardParamTest(override val uid: String) extends TestEstimatorBase(uid)
-  with HasStringParam with ComplexParamsWritable
+  with HasStringParam with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("StandardParamTest"))
+}
+
 object StandardParamTest extends ComplexParamsReadable[StandardParamTest]
 
 class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
-  with HasStringParam with HasByteArrayParam with ComplexParamsWritable
+  with HasStringParam with HasByteArrayParam with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("MixedParamTest"))
+}
+
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
 class ValidateComplexParamSerializer extends TestBase {
@@ -59,7 +68,7 @@ class ValidateComplexParamSerializer extends TestBase {
   test("Complex Param serialization should work on all complex, all normal, or mixed") {
     spark
 
-    val bytes ="foo".toCharArray.map(_.toByte)
+    val bytes = "foo".toCharArray.map(_.toByte)
     val s = "foo"
 
     val cpt1 = new ComplexParamTest("foo").setByteArray(bytes)
@@ -81,7 +90,7 @@ class ValidateComplexParamSerializer extends TestBase {
 
   test("Complex Param serialization should yield portable models") {
     spark
-    val bytes ="foo".toCharArray.map(_.toByte)
+    val bytes = "foo".toCharArray.map(_.toByte)
     val s = "foo"
 
     val mpt1 = new MixedParamTest("foo").setByteArray(bytes).setStringParam(s)

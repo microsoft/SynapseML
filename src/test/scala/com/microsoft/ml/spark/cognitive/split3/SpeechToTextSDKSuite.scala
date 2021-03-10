@@ -133,6 +133,8 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with SpeechToTextSDKSuiteBase {
 
+  override val testFitting = false
+
   import spark.implicits._
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
@@ -304,6 +306,8 @@ trait TranscriptionSecrets {
 
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
   with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
+
+  override val testFitting = false
 
   import spark.implicits._
 

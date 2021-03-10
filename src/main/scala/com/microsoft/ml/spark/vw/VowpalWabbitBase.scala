@@ -5,21 +5,19 @@ package com.microsoft.ml.spark.vw
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.core.contracts.{HasWeightCol, Wrappable}
-import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasWeightCol
+import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
 import com.microsoft.ml.spark.downloader.FaultToleranceUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
-import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.DefaultParamsWritable
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.vowpalwabbit.spark._
 
-import scala.concurrent.duration.Duration
 import scala.math.min
 import scala.util.{Failure, Success}
 
@@ -70,11 +68,13 @@ trait HasAdditionalFeatures extends Params {
   *
   * @note parameters that regularly are swept through are exposed as proper parameters.
   */
-@InternalWrapper
 trait VowpalWabbitBase extends Wrappable
   with HasWeightCol
   with HasAdditionalFeatures
   with Logging {
+
+  override protected lazy val pyInternalWrapper = true
+
   // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
   // to generate all the parameters?
   val args = new Param[String](this, "args", "VW command line arguments passed")
@@ -165,8 +165,8 @@ trait VowpalWabbitBase extends Wrappable
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
       if (get(param).isEmpty ||
         // boost allow space or =
-        s"-${optionShort}[ =]".r.findAllIn(sb.toString).hasNext ||
-        s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext) {
+        s"-$optionShort[ =]".r.findAllIn(sb.toString).hasNext ||
+        s"--$optionLong[ =]".r.findAllIn(sb.toString).hasNext) {
         sb
       }
       else {
@@ -207,15 +207,14 @@ trait VowpalWabbitBase extends Wrappable
 
   def setNumBits(value: Int): this.type = set(numBits, value)
 
-  protected def getAdditionalColumns(): Seq[String] = Seq.empty
+  protected def getAdditionalColumns: Seq[String] = Seq.empty
 
   // support numeric types as input
   protected def getAsFloat(schema: StructType, idx: Int): Row => Float = {
     schema.fields(idx).dataType match {
-      case _: DoubleType => {
+      case _: DoubleType =>
         log.warn(s"Casting column '${schema.fields(idx).name}' to float. Loss of precision.")
         (row: Row) => row.getDouble(idx).toFloat
-      }
       case _: FloatType => (row: Row) => row.getFloat(idx)
       case _: IntegerType => (row: Row) => row.getInt(idx).toFloat
       case _: LongType => (row: Row) => row.getLong(idx).toFloat
@@ -235,7 +234,7 @@ trait VowpalWabbitBase extends Wrappable
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
   }
 
-  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = "") = {
+  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): StringBuilder = {
     val args = new StringBuilder
     args.append(vwArgs)
       .append(" ").append(contextArgs)
@@ -250,10 +249,10 @@ trait VowpalWabbitBase extends Wrappable
       val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
       cacheFile.deleteOnExit()
 
-      args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
+      args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes $getNumPasses")
     }
 
-    log.warn(s"VowpalWabbit args: ${args}")
+    log.warn(s"VowpalWabbit args: $args")
 
     args
   }
@@ -298,7 +297,7 @@ trait VowpalWabbitBase extends Wrappable
                      val nativeIngestTime: StopWatch = new StopWatch,
                      val learnTime: StopWatch = new StopWatch,
                      val multipassTime: StopWatch = new StopWatch) {
-    def getTrainResult(): Iterator[TrainingResult] = {
+    def getTrainResult: Iterator[TrainingResult] = {
       // only export the model on the first partition
       val perfStats = vw.getPerformanceStatistics
       val args = vw.getArguments
@@ -319,12 +318,12 @@ trait VowpalWabbitBase extends Wrappable
           perfStats.getBestConstant,
           perfStats.getBestConstantLoss,
           perfStats.getTotalNumberOfFeatures,
-          totalTime.elapsed,
-          nativeIngestTime.elapsed,
-          learnTime.elapsed,
-          multipassTime.elapsed,
-          contextualBanditMetrics.getIpsEstimate(),
-          contextualBanditMetrics.getSnipsEstimate()
+          totalTime.elapsed(),
+          nativeIngestTime.elapsed(),
+          learnTime.elapsed(),
+          multipassTime.elapsed(),
+          contextualBanditMetrics.getIpsEstimate,
+          contextualBanditMetrics.getSnipsEstimate
         ))).iterator
     }
   }
@@ -395,12 +394,12 @@ trait VowpalWabbitBase extends Wrappable
                 perfStats.getBestConstant,
                 perfStats.getBestConstantLoss,
                 perfStats.getTotalNumberOfFeatures,
-                totalTime.elapsed,
-                nativeIngestTime.elapsed,
-                learnTime.elapsed,
-                multipassTime.elapsed,
-                trainContext.contextualBanditMetrics.getIpsEstimate(),
-                trainContext.contextualBanditMetrics.getSnipsEstimate()))
+                totalTime.elapsed(),
+                nativeIngestTime.elapsed(),
+                learnTime.elapsed(),
+                multipassTime.elapsed(),
+                trainContext.contextualBanditMetrics.getIpsEstimate,
+                trainContext.contextualBanditMetrics.getSnipsEstimate))
           }.get // this will throw if there was an exception
 
           Seq(TrainingResult(model, stats)).iterator
@@ -544,10 +543,10 @@ trait VowpalWabbitBase extends Wrappable
     addExtraArgs(vwArgs)
 
     // call training
-    val trainingResults = (if (numTasks == 1)
+    val trainingResults = if (numTasks == 1)
       trainInternal(df, vwArgs.result)
     else
-      trainInternalDistributed(df, vwArgs, numTasks))
+      trainInternalDistributed(df, vwArgs, numTasks)
 
     // store results in model
     applyTrainingResultsToModel(model, trainingResults, dataset)

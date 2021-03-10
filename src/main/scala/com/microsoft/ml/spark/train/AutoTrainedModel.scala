@@ -3,21 +3,37 @@
 
 package com.microsoft.ml.spark.train
 
-import com.microsoft.ml.spark.core.serialize.ConstructorWritable
-import org.apache.spark.ml.{Model, PipelineModel, Transformer}
-import org.apache.spark.ml.param.ParamMap
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol}
+import org.apache.spark.ml.{ComplexParamsWritable, Model, PipelineModel, Transformer}
+import org.apache.spark.ml.param.{ParamMap, TransformerParam}
 
 /** Defines common inheritance and functions across auto trained models.
   */
-abstract class AutoTrainedModel[TrainedModel <: Model[TrainedModel]](val model: PipelineModel)
-  extends Model[TrainedModel] with ConstructorWritable[TrainedModel] {
+abstract class AutoTrainedModel[TrainedModel <: Model[TrainedModel]]
+  extends Model[TrainedModel] with ComplexParamsWritable with HasLabelCol with HasFeaturesCol{
+
+  private def validate(t: Transformer): Boolean = {
+    t match {
+      case _: PipelineModel => true
+      case _ => false
+    }
+  }
+
+  val model = new TransformerParam(this, "model", "model produced by training", validate)
+
+  def getModel: PipelineModel = $(model).asInstanceOf[PipelineModel]
+
+  def setModel(v: PipelineModel): this.type = set(model, v)
+
   /** Retrieve the param map from the underlying model.
+    *
     * @return The param map from the underlying model.
     */
-  def getParamMap: ParamMap = model.stages.last.extractParamMap()
+  def getParamMap: ParamMap = getModel.stages.last.extractParamMap()
 
   /** Retrieve the underlying model.
+    *
     * @return The underlying model.
     */
-  def getModel: Transformer = model.stages.last
+  def getLastStage: Transformer = getModel.stages.last
 }

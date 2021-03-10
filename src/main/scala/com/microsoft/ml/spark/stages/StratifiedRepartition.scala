@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasLabelCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasLabelCol
 import org.apache.spark.RangePartitioner
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._

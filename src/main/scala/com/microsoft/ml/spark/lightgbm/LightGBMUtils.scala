@@ -56,9 +56,10 @@ object LightGBMUtils {
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
       !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(featuresColumn -> featureColumns))
+      .setOutputCol(featuresColumn)
+      .setInputCols(featureColumns.toArray)
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
-      .setNumberOfFeatures(featuresToHashTo)
+      .setNumFeatures(featuresToHashTo)
     featurizer.fit(dataset)
   }
 

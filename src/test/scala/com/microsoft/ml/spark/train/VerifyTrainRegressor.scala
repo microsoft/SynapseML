@@ -12,7 +12,6 @@ import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.ml.{Estimator, PipelineStage}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.Seq
@@ -96,7 +95,7 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
     val loadedModel = TrainedRegressorModel.load(modelFile.toString)
 
     // verify model data loaded
-    assert(loadedModel.labelColumn == model.labelColumn)
+    assert(loadedModel.getLabelCol == model.getLabelCol)
     assert(loadedModel.uid == model.uid)
     val transformedDataset = loadedModel.transform(dataset)
     val benchmarkDataset = model.transform(dataset)

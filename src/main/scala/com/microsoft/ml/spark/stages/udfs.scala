@@ -16,10 +16,14 @@ import scala.collection.mutable
 //scalastyle:off
 object udfs {
 
-  def get_value_at(colName: String, i: Int): Column = {
+  def get_value_udf(i:Int): UserDefinedFunction = {
     UDFUtils.oldUdf({
       vec: org.apache.spark.ml.linalg.Vector => vec(i)
-    }, DoubleType)(col(colName))
+    }, DoubleType)
+  }
+
+  def get_value_at(colName: String, i: Int): Column = {
+    get_value_udf(i)(col(colName))
   }
 
   val to_vector: UserDefinedFunction = UDFUtils.oldUdf({
@@ -27,5 +31,6 @@ object udfs {
   }, VectorType)
 
   def to_vector(colName: String): Column = to_vector(col(colName))
+
 
 }
