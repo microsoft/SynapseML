@@ -20,7 +20,7 @@ RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget\
 # Download Spark
 RUN wget https://downloads.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
-# # Install Spark and move it to the folder "/opt/spark"
+# Install Spark and move it to the folder "/opt/spark"
 RUN tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
     mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz 
