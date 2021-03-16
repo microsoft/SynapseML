@@ -11,7 +11,7 @@ import scala.sys.process._
 
 object Secrets {
   private val kvName = "mmlspark-keys"
-  private val subscriptionID = "f9b96b36-1f5e-4021-8959-51527e26e6d3"
+  private val subscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
