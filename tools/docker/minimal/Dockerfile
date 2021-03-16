@@ -3,14 +3,13 @@ FROM ubuntu:16.04
 ENV SPARK_VERSION=3.0.2
 ENV HADOOP_VERSION=2.7
 
-RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget\
+RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget build-essential\
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda update conda \
     && apt-get install default-jre -y \
-	&& conda install -c conda-forge pyspark=${SPARK_VERSION} \
     && apt-get -qq -y remove curl bzip2 \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
