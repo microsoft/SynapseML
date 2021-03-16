@@ -32,7 +32,7 @@ ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 ARG MMLSPARK_VERSION
 ENV MMLSPARK_VERSION=${MMLSPARK_VERSION}
 
-# Open-MPI installation
+# Open-MPI installation (required to use spark on AML)
 ENV OPENMPI_VERSION 3.1.2
 RUN mkdir /tmp/openmpi && \
     cd /tmp/openmpi && \

@@ -17,7 +17,7 @@ RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
     && conda clean --all --yes
 
-# Download Spark
+# Downloads Spark
 RUN wget https://downloads.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
 # Install Spark and move it to the folder "/opt/spark"
@@ -29,7 +29,7 @@ ENV SPARK_HOME /opt/spark
 ENV PATH /opt/conda/bin:$PATH
 ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 
-# Open-MPI installation
+# Open-MPI installation (required to use spark on AML)
 ENV OPENMPI_VERSION 3.1.2
 RUN mkdir /tmp/openmpi && \
     cd /tmp/openmpi && \
