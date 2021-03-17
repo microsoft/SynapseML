@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 ARG SPARK_VERSION=3.0.1
 RUN apt-get -qq update && apt-get -qq -y install curl bzip2 \
