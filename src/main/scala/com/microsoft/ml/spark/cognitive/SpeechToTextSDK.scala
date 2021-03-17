@@ -463,6 +463,18 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
     recognizer.recognized.addEventListener(makeEventHandler(recognizedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
     recognizer.startContinuousRecognitionAsync.get
+
+    if (getExtraFfmpegArgs.contains("-t")) {
+      val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
+      Future {
+        blocking {
+          Thread.sleep((timeLimit + 20)*1000)
+        }
+        queue.put(None)
+        cleanUp()
+      }(ExecutionContext.global)
+    }
+
     new BlockingQueueIterator[String](queue, cleanUp).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[SpeechResponse]
@@ -540,6 +552,19 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
     transcriber.transcribed.addEventListener(makeEventHandler(recognizedHandler))
     transcriber.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
     transcriber.startTranscribingAsync().get
+
+    if (getExtraFfmpegArgs.contains("-t")) {
+      val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
+      Future {
+        blocking {
+          Thread.sleep((timeLimit + 20)*1000)
+        }
+        queue.put(None)
+        cleanUp()
+      }(ExecutionContext.global)
+    }
+
+
     new BlockingQueueIterator[String](queue, cleanUp()).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[TranscriptionResponse]
