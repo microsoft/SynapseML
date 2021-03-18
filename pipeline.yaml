@@ -80,11 +80,9 @@ jobs:
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)/target/scala-2.12/'
         Contents: |
-          *.jar
-          *.jar.asc
+          *SNAPSHOT.jar
           *.pom
-          *.pom.asc
-        TargetFolder: 'publishArtifact/jar'
+        TargetFolder: 'publishArtifact/jars'
         OverWrite: true
     - task: CopyFiles@2
       inputs:
@@ -92,6 +90,7 @@ jobs:
         Contents: '**/*.whl'
         TargetFolder: 'publishArtifact/python'
         OverWrite: true
+    - bash: mvn dependency:copy-dependencies -U  "-DoutputDirectory=./" "-DexcludeGroupIds=org.scalatest,org.scala-lang" "-DexcludeTransitive=true"  -f publishArtifact/jars/*.pom
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: 'publishArtifact'
