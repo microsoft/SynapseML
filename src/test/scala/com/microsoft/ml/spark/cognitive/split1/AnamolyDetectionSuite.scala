@@ -15,7 +15,7 @@ trait AnomalyKey {
   lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
 }
 
-trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey{
+trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
 
   import spark.implicits._
 
