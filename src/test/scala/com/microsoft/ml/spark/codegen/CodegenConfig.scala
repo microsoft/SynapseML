@@ -21,6 +21,7 @@ object Config {
   val SrcDir = new File(GeneratedDir, "src")
   val TestDir = new File(GeneratedDir, "test")
   val DocDir = new File(GeneratedDir, "doc")
+  val TestDataDir = new File(GeneratedDir, "test-data")
 
   //Python Codegen Constant
   val PySrcDir = new File(SrcDir, "python")

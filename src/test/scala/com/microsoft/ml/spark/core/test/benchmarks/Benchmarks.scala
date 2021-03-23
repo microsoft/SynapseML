@@ -96,7 +96,7 @@ trait Benchmarks extends TestBase {
     if (newBenchmarkFile.exists()) newBenchmarkFile.delete()
     writeCSV(newBenchmarks, newBenchmarkFile)
 
-    val oldBenchmarks = session.read
+    val oldBenchmarks = spark.read
       .option("header", true)
       .option("inferSchema", true)
       .csv(oldBenchmarkFile.getAbsolutePath)

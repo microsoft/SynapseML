@@ -9,23 +9,29 @@ import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.typedLit
+import org.apache.spark.sql.functions.{corr, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
 import com.microsoft.ml.spark.FluentAPI._
+import com.microsoft.ml.spark.featurize.text.PageSplitter
 
 trait CognitiveKey {
   lazy val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
 }
 
 trait OCRUtils extends TestBase {
-  import session.implicits._
+
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+  ).toDF("url")
+
+  lazy val pdfDf: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
   ).toDF("url")
 
   lazy val bytesDF: DataFrame = BingImageSearch
@@ -40,7 +46,6 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   lazy val ocr = new OCR()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
-    .setDefaultLanguage("en")
     .setImageUrlCol("url")
     .setDetectOrientation(true)
     .setOutputCol("ocr")
@@ -48,7 +53,6 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   lazy val bytesOCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
-    .setDefaultLanguage("en")
     .setImageBytesCol("imageBytes")
     .setDetectOrientation(true)
     .setOutputCol("bocr")
@@ -84,9 +88,10 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 
   override def reader: MLReadable[_] = OCR
 }
+
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveKey with Flaky {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
@@ -102,7 +107,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
   lazy val ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
     .setLanguageCol("language")
-    .setDefaultLanguage("en")
     .setVisualFeatures(
       Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
     .setDetails(Seq("Celebrities", "Landmarks"))
@@ -115,7 +119,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
   lazy val bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
     .setLanguageCol("language")
-    .setDefaultLanguage("en")
     .setVisualFeatures(
       Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands")
     )
@@ -154,7 +157,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     val fromRow = AIResponse.makeFromRowConverter
     val responses = ai.transform(df).select("features")
       .collect().toList.map(r =>
-        fromRow(r.getStruct(0)))
+      fromRow(r.getStruct(0)))
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
   }
@@ -176,6 +179,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     assert(responses.head.categories.get.head.name === "others_")
     assert(responses(1).categories.get.head.name === "text_sign")
   }
+
 
   override def testObjects(): Seq[TestObject[AnalyzeImage]] =
     Seq(new TestObject(ai, df))
@@ -253,7 +257,7 @@ class ReadSuite extends TransformerFuzzing[Read]
     .setOutputCol("ocr")
     .setConcurrency(5)
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
       df.select("url", "ocr.analyzeResult.readResults")
     }
@@ -267,6 +271,17 @@ class ReadSuite extends TransformerFuzzing[Read]
     val headStr = results.head.getString(0)
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+  }
+
+  test("Basic Usage with pdf") {
+    val results = pdfDf.mlTransform(read, Read.flatten("ocr", "ocr"))
+      .select("ocr")
+      .collect()
+    val headStr = results.head.getString(0)
+    val correctPrefix = "Full Tree Conditioned Tree Component Space " +
+      "Efficiency Measured Data O(n × d) 380 MB Tree O((2n/l) × d)"
+
+    assert(headStr.startsWith(correctPrefix))
   }
 
   test("Basic Usage with Bytes") {
@@ -287,7 +302,7 @@ class ReadSuite extends TransformerFuzzing[Read]
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
   with CognitiveKey with Flaky {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
@@ -343,7 +358,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
   with CognitiveKey with Flaky {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
@@ -386,7 +401,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
 
 class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
@@ -429,7 +444,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.select("tags.tags"), df2.select("tags.tags"))(eq)
   }
 
@@ -442,7 +457,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
   with CognitiveKey with Flaky {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"

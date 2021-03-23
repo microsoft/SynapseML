@@ -16,7 +16,7 @@ import org.scalactic.Equality
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   val region = "eastus"
   val resourcesDir = System.getProperty("user.dir") + "/src/test/resources/"

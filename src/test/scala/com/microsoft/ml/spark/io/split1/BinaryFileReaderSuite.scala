@@ -13,11 +13,12 @@ import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.env.FileUtilities.zipFolder
 import com.microsoft.ml.spark.core.schema.BinaryFileSchema
 import com.microsoft.ml.spark.core.schema.BinaryFileSchema.isBinaryFile
-import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
+import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.binary.BinaryFileFormat
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.StringType
 
@@ -41,7 +42,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("binary dataframe") {
-    val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
+    val data = spark.readBinaryFiles(groceriesDirectory, recursive = true)
     println(time { data.count })
     assert(isBinaryFile(data.schema("value")))
     val paths = data.select("value.path") //make sure that SQL has access to the sub-fields
@@ -49,7 +50,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("reads the right values"){
-    val data = session.readBinaryFiles(groceriesDirectory, recursive = true)
+    val data = spark.readBinaryFiles(groceriesDirectory, recursive = true)
       .limit(1).select("value.*")
     val data2 = BinaryFileReader.readFromPaths(data.select(
       "path"), "path", "bytes", 2, 600000)
@@ -63,15 +64,15 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("read from paths yields same values") {
-    val data = session.readBinaryFiles(groceriesDirectory, recursive = true).limit(1)
+    val data = spark.readBinaryFiles(groceriesDirectory, recursive = true).limit(1)
     val df2 = BinaryFileReader.readFromPaths(data.select(
       "value.path"), "path", "bytes", 2, 600000)
     assert(df2 === data.select("value.*"))
   }
 
   test("sample ratio test") {
-    val all = session.readBinaryFiles(groceriesDirectory, recursive = true, sampleRatio = 1.0)
-    val sampled = session.readBinaryFiles(groceriesDirectory, recursive = true, sampleRatio = 0.5)
+    val all = spark.readBinaryFiles(groceriesDirectory, recursive = true, sampleRatio = 1.0)
+    val sampled = spark.readBinaryFiles(groceriesDirectory, recursive = true, sampleRatio = 0.5)
     val count = sampled.count
     assert(count > 0 && count < all.count, "incorrect sampling behavior")
   }
@@ -84,10 +85,10 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
     createZip(cifarDirectory, saveDir)
     createZip(groceriesDirectory, saveDir)
 
-    val images = session.readBinaryFiles(saveDir.getAbsolutePath, recursive = true)
+    val images = spark.readBinaryFiles(saveDir.getAbsolutePath, recursive = true)
     assert(images.count == 37)
 
-    val images1 = session.readBinaryFiles(saveDir.getAbsolutePath, recursive = true, inspectZip = false)
+    val images1 = spark.readBinaryFiles(saveDir.getAbsolutePath, recursive = true, inspectZip = false)
     assert(images1.count == 2)
   }
 
@@ -103,7 +104,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       } finally {
         fos.close()
       }
-      val files = session.readBinaryFiles(newDirTop.getAbsolutePath, recursive = true)
+      val files = spark.readBinaryFiles(newDirTop.getAbsolutePath, recursive = true)
       assert(files.count == 1)
     } finally {
       FileUtils.forceDelete(newDirTop)
@@ -111,7 +112,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("binary files should allow recursion") {
-    val df = session
+    val df = spark
       .read
       .format(classOf[BinaryFileFormat].getName)
       .load(FileUtilities.join(groceriesDirectory,"**").toString)
@@ -120,7 +121,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("static load with new reader") {
-    val df = session
+    val df = spark
       .read
       .format(classOf[BinaryFileFormat].getName)
       .option("subsample", .5)
@@ -130,7 +131,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
   }
 
   test("structured streaming with binary files") {
-    val imageDF = session
+    val imageDF = spark
       .readStream
       .format(classOf[BinaryFileFormat].getName)
       .schema(BinaryFileSchema.Schema)
@@ -142,14 +143,14 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .start()
 
     tryWithRetries(){ () =>
-      val df = session.sql("select * from images")
+      val df = spark.sql("select * from images")
       assert(df.count() == 6)
     }
     q1.stop()
   }
 
   test("write binary files") {
-    val imageDF = session
+    val imageDF = spark
       .read
       .format(classOf[BinaryFileFormat].getName)
       .load(cifarDirectory)
@@ -165,7 +166,7 @@ class BinaryFileReaderSuite extends TestBase with FileReaderUtils with DataFrame
       .option("pathCol", "path")
       .save(saveDir)
 
-    val newImageDf = session
+    val newImageDf = spark
       .read
       .format(classOf[BinaryFileFormat].getName)
       .load(saveDir)

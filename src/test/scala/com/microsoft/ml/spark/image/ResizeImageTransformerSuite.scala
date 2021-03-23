@@ -18,7 +18,7 @@ import org.apache.commons.io.FileUtils
 class ResizeImageTransformerSuite extends TransformerFuzzing[ResizeImageTransformer]
   with ImageTestUtils {
 
-  lazy val images: DataFrame = session.read.image
+  lazy val images: DataFrame = spark.read.image
     .option("dropInvalid", true).load(FileUtilities.join(fileLocation, "**").toString)
 
   lazy val greyscaleImageLocation: String = {
@@ -31,7 +31,7 @@ class ResizeImageTransformerSuite extends TransformerFuzzing[ResizeImageTransfor
     loc
   }
 
-  lazy val greyImages: DataFrame = session.read.image
+  lazy val greyImages: DataFrame = spark.read.image
     .option("dropInvalid", true).load(greyscaleImageLocation)
 
   lazy val tr: ResizeImageTransformer = new ResizeImageTransformer()

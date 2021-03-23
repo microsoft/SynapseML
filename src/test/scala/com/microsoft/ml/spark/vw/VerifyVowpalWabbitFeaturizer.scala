@@ -15,7 +15,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[VowpalWabbitFeaturizer] {
 
-  val defaultMask = (1 << 30) - 1
+  lazy val defaultMask = (1 << 30) - 1
 
   case class Sample1(str: String, seq: Seq[String])
 
@@ -23,7 +23,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   case class Input2[T, S](in1: T, in2: S)
 
-  val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
+  lazy val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
 
   test("Verify order preserving") {
     val featurizer1 = new VowpalWabbitFeaturizer()
@@ -32,7 +32,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
       .setNumBits(18)
       .setPrefixStringsWithColumnName(false)
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[String]("marie markus fun")))
+    val df1 = spark.createDataFrame(Seq(Input[String]("marie markus fun")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -56,14 +56,14 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("str", "seq"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Sample1("abc", Seq("foo", "bar"))))
+    val df1 = spark.createDataFrame(Seq(Sample1("abc", Seq("foo", "bar"))))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[Vector](0)
 
     val featurizer2 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("seq", "str"))
       .setOutputCol("features")
-    val df2 = session.createDataFrame(Seq(Sample1("abc", Seq("foo", "bar"))))
+    val df2 = spark.createDataFrame(Seq(Sample1("abc", Seq("foo", "bar"))))
 
     val v2 = featurizer2.transform(df2).select(col("features")).collect.apply(0).getAs[Vector](0)
 
@@ -74,7 +74,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[T](v)))
+    val df1 = spark.createDataFrame(Seq(Input[T](v)))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -96,7 +96,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[String]("markus")))
+    val df1 = spark.createDataFrame(Seq(Input[String]("markus")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -109,7 +109,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[Array[String]](Array("markus", "marie"))))
+    val df1 = spark.createDataFrame(Seq(Input[Array[String]](Array("markus", "marie"))))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -130,7 +130,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
       .setInputCols(Array("in"))
       .setOutputCol("features")
 
-    val df1 = session.createDataFrame(Seq(Input[Map[String, T]](Map[String, T]("k1" -> v1, "k2" -> v2))))
+    val df1 = spark.createDataFrame(Seq(Input[Map[String, T]](Map[String, T]("k1" -> v1, "k2" -> v2))))
 
     val vec = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -158,7 +158,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setStringSplitInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[String]("markus  marie")))
+    val df1 = spark.createDataFrame(Seq(Input[String]("markus  marie")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -175,7 +175,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val featurizer1 = new VowpalWabbitFeaturizer()
       .setStringSplitInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[String]("markus markus markus")))
+    val df1 = spark.createDataFrame(Seq(Input[String]("markus markus markus")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -190,7 +190,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
       .setSumCollisions(false)
       .setStringSplitInputCols(Array("in"))
       .setOutputCol("features")
-    val df1 = session.createDataFrame(Seq(Input[String]("markus markus")))
+    val df1 = spark.createDataFrame(Seq(Input[String]("markus markus")))
 
     val v1 = featurizer1.transform(df1).select(col("features")).collect.apply(0).getAs[SparseVector](0)
 
@@ -217,7 +217,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Featurizer can combine vectors") {
-    val df1 = session.createDataFrame(Seq(Input2[Vector, Vector](
+    val df1 = spark.createDataFrame(Seq(Input2[Vector, Vector](
       Vectors.dense(1.0, 2.0, 3.0),
       Vectors.sparse(8, Array(1, 4), Array(5.0, 8.0))
     )))
@@ -238,7 +238,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Featurizer can combine vectors and remask") {
-    val df1 = session.createDataFrame(Seq(Input2[Vector, Vector](
+    val df1 = spark.createDataFrame(Seq(Input2[Vector, Vector](
       Vectors.dense(1.0, 2.0, 3.0),
       Vectors.sparse(8, Array(1, 4), Array(5.0, 8.0))
     )))
@@ -260,7 +260,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   test("Check tamil encoding") {
     //noinspection ScalaStyle
-    val df = session.createDataFrame(Seq(
+    val df = spark.createDataFrame(Seq(
       ("ஜெய்-அஞ்சலி காதல் பற்றி ராய் லட்சுமி!", "output")))
       .toDF("a", "normalized")
 

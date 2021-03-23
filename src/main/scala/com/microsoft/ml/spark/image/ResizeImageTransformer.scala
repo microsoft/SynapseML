@@ -55,7 +55,6 @@ object ResizeUtils {
 
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
-@InternalWrapper
 class ResizeImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 

@@ -36,7 +36,7 @@ object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
 
 trait ValueIndexerParams extends Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol
 
-class NullOrdering[T] (ord: Ordering[T]) extends Ordering[T] {
+class NullOrdering[T](ord: Ordering[T]) extends Ordering[T] {
   override def compare(x: T, y: T): Int =
     if (x == null && y == null) 0
     else if (x == null) -1
@@ -85,8 +85,8 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
   }
 
   private def sortLevels[T: TypeTag](levels: Array[_])
-                        (ordering: Ordering[T])
-                        (implicit ct: ClassTag[T]): Array[_] = {
+                                    (ordering: Ordering[T])
+                                    (implicit ct: ClassTag[T]): Array[_] = {
     val castLevels = levels.map(_.asInstanceOf[T])
     castLevels.sorted(ordering)
   }
@@ -100,32 +100,39 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
-    extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
+  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
   /** Levels in categorical array
+    *
     * @group param
     */
-  val levels = new ArrayParam(this, "levels", "Levels in categorical array")
-  val emptyLevels = Array()
+  val levels = new UntypedArrayParam(this, "levels", "Levels in categorical array")
+  val emptyLevels: Array[Any] = Array()
+
   /** @group getParam */
-  def getLevels: Array[_] = if (isDefined(levels)) $(levels) else emptyLevels
+  def getLevels: Array[Any] = if (isDefined(levels)) $(levels) else emptyLevels
+
   /** @group setParam */
-  def setLevels(value: Array[_]): this.type = set(levels, value)
+  def setLevels(value: Array[_]): this.type = set(levels, value.asInstanceOf[Array[Any]])
 
   /** The datatype of the levels as a jason string
+    *
     * @group param
     */
   val dataType = new Param[String](this, "dataType", "The datatype of the levels as a Json string")
-  setDefault(dataType->"string")
+  setDefault(dataType -> "string")
 
   /** @group getParam */
   def getDataTypeStr: String = if ($(dataType) == "string") DataTypes.StringType.json else $(dataType)
+
   /** @group setParam */
   def setDataTypeStr(value: String): this.type = set(dataType, value)
+
   /** @group getParam */
   def getDataType: DataType = if ($(dataType) == "string") DataTypes.StringType else DataType.fromJson($(dataType))
+
   /** @group setParam */
   def setDataType(value: DataType): this.type = set(dataType, value.json)
 
@@ -140,22 +147,23 @@ class ValueIndexerModel(val uid: String)
 
   /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    getDataType match {
-      case _: IntegerType => addCategoricalColumn[Int](dataset)
-      case _: LongType => addCategoricalColumn[Long](dataset)
-      case _: DoubleType => addCategoricalColumn[Double](dataset)
-      case _: StringType => addCategoricalColumn[String](dataset)
-      case _: BooleanType => addCategoricalColumn[Boolean](dataset)
-      case _ => throw new UnsupportedOperationException("Unsupported Categorical type " + getDataType.toString)
-    }
-  }
-
-  private def addCategoricalColumn[T: TypeTag](dataset: Dataset[_])
-                                              (implicit ct: ClassTag[T]): DataFrame = {
     val nonNullLevels = getLevels.filter(_ != null)
-    val castLevels = nonNullLevels.map {
-      case l: scala.math.BigInt => l.toInt.asInstanceOf[T]
-      case l => l.asInstanceOf[T]
+
+    val castLevels = nonNullLevels.map { l =>
+      (getDataType, l) match {
+        case (_: IntegerType, v: scala.math.BigInt) => v.toInt
+        case (_: IntegerType, v: scala.math.BigDecimal) => v.toInt
+        case (_: IntegerType, v) => v.asInstanceOf[Int]
+        case (_: LongType, v: scala.math.BigDecimal) => v.toLong
+        case (_: LongType, v) => v.asInstanceOf[Long]
+        case (_: DoubleType, v: scala.math.BigDecimal) => v.toDouble
+        case (_: DoubleType, v) => v.asInstanceOf[Double]
+        case (_: StringType, v: String) => v
+        case (_: StringType, v) => v.asInstanceOf[String]
+        case (_: BooleanType, v: Boolean) => v
+        case (_: BooleanType, v) => v.asInstanceOf[Boolean]
+        case _ => throw new UnsupportedOperationException(s"Unsupported type ${l.getClass} for type ${getDataType} ")
+      }
     }
     val hasNullLevel = getLevels.length != nonNullLevels.length
     val map = new CategoricalMap(castLevels, false, hasNullLevel)
@@ -165,7 +173,7 @@ class ValueIndexerModel(val uid: String)
       } else {
         map.numLevels + 1
       }
-    val getIndex = udf((level: T) => {
+    val getIndex = udf((level: Any) => {
       // Treat nulls and NaNs specially
       if (level == null || (level.isInstanceOf[Double] && level.asInstanceOf[Double].isNaN)) {
         map.numLevels
@@ -177,6 +185,7 @@ class ValueIndexerModel(val uid: String)
     val metadata = map.toMetadata(map.toMetadata(dataset.schema(getInputCol).metadata, true), false)
     val inputColIndex = getIndex(dataset(getInputCol))
     dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))
+
   }
 
   @DeveloperApi

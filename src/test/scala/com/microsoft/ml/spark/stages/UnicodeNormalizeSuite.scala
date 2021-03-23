@@ -13,19 +13,19 @@ class UnicodeNormalizeSuite extends TestBase with TransformerFuzzing[UnicodeNorm
   val outputCol = "norm1"
 
   //scalastyle:off null
-  lazy val wordDF = session.createDataFrame(Seq(
+  lazy val wordDF = spark.createDataFrame(Seq(
     ("Schön", 1),
     ("Scho\u0308n", 1),
     (null, 1)))
     .toDF(inputCol, "dummy")
 
-  lazy val expectedResultComposed = session.createDataFrame(Seq(
+  lazy val expectedResultComposed = spark.createDataFrame(Seq(
     ("Schön", 1, "schön"),
     ("Scho\u0308n", 1, "schön"),
     (null, 1, null)))
     .toDF(inputCol, "dummy", outputCol)
 
-  lazy val expectedResultDecomposed = session.createDataFrame(Seq(
+  lazy val expectedResultDecomposed = spark.createDataFrame(Seq(
     ("Schön", 1, "sch\u0308n"),
     ("Scho\u0308n", 1, "sch\u0308n"),
     (null, 1, null)))

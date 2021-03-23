@@ -50,7 +50,7 @@ class MapArrayParam(parent: Params, name: String, doc: String, isValid: Map[Stri
     override def jsonEncode(value: Map[String, Seq[String]]): String = {
       val convertedMap = value.map(kvp => (kvp._1, kvp._2.toArray))
       val json = convertedMap.toJson
-      json.prettyPrint
+      json.compactPrint
     }
 
     override def jsonDecode(json: String): Map[String, Seq[String]] = {

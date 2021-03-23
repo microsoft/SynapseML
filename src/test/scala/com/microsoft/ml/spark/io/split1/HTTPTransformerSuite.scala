@@ -104,7 +104,7 @@ class HTTPTransformerSuite extends TransformerFuzzing[HTTPTransformer]
   with WithServer with ParserUtils {
 
   override def testObjects(): Seq[TestObject[HTTPTransformer]] = makeTestObject(
-    new HTTPTransformer().setInputCol("parsedInput").setOutputCol("out"), session)
+    new HTTPTransformer().setInputCol("parsedInput").setOutputCol("out"), spark)
 
   override def reader: MLReadable[_] = HTTPTransformer
 

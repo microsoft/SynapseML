@@ -26,10 +26,10 @@ trait CustomSpeechKey {
 
 trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpeechKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   val region = "eastus"
-  lazy val resourcesDir = new File(new File(getClass.getResource("/").toURI)
+  lazy val resourcesDir = new File(new File(getClass.getResource(File.separator).toURI)
     .toString.replaceAll("it-classes", "test-classes"))
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
@@ -134,7 +134,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with SpeechToTextSDKSuiteBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
     .setSubscriptionKey(cognitiveKey)
@@ -306,7 +306,7 @@ trait TranscriptionSecrets {
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
   with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
 
-  import session.implicits._
+  import spark.implicits._
 
   override def sdk: ConversationTranscription = new ConversationTranscription()
     .setSubscriptionKey(conversationTranscriptionKey)

@@ -7,9 +7,9 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
-class VerifyVowpalWabbitVectorZipperFuzzing extends TransformerFuzzing[VectorZipper] {
+class VerifyVectorZipper extends TransformerFuzzing[VectorZipper] {
 
-  import session.implicits._
+  import spark.implicits._
 
   def makeDFWithSequences(): DataFrame = {
     val df = Seq(

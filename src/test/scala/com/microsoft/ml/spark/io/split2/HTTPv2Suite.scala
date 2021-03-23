@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.io.split2
 import java.io.File
 import java.util.UUID
 
-import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
+import com.microsoft.ml.spark.core.test.base.{Flaky, SparkSessionFactory, TestBase}
 import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
@@ -16,21 +16,32 @@ import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   //override val logLevel: String = "INFO"
-  override protected val numRetries: Int = 20
+
+  override def beforeAll(): Unit = {
+    TestBase.resetSparkSession(numRetries = 20)
+    super.beforeAll()
+  }
+
+  override def afterAll(): Unit = {
+    TestBase.resetSparkSession()
+    super.afterAll()
+  }
+
+  override lazy val spark: SparkSession = SparkSessionFactory.getSession(s"$this", numRetries = 20).newSession()
 
   def baseDF(numPartitions: Int = 4,
              apiName: String = apiName,
              apiPath: String = apiPath,
              port: Int = port,
              epochLength: Long = 5000): DataFrame = {
-    session
+    spark
       .readStream
       .format(classOf[HTTPSourceProviderV2].getName)
       .address(host, port, apiPath)
@@ -195,7 +206,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     waitForBuild()
     val newPort = getFreePort
     try {
-      val server = baseWrite(session
+      val server = baseWrite(spark
         .readStream
         .format(classOf[HTTPSourceProviderV2].getName)
         .address(host, newPort, apiPath)
@@ -352,7 +363,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     waitForBuild()
     val newPort = getFreePort
     //TODO figure out how to get spark streaming to shuffle for real
-    import session.implicits._
+    import spark.implicits._
 
     val df2 = (0 until 1000)
       .map(i => (i, i.toString + "_foo"))

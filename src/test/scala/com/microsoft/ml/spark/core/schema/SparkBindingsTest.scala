@@ -18,7 +18,7 @@ object Bar extends SparkBindings[Bar]
 
 class SparkBindingsTest2 extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   test("Test to make sure there are no strange memory leaks") {
     (1 to 40).foreach { i =>

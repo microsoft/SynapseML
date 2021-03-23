@@ -11,7 +11,7 @@ import org.apache.spark.ml.linalg.SparseVector
 class HashingTFSpec extends TestBase {
 
   test("operation on tokenized strings") {
-    val wordDataFrame = session.createDataFrame(Seq(
+    val wordDataFrame = spark.createDataFrame(Seq(
       (0, Array("Hi", "I", "can", "not", "foo", "foo")),
       (1, Array("I")),
       (2, Array("Logistic", "regression")),
@@ -33,7 +33,7 @@ class HashingTFSpec extends TestBase {
   test("support several values for number of features") {
     val featureSizes = List(1, 5, 100, 100000)
     val words = Array("Hi", "I", "can", "not", "foo", "bar", "foo", "afk")
-    val wordDataFrame = session.createDataFrame(Seq((0, words))).toDF("label", "words")
+    val wordDataFrame = spark.createDataFrame(Seq((0, words))).toDF("label", "words")
 
     val fsResults = featureSizes.map { n =>
       new HashingTF()
@@ -54,7 +54,7 @@ class HashingTFSpec extends TestBase {
   }
 
   test("treat empty strings as another word") {
-    val wordDataFrame = session.createDataFrame(Seq(
+    val wordDataFrame = spark.createDataFrame(Seq(
       (0, "hey you no way"),
       (1, "")))
       .toDF("label", "sentence")
@@ -67,7 +67,7 @@ class HashingTFSpec extends TestBase {
   }
 
   test("raise an error when applied to a null array") {
-    val tokenDataFrame = session.createDataFrame(Seq(
+    val tokenDataFrame = spark.createDataFrame(Seq(
       (0, Some(Array("Hi", "I", "can", "not", "foo"))),
       (1, None))
     ).toDF("label", "tokens")

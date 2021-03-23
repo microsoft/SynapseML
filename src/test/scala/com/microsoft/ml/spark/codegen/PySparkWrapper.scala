@@ -75,7 +75,9 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |            kwargs = self._input_kwargs
         |        else:
         |            kwargs = self.__init__._input_kwargs
-        |        self.setParams(**kwargs)
+        |        for k,v in kwargs.items():
+        |            if v is not None:
+        |                getattr(self, "set" + k[0].upper() + k[1:])(v)
         |
         |    @keyword_only
         |    def setParams(self, $classParamsString):
@@ -127,6 +129,8 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
         |            $explanation
         |
         |        "\""
+        |        if isinstance(value, list):
+        |            value = SparkContext._active_spark_context._jvm.org.apache.spark.ml.param.ServiceParam.toSeq(value)
         |        self._java_obj = self._java_obj.set$capName(value)
         |        return self
         |
@@ -387,11 +391,14 @@ abstract class PySparkParamsWrapper(entryPoint: Params,
 
       val (pyParamDefault, autogenSuffix) = getParamDefault(param)
       paramsAndDefaults += pname + "=" + pyParamDefault
+      if (param.isInstanceOf[ServiceParam[_]])
+        paramsAndDefaults += pname + "Col=" + pyParamDefault
 
       if (pyParamDefault != "None")
         paramDefinitionsAndDefaults += s"""${ScopeDepth * 2}self._setDefault($pname=$pyParamDefault)"""
       else if (autogenSuffix != null)
         paramDefinitionsAndDefaults += s"""${ScopeDepth * 2}self._setDefault($pname=self.uid + \"$autogenSuffix\")"""
+
 
     }
 

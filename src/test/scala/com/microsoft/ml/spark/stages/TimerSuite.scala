@@ -10,13 +10,14 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 class TimerSuite extends EstimatorFuzzing[Timer] {
+  import spark.implicits._
 
-  lazy val df: DataFrame = session
-    .createDataFrame(Seq((0, "Hi I"),
-                         (1, "I wish for snow today"),
-                         (2, "we Cant go to the park, because of the snow!"),
-                         (3, "")))
-    .toDF("label", "sentence")
+  lazy val df: DataFrame = Seq(
+    (0, "Hi I"),
+    (1, "I wish for snow today"),
+    (2, "we Cant go to the park, because of the snow!"),
+    (3, "")
+  ).toDF("label", "sentence")
 
   test("Work with transformers and estimators") {
 
@@ -40,7 +41,7 @@ class TimerSuite extends EstimatorFuzzing[Timer] {
       .setOutputCol("tokens")
     val ttok = new Timer().setStage(tok)
     val hash = new HashingTF().setInputCol("tokens").setOutputCol("hash")
-    val idf  = new IDF().setInputCol("hash").setOutputCol("idf")
+    val idf = new IDF().setInputCol("hash").setOutputCol("idf")
     val tidf = new Timer().setStage(idf)
     val pipe = new Pipeline().setStages(Array(ttok, hash, tidf))
     pipe.fit(df).transform(df)
@@ -52,7 +53,7 @@ class TimerSuite extends EstimatorFuzzing[Timer] {
       .setOutputCol("tokens")
     val ttok = new Timer().setStage(tok)
     val hash = new HashingTF().setInputCol("tokens").setOutputCol("hash")
-    val idf  = new IDF().setInputCol("hash").setOutputCol("idf")
+    val idf = new IDF().setInputCol("hash").setOutputCol("idf")
     val tidf = new Timer().setStage(idf)
     val pipe = new Pipeline().setStages(Array(ttok, hash, tidf))
     val model = pipe.fit(df)
@@ -65,7 +66,7 @@ class TimerSuite extends EstimatorFuzzing[Timer] {
     println("here")
     println(model.stages(0).getParam("disableMaterialization"))
 
-    model.stages(0).params.foreach(p =>println("foo: " + p.toString))
+    model.stages(0).params.foreach(p => println("foo: " + p.toString))
 
     model.transform(df)
   }

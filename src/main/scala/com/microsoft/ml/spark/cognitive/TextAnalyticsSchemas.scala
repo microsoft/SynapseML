@@ -16,7 +16,7 @@ case class TARequest(documents: Seq[TADocument])
 
 object TARequest extends SparkBindings[TARequest]
 
-case class TAError(id: String, message: String)
+case class TAError(id: String, error: String)
 
 object TAError extends SparkBindings[TAError]
 

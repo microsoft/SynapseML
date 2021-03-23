@@ -18,7 +18,7 @@ trait HasImageSearchKey {
 class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
   with HasImageSearchKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val offsets: Seq[Int] = (0 to 1).map(_ * 10)
   lazy val searchQueries = List("Elephant", "African Elephant",

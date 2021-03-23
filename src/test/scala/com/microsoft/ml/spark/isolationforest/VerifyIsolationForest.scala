@@ -22,7 +22,7 @@ case class ScoringResult(features: Vector, label: Double, predictedLabel: Double
 
 class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationForest] {
   test ("Verify isolationForestMammographyDataTest") {
-    import session.implicits._
+    import spark.implicits._
 
     val data = loadMammographyData
 
@@ -62,14 +62,14 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
 
   def loadMammographyData(): DataFrame = {
 
-    import session.implicits._
+    import spark.implicits._
 
     val mammographyRecordSchema = Encoders.product[MammographyRecord].schema
 
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,"IsolationForest", "mammography.csv").toString
 
     // Open source dataset from http://odds.cs.stonybrook.edu/mammography-dataset/
-    val rawData = session.read
+    val rawData = spark.read
       .format("csv")
       .option("comment", "#")
       .option("header", "false")

@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
@@ -16,7 +17,7 @@ import org.scalatest.Assertion
 import org.apache.spark.sql.functions.{col, udf}
 
 trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
-  import session.implicits._
+  import spark.implicits._
   lazy val n = 1000
   lazy val df: DataFrame = sc.parallelize((1 to n).zip(List.fill(n)("foo"))).toDF("in1", "in2")
 
@@ -122,7 +123,7 @@ object FlattenBatchUtils extends Serializable {
 }
 
 class FlattenBatchSuite extends TransformerFuzzing[FlattenBatch] {
-  import session.implicits._
+  import spark.implicits._
   lazy val n = 1000
   lazy val df: DataFrame = sc.parallelize((1 to n).zip(List.fill(n)("foo"))).toDF("in1", "in2")
 
