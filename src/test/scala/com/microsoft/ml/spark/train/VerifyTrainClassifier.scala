@@ -45,7 +45,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   val mockLabelCol = "Label"
 
   def createMockDataset: DataFrame = {
-    session.createDataFrame(Seq(
+    spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (0, 4, 0.78, 0.99, 2),
@@ -85,7 +85,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
     val cat = "Cat"
     val dog = "Dog"
     val bird = "Bird"
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, dog, cat),
       (1, 3, 0.40, 0.50, cat, dog),
       (0, 4, 0.78, 0.99, dog, bird),
@@ -111,7 +111,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   }
 
   test("Verify you can train on a dataset that contains a vector column") {
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0, Vectors.dense(1.0, 0.1, -1.5)),
       (1, 3, 0.40, 0.50, 1, Vectors.dense(1.5, 0.2, -1.2)),
       (0, 4, 0.78, 0.99, 2, Vectors.dense(1.3, 0.3, -1.1)),
@@ -133,7 +133,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   verifyMultiClassCSV("abalone.csv", "Rings", 2, true)
   // Has multiple columns with the same name.  Spark doesn't seem to be able to handle that yet.
   // verifyLearnerOnMulticlassCsvFile("arrhythmia.csv",               "Arrhythmia")
-  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, true)
+  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, false)
   verifyMultiClassCSV("CarEvaluation.csv", "Col7", 2, true)
   // Getting "code generation" exceeded max size limit error
   // verifyLearnerOnMulticlassCsvFile("mnist.train.csv",              "Label")
@@ -154,7 +154,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   verifyBinaryCSV("bank.train.csv", "y", 2, false)
   verifyBinaryCSV("TelescopeData.csv", " Class", 2, false)
 
-  test("Compare benchmark results file to generated file", TestBase.Extended) {
+  test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
   }
 
@@ -162,7 +162,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                       labelCol: String,
                       decimals: Int,
                       includeNaiveBayes: Boolean): Unit = {
-    test("Verify classifier can be trained and scored on " + fileName, TestBase.Extended) {
+    test("Verify classifier can be trained and scored on " + fileName) {
       val fileLocation = binaryTrainFile(fileName).toString
       val results = readAndScoreDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
       results.foreach { case (name, result) =>
@@ -180,7 +180,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                           labelCol: String,
                           decimals: Int,
                           includeNaiveBayes: Boolean): Unit = {
-    test("Verify classifier can be trained and scored on multiclass " + fileName, TestBase.Extended) {
+    test("Verify classifier can be trained and scored on multiclass " + fileName) {
       val fileLocation = multiclassTrainFile(fileName).toString
       val results =
         readAndScoreDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
@@ -203,7 +203,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
     // TODO: Add other file types for testing
     // TODO move this to new CSV reader
     val dataset: DataFrame =
-      session.read.format("com.databricks.spark.csv")
+      spark.read.format("com.databricks.spark.csv")
         .option("header", "true").option("inferSchema", "true")
         .option("treatEmptyValuesAsNulls", "false")
         .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")

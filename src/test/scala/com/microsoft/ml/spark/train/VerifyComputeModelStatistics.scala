@@ -28,7 +28,7 @@ import scala.util.Random
 /** Tests to validate the functionality of Evaluate Model module. */
 class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
   val labelColumn = "Label"
-  lazy val dataset = session.createDataFrame(Seq(
+  lazy val dataset = spark.createDataFrame(Seq(
     (0, 2, 0.50, 0.60, 0),
     (1, 3, 0.40, 0.50, 1),
     (0, 4, 0.78, 0.99, 2),
@@ -45,7 +45,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
 
   test("Verify multiclass evaluation is not slow for large number of labels") {
     val numRows = 4096
-    import session.implicits._
+    import spark.implicits._
     val rand = new Random(1337)
     val labelCol = "label"
     val evaluationMetric = MetricConstants.ClassificationMetricsName
@@ -67,7 +67,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   test("Smoke test for evaluating a dataset") {
     val predictionColumn = SchemaConstants.SparkPredictionColumn
     val scoreModelName = SchemaConstants.ScoreModelPrefix + "_test model"
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       (0.0, 2, 0.50, 0.60, 0.0),
       (1.0, 3, 0.40, 0.50, 1.0),
       (2.0, 4, 0.78, 0.99, 2.0),
@@ -102,7 +102,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
 
   test("Evaluate a dataset with missing values") {
     val predictionColumn = SchemaConstants.SparkPredictionColumn
-    val dataset = session.createDataFrame(sc.parallelize(Seq(
+    val dataset = spark.createDataFrame(sc.parallelize(Seq(
       (0.0, 0.0),
       (0.0, null),
       (1.0, 1.0),
@@ -135,7 +135,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val filePath = FileUtilities.join(
       BuildInfo.datasetDir, "MissingValuesRegression", "Train", name)
     val dataset =
-      session.read.option("header", "true").option("inferSchema", "true")
+      spark.read.option("header", "true").option("inferSchema", "true")
         .option("nullValue", "?")
         .option("treatEmptyValuesAsNulls", "true")
         .option("delimiter", ",")
@@ -145,11 +145,11 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val model = tr.fit(dataset)
     val prediction = model.transform(dataset)
     val evaluatedData = new ComputeModelStatistics().transform(prediction)
-    assert(evaluatedData.collect()(0).getDouble(2) === 0.977733)
+    assert(evaluatedData.collect()(0).getDouble(2) === 0.97758720062440)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (2, 4, 0.78, 0.99, 2),
@@ -224,7 +224,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   test("Verify results of multiclass metrics") {
     val labelColumn = "label"
     val predictionColumn = SchemaConstants.SparkPredictionColumn
-    val labelsAndPrediction = session.createDataFrame(
+    val labelsAndPrediction = spark.createDataFrame(
       Seq(
         (0.0, 0.0),
         (0.0, 0.0),
@@ -280,7 +280,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val fileLocation = DatasetUtils.binaryTrainFile("transfusion.csv").toString
     val label = "Donated"
     val dataset: DataFrame =
-      session.read.format("com.databricks.spark.csv")
+      spark.read.format("com.databricks.spark.csv")
         .option("header", "true").option("inferSchema", "true")
         .option("treatEmptyValuesAsNulls", "false")
         .option("delimiter", ",")
@@ -308,7 +308,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val levelsToIndexMap: Map[Any, Double] = levels.get.zipWithIndex.map(t => t._1 -> t._2.toDouble).toMap
 
     // Calculate confusion matrix and output it as DataFrame
-    val predictionAndLabels = session
+    val predictionAndLabels = spark
       .createDataFrame(scored.select(col(SchemaConstants.ScoresColumn), col(label)).rdd.map {
       case Row(prediction: Vector, label) => (prediction(1), levelsToIndexMap(label))
     }).toDF(SchemaConstants.ScoresColumn, label)

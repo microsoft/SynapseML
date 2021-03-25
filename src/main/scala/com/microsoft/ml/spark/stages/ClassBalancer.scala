@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -25,7 +25,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * @param uid
   */
 class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
-  with DefaultParamsWritable with HasInputCol with HasOutputCol {
+  with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
 
   def this() = this(Identifiable.randomUID("ClassBalancer"))
 

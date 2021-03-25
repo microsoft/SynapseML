@@ -14,7 +14,7 @@ import scala.collection.mutable
 
 class MultiColumnAdapterSpec extends TestBase with EstimatorFuzzing[MultiColumnAdapter] {
 
-  lazy val wordDF = session.createDataFrame(Seq(
+  lazy val wordDF = spark.createDataFrame(Seq(
     (0, "This is a test", "this is one too"),
     (1, "could be a test", "bar"),
     (2, "foo", "bar"),
@@ -50,7 +50,7 @@ class MultiColumnAdapterSpec extends TestBase with EstimatorFuzzing[MultiColumnA
     assert(lines1 === trueLines1)
 
     val lines2 = stringIndexedDF.getColAs[Array[String]]("output2")
-    val trueLines2 = mutable.ArraySeq(1, 0, 0, 2)
+    val trueLines2 = mutable.ArraySeq(2, 0, 0, 1)
     assert(lines2 === trueLines2)
   }
   def testObjects(): Seq[TestObject[MultiColumnAdapter]] = List(new TestObject(adaptedEstimator, wordDF))

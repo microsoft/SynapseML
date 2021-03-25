@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
 class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[StratifiedRepartition] {
 
-  import session.implicits._
+  import spark.implicits._
 
   val values = "values"
   val colors = "colors"
@@ -58,7 +58,7 @@ class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[Strati
         }
       })(inputEnc).cache()
     // Some debug to understand what data is on which partition
-    trainData.foreachPartition { rows =>
+    trainData.foreachPartition { rows: Iterator[Row] =>
       rows.foreach { row =>
         val ctx = TaskContext.get
         val partId = ctx.partitionId

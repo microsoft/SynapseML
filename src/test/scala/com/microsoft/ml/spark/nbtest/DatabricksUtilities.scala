@@ -1,13 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.nbtest
+package com.microsoft.ml.spark.nbtest
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
 import java.util.concurrent.TimeoutException
 
-import com.microsoft.ml.nbtest.SprayImplicits._
+import com.microsoft.ml.spark.nbtest.SprayImplicits._
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
@@ -16,7 +16,7 @@ import com.microsoft.ml.spark.io.split2.HasHttpClient
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
-import org.spark_project.guava.io.BaseEncoding
+import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
@@ -27,8 +27,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "mmlspark-build"
-  val AdbRuntime = "5.5.x-scala2.11"
+  val PoolName = "mmlspark-build-3"
+  val AdbRuntime = "7.6.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -50,7 +50,9 @@ object DatabricksUtilities extends HasHttpClient {
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
     Map("pypi" -> Map("package" -> "nltk")),
-    Map("pypi" -> Map("package" -> "bs4"))
+    Map("pypi" -> Map("package" -> "bs4")),
+    Map("pypi" -> Map("package" -> "plotly")),
+    Map("pypi" -> Map("package" -> "Pillow"))
   ).toJson.compactPrint
 
   // Execution Params
@@ -59,6 +61,10 @@ object DatabricksUtilities extends HasHttpClient {
   val NotebookFiles: Array[File] = Option(
     FileUtilities.join(BuildInfo.baseDirectory, "notebooks", "samples").getCanonicalFile.listFiles()
   ).get
+
+  val ParallizableNotebooks = NotebookFiles.filterNot(_.getName.contains("Vowpal"))
+
+  val NonParallizableNotebooks = NotebookFiles.filter(_.getName.contains("Vowpal"))
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
     try {

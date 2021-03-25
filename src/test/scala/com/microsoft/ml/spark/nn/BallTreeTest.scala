@@ -48,26 +48,26 @@ trait BallTreeTestBase extends TestBase {
 
   lazy val randomData: IndexedSeq[DenseVector[Double]] = randomData(10000, 3)
 
-  lazy val df = session
+  lazy val df = spark
     .createDataFrame(uniformData.zip(uniformLabels).map(p =>
       (new SDV(p._1.data), "foo", p._2)
     ))
     .toDF("features", "values", "labels")
 
-  lazy val stringDF = session
+  lazy val stringDF = spark
     .createDataFrame(uniformData.zip(uniformLabels).map(p =>
       (new SDV(p._1.data), "foo", "class1")
     ))
     .toDF("features", "values", "labels")
 
-  lazy val testDF = session
+  lazy val testDF = spark
     .createDataFrame(uniformData.zip(uniformLabels).take(5).map(p =>
       (new SDV(p._1.data), "foo", p._2)
     ))
     .toDF("features", "values", "labels")
     .withColumn("conditioner", lit(Array(0, 1)))
 
-  lazy val testStringDF = session
+  lazy val testStringDF = spark
     .createDataFrame(uniformData.zip(uniformLabels).take(5).map(p =>
       (new SDV(p._1.data), "foo", "class1")
     ))

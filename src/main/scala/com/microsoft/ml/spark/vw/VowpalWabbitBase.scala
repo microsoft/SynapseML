@@ -8,6 +8,7 @@ import java.util.UUID
 import com.microsoft.ml.spark.core.contracts.{HasWeightCol, Wrappable}
 import com.microsoft.ml.spark.core.env.{InternalWrapper, StreamUtilities}
 import com.microsoft.ml.spark.core.utils.{ClusterUtil, StopWatch}
+import com.microsoft.ml.spark.downloader.FaultToleranceUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
 import org.apache.spark.ml.ComplexParamsWritable
@@ -18,6 +19,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.vowpalwabbit.spark._
 
+import scala.concurrent.duration.Duration
 import scala.math.min
 import scala.util.{Failure, Success}
 
@@ -59,6 +61,7 @@ trait HasAdditionalFeatures extends Params {
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
 
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
+
   def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 }
 
@@ -78,6 +81,7 @@ trait VowpalWabbitBase extends Wrappable
   setDefault(args -> "")
 
   def getArgs: String = $(args)
+
   def setArgs(value: String): this.type = set(args, value)
 
   setDefault(additionalFeatures -> Array())
@@ -85,7 +89,9 @@ trait VowpalWabbitBase extends Wrappable
   // to support Grid search we need to replicate the parameters here...
   val numPasses = new IntParam(this, "numPasses", "Number of passes over the data")
   setDefault(numPasses -> 1)
+
   def getNumPasses: Int = $(numPasses)
+
   def setNumPasses(value: Int): this.type = set(numPasses, value)
 
   // Note on parameters: default values are set in the C++ codebase. To avoid replication
@@ -93,40 +99,58 @@ trait VowpalWabbitBase extends Wrappable
   // are only passed to the native side if they're set.
 
   val learningRate = new DoubleParam(this, "learningRate", "Learning rate")
+
   def getLearningRate: Double = $(learningRate)
+
   def setLearningRate(value: Double): this.type = set(learningRate, value)
 
   val powerT = new DoubleParam(this, "powerT", "t power value")
+
   def getPowerT: Double = $(powerT)
+
   def setPowerT(value: Double): this.type = set(powerT, value)
 
   val l1 = new DoubleParam(this, "l1", "l_1 lambda")
+
   def getL1: Double = $(l1)
+
   def setL1(value: Double): this.type = set(l1, value)
 
   val l2 = new DoubleParam(this, "l2", "l_2 lambda")
+
   def getL2: Double = $(l2)
+
   def setL2(value: Double): this.type = set(l2, value)
 
   val interactions = new StringArrayParam(this, "interactions", "Interaction terms as specified by -q")
+
   def getInteractions: Array[String] = $(interactions)
+
   def setInteractions(value: Array[String]): this.type = set(interactions, value)
 
   val ignoreNamespaces = new Param[String](this, "ignoreNamespaces", "Namespaces to be ignored (first letter only)")
+
   def getIgnoreNamespaces: String = $(ignoreNamespaces)
+
   def setIgnoreNamespaces(value: String): this.type = set(ignoreNamespaces, value)
 
   val initialModel = new ByteArrayParam(this, "initialModel", "Initial model to start from")
+
   def getInitialModel: Array[Byte] = $(initialModel)
+
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
   def labelCol: Param[String]
+
   def getLabelCol: String
+
   setDefault(labelCol -> "label")
 
   def featuresCol: Param[String]
+
   def getFeaturesCol: String
+
   setDefault(featuresCol -> "features")
 
   val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
@@ -134,14 +158,15 @@ trait VowpalWabbitBase extends Wrappable
   setDefault(useBarrierExecutionMode -> true)
 
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
+
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
   implicit class ParamStringBuilder(sb: StringBuilder) {
     def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
       if (get(param).isEmpty ||
         // boost allow space or =
-          s"-${optionShort}[ =]".r.findAllIn(sb.toString).hasNext ||
-          s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext) {
+        s"-${optionShort}[ =]".r.findAllIn(sb.toString).hasNext ||
+        s"--${optionLong}[ =]".r.findAllIn(sb.toString).hasNext) {
         sb
       }
       else {
@@ -172,12 +197,14 @@ trait VowpalWabbitBase extends Wrappable
   setDefault(hashSeed -> 0)
 
   def getHashSeed: Int = $(hashSeed)
+
   def setHashSeed(value: Int): this.type = set(hashSeed, value)
 
   val numBits = new IntParam(this, "numBits", "Number of bits used")
   setDefault(numBits -> 18)
 
   def getNumBits: Int = $(numBits)
+
   def setNumBits(value: Int): this.type = set(numBits, value)
 
   protected def getAdditionalColumns(): Seq[String] = Seq.empty
@@ -226,7 +253,7 @@ trait VowpalWabbitBase extends Wrappable
       args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes ${getNumPasses}")
     }
 
-    log.info(s"VowpalWabbit args: ${args}")
+    log.warn(s"VowpalWabbit args: ${args}")
 
     args
   }
@@ -316,66 +343,72 @@ trait VowpalWabbitBase extends Wrappable
 
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
-
       // construct command line arguments
       val args = buildCommandLineArguments(vwArgs, contextArgs)
-      val totalTime = new StopWatch
-      val nativeIngestTime = new StopWatch
-      val learnTime = new StopWatch
-      val multipassTime = new StopWatch
+      FaultToleranceUtils.retryWithTimeout() {
+        try {
+          val totalTime = new StopWatch
+          val nativeIngestTime = new StopWatch
+          val learnTime = new StopWatch
+          val multipassTime = new StopWatch
 
-      val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
-      else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
-        val trainContext = new TrainContext(vw)
+          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
+          else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
+            val trainContext = new TrainContext(vw)
 
-        val result = StreamUtilities.using(vw.createExample()) { ex =>
-          // pass data to VW native part
-          totalTime.measure {
-            trainRow(schema, inputRows, trainContext)
+            val result = StreamUtilities.using(vw.createExample()) { ex =>
+              // pass data to VW native part
+              totalTime.measure {
+                trainRow(schema, inputRows, trainContext)
 
-            multipassTime.measure {
-              vw.endPass()
+                multipassTime.measure {
+                  vw.endPass()
 
-              if (getNumPasses > 1)
-                vw.performRemainingPasses()
+                  if (getNumPasses > 1)
+                    vw.performRemainingPasses()
+                }
+              }
             }
-          }
+
+            // If the using statement failed rethrow here.
+            result match {
+              case Failure(exception) => throw exception
+              case Success(_) => Unit
+            }
+
+            // only export the model on the first partition
+            val perfStats = vw.getPerformanceStatistics
+            val args = vw.getArguments
+
+            (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+              TrainingStats(
+                TaskContext.get.partitionId,
+                args.getArgs,
+                args.getLearningRate,
+                args.getPowerT,
+                args.getHashSeed,
+                args.getNumBits,
+                perfStats.getNumberOfExamplesPerPass,
+                perfStats.getWeightedExampleSum,
+                perfStats.getWeightedLabelSum,
+                perfStats.getAverageLoss,
+                perfStats.getBestConstant,
+                perfStats.getBestConstantLoss,
+                perfStats.getTotalNumberOfFeatures,
+                totalTime.elapsed,
+                nativeIngestTime.elapsed,
+                learnTime.elapsed,
+                multipassTime.elapsed,
+                trainContext.contextualBanditMetrics.getIpsEstimate(),
+                trainContext.contextualBanditMetrics.getSnipsEstimate()))
+          }.get // this will throw if there was an exception
+
+          Seq(TrainingResult(model, stats)).iterator
+        } catch {
+          case e: java.lang.Exception =>
+            throw new Exception(s"VW failed with args: ${args.result}", e)
         }
-
-        // If the using statement failed rethrow here.
-        result match {
-          case Failure(exception) => throw exception
-          case Success(_) => Unit
-        }
-
-        // only export the model on the first partition
-        val perfStats = vw.getPerformanceStatistics
-        val args = vw.getArguments
-
-        (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
-          TrainingStats(
-            TaskContext.get.partitionId,
-            args.getArgs,
-            args.getLearningRate,
-            args.getPowerT,
-            args.getHashSeed,
-            args.getNumBits,
-            perfStats.getNumberOfExamplesPerPass,
-            perfStats.getWeightedExampleSum,
-            perfStats.getWeightedLabelSum,
-            perfStats.getAverageLoss,
-            perfStats.getBestConstant,
-            perfStats.getBestConstantLoss,
-            perfStats.getTotalNumberOfFeatures,
-            totalTime.elapsed,
-            nativeIngestTime.elapsed,
-            learnTime.elapsed,
-            multipassTime.elapsed,
-            trainContext.contextualBanditMetrics.getIpsEstimate(),
-            trainContext.contextualBanditMetrics.getSnipsEstimate()))
-      }.get // this will throw if there was an exception
-
-      Seq(TrainingResult(model, stats)).iterator
+      }
     }
 
     val encoder = Encoders.kryo[TrainingResult]
@@ -393,8 +426,9 @@ trait VowpalWabbitBase extends Wrappable
 
   /**
     * Setup spanning tree and invoke training.
-    * @param df input data.
-    * @param vwArgs VW command line arguments.
+    *
+    * @param df       input data.
+    * @param vwArgs   VW command line arguments.
     * @param numTasks number of target tasks.
     * @return
     */
@@ -456,14 +490,16 @@ trait VowpalWabbitBase extends Wrappable
     model.setPerformanceStatistics(diagRdd)
   }
 
-  /***
+  /** *
     * Allow subclasses to add further arguments
+    *
     * @param args argument builder to append to
     */
   protected def addExtraArgs(args: StringBuilder): Unit = {}
 
   /**
     * Main training loop
+    *
     * @param dataset input data.
     * @return binary VW model.
     */
@@ -507,7 +543,7 @@ trait VowpalWabbitBase extends Wrappable
     // Allows subclasses to add further specific args
     addExtraArgs(vwArgs)
 
-     // call training
+    // call training
     val trainingResults = (if (numTasks == 1)
       trainInternal(df, vwArgs.result)
     else

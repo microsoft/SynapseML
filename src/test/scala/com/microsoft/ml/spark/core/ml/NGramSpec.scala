@@ -17,7 +17,7 @@ class NGramSpec extends TestBase {
   }
 
   test("operation on tokenized strings") {
-    val wordDataFrame = session.createDataFrame(Seq((0, Array("Hi", "I", "can", "not", "foo")),
+    val wordDataFrame = spark.createDataFrame(Seq((0, Array("Hi", "I", "can", "not", "foo")),
                                                     (1, Array("I")),
                                                     (2, Array("Logistic", "regression")),
                                                     (3, Array("Log", "f", "reg"))))
@@ -36,7 +36,7 @@ class NGramSpec extends TestBase {
   test("supporting several values for n") {
     val ns = 1 to 6
     val words = Array("Hi", "I", "can", "not", "foo", "bar", "foo", "afk")
-    val wordDataFrame = session.createDataFrame(Seq((0, words))).toDF("label", "words")
+    val wordDataFrame = spark.createDataFrame(Seq((0, words))).toDF("label", "words")
     val nGramResults = ns.map { n =>
       ngramDFToScalaList(
         new NGram().setN(n)
@@ -49,7 +49,7 @@ class NGramSpec extends TestBase {
   }
 
   test("handling empty strings gracefully") {
-    val wordDataFrame = session.createDataFrame(Seq((0, "hey you no way"),
+    val wordDataFrame = spark.createDataFrame(Seq((0, "hey you no way"),
                                                     (1, "")))
       .toDF("label", "sentence")
 
@@ -59,7 +59,7 @@ class NGramSpec extends TestBase {
   }
 
   test("raise an error when applied to a null array") {
-    val tokenDataFrame = session.createDataFrame(Seq(
+    val tokenDataFrame = spark.createDataFrame(Seq(
       (0, Some(Array("Hi", "I", "can", "not", "foo"))),
       (1, None))
     ).toDF("label", "tokens")

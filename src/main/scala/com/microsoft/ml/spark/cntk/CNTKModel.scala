@@ -13,6 +13,7 @@ import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vectors, Vector => SVector}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -25,7 +26,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 private object CNTKModelUtils extends java.io.Serializable {
 
@@ -368,7 +369,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   /** Returns the dimensions of the required input */
   def getInputShapes: List[Array[Int]] = {
-    getModel.getArguments.toList.map(_.getShape.getDimensions.map(_.toInt))
+    getModel.getArguments.asScala.map(_.getShape.getDimensions.map(_.toInt)).toList
   }
 
   setDefault(miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10)) //scalastyle:ignore magic.number
@@ -388,7 +389,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
         ArrayType(FloatType, true),
         ArrayType(DoubleType, false),
         ArrayType(FloatType, false))
-      val allowedTypes = if (getBatchInput) {
+      val allowedTypes: Set[DataType] = if (getBatchInput) {
         innerTypes
       } else {
         innerTypes.map(ArrayType(_))
@@ -433,10 +434,12 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
         None
       case (ArrayType(FloatType, _), FloatType) =>
         None
+      case _ =>
+        throw new IllegalArgumentException(s"unsupported column and element type: $colType and $targetElementType")
     }
 
     funcOpt.map { f =>
-      (udf(f, ArrayType(ArrayType(targetElementType))),
+      (UDFUtils.oldUdf(f, ArrayType(ArrayType(targetElementType))),
         findUnusedColumnName(coercionPrefix, schema))
     }
   }
@@ -460,8 +463,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
   }
 
   private def coerceOutputDF(unbatchedDF: DataFrame): DataFrame = {
-    val floatToDV = udf({ v: Seq[Float] => Vectors.dense(v.map(_.toDouble).toArray) }, SQLDataTypes.VectorType)
-    val doubleToDV = udf({ v: Seq[Double] => Vectors.dense(v.toArray) }, SQLDataTypes.VectorType)
+    val floatToDV = UDFUtils.oldUdf({ v: Seq[Float] =>
+      Vectors.dense(v.map(_.toDouble).toArray) }, SQLDataTypes.VectorType)
+    val doubleToDV = UDFUtils.oldUdf({ v: Seq[Double] =>
+      Vectors.dense(v.toArray) }, SQLDataTypes.VectorType)
 
     if (getConvertOutputToDenseVector) {
       val outputSchema = getModel.getOutputSchema(getFetchDict)
@@ -473,6 +478,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
               floatToDV(col(name)).alias(name)
             case StructField(name, ArrayType(DoubleType, _), _, _) =>
               doubleToDV(col(name)).alias(name)
+            case _ =>
+              throw new MatchError("Improper column type")
           }
         case sf => col(sf.name)
       }

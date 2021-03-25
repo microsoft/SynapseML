@@ -10,7 +10,8 @@ import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
-import org.apache.spark.ml.param.{BooleanParam, Param, ServiceParam, ServiceParamData}
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.param.{BooleanParam, Param, ServiceParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions._
@@ -30,7 +31,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setText(v: String): this.type = setScalarParam(text, Seq(v))
 
-  setDefault(text -> ServiceParamData(Some(Right("text")), None))
+  setDefault(text -> Right("text"))
 
   val language = new ServiceParam[Seq[String]](this, "language",
     "the language code of the text (optional for some services)")
@@ -41,9 +42,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
 
-  def setDefaultLanguage(v: String): this.type = setDefaultValue(language, Seq(v))
-
-  setDefault(language -> ServiceParamData(None, Some(Seq("en"))))
+  setDefault(language -> Left(Seq("en")))
 
   protected def innerResponseDataType: StructType =
     responseDataType("documents").dataType match {
@@ -71,16 +70,13 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         post.setHeader("Content-Type", "application/json")
         val texts = getValue(row, text)
 
-        val languages = (getValueOpt(row, language) match {
+        val languages: Option[Seq[String]] = (getValueOpt(row, language) match {
           case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
           case s => s
-        }).map(_.map {
-          case e if e == null => getOrDefault(language).default.map(_.head).orNull
-          case e => e
         })
 
         val documents = texts.zipWithIndex.map { case (t, i) =>
-          TADocument(languages.map(ls => ls(i)), i.toString, Option(t).getOrElse(""))
+          TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
         }
         val json = TARequest(documents).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
@@ -118,7 +114,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
     val innerFields = innerResponseDataType.fields.filter(_.name != "id")
 
-    val unpackBatchUDF = udf({ rowOpt: Row =>
+    val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val documents = row.getSeq[Row](1).map(doc =>
           (doc.getString(0).toInt, doc)).toMap
@@ -149,7 +145,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         .setOutputParser(getInternalOutputParser(schema))
         .setHandler(getHandler)
         .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(getConcurrentTimeout)
+        .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
       new UDFTransformer()
         .setInputCol(getOutputCol)
@@ -245,7 +241,7 @@ object TextSentiment extends ComplexParamsReadable[TextSentiment]
 class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("TextSentimentV3"))
+  def this() = this(Identifiable.randomUID("TextSentiment"))
 
   val showStats = new ServiceParam[Boolean](this, "showStats",
     "if set to true, response will contain input and document level statistics.", isURLParam = true)
@@ -278,7 +274,7 @@ object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV3"))
+  def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
 
   override def responseDataType: StructType = KeyPhraseResponseV3.schema
 
@@ -290,7 +286,7 @@ object NER extends ComplexParamsReadable[NER]
 
 class NER(override val uid: String) extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("NERV3"))
+  def this() = this(Identifiable.randomUID("NER"))
 
   override def responseDataType: StructType = NERResponseV3.schema
 
@@ -303,7 +299,7 @@ object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 class LanguageDetector(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("LanguageDetectorV3"))
+  def this() = this(Identifiable.randomUID("LanguageDetector"))
 
   override def responseDataType: StructType = DetectLanguageResponseV3.schema
 
@@ -317,7 +313,7 @@ object EntityDetector extends ComplexParamsReadable[EntityDetector]
 class EntityDetector(override val uid: String)
   extends TextAnalyticsBase(uid) {
 
-  def this() = this(Identifiable.randomUID("EntityDetectorV3"))
+  def this() = this(Identifiable.randomUID("EntityDetector"))
 
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
 

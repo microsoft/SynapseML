@@ -70,6 +70,8 @@ private[ml] object ComplexParamsWriter {
     complexParamLocs.foreach {
       case (ParamPair(p: ComplexParam[Any], v), loc) =>
         p.save(v, spark, new Path(basePath, loc), shouldOverwrite)
+      case _ =>
+        throw new MatchError("Need a complex param pair")
     }
   }
 

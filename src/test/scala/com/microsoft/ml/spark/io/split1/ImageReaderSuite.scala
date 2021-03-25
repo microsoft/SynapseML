@@ -12,6 +12,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql.functions.{col, to_json, udf}
@@ -22,7 +23,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   val imageFormat: String = classOf[PatchedImageFileFormat].getName
 
   test("image dataframe") {
-    val images = session.read.format(imageFormat)
+    val images = spark.read.format(imageFormat)
       .option("dropInvalid", true)
       .load(FileUtilities.join(groceriesDirectory, "**").toString)
     println(time {
@@ -42,17 +43,17 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read images with subsample") {
-    val imageDF = session
+    val imageDF = spark
       .read
       .format(imageFormat)
       .load(cifarDirectory)
       .sample(.5,0)
-    assert(imageDF.count() == 4 || imageDF.count() == 3)
+    assert(Set(2,3,4)(imageDF.count().toInt))
   }
 
   object UDFs extends Serializable {
     val CifarDirectoryVal = cifarDirectory
-    val Rename = udf({ x: String => x.split("/").last }, StringType)
+    val Rename = UDFUtils.oldUdf({ x: String => x.split("/").last }, StringType)
   }
 
   def recursiveListFiles(f: File): Array[File] = {
@@ -64,7 +65,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
     val prefix = if (OsUtils.IsWindows) "" else "file://"
     val files = recursiveListFiles(new File(cifarDirectory))
       .toSeq.map(f => Tuple1(prefix + f.toString))
-    val df = session
+    val df = spark
       .createDataFrame(files)
       .toDF("filenames")
     val imageDF = ImageUtils.readFromPaths(df, "filenames")
@@ -76,7 +77,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       (f.getAbsolutePath, new Base64().encodeAsString(
         IOUtils.toByteArray(new FileInputStream(f))))
     )
-    val df = session
+    val df = spark
       .createDataFrame(base64Strings)
       .toDF("filenames","bytes")
     val imageDF = ImageUtils.readFromStrings(df, "bytes")
@@ -84,7 +85,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("read from strings 2") {
-    import session.implicits._
+    import spark.implicits._
 
     val df = sc.parallelize(Seq(Tuple1("" +
       "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAJhElEQVR4nAXBWW+c13kA4HPes3z7zPfND" +
@@ -136,7 +137,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
   }
 
   test("write images with subsample function 2") {
-    val imageDF = session
+    val imageDF = spark
       .read
       .format(imageFormat)
       .load(cifarDirectory)
@@ -144,24 +145,24 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .withColumn("filenames", UDFs.Rename(col("image.origin")))
 
     imageDF.printSchema()
-    assert(imageDF.count() == 4 || imageDF.count() == 3)
+    assert(Set(2,3,4)(imageDF.count().toInt))
     val saveDir = new File(tmpDir.toFile, "images").toString
     imageDF.write.mode("overwrite")
       .format(classOf[PatchedImageFileFormat].getName)
       .option("pathCol", "filenames")
       .save(saveDir)
 
-    val newImageDf = session
+    val newImageDf = spark
       .read
       .format(imageFormat)
       .load(saveDir)
-    assert(newImageDf.count() == 4 || newImageDf.count() == 3)
+    assert(Set(2,3,4)(newImageDf.count().toInt))
     assert(ImageSchemaUtils.isImage(newImageDf.schema("image").dataType))
   }
 
   test("structured streaming with images") {
     val schema = ImageSchema.imageSchema
-    val imageDF = session
+    val imageDF = spark
       .readStream
       .format(imageFormat)
       .schema(schema)
@@ -173,7 +174,7 @@ class ImageReaderSuite extends TestBase with FileReaderUtils {
       .start()
 
     tryWithRetries() { () =>
-      val df = session.sql("select * from images")
+      val df = spark.sql("select * from images")
       assert(df.count() == 6)
       println("success")
     }

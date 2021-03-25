@@ -1,7 +1,9 @@
 name: mmlspark
+channels:
+  - conda-forge
 dependencies:
   - python=3.6
-  - pyspark=2.4.3
+  - pyspark=3.0.1
   - requests
   - pip:
     - wheel

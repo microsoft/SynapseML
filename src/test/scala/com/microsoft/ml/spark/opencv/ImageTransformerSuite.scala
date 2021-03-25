@@ -9,13 +9,12 @@ import java.nio.file.Paths
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.io.IOImplicits._
-import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, LinuxOnly}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{UnrollBinaryImage, UnrollImage}
 import javax.swing._
 import org.apache.hadoop.fs.Path
-import org.apache.ivy.util.FileUtil
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 import org.opencv.core.{Mat, MatOfByte}
@@ -82,12 +81,11 @@ trait ImageTestUtils {
 
 }
 
-class UnrollImageSuite extends LinuxOnly
-  with TransformerFuzzing[UnrollImage] with ImageTestUtils with DataFrameEquality {
+class UnrollImageSuite extends TransformerFuzzing[UnrollImage] with ImageTestUtils with DataFrameEquality {
 
   lazy val filesRoot =  BuildInfo.datasetDir
   lazy val imagePath = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
-  lazy val images: DataFrame = session.read.image.load(imagePath)
+  lazy val images: DataFrame = spark.read.image.load(imagePath)
 
   test("roll and unroll") {
     val imageCollection = images.select("image").collect().map(_.getAs[Row](0))
@@ -129,13 +127,13 @@ class UnrollImageSuite extends LinuxOnly
   override def reader: UnrollImage.type = UnrollImage
 }
 
-class UnrollBinaryImageSuite extends LinuxOnly
-  with TransformerFuzzing[UnrollBinaryImage] with ImageTestUtils with DataFrameEquality {
+class UnrollBinaryImageSuite extends TransformerFuzzing[UnrollBinaryImage]
+  with ImageTestUtils with DataFrameEquality {
 
   lazy val filesRoot = BuildInfo.datasetDir
   lazy val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
-  lazy val images: DataFrame = session.read.image.load(imagePath)
-  lazy val binaryImages: DataFrame = session.read.binary.load(imagePath)
+  lazy val images: DataFrame = spark.read.image.load(imagePath)
+  lazy val binaryImages: DataFrame = spark.read.binary.load(imagePath)
     .withColumn("image", col("value.bytes"))
 
   test("unroll did not change") {
@@ -165,15 +163,14 @@ class UnrollBinaryImageSuite extends LinuxOnly
   override def reader: UnrollBinaryImage.type = UnrollBinaryImage
 }
 
-class ImageTransformerSuite extends LinuxOnly
-  with TransformerFuzzing[ImageTransformer] with ImageTestUtils {
+class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with ImageTestUtils {
 
   //TODO this is needed to stop the build from freezing
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Assertion = {
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     assert(true)
   }
 
-  lazy val images = session.read.image.option("dropInvalid",true)
+  lazy val images = spark.read.image.option("dropInvalid",true)
     .load(FileUtilities.join(fileLocation, "**").toString)
 
   test("general workflow") {
@@ -203,7 +200,7 @@ class ImageTransformerSuite extends LinuxOnly
   }
 
   test("binary file input") {
-    val binaries = session.read.binary.load(FileUtilities.join(fileLocation,"**").toString)
+    val binaries = spark.read.binary.load(FileUtilities.join(fileLocation,"**").toString)
     assert(binaries.count() == 31)
     binaries.printSchema()
 
@@ -225,7 +222,7 @@ class ImageTransformerSuite extends LinuxOnly
   }
 
   test("binary file input 2") {
-    val binaries = session.read.binary
+    val binaries = spark.read.binary
       .load(FileUtilities.join(fileLocation, "**").toString)
       .select("value.bytes")
     assert(binaries.count() == 31)

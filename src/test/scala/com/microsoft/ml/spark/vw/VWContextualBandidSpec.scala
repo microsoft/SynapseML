@@ -73,10 +73,10 @@ object CBDatasetHelper {
   }
 }
 
-class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[VowpalWabbitContextualBandit] {
-  test("Verify VerifyVowpalWabbitContextualBandit can be run on toy dataset") {
-    import session.implicits._
+class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbitContextualBandit] {
+  import spark.implicits._
 
+  test("Verify VerifyVowpalWabbitContextualBandit can be run on toy dataset") {
     val df = Seq(
       ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1, 0.8),
       ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1, 0.8),
@@ -123,8 +123,6 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify VectorZipper can merge two columns") {
-    import session.implicits._
-
     val df = Seq(
       ("thing1", "thing2")
     ).toDF("col1", "col2")
@@ -138,8 +136,6 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify columns are correct data type") {
-    import session.implicits._
-
     val cbWithIncorrectActionCol = new VowpalWabbitContextualBandit()
       .setArgs("--quiet")
       .setEpsilon(0.2)
@@ -194,7 +190,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify raises exception when used with incompatible args") {
-    val df = CBDatasetHelper.getCBDataset(session)
+    val df = CBDatasetHelper.getCBDataset(spark)
     assertThrows[NotImplementedError](
       new VowpalWabbitContextualBandit().setArgs("--quiet --cb --episilon 0.5").fit(df))
     assertThrows[NotImplementedError](
@@ -205,7 +201,7 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify can use paralellized fit") {
-    val df = CBDatasetHelper.getCBDataset(session)
+    val df = CBDatasetHelper.getCBDataset(spark)
       .coalesce(1)
       .cache()
 
@@ -226,8 +222,6 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify can supply additional namespaces") {
-    import session.implicits._
-
     val df = Seq(
       ("shared_f", "shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 1, 0.8),
       ("shared_f", "shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=1", "action2_ns2", 2, 1, 0.8),
@@ -293,7 +287,6 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   test("Verify can predict on the resulting model") {
-    import session.implicits._
 
     val df = Seq(
       ("shared_f", "shared_f2", "action1_f", "action1_ns2", "action2_f", "action2_f2=0", "action2_ns2", 1, 1, 0.8),
@@ -372,10 +365,9 @@ class VerifyVowpalWabbitContextualBandit extends TestBase with EstimatorFuzzing[
   }
 
   override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {
-    val trainData = CBDatasetHelper.getCBDataset(session)
+    val trainData = CBDatasetHelper.getCBDataset(spark)
     val cb = new VowpalWabbitContextualBandit()
       .setArgs("--quiet")
-    cb.fit(trainData)
     Seq(new TestObject(
       cb,
       trainData))

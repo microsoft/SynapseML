@@ -87,7 +87,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   // int label with features of:
   // long, double, boolean, int, byte, float
-  lazy val mockDataset = session.createDataFrame(Seq(
+  lazy val mockDataset = spark.createDataFrame(Seq(
     (0, 2L, 0.50, true,  0, 0.toByte,    12F),
     (1, 3L, 0.40, false, 1, 100.toByte,  30F),
     (0, 4L, 0.78, true,  2, 50.toByte,   12F),
@@ -112,7 +112,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   }
 
   test("Featurizing with vector columns, sparse and dense") {
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, Vectors.sparse(3, Seq((0, 1.0), (2, 2.0))), 0.50, 0.60, 0, Vectors.dense(1.0, 0.1, -1.5)),
       (1, Vectors.dense(1.5, 0.2, -1.2), 0.40, 0.50, 1, Vectors.dense(1.5, 0.2, -1.2)),
       (1, Vectors.sparse(3, Seq((0, 1.0), (2, 2.0))), 0.12, 0.34, 3, Vectors.sparse(3, Seq((0, 1.0), (2, 2.0)))),
@@ -130,7 +130,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   }
 
   test("Featurizing with text columns - using hashing with count based feature selection") {
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, "pokemon are everywhere"),
       (1, 3, 0.40, 0.50, "they are in the woods"),
       (0, 4, 0.78, 0.99, "they are in the water"),
@@ -142,11 +142,11 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       benchmarkStringTempFile.toString,
       historicStringFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[SparseVector](featuresColumn).size == 11)
+    assert(result.first().getAs[SparseVector](featuresColumn).size == 10)
   }
 
   test("Featurizing with date and timestamp columns") {
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, new Date(new GregorianCalendar(2017, 6, 7).getTimeInMillis), new Timestamp(1000)),
       (1, 3, 0.40, 0.50, new Date(new GregorianCalendar(2017, 6, 8).getTimeInMillis), new Timestamp(2000)),
       (0, 4, 0.78, 0.99, new Date(new GregorianCalendar(2017, 6, 6).getTimeInMillis), new Timestamp(3000)),
@@ -177,7 +177,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       Row(Row(path1, height, width, 3, imgType, Array.fill[Byte](imageSize)(1))),
       Row(Row(path2, height, width, 3, imgType, Array.fill[Byte](imageSize)(1)))
     ))
-    val dataset = session.createDataFrame(rowRDD, imageDFSchema)
+    val dataset = spark.createDataFrame(rowRDD, imageDFSchema)
     val result: DataFrame = featurize(dataset, includeFeaturesColumns = false)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).size == expectedSize)
@@ -187,7 +187,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     val wordCountCol = "wordCount"
     val wordLengthCol = "wordLength"
     val textCol = "textCol"
-    val mockAmazonData = session.createDataFrame(Seq(
+    val mockAmazonData = spark.createDataFrame(Seq(
       (1, 221, 4.42, "Ok~ but I think the Keirsey Temperment Test is more accurate - and cheaper.  This book has its " +
         "good points. If anything, it helps you put into words what you want  from a supervisor, but it is not very " +
         "accurate. The online test does not account for a difference between when 2 of their options are both " +
@@ -224,7 +224,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   }
 
   test("Featurizing with text columns that have missing values - using hashing with count based feature selection") {
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, "pokemon are everywhere"),
       (1, 3, 0.40, null),
       (0, 4, 0.78, "they are in the water"),
@@ -236,14 +236,14 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       benchmarkStringMissingsTempFile.toString,
       historicStringMissingsFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[DenseVector](featuresColumn).size == 8)
+    assert(result.first().getAs[DenseVector](featuresColumn).size == 7)
   }
 
   test("Featurizing with categorical columns - using one hot encoding") {
     val cat = "Cat"
     val dog = "Dog"
     val bird = "Bird"
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, dog, cat),
       (1, 3, 0.40, 0.50, cat, dog),
       (0, 4, 0.78, 0.99, dog, bird),
@@ -297,7 +297,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     val cat = "Cat"
     val dog = "Dog"
     val bird = "Bird"
-    val dataset: DataFrame = session.createDataFrame(Seq(
+    val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, cat),
       (1, null),
       (0, bird),
@@ -355,7 +355,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       jsonFile.renameTo(historicFile)
       FileUtils.forceDelete(directoryFile)
     }
-    val expResult = session.read.json(historicFile.toString)
+    val expResult = spark.read.json(historicFile.toString)
     // Verify the results are the same
     verifyResult(expResult, result)
     result

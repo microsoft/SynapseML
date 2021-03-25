@@ -5,17 +5,17 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import java.util.UUID
 
-import com.microsoft.ml.spark.Secrets
-import com.microsoft.ml.spark.cognitive.cognitive.Face
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
+import org.scalactic.Equality
+import org.scalatest.Assertion
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
@@ -31,6 +31,11 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     .setReturnFaceAttributes(Seq(
       "age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
       "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise"))
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    def prep(df: DataFrame) = df.select(explode(col("face"))).select("col.*").drop("faceId")
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
 
   test("Basic Usage") {
     face.transform(df)
@@ -51,7 +56,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
 class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg",
@@ -101,7 +106,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
 
 class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg",
@@ -150,7 +155,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 
 class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val satyaFaces = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
@@ -231,7 +236,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
 class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg",

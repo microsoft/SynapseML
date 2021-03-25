@@ -9,7 +9,7 @@ import java.net.URL
 
 import breeze.linalg.{*, DenseMatrix}
 import breeze.stats.distributions.Rand
-import com.microsoft.ml.spark.core.test.base.{DataFrameEquality, TestBase}
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
@@ -17,30 +17,32 @@ import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.io.split1.FileReaderUtils
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.commons.io.FileUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait LimeTestBase extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   lazy val nRows = 100
   lazy val d1 = 3
   lazy val d2 = 1
 
-  lazy val m: DenseMatrix[Double] = new DenseMatrix(d1, d2, Array(1.0,-1.0, 2.0))
-  lazy val x: DenseMatrix[Double] = DenseMatrix.rand(nRows,d1, Rand.gaussian)
+  lazy val m: DenseMatrix[Double] = new DenseMatrix(d1, d2, Array(1.0, -1.0, 2.0))
+  lazy val x: DenseMatrix[Double] = DenseMatrix.rand(nRows, d1, Rand.gaussian)
   lazy val noise: DenseMatrix[Double] = DenseMatrix.rand(nRows, d2, Rand.gaussian) * 0.1
   lazy val y = x * m //+ noise
 
   lazy val xRows = x(*, ::).iterator.toSeq.map(dv => new DenseVector(dv.toArray))
-  lazy val yRows = y(*, ::).iterator.toSeq.map(dv=> dv(0))
-  lazy val df = xRows.zip(yRows).toDF("features","label")
+  lazy val yRows = y(*, ::).iterator.toSeq.map(dv => dv(0))
+  lazy val df = xRows.zip(yRows).toDF("features", "label")
 
   lazy val model = new LinearRegression().fit(df)
 
@@ -57,7 +59,7 @@ trait LimeTestBase extends TestBase {
 class TabularLIMESuite extends EstimatorFuzzing[TabularLIME] with
   DataFrameEquality with LimeTestBase {
 
-  test("tabular lime usage test check") {
+  test("text lime usage test check") {
     val results = limeModel.transform(df).select("out")
       .collect().map(_.getAs[DenseVector](0))
     results.foreach(result => assert(result === new DenseVector(m.data)))
@@ -84,7 +86,9 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   lazy val greyhoundImageLocation: String = {
     val loc = "/tmp/greyhound.jpg"
     val f = new File(loc)
-    if (f.exists()) {f.delete()}
+    if (f.exists()) {
+      f.delete()
+    }
     FileUtils.copyURLToFile(new URL("https://mmlspark.blob.core.windows.net/datasets/LIME/greyhound.jpg"), f)
     loc
   }
@@ -93,7 +97,8 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   lazy val getGreyhoundClass: UDFTransformer = new UDFTransformer()
     .setInputCol(resNetTransformer.getOutputCol)
     .setOutputCol(resNetTransformer.getOutputCol)
-    .setUDF(udf({vec: org.apache.spark.ml.linalg.Vector => vec(172)}, DoubleType))
+    .setUDF(UDFUtils.oldUdf({ vec: org.apache.spark.ml.linalg.Vector => vec(172) }, DoubleType))
+
   lazy val pipeline: PipelineModel = NamespaceInjections.pipelineModel(
     Array(resNetTransformer, getGreyhoundClass))
 
@@ -110,27 +115,27 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     .setModifier(modifier)
     .setNSamples(3)
 
-  lazy val df: DataFrame = session
+  lazy val df: DataFrame = spark
     .read.binary.load(greyhoundImageLocation)
     .select(col("value.bytes").alias(inputCol))
 
-  lazy val imageDf: DataFrame = session
+  lazy val imageDf: DataFrame = spark
     .read.image.load(greyhoundImageLocation)
     .select(col("image").alias(inputCol))
 
-  test("Resnet should output the correct class"){
+  test("Resnet should output the correct class") {
     val resNetDF = resNetTransformer.transform(df)
     val resVec = resNetDF.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.argmax == 172)
   }
 
-  test("LIME on Binary types", TestBase.Extended) {
+  test("LIME on Binary types") {
     val result: DataFrame = lime.setNSamples(20).transform(df)
     result.show()
   }
 
-  test("basic functionality"){
-    import session.implicits._
+  test("basic functionality") {
+    import spark.implicits._
 
     val df = Seq(
       (1, "foo", "foo1", 11),
@@ -140,14 +145,14 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
       (2, "bar2", "foo2", 15),
       (3, "bar2", "foo2", 16),
       (4, "bar2", "foo2", 17))
-      .toDF("id","b","c", "d").coalesce(1)
+      .toDF("id", "b", "c", "d").coalesce(1)
 
-    val rdf = LIMEUtils.localAggregateBy(df,"id",Seq("b", "d"))
+    val rdf = LIMEUtils.localAggregateBy(df, "id", Seq("b", "d"))
     rdf.printSchema()
     rdf.show()
   }
 
-  test("LIME on image Types", TestBase.Extended) {
+  test("LIME on image Types") {
     val result: DataFrame = lime.setNSamples(20).transform(imageDf)
     result.printSchema()
 

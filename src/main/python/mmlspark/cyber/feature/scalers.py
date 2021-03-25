@@ -3,7 +3,7 @@ __author__ = 'rolevin'
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Union
 
-from mmlspark.cyber.utils.spark_utils import ExplainBuilder
+from mmlspark.cyber.utils.spark_utils import ExplainBuilder, HasSetInputCol, HasSetOutputCol
 
 from pyspark.ml import Estimator, Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
@@ -15,7 +15,7 @@ def _pyudf(func, use_pandas):
     return pandas_udf(func, t.DoubleType(), PandasUDFType.SCALAR) if use_pandas else udf(func, t.DoubleType())
 
 
-class PerPartitionScalarScalerModel(ABC, Transformer, HasInputCol, HasOutputCol):
+class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutputCol):
     partitionKey = Param(
         Params._dummy(),
         "partitionKey",
@@ -83,7 +83,7 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasInputCol, HasOutputCol)
         return with_stats_df.withColumn(output_col, stats_method(f.col(input_col)))
 
 
-class PerPartitionScalarScalerEstimator(ABC, Estimator, HasInputCol, HasOutputCol):
+class PerPartitionScalarScalerEstimator(ABC, Estimator, HasSetInputCol, HasSetOutputCol):
     partitionKey = Param(
         Params._dummy(),
         "partitionKey",

@@ -6,14 +6,14 @@ package com.microsoft.ml.spark.core.ml
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark._
-import org.apache.spark.ml.feature.OneHotEncoderEstimator
+import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.DataFrame
 
 class OneHotEncoderSpec extends TestBase {
 
   test("expand category indicies") {
-    val df = session.createDataFrame(Seq((0, 0.0),
+    val df = spark.createDataFrame(Seq((0, 0.0),
                                          (1, 1.0),
                                          (2, 0.0),
                                          (3, 2.0),
@@ -22,7 +22,7 @@ class OneHotEncoderSpec extends TestBase {
       .toDF("id", "categoryIndex")
 
     val encoded =
-      new OneHotEncoderEstimator()
+      new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
         .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -36,7 +36,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   test("support interger indicies") {
-    val df = session.createDataFrame(Seq((0, 0),
+    val df = spark.createDataFrame(Seq((0, 0),
                                          (1, 1),
                                          (2, 0),
                                          (3, 2),
@@ -45,7 +45,7 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded = new OneHotEncoderEstimator()
+    val encoded = new OneHotEncoder()
       .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
       .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -59,7 +59,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   test("support not dropping the last feature") {
-    val df = session.createDataFrame(Seq((0, 0.0),
+    val df = spark.createDataFrame(Seq((0, 0.0),
                                          (1, 1.0),
                                          (2, 0.0),
                                          (3, 2.0),
@@ -68,7 +68,7 @@ class OneHotEncoderSpec extends TestBase {
                                      ))
       .toDF("id", "categoryIndex")
 
-    val encoded = new OneHotEncoderEstimator().setDropLast(false)
+    val encoded = new OneHotEncoder().setDropLast(false)
       .setInputCols(Array("categoryIndex")).setOutputCols(Array("categoryVec"))
       .fit(df).transform(df)
     val oneHotList = encoded.getSVCol("categoryVec")
@@ -83,17 +83,17 @@ class OneHotEncoderSpec extends TestBase {
 
   private def testOHE(data: DataFrame) = {
     assertSparkException[SparkException](
-      new OneHotEncoderEstimator()
+      new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("encodedOutput")),
       data.toDF("id", "categoryIndex"))
   }
 
   test("raise an error when applied to a null array") {
-    testOHE(session.createDataFrame(Seq((0, Some(0.0)), (1, Some(1.0)), (2, None))))
+    testOHE(spark.createDataFrame(Seq((0, Some(0.0)), (1, Some(1.0)), (2, None))))
   }
   test("raise an error when it receives a strange float") {
-    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, 0.4))))
-    testOHE(session.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, -1.0))))
+    testOHE(spark.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, 0.4))))
+    testOHE(spark.createDataFrame(Seq((0, 0.0), (1, 1.0), (2, -1.0))))
   }
 
 }

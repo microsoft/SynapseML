@@ -28,39 +28,19 @@ import spray.json.DefaultJsonProtocol._
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
-    this.getOrDefault(p).data.get.right.get
+    this.getOrDefault(p).right.get
   }
 
   def getScalarParam[T](p: ServiceParam[T]): T = {
-    this.getOrDefault(p).data.get.left.get
+    this.getOrDefault(p).left.get
   }
 
   def setVectorParam[T](p: ServiceParam[T], value: String): this.type = {
-    set(p, ServiceParamData[T](
-      Some(Right(value)),
-      this.get(p).flatMap(_.default))
-    )
-  }
-
-  def setDefaultValue[T](p: ServiceParam[T], value: T): this.type = {
-    set(p, ServiceParamData[T](
-      this.get(p).flatMap(_.data),
-      Some(value)
-    ))
-  }
-
-  def setDefaultValue[T](p: ServiceParam[T], value: Option[T]): this.type = {
-    set(p, ServiceParamData[T](
-      this.get(p).flatMap(_.data),
-      value
-    ))
+    set(p, Right(value))
   }
 
   def setScalarParam[T](p: ServiceParam[T], value: T): this.type = {
-    set(p, ServiceParamData(
-      Some(Left(value)),
-      this.get(p).flatMap(_.default))
-    )
+    set(p, Left(value))
   }
 
   def getVectorParam(name: String): String = {
@@ -82,7 +62,7 @@ trait HasServiceParams extends Params {
   protected def getVectorParamMap: Map[String, String] = this.params.flatMap {
     case p: ServiceParam[_] =>
       get(p).orElse(getDefault(p)).flatMap(v =>
-        v.data.flatMap(_.right.toOption.map(colName => (p.name, colName))))
+        v.right.toOption.map(colName => (p.name, colName)))
     case _ => None
   }.toMap
 
@@ -100,11 +80,10 @@ trait HasServiceParams extends Params {
     if (get(p).isEmpty && getDefault(p).isEmpty) {
       true
     } else {
-      val value = get(p).orElse(getDefault(p)).get
+      val value = getOrDefault(p)
       value match {
-        case ServiceParamData(_, Some(_)) => false
-        case ServiceParamData(Some(Left(_)), _) => false
-        case ServiceParamData(Some(Right(colName)), _) =>
+        case Left(_) => false
+        case Right(colName) =>
           Option(row.get(row.fieldIndex(colName))).isEmpty
         case _ => true
       }
@@ -116,27 +95,23 @@ trait HasServiceParams extends Params {
   }
 
   protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
-    get(p).orElse(getDefault(p)).flatMap { param =>
-      param.data.flatMap {
-        case Right(colName) => Option(row.getAs[T](colName))
-        case Left(value) => Some(value)
-      }.orElse {
-        param.default
-      }
+    get(p).orElse(getDefault(p)).flatMap {
+      case Right(colName) => Option(row.getAs[T](colName))
+      case Left(value) => Some(value)
     }
   }
+
 
   protected def getValue[T](row: Row, p: ServiceParam[T]): T =
     getValueOpt(row, p).get
 
   protected def getValueAnyOpt(row: Row, p: ServiceParam[_]): Option[Any] = {
-    get(p).orElse(getDefault(p)).flatMap { param =>
-      param.data.flatMap {
-        case Right(colName) => Option(row.get(row.fieldIndex(colName)))
-        case Left(value) => Some(value)
-      }.orElse(param.default)
+    get(p).orElse(getDefault(p)).flatMap {
+      case Right(colName) => Option(row.get(row.fieldIndex(colName)))
+      case Left(value) => Some(value)
     }
   }
+
 
   protected def getValueAny(row: Row, p: ServiceParam[_]): Any =
     getValueAnyOpt(row, p).get
@@ -255,7 +230,7 @@ trait HasSetLocation extends Wrappable {
   def setLocation(v: String): this.type
 }
 
-abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Transformer
+abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol {
@@ -291,7 +266,7 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
         .setOutputParser(getInternalOutputParser(schema))
         .setHandler(handlingFunc)
         .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(getConcurrentTimeout)
+        .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
       new DropColumns().setCol(dynamicParamColName)
     )
@@ -311,7 +286,7 @@ abstract class CognitiveServicesBaseWithoutHandler(val uid: String) extends Tran
 }
 
 abstract class CognitiveServicesBase(uid: String) extends
-  CognitiveServicesBaseWithoutHandler(uid) with HasHandler {
+  CognitiveServicesBaseNoHandler(uid) with HasHandler {
   setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
 
   override def handlingFunc(client: CloseableHttpClient,

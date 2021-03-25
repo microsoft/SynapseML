@@ -21,7 +21,7 @@ import scala.concurrent.duration.Duration
 class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
   def baseReader: DataStreamReader ={
-    session
+    spark
       .readStream
       .continuousServer
       .address(host, port, apiPath)

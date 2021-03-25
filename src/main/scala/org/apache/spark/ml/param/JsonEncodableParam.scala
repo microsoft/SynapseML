@@ -5,6 +5,7 @@ package org.apache.spark.ml.param
 
 import spray.json._
 import spray.json.JsonFormat
+import scala.collection.JavaConverters._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
@@ -21,8 +22,6 @@ object ServiceParamJsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit def serviceParamDataFormat[T: JsonFormat]: JsonFormat[ServiceParamData[T]] =
-    jsonFormat2(ServiceParamData.apply)
 }
 
 class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: T => Boolean)
@@ -42,21 +41,38 @@ class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: 
 
 }
 
-case class ServiceParamData[T](
-                           data: Option[Either[T, String]],
-                           default: Option[T])
 
 import ServiceParamJsonProtocol._
+
+object ServiceParam {
+  def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
+}
 
 class ServiceParam[T](parent: Params,
                       name: String,
                       doc: String,
-                      isValid: ServiceParamData[T] => Boolean = ParamValidators.alwaysTrue,
+                      isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
                       val isRequired: Boolean = false,
                       val isURLParam: Boolean = false,
-                      val toValueString: T => String = {x: T => x.toString}
+                      val toValueString: T => String = { x: T => x.toString }
                      )
-                          (@transient implicit val dataFormat: JsonFormat[T])
-  extends JsonEncodableParam[ServiceParamData[T]](parent, name, doc, isValid) {
+                     (@transient implicit val dataFormat: JsonFormat[T])
+  extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
+    with PythonWrappableParam[Either[T, String]] {
   type ValueType = T
+
+  override def valueToPython(v: Either[T, String]): String = {
+    v match {
+      case Left(t) => PythonWrappableParam.defaultPythonize(t)
+      case Right(n) => s""""$n""""
+    }
+  }
+
+  override def pythonizedParamName(v: Either[T, String]): String = {
+    v match {
+      case Left(_) => name
+      case Right(_) => name + "Col"
+    }
+  }
+
 }

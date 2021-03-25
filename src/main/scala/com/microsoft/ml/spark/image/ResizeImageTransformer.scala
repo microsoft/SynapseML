@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappab
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{IntParam, ParamMap}
@@ -54,7 +55,6 @@ object ResizeUtils {
 
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
-@InternalWrapper
 class ResizeImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
 
@@ -86,10 +86,10 @@ class ResizeImageTransformer(val uid: String) extends Transformer
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
     if (ImageSchemaUtils.isImage(inputType)) {
-      val resizeUDF = udf(resizeSparkImage(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
+      val resizeUDF = UDFUtils.oldUdf(resizeSparkImage(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
     } else if (inputType == BinaryType) {
-      val resizeBytesUDF = udf(resizeBytes(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
+      val resizeBytesUDF = UDFUtils.oldUdf(resizeBytes(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
       dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
     } else {
       throw new IllegalArgumentException(

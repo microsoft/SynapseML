@@ -13,7 +13,7 @@ object Config {
   val TopDir = BuildInfo.baseDirectory
   val Version = BuildInfo.version
   val PackageName = BuildInfo.name
-  val TargetDir = new File(TopDir, "target/scala-2.11")
+  val TargetDir = new File(TopDir, s"target/scala-${BuildInfo.scalaVersion.slice(0,4)}")
   val ScalaSrcDir = "src/main/scala"
 
   val GeneratedDir = new File(TargetDir, "generated")
@@ -21,6 +21,7 @@ object Config {
   val SrcDir = new File(GeneratedDir, "src")
   val TestDir = new File(GeneratedDir, "test")
   val DocDir = new File(GeneratedDir, "doc")
+  val TestDataDir = new File(GeneratedDir, "test-data")
 
   //Python Codegen Constant
   val PySrcDir = new File(SrcDir, "python")

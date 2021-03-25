@@ -17,7 +17,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
 
   val labelColumn = "label"
   lazy val predictionColumn = SchemaConstants.SparkPredictionColumn
-  lazy val dataset = session.createDataFrame(Seq(
+  lazy val dataset = spark.createDataFrame(Seq(
     (0.0, 2, 0.50, 0.60, 0.0),
     (1.0, 3, 0.40, 0.50, 1.0),
     (2.0, 4, 0.78, 0.99, 2.0),
@@ -76,7 +76,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (2, 4, 0.78, 0.99, 2),
@@ -100,7 +100,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
   }
 
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
-    val dataset = session.createDataFrame(Seq(
+    val dataset = spark.createDataFrame(Seq(
       (0, 2, 0.50, 0.60, 0),
       (1, 3, 0.40, 0.50, 1),
       (0, 4, 0.78, 0.99, 2),

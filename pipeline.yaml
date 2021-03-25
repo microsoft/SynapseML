@@ -31,20 +31,20 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Style Check'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
-        inlineScript: 'sbt scalastyle test:scalastyle it:scalastyle'
+        inlineScript: 'sbt scalastyle test:scalastyle'
 
 - job: Publish
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
@@ -54,12 +54,12 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishSigned publishDocs publishR
+        sbt publishBlob publishSigned publishDocs publishR publishPython
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
         sbt release
@@ -80,7 +80,7 @@ jobs:
 - job: E2E_Databricks
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
@@ -90,7 +90,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -107,7 +107,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'MMLSpark Connection 4'
+        azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt "it:testOnly -- -t Databricks"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -121,7 +121,7 @@ jobs:
 - job: E2E_Synapse
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
@@ -131,7 +131,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 2'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
@@ -148,7 +148,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'MMLSpark Connection 2'
+        azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt "it:testOnly -- -t SynapsePROD"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -163,7 +163,7 @@ jobs:
 - job: PublishDocker
   displayName: PublishDocker
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache.yml
     - bash: |
@@ -174,7 +174,7 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
@@ -184,14 +184,14 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
         tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'build'
         buildContext: "."
@@ -201,7 +201,7 @@ jobs:
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
@@ -209,7 +209,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'build'
         buildContext: "."
@@ -222,7 +222,7 @@ jobs:
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'mmlsparkmcr-connection-2'
+        containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
@@ -232,7 +232,7 @@ jobs:
 - job: Release
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - bash: |
         echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
@@ -245,7 +245,7 @@ jobs:
     - task: GitHubRelease@0
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        gitHubConnection: 'MMLSPark Github via PAT'
+        gitHubConnection: 'MMLSpark Github'
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'
         target: '$(Build.SourceVersion)'
@@ -257,18 +257,23 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
-    - bash: |
-        source activate mmlspark
-        (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-        sbt coverage testPython
-      displayName: Test Python Code
+    - task: AzureCLI@1
+      displayName: 'Test Python Code'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate mmlspark
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt coverage testPython
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -278,13 +283,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
@@ -292,7 +297,7 @@ jobs:
         chmod +x .codecov
         echo "Starting Codecov Upload"
         ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.11/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -301,7 +306,7 @@ jobs:
   timeoutInMinutes: 80
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-18.04
   strategy:
     matrix:
       automl:
@@ -313,6 +318,10 @@ jobs:
         FLAKY: "true"
       cognitive2:
         PACKAGE: "cognitive.split2"
+        FFMPEG: "true"
+        FLAKY: "true"
+      cognitive3:
+        PACKAGE: "cognitive.split3"
         FFMPEG: "true"
         FLAKY: "true"
       core:
@@ -354,14 +363,12 @@ jobs:
         PACKAGE: "train"
       vw:
         PACKAGE: "vw"
-      cyber:
-        PACKAGE: "cyber"
   steps:
     - template: templates/ivy_cache_2.yml
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
@@ -370,7 +377,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
@@ -390,13 +397,13 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - task: AzureKeyVault@1
       inputs:
-        azureSubscription: 'MMLSpark Connection 4'
+        azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |

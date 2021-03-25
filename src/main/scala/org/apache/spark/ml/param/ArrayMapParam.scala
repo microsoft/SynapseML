@@ -5,7 +5,7 @@ package org.apache.spark.ml.param
 
 import org.apache.spark.ml.util.Identifiable
 import spray.json.{DefaultJsonProtocol, _}
-
+import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 
 object ArrayMapJsonProtocol extends DefaultJsonProtocol {
@@ -45,30 +45,33 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
   import ArrayMapJsonProtocol._
 
   def this(parent: Params, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
-      this(parent.uid, name, doc, isValid)
+    this(parent.uid, name, doc, isValid)
 
-    def this(parent: Params, name: String, doc: String) =
-      this(parent, name, doc, ParamValidators.alwaysTrue)
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
 
-    def this(parent: String, name: String, doc: String) =
-      this(parent, name, doc, ParamValidators.alwaysTrue)
+  def this(parent: String, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
 
-    def this(parent: Identifiable, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
-      this(parent.uid, name, doc, isValid)
+  def this(parent: Identifiable, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
+    this(parent.uid, name, doc, isValid)
 
-    def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
+  def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-    /** Creates a param pair with the given value (for Java). */
-    override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
+  /** Creates a param pair with the given value (for Java). */
+  override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
 
-    override def jsonEncode(value: Array[Map[String, Any]]): String = {
-      val json = value.toSeq.toJson
-      json.prettyPrint
-    }
+  def w(value: java.util.ArrayList[java.util.HashMap[String, Any]]): ParamPair[Array[Map[String, Any]]] =
+    super.w(value.asScala.toArray.map(_.asScala.toMap))
 
-    override def jsonDecode(json: String): Array[Map[String, Any]] = {
-      val jsonValue = json.parseJson
-      jsonValue.convertTo[Seq[Map[String, Any]]].toArray
-    }
-
+  override def jsonEncode(value: Array[Map[String, Any]]): String = {
+    val json = value.toSeq.toJson
+    json.compactPrint
   }
+
+  override def jsonDecode(json: String): Array[Map[String, Any]] = {
+    val jsonValue = json.parseJson
+    jsonValue.convertTo[Seq[Map[String, Any]]].toArray
+  }
+
+}

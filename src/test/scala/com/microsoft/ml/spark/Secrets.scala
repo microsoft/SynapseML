@@ -9,7 +9,7 @@ import DefaultJsonProtocol._
 
 object Secrets {
   private val KvName = "mmlspark-keys"
-  private val SubscriptionID = "f9b96b36-1f5e-4021-8959-51527e26e6d3"
+  private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
@@ -28,6 +28,9 @@ object Secrets {
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
   lazy val CustomSpeechApiKey: String = getSecret("custom-speech-api-key")
+  lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
+  lazy val ConversationTranscriptionKey: String = getSecret("conversation-transcription-key")
+
   lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingImageSearchKey: String = getSecret("bing-image-search-key")

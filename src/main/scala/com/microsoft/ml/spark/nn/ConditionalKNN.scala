@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.nn
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.ml.spark.core.contracts.HasLabelCol
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.{ConditionalBallTreeParam, Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -88,7 +89,7 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }
-    val getNeighborUDF = udf(KNNFuncHolder.queryFunc[Any, Any](
+    val getNeighborUDF = UDFUtils.oldUdf(KNNFuncHolder.queryFunc[Any, Any](
       broadcastedModelOption.get.asInstanceOf[Broadcast[ConditionalBallTree[Any, Any]]], getK) _,
       ArrayType(new StructType()
         .add("value", dataset.schema(getValuesCol).dataType)

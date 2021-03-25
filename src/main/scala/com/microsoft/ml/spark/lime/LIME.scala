@@ -8,6 +8,7 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.feature.StandardScaler
 import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
@@ -147,17 +148,17 @@ trait LIMEBase extends LIMEParams with ComplexParamsWritable {
     new DenseMatrix(mat.rows, mat.cols, mat.data)
   }
 
-  protected val arrToMatUDF: UserDefinedFunction = udf(arrToMat _, MatrixType)
+  protected val arrToMatUDF: UserDefinedFunction = UDFUtils.oldUdf(arrToMat _, MatrixType)
 
   protected def arrToVect(ds: Seq[Double]): DenseVector = {
     new DenseVector(ds.toArray)
   }
 
-  protected val arrToVectUDF: UserDefinedFunction = udf(arrToVect _, VectorType)
+  protected val arrToVectUDF: UserDefinedFunction = UDFUtils.oldUdf(arrToVect _, VectorType)
 
-  protected val fitLassoUDF: UserDefinedFunction = udf(LimeNamespaceInjections.fitLasso _, VectorType)
+  protected val fitLassoUDF: UserDefinedFunction = UDFUtils.oldUdf(LimeNamespaceInjections.fitLasso _, VectorType)
 
-  protected val getSampleUDF: UserDefinedFunction = udf(getSamples _, ArrayType(ArrayType(BooleanType)))
+  protected val getSampleUDF: UserDefinedFunction = UDFUtils.oldUdf(getSamples _, ArrayType(ArrayType(BooleanType)))
 
 }
 
@@ -219,7 +220,7 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
   }
 
   private val perturbedDenseVectorsUDF: UserDefinedFunction =
-    udf(perturbedDenseVectors _, ArrayType(VectorType, true))
+    UDFUtils.oldUdf(perturbedDenseVectors _, ArrayType(VectorType, true))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = dataset.toDF
@@ -295,7 +296,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
       .withColumnRenamed(getInputCol, inputCol2)
       .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getSuperpixelCol).getField("clusters")))))
       .withColumn(getInputCol, maskUDF(col(inputCol2), col(spt.getOutputCol), col(statesCol)))
-      .withColumn(statesCol, udf(
+      .withColumn(statesCol, UDFUtils.oldUdf(
         { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
         VectorType)(col(statesCol)))
       .mlTransform(getModel)
@@ -316,3 +317,5 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
   }
 
 }
+
+

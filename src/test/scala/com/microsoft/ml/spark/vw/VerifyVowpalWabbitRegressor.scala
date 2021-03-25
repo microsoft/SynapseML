@@ -3,14 +3,15 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.evaluation.RegressionEvaluator
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
 
-class VerifyVowpalWabbitRegressor extends Benchmarks {
+class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor] with Benchmarks {
 
-  val args = Array("", "--bfgs", "--adaptive")
+  val args: Array[String] = Array("", "--bfgs", "--adaptive")
 
   val numPartitions = 2
 
@@ -27,7 +28,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
     * @return A dataframe from read CSV file.
     */
   def readCSV(fileName: String, fileLocation: String): DataFrame = {
-    session.read
+    spark.read
       .option("header", "true").option("inferSchema", "true")
       .option("treatEmptyValuesAsNulls", "false")
       .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
@@ -41,7 +42,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
     args.foreach { arg =>
       val argText = s" with args $arg"
       val testText = "Verify VowpalWabbitRegressor can be trained and scored on "
-      test(testText + fileName + argText, TestBase.Extended) {
+      test(testText + fileName + argText) {
         val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
         val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
         val dataset =
@@ -79,7 +80,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
     }
   }
 
-  test("Compare benchmark results file to generated file", TestBase.Extended) {
+  test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
   }
 
@@ -133,7 +134,7 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
   }
 
   test("Verify SGD followed-by BFGS") {
-    val dataset = session.read.format("libsvm")
+    val dataset = spark.read.format("libsvm")
       .load(DatasetUtils.regressionTrainFile("triazines.scale.reg.train.svmlight").toString)
       .coalesce(1)
 
@@ -147,5 +148,39 @@ class VerifyVowpalWabbitRegressor extends Benchmarks {
       .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs")
       .setInitialModel(model1.getModel)
       .fit(dataset)
+  }
+
+  override def reader: MLReadable[_] = VowpalWabbitRegressor
+
+  override def modelReader: MLReadable[_] = VowpalWabbitRegressionModel
+
+  override def testObjects(): Seq[TestObject[VowpalWabbitRegressor]] = {
+    val fileName = "energyefficiency2012_data.train.csv"
+    val columnsFilter = Some("X1,X2,X3,X4,X5,X6,X7,X8,Y1,Y2")
+    val labelCol = "Y1"
+
+    val fileLocation = DatasetUtils.regressionTrainFile(fileName).toString
+    val readDataset = readCSV(fileName, fileLocation).repartition(numPartitions)
+    val dataset =
+      if (columnsFilter.isDefined) {
+        readDataset.select(columnsFilter.get.split(",").map(new Column(_)): _*)
+      } else {
+        readDataset
+      }
+
+    val featurizer = new VowpalWabbitFeaturizer()
+      .setInputCols(dataset.columns.filter(col => col != labelCol))
+      .setOutputCol("features")
+
+    val vw = new VowpalWabbitRegressor()
+      .setLabelCol(labelCol)
+      .setFeaturesCol("features")
+      .setPredictionCol("pred")
+
+    val trainData = featurizer.transform(dataset)
+
+    Seq(new TestObject(
+      vw,
+      trainData))
   }
 }

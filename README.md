@@ -2,7 +2,7 @@
 
 # Microsoft Machine Learning for Apache Spark
 
-[![Build Status](https://msazure.visualstudio.com/Cognitive%20Services/_apis/build/status/Azure.mmlspark?branchName=master)](https://msazure.visualstudio.com/Cognitive%20Services/_build/latest?definitionId=83120&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+[![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/Azure.mmlspark?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=15131&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
 [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
 
@@ -60,7 +60,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> |<img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
 |:--:|:--:|:--:|
-|  **Isolation Forest on Spark**  | **CyberML** | **Conditional KNN**  |
+|  **Isolation Forest on Spark**  | [**CyberML**](https://github.com/Azure/mmlspark/blob/master/notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | **Conditional KNN**  |
 |  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries | 
 
 
@@ -84,6 +84,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 -   Train classification and regression models easily via implicit featurization
     of data ([example 1])
 -   Train and evaluate a flight delay prediction system ([example 2])
+-   Finding anomalous data access patterns using the Access Anomalies package of CyberML ([example 11])
 
 See our [notebooks](notebooks/samples/) for all examples.
 
@@ -106,6 +107,8 @@ See our [notebooks](notebooks/samples/) for all examples.
 [example 9]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb "Deep Flower Classification"
 
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb "CIFAR10 CNTK CNN Training"
+
+[example 11]: notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb "Access Anomalies documenation, training and evaluation example"
 
 ## A short example
 

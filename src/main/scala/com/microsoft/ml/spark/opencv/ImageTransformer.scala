@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.opencv
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchemaUtils}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{ParamMap, _}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -261,6 +262,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
         ImageInjections.decode(null, bytes).getOrElse(return None).getStruct(0)
       case (row: Row, "image") =>
         row
+      case (_, mode) =>
+        throw new MatchError(s"Unknown decoder mode $mode")
     }
 
     val (path, img) = row2mat(decoded)
@@ -379,7 +382,7 @@ class ImageTransformer(val uid: String) extends Transformer
       }
     }
 
-    val convert = udf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
+    val convert = UDFUtils.oldUdf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
 
     df.withColumn(getOutputCol, convert(df(getInputCol)))
   }

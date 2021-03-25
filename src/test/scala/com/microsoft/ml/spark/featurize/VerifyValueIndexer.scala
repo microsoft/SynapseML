@@ -12,7 +12,7 @@ import org.apache.spark.sql.Row
 import scala.collection.immutable.Seq
 
 trait ValueIndexerUtilities extends TestBase {
-  import session.implicits._
+  import spark.implicits._
 
   /** sample dataframe */
   protected lazy val df = Seq[(Int, Long, Double, Boolean, String)](

@@ -11,7 +11,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 class IDFSpec extends TestBase {
 
   test("operation on hashingTF output") {
-    val sentenceData = session.createDataFrame(Seq((0, "Hi I"),
+    val sentenceData = spark.createDataFrame(Seq((0, "Hi I"),
                                                    (1, "I wish"),
                                                    (2, "we Cant")))
       .toDF("label", "sentence")
@@ -28,9 +28,9 @@ class IDFSpec extends TestBase {
 
     val lines = rescaledData.getSVCol("features")
     val trueLines = List(
-      new SparseVector(20, Array(0,  9), Array(0.6931471805599453, 0.28768207245178085)),
-      new SparseVector(20, Array(9, 15), Array(0.28768207245178085, 0.6931471805599453)),
-      new SparseVector(20, Array(6, 13), Array(0.6931471805599453, 0.6931471805599453))
+      new SparseVector(20, Array(8,  16), Array(0.28768207245178085,0.28768207245178085)),
+      new SparseVector(20, Array(15, 16), Array(0.6931471805599453,0.28768207245178085)),
+      new SparseVector(20, Array(6, 8), Array(0.6931471805599453,0.28768207245178085))
     )
     assert(lines === trueLines)
   }
@@ -40,8 +40,8 @@ class IDFSpec extends TestBase {
                          (1, new DenseVector(Array(0, 1, 1, 0, 0))),
                          (2, new DenseVector(Array(0, 0, 0, 1, 1))))
 
-    val denseVectDF = session.createDataFrame(denseVects).toDF("label", "features")
-    val sparseVectDF = session.createDataFrame(denseVects.map(p => (p._1, p._2.toSparse))).toDF("label", "features")
+    val denseVectDF = spark.createDataFrame(denseVects).toDF("label", "features")
+    val sparseVectDF = spark.createDataFrame(denseVects.map(p => (p._1, p._2.toSparse))).toDF("label", "features")
 
     val rescaledDD =
       new IDF().setInputCol("features").setOutputCol("scaledFeatures").fit(denseVectDF).transform(denseVectDF)
@@ -61,7 +61,7 @@ class IDFSpec extends TestBase {
   }
 
   test("raise an error when applied to a null array") {
-    val df = session.createDataFrame(Seq((0, Some(new DenseVector(Array(1, 1, 0, 0, 0)))),
+    val df = spark.createDataFrame(Seq((0, Some(new DenseVector(Array(1, 1, 0, 0, 0)))),
                                          (1, Some(new DenseVector(Array(0, 1, 1, 0, 0)))),
                                          (2, None)))
       .toDF("id", "features")
@@ -74,7 +74,7 @@ class IDFSpec extends TestBase {
   }
 
   test("support setting minDocFrequency") {
-    val df = session.createDataFrame(Seq((0, new DenseVector(Array(1, 1, 0, 0, 0))),
+    val df = spark.createDataFrame(Seq((0, new DenseVector(Array(1, 1, 0, 0, 0))),
                                          (1, new DenseVector(Array(0, 1, 1, 0, 0))),
                                          (2, new DenseVector(Array(0, 0, 0, 1, 1)))))
       .toDF("id", "features")
@@ -90,7 +90,7 @@ class IDFSpec extends TestBase {
   }
 
   ignore("raise an error when given strange values of minDocumentFrequency") {
-    val df = session.createDataFrame(Seq((0, new DenseVector(Array(1, 1, 0, 0, 0))),
+    val df = spark.createDataFrame(Seq((0, new DenseVector(Array(1, 1, 0, 0, 0))),
                                          (1, new DenseVector(Array(0, 1, 1, 0, 0))),
                                          (2, new DenseVector(Array(0, 0, 0, 1, 1)))))
       .toDF("id", "features")

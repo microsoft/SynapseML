@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.core.schema
 
 import com.microsoft.ml.spark.core.test.base.TestBase
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{col, udf}
 
@@ -17,7 +18,7 @@ object Bar extends SparkBindings[Bar]
 
 class SparkBindingsTest2 extends TestBase {
 
-  import session.implicits._
+  import spark.implicits._
 
   test("Test to make sure there are no strange memory leaks") {
     (1 to 40).foreach { i =>
@@ -26,7 +27,7 @@ class SparkBindingsTest2 extends TestBase {
       val df = foos.toDF("foos")
         .repartition(2)
         .withColumn("mapped2",
-          udf({ r: Row => converter(r) }, Foo.schema)(col("foos")))
+          UDFUtils.oldUdf({ r: Row => converter(r) }, Foo.schema)(col("foos")))
       val results = df.collect().toList
       println(results.head)
     }

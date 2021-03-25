@@ -9,7 +9,7 @@ import org.apache.spark.sql.DataFrame
 
 class ExplodeSuite extends TransformerFuzzing[Explode] {
 
-  import session.implicits._
+  import spark.implicits._
   lazy val df: DataFrame = Seq(
     (0, Seq("guitars", "drums")),
     (1, Seq("piano")),

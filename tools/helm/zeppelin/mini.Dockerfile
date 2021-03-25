@@ -44,7 +44,7 @@ RUN echo "$LOG_TAG setting python dependencies" && \
     git status  && \
     mv /tmp/patch_beam.patch . && \
     git apply --ignore-space-change --ignore-whitespace patch_beam.patch && \
-    ./dev/change_scala_version.sh 2.11 && \
+    ./dev/change_scala_version.sh 2.12 && \
     cd ${Z_HOME}_src/zeppelin-web && \
     rm package-lock.json && \
     mkdir -p /usr/local/lib/node_modules && \
@@ -54,10 +54,10 @@ RUN echo "$LOG_TAG setting python dependencies" && \
     npm update -g && \
     bower install && \
     npm install && \
-    mvn -e -B package -DskipTests -Pscala-2.11 -Pbuild-distr && \
+    mvn -e -B package -DskipTests -Pscala-2.12 -Pbuild-distr && \
     cd ${Z_HOME}_src && \
     export MAVEN_OPTS="-Xmx2048m -XX:MaxPermSize=256m" && \
-    mvn -e -B package -DskipTests -Pscala-2.11 -Pbuild-distr && \
+    mvn -e -B package -DskipTests -Pscala-2.12 -Pbuild-distr && \
     tar xvf ${Z_HOME}_src/zeppelin-distribution/target/zeppelin-0.9.0-SNAPSHOT.tar.gz && \
     rm -rf ${Z_HOME}/* && \
     mv zeppelin-0.9.0-SNAPSHOT ${Z_HOME}_dist && \

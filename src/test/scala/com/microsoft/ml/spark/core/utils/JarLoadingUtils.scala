@@ -3,9 +3,11 @@
 
 package com.microsoft.ml.spark.core.utils
 
+import java.util.ServiceLoader
+
 import com.microsoft.ml.spark.core.contracts.Wrappable
 import org.scalatest.exceptions.TestFailedException
-import org.spark_project.guava.reflect.ClassPath
+import org.sparkproject.guava.reflect.ClassPath
 
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, _}
@@ -82,7 +84,7 @@ object JarLoadingUtils {
     }.asInstanceOf[List[T]]
   }
 
-  def loadClass[T: ClassTag](debug: Boolean): List[T] = load[T](lc => lc.newInstance(), debug)
+  def loadClass[T: ClassTag](debug: Boolean): List[T] = load[T](lc => lc.getConstructor().newInstance(), debug)
 
   def loadTest[T: ClassTag](instantiate: Class[_] => Any, debug: Boolean): List[T] = {
     val testClasses = AllClasses.filter(lc => classTag[T].runtimeClass.isAssignableFrom(lc))
