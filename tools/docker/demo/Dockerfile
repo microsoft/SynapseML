@@ -3,7 +3,7 @@ FROM ubuntu:18.04
 ENV SPARK_VERSION=3.0.2
 ENV HADOOP_VERSION=2.7
 
-RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget build-essential\
+RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget\
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
@@ -27,6 +27,10 @@ RUN tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
 ENV SPARK_HOME /opt/spark
 ENV PATH /opt/conda/bin:$PATH
 ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+
+# Build-essentials
+RUN apt-get update \
+	&& apt-get install -y build-essential
 
 # Open-MPI installation (required to use spark on AML)
 ENV OPENMPI_VERSION 3.1.2
