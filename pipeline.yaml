@@ -1,455 +1,457 @@
 resources:
-  - repo: self
+- repo: self
 
 trigger:
   branches:
     include:
-      - master
+    - master
   paths:
     exclude:
-      - README.md
-      - docs/*
-      - CODEOWNERS
-      - .github
+    - README.md
+    - docs/*
+    - CODEOWNERS
+    - .github
 
 pr:
   branches:
     include:
-      - master
+    - master
   paths:
     exclude:
-      - README.md
-      - docs/*
-      - CODEOWNERS
-      - .github
+    - README.md
+    - docs/*
+    - CODEOWNERS
+    - .github
 
 variables:
   runTests: True
 
 jobs:
-  - job: Style
-    cancelTimeoutInMinutes: 0
-    condition: eq(variables.runTests, 'True')
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache.yml
-      - task: AzureCLI@1
-        displayName: 'Style Check'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt scalastyle test:scalastyle'
+- job: Style
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache.yml
+    - task: AzureCLI@1
+      displayName: 'Style Check'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt scalastyle test:scalastyle'
 
-  - job: Publish
-    cancelTimeoutInMinutes: 0
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        displayName: Add conda to PATH
-      - bash: conda info
-      - bash: conda env create -f environment.yaml
-        displayName: Create Anaconda environment
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-      - bash: |
+- job: Publish
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob publishSigned publishDocs publishR publishPython
+        sbt genBuildInfo
+        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+        sbt release
+      displayName: Publish Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - bash: sbt publishBadges
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      displayName: Publish Badges
+      env:
+        STORAGE_KEY: $(storage-key)
+
+
+- job: E2E
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.**"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: E2E_Databricks
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "it:testOnly -- -t Databricks"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: E2E_Synapse
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate mmlspark
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "it:testOnly -- -t SynapsePROD"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+
+- job: PublishDocker
+  displayName: PublishDocker
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache.yml
+    - bash: |
+        VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+        echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+      displayName: 'Get Docker Tag + Version'
+    - task: Docker@2
+      displayName: Demo Image Build
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/build-demo'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: $(version)
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      displayName: Demo Image Push
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/build-demo'
+        command: 'push'
+        tags: $(version)
+    - task: Docker@2
+      displayName: Minimal Image Build + Push
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/minimal/Dockerfile'
+        tags: $(version)
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      displayName: Minimal Image Build + Push
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'push'
+        tags: $(version)
+    - task: Docker@2
+      condition: startsWith(variables['gittag'], 'v')
+      displayName: Release Image Build
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/release'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: |
+          $(version)
+          latest
+        arguments: --build-arg MMLSPARK_VERSION=$(version)
+    - task: Docker@2
+      condition: startsWith(variables['gittag'], 'v')
+      displayName: Release Image Push
+      inputs:
+        containerRegistry: 'mmlspark-mcr-connection-1'
+        repository: 'public/mmlspark/release'
+        command: 'push'
+        tags: |
+          $(version)
+          latest
+
+- job: Release
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - bash: |
+        echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
+      displayName: 'Get Git Tag'
+    - bash: |
+        wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
+        chmod +x git-chglog_linux_amd64
+        ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
+      condition: startsWith(variables['tag'], 'v')
+    - task: GitHubRelease@0
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        gitHubConnection: 'MMLSpark Github'
+        repositoryName: '$(Build.Repository.Name)'
+        action: 'create'
+        target: '$(Build.SourceVersion)'
+        tagSource: 'auto'
+        releaseNotesFile: 'CHANGELOG.md'
+        isDraft: true
+
+- job: PythonTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Test Python Code'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
           source activate mmlspark
-          sbt packagePython
-          sbt publishBlob publishSigned publishDocs publishR publishPython
-          sbt genBuildInfo
-          echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
-          sbt release
-        displayName: Publish Artifacts
-        env:
-          STORAGE_KEY: $(storage-key)
-          NEXUS-UN: $(nexus-un)
-          NEXUS-PW: $(nexus-pw)
-          PGP-PRIVATE: $(pgp-private)
-          PGP-PUBLIC: $(pgp-public)
-          PGP-PW: $(pgp-pw)
-      - bash: sbt publishBadges
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        displayName: Publish Badges
-        env:
-          STORAGE_KEY: $(storage-key)
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt coverage testPython
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/python-test-*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token) -f coverage.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
 
-  - job: E2E
-    cancelTimeoutInMinutes: 0
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        displayName: Add conda to PATH
-      - bash: conda info
-      - bash: conda env create -f environment.yaml
-        displayName: Create Anaconda environment
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-      - bash: |
-          source activate mmlspark
-          sbt packagePython
-          sbt publishBlob
-        displayName: Publish Blob Artifacts
-        env:
-          STORAGE_KEY: $(storage-key)
-          NEXUS-UN: $(nexus-un)
-          NEXUS-PW: $(nexus-pw)
-          PGP-PRIVATE: $(pgp-private)
-          PGP-PUBLIC: $(pgp-public)
-          PGP-PW: $(pgp-pw)
-      - task: AzureCLI@1
-        displayName: 'E2E'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.**"'
-        condition: and(succeeded(), eq(variables.runTests, 'True'))
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results'
-        inputs:
-          testResultsFiles: '**/test-reports/TEST-*.xml'
-          failTaskOnFailedTests: true
-        condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+- job: UnitTests
+  cancelTimeoutInMinutes: 1
+  timeoutInMinutes: 80
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  strategy:
+    matrix:
+      automl:
+        PACKAGE: "automl"
+      cntk:
+        PACKAGE: "cntk"
+      cognitive1:
+        PACKAGE: "cognitive.split1"
+        FLAKY: "true"
+      cognitive2:
+        PACKAGE: "cognitive.split2"
+        FFMPEG: "true"
+        FLAKY: "true"
+      cognitive3:
+        PACKAGE: "cognitive.split3"
+        FFMPEG: "true"
+        FLAKY: "true"
+      core:
+        PACKAGE: "core"
+      downloader:
+        PACKAGE: "downloader"
+      featurize:
+        PACKAGE: "featurize"
+      image:
+        PACKAGE: "image"
+      io1:
+        PACKAGE: "io.split1"
+        FLAKY: "true"
+      io2:
+        PACKAGE: "io.split2"
+        FLAKY: "true"
+      isolationforest:
+        PACKAGE: "isolationforest"
+      flaky:
+        PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
+        FLAKY: "true"
+      lightgbm1:
+        PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
+        FLAKY: "true"
+      lightgbm2:
+        PACKAGE: "lightgbm.split2"
+        FLAKY: "true"
+      lime:
+        PACKAGE: "lime"
+      opencv:
+        PACKAGE: "opencv"
+      recommendation:
+        PACKAGE: "recommendation"
+      stages:
+        PACKAGE: "stages"
+      nn:
+        PACKAGE: "nn"
+      train:
+        PACKAGE: "train"
+      vw:
+        PACKAGE: "vw"
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - task: AzureCLI@1
+      displayName: 'Setup repo'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+    - task: AzureCLI@1
+      displayName: 'Unit Test'
+      timeoutInMinutes: 60
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
+          sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
+          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
+          export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
+          (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
 
-  - job: E2E_Databricks
-    cancelTimeoutInMinutes: 0
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        displayName: Add conda to PATH
-      - bash: conda info
-      - bash: conda env create -f environment.yaml
-        displayName: Create Anaconda environment
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-      - bash: |
-          source activate mmlspark
-          sbt packagePython
-          sbt publishBlob
-        displayName: Publish Blob Artifacts
-        env:
-          STORAGE_KEY: $(storage-key)
-          NEXUS-UN: $(nexus-un)
-          NEXUS-PW: $(nexus-pw)
-          PGP-PRIVATE: $(pgp-private)
-          PGP-PUBLIC: $(pgp-public)
-          PGP-PW: $(pgp-pw)
-      - task: AzureCLI@1
-        displayName: 'E2E'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt "it:testOnly -- -t Databricks"'
-        condition: and(succeeded(), eq(variables.runTests, 'True'))
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results'
-        inputs:
-          testResultsFiles: '**/test-reports/TEST-*.xml'
-          failTaskOnFailedTests: true
-        condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
-
-  - job: E2E_Synapse
-    cancelTimeoutInMinutes: 0
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        displayName: Add conda to PATH
-      - bash: conda info
-      - bash: conda env create -f environment.yaml
-        displayName: Create Anaconda environment
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-      - bash: |
-          source activate mmlspark
-          sbt packagePython
-          sbt publishBlob
-        displayName: Publish Blob Artifacts
-        env:
-          STORAGE_KEY: $(storage-key)
-          NEXUS-UN: $(nexus-un)
-          NEXUS-PW: $(nexus-pw)
-          PGP-PRIVATE: $(pgp-private)
-          PGP-PUBLIC: $(pgp-public)
-          PGP-PW: $(pgp-pw)
-      - task: AzureCLI@1
-        displayName: 'E2E'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt "it:testOnly -- -t SynapsePROD"'
-        condition: and(succeeded(), eq(variables.runTests, 'True'))
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results'
-        inputs:
-          testResultsFiles: '**/test-reports/TEST-*.xml'
-          failTaskOnFailedTests: true
-        condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
-
-  - job: PublishDocker
-    displayName: PublishDocker
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache.yml
-      - bash: |
-          VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-          echo '##vso[task.setvariable variable=version]'$VERSION
-          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
-        displayName: 'Get Docker Tag + Version'
-      - task: Docker@2
-        displayName: Demo Image Build
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/build-demo'
-          command: 'build'
-          buildContext: "."
-          Dockerfile: 'tools/docker/demo/Dockerfile'
-          tags: $(version)
-          arguments: --build-arg MMLSPARK_VERSION=$(version)
-      - task: Docker@2
-        displayName: Demo Image Push
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/build-demo'
-          command: 'push'
-          tags: $(version)
-      - task: Docker@2
-        displayName: Minimal Image Build + Push
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/build-minimal'
-          command: 'build'
-          buildContext: "."
-          Dockerfile: 'tools/docker/minimal/Dockerfile'
-          tags: $(version)
-          arguments: --build-arg MMLSPARK_VERSION=$(version)
-      - task: Docker@2
-        displayName: Minimal Image Build + Push
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/build-minimal'
-          command: 'push'
-          tags: $(version)
-      - task: Docker@2
-        condition: startsWith(variables['gittag'], 'v')
-        displayName: Release Image Build
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/release'
-          command: 'build'
-          buildContext: "."
-          Dockerfile: 'tools/docker/demo/Dockerfile'
-          tags: |
-            $(version)
-            latest
-          arguments: --build-arg MMLSPARK_VERSION=$(version)
-      - task: Docker@2
-        condition: startsWith(variables['gittag'], 'v')
-        displayName: Release Image Push
-        inputs:
-          containerRegistry: 'mmlspark-mcr-connection-1'
-          repository: 'public/mmlspark/release'
-          command: 'push'
-          tags: |
-            $(version)
-            latest
-
-  - job: Release
-    cancelTimeoutInMinutes: 0
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - bash: |
-          echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
-        displayName: 'Get Git Tag'
-      - bash: |
-          wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
-          chmod +x git-chglog_linux_amd64
-          ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-        condition: startsWith(variables['tag'], 'v')
-      - task: GitHubRelease@0
-        condition: startsWith(variables['tag'], 'v')
-        inputs:
-          gitHubConnection: 'MMLSpark Github'
-          repositoryName: '$(Build.Repository.Name)'
-          action: 'create'
-          target: '$(Build.SourceVersion)'
-          tagSource: 'auto'
-          releaseNotesFile: 'CHANGELOG.md'
-          isDraft: true
-
-  - job: PythonTests
-    cancelTimeoutInMinutes: 0
-    condition: eq(variables.runTests, 'True')
-    pool:
-      vmImage: ubuntu-18.04
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        displayName: Add conda to PATH
-      - bash: conda env create -f environment.yaml
-        displayName: Create Anaconda environment
-      - task: AzureCLI@1
-        displayName: 'Test Python Code'
-        timeoutInMinutes: 30
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: |
-            source activate mmlspark
-            (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-            sbt coverage testPython
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results'
-        inputs:
-          testResultsFiles: '**/python-test-*.xml'
-          failTaskOnFailedTests: true
-        condition: succeededOrFailed()
-      - task: AzureCLI@1
-        displayName: 'Generate Codecov report'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt coverageReport'
-        condition: succeededOrFailed()
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-        condition: succeededOrFailed()
-      - bash: |
-          curl -s https://codecov.io/bash > .codecov
-          chmod +x .codecov
-          echo "Starting Codecov Upload"
-          ./.codecov -t $(codecov-token) -f coverage.xml
-          ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
-        displayName: Upload Coverage Report To Codecov.io
-        condition: succeededOrFailed()
-
-  - job: UnitTests
-    cancelTimeoutInMinutes: 1
-    timeoutInMinutes: 80
-    condition: eq(variables.runTests, 'True')
-    pool:
-      vmImage: ubuntu-18.04
-    strategy:
-      matrix:
-        automl:
-          PACKAGE: "automl"
-        cntk:
-          PACKAGE: "cntk"
-        cognitive1:
-          PACKAGE: "cognitive.split1"
-          FLAKY: "true"
-        cognitive2:
-          PACKAGE: "cognitive.split2"
-          FFMPEG: "true"
-          FLAKY: "true"
-        cognitive3:
-          PACKAGE: "cognitive.split3"
-          FFMPEG: "true"
-          FLAKY: "true"
-        core:
-          PACKAGE: "core"
-        downloader:
-          PACKAGE: "downloader"
-        featurize:
-          PACKAGE: "featurize"
-        image:
-          PACKAGE: "image"
-        io1:
-          PACKAGE: "io.split1"
-          FLAKY: "true"
-        io2:
-          PACKAGE: "io.split2"
-          FLAKY: "true"
-        isolationforest:
-          PACKAGE: "isolationforest"
-        flaky:
-          PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
-          FLAKY: "true"
-        lightgbm1:
-          PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
-          FLAKY: "true"
-        lightgbm2:
-          PACKAGE: "lightgbm.split2"
-          FLAKY: "true"
-        lime:
-          PACKAGE: "lime"
-        opencv:
-          PACKAGE: "opencv"
-        recommendation:
-          PACKAGE: "recommendation"
-        stages:
-          PACKAGE: "stages"
-        nn:
-          PACKAGE: "nn"
-        train:
-          PACKAGE: "train"
-        vw:
-          PACKAGE: "vw"
-    steps:
-      - template: templates/ivy_cache_2.yml
-      - task: AzureCLI@1
-        displayName: 'Setup repo'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: |
-            (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-            (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-      - task: AzureCLI@1
-        displayName: 'Unit Test'
-        timeoutInMinutes: 60
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: |
-            (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
-            sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
-            export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
-            (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
-            (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
-            (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
-
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results'
-        inputs:
-          testResultsFiles: '**/test-reports/TEST-*.xml'
-          failTaskOnFailedTests: true
-        condition: succeededOrFailed()
-      - task: AzureCLI@1
-        displayName: 'Generate Codecov report'
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          scriptLocation: inlineScript
-          inlineScript: 'sbt coverageReport'
-        condition: succeededOrFailed()
-      - task: AzureKeyVault@1
-        inputs:
-          azureSubscription: 'MMLSpark Build'
-          keyVaultName: mmlspark-keys
-        condition: succeededOrFailed()
-      - bash: |
-          curl -s https://codecov.io/bash > .codecov
-          chmod +x .codecov
-          echo "Starting Codecov Upload"
-          ./.codecov -t $(codecov-token)
-        displayName: Upload Coverage Report To Codecov.io
-        condition: succeededOrFailed()
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token)
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
