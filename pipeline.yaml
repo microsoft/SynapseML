@@ -118,7 +118,6 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-
 - job: PublishDocker
   displayName: PublishDocker
   pool:
