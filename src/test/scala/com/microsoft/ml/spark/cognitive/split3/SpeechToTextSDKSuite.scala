@@ -29,8 +29,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   import spark.implicits._
 
   val region = "eastus"
-  lazy val resourcesDir = new File(new File(getClass.getResource(File.separator).toURI)
-    .toString.replaceAll("it-classes", "test-classes"))
+  lazy val resourcesDir = new File(new File(getClass.getResource("/").toURI).toString)
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
   val profanity = "masked"
