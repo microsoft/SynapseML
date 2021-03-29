@@ -77,7 +77,6 @@ jobs:
       env:
         STORAGE_KEY: $(storage-key)
 
-
 - job: E2E
   cancelTimeoutInMinutes: 0
   pool:
