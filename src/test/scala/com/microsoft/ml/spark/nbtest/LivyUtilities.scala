@@ -1,4 +1,4 @@
-package com.microsoft.ml.nbtest
+package com.microsoft.ml.spark.nbtest
 
 import java.io.{File, FileInputStream}
 import java.util.concurrent.TimeUnit
@@ -16,7 +16,6 @@ import org.json4s.{Formats, NoTypeHints}
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
-import org.spark_project.guava.io.BaseEncoding
 import spray.json._
 import DefaultJsonProtocol._
 import sys.process._
