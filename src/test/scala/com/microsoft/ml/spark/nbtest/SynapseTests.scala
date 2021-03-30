@@ -3,24 +3,20 @@
 
 package com.microsoft.ml.spark.nbtest
 
-import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.nbtest.DatabricksUtilities._
 
-import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
-import scala.sys.process.{Process, _}
 
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
   test("SynapsePROD") {
-    val workspaceName = "mmlsparkdemosynws"
-    val poolName = "sparkpool1"
+    val workspaceName = "wenqxsynapse"
+    val poolName = "wenqxpool"
     val livyUrl = "https://" +
       workspaceName +
       ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +

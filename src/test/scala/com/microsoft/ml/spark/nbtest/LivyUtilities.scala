@@ -46,6 +46,8 @@ object LivyUtilities {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
+  val StorageAccount: String = "wenqxstorage"
+  val StorageContainer: String = "synapse"
 
   def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/batches/$id")
@@ -111,15 +113,21 @@ object LivyUtilities {
       s"""
          |{
          | "file" : "$path",
+         | "name" : "gatedBuild",
+         | "driverMemory" : "4g",
+         | "driverCores" : 4,
+         | "executorMemory" : "2g",
+         | "executorCores" : 2,
+         | "numExecutors" : 2,
          | "conf" :
          |      {
          |        "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
-         |        "spark.jars.repositories" : s"$repository"
+         |        "spark.jars.repositories" : "$repository"
          |      }
          | }
       """.stripMargin
 
-    val createRequest = new HttpPost(s"$livyUrl/batches")
+    val createRequest = new HttpPost(livyUrl)
     println(s"livy payload: $livyPayload")
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
@@ -130,27 +138,15 @@ object LivyUtilities {
     val content = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch = parse(content).extract[LivyBatch]
     val status = response.getStatusLine.getStatusCode
-    assert(status == 201)
+    assert(status != 201)
     batch
   }
 
   private def uploadScript(file: String, dest: String): String = {
     val fileName = new File(file).getName
     exec(s"az storage fs file upload " +
-      s" -s $file -p $dest -f synapse --account-name mmlsparkdemo3 --account-key ${Secrets.SynapseStorageKey}")
-    s"abfss://synapse@mmlsparkdemo3.dfs.core.windows.net/$dest"
-  }
-
-  private def convertNotebook(notebookPath: String): File = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => exec(
-        s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
-      case _ => Process(
-        s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
-    }
-
-    new File(notebookPath.replace(".ipynb", ".py"))
+      s" -s $file -p $dest -f $StorageContainer --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+    s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
 
   private def exec(command: String): String = {
@@ -165,6 +161,18 @@ object LivyUtilities {
     val createRequest = new HttpDelete(s"$livyUrl/batches/$batchId")
     val response = RESTHelpers.safeSend(createRequest, close = false)
     println(response.getEntity.getContent)
+  }
+
+  private def convertNotebook(notebookPath: String): File = {
+    val os = sys.props("os.name").toLowerCase
+    os match {
+      case x if x contains "windows" => exec(
+        s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+      case _ => Process(
+        s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+    }
+
+    new File(notebookPath.replace(".ipynb", ".py"))
   }
 
   private def getSynapseToken(): String = {
