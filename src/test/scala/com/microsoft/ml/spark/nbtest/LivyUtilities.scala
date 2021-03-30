@@ -33,7 +33,7 @@ case class LivyLogs(id: Int,
 //noinspection ScalaStyle
 object LivyUtilities {
 
-  implicit val format: Formats = Serialization.formats(NoTypeHints)
+  implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
   lazy val Token: String = getSynapseToken()
   val NotebookFiles: Array[String] = Option(
     FileUtilities
@@ -142,12 +142,12 @@ object LivyUtilities {
 
   private def convertNotebook(notebookPath: String): File = {
     val os = sys.props("os.name").toLowerCase
-    println(s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+    println(s"`conda init bash` && `conda activate mmlspark` && `jupyter nbconvert --to script $notebookPath`")
     os match {
       case x if x contains "windows" => exec(
         s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
       case _ => exec(
-        s"`conda init bash` && `conda activate mmlspark` && `jupyter nbconvert --to script $notebookPath`")
+        s"jupyter nbconvert --to script $notebookPath")
     }
 
     new File(notebookPath.replace(".ipynb", ".py"))
