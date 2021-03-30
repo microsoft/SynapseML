@@ -18,6 +18,7 @@ import spray.json._
 import java.io.File
 import scala.concurrent.{TimeoutException, blocking}
 import scala.sys.process._
+import scala.sys.process.Process
 
 case class LivyBatch(id: Int,
                      state: String,
@@ -142,12 +143,11 @@ object LivyUtilities {
 
   private def convertNotebook(notebookPath: String): File = {
     val os = sys.props("os.name").toLowerCase
-    println(s"`conda init bash` && `conda activate mmlspark` && `jupyter nbconvert --to script $notebookPath`")
     os match {
-      case x if x contains "windows" => exec(
+      case x if x contains "windows" => Process(
         s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
-      case _ => exec(
-        s"jupyter nbconvert --to script $notebookPath")
+      case _ => Process(
+        s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
     }
 
     new File(notebookPath.replace(".ipynb", ".py"))
