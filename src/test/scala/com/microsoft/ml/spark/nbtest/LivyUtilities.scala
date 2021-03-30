@@ -17,8 +17,7 @@ import spray.json._
 
 import java.io.File
 import scala.concurrent.{TimeoutException, blocking}
-import scala.sys.process._
-import scala.sys.process.Process
+import scala.sys.process.{Process, _}
 
 case class LivyBatch(id: Int,
                      state: String,
@@ -41,6 +40,7 @@ object LivyUtilities {
       .join(BuildInfo.baseDirectory, "notebooks", "samples")
       .getCanonicalFile
       .listFiles()
+      .filter(filePath => filePath.getAbsolutePath.endsWith(".py"))
       .map(file => file.getAbsolutePath)
   ).get
 
@@ -94,7 +94,7 @@ object LivyUtilities {
   }
 
   def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): LivyBatch = {
-    val convertedPyScript = convertNotebook(notebookPath)
+    val convertedPyScript = new File(notebookPath)
     val abfssPath = uploadScript(convertedPyScript.getAbsolutePath, s"$Folder/${convertedPyScript.getName}")
     submitRun(livyUrl, abfssPath)
   }
@@ -144,7 +144,7 @@ object LivyUtilities {
   private def convertNotebook(notebookPath: String): File = {
     val os = sys.props("os.name").toLowerCase
     os match {
-      case x if x contains "windows" => Process(
+      case x if x contains "windows" => exec(
         s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
       case _ => Process(
         s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")

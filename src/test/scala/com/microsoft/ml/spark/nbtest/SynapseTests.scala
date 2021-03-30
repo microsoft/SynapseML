@@ -3,13 +3,17 @@
 
 package com.microsoft.ml.spark.nbtest
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.nbtest.DatabricksUtilities._
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
+import scala.sys.process.{Process, _}
 
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
@@ -24,7 +28,7 @@ class SynapseTests extends TestBase {
       "/batches"
     val livyBatches = LivyUtilities.NotebookFiles.map(LivyUtilities.uploadAndSubmitNotebook(livyUrl, _))
     println(s"Submitted ${livyBatches.length} jobs for execution: " +
-      s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}")}")
+      s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}").mkString("Array(", ", ", ")")}")
     try {
       val batchFutures = livyBatches.map((batch: LivyBatch) => {
         Future {
