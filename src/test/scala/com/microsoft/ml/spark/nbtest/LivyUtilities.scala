@@ -136,7 +136,7 @@ object LivyUtilities {
   private def uploadScript(file: String, dest: String): String = {
     val fileName = new File(file).getName
     exec(s"az storage fs file upload " +
-      s" -s $file -p $dest -f synapse --acount-name mmlsparkdemo3 --account-key ${Secrets.SynapseStorageKey}")
+      s" -s $file -p $dest -f synapse --account-name mmlsparkdemo3 --account-key ${Secrets.SynapseStorageKey}")
     s"abfss://synapse@mmlsparkdemo3.dfs.core.windows.net/$dest"
   }
 
