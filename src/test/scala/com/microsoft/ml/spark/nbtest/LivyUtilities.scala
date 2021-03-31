@@ -5,6 +5,7 @@ import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.RESTHelpers
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.json4s.JsonAST.JObject
@@ -108,8 +109,8 @@ object LivyUtilities {
     val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
     val repository = "https://mmlspark.azureedge.net/maven"
 
-    val sparkPackages = Array(deploymentBuild)
-    val livyPayload =
+    val sparkPackages: Array[String] = Array(deploymentBuild)
+    val livyPayload: String =
       s"""
          |{
          | "file" : "$path",
@@ -177,6 +178,28 @@ object LivyUtilities {
 
   private def getSynapseToken(): String = {
     val secretJson = exec(s"az account get-access-token --resource https://dev.azuresynapse.net")
+
+    val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+    val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
+    val spnKey: String = Secrets.SynapseSpnKey
+
+    val uri: String = s"https://login.microsoftonline.com/$tenantId/oauth2/token"
+
+    val createRequest = new HttpPost(uri)
+    createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
+    val livyPayload: String =
+      s"""
+         |{
+         | "grant_type" : "client_credentials",
+         | "client_id" : "$clientId",
+         | "client_secret" : "$spnKey",
+         | "resource" : "https://management.azure.com/"
+         | }
+      """.stripMargin
+    createRequest.setEntity(new StringEntity(livyPayload))
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    print(response)
+
     secretJson.parseJson.asJsObject().fields("accessToken").convertTo[String]
   }
 }
