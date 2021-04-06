@@ -90,7 +90,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
       val externalLoadlingLines = paramMap.flatMap { pp =>
         pp.param match {
           case ep: ExternalPythonWrappableParam[_] =>
-            Some(ep.loadParameter(num))
+            Some(ep.pyLoadLine(num))
           case _ => None
         }
       }.mkString("\n")
@@ -98,7 +98,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |$externalLoadlingLines
          |
          |model = $stageName(
-         |${indent(paramMap.map(pythonizeParam(_)).mkString(",\n"), 1)}
+         |${indent(paramMap.map(pyRenderParam(_)).mkString(",\n"), 1)}
          |)
          |
          |""".stripMargin

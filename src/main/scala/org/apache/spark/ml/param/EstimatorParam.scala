@@ -9,11 +9,11 @@ import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
 
-  override def valueToPython(v: T): String = {
+  override def pyValue(v: T): String = {
     s"""${name}Model"""
   }
 
-  override def loadParameter(modelNum: Int): String = {
+  override def pyLoadLine(modelNum: Int): String = {
     s"""
        |from pyspark.ml import Pipeline
        |${name}Model = Pipeline.load(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
