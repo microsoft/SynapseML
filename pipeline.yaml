@@ -268,6 +268,58 @@ jobs:
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
+
+- job: RTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: templates/ivy_cache_2.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - bash: curl https://archive.apache.org/dist/spark/spark-3.0.1/spark-3.0.1-bin-hadoop3.2.tgz -o spark-3.0.1-bin-hadoop3.2.tgz
+      displayName: Download spark
+    - task: AzureCLI@1
+      displayName: 'Test R Code'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate mmlspark
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt coverage testR
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/r-test-*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token) -f coverage.xml
+        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
+
+
 - job: UnitTests
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 80

@@ -31,11 +31,14 @@ object Config {
   val PyTestOverrideDir = new File(TopDir, "src/test/python")
 
   //R Codegen Constants
-  val RSrcDir = new File(SrcDir, "R")
-  val SparklyRNamespacePath = new File(RSrcDir, "NAMESPACE")
+  val RSrcRoot = new File(SrcDir, "R")
+  val RSrcDir = new File(RSrcRoot, "mmlspark/R")
   val RPackageDir = new File(PackageDir, "R")
-  val RTestDir = new File(TestDir, "R")
+  val RTestDir = new File(RSrcRoot, "mmlspark/tests")
+
+  val RTestOverrideDir = new File(TopDir, "src/test/R")
   val RSrcOverrideDir = new File(TopDir, "src/main/R")
+
   //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
 
   val InternalPrefix = "_"
