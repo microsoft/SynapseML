@@ -13,20 +13,9 @@ import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.feature.StringIndexer
-import org.apache.spark.ml.image.ImageSchema
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors, Vector}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.{StructField, StructType}
-
-class VerifyAssembleFeatures extends TestBase with EstimatorFuzzing[AssembleFeatures] {
-  def testObjects(): Seq[TestObject[AssembleFeatures]] = List(new TestObject(
-    new AssembleFeatures().setColumnsToFeaturize(Array("numbers")), makeBasicDF()))
-
-  val reader: MLReadable[_] = AssembleFeatures
-  val modelReader: MLReadable[_] = AssembleFeaturesModel
-}
 
 class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
@@ -37,7 +26,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
   lazy val oldBenchmarkDir = new File(resourcesDirectory, "benchmarks")
   lazy val newBenchmarkDir = new File(resourcesDirectory, "new_benchmarks")
 
-  def getResource(name: String): File ={
+  def getResource(name: String): File = {
     new File(oldBenchmarkDir, name)
   }
 
@@ -47,66 +36,53 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   lazy val benchmarkBasicDataTypesFile = "benchmarkBasicDataTypes.json"
   lazy val historicDataTypesFile: File = getResource(benchmarkBasicDataTypesFile)
-  lazy val benchmarkBasicDataTypesTempFile: File = getTempFile(benchmarkBasicDataTypesFile)
 
   lazy val benchmarkVectorsFile = "benchmarkVectors.json"
   lazy val historicVectorsFile: File = getResource(benchmarkVectorsFile)
-  lazy val benchmarkVectorsTempFile: File = getTempFile(benchmarkVectorsFile)
 
   lazy val benchmarkStringFile = "benchmarkString.json"
   lazy val historicStringFile: File = getResource(benchmarkStringFile)
-  lazy val benchmarkStringTempFile: File = getTempFile(benchmarkStringFile)
 
   lazy val benchmarkStringMissingsFile = "benchmarkStringMissing.json"
   lazy val historicStringMissingsFile: File = getResource(benchmarkStringMissingsFile)
-  lazy val benchmarkStringMissingsTempFile: File = getTempFile(benchmarkStringMissingsFile)
 
   lazy val benchmarkOneHotFile = "benchmarkOneHot.json"
   lazy val historicOneHotFile: File = getResource(benchmarkOneHotFile)
-  lazy val benchmarkOneHotTempFile: File = getTempFile(benchmarkOneHotFile)
 
   lazy val benchmarkNoOneHotFile = "benchmarkNoOneHot.json"
   lazy val historicNoOneHotFile: File = getResource(benchmarkNoOneHotFile)
-  lazy val benchmarkNoOneHotTempFile: File = getTempFile(benchmarkNoOneHotFile)
 
   lazy val benchmarkOneHotMissingsFile = "benchmarkOneHotMissings.json"
   lazy val historicOneHotMissingsFile: File = getResource(benchmarkOneHotMissingsFile)
-  lazy val benchmarkOneHotMissingsTempFile: File = getTempFile(benchmarkOneHotMissingsFile)
 
   lazy val benchmarkNoOneHotMissingsFile = "benchmarkNoOneHotMissings.json"
   lazy val historicNoOneHotMissingsFile: File = getResource(benchmarkNoOneHotMissingsFile)
-  lazy val benchmarkNoOneHotMissingsTempFile: File = getTempFile(benchmarkNoOneHotMissingsFile)
 
   lazy val benchmarkStringIndexOneHotFile = "benchmarks/benchmarkStringIndexOneHot.json"
   lazy val historicStringIndexOneHotFile: File = getResource(benchmarkStringIndexOneHotFile)
-  lazy val benchmarkStringIndexOneHotTempFile: File = getTempFile(benchmarkStringIndexOneHotFile)
 
   lazy val benchmarkDateFile = "benchmarkDate.json"
   lazy val historicDateFile: File = getResource(benchmarkDateFile)
-  lazy val benchmarkDateTempFile: File = getTempFile(benchmarkDateFile)
 
   // int label with features of:
   // long, double, boolean, int, byte, float
   lazy val mockDataset = spark.createDataFrame(Seq(
-    (0, 2L, 0.50, true,  0, 0.toByte,    12F),
-    (1, 3L, 0.40, false, 1, 100.toByte,  30F),
-    (0, 4L, 0.78, true,  2, 50.toByte,   12F),
-    (1, 5L, 0.12, false, 3, 0.toByte,    12F),
-    (0, 1L, 0.50, true,  0, 0.toByte,    30F),
-    (1, 3L, 0.40, false, 1, 10.toByte,   12F),
-    (0, 3L, 0.78, false, 2, 0.toByte,    12F),
-    (1, 4L, 0.12, false, 3, 0.toByte,    12F),
-    (0, 0L, 0.50, true,  0, 0.toByte,    12F),
-    (1, 2L, 0.40, false, 1, 127.toByte,  30F),
-    (0, 3L, 0.78, true,  2, -128.toByte, 12F),
-    (1, 4L, 0.12, false, 3, 0.toByte,    12F)))
+    (0, 2L, 0.50, true, 0, 0.toByte, 12F),
+    (1, 3L, 0.40, false, 1, 100.toByte, 30F),
+    (0, 4L, 0.78, true, 2, 50.toByte, 12F),
+    (1, 5L, 0.12, false, 3, 0.toByte, 12F),
+    (0, 1L, 0.50, true, 0, 0.toByte, 30F),
+    (1, 3L, 0.40, false, 1, 10.toByte, 12F),
+    (0, 3L, 0.78, false, 2, 0.toByte, 12F),
+    (1, 4L, 0.12, false, 3, 0.toByte, 12F),
+    (0, 0L, 0.50, true, 0, 0.toByte, 12F),
+    (1, 2L, 0.40, false, 1, 127.toByte, 30F),
+    (0, 3L, 0.78, true, 2, -128.toByte, 12F),
+    (1, 4L, 0.12, false, 3, 0.toByte, 12F)))
     .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5", "col6")
 
   test("Featurizing on some basic data types") {
-    val result: DataFrame =
-      featurizeAndVerifyResult(mockDataset,
-                               benchmarkBasicDataTypesTempFile.toString,
-                               historicDataTypesFile)
+    val result: DataFrame = featurizeAndVerifyResult(mockDataset, historicDataTypesFile)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).values.length == 6)
   }
@@ -122,9 +98,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       (1, Vectors.dense(1.0, 0.4, -1.23), 0.12, 0.34, 3, Vectors.dense(Double.NaN, 0.2, -1.23))))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5")
 
-    val result: DataFrame = featurizeAndVerifyResult(dataset,
-      benchmarkVectorsTempFile.toString,
-      historicVectorsFile)
+    val result: DataFrame = featurizeAndVerifyResult(dataset, historicVectorsFile)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).values.length == 9)
   }
@@ -138,11 +112,9 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       (0, 3, 0.78, 0.99, "pokemon - gotta catch em all")))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
 
-    val result: DataFrame = featurizeAndVerifyResult(dataset,
-      benchmarkStringTempFile.toString,
-      historicStringFile)
+    val result: DataFrame = featurizeAndVerifyResult(dataset, historicStringFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[SparseVector](featuresColumn).size == 10)
+    assert(result.first().getAs[SparseVector](featuresColumn).size == 9)
   }
 
   test("Featurizing with date and timestamp columns") {
@@ -154,33 +126,9 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       (0, 3, 0.78, 0.99, new Date(new GregorianCalendar(2010, 6, 9).getTimeInMillis), new Timestamp(5000))))
       .toDF(mockLabelColumn, "col1", "col2", "col3", "date", "timestamp")
 
-    val result: DataFrame = featurizeAndVerifyResult(dataset,
-      benchmarkDateTempFile.toString,
-      historicDateFile)
+    val result: DataFrame = featurizeAndVerifyResult(dataset, historicDateFile)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).size == 16)
-  }
-
-  test("Featurizing with image columns") {
-    val imageDFSchema = StructType(Array(StructField("image", ImageSchema.columnSchema, true)))
-    val path1: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00000.png"
-    val path2: String = "file:/home/ilya/lib/datasets/Images/CIFAR/00001.png"
-    val height = 32
-    val width = 32
-    val imgType = 16
-    val colorBands = 3
-    // Size is height * width * colorBands
-    val imageSize = height * width * colorBands
-    // Expected is image size with width and height
-    val expectedSize = imageSize + 2
-    val rowRDD: RDD[Row] = sc.parallelize(Seq[Row](
-      Row(Row(path1, height, width, 3, imgType, Array.fill[Byte](imageSize)(1))),
-      Row(Row(path2, height, width, 3, imgType, Array.fill[Byte](imageSize)(1)))
-    ))
-    val dataset = spark.createDataFrame(rowRDD, imageDFSchema)
-    val result: DataFrame = featurize(dataset, includeFeaturesColumns = false)
-    // Verify that features column has the correct number of slots
-    assert(result.first().getAs[DenseVector](featuresColumn).size == expectedSize)
   }
 
   test("Verify featurizing text data produces proper tokenized output") {
@@ -214,16 +162,18 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       .toDF(mockLabelColumn, wordCountCol, wordLengthCol, textCol)
 
     val featModel = new Featurize()
-      .setFeatureColumns(Map { featuresColumn -> Array(wordCountCol, wordLengthCol, textCol) })
-      .setNumberOfFeatures(100000).fit(mockAmazonData)
+      .setInputCols(Array(wordCountCol, wordLengthCol, textCol))
+      .setOutputCol(featuresColumn)
+      .setNumFeatures(100000).fit(mockAmazonData)
     val nonzeroValuesThreshold = 30
     featModel.transform(mockAmazonData).collect().foreach(
-      row => assert(row.getAs[SparseVector](featuresColumn).indices.length > nonzeroValuesThreshold,
+      row => assert(row.getAs[SparseVector](featuresColumn).indices.length >= nonzeroValuesThreshold,
         "Strings improperly tokenized")
     )
   }
 
-  test("Featurizing with text columns that have missing values - using hashing with count based feature selection") {
+  test("Featurizing with text columns that have missing values - " +
+    "using hashing with count based feature selection") {
     val dataset: DataFrame = spark.createDataFrame(Seq(
       (0, 2, 0.50, "pokemon are everywhere"),
       (1, 3, 0.40, null),
@@ -232,11 +182,9 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       (0, 3, 0.78, null)))
       .toDF(mockLabelColumn, "col1", "col2", "col3")
 
-    val result: DataFrame = featurizeAndVerifyResult(dataset,
-      benchmarkStringMissingsTempFile.toString,
-      historicStringMissingsFile)
+    val result: DataFrame = featurizeAndVerifyResult(dataset, historicStringMissingsFile)
     // Verify that features column has the correct number of slots
-    assert(result.first().getAs[DenseVector](featuresColumn).size == 7)
+    assert(result.first().getAs[Vector](featuresColumn).size == 8)
   }
 
   test("Featurizing with categorical columns - using one hot encoding") {
@@ -256,17 +204,13 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     val model2 = new ValueIndexer().setInputCol("col5").setOutputCol("col5").fit(dataset)
     val catDataset = model1.transform(model2.transform(dataset))
 
-    val result: DataFrame = featurizeAndVerifyResult(catDataset,
-      benchmarkOneHotTempFile.toString,
-      historicOneHotFile,
+    val result: DataFrame = featurizeAndVerifyResult(catDataset, historicOneHotFile,
       oneHotEncode = true)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).size == 7)
 
     // Verify without one-hot encoding we get expected data
-    val resultNoOneHot: DataFrame = featurizeAndVerifyResult(catDataset,
-      benchmarkNoOneHotTempFile.toString,
-      historicNoOneHotFile)
+    val resultNoOneHot: DataFrame = featurizeAndVerifyResult(catDataset, historicNoOneHotFile)
     // Verify that features column has the correct number of slots
     assert(resultNoOneHot.first().getAs[DenseVector](featuresColumn).size == 5)
 
@@ -283,9 +227,7 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
       .withColumnRenamed(tmp4col, "col4")
       .withColumnRenamed(tmp5col, "col5")
 
-    val resultStringIndexer: DataFrame = featurizeAndVerifyResult(catResult2,
-      benchmarkStringIndexOneHotTempFile.toString,
-      historicStringIndexOneHotFile,
+    val resultStringIndexer: DataFrame = featurizeAndVerifyResult(catResult2, historicStringIndexOneHotFile,
       oneHotEncode = true)
     // Verify that features column has the correct number of slots
     assert(resultStringIndexer.first().getAs[DenseVector](featuresColumn).size == 7)
@@ -309,17 +251,13 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     val model1 = new ValueIndexer().setInputCol("col1").setOutputCol("col1").fit(dataset)
     val catDataset = model1.transform(dataset)
 
-    val result: DataFrame = featurizeAndVerifyResult(catDataset,
-      benchmarkOneHotMissingsTempFile.toString,
-      historicOneHotMissingsFile,
+    val result: DataFrame = featurizeAndVerifyResult(catDataset, historicOneHotMissingsFile,
       oneHotEncode = true)
     // Verify that features column has the correct number of slots
     assert(result.first().getAs[DenseVector](featuresColumn).size == 4)
 
     // Verify without one-hot encoding we get expected data
-    val resultNoOneHot: DataFrame = featurizeAndVerifyResult(catDataset,
-      benchmarkNoOneHotMissingsTempFile.toString,
-      historicNoOneHotMissingsFile)
+    val resultNoOneHot: DataFrame = featurizeAndVerifyResult(catDataset, historicNoOneHotMissingsFile)
     // Verify that features column has the correct number of slots
     assert(resultNoOneHot.first().getAs[DenseVector](featuresColumn).size == 4)
   }
@@ -329,23 +267,20 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
                         includeFeaturesColumns: Boolean = true): DataFrame = {
     val featureColumns = dataset.columns.filter(_ != mockLabelColumn)
     val feat = new Featurize()
-      .setNumberOfFeatures(10)
-      .setFeatureColumns(Map(featuresColumn -> featureColumns))
+      .setNumFeatures(10)
+      .setOutputCol(featuresColumn)
+      .setInputCols(featureColumns)
       .setOneHotEncodeCategoricals(oneHotEncode)
-      .setAllowImages(true)
     val featModel = feat.fit(dataset)
     val result = featModel.transform(dataset)
     if (includeFeaturesColumns) result else result.select(featuresColumn)
   }
 
   private def featurizeAndVerifyResult(dataset: DataFrame,
-                               tempFile: String,
-                               historicFile: File,
-                               oneHotEncode: Boolean = false,
-                               includeFeaturesColumns: Boolean = true): DataFrame = {
+                                       historicFile: File,
+                                       oneHotEncode: Boolean = false,
+                                       includeFeaturesColumns: Boolean = true): DataFrame = {
     val result = featurize(dataset, oneHotEncode, includeFeaturesColumns)
-    // Write out file so it is easy to compare the results
-    result.repartition(1).write.mode("overwrite").json(tempFile)
     if (!Files.exists(historicFile.toPath)) {
       // Store result in file for future
       val directory = historicFile.toString.replace(".json", "")
@@ -361,9 +296,10 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     result
   }
 
-  override def testObjects: List[TestObject[Featurize]] = List(new TestObject(
-    new Featurize().setFeatureColumns(Map(featuresColumn -> mockDataset.columns)), mockDataset))
+  override def testObjects(): List[TestObject[Featurize]] = List(new TestObject(
+    new Featurize().setInputCols(mockDataset.columns).setOutputCol(featuresColumn), mockDataset))
 
   override def reader: MLReadable[_] = Featurize
+
   override def modelReader: MLReadable[_] = PipelineModel
 }

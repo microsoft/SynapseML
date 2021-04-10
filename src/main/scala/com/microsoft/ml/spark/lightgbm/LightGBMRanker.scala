@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -20,7 +19,6 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
     with LightGBMBase[LightGBMRankerModel] {
@@ -103,13 +101,16 @@ class LightGBMRanker(override val uid: String)
 }
 
 /** Model produced by [[LightGBMRanker]]. */
-@InternalWrapper
 class LightGBMRankerModel(override val uid: String)
   extends RankerModel[Vector, LightGBMRankerModel]
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
     with ComplexParamsWritable {
+
+  def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.

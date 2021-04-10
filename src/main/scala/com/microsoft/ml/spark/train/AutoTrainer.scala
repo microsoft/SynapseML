@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.train
 
-import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasLabelCol}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{EstimatorParam, IntParam}
 

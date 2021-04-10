@@ -177,7 +177,7 @@ private object TrainUtils extends Serializable {
   def saveBoosterToString(boosterPtr: Option[SWIGTYPE_p_void], log: Logger): String = {
     val bufferLength = LightGBMConstants.DefaultBufferLength
     val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, bufferLength, bufferOutLengthPtr)
+    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, 0, bufferLength, bufferOutLengthPtr)
   }
 
   def getEvalNames(boosterPtr: Option[SWIGTYPE_p_void]): Array[String] = {

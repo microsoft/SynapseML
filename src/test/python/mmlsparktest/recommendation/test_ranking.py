@@ -21,51 +21,45 @@ RATING_ID = 'rating'
 USER_ID_INDEX = "customerID"
 ITEM_ID_INDEX = "itemID"
 
+ratings = spark.createDataFrame([
+    (0, 1, 4, 4),
+    (0, 3, 1, 1),
+    (0, 4, 5, 5),
+    (0, 5, 3, 3),
+    (0, 7, 3, 3),
+    (0, 9, 3, 3),
+    (0, 10, 3, 3),
+    (1, 1, 4, 4),
+    (1, 2, 5, 5),
+    (1, 3, 1, 1),
+    (1, 6, 4, 4),
+    (1, 7, 5, 5),
+    (1, 8, 1, 1),
+    (1, 10, 3, 3),
+    (2, 1, 4, 4),
+    (2, 2, 1, 1),
+    (2, 3, 1, 1),
+    (2, 4, 5, 5),
+    (2, 5, 3, 3),
+    (2, 6, 4, 4),
+    (2, 8, 1, 1),
+    (2, 9, 5, 5),
+    (2, 10, 3, 3),
+    (3, 2, 5, 5),
+    (3, 3, 1, 1),
+    (3, 4, 5, 5),
+    (3, 5, 3, 3),
+    (3, 6, 4, 4),
+    (3, 7, 5, 5),
+    (3, 8, 1, 1),
+    (3, 9, 5, 5),
+    (3, 10, 3, 3)],
+    ["originalCustomerID", "newCategoryID", "rating", "notTime"]).coalesce(1).cache()
 
 class RankingSpec(unittest.TestCase):
 
     @staticmethod
-    def get_ratings():
-        ratings = spark.createDataFrame([
-            (0, 1, 4, 4),
-            (0, 3, 1, 1),
-            (0, 4, 5, 5),
-            (0, 5, 3, 3),
-            (0, 7, 3, 3),
-            (0, 9, 3, 3),
-            (0, 10, 3, 3),
-            (1, 1, 4, 4),
-            (1, 2, 5, 5),
-            (1, 3, 1, 1),
-            (1, 6, 4, 4),
-            (1, 7, 5, 5),
-            (1, 8, 1, 1),
-            (1, 10, 3, 3),
-            (2, 1, 4, 4),
-            (2, 2, 1, 1),
-            (2, 3, 1, 1),
-            (2, 4, 5, 5),
-            (2, 5, 3, 3),
-            (2, 6, 4, 4),
-            (2, 8, 1, 1),
-            (2, 9, 5, 5),
-            (2, 10, 3, 3),
-            (3, 2, 5, 5),
-            (3, 3, 1, 1),
-            (3, 4, 5, 5),
-            (3, 5, 3, 3),
-            (3, 6, 4, 4),
-            (3, 7, 5, 5),
-            (3, 8, 1, 1),
-            (3, 9, 5, 5),
-            (3, 10, 3, 3)],
-            ["originalCustomerID", "newCategoryID", "rating", "notTime"])
-        return ratings
-
-    @staticmethod
     def adapter_evaluator(algo):
-        ratings = RankingSpec.get_ratings()
-
         recommendation_indexer = RecommendationIndexer(
             userInputCol=USER_ID, userOutputCol=USER_ID_INDEX,
             itemInputCol=ITEM_ID, itemOutputCol=ITEM_ID_INDEX)
@@ -79,17 +73,15 @@ class RankingSpec(unittest.TestCase):
         for metric in metrics:
             print(metric + ": " + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)))
 
-    def test_adapter_evaluator_als(self):
-        als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-        self.adapter_evaluator(als)
-
-    def test_adapter_evaluator_sar(self):
-        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-        self.adapter_evaluator(sar)
+    # def test_adapter_evaluator_als(self):
+    #     als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+    #     self.adapter_evaluator(als)
+    #
+    # def test_adapter_evaluator_sar(self):
+    #     sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+    #     self.adapter_evaluator(sar)
 
     def test_all_tiny(self):
-        ratings = self.get_ratings()
-
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
         ratings_index = StringIndexer(inputCol=ITEM_ID, outputCol=ITEM_ID_INDEX)
 
@@ -115,7 +107,7 @@ class RankingSpec(unittest.TestCase):
             .setTrainRatio(0.8)
 
         tv_model = tv_recommendation_split.fit(transformed_df)
-        users_recs = tv_model.bestModel._call_java("recommendForAllUsers", 3)
+        users_recs = tv_model.recommendForAllUsers(3)
 
         print("Sample User Recommendation: " + str(users_recs.take(1)))
         print("Validation Metrics: " + str(tv_model.validationMetrics))

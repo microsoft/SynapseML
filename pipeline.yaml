@@ -165,11 +165,15 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     - template: templates/ivy_cache.yml
-    - bash: |
-        VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-        echo '##vso[task.setvariable variable=version]'$VERSION
-        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+    - task: AzureCLI@1
       displayName: 'Get Docker Tag + Version'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+          echo '##vso[task.setvariable variable=version]'$VERSION
+          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
     - task: Docker@2
       displayName: Demo Image Build
       inputs:

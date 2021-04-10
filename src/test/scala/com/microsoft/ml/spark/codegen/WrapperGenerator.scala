@@ -8,14 +8,12 @@ import java.lang.reflect.{ParameterizedType, Type}
 
 import com.microsoft.ml.spark.codegen.Config._
 import com.microsoft.ml.spark.core.env.FileUtilities._
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.{Estimator, Transformer}
 
 import scala.collection.Iterator.iterate
 import scala.language.existentials
-import scala.reflect.runtime.universe._
 
 //noinspection ScalaStyle
 abstract class WrapperGenerator {
@@ -45,7 +43,7 @@ abstract class WrapperGenerator {
 
   def writeWrappersToFile(myClass: Class[_], qualifiedClassName: String): Unit = {
     try {
-      val classInstance = myClass.newInstance()
+      val classInstance = myClass.getConstructor().newInstance()
 
       val wrapper: WritableWrapper =
         classInstance match {
@@ -92,59 +90,6 @@ abstract class WrapperGenerator {
 
   def generateWrappers(): Unit = {
     JarLoadingUtils.WrappableClasses.foreach(cl => writeWrappersToFile(cl, cl.getName))
-  }
-
-}
-
-object PySparkWrapperGenerator {
-  def apply(): Unit = {
-    new PySparkWrapperGenerator().generateWrappers()
-  }
-}
-
-class PySparkWrapperGenerator extends WrapperGenerator {
-  override def wrapperDir: File = new File(PySrcDir, "mmlspark")
-
-  // check if the class is annotated with InternalWrapper
-  private[spark] def needsInternalWrapper(myClass: Class[_]): Boolean = {
-    val typ: ClassSymbol = runtimeMirror(myClass.getClassLoader).classSymbol(myClass)
-    typ.annotations.exists(a => a.tree.tpe =:= typeOf[InternalWrapper])
-  }
-
-  def wrapperName(myClass: Class[_]): String = {
-    val prefix = if (needsInternalWrapper(myClass)) InternalPrefix else ""
-    prefix + myClass.getSimpleName
-  }
-
-  def modelWrapperName(myClass: Class[_], modelName: String): String = {
-    val prefix = if (needsInternalWrapper(myClass)) InternalPrefix else ""
-    prefix + modelName
-  }
-
-  def generateEvaluatorWrapper(entryPoint: Evaluator,
-                               entryPointName: String,
-                               entryPointQualifiedName: String): WritableWrapper = {
-    new PySparkEvaluatorWrapper(entryPoint,
-      entryPointName,
-      entryPointQualifiedName)
-  }
-
-  def generateEstimatorWrapper(entryPoint: Estimator[_],
-                               entryPointName: String,
-                               entryPointQualifiedName: String,
-                               companionModelName: String,
-                               companionModelQualifiedName: String): WritableWrapper = {
-    new PySparkEstimatorWrapper(entryPoint,
-      entryPointName,
-      entryPointQualifiedName,
-      companionModelName,
-      companionModelQualifiedName)
-  }
-
-  def generateTransformerWrapper(entryPoint: Transformer,
-                                 entryPointName: String,
-                                 entryPointQualifiedName: String): WritableWrapper = {
-    new PySparkTransformerWrapper(entryPoint, entryPointName, entryPointQualifiedName)
   }
 
 }

@@ -21,10 +21,15 @@ object Secrets {
     }
   }
 
+  // Keep overhead of setting account down
+  lazy val accountString: String = {
+    exec(s"az account set -s $subscriptionID")
+    subscriptionID
+  }
+
   private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName")
+    println(s"fetching secret: $secretName from $accountString")
     try {
-      exec(s"az account set -s $subscriptionID")
       val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
       secretJson.parseJson.asJsObject().fields("value").convertTo[String]
     } catch {

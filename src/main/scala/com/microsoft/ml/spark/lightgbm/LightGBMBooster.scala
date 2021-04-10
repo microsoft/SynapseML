@@ -251,7 +251,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         sparseVector.indices, sparseVector.values,
         sparseVector.numNonzeros,
         boosterHandler.boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
-        kind, -1, datasetParams,
+        kind, 0, -1, datasetParams,
         dataLengthLongPtr, dataOutPtr), "Booster Predict")
   }
 
@@ -270,7 +270,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         row, boosterHandler.boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        -1, datasetParams, dataLengthLongPtr, dataOutPtr),
+        0, -1, datasetParams, dataLengthLongPtr, dataOutPtr),
       "Booster Predict")
   }
 
@@ -286,7 +286,7 @@ class LightGBMBooster(val model: String) extends Serializable {
   }
 
   def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, 0, 1,
+    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, -1, 0, 1,
       boosterHandler.dumpModelOutPtr.get().ptr)
     val rdd = session.sparkContext.parallelize(Seq(json))
     import session.sqlContext.implicits._
