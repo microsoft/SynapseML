@@ -209,11 +209,18 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
+  def getNumRowsForChunksArray(numRows: Int, numCols: Int): SWIGTYPE_p_int = {
+    val numRowsForChunks = lightgbmlib.new_intArray(numRows)
+    (0 until numRows).foreach( { index: Int =>
+      lightgbmlib.intArray_setitem(numRowsForChunks, index, 1)
+    })
+    return numRowsForChunks
+  }
+
+  def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
                            trainParams: TrainParams): LightGBMDataset = {
-    val numCols = rowsAsDoubleArray.head.length
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
@@ -222,16 +229,17 @@ object LightGBMUtils {
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
+    val numRowsForChunks = getNumRowsForChunksArray(numRows, numCols)
     try {
-      data = Some(generateData(numRows, rowsAsDoubleArray))
       // Generate the dataset for features
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
-        data.get._1, data64bitType,
-        numRows, numCols,
+      featuresArray.get_last_chunk_add_count()
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMats(featuresArray.get_chunks_count().toInt,
+        featuresArray.data_as_void(), data64bitType,
+        numRowsForChunks, numCols,
         isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
-      if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
+      featuresArray.release()
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)

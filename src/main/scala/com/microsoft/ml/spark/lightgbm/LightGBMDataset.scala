@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.lightgbm._
+import com.microsoft.ml.lightgbm.{floatChunkedArray, _}
 
 /** Represents a LightGBM dataset.
   * Wraps the native implementation.
@@ -37,15 +37,31 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
       colArray = Some(lightgbmlib.new_floatArray(numRows.toLong))
       field.zipWithIndex.foreach(ri =>
         lightgbmlib.floatArray_setitem(colArray.get, ri._2.toLong, ri._1.toFloat))
-      val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(colArray.get)
-      val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
-      LightGBMUtils.validate(
-        lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data32bitType),
-        "DatasetSetField")
+      this.addFloatField(colArray.get, fieldName, numRows)
     } finally {
       // Free column
       colArray.foreach(lightgbmlib.delete_floatArray)
     }
+  }
+
+  def addFloatField(field: floatChunkedArray, fieldName: String, numRows: Int): Unit = {
+    val coalescedLabelArray = lightgbmlib.new_floatArray(field.get_add_count())
+    try {
+      field.coalesce_to(coalescedLabelArray)
+      this.addFloatField(coalescedLabelArray, fieldName, numRows)
+    } finally {
+      // Free column
+      lightgbmlib.delete_floatArray(coalescedLabelArray)
+    }
+  }
+
+  def addFloatField(field: SWIGTYPE_p_float, fieldName: String, numRows: Int): Unit = {
+    // Add the column to dataset
+    val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(field)
+    val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data32bitType),
+      "DatasetSetField")
   }
 
   def addDoubleField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
@@ -55,15 +71,31 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
       colArray = Some(lightgbmlib.new_doubleArray(field.length.toLong))
       field.zipWithIndex.foreach(ri =>
         lightgbmlib.doubleArray_setitem(colArray.get, ri._2.toLong, ri._1))
-      val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(colArray.get)
-      val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-      LightGBMUtils.validate(
-        lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data64bitType),
-        "DatasetSetField")
+      this.addDoubleField(colArray.get, fieldName, numRows)
     } finally {
       // Free column
       colArray.foreach(lightgbmlib.delete_doubleArray)
     }
+  }
+
+  def addDoubleField(field: doubleChunkedArray, fieldName: String, numRows: Int): Unit = {
+    val coalescedLabelArray = lightgbmlib.new_doubleArray(field.get_add_count())
+    try {
+      field.coalesce_to(coalescedLabelArray)
+      this.addDoubleField(coalescedLabelArray, fieldName, numRows)
+    } finally {
+      // Free column
+      lightgbmlib.delete_doubleArray(coalescedLabelArray)
+    }
+  }
+
+  def addDoubleField(field: SWIGTYPE_p_double, fieldName: String, numRows: Int): Unit = {
+    // Add the column to dataset
+    val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(field)
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data64bitType),
+      "DatasetSetField")
   }
 
   def addIntField(field: Array[Int], fieldName: String, numRows: Int): Unit = {
