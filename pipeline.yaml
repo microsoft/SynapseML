@@ -76,6 +76,11 @@ jobs:
       displayName: Publish Badges
       env:
         STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
 
 - job: E2E
   cancelTimeoutInMinutes: 0
