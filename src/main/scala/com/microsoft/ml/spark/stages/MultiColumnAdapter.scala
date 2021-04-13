@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import org.apache.spark.sql.{DataFrame, Dataset}
+import com.microsoft.ml.spark.codegen.Wrappable
+import org.apache.spark.sql.Dataset
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable

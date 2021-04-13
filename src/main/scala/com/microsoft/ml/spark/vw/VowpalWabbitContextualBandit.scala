@@ -4,8 +4,6 @@
 package com.microsoft.ml.spark.vw
 
 import java.util
-
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.io.http.SharedVariable
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.classification.LogisticRegression
@@ -73,17 +71,19 @@ class ContextualBanditMetrics extends Serializable {
     }
   }
 
-  def getSnipsEstimate(): Double = {
+  def getSnipsEstimate: Double = {
     snipsNumerator / snipsDenominator
   }
 
-  def getIpsEstimate(): Double = {
+  def getIpsEstimate: Double = {
     snipsNumerator / totalEvents
   }
 }
 
-@InternalWrapper
 trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
+
+  override protected lazy val pyInternalWrapper = true
+
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
 
   def getSharedCol: String = $(sharedCol)
@@ -102,12 +102,14 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   setDefault(additionalSharedFeatures -> Array.empty)
 }
 
-@InternalWrapper
 class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
     with VowpalWabbitContextualBanditBase
     with HasParallelismInjected
     with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
+
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBandit"))
 
   val probabilityCol = new Param[String](this, "probabilityCol",
@@ -298,12 +300,15 @@ class VowpalWabbitContextualBandit(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)
 }
 
-@InternalWrapper
 class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel
     with VowpalWabbitContextualBanditBase
     with ComplexParamsWritable {
+
+  def this() = this(Identifiable.randomUID("VowpalWabbitContextualBanditModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   val exampleStack: SharedVariable[ExampleStack] = SharedVariable {
     new ExampleStack(vw)

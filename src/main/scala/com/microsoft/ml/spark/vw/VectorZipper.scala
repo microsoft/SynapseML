@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}

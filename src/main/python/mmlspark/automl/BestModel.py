@@ -6,20 +6,12 @@ import sys
 if sys.version >= '3':
     basestring = str
 
-from mmlspark.automl._FindBestModel import _FindBestModel
-from mmlspark.automl._FindBestModel import _BestModel
+from mmlspark.automl._BestModel import _BestModel
 from pyspark import SparkContext, SQLContext
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc
 from pyspark.sql import DataFrame
 
-@inherit_doc
-class FindBestModel(_FindBestModel):
-    def _create_model(self, java_model):
-        model = BestModel()
-        model._java_obj = java_model
-        model._transfer_params_from_java()
-        return model
 
 @inherit_doc
 class BestModel(_BestModel):

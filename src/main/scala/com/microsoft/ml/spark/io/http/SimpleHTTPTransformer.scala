@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.io.http
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.ml.spark.stages.{DropColumns, FlattenBatch, HasMiniBatcher, Lambda}
 import org.apache.commons.io.IOUtils
@@ -61,11 +60,12 @@ object ErrorUtils extends Serializable {
 
 }
 
-@InternalWrapper
 class SimpleHTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
     with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol {
   logInfo(s"Calling $getClass --- telemetry record")
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("SimpleHTTPTransformer"))
 

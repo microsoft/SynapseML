@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.core.test.benchmarks.Benchmarks
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
@@ -24,7 +25,7 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
   test ("Verify isolationForestMammographyDataTest") {
     import spark.implicits._
 
-    val data = loadMammographyData
+    val data = loadMammographyData()
 
     // Train a new isolation forest model
     val contamination = 0.02
@@ -62,8 +63,6 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
 
   def loadMammographyData(): DataFrame = {
 
-    import spark.implicits._
-
     val mammographyRecordSchema = Encoders.product[MammographyRecord].schema
 
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,"IsolationForest", "mammography.csv").toString
@@ -87,11 +86,15 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
     data
   }
 
+  test("foo"){
+    new IsolationForest().makePyFile()
+  }
+
   override def reader: MLReadable[_] = IsolationForest
   override def modelReader: MLReadable[_] = IsolationForestModel
 
   override def testObjects(): Seq[TestObject[IsolationForest]] = {
-    val dataset = loadMammographyData.toDF
+    val dataset = loadMammographyData().toDF
 
     Seq(new TestObject(
       new IsolationForest(),

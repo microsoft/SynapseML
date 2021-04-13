@@ -5,7 +5,8 @@ package com.microsoft.ml.spark.featurize
 
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.CategoricalMap
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._

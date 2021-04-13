@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -32,7 +31,6 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   *    insurance, or for any target that might be tweedie-distributed
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
     with LightGBMBase[LightGBMRegressionModel] {
@@ -84,7 +82,6 @@ class LightGBMRegressor(override val uid: String)
 }
 
 /** Model produced by [[LightGBMRegressor]]. */
-@InternalWrapper
 class LightGBMRegressionModel(override val uid: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
     with LightGBMModelParams
@@ -92,6 +89,10 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMPredictionParams
     with ComplexParamsWritable {
   logInfo(s"Calling $getClass --- telemetry record")
+
+  def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.

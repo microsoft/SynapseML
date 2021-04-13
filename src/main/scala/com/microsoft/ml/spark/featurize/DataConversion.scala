@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.featurize
 
 import java.sql.Timestamp
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}

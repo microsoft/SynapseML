@@ -10,7 +10,8 @@ import org.apache.spark.ml.Transformer
   * types but not Transformer.
   */
 class TransformerParam(parent: Params, name: String, doc: String, isValid: Transformer => Boolean)
-  extends ComplexParam[Transformer](parent, name, doc, isValid) {
+  extends ComplexParam[Transformer](parent, name, doc, isValid)
+    with PipelineStageWrappable[Transformer] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)

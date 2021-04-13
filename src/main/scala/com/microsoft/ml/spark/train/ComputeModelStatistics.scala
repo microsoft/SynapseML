@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.train
 
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}

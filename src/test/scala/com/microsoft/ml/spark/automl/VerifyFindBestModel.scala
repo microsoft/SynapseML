@@ -80,7 +80,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     // validate schema is as expected
     assert(bestModel.getAllModelMetrics.schema ==
       StructType(Seq(StructField(FindBestModel.ModelNameCol, StringType, true),
-        StructField(FindBestModel.MetricsCol, DoubleType, true),
+        StructField(FindBestModel.MetricsCol, DoubleType, false),
         StructField(FindBestModel.ParamsCol, StringType, true))))
     // validate we got metrics for every model
     assert(bestModel.getAllModelMetrics.count() == 5)

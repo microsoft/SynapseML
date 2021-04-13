@@ -7,7 +7,8 @@ import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.spark.injections.UDFUtils

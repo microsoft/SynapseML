@@ -7,8 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
 
 import breeze.linalg.{CSCMatrix => BSM, DenseMatrix => BDM, Matrix => BM}
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{RecommendationParams, Constants => C}
@@ -34,7 +33,6 @@ import scala.language.existentials
   *
   * @param uid The id of the module
   */
-@InternalWrapper
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
   logInfo(s"Calling $getClass --- telemetry record")
 

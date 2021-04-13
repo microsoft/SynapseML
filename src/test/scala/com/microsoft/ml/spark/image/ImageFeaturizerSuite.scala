@@ -12,6 +12,7 @@ import com.microsoft.ml.spark.cntk.CNTKTestUtils
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.utils.ModelEquality
 import com.microsoft.ml.spark.downloader.{ModelDownloader, ModelSchema}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.powerbi.PowerBIWriter

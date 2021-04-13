@@ -4,8 +4,9 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
-import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.core.contracts.{HasOutputCol, Wrappable}
+
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http._
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
@@ -16,15 +17,14 @@ import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import spray.json.DefaultJsonProtocol._
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
-import spray.json.DefaultJsonProtocol._
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -219,11 +219,11 @@ trait HasInternalJsonOutputParser {
 }
 
 trait HasSetLocation extends Wrappable {
-  override def additionalPythonMethods(): String = {
+  override def pyAdditionalMethods: String = {
     """
-      |    def setLocation(self, value):
-      |        self._java_obj = self._java_obj.setLocation(value)
-      |        return self
+      |def setLocation(self, value):
+      |    self._java_obj = self._java_obj.setLocation(value)
+      |    return self
       |""".stripMargin
   }
 

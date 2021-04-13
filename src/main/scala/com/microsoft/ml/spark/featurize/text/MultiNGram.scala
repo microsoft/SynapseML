@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.featurize.text
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature._

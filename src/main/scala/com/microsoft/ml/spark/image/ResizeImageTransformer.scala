@@ -6,8 +6,8 @@ package com.microsoft.ml.spark.image
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import org.apache.spark.injections.UDFUtils

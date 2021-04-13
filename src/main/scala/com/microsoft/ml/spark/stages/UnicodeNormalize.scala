@@ -9,8 +9,8 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions.udf
 import java.text.Normalizer
-
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.lime
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.stages.UDFTransformer
+import com.microsoft.ml.spark.stages.udfs.get_value_udf
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
@@ -41,7 +42,7 @@ class TextLIMESuite extends TransformerFuzzing[TextLIME] {
   lazy val selectClass: UDFTransformer = new UDFTransformer()
     .setInputCol("prob")
     .setOutputCol("prob")
-    .setUDF(UDFUtils.oldUdf({ vec: org.apache.spark.ml.linalg.Vector => vec(1) }, DoubleType))
+    .setUDF(get_value_udf(1))
 
   lazy val textClassifier: Pipeline = new Pipeline().setStages(Array(tok, si, lr, selectClass))
 

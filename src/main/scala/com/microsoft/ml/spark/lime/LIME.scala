@@ -6,7 +6,8 @@ package com.microsoft.ml.spark.lime
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.FluentAPI._
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}

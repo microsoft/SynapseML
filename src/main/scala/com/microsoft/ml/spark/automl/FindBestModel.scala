@@ -3,20 +3,15 @@
 
 package com.microsoft.ml.spark.automl
 
-import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasEvaluationMetric
 import com.microsoft.ml.spark.core.metrics.MetricConstants
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
 import com.microsoft.ml.spark.train.ComputeModelStatistics
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{ParamMap, TransformerArrayParam}
+import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArrayParam, TransformerParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-
-import scala.collection.mutable.ListBuffer
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object FindBestModel extends ComplexParamsReadable[FindBestModel] {
   val ModelNameCol = "model_name"
@@ -29,20 +24,20 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
     *
     * The metrics that can be chosen are:
     *
-    *   For Binary Classifiers:
+    * For Binary Classifiers:
     *     - AreaUnderROC
     *     - AUC
     *     - accuracy
     *     - precision
     *     - recall
     *
-    *   For Regression Classifiers:
+    * For Regression Classifiers:
     *     - mse
     *     - rmse
     *     - r2
     *     - mae
     *
-    *   Or, for either type of classifier:
+    * Or, for either type of classifier:
     *     - all - This will report all the relevant metrics
     *
     * @group param
@@ -51,12 +46,13 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-@InternalWrapper
 class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
   logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
+
   /** List of models to be evaluated. The list is an Array of models
+    *
     * @group param
     */
   val models: TransformerArrayParam = new TransformerArrayParam(this, "models", "List of models to be evaluated")
@@ -67,19 +63,14 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
 
-  var selectedModel: Transformer = _
-
-  var selectedScoredDataset: Dataset[_] = _
-
-  var selectedROCCurve: DataFrame = _
-
-  var selectedBestModelMetrics: Dataset[_] = _
-
   /** @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
     logInfo("Calling function fit --- telemetry record")
+    import FindBestModel._
+    import dataset.sparkSession.implicits._
+
     // Staging
     val trainedModels = getModels
     if (trainedModels.isEmpty) {
@@ -91,56 +82,31 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     val evaluator = new ComputeModelStatistics()
     evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
 
-    var bestMetric: Double = Double.NaN
-    // Setup to store metrics and model name data for model metrics table
-    val modelMetrics = ListBuffer[Double]()
-    val models = ListBuffer[String]()
-    val parameters = ListBuffer[String]()
     val firstModel = trainedModels(0)
+    val (metricColName, operator) = EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
+    val models = trainedModels.map(_.uid)
+    val parameters = trainedModels.map(EvaluationUtils.modelParamsToString)
+    val tdfs = trainedModels.map(_.transform(dataset))
+    val metrics = tdfs.map(evaluator.transform(_))
+    val simpleMetrics = metrics.map(_.select(metricColName).first()(0).toString.toDouble)
 
-    val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
-      EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
-    val modelType = EvaluationUtils.getModelType(firstModel)
-
-    val compareModels = (model: Transformer, metrics: DataFrame, scoredDataset: Dataset[_]) => {
-      val currentMetric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
-      modelMetrics += currentMetric
-      models += model.uid
-      parameters += EvaluationUtils.modelParamsToString(model)
-      if (bestMetric.isNaN || operator.gt(currentMetric, bestMetric)) {
-        bestMetric = currentMetric
-        selectedModel = model
-        selectedScoredDataset = scoredDataset
-      }
-    }
-
-    for (trainedModel <- trainedModels) {
-      // Check that models are consistent
-      if (EvaluationUtils.getModelType(trainedModel) != modelType) {
-        throw new Exception("Models are inconsistent. Please evaluate only regressors or classifiers.")
-      }
-      val df = trainedModel.transform(dataset)
-      val metrics = evaluator.transform(df)
-      compareModels(trainedModel, metrics, df)
-    }
-
-    // compute ROC curve
+    val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
+      case (best, curr) =>
+        if (best._1.isNaN || operator.gt(best._1, curr._1))
+          curr
+        else
+          best
+    }._2
+    val bestScoredDf = tdfs(bestIndex)
     evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
-    selectedBestModelMetrics = evaluator.transform(selectedScoredDataset)
-    selectedROCCurve = evaluator.rocCurve
+    val allModelMetrics = (models,simpleMetrics,parameters).zipped.toSeq.toDF(ModelNameCol, MetricsCol, ParamsCol)
 
-    val spark = dataset.sparkSession
-    val allModelMetricsSchema = StructType(Seq(StructField(FindBestModel.ModelNameCol, StringType, true),
-      StructField(FindBestModel.MetricsCol, DoubleType, true),
-      StructField(FindBestModel.ParamsCol, StringType, true)))
-    val allModelMetrics = spark.createDataFrame(spark.sparkContext.parallelize(models.zip(modelMetrics).zip(parameters)
-        .map(mmp => Row(mmp._1._1, mmp._1._2, mmp._2))), allModelMetricsSchema)
-    new BestModel(uid,
-      selectedModel,
-      selectedScoredDataset,
-      selectedROCCurve,
-      selectedBestModelMetrics,
-      allModelMetrics)
+    new BestModel(uid)
+      .setBestModel(trainedModels(bestIndex))
+      .setScoredDataset(bestScoredDf)
+      .setBestModelMetrics(evaluator.transform(bestScoredDf))
+      .setRocCurve(evaluator.rocCurve)
+      .setAllModelMetrics(allModelMetrics)
   }
 
   // Choose a random model as we don't know which one will be chosen yet - all will transform schema in same way
@@ -150,56 +116,76 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
 }
 
+trait HasBestModel extends Params {
+  val bestModel = new TransformerParam(this, "bestModel", "the best model found")
+
+  /** The best model found during evaluation.
+    *
+    * @return The best model.
+    */
+  def getBestModel: Transformer = $(bestModel)
+
+  def setBestModel(v: Transformer): this.type = set(bestModel, v)
+}
+
 /** Model produced by [[FindBestModel]]. */
-@InternalWrapper
-class BestModel(val uid: String,
-                val model: Transformer,
-                val scoredDataset: Dataset[_],
-                val rocCurve: DataFrame,
-                val bestModelMetrics: Dataset[_],
-                val allModelMetrics: Dataset[_])
-    extends Model[BestModel] with ConstructorWritable[BestModel] {
+class BestModel(val uid: String) extends Model[BestModel]
+  with ComplexParamsWritable with Wrappable with HasBestModel {
   logInfo(s"Calling $getClass --- telemetry record")
 
-  val ttag: TypeTag[BestModel] = typeTag[BestModel]
-  def objectsToSave: List[Any] = List(uid, model, scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
+  def this() = this(Identifiable.randomUID("BestModel"))
 
-  override def copy(extra: ParamMap): BestModel =
-    new BestModel(uid, model.copy(extra), scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
+  val scoredDataset = new DataFrameParam(this, "scoredDataset", "dataset scored by best model")
+
+  /** Gets the scored dataset.
+    *
+    * @return The scored dataset for the best model.
+    */
+  def getScoredDataset: DataFrame = $(scoredDataset)
+
+  def setScoredDataset(v: DataFrame): this.type = set(scoredDataset, v)
+
+  val rocCurve = new DataFrameParam(this, "rocCurve", "the roc curve of the best model")
+
+  /** Gets the ROC curve with TPR, FPR.
+    *
+    * @return The evaluation results.
+    */
+  def getRocCurve: Dataset[_] = $(rocCurve)
+
+  def setRocCurve(v: DataFrame): this.type = set(rocCurve, v)
+
+  val bestModelMetrics = new DataFrameParam(this, "bestModelMetrics", "the metrics from the best model")
+
+  /** Gets all of the best model metrics results from the evaluator.
+    *
+    * @return All of the best model metrics results.
+    */
+  def getBestModelMetrics: Dataset[_] = $(bestModelMetrics)
+
+  def setBestModelMetrics(v: DataFrame): this.type = set(bestModelMetrics, v)
+
+  val allModelMetrics = new DataFrameParam(this, "allModelMetrics", "all model metrics")
+
+  /** Gets a table of metrics from all models compared from the evaluation comparison.
+    *
+    * @return The model metrics results from all models.
+    */
+  def getAllModelMetrics: Dataset[_] = $(allModelMetrics)
+
+  def setAllModelMetrics(v: DataFrame): this.type = set(allModelMetrics, v)
+
+  override protected lazy val pyInternalWrapper = true
+
+  override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logInfo("Calling function transform --- telemetry record")
-    model.transform(dataset)
+    getBestModel.transform(dataset)
   }
 
-  /** The best model found during evaluation.
-    * @return The best model.
-    */
-  def getBestModel: Transformer = model
-
-  /** Gets the scored dataset.
-    * @return The scored dataset for the best model.
-    */
-  def getScoredDataset: Dataset[_] = scoredDataset
-
-  /** Gets the ROC curve with TPR, FPR.
-    * @return The evaluation results.
-    */
-  def getEvaluationResults: Dataset[_] = rocCurve
-
-  /** Gets all of the best model metrics results from the evaluator.
-    * @return All of the best model metrics results.
-    */
-  def getBestModelMetrics: Dataset[_] = bestModelMetrics
-
-  /** Gets a table of metrics from all models compared from the evaluation comparison.
-    * @return The model metrics results from all models.
-    */
-  def getAllModelMetrics: Dataset[_] = allModelMetrics
-
-  @DeveloperApi
-  override def transformSchema(schema: StructType): StructType = model.transformSchema(schema)
+  override def transformSchema(schema: StructType): StructType = getBestModel.transformSchema(schema)
 
 }
 
-object BestModel extends ConstructorReadable[BestModel]
+object BestModel extends ComplexParamsReadable[BestModel]

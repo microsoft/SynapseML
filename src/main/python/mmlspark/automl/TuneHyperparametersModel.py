@@ -8,18 +8,9 @@ from pyspark import SparkContext
 if sys.version >= '3':
     basestring = str
 
-from mmlspark.automl._TuneHyperparameters import _TuneHyperparameters
-from mmlspark.automl._TuneHyperparameters import _TuneHyperparametersModel
+from mmlspark.automl._TuneHyperparametersModel import _TuneHyperparametersModel
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc
-
-@inherit_doc
-class TuneHyperparameters(_TuneHyperparameters):
-    def _create_model(self, java_model):
-        model = TuneHyperparametersModel()
-        model._java_obj = java_model
-        model._transfer_params_from_java()
-        return model
 
 @inherit_doc
 class TuneHyperparametersModel(_TuneHyperparametersModel):
