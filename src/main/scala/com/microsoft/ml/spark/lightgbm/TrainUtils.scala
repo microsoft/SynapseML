@@ -243,7 +243,6 @@ private object TrainUtils extends Serializable {
       }
 
       try {
-        log.info("LightGBM task calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
         LightGBMUtils.validate(result, "Booster Update One Iter")
         isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1

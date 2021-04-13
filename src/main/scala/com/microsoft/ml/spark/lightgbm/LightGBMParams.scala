@@ -268,7 +268,7 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   val verbosity = new IntParam(this, "verbosity",
     "Verbosity where lt 0 is Fatal, eq 0 is Error, eq 1 is Info, gt 1 is Debug")
-  setDefault(verbosity -> 1)
+  setDefault(verbosity -> -1)
 
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
