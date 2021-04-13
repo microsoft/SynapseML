@@ -47,6 +47,7 @@ import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
   * In addition to any generic learner that inherits from Predictor.
   */
 class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
@@ -88,6 +89,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
+    logInfo("Calling function fit --- telemetry record")
     val labelValues =
       if (isDefined(labels)) {
         Some(getLabels)
@@ -276,6 +278,7 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
     extends AutoTrainedModel[TrainedClassifierModel] with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))
 
@@ -288,6 +291,7 @@ class TrainedClassifierModel(val uid: String)
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val hasScoreCols = hasScoreColumns(getLastStage)
 
     // re-featurize and score the data

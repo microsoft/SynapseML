@@ -18,6 +18,7 @@ import org.apache.spark.sql.types._
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
@@ -38,6 +39,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     * @return The trained regression model.
     */
   override def fit(dataset: Dataset[_]): TrainedRegressorModel = {
+    logInfo("Calling function fit --- telemetry record")
     val labelColumn = getLabelCol
     var oneHotEncodeCategoricals = true
 
@@ -136,12 +138,14 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
 class TrainedRegressorModel(val uid: String)
     extends AutoTrainedModel[TrainedRegressorModel]
       with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TrainedRegressorModel"))
 
   override def copy(extra: ParamMap): TrainedRegressorModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     // re-featurize and score the data
     val scoredData = getModel.transform(dataset)
 

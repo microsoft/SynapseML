@@ -17,12 +17,14 @@ class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
     with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
+    logInfo("Calling function train --- telemetry record")
     val model = new VowpalWabbitRegressionModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
@@ -38,6 +40,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModel
     with ComplexParamsWritable with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
 
@@ -49,6 +52,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
+    logInfo("Calling function predict --- telemetry record")
     throw new NotImplementedError("Not implement")
   }
 

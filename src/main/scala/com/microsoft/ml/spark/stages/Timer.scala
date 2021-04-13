@@ -53,6 +53,7 @@ trait TimerParams extends Wrappable {
 
 class Timer(val uid: String) extends Estimator[TimerModel]
   with TimerParams with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("Timer"))
 
@@ -77,6 +78,7 @@ class Timer(val uid: String) extends Estimator[TimerModel]
   }
 
   def fit(dataset: Dataset[_]): TimerModel = {
+    logInfo("Calling function fit --- telemetry record")
     val (model, message) = fitWithTime(dataset)
     log(message)
     model
@@ -88,6 +90,7 @@ object TimerModel extends ComplexParamsReadable[TimerModel]
 
 class TimerModel(val uid: String)
   extends Model[TimerModel] with TimerParams with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TimerModel"))
 
@@ -118,6 +121,7 @@ class TimerModel(val uid: String)
   def transformSchema(schema: StructType): StructType = getTransformer.transformSchema(schema)
 
   def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val (model, message) = transformWithTime(dataset)
     log(message)
     model

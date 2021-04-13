@@ -55,6 +55,8 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
 
 /** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer with ComputeModelStatisticsParams {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
   /** The ROC curve evaluated for a binary classifier. */
@@ -67,6 +69,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
     * @return DataFrame whose columns contain the calculated metrics
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,
@@ -165,6 +168,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
                               resultDF: DataFrame): DataFrame = {
+    logInfo("Calling function addSimpleMetric --- telemetry record")
     val (_, confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
     // Compute metrics for binary classification
     if (confusionMatrix.numCols == 2) {
@@ -205,6 +209,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
                                           confusionMatrix: Matrix,
                                           scoresAndLabels: RDD[(Double, Double)],
                                           resultDF: DataFrame): DataFrame = {
+    logInfo("Calling function addAllClassificationMetrics --- telemetry record")
     // Compute metrics for binary classification
     if (confusionMatrix.numCols == 2) {
       val (accuracy: Double, precision: Double, recall: Double)
@@ -321,6 +326,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
 
   private def getMulticlassMetrics(predictionAndLabels: RDD[(Double, Double)],
                                    confusionMatrix: Matrix): (Double, Double, Double, Double, Double, Double) = {
+    logInfo("Calling function getMulticlassMetrics --- telemetry record")
     // Compute multiclass metrics based on paper "A systematic analysis
     // of performance measure for classification tasks", Sokolova and Lapalme
     var tpSum: Double = 0.0
@@ -375,6 +381,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
              dataset: Dataset[_],
              labelColumnName: String,
              scoresAndLabels: RDD[(Double, Double)]): Double = {
+    logInfo("Calling function getAUC --- telemetry record")
     val binaryMetrics = new BinaryClassificationMetrics(scoresAndLabels,
       MetricConstants.BinningThreshold)
 
@@ -390,6 +397,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   }
 
   private def getBinaryAccuracyPrecisionRecall(confusionMatrix: Matrix): (Double, Double, Double) = {
+    logInfo("Calling function getBinaryAccuracyPrecisionRecall --- telemetry record")
     val tp: Double = confusionMatrix(1, 1)
     val fp: Double = confusionMatrix(0, 1)
     val tn: Double = confusionMatrix(0, 0)
@@ -402,6 +410,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer with 
   }
 
   private def createConfusionMatrix(predictionAndLabels: RDD[(Double, Double)]): (Array[Double], Matrix) = {
+    logInfo("Calling function createConfusionMatrix --- telemetry record")
     val metrics = new MulticlassMetrics(predictionAndLabels)
     var labels = metrics.labels
     var confusionMatrix = metrics.confusionMatrix

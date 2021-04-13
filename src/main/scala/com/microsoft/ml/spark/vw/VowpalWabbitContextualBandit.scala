@@ -107,6 +107,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     with VowpalWabbitContextualBanditBase
     with HasParallelismInjected
     with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override protected lazy val pyInternalWrapper = true
 
@@ -261,6 +262,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   }
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitContextualBanditModel = {
+    logInfo("Calling function train --- telemetry record")
     val model = new VowpalWabbitContextualBanditModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
@@ -272,6 +274,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   }
 
   override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+    logInfo("Calling function fit --- telemetry record")
     transformSchema(dataset.schema, logging = true)
     log.info(s"Parallelism: $getParallelism")
 
@@ -305,6 +308,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
     with VowpalWabbitBaseModel
     with VowpalWabbitContextualBanditBase
     with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBanditModel"))
 
@@ -319,6 +323,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
 
@@ -354,6 +359,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
+    logInfo("Calling function predict --- telemetry record")
     throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of " +
       "probabilities not a single double. Use transform instead.")
   }

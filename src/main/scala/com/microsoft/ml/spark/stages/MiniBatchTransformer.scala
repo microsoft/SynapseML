@@ -68,6 +68,7 @@ object TimeIntervalMiniBatchTransformer extends DefaultParamsReadable[TimeInterv
 
 class TimeIntervalMiniBatchTransformer(val uid: String)
   extends MiniBatchBase {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   val maxBatchSize: Param[Int] = new IntParam(
     this, "maxBatchSize", "The max size of the buffer")

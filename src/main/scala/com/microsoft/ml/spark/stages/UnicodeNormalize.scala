@@ -19,6 +19,8 @@ object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]
   */
 class UnicodeNormalize(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("UnicodeNormalize"))
 
   val form = new Param[String](this, "form", "Unicode normalization form: NFC, NFD, NFKC, NFKD")
@@ -46,6 +48,7 @@ class UnicodeNormalize(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val inputIndex = dataset.columns.indexOf(getInputCol)
 
     require(inputIndex != -1, s"Input column $getInputCol does not exist")

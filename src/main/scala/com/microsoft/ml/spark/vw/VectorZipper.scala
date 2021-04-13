@@ -19,6 +19,7 @@ object VectorZipper extends ComplexParamsReadable[VectorZipper]
   */
 class VectorZipper(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("VectorZipper"))
 
@@ -31,6 +32,7 @@ class VectorZipper(override val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val inputCols = getInputCols
     dataset.withColumn(getOutputCol, array(inputCols.head, inputCols.tail: _*))
   }

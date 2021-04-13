@@ -29,6 +29,8 @@ object StratifiedRepartition extends DefaultParamsReadable[DropColumns]
   */
 class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
   with DefaultParamsWritable with HasLabelCol with HasSeed {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("StratifiedRepartition"))
 
   val mode = new Param[String](this, "mode",
@@ -43,6 +45,7 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     * @return The DataFrame that results from stratified repartitioning
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     // Count unique values in label column
     val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
     val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))
