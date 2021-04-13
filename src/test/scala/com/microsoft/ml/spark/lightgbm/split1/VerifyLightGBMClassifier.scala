@@ -244,10 +244,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setFeaturesShapCol(featuresShapCol)
   }
 
-  test("foo"){
-    new LightGBMClassifier().makePyFile()
-  }
-
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
     val model = baseModel.setUseBarrierExecutionMode(true)
 
