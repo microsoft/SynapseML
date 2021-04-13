@@ -24,6 +24,8 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
     with LightGBMBase[LightGBMRankerModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
   // Set default objective to be ranking classification
@@ -110,6 +112,7 @@ class LightGBMRankerModel(override val uid: String)
     with LightGBMModelMethods
     with LightGBMPredictionParams
     with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.
@@ -118,6 +121,7 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     var outputData = super.transform(dataset)
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
@@ -131,6 +135,7 @@ class LightGBMRankerModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
+    logInfo("Calling function predict --- telemetry record")
     getModel.score(features, false, false)(0)
   }
 

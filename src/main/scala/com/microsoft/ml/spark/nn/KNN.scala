@@ -45,6 +45,7 @@ trait KNNParams extends HasFeaturesCol with Wrappable with HasOutputCol {
 
 class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   with DefaultParamsWritable with OptimizedKNNFitting {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("KNN"))
 
@@ -55,6 +56,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(leafSize, 50)
 
   override def fit(dataset: Dataset[_]): KNNModel = {
+    logInfo("Calling function fit --- telemetry record")
     fitOptimized(dataset)
   }
 
@@ -71,6 +73,8 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 }
 
 class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritable with KNNParams {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("KNNModel"))
 
   private var broadcastedModelOption: Option[Broadcast[BallTree[_]]] = None
@@ -89,6 +93,7 @@ class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritab
   override def copy(extra: ParamMap): KNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }

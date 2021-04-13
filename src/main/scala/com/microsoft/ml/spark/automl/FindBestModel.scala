@@ -53,6 +53,7 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 /** Evaluates and chooses the best model from a list of models. */
 @InternalWrapper
 class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
   /** List of models to be evaluated. The list is an Array of models
@@ -78,6 +79,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
+    logInfo("Calling function fit --- telemetry record")
     // Staging
     val trainedModels = getModels
     if (trainedModels.isEmpty) {
@@ -157,6 +159,7 @@ class BestModel(val uid: String,
                 val bestModelMetrics: Dataset[_],
                 val allModelMetrics: Dataset[_])
     extends Model[BestModel] with ConstructorWritable[BestModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   val ttag: TypeTag[BestModel] = typeTag[BestModel]
   def objectsToSave: List[Any] = List(uid, model, scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
@@ -164,7 +167,10 @@ class BestModel(val uid: String,
   override def copy(extra: ParamMap): BestModel =
     new BestModel(uid, model.copy(extra), scoredDataset, rocCurve, bestModelMetrics, allModelMetrics)
 
-  override def transform(dataset: Dataset[_]): DataFrame = model.transform(dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
+    model.transform(dataset)
+  }
 
   /** The best model found during evaluation.
     * @return The best model.

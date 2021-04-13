@@ -17,6 +17,8 @@ object Repartition extends DefaultParamsReadable[Repartition]
   * @param uid The id of the module
   */
 class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("Repartition"))
 
   val disable = new BooleanParam(this, "disable",
@@ -44,6 +46,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     if (getDisable)
       dataset.toDF
     else if (getN < dataset.rdd.getNumPartitions)

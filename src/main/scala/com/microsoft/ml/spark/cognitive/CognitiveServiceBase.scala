@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
-
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.contracts.{HasOutputCol, Wrappable}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
@@ -15,6 +14,7 @@ import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost,
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.spark.internal.Logging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
@@ -233,7 +233,7 @@ trait HasSetLocation extends Wrappable {
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasErrorCol {
+  with HasSubscriptionKey with HasErrorCol{
 
   setDefault(
     outputCol -> (this.uid + "_output"),
@@ -275,6 +275,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo(msg = "Calling function transform --- telemetry record")
     getInternalTransformer(dataset.schema).transform(dataset)
   }
 

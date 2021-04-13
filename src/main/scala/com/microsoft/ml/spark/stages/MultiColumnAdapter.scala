@@ -17,6 +17,8 @@ object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
   */
 class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineModel]
   with Wrappable with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))
 
   /** List of input column names, encoded as a string. These are the columns for the pipeline stage.
@@ -101,6 +103,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
     * @return PipelineModel fit on the columns bearing the input column names
     */
   override def fit(dataset: Dataset[_]): PipelineModel = {
+    logInfo("Calling function fit --- telemetry record")
     transformSchema(dataset.schema)
     new Pipeline(uid).setStages(getStages).fit(dataset)
   }

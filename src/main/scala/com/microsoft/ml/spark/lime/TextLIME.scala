@@ -26,6 +26,7 @@ object TextLIME extends ComplexParamsReadable[TextLIME]
   */
 class TextLIME(val uid: String) extends Model[TextLIME]
   with LIMEBase with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)
 
@@ -43,6 +44,7 @@ class TextLIME(val uid: String) extends Model[TextLIME]
   def setTokenCol(v: String): this.type = set(tokenCol, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF
 
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)

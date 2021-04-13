@@ -26,6 +26,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   */
 class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("ClassBalancer"))
 
@@ -41,6 +42,7 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   setDefault(broadcastJoin -> true)
 
   def fit(dataset: Dataset[_]): ClassBalancerModel = {
+    logInfo("Calling function fit --- telemetry record")
     val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
     val maxVal = counts.agg(max("count")).collect().head.getLong(0)
     val weights = counts
@@ -60,6 +62,7 @@ object ClassBalancer extends DefaultParamsReadable[ClassBalancer]
 class ClassBalancerModel(val uid: String, val inputCol: String,
                          val outputCol: String, val weights: DataFrame, broadcastJoin: Boolean)
   extends Model[ClassBalancerModel] with ConstructorWritable[ClassBalancerModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override def copy(extra: ParamMap): ClassBalancerModel = defaultCopy(extra)
 
@@ -70,6 +73,7 @@ class ClassBalancerModel(val uid: String, val inputCol: String,
   def transformSchema(schema: StructType): StructType = schema.add(outputCol, DoubleType)
 
   def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val w = if (broadcastJoin) {
       broadcast(weights)
     } else {

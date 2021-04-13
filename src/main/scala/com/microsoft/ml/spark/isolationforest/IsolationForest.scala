@@ -17,6 +17,7 @@ object IsolationForest extends DefaultParamsReadable[IsolationForest]
 class IsolationForest(override val uid: String, val that: IsolationForestSource)
   extends Estimator[IsolationForestModel]
   with IsolationForestParams with DefaultParamsWritable with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this(uid: String) = this(uid, new IsolationForestSource(uid))
 
@@ -25,8 +26,10 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
   override def copy(extra: ParamMap): IsolationForest =
     new IsolationForest(uid, that.copy(extra))
 
-  override def fit(data: Dataset[_]): IsolationForestModel =
+  override def fit(data: Dataset[_]): IsolationForestModel = {
+    logInfo("Calling function fit --- telemetry record")
     new IsolationForestModel(uid, that.fit(data))
+  }
 
   override def transformSchema(schema: StructType): StructType =
     that.transformSchema(schema)
@@ -35,12 +38,15 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
 class IsolationForestModel(override val uid: String, val that: IsolationForestModelSource)
   extends Model[IsolationForestModel]
   with MLWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override def copy(extra: ParamMap): IsolationForestModel =
     new IsolationForestModel(uid, that.copy(extra))
 
-  override def transform(data: Dataset[_]): DataFrame =
+  override def transform(data: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     that.transform(data)
+  }
 
   override def transformSchema(schema: StructType): StructType =
     that.transformSchema(schema)

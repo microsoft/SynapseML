@@ -181,6 +181,8 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
 class TextFeaturizer(override val uid: String)
   extends Estimator[TextFeaturizerModel]
     with TextFeaturizerParams with HasInputCol with HasOutputCol {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
 
   setDefault(outputCol, uid + "_output")
@@ -266,6 +268,7 @@ class TextFeaturizer(override val uid: String)
   }
 
   override def fit(dataset: Dataset[_]): TextFeaturizerModel = {
+    logInfo("Calling function fit --- telemetry record")
     try {
       getUseTokenizer
     } catch {
@@ -389,10 +392,12 @@ class TextFeaturizerModel(val uid: String,
                           fitPipeline: PipelineModel,
                           colsToDrop: List[String])
   extends Model[TextFeaturizerModel] with ConstructorWritable[TextFeaturizerModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override def copy(extra: ParamMap): TextFeaturizerModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     colsToDrop.foldRight(fitPipeline.transform(dataset))((col, df) =>
       df.drop(col))
   }

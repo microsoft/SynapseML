@@ -282,6 +282,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
 @InternalWrapper
 class ImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   import ImageTransformer._
 
@@ -355,6 +356,7 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
 
     //  load native OpenCV library on each partition
     // TODO: figure out more elegant way

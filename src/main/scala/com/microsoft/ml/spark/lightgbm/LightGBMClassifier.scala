@@ -24,6 +24,8 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMBase[LightGBMClassificationModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
@@ -88,6 +90,7 @@ class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
       with HasActualNumClasses with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to
@@ -98,6 +101,7 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
       require(getThresholds.length == numClasses, this.getClass.getSimpleName +

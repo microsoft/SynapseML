@@ -36,6 +36,7 @@ import scala.util.control.NonFatal
 @InternalWrapper
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
   with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
@@ -128,6 +129,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
+    logInfo("Calling function fit --- telemetry record")
     val sparkSession = dataset.sparkSession
     val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
     val hyperParams = getParamSpace.paramMaps
@@ -211,6 +213,7 @@ class TuneHyperparametersModel(val uid: String,
                                val model: Transformer,
                                val bestMetric: Double)
   extends Model[TuneHyperparametersModel] with ConstructorWritable[TuneHyperparametersModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override val ttag: TypeTag[TuneHyperparametersModel] = typeTag[TuneHyperparametersModel]
 
@@ -219,7 +222,10 @@ class TuneHyperparametersModel(val uid: String,
   override def copy(extra: ParamMap): TuneHyperparametersModel =
     new TuneHyperparametersModel(uid, model.copy(extra), bestMetric)
 
-  override def transform(dataset: Dataset[_]): DataFrame = model.transform(dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
+    model.transform(dataset)
+  }
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = model.transformSchema(schema)

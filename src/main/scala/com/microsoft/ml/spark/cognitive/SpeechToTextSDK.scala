@@ -360,6 +360,7 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF
     val schema = dataset.schema
 
@@ -414,6 +415,7 @@ abstract class SpeechSDKBase extends Transformer
 }
 
 class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override type ResponseType = SpeechResponse
 
@@ -485,6 +487,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
 class ConversationTranscription(override val uid: String) extends SpeechSDKBase {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   override type ResponseType = TranscriptionResponse
 

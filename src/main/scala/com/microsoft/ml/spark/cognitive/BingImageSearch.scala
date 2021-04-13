@@ -67,6 +67,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 

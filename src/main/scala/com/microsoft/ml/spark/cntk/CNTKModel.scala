@@ -145,6 +145,7 @@ object CNTKModel extends ComplexParamsReadable[CNTKModel]
 @InternalWrapper
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
   with HasMiniBatcher with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("CNTKModel"))
 
@@ -495,6 +496,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val spark = dataset.sparkSession
     val df = dataset.toDF()
 

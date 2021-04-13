@@ -149,6 +149,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
   */
 class UnrollImage(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   import UnrollImage._
 
@@ -157,6 +158,7 @@ class UnrollImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF
     assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
     val unrollUDF = udf(unroll _)
@@ -181,6 +183,7 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   */
 class UnrollBinaryImage(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
   import UnrollImage._
 
   def this() = this(Identifiable.randomUID("UnrollImage"))
@@ -206,6 +209,7 @@ class UnrollBinaryImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF
     assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 

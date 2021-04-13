@@ -39,6 +39,8 @@ object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 @InternalWrapper
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
   with Wrappable with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
   // Parameters related to the inner model
@@ -131,6 +133,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel

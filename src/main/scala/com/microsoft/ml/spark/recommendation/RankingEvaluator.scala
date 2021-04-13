@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.recommendation
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{HasRecommenderCols, RecEvaluatorParams}
@@ -96,7 +97,8 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
 }
 
 class RankingEvaluator(override val uid: String)
-  extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable {
+  extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable with Logging{
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("recEval"))
 

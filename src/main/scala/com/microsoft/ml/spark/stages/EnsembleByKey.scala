@@ -20,6 +20,8 @@ import scala.collection.mutable
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
 class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("EnsembleByKey"))
 
   val keys = new StringArrayParam(this, "keys", "Keys to group by")
@@ -79,6 +81,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   setDefault(collapseGroup -> true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
 
     if (get(colNames).isEmpty) {
       setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))

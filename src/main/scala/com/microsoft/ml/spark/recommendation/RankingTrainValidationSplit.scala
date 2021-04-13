@@ -25,6 +25,7 @@ import spray.json.DefaultJsonProtocol._
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable
   with ComplexParamsWritable with RecommendationParams {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplit"))
 
@@ -89,6 +90,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
+    logInfo("Calling function fit --- telemetry record")
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = getEstimator
@@ -288,6 +290,7 @@ class RankingTrainValidationSplitModel(
   override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
     with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def setValidationMetrics(value: Seq[Double]): this.type = set(validationMetrics, value)
 
@@ -314,6 +317,7 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transformSchema(dataset.schema, logging = true)
 
     //sort to pass unit test

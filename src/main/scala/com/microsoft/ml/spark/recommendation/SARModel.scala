@@ -22,6 +22,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 @InternalWrapper
 class SARModel(override val uid: String) extends Model[SARModel]
   with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   /** @group setParam */
   def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
@@ -141,6 +142,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
   }
 

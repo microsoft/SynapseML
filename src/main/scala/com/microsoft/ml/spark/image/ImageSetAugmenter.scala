@@ -16,6 +16,7 @@ object ImageSetAugmenter extends DefaultParamsReadable[ImageSetAugmenter]
 
 class ImageSetAugmenter(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("ImageSetAugmenter"))
 
@@ -49,6 +50,7 @@ class ImageSetAugmenter(val uid: String) extends Transformer
   }
 
   def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF
     val dfID = df.withColumn(getOutputCol, new Column(getInputCol))
 

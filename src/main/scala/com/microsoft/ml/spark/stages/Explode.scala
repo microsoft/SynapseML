@@ -15,11 +15,14 @@ object Explode extends DefaultParamsReadable[Explode]
 
 class Explode(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("Explode"))
 
   setDefault(outputCol->(this.uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transformSchema(dataset.schema)
     dataset.toDF().withColumn(getOutputCol, explode(col(getInputCol)))
   }

@@ -18,12 +18,15 @@ object RenameColumn extends DefaultParamsReadable[RenameColumn]
   */
 class RenameColumn(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable
   with HasInputCol with HasOutputCol {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("RenameColumn"))
 
   /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from renaming the input column
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transformSchema(dataset.schema, logging = true)
     dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
   }

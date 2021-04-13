@@ -66,6 +66,7 @@ trait Mode extends HasRecommenderCols {
 
 class RankingAdapter(override val uid: String)
   extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
@@ -79,6 +80,7 @@ class RankingAdapter(override val uid: String)
   override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
+    logInfo("Calling function fit --- telemetry record")
     new RankingAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
@@ -104,6 +106,7 @@ object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
   */
 class RankingAdapterModel private[ml](val uid: String)
   extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingParams with Mode {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
@@ -114,6 +117,7 @@ class RankingAdapterModel private[ml](val uid: String)
   def getRecommenderModel: Model[_] = $(recommenderModel).asInstanceOf[Model[_]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     transformSchema(dataset.schema)
 
     val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))

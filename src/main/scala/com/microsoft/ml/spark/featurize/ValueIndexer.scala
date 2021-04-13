@@ -54,6 +54,7 @@ object NullOrdering {
   */
 class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel]
   with ValueIndexerParams {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("ValueIndexer"))
 
@@ -63,6 +64,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
     * @return The model for transforming columns to categorical.
     */
   override def fit(dataset: Dataset[_]): ValueIndexerModel = {
+    logInfo("Calling function fit --- telemetry record")
     val dataType = dataset.schema(getInputCol).dataType
     val levels = dataset.select(getInputCol).distinct().collect().map(row => row(0))
     // Sort the levels
@@ -101,6 +103,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
   extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
@@ -147,6 +150,7 @@ class ValueIndexerModel(val uid: String)
 
   /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val nonNullLevels = getLevels.filter(_ != null)
 
     val castLevels = nonNullLevels.map { l =>

@@ -20,6 +20,8 @@ object Lambda extends ComplexParamsReadable[Lambda] {
 }
 
 class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
+
   def this() = this(Identifiable.randomUID("Lambda"))
 
   val transformFunc = new UDFParam(this, "transformFunc", "holder for dataframe function")
@@ -43,6 +45,7 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     getTransform(dataset)
   }
 

@@ -24,6 +24,7 @@ object MultiNGram extends DefaultParamsReadable[MultiNGram]
   */
 class MultiNGram(override val uid: String)
   extends Transformer with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("MultiNGram"))
 
@@ -38,6 +39,7 @@ class MultiNGram(override val uid: String)
   def setLengths(v: Seq[Int]): this.type = set(lengths, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val df = dataset.toDF()
     val intermediateOutputCols = getLengths.map(n =>
       DatasetExtensions.findUnusedColumnName(s"ngram_$n")(dataset.columns.toSet)

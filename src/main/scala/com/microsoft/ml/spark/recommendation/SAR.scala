@@ -36,6 +36,7 @@ import scala.language.existentials
   */
 @InternalWrapper
 class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   /** @group getParam */
   def getSimilarityFunction: String = $(similarityFunction)
@@ -64,6 +65,7 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   }
 
   override def fit(dataset: Dataset[_]): SARModel = {
+    logInfo("Calling function fit --- telemetry record")
     new SARModel(uid)
       .setUserDataFrame(calculateUserItemAffinities(dataset))
       .setItemDataFrame(calculateItemItemSimilarity(dataset))

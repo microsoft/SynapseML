@@ -95,6 +95,7 @@ object AssembleFeatures extends DefaultParamsReadable[AssembleFeatures]
   */
 class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeaturesModel]
   with HasFeaturesCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("AssembleFeatures"))
 
@@ -157,6 +158,7 @@ class AssembleFeatures(override val uid: String) extends Estimator[AssembleFeatu
     * @return The model that will return the original dataset with assembled features as a vector.
     */
   override def fit(dataset: Dataset[_]): AssembleFeaturesModel = {
+    logInfo("Calling function fit --- telemetry record")
     val columnNamesToFeaturize = new ColumnNamesToFeaturize
 
     val columnsToFeaturize = HashSet[String](getColumnsToFeaturize: _*)

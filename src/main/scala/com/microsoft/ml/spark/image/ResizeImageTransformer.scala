@@ -57,6 +57,7 @@ object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransform
 
 class ResizeImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   import ResizeUtils._
 
@@ -83,6 +84,7 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
     if (ImageSchemaUtils.isImage(inputType)) {

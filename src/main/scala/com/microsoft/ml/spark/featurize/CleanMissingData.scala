@@ -48,6 +48,7 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
   with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
@@ -69,6 +70,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
+    logInfo("Calling function fit --- telemetry record")
     val replacementValues = getReplacementValues(dataset, getInputCols, getOutputCols, getCleaningMode)
     new CleanMissingDataModel(uid, replacementValues, getInputCols, getOutputCols)
   }
@@ -132,6 +134,7 @@ class CleanMissingDataModel(val uid: String,
                             val inputCols: Array[String],
                             val outputCols: Array[String])
     extends Model[CleanMissingDataModel] with ConstructorWritable[CleanMissingDataModel] {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   val ttag: TypeTag[CleanMissingDataModel] = typeTag[CleanMissingDataModel]
   def objectsToSave: List[Any] = List(uid, replacementValues, inputCols, outputCols)
@@ -140,6 +143,7 @@ class CleanMissingDataModel(val uid: String,
     new CleanMissingDataModel(uid, replacementValues, inputCols, outputCols)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     val datasetCols = dataset.columns.map(name => dataset(name)).toList
     val datasetInputCols = inputCols.zip(outputCols)
       .flatMap(io =>
