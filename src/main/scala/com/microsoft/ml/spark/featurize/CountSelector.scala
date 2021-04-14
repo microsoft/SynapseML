@@ -21,6 +21,7 @@ object CountSelector extends DefaultParamsReadable[CountSelector]
 /** Drops vector indicies with no nonzero data. */
 class CountSelector(override val uid: String) extends Estimator[CountSelectorModel]
   with Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("CountBasedFeatureSelector"))
 
@@ -29,6 +30,7 @@ class CountSelector(override val uid: String) extends Estimator[CountSelectorMod
   }
 
   override def fit(dataset: Dataset[_]): CountSelectorModel = {
+    logInfo("Calling function fit --- telemetry record")
     val encoder = Encoders.kryo[BitSet]
     val slotsToKeep = dataset.select(getInputCol)
       .map(row => toBitSet(row.getAs[Vector](0).toSparse.indices))(encoder)
@@ -51,6 +53,7 @@ object CountSelectorModel extends DefaultParamsReadable[CountSelectorModel]
 
 class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
   with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable {
+  logInfo(s"Calling $getClass --- telemetry record")
 
   def this() = this(Identifiable.randomUID("CountBasedFeatureSelectorModel"))
 
@@ -71,6 +74,7 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logInfo("Calling function transform --- telemetry record")
     getModel.transform(dataset)
   }
 

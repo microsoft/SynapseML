@@ -26,6 +26,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return The trained model.
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
+    logInfo("Calling function train --- telemetry record")
     if (getNumBatches > 0) {
       val ratio = 1.0 / getNumBatches
       val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
