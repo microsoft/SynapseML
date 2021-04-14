@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.nbtest.DatabricksUtilities._
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
@@ -54,10 +53,4 @@ class SynapseTests extends TestBase {
         throw t
     }
   }
-
-  ignore("list running jobs for convenievce") {
-    val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
-    println(obj)
-  }
-
 }

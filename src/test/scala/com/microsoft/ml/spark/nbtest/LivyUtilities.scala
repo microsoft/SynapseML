@@ -5,9 +5,10 @@ import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.RESTHelpers
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
+import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
+import org.apache.http.message.BasicNameValuePair
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization
@@ -16,8 +17,10 @@ import org.json4s.{Formats, NoTypeHints, _}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import java.io.File
+import java.io.{File, InputStream}
+import java.util
 import scala.concurrent.{TimeoutException, blocking}
+import scala.io.Source
 import scala.sys.process.{Process, _}
 
 case class LivyBatch(id: Int,
@@ -115,8 +118,8 @@ object LivyUtilities {
          |{
          | "file" : "$path",
          | "name" : "gatedBuild",
-         | "driverMemory" : "4g",
-         | "driverCores" : 4,
+         | "driverMemory" : "2g",
+         | "driverCores" : 2,
          | "executorMemory" : "2g",
          | "executorCores" : 2,
          | "numExecutors" : 2,
@@ -136,26 +139,18 @@ object LivyUtilities {
     val response = RESTHelpers.safeSend(createRequest, close = false)
 
     println(response.getEntity.getContent)
-    val content = IOUtils.toString(response.getEntity.getContent, "utf-8")
-    val batch = parse(content).extract[LivyBatch]
-    val status = response.getStatusLine.getStatusCode
+    val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
+    val batch: LivyBatch = parse(content).extract[LivyBatch]
+    val status: Int = response.getStatusLine.getStatusCode
     assert(status != 201)
     batch
   }
 
   private def uploadScript(file: String, dest: String): String = {
-    val fileName = new File(file).getName
     exec(s"az storage fs file upload " +
-      s" -s $file -p $dest -f $StorageContainer --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+      s" -s $file -p $dest -f $StorageContainer " +
+      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
     s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
-  }
-
-  private def exec(command: String): String = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command !!
-    }
   }
 
   def cancelRun(livyUrl: String, batchId: Int): Unit = {
@@ -176,9 +171,15 @@ object LivyUtilities {
     new File(notebookPath.replace(".ipynb", ".py"))
   }
 
-  private def getSynapseToken(): String = {
-    val secretJson = exec(s"az account get-access-token --resource https://dev.azuresynapse.net")
+  private def exec(command: String): String = {
+    val os = sys.props("os.name").toLowerCase
+    os match {
+      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
+      case _ => command !!
+    }
+  }
 
+  private def getSynapseToken(): String = {
     val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
     val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
     val spnKey: String = Secrets.SynapseSpnKey
@@ -187,19 +188,18 @@ object LivyUtilities {
 
     val createRequest = new HttpPost(uri)
     createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
-    val livyPayload: String =
-      s"""
-         |{
-         | "grant_type" : "client_credentials",
-         | "client_id" : "$clientId",
-         | "client_secret" : "$spnKey",
-         | "resource" : "https://management.azure.com/"
-         | }
-      """.stripMargin
-    createRequest.setEntity(new StringEntity(livyPayload))
-    val response = RESTHelpers.safeSend(createRequest, close = false)
-    print(response)
 
-    secretJson.parseJson.asJsObject().fields("accessToken").convertTo[String]
+    val bodyList: util.List[BasicNameValuePair] = new util.ArrayList[BasicNameValuePair]()
+    bodyList.add(new BasicNameValuePair("grant_type", "client_credentials"))
+    bodyList.add(new BasicNameValuePair("client_id", s"$clientId"))
+    bodyList.add(new BasicNameValuePair("client_secret", s"$spnKey"))
+    bodyList.add(new BasicNameValuePair("resource", "https://dev.azuresynapse.net/"))
+
+    createRequest.setEntity(new UrlEncodedFormEntity(bodyList, "UTF-8"))
+
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    val inputStream: InputStream = response.getEntity.getContent
+    val pageContent: String = Source.fromInputStream(inputStream).mkString
+    pageContent.parseJson.asJsObject().fields("access_token").convertTo[String]
   }
 }
