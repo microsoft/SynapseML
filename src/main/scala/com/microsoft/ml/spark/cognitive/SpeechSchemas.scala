@@ -54,5 +54,7 @@ object SpeechFormat extends DefaultJsonProtocol {
   implicit val SpeechResponseFormat: RootJsonFormat[SpeechResponse] = jsonFormat6(SpeechResponse.apply)
   implicit val TranscriptionResponseFormat: RootJsonFormat[TranscriptionResponse] =
     jsonFormat9(TranscriptionResponse.apply)
+  implicit val TranscriptionParticipantFormat: RootJsonFormat[TranscriptionParticipant] =
+    jsonFormat3(TranscriptionParticipant.apply)
 
 }
