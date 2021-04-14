@@ -18,51 +18,130 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
 
+import scala.collection.mutable.ListBuffer
+
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 case class ColumnParams(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
                         initScoreColumn: Option[String], groupColumn: Option[String])
 
 private object TrainUtils extends Serializable {
 
-  def generateDataset(rows: Array[Row], columnParams: ColumnParams,
+  def generateDataset(rowsIter: Iterator[Row], columnParams: ColumnParams,
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
-    val numRows = rows.length
-    val labels = rows.map(row => row.getDouble(schema.fieldIndex(columnParams.labelColumn)))
-    val hrow = rows.head
+    val hrow = rowsIter.next()
     var datasetPtr: Option[LightGBMDataset] = None
-    datasetPtr =
-      if (hrow.get(schema.fieldIndex(columnParams.featuresColumn)).isInstanceOf[DenseVector]) {
-        val rowsAsDoubleArray = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
-          case dense: DenseVector => dense.toArray
-          case sparse: SparseVector => sparse.toDense.toArray
-        })
-        val numCols = rowsAsDoubleArray.head.length
-        val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-        log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateDenseDataset(numRows, rowsAsDoubleArray, referenceDataset,
-          slotNames, trainParams))
-      } else {
-        val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
-          case dense: DenseVector => dense.toSparse
-          case sparse: SparseVector => sparse
-        })
-        val numCols = rowsAsSparse(0).size
-        val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-        log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
-        Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
+    if (hrow.get(schema.fieldIndex(columnParams.featuresColumn)).isInstanceOf[DenseVector]) {
+      datasetPtr = aggregateDenseStreamedData(hrow, rowsIter, columnParams, referenceDataset, schema, log, trainParams)
+      // Validate generated dataset has the correct number of rows and cols
+      datasetPtr.get.validateDataset()
+    } else {
+      val rows = (Iterator[Row](hrow) ++ rowsIter).toArray
+      val numRows = rows.length
+      val labels = rows.map(row => row.getDouble(schema.fieldIndex(columnParams.labelColumn)))
+      val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
+        case dense: DenseVector => dense.toSparse
+        case sparse: SparseVector => sparse
+      })
+      val numCols = rowsAsSparse(0).size
+      val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
+      log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
+      datasetPtr = Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
+      // Validate generated dataset has the correct number of rows and cols
+      datasetPtr.get.validateDataset()
+      datasetPtr.get.addFloatField(labels, "label", numRows)
+      columnParams.weightColumn.foreach { col =>
+        val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
+        datasetPtr.get.addFloatField(weights, "weight", numRows)
       }
-
-    // Validate generated dataset has the correct number of rows and cols
-    datasetPtr.get.validateDataset()
-    datasetPtr.get.addFloatField(labels, "label", numRows)
-    columnParams.weightColumn.foreach { col =>
-      val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      datasetPtr.get.addFloatField(weights, "weight", numRows)
+      addInitScoreColumn(rows, columnParams.initScoreColumn, datasetPtr, numRows, schema)
+      addGroupColumn(rows, columnParams.groupColumn, datasetPtr, numRows, schema, None)
     }
-    addInitScoreColumn(rows, columnParams.initScoreColumn, datasetPtr, numRows, schema)
-    addGroupColumn(rows, columnParams.groupColumn, datasetPtr, numRows, schema)
+    datasetPtr
+  }
 
+  def getRowAsDoubleArray(row: Row, columnParams: ColumnParams, schema: StructType): Array[Double] = {
+    row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
+      case dense: DenseVector => dense.toArray
+      case sparse: SparseVector => sparse.toDense.toArray
+    }
+  }
+
+  def addFeaturesToChunkedArray(featuresChunkedArrayOpt: Option[doubleChunkedArray], numCols: Int,
+                  rowAsDoubleArray: Array[Double]): Unit = {
+    featuresChunkedArrayOpt.foreach { featuresChunkedArray =>
+      rowAsDoubleArray.foreach { doubleVal =>
+        featuresChunkedArray.add(doubleVal)
+      }
+    }
+  }
+
+  def addInitScoreColumnRow(initScoreChunkedArrayOpt: Option[doubleChunkedArray], row: Row,
+                            columnParams: ColumnParams, schema: StructType): Unit = {
+    columnParams.initScoreColumn.foreach { col =>
+      val field = schema.fields(schema.fieldIndex(col))
+      if (field.dataType == VectorType) {
+        val initScores = row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector]
+        // Note: rows * # classes in multiclass case
+        initScores.values.foreach { rowValue =>
+          initScoreChunkedArrayOpt.get.add(rowValue)
+        }
+      } else {
+        val initScore = row.getDouble(schema.fieldIndex(col))
+        initScoreChunkedArrayOpt.get.add(initScore)
+      }
+    }
+  }
+
+  def addGroupColumnRow(row: Row, groupColumnValues: ListBuffer[Row],
+                        columnParams: ColumnParams, schema: StructType): Unit = {
+    columnParams.groupColumn.foreach { col =>
+      val colIdx = schema.fieldIndex(col)
+      groupColumnValues.append(Row(row.get(colIdx)))
+    }
+  }
+
+  def aggregateDenseStreamedData(hrow: Row, rowsIter: Iterator[Row], columnParams: ColumnParams,
+                                 referenceDataset: Option[LightGBMDataset], schema: StructType,
+                                 log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
+    var numRows = 0
+    val defaultChunkSize = 100
+    val labelsChunkedArray = new floatChunkedArray(defaultChunkSize)
+    val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(defaultChunkSize) }
+    val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(defaultChunkSize) }
+    var numCols = 0
+    var featuresChunkedArrayOpt: Option[doubleChunkedArray] = None
+    val groupColumnValues: ListBuffer[Row] = new ListBuffer[Row]()
+    while (rowsIter.hasNext || numRows == 0) {
+      val row = if (numRows == 0) hrow else rowsIter.next()
+      numRows += 1
+      labelsChunkedArray.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
+      columnParams.weightColumn.map { col =>
+        weightChunkedArrayOpt.get.add(row.getDouble(schema.fieldIndex(col)).toFloat)
+      }
+      val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
+      numCols = rowAsDoubleArray.length
+      if (featuresChunkedArrayOpt.isEmpty) {
+        featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols))
+      }
+      addFeaturesToChunkedArray(featuresChunkedArrayOpt, numCols, rowAsDoubleArray)
+      addInitScoreColumnRow(initScoreChunkedArrayOpt, row, columnParams, schema)
+      addGroupColumnRow(row, groupColumnValues, columnParams, schema)
+    }
+
+    val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
+    log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
+    val datasetPtr = Some(LightGBMUtils.generateDenseDataset(numRows, numCols, featuresChunkedArrayOpt.get,
+      referenceDataset, slotNames, trainParams))
+    datasetPtr.get.addFloatField(labelsChunkedArray, "label", numRows)
+    weightChunkedArrayOpt.foreach { weightChunkedArray =>
+      datasetPtr.get.addFloatField(weightChunkedArray, "weight", numRows)
+    }
+    initScoreChunkedArrayOpt.foreach { initScoreChunkedArray =>
+      datasetPtr.get.addDoubleField(initScoreChunkedArray, "init_score", numRows)
+    }
+    val overrideGroupIndex = Some(0)
+    addGroupColumn(groupColumnValues.toArray, columnParams.groupColumn, datasetPtr, numRows, schema, overrideGroupIndex)
     datasetPtr
   }
 
@@ -103,8 +182,7 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
-                     datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
+  def validateGroupColumn(groupColumn: Option[String], schema: StructType): Unit = {
     groupColumn.foreach { col =>
       val datatype = schema.fields(schema.fieldIndex(col)).dataType
 
@@ -114,11 +192,19 @@ private object TrainUtils extends Serializable {
         throw new IllegalArgumentException(
           s"group column $col must be of type Long, Int or String but is ${datatype.typeName}")
       }
+    }
+  }
 
-      val colIdx = schema.fieldIndex(col)
+  def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
+                     datasetPtr: Option[LightGBMDataset], numRows: Int,
+                     schema: StructType, overrideIdx: Option[Int]): Unit = {
+    validateGroupColumn(groupColumn, schema)
+    groupColumn.foreach { col =>
+      val datatype = schema.fields(schema.fieldIndex(col)).dataType
+      val colIdx = if (overrideIdx.isEmpty) schema.fieldIndex(col) else overrideIdx.get
 
       // Convert to distinct count (note ranker should have sorted within partition by group id)
-      // We use a triplet of a list of cardinalities, last unqiue value and unique value count
+      // We use a triplet of a list of cardinalities, last unique value and unique value count
       val groupCardinality = datatype match {
         case org.apache.spark.sql.types.IntegerType => countCardinality(rows.map(row => row.getInt(colIdx)))
         case org.apache.spark.sql.types.LongType => countCardinality(rows.map(row => row.getLong(colIdx)))
@@ -243,7 +329,6 @@ private object TrainUtils extends Serializable {
       }
 
       try {
-        log.info("LightGBM task calling LGBM_BoosterUpdateOneIter")
         val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
         LightGBMUtils.validate(result, "Booster Update One Iter")
         isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
@@ -370,18 +455,17 @@ private object TrainUtils extends Serializable {
   def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[Broadcast[Array[Row]]],
                 log: Logger, trainParams: TrainParams, returnBooster: Boolean, schema: StructType,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    val rows = inputRows.toArray
     var trainDatasetPtr: Option[LightGBMDataset] = None
     var validDatasetPtr: Option[LightGBMDataset] = None
     try {
       beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
-      trainDatasetPtr = generateDataset(rows, columnParams, None, schema, log, trainParams)
+      trainDatasetPtr = generateDataset(inputRows, columnParams, None, schema, log, trainParams)
       afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
 
       if (validationData.isDefined) {
         beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
-        validDatasetPtr = generateDataset(validationData.get.value, columnParams, trainDatasetPtr,
-          schema, log, trainParams)
+        validDatasetPtr = generateDataset(validationData.get.value.toIterator, columnParams,
+          trainDatasetPtr, schema, log, trainParams)
         afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
       }
 
