@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -21,14 +22,15 @@ object VowpalWabbitInteractions extends ComplexParamsReadable[VowpalWabbitIntera
   * sparse interaction concept to other SparkML learners (e.g. LR).
   */
 class VowpalWabbitInteractions(override val uid: String) extends Transformer
-  with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions with Wrappable with ComplexParamsWritable
+  with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
+  with Wrappable with ComplexParamsWritable with BasicLogging
 {
-  logInfo(s"Calling $getClass --- telemetry record")
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val fieldSubset = dataset.schema.fields
       .filter(f => getInputCols.contains(f.name))
 

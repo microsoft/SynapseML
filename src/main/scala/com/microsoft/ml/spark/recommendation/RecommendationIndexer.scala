@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.recommendation
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.attribute.NominalAttribute
 import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
 import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}
@@ -15,13 +16,13 @@ import org.apache.spark.sql.types.{NumericType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 class RecommendationIndexer(override val uid: String)
-  extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("RecommendationIndexer"))
 
   override def fit(dataset: Dataset[_]): RecommendationIndexerModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val userIndexModel: StringIndexerModel = new StringIndexer()
       .setInputCol(getUserInputCol)
       .setOutputCol(getUserOutputCol)
@@ -49,13 +50,13 @@ class RecommendationIndexer(override val uid: String)
 object RecommendationIndexer extends ComplexParamsReadable[RecommendationIndexer]
 
 class RecommendationIndexerModel(override val uid: String) extends Model[RecommendationIndexerModel] with
-  RecommendationIndexerBase with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  RecommendationIndexerBase with Wrappable with BasicLogging {
+  logClass()
 
   override def copy(extra: ParamMap): RecommendationIndexerModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     getItemIndexModel.transform(getUserIndexModel.transform(dataset))
   }
 

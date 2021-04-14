@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.recommendation
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasLabelCol
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
@@ -66,8 +67,9 @@ trait Mode extends HasRecommenderCols {
 }
 
 class RankingAdapter(override val uid: String)
-  extends Estimator[RankingAdapterModel] with ComplexParamsWritable with RankingParams with Mode with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Estimator[RankingAdapterModel] with ComplexParamsWritable
+    with RankingParams with Mode with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
@@ -81,7 +83,7 @@ class RankingAdapter(override val uid: String)
   override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     new RankingAdapterModel()
       .setRecommenderModel(getRecommender.fit(dataset))
       .setMode(getMode)
@@ -106,8 +108,9 @@ object RankingAdapter extends ComplexParamsReadable[RankingAdapter]
   * @param uid Id.
   */
 class RankingAdapterModel private[ml](val uid: String)
-  extends Model[RankingAdapterModel] with ComplexParamsWritable with Wrappable with RankingParams with Mode {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Model[RankingAdapterModel] with ComplexParamsWritable
+    with Wrappable with RankingParams with Mode with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("RankingAdapterModel"))
 
@@ -118,7 +121,7 @@ class RankingAdapterModel private[ml](val uid: String)
   def getRecommenderModel: Model[_] = $(recommenderModel).asInstanceOf[Model[_]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transformSchema(dataset.schema)
 
     val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))

@@ -9,6 +9,7 @@ import com.microsoft.CNTK.{CNTKExtensions, DataType => CNTKDataType, Serializabl
 import com.microsoft.ml.spark.cntk.ConversionUtils.GVV
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
@@ -142,8 +143,8 @@ private object CNTKModelUtils extends java.io.Serializable {
 object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
-  with HasMiniBatcher with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasMiniBatcher with Wrappable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -496,7 +497,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val spark = dataset.sparkSession
     val df = dataset.toDF()
 

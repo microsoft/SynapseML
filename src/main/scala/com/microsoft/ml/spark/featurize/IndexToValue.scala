@@ -14,6 +14,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.microsoft.ml.spark.core.schema.SchemaConstants._
+import com.microsoft.ml.spark.logging.BasicLogging
 
 import scala.reflect.ClassTag
 import reflect.runtime.universe.TypeTag
@@ -26,8 +27,8 @@ object IndexToValue extends DefaultParamsReadable[IndexToValue]
   */
 
 class IndexToValue(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("IndexToValue"))
 
@@ -35,7 +36,7 @@ class IndexToValue(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
     require(info.isCategorical, "column " + getInputCol + "is not Categorical")
     val dataType = info.dataType

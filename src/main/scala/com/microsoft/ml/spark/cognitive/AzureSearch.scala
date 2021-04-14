@@ -20,6 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.microsoft.ml.spark.cognitive.AzureSearchProtocol._
 import spray.json._
 import DefaultJsonProtocol._
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 
 import scala.collection.JavaConverters._
@@ -84,8 +85,9 @@ trait HasServiceName extends HasServiceParams {
 
 class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasActionCol with HasServiceName with HasIndexName with HasBatchSize {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasActionCol with HasServiceName with HasIndexName with HasBatchSize
+  with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("AddDocuments"))
 
@@ -122,7 +124,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     if (get(url).isEmpty) {
       setUrl(s"https://$getServiceName.search.windows.net" +
         s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")

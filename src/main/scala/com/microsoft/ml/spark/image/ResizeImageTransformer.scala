@@ -5,11 +5,11 @@ package com.microsoft.ml.spark.image
 
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.image.ImageSchema
@@ -56,8 +56,8 @@ object ResizeUtils {
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
 class ResizeImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   import ResizeUtils._
 
@@ -84,7 +84,7 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
     if (ImageSchemaUtils.isImage(inputType)) {

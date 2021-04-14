@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.stages
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasInputCols, HasOutputCol}
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
@@ -23,8 +24,8 @@ object UDFTransformer extends ComplexParamsReadable[UDFTransformer]
   * udf applied to the input column
   */
 class UDFTransformer(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable
-  with HasInputCol with HasInputCols with HasOutputCol {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasInputCols with HasOutputCol with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("UDFTransformer"))
 
@@ -88,7 +89,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
     * @return The DataFrame that results from applying the udf to the inputted dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transformSchema(dataset.schema, logging = true)
     if (isSet(inputCol)) {
       dataset.withColumn(getOutputCol, applyUDF(dataset.col(getInputCol)))

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -16,8 +17,8 @@ object Repartition extends DefaultParamsReadable[Repartition]
 /** Partitions the dataset into n partitions
   * @param uid The id of the module
   */
-class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Repartition"))
 
@@ -46,7 +47,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     if (getDisable)
       dataset.toDF
     else if (getN < dataset.rdd.getNumPartitions)

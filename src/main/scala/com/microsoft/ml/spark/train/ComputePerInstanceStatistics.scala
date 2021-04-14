@@ -13,6 +13,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
@@ -42,13 +43,13 @@ trait CPISParams extends Wrappable with DefaultParamsWritable
   * - log_loss
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer
-  with CPISParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with CPISParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,

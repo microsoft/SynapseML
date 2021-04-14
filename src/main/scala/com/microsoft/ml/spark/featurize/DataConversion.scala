@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark.featurize
 
 import java.sql.Timestamp
-
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
@@ -18,8 +18,9 @@ import org.apache.spark.sql.{DataFrame, Dataset}
  *
   * @param uid The id of the module
   */
-class DataConversion(override val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class DataConversion(override val uid: String) extends Transformer
+  with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DataConversion"))
 
@@ -66,7 +67,7 @@ class DataConversion(override val uid: String) extends Transformer with Wrappabl
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     require(dataset != null, "No dataset supplied")
     require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
     val colsList = $(cols).map(_.trim)

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cognitive
 import java.net.URI
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -171,8 +172,8 @@ trait HasLanguage extends HasServiceParams {
 object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
 class TextSentimentV2(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging{
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextSentimentV2"))
 
@@ -186,8 +187,8 @@ class TextSentimentV2(override val uid: String)
 object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 
 class LanguageDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
 
@@ -201,8 +202,8 @@ class LanguageDetectorV2(override val uid: String)
 object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 
 class EntityDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetectorV2"))
 
@@ -215,8 +216,8 @@ class EntityDetectorV2(override val uid: String)
 
 object NERV2 extends ComplexParamsReadable[NERV2]
 
-class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("NERV2"))
 
@@ -229,8 +230,8 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) {
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 
 class KeyPhraseExtractorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
 
@@ -244,8 +245,8 @@ class KeyPhraseExtractorV2(override val uid: String)
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 class TextSentiment(override val uid: String)
-  extends TextAnalyticsBase(uid) with Logging{
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextSentiment"))
 
@@ -279,8 +280,8 @@ class TextSentiment(override val uid: String)
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
 
@@ -292,8 +293,8 @@ class KeyPhraseExtractor(override val uid: String)
 
 object NER extends ComplexParamsReadable[NER]
 
-class NER(override val uid: String) extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("NER"))
 
@@ -306,8 +307,8 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) {
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetector"))
 
@@ -321,8 +322,8 @@ class LanguageDetector(override val uid: String)
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
 class EntityDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetector"))
 

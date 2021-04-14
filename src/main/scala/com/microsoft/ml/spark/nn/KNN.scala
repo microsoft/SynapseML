@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.nn
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol}
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
@@ -45,8 +46,8 @@ trait KNNParams extends HasFeaturesCol with Wrappable with HasOutputCol {
 }
 
 class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
-  with DefaultParamsWritable with OptimizedKNNFitting {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with DefaultParamsWritable with OptimizedKNNFitting with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("KNN"))
 
@@ -57,7 +58,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(leafSize, 50)
 
   override def fit(dataset: Dataset[_]): KNNModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     fitOptimized(dataset)
   }
 
@@ -73,8 +74,9 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 
 }
 
-class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritable with KNNParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+class KNNModel(val uid: String) extends Model[KNNModel]
+  with ComplexParamsWritable with KNNParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("KNNModel"))
 
@@ -94,7 +96,7 @@ class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritab
   override def copy(extra: ParamMap): KNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }

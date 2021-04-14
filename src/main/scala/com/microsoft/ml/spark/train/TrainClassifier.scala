@@ -4,11 +4,11 @@
 package com.microsoft.ml.spark.train
 
 import java.util.UUID
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.core.utils.CastUtilities._
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification._
@@ -46,8 +46,8 @@ import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
   * Multilayer Perceptron Classifier
   * In addition to any generic learner that inherits from Predictor.
   */
-class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] {
-  logInfo(s"Calling $getClass --- telemetry record")
+class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
@@ -89,7 +89,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val labelValues =
       if (isDefined(labels)) {
         Some(getLabels)
@@ -277,8 +277,8 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
-    extends AutoTrainedModel[TrainedClassifierModel] with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))
 
@@ -291,7 +291,7 @@ class TrainedClassifierModel(val uid: String)
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val hasScoreCols = hasScoreColumns(getLastStage)
 
     // re-featurize and score the data

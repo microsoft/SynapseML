@@ -4,18 +4,17 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http._
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
@@ -26,7 +25,7 @@ import spray.json.DefaultJsonProtocol._
 import scala.collection.JavaConverters._
 import scala.language.existentials
 
-trait HasServiceParams extends Params {
+trait HasServiceParams extends Params{
   def getVectorParam(p: ServiceParam[_]): String = {
     this.getOrDefault(p).right.get
   }
@@ -233,7 +232,7 @@ trait HasSetLocation extends Wrappable {
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasErrorCol{
+  with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
   setDefault(
     outputCol -> (this.uid + "_output"),
@@ -275,7 +274,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo(msg = "Calling function transform --- telemetry record")
+    logTransform()
     getInternalTransformer(dataset.schema).transform(dataset)
   }
 

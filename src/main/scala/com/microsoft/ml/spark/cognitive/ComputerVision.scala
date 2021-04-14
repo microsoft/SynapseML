@@ -5,7 +5,6 @@ package com.microsoft.ml.spark.cognitive
 
 import java.net.URI
 import java.util.concurrent.TimeoutException
-
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.io.http._
@@ -24,6 +23,7 @@ import spray.json._
 import org.apache.http.entity.ContentType
 import org.apache.spark.ml.ComplexParamsReadable
 import com.microsoft.ml.spark.io.http.HandlingUtils._
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 
 import scala.concurrent.blocking
@@ -185,8 +185,8 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
 
 class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageInput with HasDetectOrientation
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("OCR"))
 
@@ -295,8 +295,8 @@ class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with HasAsyncReply
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
@@ -342,8 +342,8 @@ class Read(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with HasAsyncReply
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Read"))
 
@@ -375,8 +375,8 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
@@ -395,8 +395,8 @@ object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging {
+  logClass()
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
@@ -484,8 +484,8 @@ object RecognizeDomainSpecificContent
 class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasServiceParams with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
@@ -509,8 +509,8 @@ object TagImage extends ComplexParamsReadable[TagImage]
 
 class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
@@ -537,8 +537,8 @@ object DescribeImage extends ComplexParamsReadable[DescribeImage]
 
 class DescribeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
-    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 

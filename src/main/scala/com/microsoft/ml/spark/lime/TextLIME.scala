@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.lime
 import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.feature.Tokenizer
 import org.apache.spark.ml.linalg.DenseVector
@@ -25,8 +26,8 @@ object TextLIME extends ComplexParamsReadable[TextLIME]
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
 class TextLIME(val uid: String) extends Model[TextLIME]
-  with LIMEBase with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with LIMEBase with Wrappable with BasicLogging {
+  logClass()
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)
 
@@ -44,7 +45,7 @@ class TextLIME(val uid: String) extends Model[TextLIME]
   def setTokenCol(v: String): this.type = set(tokenCol, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF
 
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)

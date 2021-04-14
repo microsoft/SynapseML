@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -15,15 +16,15 @@ import org.apache.spark.sql.types._
 object Explode extends DefaultParamsReadable[Explode]
 
 class Explode(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Explode"))
 
   setDefault(outputCol->(this.uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transformSchema(dataset.schema)
     dataset.toDF().withColumn(getOutputCol, explode(col(getInputCol)))
   }

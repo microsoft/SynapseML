@@ -4,10 +4,10 @@
 package com.microsoft.ml.spark.train
 
 import java.util.UUID
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._
@@ -17,8 +17,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
 /** Trains a regression model. */
-class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] {
-  logInfo(s"Calling $getClass --- telemetry record")
+class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with BasicLogging{
+  logClass()
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
@@ -39,7 +39,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     * @return The trained regression model.
     */
   override def fit(dataset: Dataset[_]): TrainedRegressorModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val labelColumn = getLabelCol
     var oneHotEncodeCategoricals = true
 
@@ -137,15 +137,15 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   */
 class TrainedRegressorModel(val uid: String)
     extends AutoTrainedModel[TrainedRegressorModel]
-      with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+      with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TrainedRegressorModel"))
 
   override def copy(extra: ParamMap): TrainedRegressorModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     // re-featurize and score the data
     val scoredData = getModel.transform(dataset)
 

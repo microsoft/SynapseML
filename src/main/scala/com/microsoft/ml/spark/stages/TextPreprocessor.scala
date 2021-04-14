@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
@@ -95,8 +96,8 @@ object TextPreprocessor extends ComplexParamsReadable[TextPreprocessor]
   * Priority is given to longer keys and from left to right.
   */
 class TextPreprocessor(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextPreprocessor"))
 
@@ -128,7 +129,7 @@ class TextPreprocessor(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val spark = dataset.sparkSession
     val inputIndex = dataset.columns.indexOf(getInputCol)
     val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)

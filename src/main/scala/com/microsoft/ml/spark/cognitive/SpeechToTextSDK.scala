@@ -8,17 +8,16 @@ import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{Conversation,
-  ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.io.http.HasURL
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.{CompressedStream, WavStream}
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
@@ -78,7 +77,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
+  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging {
 
   type ResponseType <: SharedSpeechFields
 
@@ -360,7 +359,7 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logClass()
     val df = dataset.toDF
     val schema = dataset.schema
 
@@ -414,8 +413,8 @@ abstract class SpeechSDKBase extends Transformer
   }
 }
 
-class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
-  logInfo(s"Calling $getClass --- telemetry record")
+class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = SpeechResponse
 
@@ -486,8 +485,8 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
 
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
-class ConversationTranscription(override val uid: String) extends SpeechSDKBase {
-  logInfo(s"Calling $getClass --- telemetry record")
+class ConversationTranscription(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = TranscriptionResponse
 

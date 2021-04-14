@@ -4,9 +4,9 @@
 package com.microsoft.ml.spark.featurize.text
 
 import java.util.NoSuchElementException
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.DropColumns
 import org.apache.spark.ml.{Pipeline, _}
 import org.apache.spark.ml.attribute.AttributeGroup
@@ -195,8 +195,8 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
   */
 class TextFeaturizer(override val uid: String)
   extends Estimator[PipelineModel]
-    with TextFeaturizerParams with HasInputCol with HasOutputCol {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with TextFeaturizerParams with HasInputCol with HasOutputCol with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
 
@@ -283,7 +283,7 @@ class TextFeaturizer(override val uid: String)
   }
 
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     
     try {
       getUseTokenizer

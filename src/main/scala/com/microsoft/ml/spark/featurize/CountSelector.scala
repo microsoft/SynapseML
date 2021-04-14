@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.featurize
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vector
@@ -20,8 +21,8 @@ object CountSelector extends DefaultParamsReadable[CountSelector]
 
 /** Drops vector indicies with no nonzero data. */
 class CountSelector(override val uid: String) extends Estimator[CountSelectorModel]
-  with Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CountBasedFeatureSelector"))
 
@@ -30,7 +31,7 @@ class CountSelector(override val uid: String) extends Estimator[CountSelectorMod
   }
 
   override def fit(dataset: Dataset[_]): CountSelectorModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val encoder = Encoders.kryo[BitSet]
     val slotsToKeep = dataset.select(getInputCol)
       .map(row => toBitSet(row.getAs[Vector](0).toSparse.indices))(encoder)
@@ -52,8 +53,8 @@ class CountSelector(override val uid: String) extends Estimator[CountSelectorMod
 object CountSelectorModel extends DefaultParamsReadable[CountSelectorModel]
 
 class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
-  with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CountBasedFeatureSelectorModel"))
 
@@ -74,7 +75,7 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     getModel.transform(dataset)
   }
 

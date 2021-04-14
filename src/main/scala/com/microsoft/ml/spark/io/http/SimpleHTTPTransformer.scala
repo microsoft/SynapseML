@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.io.http
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{DropColumns, FlattenBatch, HasMiniBatcher, Lambda}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.injections.UDFUtils
@@ -62,8 +63,8 @@ object ErrorUtils extends Serializable {
 
 class SimpleHTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
-    with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -156,7 +157,7 @@ class SimpleHTTPTransformer(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     makePipeline(dataset.schema).transform(dataset.toDF())
   }
 

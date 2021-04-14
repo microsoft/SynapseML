@@ -4,14 +4,15 @@
 package com.microsoft.ml.spark.io.http
 
 import java.util.concurrent.LinkedBlockingQueue
-
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
 import scala.concurrent.blocking
 
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
@@ -108,8 +109,8 @@ class Consolidator[T] {
 class PartitionConsolidator(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol
-    with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("PartitionConsolidator"))
 
@@ -118,7 +119,7 @@ class PartitionConsolidator(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     dataset.toDF().mapPartitions { it =>
       if (it.hasNext) {
         consolidatorHolder.get.registerAndReceive(it).flatten

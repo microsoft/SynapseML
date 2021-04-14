@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.automl
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasEvaluationMetric
 import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.train.ComputeModelStatistics
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArrayParam, TransformerParam}
@@ -46,8 +47,8 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging{
+  logClass()
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
 
@@ -67,7 +68,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     import FindBestModel._
     import dataset.sparkSession.implicits._
 
@@ -130,8 +131,8 @@ trait HasBestModel extends Params {
 
 /** Model produced by [[FindBestModel]]. */
 class BestModel(val uid: String) extends Model[BestModel]
-  with ComplexParamsWritable with Wrappable with HasBestModel {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with ComplexParamsWritable with Wrappable with HasBestModel with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("BestModel"))
 
@@ -180,7 +181,7 @@ class BestModel(val uid: String) extends Model[BestModel]
   override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     getBestModel.transform(dataset)
   }
 

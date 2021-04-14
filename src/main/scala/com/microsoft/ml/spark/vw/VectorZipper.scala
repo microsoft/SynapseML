@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -18,8 +19,8 @@ object VectorZipper extends ComplexParamsReadable[VectorZipper]
   * Combine one or more input columns into a sequence in the output column.
   */
 class VectorZipper(override val uid: String) extends Transformer
-  with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VectorZipper"))
 
@@ -32,7 +33,7 @@ class VectorZipper(override val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val inputCols = getInputCols
     dataset.withColumn(getOutputCol, array(inputCols.head, inputCols.tail: _*))
   }

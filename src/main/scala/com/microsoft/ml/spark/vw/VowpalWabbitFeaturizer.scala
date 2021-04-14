@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.vw.featurizer._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, IntParam, ParamMap, StringArrayParam}
@@ -22,9 +23,9 @@ object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturiz
 
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
-  with Wrappable with ComplexParamsWritable
+  with Wrappable with ComplexParamsWritable with BasicLogging
 {
-  logInfo(s"Calling $getClass --- telemetry record")
+  logClass()
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 
   setDefault(inputCols -> Array())
@@ -146,7 +147,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     if (getPreserveOrderNumBits + getNumBits > 30)
       throw new IllegalArgumentException(
         s"Number of bits used for hashing (${getNumBits} and " +

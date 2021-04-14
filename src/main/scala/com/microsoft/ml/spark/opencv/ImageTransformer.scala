@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.opencv
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchemaUtils}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{ParamMap, _}
@@ -279,8 +280,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   * @param uid The id of the module
   */
 class ImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   import ImageTransformer._
 
@@ -356,7 +357,7 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
 
     //  load native OpenCV library on each partition
     // TODO: figure out more elegant way

@@ -13,6 +13,7 @@ import AnomalyDetectorProtocol._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.ErrorUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.sql.functions.{arrays_zip, col, collect_list, explode, size, struct, udf}
@@ -117,8 +118,8 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
-class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
@@ -135,8 +136,8 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
-class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) {
-  logInfo(s"Calling $getClass --- telemetry record")
+class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
@@ -154,8 +155,8 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies] with Serializable
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
-  with HasOutputCol {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasOutputCol with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 
@@ -199,7 +200,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
     val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
     setVectorParam(series, inputsCol)

@@ -5,11 +5,11 @@ package com.microsoft.ml.spark.featurize
 
 import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.featurize.text.TextFeaturizer
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.spark.ml.feature.{Imputer, OneHotEncoder, SQLTransformer, VectorAssembler}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -34,8 +34,8 @@ object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
@@ -119,7 +119,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     */
   //noinspection ScalaStyle
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     
     val columnState = new ColumnState(dataset)
 

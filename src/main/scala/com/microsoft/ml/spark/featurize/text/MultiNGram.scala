@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.featurize.text
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
@@ -24,8 +25,9 @@ object MultiNGram extends DefaultParamsReadable[MultiNGram]
   * @param uid The id of the module
   */
 class MultiNGram(override val uid: String)
-  extends Transformer with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Transformer with HasInputCol with HasOutputCol
+    with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("MultiNGram"))
 
@@ -40,7 +42,7 @@ class MultiNGram(override val uid: String)
   def setLengths(v: Seq[Int]): this.type = set(lengths, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF()
     val intermediateOutputCols = getLengths.map(n =>
       DatasetExtensions.findUnusedColumnName(s"ngram_$n")(dataset.columns.toSet)

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -18,8 +19,8 @@ object Lambda extends ComplexParamsReadable[Lambda] {
   }
 }
 
-class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Lambda"))
 
@@ -44,7 +45,7 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     getTransform(dataset)
   }
 

@@ -4,10 +4,10 @@
 package com.microsoft.ml.spark.featurize
 
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.CategoricalMap
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute
@@ -54,8 +54,8 @@ object NullOrdering {
   * Similar to StringIndexer except it can be used on any value types.
   */
 class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel]
-  with ValueIndexerParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with ValueIndexerParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexer"))
 
@@ -65,7 +65,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
     * @return The model for transforming columns to categorical.
     */
   override def fit(dataset: Dataset[_]): ValueIndexerModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val dataType = dataset.schema(getInputCol).dataType
     val levels = dataset.select(getInputCol).distinct().collect().map(row => row(0))
     // Sort the levels
@@ -103,8 +103,8 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
-  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
@@ -151,7 +151,7 @@ class ValueIndexerModel(val uid: String)
 
   /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val nonNullLevels = getLevels.filter(_ != null)
 
     val castLevels = nonNullLevels.map { l =>

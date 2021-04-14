@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -21,8 +22,8 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
   */
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMBase[LightGBMClassificationModel] {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with LightGBMBase[LightGBMClassificationModel] with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
@@ -86,8 +87,8 @@ trait HasActualNumClasses extends Params {
 class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
-      with HasActualNumClasses with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+      with HasActualNumClasses with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
 
@@ -102,7 +103,7 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
       require(getThresholds.length == numClasses, this.getClass.getSimpleName +

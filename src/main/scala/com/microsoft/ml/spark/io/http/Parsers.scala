@@ -7,6 +7,7 @@ import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.ml.param._
@@ -31,8 +32,9 @@ abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInp
 
 object JSONInputParser extends ComplexParamsReadable[JSONInputParser]
 
-class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class JSONInputParser(val uid: String) extends HTTPInputParser
+  with HasURL with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("JSONInputParser"))
 
@@ -57,7 +59,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with 
   setDefault(headers -> Map[String, String](), method -> "POST")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF()
     val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getOutputCol)
     val entityCol   = newCol("entity")(colsToAvoid)
@@ -86,8 +88,8 @@ class JSONInputParser(val uid: String) extends HTTPInputParser with HasURL with 
 
 object CustomInputParser extends ComplexParamsReadable[CustomInputParser]
 
-class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CustomInputParser"))
 
@@ -128,7 +130,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val parseInputExpression = {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => f(col(getInputCol))
@@ -147,8 +149,8 @@ abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOut
 
 object JSONOutputParser extends ComplexParamsReadable[JSONOutputParser]
 
-class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -182,7 +184,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
     val parsed = dataset.toDF.withColumn(getOutputCol,
       from_json(stringEntityCol, getDataType, Map("charset"->"UTF-8")))
@@ -202,13 +204,13 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
 
 object StringOutputParser extends ComplexParamsReadable[StringOutputParser]
 
-class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("StringOutputParser"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
     dataset.toDF.withColumn(getOutputCol, stringEntityCol)
   }
@@ -222,8 +224,8 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
 
 object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser]
 
-class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CustomOutputParser"))
 
@@ -257,7 +259,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val parseOutputExpression = {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => f(col(getInputCol))

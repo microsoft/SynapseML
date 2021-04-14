@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.recommendation
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}
 import org.apache.spark.ml.param.{DataFrameParam, ParamMap}
 import org.apache.spark.ml.recommendation.{BaseRecommendationModel, Constants}
@@ -19,8 +20,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
   * @param uid The id of the module
   */
 class SARModel(override val uid: String) extends Model[SARModel]
-  with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -142,7 +143,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
   }
 

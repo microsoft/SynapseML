@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.recommendation
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
@@ -22,8 +23,9 @@ import spray.json.DefaultJsonProtocol._
 import scala.annotation.tailrec
 
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
-  with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable with RecommendationParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
+  with RecommendationParams with BasicLogging {
+  logClass()
 
   override lazy val pyInternalWrapper: Boolean = true
 
@@ -90,7 +92,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = getEstimator
@@ -289,8 +291,8 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
 class RankingTrainValidationSplitModel(
                                         override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
-    with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -320,7 +322,7 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     transformSchema(dataset.schema, logging = true)
 
     //sort to pass unit test

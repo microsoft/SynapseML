@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -11,9 +12,9 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable {
+trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
-    logInfo("Calling function transpose --- telemetry record")
+    logTranspose()
     val innerLength = nestedSeq.head.length
     assert(nestedSeq.forall(_.lengthCompare(innerLength) == 0))
     (0 until innerLength).map(i => nestedSeq.map(innerSeq => innerSeq(i)))
@@ -28,7 +29,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
   def getBatcher(it: Iterator[Row]): Iterator[List[Row]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo(msg = "Calling function transform --- telemetry record")
+    logTransform()
     dataset.toDF().mapPartitions { it =>
       if (it.isEmpty) {
         it
@@ -43,8 +44,8 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
 object DynamicMiniBatchTransformer extends DefaultParamsReadable[DynamicMiniBatchTransformer]
 
 class DynamicMiniBatchTransformer(val uid: String)
-    extends MiniBatchBase {
-  logInfo(s"Calling $getClass --- telemetry record")
+    extends MiniBatchBase with BasicLogging {
+  logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
     this, "maxBatchSize", "The max size of the buffer")
@@ -67,8 +68,8 @@ class DynamicMiniBatchTransformer(val uid: String)
 object TimeIntervalMiniBatchTransformer extends DefaultParamsReadable[TimeIntervalMiniBatchTransformer]
 
 class TimeIntervalMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends MiniBatchBase with BasicLogging {
+  logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
     this, "maxBatchSize", "The max size of the buffer")
@@ -141,8 +142,8 @@ trait HasBatchSize extends Params {
 }
 
 class FixedMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase with HasBatchSize {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends MiniBatchBase with HasBatchSize with BasicLogging {
+  logClass()
 
   val maxBufferSize: Param[Int] = new IntParam(
     this, "maxBufferSize", "The max size of the buffer")
@@ -177,12 +178,13 @@ class FixedMiniBatchTransformer(val uid: String)
 object FlattenBatch extends DefaultParamsReadable[FlattenBatch]
 
 class FlattenBatch(val uid: String)
-    extends Transformer with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))
 
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
+    logTranspose()
     val innerLength = nestedSeq.filter {
       case null => false
       case _ => true
@@ -199,7 +201,7 @@ class FlattenBatch(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     dataset.toDF().mapPartitions(it =>
       it.flatMap { rowOfLists =>
         val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))

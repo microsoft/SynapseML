@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.feature.StandardScaler
@@ -166,15 +167,15 @@ trait LIMEBase extends LIMEParams with ComplexParamsWritable {
 object TabularLIME extends ComplexParamsReadable[TabularLIME]
 
 class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
-  with LIMEParams with Wrappable with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with LIMEParams with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIME"))
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)
 
   override def fit(dataset: Dataset[_]): TabularLIMEModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val fitScaler = new StandardScaler()
       .setInputCol(getInputCol)
       .setOutputCol(getOutputCol)
@@ -199,8 +200,8 @@ class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
 object TabularLIMEModel extends ComplexParamsReadable[TabularLIMEModel]
 
 class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
-  with LIMEBase with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with LIMEBase with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIMEModel"))
 
@@ -228,7 +229,7 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
     UDFUtils.oldUdf(perturbedDenseVectors _, ArrayType(VectorType, true))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
@@ -263,8 +264,8 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
-  with Wrappable with HasModifier with HasCellSize {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with Wrappable with HasModifier with HasCellSize with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ImageLIME"))
 
@@ -278,7 +279,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
     samplingFraction -> 0.3, superpixelCol -> "superpixels")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)

@@ -7,13 +7,14 @@ import com.microsoft.ml.spark.nn._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.Dataset
 import breeze.linalg.{DenseVector => BDV}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.types._
 
-trait OptimizedCKNNFitting extends ConditionalKNNParams with Logging{
+trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
-    logInfo("Calling function fitGeneric --- telemetry record")
+    logFitGeneric()
     val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -34,7 +35,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with Logging{
   }
 
   protected def fitOptimized(dataset: Dataset[_]): ConditionalKNNModel = {
-    logInfo("Calling function fitOptimized --- telemetry record")
+    logFitOptimized()
     val vt = dataset.schema(getValuesCol).dataType
     val lt = dataset.schema(getLabelCol).dataType
     (vt, lt) match {
@@ -47,10 +48,10 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with Logging{
 
 }
 
-trait OptimizedKNNFitting extends KNNParams with Logging{
+trait OptimizedKNNFitting extends KNNParams with BasicLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
-    logInfo("Calling function fitGeneric --- telemetry record")
+    logFitGeneric()
     val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -68,7 +69,7 @@ trait OptimizedKNNFitting extends KNNParams with Logging{
   }
 
   protected def fitOptimized(dataset: Dataset[_]): KNNModel = {
-    logInfo("Calling function fitOptimized --- telemetry record")
+    logFitOptimized()
     dataset.schema(getValuesCol).dataType match {
       case avt: AtomicType => fitGeneric[avt.InternalType](dataset)
       case _ => fitGeneric[Any](dataset)

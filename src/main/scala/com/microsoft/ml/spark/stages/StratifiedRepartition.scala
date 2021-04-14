@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasLabelCol
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.RangePartitioner
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -28,8 +29,8 @@ object StratifiedRepartition extends DefaultParamsReadable[DropColumns]
   * at least one instance of each label to be present on each partition.
   */
 class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
-  with DefaultParamsWritable with HasLabelCol with HasSeed {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with DefaultParamsWritable with HasLabelCol with HasSeed with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("StratifiedRepartition"))
 
@@ -45,7 +46,7 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     * @return The DataFrame that results from stratified repartitioning
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     // Count unique values in label column
     val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
     val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))

@@ -4,11 +4,11 @@
 package com.microsoft.ml.spark.automl
 
 import java.util.concurrent._
-
 import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasEvaluationMetric
 import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
@@ -32,8 +32,8 @@ import scala.util.control.NonFatal
   * Currently supports cross validation with random grid search.
   */
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
-  with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging{
+  logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
@@ -126,7 +126,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val sparkSession = dataset.sparkSession
     val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
     val hyperParams = getParamSpace.paramMaps
@@ -206,8 +206,9 @@ object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 
 /** Model produced by [[TuneHyperparameters]]. */
 class TuneHyperparametersModel(val uid: String)
-  extends Model[TuneHyperparametersModel] with ComplexParamsWritable with Wrappable with HasBestModel {
-  logInfo(s"Calling $getClass --- telemetry record")
+  extends Model[TuneHyperparametersModel] with ComplexParamsWritable
+    with Wrappable with HasBestModel with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparametersModel"))
 
@@ -222,7 +223,7 @@ class TuneHyperparametersModel(val uid: String)
   override def copy(extra: ParamMap): TuneHyperparametersModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     getBestModel.transform(dataset)
   }
 

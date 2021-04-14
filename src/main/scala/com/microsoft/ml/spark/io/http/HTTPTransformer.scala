@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.io.http
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.io.http.HandlingUtils.HandlerFunc
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
@@ -85,8 +86,8 @@ object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 class HTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol with HasHandler
-    with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000)) //scalastyle:ignore magic.number
 
@@ -108,7 +109,7 @@ class HTTPTransformer(val uid: String)
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = dataset.toDF()
     val enc = RowEncoder(transformSchema(df.schema))
     val colIndex = df.schema.fieldNames.indexOf(getInputCol)

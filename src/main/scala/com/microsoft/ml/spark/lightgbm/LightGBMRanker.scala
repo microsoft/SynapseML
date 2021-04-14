@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -21,8 +22,8 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
   */
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
-    with LightGBMBase[LightGBMRankerModel] {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with LightGBMBase[LightGBMRankerModel] with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
@@ -108,8 +109,8 @@ class LightGBMRankerModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
 
@@ -122,7 +123,7 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     var outputData = super.transform(dataset)
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
@@ -136,7 +137,7 @@ class LightGBMRankerModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logInfo("Calling function predict --- telemetry record")
+    logPredict()
     getModel.score(features, false, false)(0)
   }
 

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.featurize
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCols}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
@@ -45,8 +46,8 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   * `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
@@ -72,7 +73,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
-    logInfo("Calling function fit --- telemetry record")
+    logFit()
     val (colsToFill, fillValues) = getReplacementValues(
       dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
     new CleanMissingDataModel(uid)
@@ -138,8 +139,8 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 /** Model produced by [[CleanMissingData]]. */
 class CleanMissingDataModel(val uid: String)
   extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
-    with HasInputCols with HasOutputCols {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with HasInputCols with HasOutputCols with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingDataModel"))
 
@@ -159,7 +160,7 @@ class CleanMissingDataModel(val uid: String)
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val datasetCols = dataset.columns.map(name => dataset(name)).toList
     val datasetInputCols = getInputCols.zip(getOutputCols)
       .flatMap(io =>

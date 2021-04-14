@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
@@ -20,8 +21,8 @@ object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifi
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
-  with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+  with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -35,7 +36,7 @@ class VowpalWabbitClassifier(override val uid: String)
   def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
-    logInfo("Calling function train --- telemetry record")
+    logTrain()
     val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
@@ -62,8 +63,8 @@ class VowpalWabbitClassifier(override val uid: String)
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitClassificationModel"))
 
@@ -72,7 +73,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
   def numClasses: Int = 2
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
     val df = transformImplInternal(dataset)
 
     // which mode one wants to use depends a bit on how this should be deployed

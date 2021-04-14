@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -99,15 +100,15 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
   */
 class SummarizeData(override val uid: String)
   extends Transformer
-    with SummarizeDataParams {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with SummarizeDataParams with BasicLogging {
+  logClass()
 
   import SummarizeData.Statistic._
 
   def this() = this(Identifiable.randomUID("SummarizeData"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logInfo("Calling function transform --- telemetry record")
+    logTransform()
 
     val df = dataset.toDF()
     // Some of these statistics are bad to compute

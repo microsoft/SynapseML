@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
@@ -18,7 +19,7 @@ import scala.math.min
 import scala.util.matching.Regex
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
+  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark with BasicLogging {
 
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
@@ -26,7 +27,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return The trained model.
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
-    logInfo("Calling function train --- telemetry record")
+    logTrain()
     if (getNumBatches > 0) {
       val ratio = 1.0 / getNumBatches
       val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)

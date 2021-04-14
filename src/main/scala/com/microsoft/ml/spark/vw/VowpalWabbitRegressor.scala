@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -16,15 +17,15 @@ object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
-    with ComplexParamsWritable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
-    logInfo("Calling function train --- telemetry record")
+    logTrain()
     val model = new VowpalWabbitRegressionModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
@@ -39,8 +40,8 @@ class VowpalWabbitRegressor(override val uid: String)
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable with Wrappable {
-  logInfo(s"Calling $getClass --- telemetry record")
+    with ComplexParamsWritable with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
 
@@ -52,7 +53,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    logInfo("Calling function predict --- telemetry record")
+    logPredict()
     throw new NotImplementedError("Not implement")
   }
 

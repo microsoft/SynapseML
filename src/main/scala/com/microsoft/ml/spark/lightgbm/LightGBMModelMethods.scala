@@ -15,7 +15,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The global feature importance values.
     */
   def getFeatureImportances(importanceType: String): Array[Double] = {
-    logInfo("Calling function getFeatureImportances --- telemetry record")
     getLightGBMBooster.getFeatureImportances(importanceType)
   }
 
@@ -25,7 +24,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The local feature importance values.
     */
   def getFeatureShaps(features: Vector): Array[Double] = {
-    logInfo("Calling function getFeatureShaps --- telemetry record")
     getLightGBMBooster.featuresShap(features)
   }
 
@@ -35,7 +33,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The local feature importance values.
     */
   def getDenseFeatureShaps(features: Array[Double]): Array[Double] = {
-    logInfo("Calling function getDenseFeatureShaps --- telemetry record")
     getLightGBMBooster.featuresShap(Vectors.dense(features))
   }
 
@@ -47,7 +44,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The local feature importance values.
     */
   def getSparseFeatureShaps(size: Int, indices: Array[Int], values: Array[Double]): Array[Double] = {
-    logInfo("Calling function getSparseFeatureShaps --- telemetry record")
     getLightGBMBooster.featuresShap(Vectors.sparse(size, indices, values))
   }
 
@@ -57,7 +53,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The predicted leaf index.
     */
   protected def predictLeaf(features: Vector): Vector = {
-    logInfo("Calling function predictLeaf --- telemetry record")
     Vectors.dense(getLightGBMBooster.predictLeaf(features))
   }
 
@@ -67,7 +62,6 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging{
     * @return The SHAP local feature importance values.
     */
   protected def featuresShap(features: Vector): Vector = {
-    logInfo("Calling function featuresShap --- telemetry record")
     Vectors.dense(getLightGBMBooster.featuresShap(features))
   }
 }
