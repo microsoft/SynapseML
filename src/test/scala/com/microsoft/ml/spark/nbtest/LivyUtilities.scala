@@ -38,7 +38,7 @@ case class LivyLogs(id: Int,
 object LivyUtilities {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
-  lazy val Token: String = getSynapseToken()
+  lazy val Token: String = getSynapseToken
   val NotebookFiles: Array[String] = Option(
     FileUtilities
       .join(BuildInfo.baseDirectory, "notebooks", "samples")
@@ -51,7 +51,7 @@ object LivyUtilities {
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
-  val StorageContainer: String = "synapse"
+  val StorageContainer: String = "mmlsparkgatedbuild"
 
   def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/batches/$id")
@@ -167,7 +167,6 @@ object LivyUtilities {
       case _ => Process(
         s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
     }
-
     new File(notebookPath.replace(".ipynb", ".py"))
   }
 
@@ -179,7 +178,7 @@ object LivyUtilities {
     }
   }
 
-  private def getSynapseToken(): String = {
+  private def getSynapseToken: String = {
     val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
     val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
     val spnKey: String = Secrets.SynapseSpnKey
