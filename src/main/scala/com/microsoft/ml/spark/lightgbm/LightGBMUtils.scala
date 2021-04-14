@@ -209,18 +209,27 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def getNumRowsForChunksArray(numRows: Int, numCols: Int): SWIGTYPE_p_int = {
-    val numRowsForChunks = lightgbmlib.new_intArray(numRows)
-    (0 until numRows).foreach( { index: Int =>
-      lightgbmlib.intArray_setitem(numRowsForChunks, index, 1)
+  def getNumRowsForChunksArray(numRows: Int, numCols: Int, defaultChunkSize: Int): SWIGTYPE_p_int = {
+    var numChunks = Math.floorDiv(numRows, defaultChunkSize)
+    var leftoverChunk = numRows % defaultChunkSize
+    if (leftoverChunk > 0) {
+      numChunks += 1
+    }
+    val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
+    (0 until numChunks).foreach({ index: Int =>
+      if (index == numChunks - 1 && leftoverChunk > 0) {
+        lightgbmlib.intArray_setitem(numRowsForChunks, index, leftoverChunk)
+      } else {
+        lightgbmlib.intArray_setitem(numRowsForChunks, index, defaultChunkSize)
+      }
     })
-    return numRowsForChunks
+    numRowsForChunks
   }
 
   def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
-                           trainParams: TrainParams): LightGBMDataset = {
+                           trainParams: TrainParams, defaultChunkSize: Int): LightGBMDataset = {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
@@ -229,7 +238,7 @@ object LightGBMUtils {
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    val numRowsForChunks = getNumRowsForChunksArray(numRows, numCols)
+    val numRowsForChunks = getNumRowsForChunksArray(numRows, numCols, defaultChunkSize)
     try {
       // Generate the dataset for features
       featuresArray.get_last_chunk_add_count()
