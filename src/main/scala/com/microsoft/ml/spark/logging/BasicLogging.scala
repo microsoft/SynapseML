@@ -15,8 +15,8 @@ trait BasicLogging extends Logging{
       logInfo(s"metrics/ uid $uid Calling function fit")
   }
 
-  def logFitGeneric(uid: String): Unit = {
-    logInfo(s"metrics/ uid $uid Calling function fitGeneric")
+  def logFitGeneric(): Unit = {
+    logInfo("metrics/ Calling function fitGeneric")
   }
 
   def logFitOptimized(): Unit = {
