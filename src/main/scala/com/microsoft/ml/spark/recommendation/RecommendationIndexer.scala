@@ -17,12 +17,12 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 class RecommendationIndexer(override val uid: String)
   extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("RecommendationIndexer"))
 
   override def fit(dataset: Dataset[_]): RecommendationIndexerModel = {
-    logFit()
+    logFit(uid)
     val userIndexModel: StringIndexerModel = new StringIndexer()
       .setInputCol(getUserInputCol)
       .setOutputCol(getUserOutputCol)
@@ -51,12 +51,12 @@ object RecommendationIndexer extends ComplexParamsReadable[RecommendationIndexer
 
 class RecommendationIndexerModel(override val uid: String) extends Model[RecommendationIndexerModel] with
   RecommendationIndexerBase with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override def copy(extra: ParamMap): RecommendationIndexerModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     getItemIndexModel.transform(getUserIndexModel.transform(dataset))
   }
 

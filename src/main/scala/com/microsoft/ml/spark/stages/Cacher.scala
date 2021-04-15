@@ -12,7 +12,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
 class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   val disable = new BooleanParam(this,
     "disable", "Whether or disable caching (so that you can turn it off during evaluation)")
@@ -24,7 +24,7 @@ class Cacher(val uid: String) extends Transformer with Wrappable with DefaultPar
   setDefault(disable->false)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     if (!getDisable) {
       dataset.toDF.cache()
     } else {

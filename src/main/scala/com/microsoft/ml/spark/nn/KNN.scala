@@ -47,7 +47,7 @@ trait KNNParams extends HasFeaturesCol with Wrappable with HasOutputCol {
 
 class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   with DefaultParamsWritable with OptimizedKNNFitting with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("KNN"))
 
@@ -58,7 +58,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(leafSize, 50)
 
   override def fit(dataset: Dataset[_]): KNNModel = {
-    logFit()
+    logFit(uid)
     fitOptimized(dataset)
   }
 
@@ -76,7 +76,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 
 class KNNModel(val uid: String) extends Model[KNNModel]
   with ComplexParamsWritable with KNNParams with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("KNNModel"))
 
@@ -96,7 +96,7 @@ class KNNModel(val uid: String) extends Model[KNNModel]
   override def copy(extra: ParamMap): KNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }

@@ -20,7 +20,7 @@ object RenameColumn extends DefaultParamsReadable[RenameColumn]
   */
 class RenameColumn(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable
   with HasInputCol with HasOutputCol with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("RenameColumn"))
 
@@ -28,7 +28,7 @@ class RenameColumn(val uid: String) extends Transformer with Wrappable with Defa
     * @return The DataFrame that results from renaming the input column
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     transformSchema(dataset.schema, logging = true)
     dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
   }

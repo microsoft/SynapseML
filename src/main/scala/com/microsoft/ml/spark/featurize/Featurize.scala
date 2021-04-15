@@ -35,7 +35,7 @@ object Featurize extends DefaultParamsReadable[Featurize]
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
   with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
@@ -119,7 +119,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     */
   //noinspection ScalaStyle
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    logFit()
+    logFit(uid)
     
     val columnState = new ColumnState(dataset)
 

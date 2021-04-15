@@ -99,7 +99,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
 
 class RankingEvaluator(override val uid: String)
   extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("recEval"))
 

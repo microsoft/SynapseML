@@ -57,7 +57,7 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
 /** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer
   with ComputeModelStatisticsParams with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 
@@ -71,7 +71,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     * @return DataFrame whose columns contain the calculated metrics
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,

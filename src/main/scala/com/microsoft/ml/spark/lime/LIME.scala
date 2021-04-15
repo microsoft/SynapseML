@@ -168,14 +168,14 @@ object TabularLIME extends ComplexParamsReadable[TabularLIME]
 
 class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
   with LIMEParams with Wrappable with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("TabularLIME"))
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)
 
   override def fit(dataset: Dataset[_]): TabularLIMEModel = {
-    logFit()
+    logFit(uid)
     val fitScaler = new StandardScaler()
       .setInputCol(getInputCol)
       .setOutputCol(getOutputCol)
@@ -201,7 +201,7 @@ object TabularLIMEModel extends ComplexParamsReadable[TabularLIMEModel]
 
 class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
   with LIMEBase with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("TabularLIMEModel"))
 
@@ -229,7 +229,7 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
     UDFUtils.oldUdf(perturbedDenseVectors _, ArrayType(VectorType, true))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
@@ -265,7 +265,7 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   */
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
   with Wrappable with HasModifier with HasCellSize with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ImageLIME"))
 
@@ -279,7 +279,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
     samplingFraction -> 0.3, superpixelCol -> "superpixels")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)

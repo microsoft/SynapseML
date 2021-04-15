@@ -29,7 +29,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
   def getBatcher(it: Iterator[Row]): Iterator[List[Row]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     dataset.toDF().mapPartitions { it =>
       if (it.isEmpty) {
         it
@@ -45,7 +45,7 @@ object DynamicMiniBatchTransformer extends DefaultParamsReadable[DynamicMiniBatc
 
 class DynamicMiniBatchTransformer(val uid: String)
     extends MiniBatchBase with BasicLogging {
-  logClass()
+  logClass(uid)
 
   val maxBatchSize: Param[Int] = new IntParam(
     this, "maxBatchSize", "The max size of the buffer")
@@ -69,7 +69,7 @@ object TimeIntervalMiniBatchTransformer extends DefaultParamsReadable[TimeInterv
 
 class TimeIntervalMiniBatchTransformer(val uid: String)
   extends MiniBatchBase with BasicLogging {
-  logClass()
+  logClass(uid)
 
   val maxBatchSize: Param[Int] = new IntParam(
     this, "maxBatchSize", "The max size of the buffer")
@@ -143,7 +143,7 @@ trait HasBatchSize extends Params {
 
 class FixedMiniBatchTransformer(val uid: String)
   extends MiniBatchBase with HasBatchSize with BasicLogging {
-  logClass()
+  logClass(uid)
 
   val maxBufferSize: Param[Int] = new IntParam(
     this, "maxBufferSize", "The max size of the buffer")
@@ -179,7 +179,7 @@ object FlattenBatch extends DefaultParamsReadable[FlattenBatch]
 
 class FlattenBatch(val uid: String)
     extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))
 
@@ -201,7 +201,7 @@ class FlattenBatch(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     dataset.toDF().mapPartitions(it =>
       it.flatMap { rowOfLists =>
         val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))

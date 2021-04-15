@@ -21,7 +21,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
   */
 class SARModel(override val uid: String) extends Model[SARModel]
   with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -143,7 +143,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
   }
 

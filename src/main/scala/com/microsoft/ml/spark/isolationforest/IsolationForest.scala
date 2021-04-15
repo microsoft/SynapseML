@@ -17,7 +17,7 @@ object IsolationForest extends DefaultParamsReadable[IsolationForest]
 class IsolationForest(override val uid: String, val that: IsolationForestSource)
   extends Estimator[IsolationForestModel]
     with IsolationForestParams with DefaultParamsWritable with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this(uid: String) = this(uid, new IsolationForestSource(uid))
 
@@ -26,7 +26,7 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
   override def copy(extra: ParamMap): IsolationForest = defaultCopy(extra)
 
   override def fit(data: Dataset[_]): IsolationForestModel = {
-    logFit()
+    logFit(uid)
     new IsolationForestModel(uid).setInnerModel(that.fit(data))
   }
 
@@ -37,7 +37,7 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
 class IsolationForestModel(override val uid: String)
   extends Model[IsolationForestModel]
     with ComplexParamsWritable with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   val innerModel = new TransformerParam(this, "innerModel", "the fit isolation forrest instance")
 
@@ -50,7 +50,7 @@ class IsolationForestModel(override val uid: String)
   override def copy(extra: ParamMap): IsolationForestModel = defaultCopy(extra)
 
   override def transform(data: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     getInnerModel.transform(data)
   }
 

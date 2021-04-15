@@ -7,36 +7,36 @@ import org.apache.spark.internal.Logging
 
 trait BasicLogging extends Logging{
 
-  def logClass(): Unit = {
-    logInfo(s"Calling $getClass --- telemetry record")
+  def logClass(uid: String): Unit = {
+    logInfo(s"metrics/ uid $uid Calling $getClass")
   }
 
-  def logFit(): Unit = {
-      logInfo("Calling function fit --- telemetry record")
+  def logFit(uid: String): Unit = {
+      logInfo(s"metrics/ uid $uid Calling function fit")
   }
 
-  def logFitGeneric(): Unit = {
-    logInfo("Calling function fitGeneric --- telemetry record")
+  def logFitGeneric(uid: String): Unit = {
+    logInfo(s"metrics/ uid $uid Calling function fitGeneric")
   }
 
   def logFitOptimized(): Unit = {
-    logInfo("Calling function fitOptimized --- telemetry record")
+    logInfo("metrics/ Calling function fitOptimized")
   }
 
-  def logTrain(): Unit = {
-    logInfo("Calling function train --- telemetry record")
+  def logTrain(uid: String): Unit = {
+    logInfo(s"metrics/ uid $uid Calling function train")
   }
 
-  def logTransform(): Unit = {
-     logInfo("Calling function transform --- telemetry record")
+  def logTransform(uid: String): Unit = {
+     logInfo(s"metrics/ uid $uid Calling function transform")
   }
 
   def logTranspose(): Unit = {
-    logInfo("Calling function transpose --- telemetry record")
+    logInfo("metrics/ Calling function transpose")
   }
 
-  def logPredict(): Unit = {
-    logInfo("Calling function predict --- telemetry record")
+  def logPredict(uid: String): Unit = {
+    logInfo(s"metrics/ uid $uid Calling function predict")
   }
 
 }

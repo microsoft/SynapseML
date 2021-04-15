@@ -144,7 +144,7 @@ object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
   with HasMiniBatcher with Wrappable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -497,7 +497,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val spark = dataset.sparkSession
     val df = dataset.toDF()
 

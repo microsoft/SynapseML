@@ -281,7 +281,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   */
 class ImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   import ImageTransformer._
 
@@ -357,7 +357,7 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
 
     //  load native OpenCV library on each partition
     // TODO: figure out more elegant way

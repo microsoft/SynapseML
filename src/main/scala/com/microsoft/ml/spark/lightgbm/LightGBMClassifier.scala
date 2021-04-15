@@ -23,7 +23,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMBase[LightGBMClassificationModel] with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
@@ -88,7 +88,7 @@ class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
       with HasActualNumClasses with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
 
@@ -103,7 +103,7 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
       require(getThresholds.length == numClasses, this.getClass.getSimpleName +

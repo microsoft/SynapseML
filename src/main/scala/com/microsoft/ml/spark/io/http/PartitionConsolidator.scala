@@ -110,7 +110,7 @@ class PartitionConsolidator(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol
     with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("PartitionConsolidator"))
 
@@ -119,7 +119,7 @@ class PartitionConsolidator(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     dataset.toDF().mapPartitions { it =>
       if (it.hasNext) {
         consolidatorHolder.get.registerAndReceive(it).flatten

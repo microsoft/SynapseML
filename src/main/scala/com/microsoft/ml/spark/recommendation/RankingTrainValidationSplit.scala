@@ -25,7 +25,7 @@ import scala.annotation.tailrec
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
   with RecommendationParams with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override lazy val pyInternalWrapper: Boolean = true
 
@@ -92,7 +92,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
-    logFit()
+    logFit(uid)
     val schema = dataset.schema
     transformSchema(schema, logging = true)
     val est = getEstimator
@@ -292,7 +292,7 @@ class RankingTrainValidationSplitModel(
                                         override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
     with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -322,7 +322,7 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     transformSchema(dataset.schema, logging = true)
 
     //sort to pass unit test

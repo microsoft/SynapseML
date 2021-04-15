@@ -196,7 +196,7 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
 class TextFeaturizer(override val uid: String)
   extends Estimator[PipelineModel]
     with TextFeaturizerParams with HasInputCol with HasOutputCol with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
 
@@ -283,7 +283,7 @@ class TextFeaturizer(override val uid: String)
   }
 
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    logFit()
+    logFit(uid)
     
     try {
       getUseTokenizer

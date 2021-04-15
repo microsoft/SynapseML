@@ -17,14 +17,14 @@ object Explode extends DefaultParamsReadable[Explode]
 
 class Explode(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("Explode"))
 
   setDefault(outputCol->(this.uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     transformSchema(dataset.schema)
     dataset.toDF().withColumn(getOutputCol, explode(col(getInputCol)))
   }

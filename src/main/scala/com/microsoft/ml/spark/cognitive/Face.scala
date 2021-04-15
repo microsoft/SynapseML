@@ -18,7 +18,7 @@ object DetectFace extends ComplexParamsReadable[DetectFace]
 class DetectFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("DetectFace"))
 
@@ -97,7 +97,7 @@ class FindSimilarFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("FindSimilarFace"))
 
@@ -187,7 +187,7 @@ class GroupFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasFaceIds with HasSetLocation
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
 
@@ -211,7 +211,7 @@ class IdentifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("IdentifyFaces"))
 
@@ -280,7 +280,7 @@ object VerifyFaces extends ComplexParamsReadable[VerifyFaces]
 class VerifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("VerifyFaces"))
 

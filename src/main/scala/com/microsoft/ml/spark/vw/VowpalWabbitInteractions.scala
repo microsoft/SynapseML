@@ -25,12 +25,12 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
   with Wrappable with ComplexParamsWritable with BasicLogging
 {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val fieldSubset = dataset.schema.fields
       .filter(f => getInputCols.contains(f.name))
 

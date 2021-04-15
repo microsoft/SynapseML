@@ -87,7 +87,7 @@ class HTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol with HasHandler
     with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000)) //scalastyle:ignore magic.number
 
@@ -109,7 +109,7 @@ class HTTPTransformer(val uid: String)
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val df = dataset.toDF()
     val enc = RowEncoder(transformSchema(df.schema))
     val colIndex = df.schema.fieldNames.indexOf(getInputCol)

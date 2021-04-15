@@ -30,7 +30,7 @@ object ConditionalKNN extends DefaultParamsReadable[ConditionalKNN]
 
 class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNModel]
   with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ConditionalKNN"))
 
@@ -43,7 +43,7 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
   setDefault(conditionerCol, "conditioner")
 
   override def fit(dataset: Dataset[_]): ConditionalKNNModel = {
-    logFit()
+    logFit(uid)
     fitOptimized(dataset)
   }
 
@@ -71,7 +71,7 @@ private[ml] object KNNFuncHolder {
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   with ComplexParamsWritable with ConditionalKNNParams with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ConditionalKNNModel"))
 
@@ -91,7 +91,7 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   override def copy(extra: ParamMap): ConditionalKNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }

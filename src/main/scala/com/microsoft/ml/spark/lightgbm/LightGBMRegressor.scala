@@ -35,7 +35,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
     with LightGBMBase[LightGBMRegressionModel] with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
@@ -89,7 +89,7 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMModelMethods
     with LightGBMPredictionParams
     with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
 
@@ -102,7 +102,7 @@ class LightGBMRegressionModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     var outputData = super.transform(dataset)
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
@@ -116,7 +116,7 @@ class LightGBMRegressionModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logPredict()
+    logPredict(uid)
     getModel.score(features, false, false)(0)
   }
 

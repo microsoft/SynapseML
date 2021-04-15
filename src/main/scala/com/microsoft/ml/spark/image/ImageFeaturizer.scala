@@ -39,7 +39,7 @@ object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
   */
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
   with Wrappable with ComplexParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 
@@ -135,7 +135,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel

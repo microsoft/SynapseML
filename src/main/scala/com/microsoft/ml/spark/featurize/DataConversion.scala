@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   */
 class DataConversion(override val uid: String) extends Transformer
   with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("DataConversion"))
 
@@ -67,7 +67,7 @@ class DataConversion(override val uid: String) extends Transformer
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     require(dataset != null, "No dataset supplied")
     require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
     val colsList = $(cols).map(_.trim)

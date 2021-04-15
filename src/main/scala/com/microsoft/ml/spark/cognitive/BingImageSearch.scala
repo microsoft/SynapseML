@@ -65,7 +65,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
-  logClass()
+  logClass(uid)
 
   override protected lazy val pyInternalWrapper = true
 

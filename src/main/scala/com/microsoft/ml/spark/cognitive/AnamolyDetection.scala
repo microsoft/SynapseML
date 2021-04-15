@@ -119,7 +119,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
 class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
@@ -137,7 +137,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
 class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
@@ -156,7 +156,7 @@ object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   with HasOutputCol with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 
@@ -200,7 +200,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
     val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
     setVectorParam(series, inputsCol)

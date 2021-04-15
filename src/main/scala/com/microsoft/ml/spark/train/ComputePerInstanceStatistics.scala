@@ -44,12 +44,12 @@ trait CPISParams extends Wrappable with DefaultParamsWritable
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer
   with CPISParams with BasicLogging {
-  logClass()
+  logClass(uid)
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
+    logTransform(uid)
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,
