@@ -143,7 +143,7 @@ class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with Text
 
   lazy val detector: EntityDetector = new EntityDetector()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+    .setLocation("eastus")
     .setLanguage("en")
     .setOutputCol("replies")
 

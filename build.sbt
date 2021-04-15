@@ -212,7 +212,7 @@ publishDocs := {
 val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
-  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
+  codegenTask.value
   val rPackage = join("target", s"scala-${scalaMajorVersion}", "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)

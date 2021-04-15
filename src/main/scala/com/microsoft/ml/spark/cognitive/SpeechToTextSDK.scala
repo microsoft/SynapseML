@@ -133,13 +133,16 @@ abstract class SpeechSDKBase extends Transformer
     isURLParam = true
   )
 
-  val participants = new ServiceParam[Seq[(String, String, String)]](
-    this, "participants",
-    "A list of conversation participants (emil, language, user)")
+  val participantsJson = new ServiceParam[String](
+    this, "participantsJson",
+    "a json representation of a list of conversation participants (email, language, user)")
 
-  def setParticipants(v: Seq[(String, String, String)]): this.type = setScalarParam(participants, v)
+  def setParticipantsJson(v: String): this.type = setScalarParam(participantsJson, v)
 
-  def setParticipantsCol(v: String): this.type = setVectorParam(participants, v)
+  def setParticipants(v: Seq[(String, String, String)]): this.type =
+    setParticipantsJson(v.map(t => TranscriptionParticipant(t._1, t._2, t._3)).toJson.compactPrint)
+
+  def setParticipantsJsonCol(v: String): this.type = setVectorParam(participantsJson, v)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
@@ -318,9 +321,9 @@ abstract class SpeechSDKBase extends Transformer
           getValue(dynamicParamRow, language),
           getValue(dynamicParamRow, format),
           getValueOpt(dynamicParamRow, fileType),
-          getValueOpt(dynamicParamRow, participants)
-            .getOrElse(Seq())
-            .map(t => TranscriptionParticipant(t._1, t._2, t._3))
+          getValueOpt(dynamicParamRow, participantsJson)
+            .getOrElse("[]")
+            .parseJson.convertTo[Seq[TranscriptionParticipant]]
         )
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))

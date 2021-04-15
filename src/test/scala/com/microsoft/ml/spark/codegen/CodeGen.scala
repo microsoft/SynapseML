@@ -62,6 +62,7 @@ object CodeGen {
     TestBase.stopSparkSession()
     FileUtils.copyDirectoryToDirectory(toDir(PySrcOverrideDir), toDir(PySrcDir))
     makeInitFiles()
+    OldCodeGen.main(args)
   }
 }
 
