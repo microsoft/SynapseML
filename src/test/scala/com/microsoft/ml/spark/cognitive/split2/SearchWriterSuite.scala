@@ -19,7 +19,7 @@ import scala.collection.mutable
 import scala.concurrent.blocking
 
 trait AzureSearchKey {
-  lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
+  lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
@@ -73,6 +73,15 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     name
   }
 
+  val indexName: String = generateIndexName()
+
+  override def beforeAll(): Unit = {
+    print("WARNING CREATING SEARCH ENGINE!")
+    SearchIndex.createIfNoneExists(azureSearchKey,
+      testServiceName,
+      createSimpleIndexJson(indexName))
+  }
+
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
@@ -109,15 +118,11 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   override val sortInDataframeEquality: Boolean = true
 
   lazy val ad: AddDocuments = {
-    val in = generateIndexName()
-    SearchIndex.createIfNoneExists(azureSearchKey,
-      testServiceName,
-      createSimpleIndexJson(in))
     new AddDocuments()
       .setSubscriptionKey(azureSearchKey)
       .setServiceName(testServiceName)
       .setOutputCol("out").setErrorCol("err")
-      .setIndexName(in)
+      .setIndexName(indexName)
       .setActionCol("searchAction")
   }
 

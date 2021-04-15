@@ -27,7 +27,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
-"org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 
 libraryDependencies ++= Seq(
@@ -39,7 +39,7 @@ libraryDependencies ++= Seq(
   "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "2.3.180",
+  "com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.100",
   "com.github.vowpalwabbit" % "vw-jni" % "8.9.1",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1",
 ).map(d => d excludeAll (excludes: _*))
@@ -212,7 +212,7 @@ publishDocs := {
 val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
 publishR := {
   val s = streams.value
-  (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
+  codegenTask.value
   val rPackage = join("target", s"scala-${scalaMajorVersion}", "generated", "package", "R")
     .listFiles().head
   singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)

@@ -9,46 +9,37 @@ import com.microsoft.ml.spark.codegen.Config._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.PyTestFuzzing
-import com.microsoft.ml.spark.core.utils.JarLoadingUtils.loadTestClass
+import com.microsoft.ml.spark.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
 
-object CodeGen {
-
+object CodeGenUtils {
   def clean(dir: File): Unit = if (dir.exists()) FileUtils.forceDelete(dir)
 
   def toDir(f: File): File = new File(f, File.separator)
+}
 
-  def generateArtifacts(): Unit = {
-    println(
-      s"""|Running code generation with config:
-          |  topDir:     $TopDir
-          |  packageDir: $PackageDir
-          |  pySrcDir:   $PySrcDir
-          |  pyTestDir:  $PyTestDir
-          |  rsrcDir:    $RSrcDir""".stripMargin)
+object OldCodeGen {
+  import CodeGenUtils._
 
-    println("Creating temp folders")
+  def main(args: Array[String]): Unit = {
     clean(PackageDir)
-    clean(PySrcDir)
     clean(RSrcDir)
-
-    println("Generating python APIs")
-    PySparkWrapperGenerator()
-    println("Generating R APIs")
     SparklyRWrapperGenerator(Version)
-
-    FileUtils.copyDirectoryToDirectory(toDir(PySrcOverrideDir), toDir(PySrcDir))
-
-    // add init files
-    makeInitFiles()
-
-    // package python+r zip files
     RPackageDir.mkdirs()
     zipFolder(RSrcDir, new File(RPackageDir, s"mmlspark-$Version.zip"))
-
   }
 
+}
+
+object CodeGen {
+  import CodeGenUtils._
+
+  def generatePythonClasses(): Unit = {
+    instantiateServices[Wrappable].foreach { w =>
+      w.makePyFile()
+    }
+  }
 
   private def makeInitFiles(packageFolder: String = ""): Unit = {
     val dir = new File(new File(PySrcDir, "mmlspark"), packageFolder)
@@ -65,16 +56,21 @@ object CodeGen {
   }
 
   def main(args: Array[String]): Unit = {
-    generateArtifacts()
+    clean(PackageDir)
+    clean(PySrcDir)
+    generatePythonClasses()
+    TestBase.stopSparkSession()
+    FileUtils.copyDirectoryToDirectory(toDir(PySrcOverrideDir), toDir(PySrcDir))
+    makeInitFiles()
+    OldCodeGen.main(args)
   }
-
 }
 
 object TestGen {
-  import CodeGen.{toDir, clean}
+  import CodeGenUtils._
 
   def generatePythonTests(): Unit = {
-    loadTestClass[PyTestFuzzing[_]](false).foreach { ltc =>
+    instantiateServices[PyTestFuzzing[_]].foreach { ltc =>
       try {
         ltc.makePyTestFile()
       } catch {

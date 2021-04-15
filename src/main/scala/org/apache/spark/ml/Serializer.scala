@@ -29,13 +29,6 @@ object Serializer {
 
   val Mirror: Mirror = runtimeMirror(Serializer.ContextClassLoader)
 
-  def getConstructorTypes(ttag: TypeTag[_]): List[Type] = {
-    ttag.tpe.
-      member(termNames.CONSTRUCTOR).
-      asMethod.paramLists.head.
-      foldRight(List(): List[Type])((symbol, l) => l.::(symbol.typeSignature))
-  }
-
   def getPath(baseDir: Path, i: Int): Path = {
     new Path(baseDir, s"data_$i")
   }
@@ -52,7 +45,6 @@ object Serializer {
   def typeToSerializer[T](tpe: Type, sparkSession: SparkSession): Serializer[T] = {
     (if (tpe <:< typeOf[PipelineStage])              new PipelineSerializer()
      else if (tpe <:< typeOf[Array[PipelineStage]])  new PipelineArraySerializer()
-     else if (tpe <:< typeOf[Option[PipelineStage]]) new PipeilineOptionSerializer()
      else if (tpe <:< typeOf[Dataset[_]])            new DFSerializer(sparkSession)
      else new ObjectSerializer(sparkSession.sparkContext)(typeToTypeTag(tpe)))
       .asInstanceOf[Serializer[T]]
@@ -99,32 +91,6 @@ object Serializer {
     using(path.getFileSystem(hadoopConf).open(path)) { in =>
       read[O](in)(ttag)
     }.get
-  }
-
-  /** Saves metadata that is required by spark pipeline model in order to read a model.
-    *
-    * @param uid          The id of the PipelineModel saved.
-    * @param metadataPath The metadata path.
-    * @param sc           The spark context.
-    */
-  def saveMetadata(uid: String,
-                   ttag: ClassTag[_],
-                   metadataPath: String,
-                   sc: SparkContext,
-                   overwrite: Boolean): Unit = {
-
-    val metadata = ("class" -> ttag.runtimeClass.getName) ~
-      ("timestamp" -> System.currentTimeMillis()) ~
-      ("sparkVersion" -> sc.version) ~
-      ("uid" -> uid) ~
-      ("paramMap" -> "{}")
-
-    val metadataJson: String = compact(render(metadata))
-    val session = SparkSession.builder().sparkContext(sc).getOrCreate()
-    import session.implicits._
-    val dataset = session.createDataset(Seq(metadataJson))
-    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
-    dataset.coalesce(1).write.mode(mode).text(metadataPath)
   }
 
   def makeQualifiedPath(sc: SparkContext, path: String): Path = {
@@ -179,25 +145,3 @@ class PipelineArraySerializer extends Serializer[Array[PipelineStage]] {
   }
 }
 
-class PipeilineOptionSerializer extends Serializer[Option[PipelineStage]] {
-  def write(stage: Option[PipelineStage], outputPath: Path, overwrite: Boolean): Unit = {
-    val pipe = stage match {
-      case Some(s) => new Pipeline().setStages(Array(s))
-      case None => new Pipeline().setStages(Array[PipelineStage]())
-    }
-    Serializer.writeMLWritable(pipe, outputPath, overwrite)
-  }
-
-  def read(path: Path): Option[PipelineStage] = {
-    val pipe = Pipeline.load(path.toString)
-    if (pipe.getStages.length == 1) {
-      Some(pipe.getStages(0))
-    } else if (pipe.getStages.length == 0) {
-      None
-    } else {
-      throw new IllegalArgumentException(s"Option Pipeline should have 0 or 1 stages," +
-        s" it has ${pipe.getStages.length}")
-    }
-  }
-
-}

@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.recommendation
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
@@ -31,6 +31,8 @@ trait BaseRecommendationModel extends Params with ALSModelParams with HasPredict
   }
 
   def recommendForAllUsers(k: Int): DataFrame
+
+  def recommendForAllItems(k: Int): DataFrame
 
   def transform(rank: Int, userDataFrame: DataFrame, itemDataFrame: DataFrame, dataset: Dataset[_]): DataFrame = {
     getALSModel(uid, rank,
@@ -125,10 +127,10 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
   setDefault(trainRatio -> 0.75, minRatingsU -> 1, minRatingsI -> 1)
 
   protected def transformSchemaImpl(schema: StructType): StructType = {
-    require($(estimatorParamMaps).nonEmpty, s"Validator requires non-empty estimatorParamMaps")
-    val firstEstimatorParamMap = $(estimatorParamMaps).head
-    val est = $(estimator)
-    for (paramMap <- $(estimatorParamMaps).tail) {
+    require(getEstimatorParamMaps.nonEmpty, s"Validator requires non-empty estimatorParamMaps")
+    val firstEstimatorParamMap = getEstimatorParamMaps.head
+    val est = getEstimator
+    for (paramMap <- getEstimatorParamMaps.tail) {
       est.copy(paramMap).transformSchema(schema)
     }
     est.copy(firstEstimatorParamMap).transformSchema(schema)
@@ -138,9 +140,9 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
     * Instrumentation logging for tuning params including the inner estimator and evaluator info.
     */
   protected def logTuningParams(instrumentation: Instrumentation): Unit = {
-    instrumentation.logNamedValue("estimator", $(estimator).getClass.getCanonicalName)
-    instrumentation.logNamedValue("evaluator", $(evaluator).getClass.getCanonicalName)
-    instrumentation.logNamedValue("estimatorParamMapsLength", Int.int2long($(estimatorParamMaps).length))
+    instrumentation.logNamedValue("estimator", getEstimator.getClass.getCanonicalName)
+    instrumentation.logNamedValue("evaluator", getEvaluator.getClass.getCanonicalName)
+    instrumentation.logNamedValue("estimatorParamMapsLength", Int.int2long(getEstimatorParamMaps.length))
   }
 }
 

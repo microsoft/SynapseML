@@ -3,28 +3,27 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util._
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
-import org.vowpalwabbit.spark.VowpalWabbitExample
-import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 
 import scala.math.exp
 
 object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifier]
 
-@InternalWrapper
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
-  with ComplexParamsWritable
-{
+  with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
+
   def this() = this(Identifiable.randomUID("VowpalWabbitClassifier"))
 
   // to support Grid search we need to replicate the parameters here...
@@ -58,11 +57,14 @@ class VowpalWabbitClassifier(override val uid: String)
 }
 
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
-@InternalWrapper
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with Wrappable {
+
+  def this() = this(Identifiable.randomUID("VowpalWabbitClassificationModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   def numClasses: Int = 2
 

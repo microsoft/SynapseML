@@ -4,8 +4,6 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.net.URL
-
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.utils.AsyncUtils
 import com.microsoft.ml.spark.stages.Lambda
 import org.apache.commons.io.IOUtils
@@ -63,10 +61,11 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
   }
 }
 
-@InternalWrapper
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 

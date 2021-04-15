@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.recommendation
 
-import com.microsoft.ml.spark.core.contracts.{HasLabelCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasLabelCol
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._

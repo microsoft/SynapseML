@@ -3,8 +3,7 @@
 
 package com.microsoft.ml.spark.vw
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
-import com.microsoft.ml.spark.core.serialize.ConstructorReadable
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -14,12 +13,13 @@ import org.apache.spark.ml.regression.RegressionModel
 
 object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
 
-@InternalWrapper
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
-    with ComplexParamsWritable
-{
+    with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
+
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
@@ -34,12 +34,15 @@ class VowpalWabbitRegressor(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
 
-@InternalWrapper
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable
-{
+    with ComplexParamsWritable with Wrappable {
+
+  def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
+
+  override protected lazy val pyInternalWrapper = true
+
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
       .withColumn($(predictionCol), col($(rawPredictionCol)))

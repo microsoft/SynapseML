@@ -3,15 +3,12 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.codegen.Wrappable
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam}
+import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam, TransformerParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 object Timer extends ComplexParamsReadable[Timer]
 
@@ -69,12 +66,12 @@ class Timer(val uid: String) extends Estimator[TimerModel]
     val cachedDatasetBefore = if (getDisableMaterialization) dataset else dataset.cache()
     val countBeforeVal = if (getDisableMaterialization) None else Some(cachedDatasetBefore.count())
     getStage match {
-      case t: Transformer => (new TimerModel(uid, t).setParent(this), "")
+      case t: Transformer => (new TimerModel().setTransformer(t).setParent(this), "")
       case e: Estimator[_] =>
         val t0 = System.nanoTime()
         val fitE = e.fit(dataset)
         val t1 = System.nanoTime()
-        (new TimerModel(uid, fitE).setParent(this),
+        (new TimerModel().setTransformer(fitE).setParent(this),
          formatTime(t1 - t0, false, countBeforeVal, e))
     }
   }
@@ -87,17 +84,20 @@ class Timer(val uid: String) extends Estimator[TimerModel]
 
 }
 
-object TimerModel extends ConstructorReadable[TimerModel]
+object TimerModel extends ComplexParamsReadable[TimerModel]
 
-class TimerModel(val uid: String, t: Transformer)
-  extends Model[TimerModel] with TimerParams with ConstructorWritable[TimerModel]{
+class TimerModel(val uid: String)
+  extends Model[TimerModel] with TimerParams with ComplexParamsWritable {
 
-  override val objectsToSave = List(uid, t)
-  override val ttag: TypeTag[TimerModel] = typeTag[TimerModel]
+  def this() = this(Identifiable.randomUID("TimerModel"))
 
-  override def copy(extra: ParamMap): TimerModel = {
-    new TimerModel(uid, t.copy(extra)).setParent(parent)
-  }
+  val transformer = new TransformerParam(this, "transformer", "inner model to time")
+
+  def getTransformer: Transformer = $(transformer)
+
+  def setTransformer(v: Transformer): this.type = set(transformer, v)
+
+  override def copy(extra: ParamMap): TimerModel = defaultCopy(extra)
 
   def transformWithTime(dataset: Dataset[_]): (DataFrame, String) = {
     val cachedDatasetBefore = if (getDisableMaterialization) dataset else dataset.cache()
@@ -105,17 +105,17 @@ class TimerModel(val uid: String, t: Transformer)
 
     val t0 = System.nanoTime()
 
-    val res = t.transform(cachedDatasetBefore)
+    val res = getTransformer.transform(cachedDatasetBefore)
 
     val cachedDatasetAfter = if (getDisableMaterialization) res else res.cache()
     val countAfterVal = if (getDisableMaterialization) None else Some(cachedDatasetAfter.count())
 
     val t1 = System.nanoTime()
 
-    (cachedDatasetAfter, formatTime(t1 - t0, true, countAfterVal, t))
+    (cachedDatasetAfter, formatTime(t1 - t0, true, countAfterVal, getTransformer))
   }
 
-  def transformSchema(schema: StructType): StructType = t.transformSchema(schema)
+  def transformSchema(schema: StructType): StructType = getTransformer.transformSchema(schema)
 
   def transform(dataset: Dataset[_]): DataFrame = {
     val (model, message) = transformWithTime(dataset)

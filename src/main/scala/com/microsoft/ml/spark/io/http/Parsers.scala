@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark.io.http
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.stages.UDFTransformer
@@ -143,8 +143,9 @@ abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOut
 
 object JSONOutputParser extends ComplexParamsReadable[JSONOutputParser]
 
-@InternalWrapper
 class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("JSONOutputParser"))
 
