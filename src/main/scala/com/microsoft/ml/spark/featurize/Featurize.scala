@@ -120,7 +120,6 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   //noinspection ScalaStyle
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit(uid)
-    
     val columnState = new ColumnState(dataset)
 
     val (oldEncoderCols, newEncoderCols) = getInputCols.flatMap {

@@ -284,7 +284,6 @@ class TextFeaturizer(override val uid: String)
 
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit(uid)
-    
     try {
       getUseTokenizer
     } catch {

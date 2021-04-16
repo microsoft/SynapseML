@@ -6,7 +6,8 @@ package com.microsoft.ml.spark.isolationforest
 import org.apache.spark.ml.param.{ParamMap, TransformerParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
-import com.linkedin.relevance.isolationforest.{IsolationForestParams, IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
+import com.linkedin.relevance.isolationforest.{IsolationForestParams, IsolationForest => IsolationForestSource,
+  IsolationForestModel => IsolationForestModelSource}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.{DataFrame, Dataset}
