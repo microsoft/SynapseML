@@ -24,7 +24,7 @@ class Explode(val uid: String) extends Transformer
   setDefault(outputCol->(this.uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     transformSchema(dataset.schema)
     dataset.toDF().withColumn(getOutputCol, explode(col(getInputCol)))
   }

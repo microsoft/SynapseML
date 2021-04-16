@@ -45,7 +45,7 @@ class TextLIME(val uid: String) extends Model[TextLIME]
   def setTokenCol(v: String): this.type = set(tokenCol, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF
 
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)

@@ -172,7 +172,7 @@ trait HasLanguage extends HasServiceParams {
 object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
 class TextSentimentV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging{
+  extends TextAnalyticsBase(uid) with BasicLogging {
   logClass(uid)
 
   def this() = this(Identifiable.randomUID("TextSentimentV2"))

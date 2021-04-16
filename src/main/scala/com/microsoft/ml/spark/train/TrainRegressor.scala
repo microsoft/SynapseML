@@ -17,7 +17,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
 /** Trains a regression model. */
-class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with BasicLogging{
+class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with BasicLogging {
   logClass(uid)
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
@@ -145,7 +145,7 @@ class TrainedRegressorModel(val uid: String)
   override def copy(extra: ParamMap): TrainedRegressorModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     // re-featurize and score the data
     val scoredData = getModel.transform(dataset)
 

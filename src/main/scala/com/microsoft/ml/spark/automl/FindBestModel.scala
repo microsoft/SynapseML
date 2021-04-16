@@ -47,7 +47,7 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging{
+class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging {
   logClass(uid)
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
@@ -181,7 +181,7 @@ class BestModel(val uid: String) extends Model[BestModel]
   override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     getBestModel.transform(dataset)
   }
 

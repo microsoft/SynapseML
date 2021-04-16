@@ -8,7 +8,7 @@ import org.apache.spark.ml.linalg.{Vector, Vectors}
 
 /** Contains common LightGBM model methods across all LightGBM learner types.
   */
-trait LightGBMModelMethods extends LightGBMModelParams with Logging{
+trait LightGBMModelMethods extends LightGBMModelParams with Logging {
   /**
     * Public method to get the global feature importance values.
     * @param importanceType split or gini

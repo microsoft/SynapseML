@@ -363,7 +363,7 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF
     val schema = dataset.schema
 

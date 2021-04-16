@@ -151,7 +151,7 @@ class ValueIndexerModel(val uid: String)
 
   /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val nonNullLevels = getLevels.filter(_ != null)
 
     val castLevels = nonNullLevels.map { l =>

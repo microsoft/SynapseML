@@ -73,7 +73,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
   def numClasses: Int = 2
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = transformImplInternal(dataset)
 
     // which mode one wants to use depends a bit on how this should be deployed

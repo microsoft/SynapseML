@@ -357,7 +357,7 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
 
     //  load native OpenCV library on each partition
     // TODO: figure out more elegant way

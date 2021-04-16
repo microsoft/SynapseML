@@ -67,7 +67,7 @@ class DataConversion(override val uid: String) extends Transformer
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     require(dataset != null, "No dataset supplied")
     require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
     val colsList = $(cols).map(_.trim)

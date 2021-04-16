@@ -24,7 +24,7 @@ class Cacher(val uid: String) extends Transformer with Wrappable with DefaultPar
   setDefault(disable->false)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     if (!getDisable) {
       dataset.toDF.cache()
     } else {

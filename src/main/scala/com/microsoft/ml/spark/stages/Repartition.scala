@@ -47,7 +47,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     if (getDisable)
       dataset.toDF
     else if (getN < dataset.rdd.getNumPartitions)

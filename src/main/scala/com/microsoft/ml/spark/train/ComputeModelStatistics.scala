@@ -71,7 +71,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     * @return DataFrame whose columns contain the calculated metrics
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,

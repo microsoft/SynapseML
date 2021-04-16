@@ -45,7 +45,7 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     getTransform(dataset)
   }
 

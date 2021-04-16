@@ -4,8 +4,9 @@
 package com.microsoft.ml.spark.logging
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.Dataset
 
-trait BasicLogging extends Logging{
+trait BasicLogging extends Logging {
 
   def logClass(uid: String): Unit = {
     logInfo(s"metrics/ uid $uid Calling $getClass")
@@ -27,8 +28,9 @@ trait BasicLogging extends Logging{
     logInfo(s"metrics/ uid $uid Calling function train")
   }
 
-  def logTransform(uid: String): Unit = {
-     logInfo(s"metrics/ uid $uid Calling function transform")
+  def logTransform(uid: String, dataset: Dataset[_]): Unit = {
+     logInfo(s"metrics/ uid $uid Calling function transform with dataset" +
+       s" (columns: ${dataset.columns.mkString}.; count: ${dataset.count()})")
   }
 
   def logTranspose(): Unit = {

@@ -32,7 +32,7 @@ import scala.util.control.NonFatal
   * Currently supports cross validation with random grid search.
   */
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
-  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging{
+  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging {
   logClass(uid)
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
@@ -223,7 +223,7 @@ class TuneHyperparametersModel(val uid: String)
   override def copy(extra: ParamMap): TuneHyperparametersModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     getBestModel.transform(dataset)
   }
 

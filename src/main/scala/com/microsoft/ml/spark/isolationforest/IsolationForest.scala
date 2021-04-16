@@ -51,7 +51,7 @@ class IsolationForestModel(override val uid: String)
   override def copy(extra: ParamMap): IsolationForestModel = defaultCopy(extra)
 
   override def transform(data: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, data)
     getInnerModel.transform(data)
   }
 

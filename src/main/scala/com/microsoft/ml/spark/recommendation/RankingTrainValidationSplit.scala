@@ -322,7 +322,7 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     transformSchema(dataset.schema, logging = true)
 
     //sort to pass unit test

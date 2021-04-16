@@ -29,7 +29,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
   def getBatcher(it: Iterator[Row]): Iterator[List[Row]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     dataset.toDF().mapPartitions { it =>
       if (it.isEmpty) {
         it
@@ -201,7 +201,7 @@ class FlattenBatch(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     dataset.toDF().mapPartitions(it =>
       it.flatMap { rowOfLists =>
         val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))

@@ -89,7 +89,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
     * @return The DataFrame that results from applying the udf to the inputted dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     transformSchema(dataset.schema, logging = true)
     if (isSet(inputCol)) {
       dataset.withColumn(getOutputCol, applyUDF(dataset.col(getInputCol)))

@@ -291,7 +291,7 @@ class TrainedClassifierModel(val uid: String)
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val hasScoreCols = hasScoreColumns(getLastStage)
 
     // re-featurize and score the data

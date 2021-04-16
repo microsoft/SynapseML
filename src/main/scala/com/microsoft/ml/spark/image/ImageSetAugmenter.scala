@@ -52,7 +52,7 @@ class ImageSetAugmenter(val uid: String) extends Transformer
   }
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF
     val dfID = df.withColumn(getOutputCol, new Column(getInputCol))
 

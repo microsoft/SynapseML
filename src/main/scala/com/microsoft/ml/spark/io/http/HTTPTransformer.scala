@@ -109,7 +109,7 @@ class HTTPTransformer(val uid: String)
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF()
     val enc = RowEncoder(transformSchema(df.schema))
     val colIndex = df.schema.fieldNames.indexOf(getInputCol)

@@ -229,7 +229,7 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
     UDFUtils.oldUdf(perturbedDenseVectors _, ArrayType(VectorType, true))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
@@ -279,7 +279,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
     samplingFraction -> 0.3, superpixelCol -> "superpixels")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid)
+    logTransform(uid, dataset)
     val df = dataset.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
