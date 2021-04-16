@@ -35,7 +35,7 @@ case class LivyLogs(id: Int,
                     log: Seq[String])
 
 //noinspection ScalaStyle
-object LivyUtilities {
+object SynapseUtilities {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
   lazy val Token: String = getSynapseToken
@@ -102,8 +102,14 @@ object LivyUtilities {
   def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): LivyBatch = {
     val convertedPyScript = new File(notebookPath)
     val abfssPath = uploadScript(convertedPyScript.getAbsolutePath, s"$Folder/${convertedPyScript.getName}")
-    submitRun(livyUrl, abfssPath)
+    // submitRun(livyUrl, abfssPath)
+
   }
+
+  private def createSparkJob(jobCreateUrl: String, path: String): LivyBatch = {
+
+  }
+
 
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
     // MMLSpark info

@@ -21,7 +21,11 @@ class SynapseTests extends TestBase {
       ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
       poolName +
       "/batches"
-    val livyBatches = LivyUtilities.NotebookFiles.map(LivyUtilities.uploadAndSubmitNotebook(livyUrl, _))
+    val synapseJobUrl = "https://" +
+      workspaceName +
+      ".dev.azuresynapse.net/sparkJobDefinitions/"
+
+    val livyBatches = SynapseUtilities.NotebookFiles.map(SynapseUtilities.uploadAndSubmitNotebook(livyUrl, _))
     println(s"Submitted ${livyBatches.length} jobs for execution: " +
       s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}").mkString("Array(", ", ", ")")}")
     try {
@@ -29,18 +33,18 @@ class SynapseTests extends TestBase {
         Future {
           if (batch.state != "success") {
             if (batch.state == "error") {
-              LivyUtilities.postMortem(batch, livyUrl)
+              SynapseUtilities.postMortem(batch, livyUrl)
               throw new RuntimeException(s"${batch.id} returned with state ${batch.state}")
             }
             else {
-              LivyUtilities.retry(batch.id, livyUrl, LivyUtilities.TimeoutInMillis, System.currentTimeMillis())
+              SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
             }
           }
         }(ExecutionContext.global)
       })
 
       val failures = batchFutures
-        .map(Await.ready(_, Duration(LivyUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+        .map(Await.ready(_, Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
         .filter(_.isFailure)
       assert(failures.isEmpty)
     }
@@ -48,7 +52,7 @@ class SynapseTests extends TestBase {
       case t: Throwable =>
         livyBatches.foreach { batch =>
           println(s"Cancelling job ${batch.id}")
-          LivyUtilities.cancelRun(livyUrl, batch.id)
+          SynapseUtilities.cancelRun(livyUrl, batch.id)
         }
         throw t
     }
