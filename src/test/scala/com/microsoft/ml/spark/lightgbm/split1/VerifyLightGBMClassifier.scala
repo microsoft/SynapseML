@@ -331,6 +331,20 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
+  test("Verify LightGBM Classifier with numIterations model parameter") {
+    // We expect score to improve as numIterations is increased
+    val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
+    val model = baseModel.fit(train)
+    val score1 = binaryEvaluator.evaluate(model.transform(test))
+    model.setNumIteration(1)
+    val score2 = binaryEvaluator.evaluate(model.transform(test))
+    assert(score1 > score2)
+    model.setNumIteration(10)
+    model.setStartIteration(8)
+    val score3 = binaryEvaluator.evaluate(model.transform(test))
+    assert(score1 > score3)
+  }
+
   test("Verify LightGBM Classifier with weight column") {
     val model = baseModel.setWeightCol(weightCol)
 

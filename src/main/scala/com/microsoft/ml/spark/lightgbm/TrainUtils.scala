@@ -314,7 +314,7 @@ private object TrainUtils extends Serializable {
   }
 
   def trainCore(batchIndex: Int, trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
-                log: Logger, hasValid: Boolean): Unit = {
+                log: Logger, hasValid: Boolean): Option[Int] = {
     val isFinishedPtr = lightgbmlib.new_intp()
     var isFinished = false
     var iters = 0
@@ -325,6 +325,7 @@ private object TrainUtils extends Serializable {
     val bestIter = new Array[Int](evalCounts)
     val partitionId = TaskContext.getPartitionId
     var learningRate: Double = trainParams.learningRate
+    var bestIterResult: Option[Int] = None
     while (!isFinished && iters < trainParams.numIterations) {
       beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid)
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
@@ -390,6 +391,7 @@ private object TrainUtils extends Serializable {
           } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))
+            bestIterResult = Some(bestIter(index))
           }
 
           (evalName, score)
@@ -407,6 +409,7 @@ private object TrainUtils extends Serializable {
 
       iters = iters + 1
     }
+    bestIterResult
   }
 
   def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int,
@@ -481,10 +484,13 @@ private object TrainUtils extends Serializable {
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
         boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-        trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        val bestIterResult = trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
         if (returnBooster) {
           val model = saveBoosterToString(boosterPtr, log)
-          Iterator.single(new LightGBMBooster(model))
+          val booster = new LightGBMBooster(model)
+          // Set best iteration on booster if hit early stopping criteria in trainCore
+          bestIterResult.foreach(booster.setNumIteration(_))
+          Iterator.single(booster)
         } else {
           Iterator.empty
         }

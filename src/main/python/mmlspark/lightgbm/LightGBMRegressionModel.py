@@ -62,3 +62,23 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
             return list(self._java_obj.getSparseFeatureShaps(vector.size, sparse_indices, sparse_values))
         else:
             raise TypeError("Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type")
+
+    def setStartIteration(self, startIteration):
+        """Sets the start index of the iteration to predict.
+
+        :param startIteration: Start index of the iteration to predict.
+            If <= 0, starts from the first iteration.
+        :type startIteration: int
+        """
+        self._java_obj.setNumIteration(startIteration)
+
+    def setNumIteration(self, numIteration):
+        """Sets the start index of the iteration to predict.
+
+        :param numIteration: Total number of iterations used in the prediction.
+            If None, if the best iteration exists and start_iteration <= 0, the best iteration is used;
+            otherwise, all iterations from ``start_iteration`` are used (no limits).
+            If <= 0, all iterations from ``start_iteration`` are used (no limits).
+        :type numIteration: int
+        """
+        self._java_obj.setNumIteration(numIteration)

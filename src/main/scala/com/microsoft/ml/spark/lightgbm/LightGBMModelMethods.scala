@@ -46,6 +46,22 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     getLightGBMBooster.featuresShap(Vectors.sparse(size, indices, values))
   }
 
+  /** Public method to sets the start index of the iteration to predict.
+    * If <= 0, starts from the first iteration.
+    * @param startIteration The start index of the iteration to predict.
+    */
+  def setStartIteration(startIteration: Int): Unit = {
+    getLightGBMBooster.setStartIteration(startIteration)
+  }
+
+  /** Public method to sets the total number of iterations used in the prediction.
+    * If <= 0, all iterations from ``start_iteration`` are used (no limits).
+    * @param numIteration The total number of iterations used in the prediction.
+    */
+  def setNumIteration(numIteration: Int): Unit = {
+    getLightGBMBooster.setNumIteration(numIteration)
+  }
+
   /**
     * Protected method to predict leaf index.
     * @param features The local instance or row to compute the leaf index for.
