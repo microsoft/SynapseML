@@ -46,20 +46,47 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     getLightGBMBooster.featuresShap(Vectors.sparse(size, indices, values))
   }
 
-  /** Public method to sets the start index of the iteration to predict.
-    * If <= 0, starts from the first iteration.
-    * @param startIteration The start index of the iteration to predict.
+  /**
+    * Public method to get the best iteration from the booster.
+    * @return The best iteration, if early stopping was triggered.
     */
-  def setStartIteration(startIteration: Int): Unit = {
-    getLightGBMBooster.setStartIteration(startIteration)
+  def getBoosterBestIteration(): Int = {
+    getLightGBMBooster.bestIteration
   }
 
-  /** Public method to sets the total number of iterations used in the prediction.
-    * If <= 0, all iterations from ``start_iteration`` are used (no limits).
-    * @param numIteration The total number of iterations used in the prediction.
+  /**
+    * Public method to get the total number of iterations trained.
+    * @return The total number of iterations trained.
     */
-  def setNumIteration(numIteration: Int): Unit = {
-    getLightGBMBooster.setNumIteration(numIteration)
+  def getBoosterNumTotalIterations(): Int = {
+    getLightGBMBooster.numTotalIterations
+  }
+
+  /**
+    * Public method to get the total number of models trained.
+    * Note this may be larger than the number of iterations,
+    * since in multiclass a model is trained per class for
+    * each iteration.
+    * @return The total number of models.
+    */
+  def getBoosterNumTotalModel(): Int = {
+    getLightGBMBooster.numTotalModel
+  }
+
+  /**
+    * Public method to get the number of features from the booster.
+    * @return The number of features.
+    */
+  def getBoosterNumFeatures(): Int = {
+    getLightGBMBooster.numFeatures
+  }
+
+  /**
+    * Public method to get the number of classes from the booster.
+    * @return The number of classes.
+    */
+  def getBoosterNumClasses(): Int = {
+    getLightGBMBooster.numClasses
   }
 
   /**
@@ -78,5 +105,14 @@ trait LightGBMModelMethods extends LightGBMModelParams {
     */
   protected def featuresShap(features: Vector): Vector = {
     Vectors.dense(getLightGBMBooster.featuresShap(features))
+  }
+
+  protected def updateBoosterParamsBeforePredict(): Unit = {
+    if (getNumIterations != LightGBMConstants.DefaultNumIterations) {
+      getModel.setNumIterations(getNumIterations)
+    }
+    if (getStartIteration != LightGBMConstants.DefaultStartIteration) {
+      getModel.setStartIteration(getStartIteration)
+    }
   }
 }

@@ -64,22 +64,46 @@ class LightGBMClassificationModel(_LightGBMClassificationModel):
         else:
             raise TypeError("Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type")
 
-    def setStartIteration(self, startIteration):
-        """Sets the start index of the iteration to predict.
+    def getBoosterBestIteration(self):
+        """Get the best iteration from the booster.
 
-        :param startIteration: Start index of the iteration to predict.
-            If <= 0, starts from the first iteration.
-        :type startIteration: int
+        Returns:
+            The best iteration, if early stopping was triggered.
         """
-        self._java_obj.setNumIteration(startIteration)
+        self._java_obj.getBoosterBestIteration()
 
-    def setNumIteration(self, numIteration):
-        """Sets the start index of the iteration to predict.
+    def getBoosterNumTotalIterations(self):
+        """Get the total number of iterations trained.
 
-        :param numIteration: Total number of iterations used in the prediction.
-            If None, if the best iteration exists and start_iteration <= 0, the best iteration is used;
-            otherwise, all iterations from ``start_iteration`` are used (no limits).
-            If <= 0, all iterations from ``start_iteration`` are used (no limits).
-        :type numIteration: int
+        Returns:
+            The total number of iterations trained.
         """
-        self._java_obj.setNumIteration(numIteration)
+        self._java_obj.getBoosterNumTotalIterations()
+
+    def getBoosterNumTotalModel(self):
+        """Get the total number of models trained.
+
+        Note this may be larger than the number of iterations,
+        since in multiclass a model is trained per class for
+        each iteration.
+
+        Returns:
+            The total number of models.
+        """
+        self._java_obj.getBoosterNumTotalIterations()
+
+    def getBoosterNumFeatures(self):
+        """Get the number of features from the booster.
+
+        Returns:
+            The number of features.
+        """
+        self._java_obj.getBoosterNumTotalIterations()
+
+    def getBoosterNumClasses(self):
+        """Get the number of classes from the booster.
+
+        Returns:
+            The number of classes.
+        """
+        self._java_obj.getBoosterNumTotalIterations()

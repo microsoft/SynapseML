@@ -489,7 +489,7 @@ private object TrainUtils extends Serializable {
           val model = saveBoosterToString(boosterPtr, log)
           val booster = new LightGBMBooster(model)
           // Set best iteration on booster if hit early stopping criteria in trainCore
-          bestIterResult.foreach(booster.setNumIteration(_))
+          bestIterResult.foreach(booster.setBestIteration(_))
           Iterator.single(booster)
         } else {
           Iterator.empty
