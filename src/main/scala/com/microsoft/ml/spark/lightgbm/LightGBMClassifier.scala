@@ -61,6 +61,7 @@ class LightGBMClassifier(override val uid: String)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
       .setActualNumClasses(classifierTrainParams.numClass)
+      .setNumIterations(lightGBMBooster.bestIteration)
     if (isDefined(thresholds)) model.setThresholds(getThresholds) else model
   }
 

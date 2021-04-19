@@ -63,6 +63,7 @@ class LightGBMRanker(override val uid: String)
       .setPredictionCol(getPredictionCol)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
+      .setNumIterations(lightGBMBooster.bestIteration)
   }
 
   def stringFromTrainedModel(model: LightGBMRankerModel): String = {

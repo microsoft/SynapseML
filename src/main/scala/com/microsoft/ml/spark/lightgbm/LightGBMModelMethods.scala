@@ -108,11 +108,7 @@ trait LightGBMModelMethods extends LightGBMModelParams {
   }
 
   protected def updateBoosterParamsBeforePredict(): Unit = {
-    if (getNumIterations != LightGBMConstants.DefaultNumIterations) {
-      getModel.setNumIterations(getNumIterations)
-    }
-    if (getStartIteration != LightGBMConstants.DefaultStartIteration) {
-      getModel.setStartIteration(getStartIteration)
-    }
+    getModel.setNumIterations(getNumIterations)
+    getModel.setStartIteration(getStartIteration)
   }
 }
