@@ -29,19 +29,19 @@ trait BasicLogging extends Logging {
   }
 
   def logFit(): Unit = {
-      logInfo(s"metrics/ " + BasicLogInfo(uid, getClass.toString, "fit").toJson.compactPrint)
+      logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "fit").toJson.compactPrint)
   }
 
   def logTrain(): Unit = {
-    logInfo(s"metrics/ " + BasicLogInfo(uid, getClass.toString, "train").toJson.compactPrint)
+    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "train").toJson.compactPrint)
   }
 
   def logTransform(dataset: Dataset[_]): Unit = {
-     logInfo(s"metrics/ " + BasicLogInfo(uid, getClass.toString, "transform").toJson.compactPrint)
+     logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "transform").toJson.compactPrint)
   }
 
   def logPredict(): Unit = {
-    logInfo(s"metrics/ " + BasicLogInfo(uid, getClass.toString, "predict").toJson.compactPrint)
+    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "predict").toJson.compactPrint)
   }
 
 }
