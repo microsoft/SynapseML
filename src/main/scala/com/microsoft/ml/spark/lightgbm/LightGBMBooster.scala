@@ -192,6 +192,10 @@ class LightGBMBooster(val model: String) extends Serializable {
     new BoosterHandler(model)
   }
 
+  var bestIteration: Int = -1
+  private var startIteration: Int = 0
+  private var numIterations: Int = -1
+
   def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     val kind =
       if (raw) boosterHandler.rawScoreConstant
@@ -227,6 +231,30 @@ class LightGBMBooster(val model: String) extends Serializable {
     shapToArray(boosterHandler.shapDataOutPtr.get().ptr)
   }
 
+  /** Sets the start index of the iteration to predict.
+    * If <= 0, starts from the first iteration.
+    * @param startIteration The start index of the iteration to predict.
+    */
+  def setStartIteration(startIteration: Int): Unit = {
+    this.startIteration = startIteration
+  }
+
+  /** Sets the total number of iterations used in the prediction.
+    * If <= 0, all iterations from ``start_iteration`` are used (no limits).
+    * @param numIterations The total number of iterations used in the prediction.
+    */
+  def setNumIterations(numIterations: Int): Unit = {
+    this.numIterations = numIterations
+  }
+
+  /** Sets the best iteration and also the numIterations to be the best iteration.
+    * @param bestIteration The best iteration computed by early stopping.
+    */
+  def setBestIteration(bestIteration: Int): Unit = {
+    this.bestIteration = bestIteration
+    this.numIterations = bestIteration
+  }
+
   lazy val numClasses: Int = boosterHandler.numClasses
 
   lazy val numFeatures: Int = boosterHandler.numFeatures
@@ -235,7 +263,7 @@ class LightGBMBooster(val model: String) extends Serializable {
 
   lazy val numModelPerIteration: Int = boosterHandler.numTotalModelPerIteration
 
-  lazy val numIterations: Int = numTotalModel / numModelPerIteration
+  lazy val numTotalIterations: Int = numTotalModel / numModelPerIteration
 
   protected def predictForCSR(sparseVector: SparseVector, kind: Int,
                               dataLengthLongPtr: SWIGTYPE_p_long_long,
@@ -251,7 +279,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         sparseVector.indices, sparseVector.values,
         sparseVector.numNonzeros,
         boosterHandler.boosterPtr, dataInt32bitType, data64bitType, 2, numCols,
-        kind, 0, -1, datasetParams,
+        kind, this.startIteration, this.numIterations, datasetParams,
         dataLengthLongPtr, dataOutPtr), "Booster Predict")
   }
 
@@ -270,7 +298,7 @@ class LightGBMBooster(val model: String) extends Serializable {
         row, boosterHandler.boosterPtr, data64bitType,
         numCols,
         isRowMajor, kind,
-        0, -1, datasetParams, dataLengthLongPtr, dataOutPtr),
+        this.startIteration, this.numIterations, datasetParams, dataLengthLongPtr, dataOutPtr),
       "Booster Predict")
   }
 
