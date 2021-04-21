@@ -260,6 +260,12 @@ trait PythonWrappable extends BaseWrappable {
             |    sql_ctx = SQLContext.getOrCreate(ctx)
             |    return DataFrame(self._java_obj.get$capName(), sql_ctx)
             |""".stripMargin
+      case _: TransformerParam | _: EstimatorParam | _: PipelineStageParam =>
+        s"""|
+            |def get$capName(self):
+            |${indent(docString, 1)}
+            |    return JavaParams._from_java(self._java_obj.get$capName())
+            |""".stripMargin
       case _ =>
         s"""|
             |def get$capName(self):
