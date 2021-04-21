@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.logging
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.Dataset
-import spray.json.DefaultJsonProtocol
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 case class BasicLogInfo(
                        uid: String,
@@ -14,7 +14,7 @@ case class BasicLogInfo(
                        )
 
 object LogJsonProtocol extends DefaultJsonProtocol {
-  implicit val logFormat = jsonFormat3(BasicLogInfo)
+  implicit val LogFormat: RootJsonFormat[BasicLogInfo] = jsonFormat3(BasicLogInfo)
 }
 
 import LogJsonProtocol._
