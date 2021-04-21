@@ -363,7 +363,7 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val df = dataset.toDF
     val schema = dataset.schema
 
@@ -418,7 +418,7 @@ abstract class SpeechSDKBase extends Transformer
 }
 
 class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with BasicLogging {
-  logClass(uid)
+  logClass()
 
   override type ResponseType = SpeechResponse
 
@@ -490,7 +490,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Basic
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
 class ConversationTranscription(override val uid: String) extends SpeechSDKBase with BasicLogging {
-  logClass(uid)
+  logClass()
 
   override type ResponseType = TranscriptionResponse
 

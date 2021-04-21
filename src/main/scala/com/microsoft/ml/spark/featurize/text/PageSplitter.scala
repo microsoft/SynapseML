@@ -23,7 +23,7 @@ object PageSplitter extends DefaultParamsReadable[PageSplitter]
 class PageSplitter(override val uid: String)
   extends Transformer with HasInputCol with HasOutputCol
     with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("PageSplitter"))
 
@@ -93,7 +93,7 @@ class PageSplitter(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol)))
   }
 

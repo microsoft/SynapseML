@@ -87,7 +87,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasActionCol with HasServiceName with HasIndexName with HasBatchSize
   with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("AddDocuments"))
 
@@ -124,7 +124,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     if (get(url).isEmpty) {
       setUrl(s"https://$getServiceName.search.windows.net" +
         s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")

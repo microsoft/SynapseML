@@ -24,7 +24,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   */
 class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("ClassBalancer"))
 
@@ -40,7 +40,7 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   setDefault(broadcastJoin -> true)
 
   def fit(dataset: Dataset[_]): ClassBalancerModel = {
-    logFit(uid)
+    logFit()
     val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
     val maxVal = counts.agg(max("count")).collect().head.getLong(0)
     val weights = counts
@@ -64,7 +64,7 @@ object ClassBalancer extends DefaultParamsReadable[ClassBalancer]
 
 class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
   with ComplexParamsWritable with Wrappable with HasInputCol with HasOutputCol with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("ClassBalancerModel"))
 
@@ -85,7 +85,7 @@ class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
   def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, DoubleType)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val w = if (getBroadcastJoin) {
       broadcast(getWeights)
     } else {

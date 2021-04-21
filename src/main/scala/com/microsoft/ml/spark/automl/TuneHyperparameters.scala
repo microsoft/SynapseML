@@ -33,7 +33,7 @@ import scala.util.control.NonFatal
   */
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
   with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
@@ -126,7 +126,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
-    logFit(uid)
+    logFit()
     val sparkSession = dataset.sparkSession
     val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
     val hyperParams = getParamSpace.paramMaps
@@ -208,7 +208,7 @@ object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 class TuneHyperparametersModel(val uid: String)
   extends Model[TuneHyperparametersModel] with ComplexParamsWritable
     with Wrappable with HasBestModel with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparametersModel"))
 
@@ -223,7 +223,7 @@ class TuneHyperparametersModel(val uid: String)
   override def copy(extra: ParamMap): TuneHyperparametersModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     getBestModel.transform(dataset)
   }
 

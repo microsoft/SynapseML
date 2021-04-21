@@ -101,14 +101,14 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
 class SummarizeData(override val uid: String)
   extends Transformer
     with SummarizeDataParams with BasicLogging {
-  logClass(uid)
+  logClass()
 
   import SummarizeData.Statistic._
 
   def this() = this(Identifiable.randomUID("SummarizeData"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
 
     val df = dataset.toDF()
     // Some of these statistics are bad to compute

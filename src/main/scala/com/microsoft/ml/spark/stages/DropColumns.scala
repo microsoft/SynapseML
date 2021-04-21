@@ -19,7 +19,7 @@ object DropColumns extends DefaultParamsReadable[DropColumns]
   */
 
 class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("DropColumns"))
 
@@ -37,7 +37,7 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     verifySchema(dataset.schema)
     dataset.toDF().drop(getCols: _*)
   }

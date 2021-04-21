@@ -47,7 +47,7 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
   with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
@@ -73,7 +73,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
-    logFit(uid)
+    logFit()
     val (colsToFill, fillValues) = getReplacementValues(
       dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
     new CleanMissingDataModel(uid)
@@ -140,7 +140,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 class CleanMissingDataModel(val uid: String)
   extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
     with HasInputCols with HasOutputCols with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingDataModel"))
 
@@ -160,7 +160,7 @@ class CleanMissingDataModel(val uid: String)
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val datasetCols = dataset.columns.map(name => dataset(name)).toList
     val datasetInputCols = getInputCols.zip(getOutputCols)
       .flatMap(io =>

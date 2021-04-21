@@ -21,7 +21,7 @@ import scala.collection.mutable
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
 class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("EnsembleByKey"))
 
@@ -82,7 +82,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   setDefault(collapseGroup -> true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
 
     if (get(colNames).isEmpty) {
       setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))

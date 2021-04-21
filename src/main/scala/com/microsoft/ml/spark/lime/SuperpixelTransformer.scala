@@ -37,14 +37,14 @@ trait HasModifier extends Params {
 class SuperpixelTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol
   with Wrappable with DefaultParamsWritable with HasCellSize with HasModifier with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("SuperpixelTransformer"))
 
   setDefault(cellSize->16.0, modifier->130.0, outputCol->s"${uid}_output")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val getSuperPixels = Superpixel.getSuperpixelUDF(
       dataset.schema(getInputCol).dataType, getCellSize, getModifier)
 

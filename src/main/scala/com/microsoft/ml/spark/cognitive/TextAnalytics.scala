@@ -173,7 +173,7 @@ object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
 class TextSentimentV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextSentimentV2"))
 
@@ -188,7 +188,7 @@ object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 
 class LanguageDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
 
@@ -203,7 +203,7 @@ object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 
 class EntityDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetectorV2"))
 
@@ -217,7 +217,7 @@ class EntityDetectorV2(override val uid: String)
 object NERV2 extends ComplexParamsReadable[NERV2]
 
 class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("NERV2"))
 
@@ -231,7 +231,7 @@ object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 
 class KeyPhraseExtractorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
 
@@ -246,7 +246,7 @@ object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextSentiment"))
 
@@ -281,7 +281,7 @@ object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
 
@@ -294,7 +294,7 @@ class KeyPhraseExtractor(override val uid: String)
 object NER extends ComplexParamsReadable[NER]
 
 class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("NER"))
 
@@ -308,7 +308,7 @@ object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetector"))
 
@@ -323,7 +323,7 @@ object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
 class EntityDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetector"))
 

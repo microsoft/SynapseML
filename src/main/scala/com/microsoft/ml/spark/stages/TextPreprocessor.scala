@@ -97,7 +97,7 @@ object TextPreprocessor extends ComplexParamsReadable[TextPreprocessor]
   */
 class TextPreprocessor(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextPreprocessor"))
 
@@ -129,7 +129,7 @@ class TextPreprocessor(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val spark = dataset.sparkSession
     val inputIndex = dataset.columns.indexOf(getInputCol)
     val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)

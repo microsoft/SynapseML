@@ -47,7 +47,7 @@ object SparkSessionFactory {
     val sess = SparkSession.builder()
       .config(conf)
       .getOrCreate()
-    sess.sparkContext.setLogLevel("INFO")
+    sess.sparkContext.setLogLevel(logLevel)
     sess
   }
 

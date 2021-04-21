@@ -24,7 +24,7 @@ object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializabl
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 

@@ -22,7 +22,7 @@ class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
   with ComplexParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -36,7 +36,7 @@ class VowpalWabbitClassifier(override val uid: String)
   def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
-    logTrain(uid)
+    logTrain()
     val model = new VowpalWabbitClassificationModel(uid)
       .setFeaturesCol(getFeaturesCol)
       .setAdditionalFeatures(getAdditionalFeatures)
@@ -64,7 +64,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel
     with ComplexParamsWritable with Wrappable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitClassificationModel"))
 
@@ -73,7 +73,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
   def numClasses: Int = 2
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     val df = transformImplInternal(dataset)
 
     // which mode one wants to use depends a bit on how this should be deployed

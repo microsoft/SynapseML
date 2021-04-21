@@ -35,7 +35,7 @@ import scala.language.existentials
   */
 class SAR(override val uid: String) extends Estimator[SARModel]
   with SARParams with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   /** @group getParam */
   def getSimilarityFunction: String = $(similarityFunction)
@@ -64,7 +64,7 @@ class SAR(override val uid: String) extends Estimator[SARModel]
   }
 
   override def fit(dataset: Dataset[_]): SARModel = {
-    logFit(uid)
+    logFit()
     new SARModel(uid)
       .setUserDataFrame(calculateUserItemAffinities(dataset))
       .setItemDataFrame(calculateItemItemSimilarity(dataset))

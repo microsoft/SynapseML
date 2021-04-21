@@ -274,7 +274,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     getInternalTransformer(dataset.schema).transform(dataset)
   }
 

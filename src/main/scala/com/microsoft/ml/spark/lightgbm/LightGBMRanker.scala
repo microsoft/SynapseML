@@ -23,7 +23,7 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
     with LightGBMBase[LightGBMRankerModel] with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
@@ -110,7 +110,7 @@ class LightGBMRankerModel(override val uid: String)
     with LightGBMModelMethods
     with LightGBMPredictionParams
     with ComplexParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
 
@@ -123,7 +123,7 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     var outputData = super.transform(dataset)
     if (getLeafPredictionCol.nonEmpty) {
       val predLeafUDF = udf(predictLeaf _)
@@ -137,7 +137,7 @@ class LightGBMRankerModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logPredict(uid)
+    logPredict()
     getModel.score(features, false, false)(0)
   }
 

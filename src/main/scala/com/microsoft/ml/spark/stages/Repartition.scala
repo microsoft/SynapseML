@@ -18,7 +18,7 @@ object Repartition extends DefaultParamsReadable[Repartition]
   * @param uid The id of the module
   */
 class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("Repartition"))
 
@@ -47,7 +47,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     if (getDisable)
       dataset.toDF
     else if (getN < dataset.rdd.getNumPartitions)

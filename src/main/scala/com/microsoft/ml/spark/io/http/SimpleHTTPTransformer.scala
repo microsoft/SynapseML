@@ -64,7 +64,7 @@ object ErrorUtils extends Serializable {
 class SimpleHTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
     with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol with BasicLogging {
-  logClass(uid)
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -157,7 +157,7 @@ class SimpleHTTPTransformer(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     makePipeline(dataset.schema).transform(dataset.toDF())
   }
 

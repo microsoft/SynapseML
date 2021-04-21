@@ -8,37 +8,26 @@ import org.apache.spark.sql.Dataset
 
 trait BasicLogging extends Logging {
 
-  def logClass(uid: String): Unit = {
-    logInfo(s"metrics/ uid $uid Calling $getClass")
+  val uid: String
+
+  def logClass(): Unit = {
+    logInfo(s"metrics/ {uid: $uid, class: $getClass}")
   }
 
-  def logFit(uid: String): Unit = {
-      logInfo(s"metrics/ uid $uid Calling function fit")
+  def logFit(): Unit = {
+      logInfo(s"metrics/ {uid: $uid, method: fit}")
   }
 
-  def logFitGeneric(): Unit = {
-    logInfo("metrics/ Calling function fitGeneric")
+  def logTrain(): Unit = {
+    logInfo(s"metrics/ {uid: $uid, method: train}")
   }
 
-  def logFitOptimized(): Unit = {
-    logInfo("metrics/ Calling function fitOptimized")
+  def logTransform(dataset: Dataset[_]): Unit = {
+     logInfo(s"metrics/ {uid: $uid, method: transform, dataset: {columns: ${dataset.columns.mkString}}}")
   }
 
-  def logTrain(uid: String): Unit = {
-    logInfo(s"metrics/ uid $uid Calling function train")
-  }
-
-  def logTransform(uid: String, dataset: Dataset[_]): Unit = {
-     logInfo(s"metrics/ uid $uid Calling function transform with dataset" +
-       s" (columns: ${dataset.columns.mkString}.; count: ${dataset.count()})")
-  }
-
-  def logTranspose(): Unit = {
-    logInfo("metrics/ Calling function transpose")
-  }
-
-  def logPredict(uid: String): Unit = {
-    logInfo(s"metrics/ uid $uid Calling function predict")
+  def logPredict(): Unit = {
+    logInfo(s"metrics/ {uid: $uid, method: predict}")
   }
 
 }

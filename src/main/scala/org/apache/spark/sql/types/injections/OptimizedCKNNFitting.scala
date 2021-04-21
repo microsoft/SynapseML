@@ -14,7 +14,7 @@ import org.apache.spark.sql.types._
 trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
-    logFitGeneric()
+
     val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -35,7 +35,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): ConditionalKNNModel = {
-    logFitOptimized()
+
     val vt = dataset.schema(getValuesCol).dataType
     val lt = dataset.schema(getLabelCol).dataType
     (vt, lt) match {
@@ -51,7 +51,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 trait OptimizedKNNFitting extends KNNParams with BasicLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
-    logFitGeneric()
+
     val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -69,7 +69,7 @@ trait OptimizedKNNFitting extends KNNParams with BasicLogging {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): KNNModel = {
-    logFitOptimized()
+
     dataset.schema(getValuesCol).dataType match {
       case avt: AtomicType => fitGeneric[avt.InternalType](dataset)
       case _ => fitGeneric[Any](dataset)

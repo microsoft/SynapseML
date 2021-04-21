@@ -20,7 +20,7 @@ object Lambda extends ComplexParamsReadable[Lambda] {
 }
 
 class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable with BasicLogging {
-  logClass(uid)
+  logClass()
 
   def this() = this(Identifiable.randomUID("Lambda"))
 
@@ -45,7 +45,7 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(uid, dataset)
+    logTransform(dataset)
     getTransform(dataset)
   }
 
