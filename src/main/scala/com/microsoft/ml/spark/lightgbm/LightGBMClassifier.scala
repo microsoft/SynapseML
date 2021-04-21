@@ -63,6 +63,7 @@ class LightGBMClassifier(override val uid: String)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
       .setActualNumClasses(classifierTrainParams.numClass)
+      .setNumIterations(lightGBMBooster.bestIteration)
     if (isDefined(thresholds)) model.setThresholds(getThresholds) else model
   }
 
@@ -104,6 +105,7 @@ class LightGBMClassificationModel(override val uid: String)
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform(dataset)
+    updateBoosterParamsBeforePredict()
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
       require(getThresholds.length == numClasses, this.getClass.getSimpleName +

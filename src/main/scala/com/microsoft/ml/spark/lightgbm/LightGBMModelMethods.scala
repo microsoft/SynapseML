@@ -48,6 +48,49 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging {
   }
 
   /**
+    * Public method to get the best iteration from the booster.
+    * @return The best iteration, if early stopping was triggered.
+    */
+  def getBoosterBestIteration(): Int = {
+    getLightGBMBooster.bestIteration
+  }
+
+  /**
+    * Public method to get the total number of iterations trained.
+    * @return The total number of iterations trained.
+    */
+  def getBoosterNumTotalIterations(): Int = {
+    getLightGBMBooster.numTotalIterations
+  }
+
+  /**
+    * Public method to get the total number of models trained.
+    * Note this may be larger than the number of iterations,
+    * since in multiclass a model is trained per class for
+    * each iteration.
+    * @return The total number of models.
+    */
+  def getBoosterNumTotalModel(): Int = {
+    getLightGBMBooster.numTotalModel
+  }
+
+  /**
+    * Public method to get the number of features from the booster.
+    * @return The number of features.
+    */
+  def getBoosterNumFeatures(): Int = {
+    getLightGBMBooster.numFeatures
+  }
+
+  /**
+    * Public method to get the number of classes from the booster.
+    * @return The number of classes.
+    */
+  def getBoosterNumClasses(): Int = {
+    getLightGBMBooster.numClasses
+  }
+
+  /**
     * Protected method to predict leaf index.
     * @param features The local instance or row to compute the leaf index for.
     * @return The predicted leaf index.
@@ -63,5 +106,10 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging {
     */
   protected def featuresShap(features: Vector): Vector = {
     Vectors.dense(getLightGBMBooster.featuresShap(features))
+  }
+
+  protected def updateBoosterParamsBeforePredict(): Unit = {
+    getModel.setNumIterations(getNumIterations)
+    getModel.setStartIteration(getStartIteration)
   }
 }

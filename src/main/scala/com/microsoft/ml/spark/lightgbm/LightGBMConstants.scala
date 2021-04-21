@@ -38,4 +38,10 @@ object LightGBMConstants {
     * sending port and host information
     */
   val FinishedStatus: String = "finished"
+  /** The default start iteration
+    */
+  val DefaultStartIteration: Int = 0
+  /** The default num iterations for prediction
+    */
+  val DefaultNumIterations: Int = -1
 }
