@@ -10,7 +10,7 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 case class BasicLogInfo(
                        uid: String,
                        className: String,
-                       method: String,
+                       method: String
                        )
 
 object LogJsonProtocol extends DefaultJsonProtocol {
