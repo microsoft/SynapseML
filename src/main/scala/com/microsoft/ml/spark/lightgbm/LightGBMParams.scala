@@ -200,6 +200,21 @@ trait LightGBMModelParams extends Wrappable {
     * @return The LightGBM Booster.
     */
   def getModel: LightGBMBooster = this.getLightGBMBooster
+
+  val startIteration = new IntParam(this, "startIteration",
+    "Sets the start index of the iteration to predict. If <= 0, starts from the first iteration.")
+  setDefault(startIteration -> LightGBMConstants.DefaultStartIteration)
+
+  def getStartIteration: Int = $(startIteration)
+  def setStartIteration(value: Int): this.type = set(startIteration, value)
+
+  val numIterations = new IntParam(this, "numIterations",
+    "Sets the total number of iterations used in the prediction." +
+      "If <= 0, all iterations from ``start_iteration`` are used (no limits).")
+  setDefault(numIterations -> LightGBMConstants.DefaultNumIterations)
+
+  def getNumIterations: Int = $(numIterations)
+  def setNumIterations(value: Int): this.type = set(numIterations, value)
 }
 
 /** Defines common parameters across all LightGBM learners.
