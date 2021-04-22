@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
@@ -27,9 +27,11 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    val livyBatches = SynapseUtilities.NotebookPythonFiles.map(SynapseUtilities.uploadAndSubmitNotebook(livyUrl, _))
-    println(s"Submitted ${livyBatches.length} jobs for execution: " +
-      s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}").mkString("Array(", ", ", ")")}")
+    val livyBatches = SynapseUtilities.NotebookPythonFiles.map(f => {
+      val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
+      SynapseUtilities.monitorJob(livyBatch, livyUrl)
+    })
+
     try {
       val batchFutures = livyBatches.map((batch: LivyBatch) => {
         Future {

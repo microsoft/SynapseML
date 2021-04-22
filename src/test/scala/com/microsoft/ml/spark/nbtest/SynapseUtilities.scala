@@ -6,7 +6,7 @@ import com.microsoft.ml.spark.cognitive.RESTHelpers
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.entity.UrlEncodedFormEntity
-import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost, HttpPut}
+import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
 import org.json4s.JsonAST.JObject
@@ -62,16 +62,8 @@ object SynapseUtilities {
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
 
-  def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
-    val getStatsRequest = new HttpGet(s"$livyUrl/batches/$id")
-    val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backoffs, close = false)
-    val batch = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8")).extract[LivyBatch]
-    statsResponse.close()
-    batch
-  }
-
   def getLogs(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 500, 1000)): Seq[String] = {
-    val getLogsRequest = new HttpGet(s"$livyUrl/batches/$id/log?from=0&size=10000")
+    val getLogsRequest = new HttpGet(s"$livyUrl/$id/log?from=0&size=10000")
     getLogsRequest.setHeader("Authorization", s"Bearer $Token")
     val statsResponse = RESTHelpers.safeSend(getLogsRequest, backoffs = backoffs, close = false)
     val batchString = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8"))
@@ -83,6 +75,30 @@ object SynapseUtilities {
   def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {
     getLogs(batch.id, livyUrl).foreach(println)
     write(batch)
+    batch
+  }
+
+  def monitorJob(livyBatch: LivyBatch, livyUrl: String, timeout: Int = TimeoutInMillis): LivyBatch = {
+    val startTime = System.currentTimeMillis()
+    var livyBatchTmp: LivyBatch = livyBatch
+    println(s"monitoring Livy Job: ${livyBatchTmp.id} ")
+    while ( (livyBatchTmp.state == "not_started" || livyBatchTmp.state == "starting" )
+      && (System.currentTimeMillis() - startTime) < timeout) {
+      println(s"Livy Job ${livyBatchTmp.id} not started, waiting...")
+      blocking {
+        Thread.sleep(8000)
+      }
+      livyBatchTmp = poll(livyBatchTmp.id, livyUrl)
+    }
+    livyBatchTmp
+  }
+
+  def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
+    val getStatsRequest = new HttpGet(s"$livyUrl/$id")
+    getStatsRequest.setHeader("Authorization", s"Bearer $Token")
+    val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backoffs, close = false)
+    val batch = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8")).extract[LivyBatch]
+    statsResponse.close()
     batch
   }
 
@@ -122,17 +138,12 @@ object SynapseUtilities {
     s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
 
-  def cancelRun(livyUrl: String, batchId: Int): Unit = {
-    val createRequest = new HttpDelete(s"$livyUrl/batches/$batchId")
-    val response = RESTHelpers.safeSend(createRequest, close = false)
-    println(response.getEntity.getContent)
-  }
-
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
     // MMLSpark info
     val truncatedScalaVersion: String = BuildInfo.scalaVersion
       .split(".".toCharArray.head).dropRight(1).mkString(".")
-    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
+    // val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
+    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:1.0.0-rc3-46-3b91af32-SNAPSHOT"
     val repository = "https://mmlspark.azureedge.net/maven"
 
     val sparkPackages: Array[String] = Array(deploymentBuild)
@@ -144,9 +155,9 @@ object SynapseUtilities {
          | "file" : "$path",
          | "name" : "$jobName",
          | "driverMemory" : "2g",
-         | "driverCores" : 2,
-         | "executorMemory" : "2g",
-         | "executorCores" : 2,
+         | "driverCores" : 1,
+         | "executorMemory" : "6g",
+         | "executorCores" : 1,
          | "numExecutors" : 2,
          | "conf" :
          |      {
@@ -165,8 +176,15 @@ object SynapseUtilities {
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode
-    println(status)
+    assert(status == 200)
     batch
+  }
+
+  def cancelRun(livyUrl: String, batchId: Int): Unit = {
+    val createRequest = new HttpDelete(s"$livyUrl/$batchId")
+    createRequest.setHeader("Authorization", s"Bearer $Token")
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    println(response.getEntity.getContent)
   }
 
   def convertNotebook() {
@@ -188,7 +206,7 @@ object SynapseUtilities {
     }
   }
 
-  private def getSynapseToken: String = {
+  def getSynapseToken: String = {
     val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
     val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
     val spnKey: String = Secrets.SynapseSpnKey
