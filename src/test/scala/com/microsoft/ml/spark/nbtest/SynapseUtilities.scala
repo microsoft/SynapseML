@@ -108,7 +108,7 @@ object SynapseUtilities {
     if (batch.state == "success") {
       batch
     } else {
-      if ((System.currentTimeMillis() - startTime) < timeout) {
+      if ((System.currentTimeMillis() - startTime) > timeout) {
         throw new TimeoutException(s"Job $id timed out.")
       }
       else if (batch.state == "dead") {

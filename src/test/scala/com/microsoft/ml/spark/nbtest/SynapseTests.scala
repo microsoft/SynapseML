@@ -33,7 +33,7 @@ class SynapseTests extends TestBase {
     })
 
     try {
-      val batchFutures = livyBatches.map((batch: LivyBatch) => {
+      val batchFutures: Array[Future[Any]] = livyBatches.map((batch: LivyBatch) => {
         Future {
           if (batch.state != "success") {
             if (batch.state == "error") {
@@ -48,8 +48,8 @@ class SynapseTests extends TestBase {
       })
 
       val failures = batchFutures
-        .map(Await.ready(_, Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
-        .filter(_.isFailure)
+        .map(f => Await.ready(f, Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
+        .filter(f => f.isFailure)
       assert(failures.isEmpty)
     }
     catch {
