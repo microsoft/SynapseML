@@ -119,7 +119,7 @@ class PartitionConsolidator(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     dataset.toDF().mapPartitions { it =>
       if (it.hasNext) {
         consolidatorHolder.get.registerAndReceive(it).flatten

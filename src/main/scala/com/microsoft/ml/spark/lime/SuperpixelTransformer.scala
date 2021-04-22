@@ -44,7 +44,7 @@ class SuperpixelTransformer(val uid: String) extends Transformer
   setDefault(cellSize->16.0, modifier->130.0, outputCol->s"${uid}_output")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val getSuperPixels = Superpixel.getSuperpixelUDF(
       dataset.schema(getInputCol).dataType, getCellSize, getModifier)
 

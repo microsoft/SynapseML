@@ -147,7 +147,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     if (getPreserveOrderNumBits + getNumBits > 30)
       throw new IllegalArgumentException(
         s"Number of bits used for hashing (${getNumBits} and " +

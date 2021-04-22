@@ -124,7 +124,7 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     updateBoosterParamsBeforePredict()
     var outputData = super.transform(dataset)
     if (getLeafPredictionCol.nonEmpty) {

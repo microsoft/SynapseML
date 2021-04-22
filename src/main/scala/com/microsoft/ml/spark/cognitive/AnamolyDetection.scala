@@ -200,7 +200,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
     val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
     setVectorParam(series, inputsCol)

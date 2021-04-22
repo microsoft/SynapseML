@@ -91,7 +91,7 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   override def copy(extra: ParamMap): ConditionalKNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     if (broadcastedModelOption.isEmpty) {
       broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
     }

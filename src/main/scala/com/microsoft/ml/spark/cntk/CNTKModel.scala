@@ -497,7 +497,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val spark = dataset.sparkSession
     val df = dataset.toDF()
 

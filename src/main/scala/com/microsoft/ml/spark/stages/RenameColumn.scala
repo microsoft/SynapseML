@@ -28,7 +28,7 @@ class RenameColumn(val uid: String) extends Transformer with Wrappable with Defa
     * @return The DataFrame that results from renaming the input column
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     transformSchema(dataset.schema, logging = true)
     dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
   }

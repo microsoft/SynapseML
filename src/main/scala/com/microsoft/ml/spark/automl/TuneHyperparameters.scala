@@ -223,7 +223,7 @@ class TuneHyperparametersModel(val uid: String)
   override def copy(extra: ParamMap): TuneHyperparametersModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     getBestModel.transform(dataset)
   }
 

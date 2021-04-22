@@ -324,7 +324,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
 

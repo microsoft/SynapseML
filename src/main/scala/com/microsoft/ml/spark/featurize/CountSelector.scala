@@ -75,7 +75,7 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     getModel.transform(dataset)
   }
 

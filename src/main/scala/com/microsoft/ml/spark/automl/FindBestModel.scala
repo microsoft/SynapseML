@@ -181,7 +181,7 @@ class BestModel(val uid: String) extends Model[BestModel]
   override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     getBestModel.transform(dataset)
   }
 

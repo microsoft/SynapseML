@@ -135,7 +135,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
     val cntkModel = getCntkModel

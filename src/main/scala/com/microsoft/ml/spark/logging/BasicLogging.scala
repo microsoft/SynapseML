@@ -40,7 +40,7 @@ trait BasicLogging extends Logging {
     logBase("train")
   }
 
-  def logTransform(dataset: Dataset[_]): Unit = {
+  def logTransform(): Unit = {
     logBase("transform")
   }
 

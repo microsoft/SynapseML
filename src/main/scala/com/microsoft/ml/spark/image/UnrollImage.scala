@@ -159,7 +159,7 @@ class UnrollImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val df = dataset.toDF
     assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
     val unrollUDF = udf(unroll _)
@@ -210,7 +210,7 @@ class UnrollBinaryImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val df = dataset.toDF
     assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 

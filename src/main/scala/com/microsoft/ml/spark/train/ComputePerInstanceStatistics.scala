@@ -49,7 +49,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val (modelName, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         dataset.schema,

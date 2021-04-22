@@ -42,7 +42,7 @@ class MultiNGram(override val uid: String)
   def setLengths(v: Seq[Int]): this.type = set(lengths, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val df = dataset.toDF()
     val intermediateOutputCols = getLengths.map(n =>
       DatasetExtensions.findUnusedColumnName(s"ngram_$n")(dataset.columns.toSet)

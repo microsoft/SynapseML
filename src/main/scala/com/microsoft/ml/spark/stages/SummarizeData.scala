@@ -108,7 +108,7 @@ class SummarizeData(override val uid: String)
   def this() = this(Identifiable.randomUID("SummarizeData"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
 
     val df = dataset.toDF()
     // Some of these statistics are bad to compute

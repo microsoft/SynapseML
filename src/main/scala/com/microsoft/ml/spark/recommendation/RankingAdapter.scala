@@ -121,7 +121,7 @@ class RankingAdapterModel private[ml](val uid: String)
   def getRecommenderModel: Model[_] = $(recommenderModel).asInstanceOf[Model[_]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     transformSchema(dataset.schema)
 
     val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))

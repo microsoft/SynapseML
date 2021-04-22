@@ -30,7 +30,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val fieldSubset = dataset.schema.fields
       .filter(f => getInputCols.contains(f.name))
 

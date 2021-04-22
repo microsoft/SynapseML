@@ -46,7 +46,7 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     * @return The DataFrame that results from stratified repartitioning
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     // Count unique values in label column
     val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
     val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))

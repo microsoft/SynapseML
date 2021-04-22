@@ -145,7 +145,7 @@ class TrainedRegressorModel(val uid: String)
   override def copy(extra: ParamMap): TrainedRegressorModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     // re-featurize and score the data
     val scoredData = getModel.transform(dataset)
 

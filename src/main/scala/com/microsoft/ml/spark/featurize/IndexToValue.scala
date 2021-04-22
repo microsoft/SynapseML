@@ -36,7 +36,7 @@ class IndexToValue(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
     require(info.isCategorical, "column " + getInputCol + "is not Categorical")
     val dataType = info.dataType

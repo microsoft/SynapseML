@@ -59,7 +59,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
   setDefault(headers -> Map[String, String](), method -> "POST")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val df = dataset.toDF()
     val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getOutputCol)
     val entityCol   = newCol("entity")(colsToAvoid)
@@ -130,7 +130,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val parseInputExpression = {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => f(col(getInputCol))
@@ -184,7 +184,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
     val parsed = dataset.toDF.withColumn(getOutputCol,
       from_json(stringEntityCol, getDataType, Map("charset"->"UTF-8")))
@@ -210,7 +210,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   def this() = this(Identifiable.randomUID("StringOutputParser"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
     dataset.toDF.withColumn(getOutputCol, stringEntityCol)
   }
@@ -259,7 +259,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val parseOutputExpression = {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => f(col(getInputCol))

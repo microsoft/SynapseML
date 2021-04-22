@@ -56,7 +56,7 @@ class RecommendationIndexerModel(override val uid: String) extends Model[Recomme
   override def copy(extra: ParamMap): RecommendationIndexerModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     getItemIndexModel.transform(getUserIndexModel.transform(dataset))
   }
 

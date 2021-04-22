@@ -85,7 +85,7 @@ class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
   def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, DoubleType)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val w = if (getBroadcastJoin) {
       broadcast(getWeights)
     } else {

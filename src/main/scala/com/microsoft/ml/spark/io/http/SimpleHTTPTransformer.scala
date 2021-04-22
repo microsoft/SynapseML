@@ -157,7 +157,7 @@ class SimpleHTTPTransformer(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     makePipeline(dataset.schema).transform(dataset.toDF())
   }
 

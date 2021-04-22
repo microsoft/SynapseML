@@ -37,7 +37,7 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     verifySchema(dataset.schema)
     dataset.toDF().drop(getCols: _*)
   }

@@ -84,7 +84,7 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
     val inputType = dataset.schema(getInputCol).dataType
     if (ImageSchemaUtils.isImage(inputType)) {

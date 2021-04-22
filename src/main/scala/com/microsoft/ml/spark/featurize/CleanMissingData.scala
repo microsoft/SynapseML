@@ -160,7 +160,7 @@ class CleanMissingDataModel(val uid: String)
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val datasetCols = dataset.columns.map(name => dataset(name)).toList
     val datasetInputCols = getInputCols.zip(getOutputCols)
       .flatMap(io =>

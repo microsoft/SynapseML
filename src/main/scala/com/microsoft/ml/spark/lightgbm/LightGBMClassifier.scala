@@ -104,7 +104,7 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     updateBoosterParamsBeforePredict()
     transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {

@@ -82,7 +82,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   setDefault(collapseGroup -> true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
 
     if (get(colNames).isEmpty) {
       setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))

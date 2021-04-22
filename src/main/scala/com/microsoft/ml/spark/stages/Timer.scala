@@ -122,7 +122,7 @@ class TimerModel(val uid: String)
   def transformSchema(schema: StructType): StructType = getTransformer.transformSchema(schema)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform(dataset)
+    logTransform()
     val (model, message) = transformWithTime(dataset)
     log(message)
     model
