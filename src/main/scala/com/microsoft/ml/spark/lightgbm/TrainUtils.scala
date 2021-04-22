@@ -101,48 +101,57 @@ private object TrainUtils extends Serializable {
     }
   }
 
+  def releaseArrays(labelsChunkedArray: floatChunkedArray, weightChunkedArrayOpt: Option[floatChunkedArray],
+                    initScoreChunkedArrayOpt: Option[doubleChunkedArray]): Unit = {
+    labelsChunkedArray.release()
+    weightChunkedArrayOpt.foreach(_.release())
+    initScoreChunkedArrayOpt.foreach(_.release())
+  }
+
   def aggregateDenseStreamedData(hrow: Row, rowsIter: Iterator[Row], columnParams: ColumnParams,
                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     var numRows = 0
-    val defaultChunkSize = 100
+    val defaultChunkSize = 1000
     val labelsChunkedArray = new floatChunkedArray(defaultChunkSize)
     val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(defaultChunkSize) }
     val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(defaultChunkSize) }
-    var numCols = 0
     var featuresChunkedArrayOpt: Option[doubleChunkedArray] = None
     val groupColumnValues: ListBuffer[Row] = new ListBuffer[Row]()
-    while (rowsIter.hasNext || numRows == 0) {
-      val row = if (numRows == 0) hrow else rowsIter.next()
-      numRows += 1
-      labelsChunkedArray.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
-      columnParams.weightColumn.map { col =>
-        weightChunkedArrayOpt.get.add(row.getDouble(schema.fieldIndex(col)).toFloat)
+    try {
+      var numCols = 0
+      while (rowsIter.hasNext || numRows == 0) {
+        val row = if (numRows == 0) hrow else rowsIter.next()
+        numRows += 1
+        labelsChunkedArray.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
+        columnParams.weightColumn.map { col =>
+          weightChunkedArrayOpt.get.add(row.getDouble(schema.fieldIndex(col)).toFloat)
+        }
+        val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
+        numCols = rowAsDoubleArray.length
+        if (featuresChunkedArrayOpt.isEmpty) {
+          featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols * defaultChunkSize))
+        }
+        addFeaturesToChunkedArray(featuresChunkedArrayOpt, numCols, rowAsDoubleArray)
+        addInitScoreColumnRow(initScoreChunkedArrayOpt, row, columnParams, schema)
+        addGroupColumnRow(row, groupColumnValues, columnParams, schema)
       }
-      val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
-      numCols = rowAsDoubleArray.length
-      if (featuresChunkedArrayOpt.isEmpty) {
-        featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols))
-      }
-      addFeaturesToChunkedArray(featuresChunkedArrayOpt, numCols, rowAsDoubleArray)
-      addInitScoreColumnRow(initScoreChunkedArrayOpt, row, columnParams, schema)
-      addGroupColumnRow(row, groupColumnValues, columnParams, schema)
-    }
 
-    val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-    log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
-    val datasetPtr = Some(LightGBMUtils.generateDenseDataset(numRows, numCols, featuresChunkedArrayOpt.get,
-      referenceDataset, slotNames, trainParams))
-    datasetPtr.get.addFloatField(labelsChunkedArray, "label", numRows)
-    weightChunkedArrayOpt.foreach { weightChunkedArray =>
-      datasetPtr.get.addFloatField(weightChunkedArray, "weight", numRows)
+      val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
+      log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
+      val datasetPtr = Some(LightGBMUtils.generateDenseDataset(numRows, numCols, featuresChunkedArrayOpt.get,
+        referenceDataset, slotNames, trainParams, defaultChunkSize))
+      datasetPtr.get.addFloatField(labelsChunkedArray, "label", numRows)
+
+      weightChunkedArrayOpt.foreach(datasetPtr.get.addFloatField(_, "weight", numRows))
+      initScoreChunkedArrayOpt.foreach(datasetPtr.get.addDoubleField(_, "init_score", numRows))
+      val overrideGroupIndex = Some(0)
+      addGroupColumn(groupColumnValues.toArray, columnParams.groupColumn, datasetPtr, numRows, schema,
+        overrideGroupIndex)
+      datasetPtr
+    } finally {
+      releaseArrays(labelsChunkedArray, weightChunkedArrayOpt, initScoreChunkedArrayOpt)
     }
-    initScoreChunkedArrayOpt.foreach { initScoreChunkedArray =>
-      datasetPtr.get.addDoubleField(initScoreChunkedArray, "init_score", numRows)
-    }
-    val overrideGroupIndex = Some(0)
-    addGroupColumn(groupColumnValues.toArray, columnParams.groupColumn, datasetPtr, numRows, schema, overrideGroupIndex)
-    datasetPtr
   }
 
   trait CardinalityType[T]
@@ -305,7 +314,7 @@ private object TrainUtils extends Serializable {
   }
 
   def trainCore(batchIndex: Int, trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
-                log: Logger, hasValid: Boolean): Unit = {
+                log: Logger, hasValid: Boolean): Option[Int] = {
     val isFinishedPtr = lightgbmlib.new_intp()
     var isFinished = false
     var iters = 0
@@ -316,6 +325,7 @@ private object TrainUtils extends Serializable {
     val bestIter = new Array[Int](evalCounts)
     val partitionId = TaskContext.getPartitionId
     var learningRate: Double = trainParams.learningRate
+    var bestIterResult: Option[Int] = None
     while (!isFinished && iters < trainParams.numIterations) {
       beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid)
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
@@ -381,6 +391,7 @@ private object TrainUtils extends Serializable {
           } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))
+            bestIterResult = Some(bestIter(index))
           }
 
           (evalName, score)
@@ -398,6 +409,7 @@ private object TrainUtils extends Serializable {
 
       iters = iters + 1
     }
+    bestIterResult
   }
 
   def getSlotNames(schema: StructType, featuresColumn: String, numCols: Int,
@@ -472,10 +484,13 @@ private object TrainUtils extends Serializable {
       var boosterPtr: Option[SWIGTYPE_p_void] = None
       try {
         boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-        trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        val bestIterResult = trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
         if (returnBooster) {
           val model = saveBoosterToString(boosterPtr, log)
-          Iterator.single(new LightGBMBooster(model))
+          val booster = new LightGBMBooster(model)
+          // Set best iteration on booster if hit early stopping criteria in trainCore
+          bestIterResult.foreach(booster.setBestIteration(_))
+          Iterator.single(booster)
         } else {
           Iterator.empty
         }

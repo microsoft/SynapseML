@@ -6,7 +6,6 @@ package com.microsoft.ml.spark.cognitive.split3
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
-import com.microsoft.cognitiveservices.speech.SpeechConfig
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.cognitive.split1.CognitiveKey
@@ -16,6 +15,7 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.functions.{col, lit, to_json}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 import org.scalatest.Assertion
@@ -61,6 +61,11 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   lazy val Seq(audioDf1, audioDf2, audioDf3, dialogueDf) = audioBytes.take(4).map(bytes =>
     Seq(Tuple1(bytes)).toDF("audio")
   )
+
+  lazy val dialogueDf2: DataFrame = Seq(
+    (1, audioBytes(3)),
+    (2, audioBytes(3))
+  ).toDF("num", "audio")
 
   /** Simple similarity test using Jaccard index */
   def jaccardSimilarity(s1: String, s2: String): Double = {
@@ -328,12 +333,6 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  test("foo"){
-    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(
-      new URI("https://eastus.api.cognitive.microsoft.com/sts/v1.0/issuetoken"),
-      "2f89346fdf6745ad81ee6f92e639bb5d")
-    println(speechConfig)
-  }
 
   test("dialogue with participants") {
     val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
@@ -345,6 +344,32 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
         ("user2", "en-US", profile2)
       ))
       .setFileType("mp3").transform(dialogueDf)
+      .select(sdk.getOutputCol)
+      .collect()
+      .map(r => fromRow(r.getAs[Row]("text")).SpeakerId)
+      .filterNot(sid => sid == "Unidentified")
+
+    assert(speakers === Seq("user1", "user2", "user1", "user2"))
+  }
+
+  test("dialogue with participant col") {
+    val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
+    val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
+    val participantDf = Seq(
+      (1, Seq(TranscriptionParticipant("user1", "en-US", profile1),
+        TranscriptionParticipant("user2", "en-US", profile2))),
+      (2, null)
+    ).toDF("num", "participants")
+      .withColumn("participantsJson", to_json(col("participants")))
+
+    val dialogueDf3 = dialogueDf2
+      .join(participantDf, Seq("num"), joinType = "left")
+
+    val fromRow = TranscriptionResponse.makeFromRowConverter
+    val speakers = sdk
+      .setParticipantsJsonCol("participantsJson")
+      .setFileType("mp3")
+      .transform(dialogueDf3)
       .select(sdk.getOutputCol)
       .collect()
       .map(r => fromRow(r.getAs[Row]("text")).SpeakerId)
