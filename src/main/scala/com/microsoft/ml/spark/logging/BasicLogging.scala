@@ -24,24 +24,28 @@ trait BasicLogging extends Logging {
 
   val uid: String
 
+  protected def logBase(methodName: String): Unit = {
+    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, methodName).toJson.compactPrint)
+  }
+
   def logClass(): Unit = {
-    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "constructor").toJson.compactPrint)
+    logBase("constructor")
   }
 
   def logFit(): Unit = {
-      logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "fit").toJson.compactPrint)
+    logBase("fit")
   }
 
   def logTrain(): Unit = {
-    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "train").toJson.compactPrint)
+    logBase("train")
   }
 
   def logTransform(dataset: Dataset[_]): Unit = {
-     logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "transform").toJson.compactPrint)
+    logBase("transform")
   }
 
   def logPredict(): Unit = {
-    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, "predict").toJson.compactPrint)
+    logBase("predict")
   }
 
 }
