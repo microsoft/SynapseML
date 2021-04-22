@@ -39,12 +39,21 @@ object SynapseUtilities {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
   lazy val Token: String = getSynapseToken
-  val NotebookFiles: Array[String] = Option(
+  val NotebookPythonFiles: Array[String] = Option(
     FileUtilities
       .join(BuildInfo.baseDirectory, "notebooks", "samples")
       .getCanonicalFile
       .listFiles()
       .filter(filePath => filePath.getAbsolutePath.endsWith(".py"))
+      .map(file => file.getAbsolutePath)
+  ).get
+
+  val NotebookFiles: Array[String] = Option(
+    FileUtilities
+      .join(BuildInfo.baseDirectory, "notebooks", "samples")
+      .getCanonicalFile
+      .listFiles()
+      .filter(filePath => filePath.getAbsolutePath.endsWith(".ipynb"))
       .map(file => file.getAbsolutePath)
   ).get
 
@@ -160,15 +169,15 @@ object SynapseUtilities {
     batch
   }
 
-  private def convertNotebook(notebookPath: String): File = {
+  def convertNotebook() {
     val os = sys.props("os.name").toLowerCase
     os match {
-      case x if x contains "windows" => exec(
-        s"conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+      case x if x contains "windows" => {
+        exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
+      }
       case _ => Process(
-        s"conda init bash && conda activate mmlspark && jupyter nbconvert --to script $notebookPath")
+        "conda activate mmlspark && jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
     }
-    new File(notebookPath.replace(".ipynb", ".py"))
   }
 
   private def exec(command: String): String = {

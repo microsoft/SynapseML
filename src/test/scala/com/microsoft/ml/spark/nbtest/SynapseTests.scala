@@ -14,6 +14,10 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
+  test("convert") {
+    SynapseUtilities.convertNotebook()
+  }
+
   test("SynapsePROD") {
     val workspaceName = "wenqxsynapse"
     val poolName = "wenqxpool3"
@@ -23,7 +27,7 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    val livyBatches = SynapseUtilities.NotebookFiles.map(SynapseUtilities.uploadAndSubmitNotebook(livyUrl, _))
+    val livyBatches = SynapseUtilities.NotebookPythonFiles.map(SynapseUtilities.uploadAndSubmitNotebook(livyUrl, _))
     println(s"Submitted ${livyBatches.length} jobs for execution: " +
       s"${livyBatches.map(batch => s"${batch.id} : ${batch.state}").mkString("Array(", ", ", ")")}")
     try {
