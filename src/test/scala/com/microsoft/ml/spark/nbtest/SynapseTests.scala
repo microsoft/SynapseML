@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.nbtest
 import com.microsoft.ml.spark.core.test.base.TestBase
 
 import java.util.concurrent.TimeUnit
+import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
@@ -15,15 +16,12 @@ class SynapseTests extends TestBase {
 
   test("SynapsePROD") {
     val workspaceName = "wenqxsynapse"
-    val poolName = "wenqxpool"
+    val poolName = "wenqxpool3"
     val livyUrl = "https://" +
       workspaceName +
       ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
       poolName +
       "/batches"
-    val synapseJobUrl = "https://" +
-      workspaceName +
-      ".dev.azuresynapse.net/sparkJobDefinitions/"
 
     val livyBatches = SynapseUtilities.NotebookFiles.map(SynapseUtilities.uploadAndSubmitNotebook(livyUrl, _))
     println(s"Submitted ${livyBatches.length} jobs for execution: " +

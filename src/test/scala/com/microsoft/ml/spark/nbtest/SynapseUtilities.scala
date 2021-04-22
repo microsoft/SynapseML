@@ -6,7 +6,7 @@ import com.microsoft.ml.spark.cognitive.RESTHelpers
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.entity.UrlEncodedFormEntity
-import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
+import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
 import org.json4s.JsonAST.JObject
@@ -51,7 +51,7 @@ object SynapseUtilities {
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
-  val StorageContainer: String = "mmlsparkgatedbuild"
+  val StorageContainer: String = "gatedbuild"
 
   def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/batches/$id")
@@ -63,6 +63,7 @@ object SynapseUtilities {
 
   def getLogs(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 500, 1000)): Seq[String] = {
     val getLogsRequest = new HttpGet(s"$livyUrl/batches/$id/log?from=0&size=10000")
+    getLogsRequest.setHeader("Authorization", s"Bearer $Token")
     val statsResponse = RESTHelpers.safeSend(getLogsRequest, backoffs = backoffs, close = false)
     val batchString = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8"))
     val batch = batchString.extract[LivyLogs]
@@ -102,14 +103,21 @@ object SynapseUtilities {
   def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): LivyBatch = {
     val convertedPyScript = new File(notebookPath)
     val abfssPath = uploadScript(convertedPyScript.getAbsolutePath, s"$Folder/${convertedPyScript.getName}")
-    // submitRun(livyUrl, abfssPath)
-
+    submitRun(livyUrl, abfssPath)
   }
 
-  private def createSparkJob(jobCreateUrl: String, path: String): LivyBatch = {
-
+  private def uploadScript(file: String, dest: String): String = {
+    exec(s"az storage fs file upload " +
+      s" -s $file -p $dest -f $StorageContainer " +
+      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+    s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
 
+  def cancelRun(livyUrl: String, batchId: Int): Unit = {
+    val createRequest = new HttpDelete(s"$livyUrl/batches/$batchId")
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    println(response.getEntity.getContent)
+  }
 
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
     // MMLSpark info
@@ -119,11 +127,13 @@ object SynapseUtilities {
     val repository = "https://mmlspark.azureedge.net/maven"
 
     val sparkPackages: Array[String] = Array(deploymentBuild)
+    val jobName = path.split('/').last.replace(".py", "")
+
     val livyPayload: String =
       s"""
          |{
          | "file" : "$path",
-         | "name" : "gatedBuild",
+         | "name" : "$jobName",
          | "driverMemory" : "2g",
          | "driverCores" : 2,
          | "executorMemory" : "2g",
@@ -138,31 +148,16 @@ object SynapseUtilities {
       """.stripMargin
 
     val createRequest = new HttpPost(livyUrl)
-    println(s"livy payload: $livyPayload")
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
     val response = RESTHelpers.safeSend(createRequest, close = false)
 
-    println(response.getEntity.getContent)
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode
-    assert(status != 201)
+    println(status)
     batch
-  }
-
-  private def uploadScript(file: String, dest: String): String = {
-    exec(s"az storage fs file upload " +
-      s" -s $file -p $dest -f $StorageContainer " +
-      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
-    s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
-  }
-
-  def cancelRun(livyUrl: String, batchId: Int): Unit = {
-    val createRequest = new HttpDelete(s"$livyUrl/batches/$batchId")
-    val response = RESTHelpers.safeSend(createRequest, close = false)
-    println(response.getEntity.getContent)
   }
 
   private def convertNotebook(notebookPath: String): File = {
