@@ -29,7 +29,7 @@ class SynapseTests extends TestBase {
     os match {
       case x if x contains "windows" =>
         exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
-      case _ => exec(
+      case _ => Process(
         "conda init bash && conda activate mmlspark && jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
     }
 
