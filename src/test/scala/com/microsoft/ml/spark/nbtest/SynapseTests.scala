@@ -13,11 +13,7 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
-  test("convert") {
-    SynapseUtilities.convertNotebook()
-  }
-
-  test("SynapsePROD") {
+  test("SynapsePPE") {
     val workspaceName = "wenqxsynapseppe"
     val poolName = "spark3pool"
     val livyUrl = "https://" +
@@ -25,6 +21,8 @@ class SynapseTests extends TestBase {
       ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
       poolName +
       "/batches"
+
+    SynapseUtilities.convertNotebook()
 
     val livyBatches = SynapseUtilities.listPythonFiles()
       .filterNot(_.contains(" "))

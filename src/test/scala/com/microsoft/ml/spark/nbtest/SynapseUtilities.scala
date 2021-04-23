@@ -152,8 +152,8 @@ object SynapseUtilities {
     // MMLSpark info
     val truncatedScalaVersion: String = BuildInfo.scalaVersion
       .split(".".toCharArray.head).dropRight(1).mkString(".")
-    // val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
-    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:1.0.0-rc3-46-3b91af32-SNAPSHOT"
+    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
+    // val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:1.0.0-rc3-46-3b91af32-SNAPSHOT"
     val repository = "https://mmlspark.azureedge.net/maven"
 
     val sparkPackages: Array[String] = Array(deploymentBuild)
