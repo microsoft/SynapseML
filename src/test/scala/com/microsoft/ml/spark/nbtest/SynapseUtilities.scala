@@ -39,30 +39,37 @@ object SynapseUtilities {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
   lazy val Token: String = getSynapseToken
-  val NotebookPythonFiles: Array[String] = Option(
-    FileUtilities
-      .join(BuildInfo.baseDirectory, "notebooks", "samples")
-      .getCanonicalFile
-      .listFiles()
-      .filter(filePath => filePath.getAbsolutePath.endsWith(".py"))
-      .map(file => file.getAbsolutePath)
-  ).get
-
-  val NotebookFiles: Array[String] = Option(
-    FileUtilities
-      .join(BuildInfo.baseDirectory, "notebooks", "samples")
-      .getCanonicalFile
-      .listFiles()
-      .filterNot(filePath => filePath.getAbsolutePath.contains("DeepLearning"))
-      .filterNot(filePath => filePath.getAbsolutePath.contains("ConditionalKNN"))
-      .filter(filePath => filePath.getAbsolutePath.endsWith(".ipynb"))
-      .map(file => file.getAbsolutePath)
-  ).get
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
+
+  def listPythonFiles(): Array[String] = {
+    Option(
+      FileUtilities
+        .join(BuildInfo.baseDirectory, "notebooks", "samples")
+        .getCanonicalFile
+        .listFiles()
+        .filterNot(_.getAbsolutePath.contains("CyberML"))
+        .filterNot(_.getAbsolutePath.contains("DeepLearning"))
+        .filterNot(_.getAbsolutePath.contains("ConditionalKNN"))
+        .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
+        .filter(_.getAbsolutePath.endsWith(".py"))
+        .map(file => file.getAbsolutePath)
+    ).get
+  }
+
+  def listNoteBookFiles(): Array[String] = {
+    Option(
+      FileUtilities
+        .join(BuildInfo.baseDirectory, "notebooks", "samples")
+        .getCanonicalFile
+        .listFiles()
+        .filter(_.getAbsolutePath.endsWith(".ipynb"))
+        .map(file => file.getAbsolutePath)
+    ).get
+  }
 
   def getLogs(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 500, 1000)): Seq[String] = {
     val getLogsRequest = new HttpGet(s"$livyUrl/$id/log?from=0&size=10000")
@@ -136,6 +143,7 @@ object SynapseUtilities {
   private def uploadScript(file: String, dest: String): String = {
     exec(s"az storage fs file upload " +
       s" -s $file -p $dest -f $StorageContainer " +
+      s" --overwrite true " +
       s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
     s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
@@ -198,6 +206,13 @@ object SynapseUtilities {
       case _ => Process(
         "conda activate mmlspark && jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
     }
+
+    listPythonFiles().map(f=>{
+      val newPath = f
+        .replace(" ", "")
+        .replace("-", "")
+      new File(f).renameTo(new File(newPath))
+    })
   }
 
   private def exec(command: String): String = {

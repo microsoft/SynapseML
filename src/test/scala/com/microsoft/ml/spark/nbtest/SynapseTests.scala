@@ -6,9 +6,8 @@ package com.microsoft.ml.spark.nbtest
 import com.microsoft.ml.spark.core.test.base.TestBase
 
 import java.util.concurrent.TimeUnit
-import java.io.File
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
@@ -16,13 +15,6 @@ class SynapseTests extends TestBase {
 
   test("convert") {
     SynapseUtilities.convertNotebook()
-    SynapseUtilities.NotebookPythonFiles.map(f=>{
-      val newPath = f
-        .replace(" ", "")
-        .replace("-", "")
-      new File(f).renameTo(new File(newPath))
-
-    })
   }
 
   test("SynapsePROD") {
@@ -34,10 +26,13 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    val livyBatches = SynapseUtilities.NotebookPythonFiles.map(f => {
-      val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
-      SynapseUtilities.monitorJob(livyBatch, livyUrl)
-    })
+    val livyBatches = SynapseUtilities.listPythonFiles()
+      .filterNot(_.contains(" "))
+      .filterNot(_.contains("-"))
+      .map(f => {
+        val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
+        SynapseUtilities.monitorJob(livyBatch, livyUrl)
+      })
 
     try {
       val batchFutures: Array[Future[Any]] = livyBatches.map((batch: LivyBatch) => {
