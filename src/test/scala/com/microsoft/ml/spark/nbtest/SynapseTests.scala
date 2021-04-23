@@ -4,11 +4,14 @@
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles}
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
+import scala.sys.process.Process
 
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
@@ -22,7 +25,20 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    SynapseUtilities.convertNotebook()
+    val os = sys.props("os.name").toLowerCase
+    os match {
+      case x if x contains "windows" =>
+        exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
+      case _ => exec(
+        "conda init bash && conda activate mmlspark && jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
+    }
+
+    listPythonFiles().map(f => {
+      val newPath = f
+        .replace(" ", "")
+        .replace("-", "")
+      new File(f).renameTo(new File(newPath))
+    })
 
     val livyBatches = SynapseUtilities.listPythonFiles()
       .filterNot(_.contains(" "))

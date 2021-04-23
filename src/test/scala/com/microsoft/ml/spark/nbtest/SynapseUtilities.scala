@@ -91,7 +91,7 @@ object SynapseUtilities {
     val startTime = System.currentTimeMillis()
     var livyBatchTmp: LivyBatch = livyBatch
     println(s"monitoring Livy Job: ${livyBatchTmp.id} ")
-    while ( (livyBatchTmp.state == "not_started" || livyBatchTmp.state == "starting" )
+    while ((livyBatchTmp.state == "not_started" || livyBatchTmp.state == "starting")
       && (System.currentTimeMillis() - startTime) < timeout) {
       println(s"Livy Job ${livyBatchTmp.id} not started, waiting...")
       blocking {
@@ -153,7 +153,6 @@ object SynapseUtilities {
     val truncatedScalaVersion: String = BuildInfo.scalaVersion
       .split(".".toCharArray.head).dropRight(1).mkString(".")
     val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
-    // val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:1.0.0-rc3-46-3b91af32-SNAPSHOT"
     val repository = "https://mmlspark.azureedge.net/maven"
 
     val sparkPackages: Array[String] = Array(deploymentBuild)
@@ -197,25 +196,7 @@ object SynapseUtilities {
     println(response.getEntity.getContent)
   }
 
-  def convertNotebook() {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => {
-        exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
-      }
-      case _ => Process(
-        "conda activate mmlspark && jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
-    }
-
-    listPythonFiles().map(f=>{
-      val newPath = f
-        .replace(" ", "")
-        .replace("-", "")
-      new File(f).renameTo(new File(newPath))
-    })
-  }
-
-  private def exec(command: String): String = {
+  def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
