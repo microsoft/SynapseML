@@ -53,6 +53,8 @@ object SynapseUtilities {
       .join(BuildInfo.baseDirectory, "notebooks", "samples")
       .getCanonicalFile
       .listFiles()
+      .filterNot(filePath => filePath.getAbsolutePath.contains("DeepLearning"))
+      .filterNot(filePath => filePath.getAbsolutePath.contains("ConditionalKNN"))
       .filter(filePath => filePath.getAbsolutePath.endsWith(".ipynb"))
       .map(file => file.getAbsolutePath)
   ).get

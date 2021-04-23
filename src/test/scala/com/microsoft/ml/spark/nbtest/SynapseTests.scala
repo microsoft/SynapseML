@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.nbtest
 import com.microsoft.ml.spark.core.test.base.TestBase
 
 import java.util.concurrent.TimeUnit
-import scala.collection.mutable
+import java.io.File
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.language.existentials
@@ -16,6 +16,13 @@ class SynapseTests extends TestBase {
 
   test("convert") {
     SynapseUtilities.convertNotebook()
+    SynapseUtilities.NotebookPythonFiles.map(f=>{
+      val newPath = f
+        .replace(" ", "")
+        .replace("-", "")
+      new File(f).renameTo(new File(newPath))
+
+    })
   }
 
   test("SynapsePROD") {
