@@ -4,8 +4,9 @@
 package com.microsoft.ml.spark.logging
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.Dataset
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 case class BasicLogInfo(
                        uid: String,
@@ -25,7 +26,7 @@ trait BasicLogging extends Logging {
   val uid: String
 
   protected def logBase(methodName: String): Unit = {
-    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, methodName).toJson.compactPrint)
+    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, methodName).toJson.toString())
   }
 
   def logClass(): Unit = {
