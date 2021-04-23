@@ -69,7 +69,7 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Returns:
             The best iteration, if early stopping was triggered.
         """
-        self._java_obj.getBoosterBestIteration()
+        return self._java_obj.getBoosterBestIteration()
 
     def getBoosterNumTotalIterations(self):
         """Get the total number of iterations trained.
@@ -77,7 +77,7 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Returns:
             The total number of iterations trained.
         """
-        self._java_obj.getBoosterNumTotalIterations()
+        return self._java_obj.getBoosterNumTotalIterations()
 
     def getBoosterNumTotalModel(self):
         """Get the total number of models trained.
@@ -85,7 +85,7 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Returns:
             The total number of models.
         """
-        self._java_obj.getBoosterNumTotalIterations()
+        return self._java_obj.getBoosterNumTotalModel()
 
     def getBoosterNumFeatures(self):
         """Get the number of features from the booster.
@@ -93,4 +93,4 @@ class LightGBMRegressionModel(_LightGBMRegressionModel):
         Returns:
             The number of features.
         """
-        self._java_obj.getBoosterNumTotalIterations()
+        return self._java_obj.getBoosterNumFeatures()
