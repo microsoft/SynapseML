@@ -5,8 +5,6 @@ package com.microsoft.ml.spark.logging
 
 import org.apache.spark.internal.Logging
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
-import spray.json._
-import spray.json.DefaultJsonProtocol._
 
 case class BasicLogInfo(
                        uid: String,
