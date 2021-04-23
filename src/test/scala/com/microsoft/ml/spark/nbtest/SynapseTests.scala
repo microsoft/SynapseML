@@ -19,11 +19,11 @@ class SynapseTests extends TestBase {
   }
 
   test("SynapsePROD") {
-    val workspaceName = "wenqxsynapse"
-    val poolName = "wenqxpool3"
+    val workspaceName = "wenqxsynapseppe"
+    val poolName = "spark3pool"
     val livyUrl = "https://" +
       workspaceName +
-      ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+      ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
       poolName +
       "/batches"
 

@@ -154,10 +154,10 @@ object SynapseUtilities {
          |{
          | "file" : "$path",
          | "name" : "$jobName",
-         | "driverMemory" : "2g",
-         | "driverCores" : 1,
-         | "executorMemory" : "6g",
-         | "executorCores" : 1,
+         | "driverMemory" : "8g",
+         | "driverCores" : 2,
+         | "executorMemory" : "8g",
+         | "executorCores" : 2,
          | "numExecutors" : 2,
          | "conf" :
          |      {
