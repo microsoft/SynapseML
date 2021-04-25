@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.nbtest
 
+import com.microsoft.ml.spark.build.BuildInfo
+import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles}
 
@@ -25,12 +27,16 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
+    val notebookDir: String = FileUtilities
+      .join(BuildInfo.baseDirectory, "notebooks", "samples")
+      .getAbsolutePath
+
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" =>
         exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
       case _ =>
-        Process("conda init bash; conda activate mmlspark; jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
+        Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script $notebookDir/*.ipynb")
     }
 
     listPythonFiles().map(f => {

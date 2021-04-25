@@ -21,7 +21,7 @@ import java.io.{File, InputStream}
 import java.util
 import scala.concurrent.{TimeoutException, blocking}
 import scala.io.Source
-import scala.sys.process.{Process, _}
+import scala.sys.process._
 
 case class LivyBatch(id: Int,
                      state: String,
