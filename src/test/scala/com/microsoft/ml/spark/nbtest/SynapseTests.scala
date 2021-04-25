@@ -4,13 +4,13 @@
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles, listPythonJobFiles}
+import com.microsoft.ml.spark.nbtest.SynapseUtilities._
 import org.json4s.JsonAST.JObject
 
 import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.language.existentials
 import scala.sys.process.Process
 
@@ -20,10 +20,20 @@ case class LivyBatch(id: Int,
                      appInfo: Option[JObject],
                      log: Seq[String])
 
+
+case class Application(state: String,
+                       name: String,
+                       livyId: String)
+
+case class Applications(nJobs: Int,
+                        sparkJobs: Seq[Application])
+
+
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
   test("SynapsePPE") {
+    val maxJobsNum: Int = 6
 
     val os = sys.props("os.name").toLowerCase
     os match {
@@ -52,10 +62,22 @@ class SynapseTests extends TestBase {
       .filterNot(_.contains(" "))
       .filterNot(_.contains("-"))
       .map(f => {
+        val nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
+        val nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
+        while (nActiveJob >= maxJobsNum) {
+          println(s"Current job num >= $maxJobsNum, waiting 10s")
+          blocking {
+            Thread.sleep(10000)
+          }
+        }
+        while ((nActiveJob > 0) && (nRunningJob == 0)) {
+          println(s"some jobs are submitting, but none job is running, waiting 10s")
+          blocking {
+            Thread.sleep(10000)
+          }
+        }
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
         println(s"submitted livy job: ${livyBatch.id}")
-        SynapseUtilities.ActiveBatches.add(livyBatch)
-        SynapseUtilities.monitorJob(livyUrl)
         livyBatch
       })
 

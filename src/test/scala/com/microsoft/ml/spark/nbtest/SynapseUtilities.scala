@@ -18,7 +18,6 @@ import spray.json._
 
 import java.io.{File, InputStream}
 import java.util
-import scala.collection.mutable
 import scala.concurrent.{TimeoutException, blocking}
 import scala.io.Source
 import scala.sys.process._
@@ -33,8 +32,6 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
-  var ActiveBatches: mutable.Set[LivyBatch] = mutable.Set()
-  val MaxBatchJobsNum: Int = 6
 
   def listPythonFiles(): Array[String] = {
     Option(
@@ -86,24 +83,6 @@ object SynapseUtilities {
     batch
   }
 
-  def monitorJob(livyUrl: String): Unit = {
-    while (ActiveBatches.size >= MaxBatchJobsNum) {
-      println(s"active batch jobs ${ActiveBatches.size} >= $MaxBatchJobsNum, waiting 10s ...")
-      blocking {
-        Thread.sleep(10000)
-      }
-
-      ActiveBatches = ActiveBatches
-        .map(lb => poll(lb.id, livyUrl))
-
-      ActiveBatches.foreach(lb => {
-        if ( (lb.state != "not_started") && (lb.state != "starting") && (lb.state != "running")) {
-          println(s"Livy Job ${lb.id} ended, remove it from ActiveBatches")
-          ActiveBatches -= lb
-        }
-      })
-    }
-  }
 
   def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/$id")
@@ -112,6 +91,39 @@ object SynapseUtilities {
     val batch = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8")).extract[LivyBatch]
     statsResponse.close()
     batch
+  }
+
+  def showRunningJobs(workspaceName: String, poolName: String): Applications = {
+    val uriRunning: String =
+      "https://" +
+        s"$workspaceName.dev.azuresynapse-dogfood.net" +
+        "/monitoring/workloadTypes/spark/applications" +
+        "?api-version=2020-10-01-preview" +
+        s"&filter=((state%20eq%20%27running%27)%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
+    val getRunningRequest = new HttpGet(uriRunning)
+    getRunningRequest.setHeader("Authorization", s"Bearer $Token")
+    val runningJobsResponse = RESTHelpers.safeSend(getRunningRequest, close = false)
+    val runningJobs =
+      parse(IOUtils.toString(runningJobsResponse.getEntity.getContent, "utf-8"))
+        .extract[Applications]
+    runningJobs
+  }
+
+  def showActiveJobs(workspaceName: String, poolName: String): Applications = {
+    val uri: String =
+      "https://" +
+        s"$workspaceName.dev.azuresynapse-dogfood.net" +
+        "/monitoring/workloadTypes/spark/applications" +
+        "?api-version=2020-10-01-preview" +
+        "&filter=(((state%20eq%20%27running%27)%20or%20(state%20eq%20%27Submitting%27))" +
+        s"%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
+    val getRequest = new HttpGet(uri)
+    getRequest.setHeader("Authorization", s"Bearer $Token")
+    val activeJobsResponse = RESTHelpers.safeSend(getRequest, close = false)
+    val activeJobs =
+      parse(IOUtils.toString(activeJobsResponse.getEntity.getContent, "utf-8"))
+        .extract[Applications]
+    activeJobs
   }
 
   def retry(id: Int, livyUrl: String, timeout: Int, startTime: Long): LivyBatch = {
