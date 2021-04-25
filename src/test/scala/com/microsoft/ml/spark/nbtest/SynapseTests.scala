@@ -62,19 +62,23 @@ class SynapseTests extends TestBase {
       .filterNot(_.contains(" "))
       .filterNot(_.contains("-"))
       .map(f => {
-        val nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
-        val nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
+        var nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
+        var nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
         while (nActiveJob >= maxJobsNum) {
           println(s"Current job num >= $maxJobsNum, waiting 10s")
           blocking {
             Thread.sleep(10000)
           }
+          nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
+          nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
         }
-        while ((nActiveJob > 2) && (nRunningJob == 0)) {
+        while ((nActiveJob > 0) && (nRunningJob == 0)) {
           println(s"some jobs are submitting, but none job is running, waiting 10s")
           blocking {
             Thread.sleep(10000)
           }
+          nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
+          nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
         }
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
         println(s"submitted livy job: ${livyBatch.id}")
