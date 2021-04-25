@@ -51,13 +51,14 @@ object SynapseUtilities {
         .join(BuildInfo.baseDirectory, "notebooks", "samples")
         .getCanonicalFile
         .listFiles()
+        .filter(_.getAbsolutePath.endsWith(".py"))
         .filterNot(_.getAbsolutePath.contains("CyberML"))
         .filterNot(_.getAbsolutePath.contains("DeepLearning"))
         .filterNot(_.getAbsolutePath.contains("ConditionalKNN"))
         .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
-        .filter(_.getAbsolutePath.endsWith(".py"))
-        .map(file => file.getAbsolutePath)
-    ).get
+        .map(file => file.getAbsolutePath))
+      .get
+      .sorted
   }
 
   def listNoteBookFiles(): Array[String] = {
@@ -67,8 +68,9 @@ object SynapseUtilities {
         .getCanonicalFile
         .listFiles()
         .filter(_.getAbsolutePath.endsWith(".ipynb"))
-        .map(file => file.getAbsolutePath)
-    ).get
+        .map(file => file.getAbsolutePath))
+      .get
+      .sorted
   }
 
   def getLogs(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 500, 1000)): Seq[String] = {
