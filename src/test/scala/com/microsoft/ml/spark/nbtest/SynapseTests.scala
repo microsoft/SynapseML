@@ -27,16 +27,12 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    val notebookDir: String = FileUtilities
-      .join(BuildInfo.baseDirectory, "notebooks", "samples")
-      .getAbsolutePath
-
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" =>
         exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
       case _ =>
-        Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script $notebookDir/*.ipynb")
+        Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
     }
 
     listPythonFiles().map(f => {
