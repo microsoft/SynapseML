@@ -70,7 +70,7 @@ class SynapseTests extends TestBase {
             Thread.sleep(10000)
           }
         }
-        while ((nActiveJob > 0) && (nRunningJob == 0)) {
+        while ((nActiveJob > 2) && (nRunningJob == 0)) {
           println(s"some jobs are submitting, but none job is running, waiting 10s")
           blocking {
             Thread.sleep(10000)
