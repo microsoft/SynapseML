@@ -3,10 +3,8 @@
 
 package com.microsoft.ml.spark.nbtest
 
-import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles}
+import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles, listPythonJobFiles}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -19,13 +17,6 @@ import scala.sys.process.Process
 class SynapseTests extends TestBase {
 
   test("SynapsePPE") {
-    val workspaceName = "wenqxsynapseppe"
-    val poolName = "spark3pool"
-    val livyUrl = "https://" +
-      workspaceName +
-      ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
-      poolName +
-      "/batches"
 
     val os = sys.props("os.name").toLowerCase
     os match {
@@ -42,12 +33,23 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val livyBatches = SynapseUtilities.listPythonFiles()
+    val workspaceName = "wenqxsynapseppe"
+    val poolName = "spark3pool"
+    val livyUrl = "https://" +
+      workspaceName +
+      ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+      poolName +
+      "/batches"
+
+    val livyBatches = listPythonJobFiles()
       .filterNot(_.contains(" "))
       .filterNot(_.contains("-"))
       .map(f => {
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
-        SynapseUtilities.monitorJob(livyBatch, livyUrl)
+        println(s"submitted livy job: ${livyBatch.id}")
+        SynapseUtilities.ActiveBatches.add(livyBatch)
+        SynapseUtilities.monitorJob(livyUrl)
+        livyBatch
       })
 
     try {
@@ -56,7 +58,7 @@ class SynapseTests extends TestBase {
           if (batch.state != "success") {
             if (batch.state == "error") {
               SynapseUtilities.postMortem(batch, livyUrl)
-              throw new RuntimeException(s"${batch.id} returned with state ${batch.state}")
+              // throw new RuntimeException(s"${batch.id} returned with state ${batch.state}")
             }
             else {
               SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
@@ -74,7 +76,7 @@ class SynapseTests extends TestBase {
       case t: Throwable =>
         livyBatches.foreach { batch =>
           println(s"Cancelling job ${batch.id}")
-          SynapseUtilities.cancelRun(livyUrl, batch.id)
+          // SynapseUtilities.cancelRun(livyUrl, batch.id)
         }
         throw t
     }
