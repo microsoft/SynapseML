@@ -24,7 +24,8 @@ trait BasicLogging extends Logging {
   val uid: String
 
   protected def logBase(methodName: String): Unit = {
-    logInfo("metrics/ " + BasicLogInfo(uid, getClass.toString, methodName).toJson.toString())
+    val message: String = BasicLogInfo(uid, getClass.toString, methodName).toJson.compactPrint
+    logInfo(s"metrics/ $message")
   }
 
   def logClass(): Unit = {
