@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.nbtest.SynapseUtilities.{exec, listPythonFiles, listPythonJobFiles}
+import org.json4s.JsonAST.JObject
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -12,6 +13,12 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
 import scala.sys.process.Process
+
+case class LivyBatch(id: Int,
+                     state: String,
+                     appId: Option[String],
+                     appInfo: Option[JObject],
+                     log: Seq[String])
 
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {

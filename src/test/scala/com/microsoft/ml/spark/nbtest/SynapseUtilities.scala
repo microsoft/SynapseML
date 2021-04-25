@@ -9,7 +9,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
-import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization
 import org.json4s.jackson.Serialization.write
@@ -23,12 +22,6 @@ import scala.collection.mutable
 import scala.concurrent.{TimeoutException, blocking}
 import scala.io.Source
 import scala.sys.process._
-
-case class LivyBatch(id: Int,
-                     state: String,
-                     appId: Option[String],
-                     appInfo: Option[JObject],
-                     log: Seq[String])
 
 //noinspection ScalaStyle
 object SynapseUtilities {
@@ -168,10 +161,12 @@ object SynapseUtilities {
 
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
     // MMLSpark info
-    val truncatedScalaVersion: String = BuildInfo.scalaVersion
-      .split(".".toCharArray.head).dropRight(1).mkString(".")
-    // val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
-    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:1.0.0-rc3-46-3b91af32-SNAPSHOT"
+    val truncatedScalaVersion: String =
+      BuildInfo.scalaVersion
+        .split(".".toCharArray.head)
+        .dropRight(1)
+        .mkString(".")
+    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
     val repository = "https://mmlspark.azureedge.net/maven"
 
     val sparkPackages: Array[String] = Array(deploymentBuild)
