@@ -239,13 +239,18 @@ object SynapseUtilities {
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
-    val response = RESTHelpers.Client.execute(createRequest)
+    try {
+      val response = RESTHelpers.Client.execute(createRequest)
 
-    val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
-    val batch: LivyBatch = parse(content).extract[LivyBatch]
-    val status: Int = response.getStatusLine.getStatusCode
-    assert(status == 200)
-    batch
+      val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
+      val batch: LivyBatch = parse(content).extract[LivyBatch]
+      val status: Int = response.getStatusLine.getStatusCode
+      assert(status == 200)
+      batch
+    }
+    catch {
+      case _: Throwable => null
+    }
   }
 
   def cancelRun(livyUrl: String, batchId: Int): Unit = {

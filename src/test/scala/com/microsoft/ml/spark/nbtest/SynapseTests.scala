@@ -50,6 +50,7 @@ class SynapseTests extends TestBase {
         println(s"submitted livy job: ${livyBatch.id} to sparkPool: $poolName")
         LivyBatchJob(livyBatch, poolName, livyUrl)
       })
+      .filterNot(_.livyBatch == null)
 
     try {
       val batchFutures: Array[Future[Any]] = livyBatchJobs.map((batchJob: LivyBatchJob) => {
