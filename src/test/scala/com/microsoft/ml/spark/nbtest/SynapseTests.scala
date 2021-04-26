@@ -5,7 +5,6 @@ package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.nbtest.SynapseUtilities.exec
-import com.sun.xml.bind.v2.TODO
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -34,27 +33,30 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val workspaceName = "wenqxsynapseppe"
-    val poolName = "gatedbuildpool"
-    val livyUrl = "https://" +
-      workspaceName +
-      ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
-      poolName +
-      "/batches"
+    val workspaceName = "mmlsparkgatedbuild"
+    val sparkPools = Array("gatedbuildpool", "gatedbuildpool2", "gatedbuildpool3")
 
-    val livyBatches = SynapseUtilities.listPythonJobFiles()
+    val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
       .filterNot(_.contains("-"))
       .map(f => {
-        SynapseUtilities.monitorPool(workspaceName, poolName)
+        val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
+        val livyUrl = "https://" +
+          workspaceName +
+          ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+          poolName +
+          "/batches"
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
-        println(s"submitted livy job: ${livyBatch.id}")
-        livyBatch
+        println(s"submitted livy job: ${livyBatch.id} to sparkPool: $poolName")
+        LivyBatchJob(livyBatch, poolName, livyUrl)
       })
 
     try {
-      val batchFutures: Array[Future[Any]] = livyBatches.map((batch: LivyBatch) => {
+      val batchFutures: Array[Future[Any]] = livyBatchJobs.map((batchJob: LivyBatchJob) => {
         Future {
+          val batch = batchJob.livyBatch
+          val livyUrl = batchJob.livyUrl
+
           if (batch.state != "success") {
             if (batch.state == "error") {
               SynapseUtilities.postMortem(batch, livyUrl)
@@ -74,9 +76,9 @@ class SynapseTests extends TestBase {
     }
     catch {
       case t: Throwable =>
-        livyBatches.foreach { batch =>
-          println(s"Cancelling job ${batch.id}")
-          SynapseUtilities.cancelRun(livyUrl, batch.id)
+        livyBatchJobs.foreach { batchJob =>
+          println(s"Cancelling job ${batchJob.livyBatch.id}")
+          SynapseUtilities.cancelRun(batchJob.livyUrl, batchJob.livyBatch.id)
         }
         throw t
     }

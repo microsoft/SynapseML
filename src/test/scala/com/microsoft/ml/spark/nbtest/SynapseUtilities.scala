@@ -35,6 +35,10 @@ case class LivyBatch(id: Int,
                      appInfo: Option[JObject],
                      log: Seq[String])
 
+case class LivyBatchJob(livyBatch: LivyBatch,
+                        sparkPool: String,
+                        livyUrl: String)
+
 case class Application(state: String,
                        name: String,
                        livyId: String)
@@ -50,7 +54,7 @@ object SynapseUtilities {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
-  val StorageAccount: String = "wenqxstorage"
+  val StorageAccount: String = "mmlsparkgatedbuild"
   val StorageContainer: String = "gatedbuild"
 
   def listPythonFiles(): Array[String] = {
@@ -113,39 +117,6 @@ object SynapseUtilities {
     batch
   }
 
-  def showRunningJobs(workspaceName: String, poolName: String): Applications = {
-    val uriRunning: String =
-      "https://" +
-        s"$workspaceName.dev.azuresynapse-dogfood.net" +
-        "/monitoring/workloadTypes/spark/applications" +
-        "?api-version=2020-10-01-preview" +
-        s"&filter=((state%20eq%20%27running%27)%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
-    val getRunningRequest = new HttpGet(uriRunning)
-    getRunningRequest.setHeader("Authorization", s"Bearer $Token")
-    val runningJobsResponse = RESTHelpers.safeSend(getRunningRequest, close = false)
-    val runningJobs =
-      parse(IOUtils.toString(runningJobsResponse.getEntity.getContent, "utf-8"))
-        .extract[Applications]
-    runningJobs
-  }
-
-  def showActiveJobs(workspaceName: String, poolName: String): Applications = {
-    val uri: String =
-      "https://" +
-        s"$workspaceName.dev.azuresynapse-dogfood.net" +
-        "/monitoring/workloadTypes/spark/applications" +
-        "?api-version=2020-10-01-preview" +
-        "&filter=(((state%20eq%20%27running%27)%20or%20(state%20eq%20%27Submitting%27))" +
-        s"%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
-    val getRequest = new HttpGet(uri)
-    getRequest.setHeader("Authorization", s"Bearer $Token")
-    val activeJobsResponse = RESTHelpers.safeSend(getRequest, close = false)
-    val activeJobs =
-      parse(IOUtils.toString(activeJobsResponse.getEntity.getContent, "utf-8"))
-        .extract[Applications]
-    activeJobs
-  }
-
   def showSubmittingJobs(workspaceName: String, poolName: String): Applications = {
     val uri: String =
       "https://" +
@@ -163,16 +134,27 @@ object SynapseUtilities {
     activeJobs
   }
 
-  @tailrec
-  def monitorPool(workspaceName: String, poolName: String): Unit = {
+  def checkPool(workspaceName: String, poolName: String): Boolean = {
     val nSubmittingJob = showSubmittingJobs(workspaceName, poolName).nJobs
+    nSubmittingJob == 0
+  }
 
-    if (nSubmittingJob >= 1) {
-      println(s"submitting or queued job >= 1, waiting 10s")
+  @tailrec
+  def monitorPool(workspaceName: String, sparkPools: Array[String]): String = {
+
+    val readyPools = sparkPools.filter(checkPool(workspaceName, _))
+
+    if (readyPools.length > 0) {
+      val readyPool = readyPools(0)
+      println(s"Spark Pool: $readyPool is ready")
+      readyPool
+    }
+    else {
+      println(s"None spark pool is ready to submit job, waiting 10s")
       blocking {
         Thread.sleep(10000)
       }
-      monitorPool(workspaceName, poolName)
+      monitorPool(workspaceName, sparkPools)
     }
   }
 
@@ -247,9 +229,6 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |      {
-         |        "spark.dynamicAllocation.enabled": "false",
-         |        "spark.dynamicAllocation.minExecutors": "2",
-         |        "spark.dynamicAllocation.maxExecutors": "2",
          |        "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
          |        "spark.jars.repositories" : "$repository"
          |      }
@@ -260,7 +239,7 @@ object SynapseUtilities {
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
-    val response = RESTHelpers.safeSend(createRequest, close = false)
+    val response = RESTHelpers.Client.execute(createRequest)
 
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
