@@ -249,7 +249,7 @@ object SynapseUtilities {
       batch
     }
     catch {
-      case _: Throwable => null
+      case _: Throwable => LivyBatch(0, "none", null, null, Seq())
     }
   }
 
