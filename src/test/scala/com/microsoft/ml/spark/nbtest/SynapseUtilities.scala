@@ -12,6 +12,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
+import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization
 import org.json4s.jackson.Serialization.write
@@ -24,7 +25,22 @@ import java.util
 import scala.annotation.tailrec
 import scala.concurrent.{TimeoutException, blocking}
 import scala.io.Source
+import scala.language.postfixOps
 import scala.sys.process._
+
+
+case class LivyBatch(id: Int,
+                     state: String,
+                     appId: Option[String],
+                     appInfo: Option[JObject],
+                     log: Seq[String])
+
+case class Application(state: String,
+                       name: String,
+                       livyId: String)
+
+case class Applications(nJobs: Int,
+                        sparkJobs: Seq[Application])
 
 //noinspection ScalaStyle
 object SynapseUtilities {
@@ -36,7 +52,7 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
-  val maxJobsNum: Int = 6
+  val MaxJobsNum: Int = 6
 
   def listPythonFiles(): Array[String] = {
     Option(
@@ -89,10 +105,10 @@ object SynapseUtilities {
   }
 
 
-  def poll(id: Int, livyUrl: String, backoffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
+  def poll(id: Int, livyUrl: String, backOffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
     val getStatsRequest = new HttpGet(s"$livyUrl/$id")
     getStatsRequest.setHeader("Authorization", s"Bearer $Token")
-    val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backoffs, close = false)
+    val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backOffs, close = false)
     val batch = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8")).extract[LivyBatch]
     statsResponse.close()
     batch
@@ -135,7 +151,7 @@ object SynapseUtilities {
   def monitorPool(workspaceName: String, poolName: String): Unit = {
     val nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
     val nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
-    if ((nActiveJob <= maxJobsNum) && (nRunningJob > 0)) {
+    if ((nActiveJob <= MaxJobsNum) && (nRunningJob > 0)) {
       println(s"Spark Pool has $nActiveJob jobs active include $nRunningJob jobs running")
     } else if ((nActiveJob == 0) && (nRunningJob == 0)) {
       println(s"Spark Pool has 0 jobs active include 0 jobs running")
