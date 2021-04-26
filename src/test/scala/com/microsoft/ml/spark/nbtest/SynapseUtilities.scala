@@ -52,7 +52,6 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
-  val MaxJobsNum: Int = 6
 
   def listPythonFiles(): Array[String] = {
     Option(
@@ -147,16 +146,29 @@ object SynapseUtilities {
     activeJobs
   }
 
+  def showSubmittingJobs(workspaceName: String, poolName: String): Applications = {
+    val uri: String =
+      "https://" +
+        s"$workspaceName.dev.azuresynapse-dogfood.net" +
+        "/monitoring/workloadTypes/spark/applications" +
+        "?api-version=2020-10-01-preview" +
+        "&filter=(((state%20eq%20%27Queued%27)%20or%20(state%20eq%20%27Submitting%27))" +
+        s"%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
+    val getRequest = new HttpGet(uri)
+    getRequest.setHeader("Authorization", s"Bearer $Token")
+    val jobsResponse = RESTHelpers.safeSend(getRequest, close = false)
+    val activeJobs =
+      parse(IOUtils.toString(jobsResponse.getEntity.getContent, "utf-8"))
+        .extract[Applications]
+    activeJobs
+  }
+
   @tailrec
   def monitorPool(workspaceName: String, poolName: String): Unit = {
-    val nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
-    val nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
-    if ((nActiveJob <= MaxJobsNum) && (nRunningJob > 0)) {
-      println(s"Spark Pool has $nActiveJob jobs active include $nRunningJob jobs running")
-    } else if ((nActiveJob == 0) && (nRunningJob == 0)) {
-      println(s"Spark Pool has 0 jobs active include 0 jobs running")
-    } else {
-      println(s"Spark Pool has $nActiveJob jobs active include $nRunningJob jobs running, wait 10s...")
+    val nSubmittingJob = showSubmittingJobs(workspaceName, poolName).nJobs
+
+    if (nSubmittingJob >= 1) {
+      println(s"submitting or queued job >= 1, waiting 10s")
       blocking {
         Thread.sleep(10000)
       }
@@ -176,7 +188,7 @@ object SynapseUtilities {
       }
       else if (batch.state == "dead") {
         postMortem(batch, livyUrl)
-        // throw new RuntimeException(s"Dead")
+        throw new RuntimeException(s"Dead")
       }
       else {
         blocking {
@@ -228,10 +240,10 @@ object SynapseUtilities {
          |{
          | "file" : "$path",
          | "name" : "$jobName",
-         | "driverMemory" : "14g",
-         | "driverCores" : 2,
-         | "executorMemory" : "14g",
-         | "executorCores" : 2,
+         | "driverMemory" : "28g",
+         | "driverCores" : 4,
+         | "executorMemory" : "28g",
+         | "executorCores" : 4,
          | "numExecutors" : 2,
          | "conf" :
          |      {

@@ -47,3 +47,4 @@ node_modules/
 
 # Notebook Test Files
 /notebooks/samples/*.py
+/notebooks/samples/*.txt
