@@ -29,14 +29,15 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
   def getBatcher(it: Iterator[Row]): Iterator[List[Row]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    dataset.toDF().mapPartitions { it =>
-      if (it.isEmpty) {
-        it
-      }else{
-        getBatcher(it).map(listOfRows => Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
-      }
-    }(RowEncoder(transformSchema(dataset.schema)))
+    logTransform[DataFrame]({
+      dataset.toDF().mapPartitions { it =>
+        if (it.isEmpty) {
+          it
+        } else {
+          getBatcher(it).map(listOfRows => Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
+        }
+      }(RowEncoder(transformSchema(dataset.schema)))
+    })
   }
 
 }
@@ -201,13 +202,14 @@ class FlattenBatch(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    dataset.toDF().mapPartitions(it =>
-      it.flatMap { rowOfLists =>
-        val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))
-        transposed.map(Row.fromSeq)
-      }
-    )(RowEncoder(transformSchema(dataset.schema)))
+    logTransform[DataFrame]({
+      dataset.toDF().mapPartitions(it =>
+        it.flatMap { rowOfLists =>
+          val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))
+          transposed.map(Row.fromSeq)
+        }
+      )(RowEncoder(transformSchema(dataset.schema)))
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

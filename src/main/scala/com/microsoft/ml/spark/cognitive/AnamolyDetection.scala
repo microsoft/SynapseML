@@ -200,44 +200,45 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
-    val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
-    setVectorParam(series, inputsCol)
+    logTransform[DataFrame]({
+      val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
+      val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
+      setVectorParam(series, inputsCol)
 
-    val inputDF = dataset.toDF()
-      .withColumn(contextCol, struct("*"))
-      .withColumn(inputsCol, struct(
-        col(getTimestampCol).alias("timestamp"),
-        col(getValueCol).alias("value")))
-    val sortUDF = UDFUtils.oldUdf(sortWithContext _,
-      new StructType()
-        .add(inputsCol, ArrayType(TimeSeriesPoint.schema))
-        .add(contextCol, ArrayType(inputDF.schema(contextCol).dataType))
-    )
+      val inputDF = dataset.toDF()
+        .withColumn(contextCol, struct("*"))
+        .withColumn(inputsCol, struct(
+          col(getTimestampCol).alias("timestamp"),
+          col(getValueCol).alias("value")))
+      val sortUDF = UDFUtils.oldUdf(sortWithContext _,
+        new StructType()
+          .add(inputsCol, ArrayType(TimeSeriesPoint.schema))
+          .add(contextCol, ArrayType(inputDF.schema(contextCol).dataType))
+      )
 
-    val groupedDF = inputDF
-      .groupBy(getGroupbyCol)
-      .agg(
-        collect_list(inputsCol).alias(inputsCol),
-        collect_list(contextCol).alias(contextCol))
-      .select(sortUDF(col(inputsCol), col(contextCol)).alias("sorted"))
-      .select("sorted.*")
+      val groupedDF = inputDF
+        .groupBy(getGroupbyCol)
+        .agg(
+          collect_list(inputsCol).alias(inputsCol),
+          collect_list(contextCol).alias(contextCol))
+        .select(sortUDF(col(inputsCol), col(contextCol)).alias("sorted"))
+        .select("sorted.*")
 
-    val outputDF = super.transform(groupedDF)
+      val outputDF = super.transform(groupedDF)
 
-    outputDF.select(
-      col(getErrorCol),
-      explode(arrays_zip(
-        col(contextCol),
-        UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
-          col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
-      )).alias(getOutputCol)
-    ).select(
-      s"$getOutputCol.$contextCol.*",
-      getErrorCol,
-      s"$getOutputCol.1"
-    ).withColumnRenamed("1", getOutputCol)
+      outputDF.select(
+        col(getErrorCol),
+        explode(arrays_zip(
+          col(contextCol),
+          UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
+            col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
+        )).alias(getOutputCol)
+      ).select(
+        s"$getOutputCol.$contextCol.*",
+        getErrorCol,
+        s"$getOutputCol.1"
+      ).withColumnRenamed("1", getOutputCol)
+    })
 
   }
 

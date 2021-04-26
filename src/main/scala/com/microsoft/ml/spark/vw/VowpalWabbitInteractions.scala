@@ -30,50 +30,51 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val fieldSubset = dataset.schema.fields
-      .filter(f => getInputCols.contains(f.name))
+    logTransform[DataFrame]({
+      val fieldSubset = dataset.schema.fields
+        .filter(f => getInputCols.contains(f.name))
 
-    val mask = getMask
+      val mask = getMask
 
-    val mode = udf((r: Row) => {
+      val mode = udf((r: Row) => {
 
-      // compute the final number of features
-      val numElems = (0 until r.length)
-        .map(r.getAs[Vector](_).numNonzeros).product
+        // compute the final number of features
+        val numElems = (0 until r.length)
+          .map(r.getAs[Vector](_).numNonzeros).product
 
-      val newIndices = new Array[Int](numElems)
-      val newValues = new Array[Double](numElems)
+        val newIndices = new Array[Int](numElems)
+        val newValues = new Array[Double](numElems)
 
-      // build interaction features using FNV-1
-      val fnvPrime = 16777619
-      var i = 0
+        // build interaction features using FNV-1
+        val fnvPrime = 16777619
+        var i = 0
 
-      def interact(idx: Int, value: Double, ns: Int): Unit = {
-        if (ns == r.size) {
-          newIndices(i) += mask & idx
-          newValues(i) += value
+        def interact(idx: Int, value: Double, ns: Int): Unit = {
+          if (ns == r.size) {
+            newIndices(i) += mask & idx
+            newValues(i) += value
 
-          i += 1
-        }
-        else {
-          val idx1 = idx * fnvPrime
+            i += 1
+          }
+          else {
+            val idx1 = idx * fnvPrime
 
-          r.getAs[Vector](ns).foreachActive { case (idx2, value2) =>
-            interact(idx1 ^ idx2, value * value2, ns + 1)
+            r.getAs[Vector](ns).foreachActive { case (idx2, value2) =>
+              interact(idx1 ^ idx2, value * value2, ns + 1)
+            }
           }
         }
-      }
 
-      // start the recursion
-      interact(0, 1, 0)
+        // start the recursion
+        interact(0, 1, 0)
 
-      val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(newIndices, newValues, getSumCollisions)
+        val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(newIndices, newValues, getSumCollisions)
 
-      Vectors.sparse(1 << getNumBits, indicesSorted, valuesSorted)
+        Vectors.sparse(1 << getNumBits, indicesSorted, valuesSorted)
+      })
+
+      dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
     })
-
-    dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
   }
 
   override def transformSchema(schema: StructType): StructType = {

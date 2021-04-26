@@ -124,23 +124,25 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    updateBoosterParamsBeforePredict()
-    var outputData = super.transform(dataset)
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-    }
-    outputData.toDF
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      var outputData = super.transform(dataset)
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+      }
+      outputData.toDF
+    })
   }
 
   override def predict(features: Vector): Double = {
-    logPredict()
-    getModel.score(features, false, false)(0)
+    logPredict(
+      getModel.score(features, false, false)(0)
+    )
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)

@@ -143,8 +143,9 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
+    logTransform[DataFrame](
+      transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
+    )
   }
 
   override def transformSchema(schema: StructType): StructType = {

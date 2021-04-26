@@ -283,67 +283,68 @@ class TextFeaturizer(override val uid: String)
   }
 
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    logFit()
-    try {
-      getUseTokenizer
-    } catch {
-      case _: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
-    }
-
-    transformSchema(dataset.schema)
-    var models: List[PipelineStage] = Nil
-    if (getUseTokenizer)
-      models ::= new RegexTokenizer()
-        .setGaps(getTokenizerGaps)
-        .setPattern(getTokenizerPattern)
-        .setMinTokenLength(getMinTokenLength)
-        .setToLowercase(getToLowercase)
-        .setOutputCol(uid + "__Tokens")
-    if (getUseStopWordsRemover) {
-      val swr =
-        new StopWordsRemover()
-          .setCaseSensitive(getCaseSensitiveStopWords)
-          .setOutputCol(uid + "__Stopwords")
-      if (getDefaultStopWordLanguage == "custom") {
-        models ::= swr.setStopWords(getStopWords.split(","))
-      } else {
-        models ::= swr.setStopWords(
-          StopWordsRemover.loadDefaultStopWords(getDefaultStopWordLanguage))
+    logFit({
+      try {
+        getUseTokenizer
+      } catch {
+        case _: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
       }
-    }
-    if (getUseNGram)
-      models ::= new NGram().setN(getNGramLength).setOutputCol(uid + "__ngrams")
-    models ::= new HashingTF()
-      .setBinary(getBinary)
-      .setNumFeatures(getNumFeatures).setOutputCol(uid + "__hash")
-    if (getUseIDF)
-      models ::= new IDF().setMinDocFreq(getMinDocFreq).setOutputCol(uid + "__idf")
-    models = models.reverse
 
-    val chainedModels = models
-      .zip(0 to models.length)
-      .map(
-        { pair: (PipelineStage, Int) =>
-          val model = pair._1
-          val i = pair._2
-          if (i == 0) {
-            setParamInternal(model, "inputCol", getInputCol)
-          } else if (i < models.length - 1) {
-            setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
-            setParamInternal(model, "inputCol", getParamInternal(models(i - 1), "outputCol"))
-          } else {
-            setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
-            val m1 = setParamInternal(model, "inputCol",
-              getParamInternal(models(i - 1), "outputCol"))
-            setParamInternal(m1, "outputCol", getOutputCol)
-          }
+      transformSchema(dataset.schema)
+      var models: List[PipelineStage] = Nil
+      if (getUseTokenizer)
+        models ::= new RegexTokenizer()
+          .setGaps(getTokenizerGaps)
+          .setPattern(getTokenizerPattern)
+          .setMinTokenLength(getMinTokenLength)
+          .setToLowercase(getToLowercase)
+          .setOutputCol(uid + "__Tokens")
+      if (getUseStopWordsRemover) {
+        val swr =
+          new StopWordsRemover()
+            .setCaseSensitive(getCaseSensitiveStopWords)
+            .setOutputCol(uid + "__Stopwords")
+        if (getDefaultStopWordLanguage == "custom") {
+          models ::= swr.setStopWords(getStopWords.split(","))
+        } else {
+          models ::= swr.setStopWords(
+            StopWordsRemover.loadDefaultStopWords(getDefaultStopWordLanguage))
         }
-      )
-    val colsToDrop = chainedModels.reverse.tail
-      .map(getParamInternal(_, "outputCol").asInstanceOf[String])
+      }
+      if (getUseNGram)
+        models ::= new NGram().setN(getNGramLength).setOutputCol(uid + "__ngrams")
+      models ::= new HashingTF()
+        .setBinary(getBinary)
+        .setNumFeatures(getNumFeatures).setOutputCol(uid + "__hash")
+      if (getUseIDF)
+        models ::= new IDF().setMinDocFreq(getMinDocFreq).setOutputCol(uid + "__idf")
+      models = models.reverse
 
-    val stages = chainedModels ++ Seq(new DropColumns().setCols(colsToDrop.toArray))
-    new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
+      val chainedModels = models
+        .zip(0 to models.length)
+        .map(
+          { pair: (PipelineStage, Int) =>
+            val model = pair._1
+            val i = pair._2
+            if (i == 0) {
+              setParamInternal(model, "inputCol", getInputCol)
+            } else if (i < models.length - 1) {
+              setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
+              setParamInternal(model, "inputCol", getParamInternal(models(i - 1), "outputCol"))
+            } else {
+              setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
+              val m1 = setParamInternal(model, "inputCol",
+                getParamInternal(models(i - 1), "outputCol"))
+              setParamInternal(m1, "outputCol", getOutputCol)
+            }
+          }
+        )
+      val colsToDrop = chainedModels.reverse.tail
+        .map(getParamInternal(_, "outputCol").asInstanceOf[String])
+
+      val stages = chainedModels ++ Seq(new DropColumns().setCols(colsToDrop.toArray))
+      new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

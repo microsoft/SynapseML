@@ -64,14 +64,15 @@ class SAR(override val uid: String) extends Estimator[SARModel]
   }
 
   override def fit(dataset: Dataset[_]): SARModel = {
-    logFit()
-    new SARModel(uid)
-      .setUserDataFrame(calculateUserItemAffinities(dataset))
-      .setItemDataFrame(calculateItemItemSimilarity(dataset))
-      .setParent(this)
-      .setSupportThreshold(getSupportThreshold)
-      .setItemCol(getItemCol)
-      .setUserCol(getUserCol)
+    logFit({
+      new SARModel(uid)
+        .setUserDataFrame(calculateUserItemAffinities(dataset))
+        .setItemDataFrame(calculateItemItemSimilarity(dataset))
+        .setParent(this)
+        .setSupportThreshold(getSupportThreshold)
+        .setItemCol(getItemCol)
+        .setUserCol(getUserCol)
+    })
   }
 
   /**

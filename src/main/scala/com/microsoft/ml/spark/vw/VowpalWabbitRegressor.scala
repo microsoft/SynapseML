@@ -25,13 +25,14 @@ class VowpalWabbitRegressor(override val uid: String)
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
-    logTrain()
-    val model = new VowpalWabbitRegressionModel(uid)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
-      .setPredictionCol(getPredictionCol)
+    logTrain({
+      val model = new VowpalWabbitRegressionModel(uid)
+        .setFeaturesCol(getFeaturesCol)
+        .setAdditionalFeatures(getAdditionalFeatures)
+        .setPredictionCol(getPredictionCol)
 
-    trainInternal(dataset, model)
+      trainInternal(dataset, model)
+    })
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
@@ -53,8 +54,9 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    logPredict()
-    throw new NotImplementedError("Not implement")
+    logPredict(
+      throw new NotImplementedError("Not implement")
+    )
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

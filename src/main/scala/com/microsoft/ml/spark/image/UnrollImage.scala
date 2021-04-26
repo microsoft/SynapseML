@@ -159,11 +159,12 @@ class UnrollImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF
-    assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
-    val unrollUDF = udf(unroll _)
-    df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
+      val unrollUDF = udf(unroll _)
+      df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -210,14 +211,16 @@ class UnrollBinaryImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF
-    assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 
-    val unrollUDF = UDFUtils.oldUdf({ bytes: Array[Byte] =>
-      unrollBytes(bytes, get(width), get(height), get(nChannels)) }, VectorType)
+      val unrollUDF = UDFUtils.oldUdf({ bytes: Array[Byte] =>
+        unrollBytes(bytes, get(width), get(height), get(nChannels))
+      }, VectorType)
 
-    df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
+      df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

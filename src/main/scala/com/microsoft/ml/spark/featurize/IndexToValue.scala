@@ -36,20 +36,21 @@ class IndexToValue(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
-    require(info.isCategorical, "column " + getInputCol + "is not Categorical")
-    val dataType = info.dataType
-    val getLevel =
-      dataType match {
-        case _: IntegerType => getLevelUDF[Int](dataset)
-        case _: LongType => getLevelUDF[Long](dataset)
-        case _: DoubleType => getLevelUDF[Double](dataset)
-        case _: StringType => getLevelUDF[String](dataset)
-        case _: BooleanType => getLevelUDF[Boolean](dataset)
-        case _ => throw new Exception("Unsupported type " + dataType.toString)
-      }
-    dataset.withColumn(getOutputCol, getLevel(dataset(getInputCol)).as(getOutputCol))
+    logTransform[DataFrame]({
+      val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
+      require(info.isCategorical, "column " + getInputCol + "is not Categorical")
+      val dataType = info.dataType
+      val getLevel =
+        dataType match {
+          case _: IntegerType => getLevelUDF[Int](dataset)
+          case _: LongType => getLevelUDF[Long](dataset)
+          case _: DoubleType => getLevelUDF[Double](dataset)
+          case _: StringType => getLevelUDF[String](dataset)
+          case _: BooleanType => getLevelUDF[Boolean](dataset)
+          case _ => throw new Exception("Unsupported type " + dataType.toString)
+        }
+      dataset.withColumn(getOutputCol, getLevel(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   private class Default[T] {var value: T = _ }

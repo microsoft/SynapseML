@@ -135,50 +135,51 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
+    logTransform[DataFrame]({
+      val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
 
-    val cntkModel = getCntkModel
-      .setOutputNode(getLayerNames.apply(getCutOutputLayers))
-      .setInputCol(resizedCol)
-      .setOutputCol(getOutputCol)
+      val cntkModel = getCntkModel
+        .setOutputNode(getLayerNames.apply(getCutOutputLayers))
+        .setInputCol(resizedCol)
+        .setOutputCol(getOutputCol)
 
-    val requiredSize = cntkModel.getModel.getArguments.get(0).getShape.getDimensions
+      val requiredSize = cntkModel.getModel.getArguments.get(0).getShape.getDimensions
 
-    val inputSchema = dataset.schema(getInputCol).dataType
+      val inputSchema = dataset.schema(getInputCol).dataType
 
-    val unrolledDF = if (ImageSchemaUtils.isImage(inputSchema)) {
-      val prepare = new ResizeImageTransformer()
-        .setInputCol(getInputCol)
-        .setWidth(requiredSize(0).toInt)
-        .setHeight(requiredSize(1).toInt)
-        .setNChannels(3)
+      val unrolledDF = if (ImageSchemaUtils.isImage(inputSchema)) {
+        val prepare = new ResizeImageTransformer()
+          .setInputCol(getInputCol)
+          .setWidth(requiredSize(0).toInt)
+          .setHeight(requiredSize(1).toInt)
+          .setNChannels(3)
 
-      val unroll = new UnrollImage()
-        .setInputCol(prepare.getOutputCol)
-        .setOutputCol(resizedCol)
+        val unroll = new UnrollImage()
+          .setInputCol(prepare.getOutputCol)
+          .setOutputCol(resizedCol)
 
-      val resizedDF = prepare.transform(dataset)
-      unroll.transform(resizedDF).drop(prepare.getOutputCol)
-    } else if (inputSchema == BinaryType) {
-      val unroll = new UnrollBinaryImage()
-        .setInputCol(getInputCol)
-        .setWidth(requiredSize(0).toInt)
-        .setHeight(requiredSize(1).toInt)
-        .setNChannels(3)
-        .setOutputCol(resizedCol)
-      unroll.transform(dataset)
-    } else {
-      throw new IllegalArgumentException(
-        s"Input schema : $inputSchema needs to have image or binary type")
-    }
+        val resizedDF = prepare.transform(dataset)
+        unroll.transform(resizedDF).drop(prepare.getOutputCol)
+      } else if (inputSchema == BinaryType) {
+        val unroll = new UnrollBinaryImage()
+          .setInputCol(getInputCol)
+          .setWidth(requiredSize(0).toInt)
+          .setHeight(requiredSize(1).toInt)
+          .setNChannels(3)
+          .setOutputCol(resizedCol)
+        unroll.transform(dataset)
+      } else {
+        throw new IllegalArgumentException(
+          s"Input schema : $inputSchema needs to have image or binary type")
+      }
 
-    val dropped = if (getDropNa){
-      unrolledDF.na.drop(List(resizedCol))
-    }else{
-      unrolledDF
-    }
-    cntkModel.transform(dropped).drop(resizedCol)
+      val dropped = if (getDropNa) {
+        unrolledDF.na.drop(List(resizedCol))
+      } else {
+        unrolledDF
+      }
+      cntkModel.transform(dropped).drop(resizedCol)
+    })
 
   }
 

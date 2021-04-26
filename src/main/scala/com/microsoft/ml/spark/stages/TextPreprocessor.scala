@@ -129,17 +129,18 @@ class TextPreprocessor(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val spark = dataset.sparkSession
-    val inputIndex = dataset.columns.indexOf(getInputCol)
-    val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)
-    val broadcastedTrie = spark.sparkContext.broadcast(trie)
+    logTransform[DataFrame]({
+      val spark = dataset.sparkSession
+      val inputIndex = dataset.columns.indexOf(getInputCol)
+      val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)
+      val broadcastedTrie = spark.sparkContext.broadcast(trie)
 
-    require(inputIndex != -1, s"Input column $getInputCol does not exist")
+      require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
-    val mapText: String => String = broadcastedTrie.value.mapText
-    val textMapper = udf(mapText)
-    dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+      val mapText: String => String = broadcastedTrie.value.mapText
+      val textMapper = udf(mapText)
+      dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

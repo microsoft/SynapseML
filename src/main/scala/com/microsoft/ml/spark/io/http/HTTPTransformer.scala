@@ -109,25 +109,26 @@ class HTTPTransformer(val uid: String)
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF()
-    val enc = RowEncoder(transformSchema(df.schema))
-    val colIndex = df.schema.fieldNames.indexOf(getInputCol)
-    val fromRow = HTTPRequestData.makeFromRowConverter
-    val toRow = HTTPResponseData.makeToRowConverter
-    df.mapPartitions { it =>
-      if (!it.hasNext) {
-        Iterator()
-      }else{
-        val c = clientHolder.get
-        val responsesWithContext = c.sendRequestsWithContext(it.map{row =>
-          c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
-        })
-        responsesWithContext.map { rwc =>
-          Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.flatMap(Option(_)).map(toRow).orNull))
+    logTransform[DataFrame]({
+      val df = dataset.toDF()
+      val enc = RowEncoder(transformSchema(df.schema))
+      val colIndex = df.schema.fieldNames.indexOf(getInputCol)
+      val fromRow = HTTPRequestData.makeFromRowConverter
+      val toRow = HTTPResponseData.makeToRowConverter
+      df.mapPartitions { it =>
+        if (!it.hasNext) {
+          Iterator()
+        } else {
+          val c = clientHolder.get
+          val responsesWithContext = c.sendRequestsWithContext(it.map { row =>
+            c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
+          })
+          responsesWithContext.map { rwc =>
+            Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.flatMap(Option(_)).map(toRow).orNull))
+          }
         }
-      }
-    }(enc)
+      }(enc)
+    })
   }
 
   def copy(extra: ParamMap): HTTPTransformer = defaultCopy(extra)

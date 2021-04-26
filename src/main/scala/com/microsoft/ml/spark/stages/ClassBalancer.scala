@@ -40,18 +40,19 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   setDefault(broadcastJoin -> true)
 
   def fit(dataset: Dataset[_]): ClassBalancerModel = {
-    logFit()
-    val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
-    val maxVal = counts.agg(max("count")).collect().head.getLong(0)
-    val weights = counts
-      .withColumn(getOutputCol, lit(maxVal) / col("count"))
-      .select(getInputCol, getOutputCol)
-    new ClassBalancerModel()
-      .setInputCol(getInputCol)
-      .setOutputCol(getOutputCol)
-      .setWeights(weights)
-      .setBroadcastJoin(getBroadcastJoin)
-      .setParent(this)
+    logFit({
+      val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
+      val maxVal = counts.agg(max("count")).collect().head.getLong(0)
+      val weights = counts
+        .withColumn(getOutputCol, lit(maxVal) / col("count"))
+        .select(getInputCol, getOutputCol)
+      new ClassBalancerModel()
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+        .setWeights(weights)
+        .setBroadcastJoin(getBroadcastJoin)
+        .setParent(this)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[ClassBalancerModel] = defaultCopy(extra)
@@ -85,13 +86,14 @@ class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
   def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, DoubleType)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val w = if (getBroadcastJoin) {
-      broadcast(getWeights)
-    } else {
-      getWeights
-    }
-    dataset.toDF().join(w, getInputCol)
+    logTransform[DataFrame]({
+      val w = if (getBroadcastJoin) {
+        broadcast(getWeights)
+      } else {
+        getWeights
+      }
+      dataset.toDF().join(w, getInputCol)
+    })
   }
 
 }

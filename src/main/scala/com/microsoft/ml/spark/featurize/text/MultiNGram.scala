@@ -42,22 +42,23 @@ class MultiNGram(override val uid: String)
   def setLengths(v: Seq[Int]): this.type = set(lengths, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF()
-    val intermediateOutputCols = getLengths.map(n =>
-      DatasetExtensions.findUnusedColumnName(s"ngram_$n")(dataset.columns.toSet)
-    )
-    val models = getLengths.zip(intermediateOutputCols).map { case (n, out) =>
-      new NGram().setN(n).setInputCol(getInputCol).setOutputCol(out)
-    }
-    val intermediateDF = NamespaceInjections.pipelineModel(models.toArray).transform(df)
-    intermediateDF.map { row =>
-      val mergedNGrams = intermediateOutputCols
-        .map(col => row.getAs[Seq[String]](col))
-        .reduce(_ ++ _)
-      Row.merge(row, Row(mergedNGrams))
-    }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
-      .drop(intermediateOutputCols: _*)
+    logTransform[DataFrame]({
+      val df = dataset.toDF()
+      val intermediateOutputCols = getLengths.map(n =>
+        DatasetExtensions.findUnusedColumnName(s"ngram_$n")(dataset.columns.toSet)
+      )
+      val models = getLengths.zip(intermediateOutputCols).map { case (n, out) =>
+        new NGram().setN(n).setInputCol(getInputCol).setOutputCol(out)
+      }
+      val intermediateDF = NamespaceInjections.pipelineModel(models.toArray).transform(df)
+      intermediateDF.map { row =>
+        val mergedNGrams = intermediateOutputCols
+          .map(col => row.getAs[Seq[String]](col))
+          .reduce(_ ++ _)
+        Row.merge(row, Row(mergedNGrams))
+      }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
+        .drop(intermediateOutputCols: _*)
+    })
   }
 
   override def copy(extra: ParamMap): MultiNGram =

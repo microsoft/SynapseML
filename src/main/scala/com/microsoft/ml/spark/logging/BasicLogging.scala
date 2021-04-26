@@ -32,20 +32,52 @@ trait BasicLogging extends Logging {
     logBase("constructor")
   }
 
-  def logFit(): Unit = {
+  def logFit[T](f: => T): T = {
     logBase("fit")
+    try {
+      f
+    } catch {
+      case e: Exception => {
+        logError("fit exception ", e)
+        throw e
+      }
+    }
   }
 
-  def logTrain(): Unit = {
+  def logTrain[T](f: => T): T = {
     logBase("train")
+    try {
+      f
+    } catch {
+      case e: Exception => {
+        logError("train exception ", e)
+        throw e
+      }
+    }
   }
 
-  def logTransform(): Unit = {
+  def logTransform[T](f: => T): T = {
     logBase("transform")
+    try {
+      f
+    } catch {
+      case e: Exception => {
+        logError("transform exception ", e)
+        throw e
+      }
+    }
   }
 
-  def logPredict(): Unit = {
+  def logPredict[T](f: => T): T = {
     logBase("predict")
+    try {
+      f
+    } catch {
+      case e: Exception => {
+        logError("predict exception ", e)
+        throw e
+      }
+    }
   }
 
 }

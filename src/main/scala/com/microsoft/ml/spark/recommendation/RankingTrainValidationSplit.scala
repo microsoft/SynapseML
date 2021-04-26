@@ -92,56 +92,57 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
-    logFit()
-    val schema = dataset.schema
-    transformSchema(schema, logging = true)
-    val est = getEstimator
-    val eval = getEvaluator.asInstanceOf[RankingEvaluator]
-    val epm = getEstimatorParamMaps
+    logFit({
+      val schema = dataset.schema
+      transformSchema(schema, logging = true)
+      val est = getEstimator
+      val eval = getEvaluator.asInstanceOf[RankingEvaluator]
+      val epm = getEstimatorParamMaps
 
-    dataset.cache()
-    eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
-    val filteredDataset = filterRatings(dataset.dropDuplicates())
+      dataset.cache()
+      eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
+      val filteredDataset = filterRatings(dataset.dropDuplicates())
 
-    //Stratified Split of Dataset
-    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
-    trainingDataset.cache()
-    validationDataset.cache()
+      //Stratified Split of Dataset
+      val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
+      trainingDataset.cache()
+      validationDataset.cache()
 
-    val executionContext = getExecutionContext
+      val executionContext = getExecutionContext
 
-    @tailrec
-    def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
-      case pm: PipelineModel =>
-        //Assume Rec Algo is last stage of pipeline
-        val modelTemp = pm.stages.last
-        calculateMetrics(modelTemp, validationDataset)
-      case alsm: ALSModel =>
-        val recs = alsm.recommendForAllUsers(eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
-        eval.evaluate(preparedTest)
-    }
+      @tailrec
+      def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
+        case pm: PipelineModel =>
+          //Assume Rec Algo is last stage of pipeline
+          val modelTemp = pm.stages.last
+          calculateMetrics(modelTemp, validationDataset)
+        case alsm: ALSModel =>
+          val recs = alsm.recommendForAllUsers(eval.getK)
+          val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
+          eval.evaluate(preparedTest)
+      }
 
-    val metricFutures = epm.zipWithIndex.map { case (paramMap, _) =>
-      Future[Double] {
-        val model = est.fit(trainingDataset, paramMap)
-        calculateMetrics(model, validationDataset)
-      }(executionContext)
-    }
+      val metricFutures = epm.zipWithIndex.map { case (paramMap, _) =>
+        Future[Double] {
+          val model = est.fit(trainingDataset, paramMap)
+          calculateMetrics(model, validationDataset)
+        }(executionContext)
+      }
 
-    val metrics = metricFutures.map(SparkHelpers.getThreadUtils.awaitResult(_, Duration.Inf))
+      val metrics = metricFutures.map(SparkHelpers.getThreadUtils.awaitResult(_, Duration.Inf))
 
-    trainingDataset.unpersist()
-    validationDataset.unpersist()
+      trainingDataset.unpersist()
+      validationDataset.unpersist()
 
-    val (_, bestIndex) =
-      if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
-      else metrics.zipWithIndex.minBy(_._1)
+      val (_, bestIndex) =
+        if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
+        else metrics.zipWithIndex.minBy(_._1)
 
-    copyValues(new RankingTrainValidationSplitModel(uid)
-      .setBestModel(est.fit(dataset, epm(bestIndex)))
-      .setValidationMetrics(metrics)
-      .setParent(this))
+      copyValues(new RankingTrainValidationSplitModel(uid)
+        .setBestModel(est.fit(dataset, epm(bestIndex)))
+        .setValidationMetrics(metrics)
+        .setParent(this))
+    })
   }
 
   override def copy(extra: ParamMap): RankingTrainValidationSplit = defaultCopy(extra)
@@ -322,11 +323,12 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    transformSchema(dataset.schema, logging = true)
+    logTransform[DataFrame]({
+      transformSchema(dataset.schema, logging = true)
 
-    //sort to pass unit test
-    getBestModel.transform(dataset).sort("prediction")
+      //sort to pass unit test
+      getBestModel.transform(dataset).sort("prediction")
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

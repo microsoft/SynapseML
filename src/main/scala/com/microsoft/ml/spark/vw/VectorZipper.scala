@@ -33,9 +33,10 @@ class VectorZipper(override val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val inputCols = getInputCols
-    dataset.withColumn(getOutputCol, array(inputCols.head, inputCols.tail: _*))
+    logTransform[DataFrame]({
+      val inputCols = getInputCols
+      dataset.withColumn(getOutputCol, array(inputCols.head, inputCols.tail: _*))
+    })
   }
 }
 

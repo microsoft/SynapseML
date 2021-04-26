@@ -84,19 +84,22 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
-    val inputType = dataset.schema(getInputCol).dataType
-    if (ImageSchemaUtils.isImage(inputType)) {
-      val resizeUDF = UDFUtils.oldUdf(resizeSparkImage(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
-      dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
-    } else if (inputType == BinaryType) {
-      val resizeBytesUDF = UDFUtils.oldUdf(resizeBytes(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
-      dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
-    } else {
-      throw new IllegalArgumentException(
-        s"Improper dataset schema: $inputType, need image type or byte array")
-    }
+    logTransform[DataFrame]({
+      require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
+      val inputType = dataset.schema(getInputCol).dataType
+      if (ImageSchemaUtils.isImage(inputType)) {
+        val resizeUDF = UDFUtils.oldUdf(resizeSparkImage(getWidth, getHeight,
+          get(nChannels)) _, ImageSchema.columnSchema)
+        dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
+      } else if (inputType == BinaryType) {
+        val resizeBytesUDF = UDFUtils.oldUdf(resizeBytes(getWidth, getHeight,
+          get(nChannels)) _, ImageSchema.columnSchema)
+        dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
+      } else {
+        throw new IllegalArgumentException(
+          s"Improper dataset schema: $inputType, need image type or byte array")
+      }
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

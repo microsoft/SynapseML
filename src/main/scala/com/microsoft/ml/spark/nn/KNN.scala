@@ -58,8 +58,9 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(leafSize, 50)
 
   override def fit(dataset: Dataset[_]): KNNModel = {
-    logFit()
-    fitOptimized(dataset)
+    logFit(
+      fitOptimized(dataset)
+    )
   }
 
   override def copy(extra: ParamMap): Estimator[KNNModel] =
@@ -96,20 +97,21 @@ class KNNModel(val uid: String) extends Model[KNNModel]
   override def copy(extra: ParamMap): KNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    if (broadcastedModelOption.isEmpty) {
-      broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
-    }
-    val getNeighborUDF = UDFUtils.oldUdf({ dv: DenseVector =>
-      val bt = broadcastedModelOption.get.value
-      bt.findMaximumInnerProducts(new BDV(dv.values), getK)
-        .map(bm => Row(bt.values(bm.index), bm.distance))
-    }, ArrayType(new StructType()
-      .add("value", dataset.schema(getValuesCol).dataType)
-      .add("distance", DoubleType)
-    ))
+    logTransform[DataFrame]({
+      if (broadcastedModelOption.isEmpty) {
+        broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
+      }
+      val getNeighborUDF = UDFUtils.oldUdf({ dv: DenseVector =>
+        val bt = broadcastedModelOption.get.value
+        bt.findMaximumInnerProducts(new BDV(dv.values), getK)
+          .map(bm => Row(bt.values(bm.index), bm.distance))
+      }, ArrayType(new StructType()
+        .add("value", dataset.schema(getValuesCol).dataType)
+        .add("distance", DoubleType)
+      ))
 
-    dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol)))
+      dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol)))
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

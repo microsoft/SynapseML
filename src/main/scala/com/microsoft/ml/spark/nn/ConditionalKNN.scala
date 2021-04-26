@@ -43,8 +43,9 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
   setDefault(conditionerCol, "conditioner")
 
   override def fit(dataset: Dataset[_]): ConditionalKNNModel = {
-    logFit()
-    fitOptimized(dataset)
+    logFit(
+      fitOptimized(dataset)
+    )
   }
 
   override def copy(extra: ParamMap): Estimator[ConditionalKNNModel] =
@@ -91,19 +92,20 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   override def copy(extra: ParamMap): ConditionalKNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    if (broadcastedModelOption.isEmpty) {
-      broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
-    }
-    val getNeighborUDF = UDFUtils.oldUdf(KNNFuncHolder.queryFunc[Any, Any](
-      broadcastedModelOption.get.asInstanceOf[Broadcast[ConditionalBallTree[Any, Any]]], getK) _,
-      ArrayType(new StructType()
-        .add("value", dataset.schema(getValuesCol).dataType)
-        .add("distance", DoubleType)
-        .add("label", dataset.schema(getLabelCol).dataType)
-      ))
+    logTransform[DataFrame]({
+      if (broadcastedModelOption.isEmpty) {
+        broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
+      }
+      val getNeighborUDF = UDFUtils.oldUdf(KNNFuncHolder.queryFunc[Any, Any](
+        broadcastedModelOption.get.asInstanceOf[Broadcast[ConditionalBallTree[Any, Any]]], getK) _,
+        ArrayType(new StructType()
+          .add("value", dataset.schema(getValuesCol).dataType)
+          .add("distance", DoubleType)
+          .add("label", dataset.schema(getLabelCol).dataType)
+        ))
 
-    dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol), col(getConditionerCol)))
+      dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol), col(getConditionerCol)))
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

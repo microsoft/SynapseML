@@ -50,23 +50,24 @@ class UnicodeNormalize(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val inputIndex = dataset.columns.indexOf(getInputCol)
+    logTransform[DataFrame]({
+      val inputIndex = dataset.columns.indexOf(getInputCol)
 
-    require(inputIndex != -1, s"Input column $getInputCol does not exist")
+      require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
-    val normalizeFunc = (value: String) =>
-      if (value == null) null
-      else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
+      val normalizeFunc = (value: String) =>
+        if (value == null) null
+        else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
-    val f = if (getLower)
-      (value: String) => Option(value).map(s => normalizeFunc(s.toLowerCase)).orNull
-    else
-      normalizeFunc
+      val f = if (getLower)
+        (value: String) => Option(value).map(s => normalizeFunc(s.toLowerCase)).orNull
+      else
+        normalizeFunc
 
-    val textMapper = udf(f)
+      val textMapper = udf(f)
 
-    dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+      dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

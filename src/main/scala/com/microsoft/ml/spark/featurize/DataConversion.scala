@@ -67,38 +67,39 @@ class DataConversion(override val uid: String) extends Transformer
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    require(dataset != null, "No dataset supplied")
-    require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
-    val colsList = $(cols).map(_.trim)
-    val errorList = verifyCols(dataset.toDF(), colsList)
-    if (errorList.nonEmpty) {
-      throw new NoSuchElementException
-    }
-    var df = dataset.toDF
-
-    val res: DataFrame =  {
-      for (convCol <- colsList) {
-        df = $(convertTo) match {
-          case "boolean" => numericTransform(df, BooleanType, convCol)
-          case "byte" => numericTransform(df, ByteType, convCol)
-          case "short" => numericTransform(df, ShortType, convCol)
-          case "integer" => numericTransform(df, IntegerType, convCol)
-          case "long" => numericTransform(df, LongType, convCol)
-          case "float" => numericTransform(df, FloatType, convCol)
-          case "double" => numericTransform(df, DoubleType, convCol)
-          case "string" => numericTransform(df, StringType, convCol)
-          case "toCategorical" =>
-            val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
-            model.transform(df)
-          case "clearCategorical" =>
-            new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
-          case "date" => toDateConversion(df, convCol)
-        }
+    logTransform[DataFrame]({
+      require(dataset != null, "No dataset supplied")
+      require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
+      val colsList = $(cols).map(_.trim)
+      val errorList = verifyCols(dataset.toDF(), colsList)
+      if (errorList.nonEmpty) {
+        throw new NoSuchElementException
       }
-      df
-    }
-    res
+      var df = dataset.toDF
+
+      val res: DataFrame = {
+        for (convCol <- colsList) {
+          df = $(convertTo) match {
+            case "boolean" => numericTransform(df, BooleanType, convCol)
+            case "byte" => numericTransform(df, ByteType, convCol)
+            case "short" => numericTransform(df, ShortType, convCol)
+            case "integer" => numericTransform(df, IntegerType, convCol)
+            case "long" => numericTransform(df, LongType, convCol)
+            case "float" => numericTransform(df, FloatType, convCol)
+            case "double" => numericTransform(df, DoubleType, convCol)
+            case "string" => numericTransform(df, StringType, convCol)
+            case "toCategorical" =>
+              val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
+              model.transform(df)
+            case "clearCategorical" =>
+              new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
+            case "date" => toDateConversion(df, convCol)
+          }
+        }
+        df
+      }
+      res
+    })
   }
 
   /** Transform the schema

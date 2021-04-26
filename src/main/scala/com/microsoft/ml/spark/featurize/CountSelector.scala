@@ -31,16 +31,17 @@ class CountSelector(override val uid: String) extends Estimator[CountSelectorMod
   }
 
   override def fit(dataset: Dataset[_]): CountSelectorModel = {
-    logFit()
-    val encoder = Encoders.kryo[BitSet]
-    val slotsToKeep = dataset.select(getInputCol)
-      .map(row => toBitSet(row.getAs[Vector](0).toSparse.indices))(encoder)
-      .reduce(_ | _)
-      .toArray
-    new CountSelectorModel()
-      .setIndices(slotsToKeep)
-      .setInputCol(getInputCol)
-      .setOutputCol(getOutputCol)
+    logFit({
+      val encoder = Encoders.kryo[BitSet]
+      val slotsToKeep = dataset.select(getInputCol)
+        .map(row => toBitSet(row.getAs[Vector](0).toSparse.indices))(encoder)
+        .reduce(_ | _)
+        .toArray
+      new CountSelectorModel()
+        .setIndices(slotsToKeep)
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -75,8 +76,9 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    getModel.transform(dataset)
+    logTransform[DataFrame](
+      getModel.transform(dataset)
+    )
   }
 
   override def transformSchema(schema: StructType): StructType = {

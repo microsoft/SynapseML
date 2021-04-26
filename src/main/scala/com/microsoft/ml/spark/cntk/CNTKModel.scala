@@ -497,46 +497,47 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val spark = dataset.sparkSession
-    val df = dataset.toDF()
+    logTransform[DataFrame]({
+      val spark = dataset.sparkSession
+      val df = dataset.toDF()
 
-    transformSchema(df.schema) // Check if the schema is correct
+      transformSchema(df.schema) // Check if the schema is correct
 
-    val batchedDF = if (getBatchInput) {
-      getMiniBatcher.transform(df)
-    } else {
-      df
-    }
+      val batchedDF = if (getBatchInput) {
+        getMiniBatcher.transform(df)
+      } else {
+        df
+      }
 
-    val (preprocessedDF, coercedFeedDict) =
-      coerceDFAndFeedDict(batchedDF, getFeedDict)
+      val (preprocessedDF, coercedFeedDict) =
+        coerceDFAndFeedDict(batchedDF, getFeedDict)
 
-    val columnIndexToVar = coercedFeedDict.map { case (k, v) =>
-      k -> preprocessedDF.schema.fieldIndex(v)
-    }
+      val columnIndexToVar = coercedFeedDict.map { case (k, v) =>
+        k -> preprocessedDF.schema.fieldIndex(v)
+      }
 
-    if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
+      if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
 
-    val encoder = RowEncoder(getModel.getOutputSchema(getFetchDict)
-      .foldLeft(preprocessedDF.schema) { case (st, sf) => st.add(sf.name, ArrayType(sf.dataType)) }
-    )
+      val encoder = RowEncoder(getModel.getOutputSchema(getFetchDict)
+        .foldLeft(preprocessedDF.schema) { case (st, sf) => st.add(sf.name, ArrayType(sf.dataType)) }
+      )
 
-    val outputDF = preprocessedDF.mapPartitions { it =>
-      CNTKModelUtils.applyModel(
-        columnIndexToVar,
-        broadcastedModelOption.get,
-        getFetchDict)(it)
-    }(encoder)
+      val outputDF = preprocessedDF.mapPartitions { it =>
+        CNTKModelUtils.applyModel(
+          columnIndexToVar,
+          broadcastedModelOption.get,
+          getFetchDict)(it)
+      }(encoder)
 
-    val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
+      val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
 
-    val unbatchedDF = if (getBatchInput) {
-      new FlattenBatch().transform(droppedDF)
-    } else {
-      droppedDF
-    }
-    coerceOutputDF(unbatchedDF)
+      val unbatchedDF = if (getBatchInput) {
+        new FlattenBatch().transform(droppedDF)
+      } else {
+        droppedDF
+      }
+      coerceOutputDF(unbatchedDF)
+    })
   }
 
 }

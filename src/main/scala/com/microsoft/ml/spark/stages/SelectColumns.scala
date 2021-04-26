@@ -39,9 +39,10 @@ class SelectColumns(val uid: String) extends Transformer with Wrappable with Def
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    verifySchema(dataset.schema)
-    dataset.toDF().select(getCols.map(col): _*)
+    logTransform[DataFrame]({
+      verifySchema(dataset.schema)
+      dataset.toDF().select(getCols.map(col): _*)
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

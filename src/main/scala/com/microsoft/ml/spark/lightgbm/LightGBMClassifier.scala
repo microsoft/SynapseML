@@ -104,49 +104,50 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    updateBoosterParamsBeforePredict()
-    transformSchema(dataset.schema, logging = true)
-    if (isDefined(thresholds)) {
-      require(getThresholds.length == numClasses, this.getClass.getSimpleName +
-        ".transform() called with non-matching numClasses and thresholds.length." +
-        s" numClasses=$numClasses, but thresholds has length ${getThresholds.length}")
-    }
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      transformSchema(dataset.schema, logging = true)
+      if (isDefined(thresholds)) {
+        require(getThresholds.length == numClasses, this.getClass.getSimpleName +
+          ".transform() called with non-matching numClasses and thresholds.length." +
+          s" numClasses=$numClasses, but thresholds has length ${getThresholds.length}")
+      }
 
-    // Output selected columns only.
-    var outputData = dataset
-    var numColsOutput = 0
-    if (getRawPredictionCol.nonEmpty) {
-      val predictRawUDF = udf(predictRaw _)
-      outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getProbabilityCol.nonEmpty) {
-      val probabilityUDF = udf(predictProbability _)
-      outputData = outputData.withColumn(getProbabilityCol,  probabilityUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getPredictionCol.nonEmpty) {
-      val predUDF = predictColumn
-      outputData = outputData.withColumn(getPredictionCol, predUDF)
-      numColsOutput += 1
-    }
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
+      // Output selected columns only.
+      var outputData = dataset
+      var numColsOutput = 0
+      if (getRawPredictionCol.nonEmpty) {
+        val predictRawUDF = udf(predictRaw _)
+        outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getProbabilityCol.nonEmpty) {
+        val probabilityUDF = udf(predictProbability _)
+        outputData = outputData.withColumn(getProbabilityCol, probabilityUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getPredictionCol.nonEmpty) {
+        val predUDF = predictColumn
+        outputData = outputData.withColumn(getPredictionCol, predUDF)
+        numColsOutput += 1
+      }
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
 
-    if (numColsOutput == 0) {
-      this.logWarning(s"$uid: LightGBMClassificationModel.transform() was called as NOOP" +
-        " since no output columns were set.")
-    }
-    outputData.toDF
+      if (numColsOutput == 0) {
+        this.logWarning(s"$uid: LightGBMClassificationModel.transform() was called as NOOP" +
+          " since no output columns were set.")
+      }
+      outputData.toDF
+    })
   }
 
   override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {

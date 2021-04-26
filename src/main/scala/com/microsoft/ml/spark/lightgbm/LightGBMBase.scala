@@ -27,28 +27,29 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return The trained model.
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
-    logTrain()
-    if (getNumBatches > 0) {
-      val ratio = 1.0 / getNumBatches
-      val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
-      datasets.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
-        if (model.isDefined) {
-          setModelString(stringFromTrainedModel(model.get))
-        }
+    logTrain({
+      if (getNumBatches > 0) {
+        val ratio = 1.0 / getNumBatches
+        val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
+        datasets.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
+          if (model.isDefined) {
+            setModelString(stringFromTrainedModel(model.get))
+          }
 
-        val dataset = datasetWithIndex._1
-        val batchIndex = datasetWithIndex._2
+          val dataset = datasetWithIndex._1
+          val batchIndex = datasetWithIndex._2
 
-        beforeTrainBatch(batchIndex, dataset, model)
+          beforeTrainBatch(batchIndex, dataset, model)
 
-        val newModel = innerTrain(dataset, batchIndex)
-        afterTrainBatch(batchIndex, dataset, newModel)
+          val newModel = innerTrain(dataset, batchIndex)
+          afterTrainBatch(batchIndex, dataset, newModel)
 
-        Some(newModel)
-      }.get
-    } else {
-      innerTrain(dataset, batchIndex = 0)
-    }
+          Some(newModel)
+        }.get
+      } else {
+        innerTrain(dataset, batchIndex = 0)
+      }
+    })
   }
 
   def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {

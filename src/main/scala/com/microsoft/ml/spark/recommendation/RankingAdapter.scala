@@ -83,15 +83,16 @@ class RankingAdapter(override val uid: String)
   override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
-    logFit()
-    new RankingAdapterModel()
-      .setRecommenderModel(getRecommender.fit(dataset))
-      .setMode(getMode)
-      .setK(getK)
-      .setUserCol(getUserCol)
-      .setItemCol(getItemCol)
-      .setRatingCol(getRatingCol)
-      .setLabelCol(getLabelCol)
+    logFit({
+      new RankingAdapterModel()
+        .setRecommenderModel(getRecommender.fit(dataset))
+        .setMode(getMode)
+        .setK(getK)
+        .setUserCol(getUserCol)
+        .setItemCol(getItemCol)
+        .setRatingCol(getRatingCol)
+        .setLabelCol(getLabelCol)
+    })
   }
 
   override def copy(extra: ParamMap): RankingAdapter = {
@@ -121,31 +122,32 @@ class RankingAdapterModel private[ml](val uid: String)
   def getRecommenderModel: Model[_] = $(recommenderModel).asInstanceOf[Model[_]]
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    transformSchema(dataset.schema)
+    logTransform[DataFrame]({
+      transformSchema(dataset.schema)
 
-    val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))
+      val windowSpec = Window.partitionBy(getUserCol).orderBy(col(getRatingCol).desc, col(getItemCol))
 
-    val perUserActualItemsDF = dataset
-      .withColumn("rank", r().over(windowSpec).alias("rank"))
-      .where(col("rank") <= getK)
-      .groupBy(getUserCol)
-      .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
-      .select(getUserCol, getLabelCol)
+      val perUserActualItemsDF = dataset
+        .withColumn("rank", r().over(windowSpec).alias("rank"))
+        .where(col("rank") <= getK)
+        .groupBy(getUserCol)
+        .agg(col(getUserCol), collect_list(col(getItemCol)).as(getLabelCol))
+        .select(getUserCol, getLabelCol)
 
-    val recs = getMode match {
-      case "allUsers" =>
-        this.getRecommenderModel match {
-          case als: ALSModel => als.asInstanceOf[ALSModel].recommendForAllUsers(getK)
-          case sar: SARModel => sar.asInstanceOf[SARModel].recommendForAllUsers(getK)
-        }
-      case "normal"   => SparkHelpers.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
-    }
+      val recs = getMode match {
+        case "allUsers" =>
+          this.getRecommenderModel match {
+            case als: ALSModel => als.asInstanceOf[ALSModel].recommendForAllUsers(getK)
+            case sar: SARModel => sar.asInstanceOf[SARModel].recommendForAllUsers(getK)
+          }
+        case "normal" => SparkHelpers.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
+      }
 
-    recs
-      .select(col(getUserCol), col("recommendations." + getItemCol).as("prediction"))
-      .join(perUserActualItemsDF, getUserCol)
-      .drop(getUserCol)
+      recs
+        .select(col(getUserCol), col("recommendations." + getItemCol).as("prediction"))
+        .join(perUserActualItemsDF, getUserCol)
+        .drop(getUserCol)
+    })
   }
 
   override def copy(extra: ParamMap): RankingAdapterModel = {

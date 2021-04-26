@@ -68,46 +68,47 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
-    logFit()
-    import FindBestModel._
-    import dataset.sparkSession.implicits._
+    logFit({
+      import FindBestModel._
+      import dataset.sparkSession.implicits._
 
-    // Staging
-    val trainedModels = getModels
-    if (trainedModels.isEmpty) {
-      throw new Exception("No trained models to evaluate.")
-    }
-    if (!(MetricConstants.FindBestModelMetrics contains getEvaluationMetric)) {
-      throw new Exception("Invalid evaluation metric")
-    }
-    val evaluator = new ComputeModelStatistics()
-    evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
+      // Staging
+      val trainedModels = getModels
+      if (trainedModels.isEmpty) {
+        throw new Exception("No trained models to evaluate.")
+      }
+      if (!(MetricConstants.FindBestModelMetrics contains getEvaluationMetric)) {
+        throw new Exception("Invalid evaluation metric")
+      }
+      val evaluator = new ComputeModelStatistics()
+      evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
 
-    val firstModel = trainedModels(0)
-    val (metricColName, operator) = EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
-    val models = trainedModels.map(_.uid)
-    val parameters = trainedModels.map(EvaluationUtils.modelParamsToString)
-    val tdfs = trainedModels.map(_.transform(dataset))
-    val metrics = tdfs.map(evaluator.transform(_))
-    val simpleMetrics = metrics.map(_.select(metricColName).first()(0).toString.toDouble)
+      val firstModel = trainedModels(0)
+      val (metricColName, operator) = EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
+      val models = trainedModels.map(_.uid)
+      val parameters = trainedModels.map(EvaluationUtils.modelParamsToString)
+      val tdfs = trainedModels.map(_.transform(dataset))
+      val metrics = tdfs.map(evaluator.transform(_))
+      val simpleMetrics = metrics.map(_.select(metricColName).first()(0).toString.toDouble)
 
-    val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
-      case (best, curr) =>
-        if (best._1.isNaN || operator.gt(best._1, curr._1))
-          curr
-        else
-          best
-    }._2
-    val bestScoredDf = tdfs(bestIndex)
-    evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
-    val allModelMetrics = (models,simpleMetrics,parameters).zipped.toSeq.toDF(ModelNameCol, MetricsCol, ParamsCol)
+      val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
+        case (best, curr) =>
+          if (best._1.isNaN || operator.gt(best._1, curr._1))
+            curr
+          else
+            best
+      }._2
+      val bestScoredDf = tdfs(bestIndex)
+      evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
+      val allModelMetrics = (models, simpleMetrics, parameters).zipped.toSeq.toDF(ModelNameCol, MetricsCol, ParamsCol)
 
-    new BestModel(uid)
-      .setBestModel(trainedModels(bestIndex))
-      .setScoredDataset(bestScoredDf)
-      .setBestModelMetrics(evaluator.transform(bestScoredDf))
-      .setRocCurve(evaluator.rocCurve)
-      .setAllModelMetrics(allModelMetrics)
+      new BestModel(uid)
+        .setBestModel(trainedModels(bestIndex))
+        .setScoredDataset(bestScoredDf)
+        .setBestModelMetrics(evaluator.transform(bestScoredDf))
+        .setRocCurve(evaluator.rocCurve)
+        .setAllModelMetrics(allModelMetrics)
+    })
   }
 
   // Choose a random model as we don't know which one will be chosen yet - all will transform schema in same way
@@ -181,8 +182,9 @@ class BestModel(val uid: String) extends Model[BestModel]
   override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    getBestModel.transform(dataset)
+    logTransform[DataFrame](
+      getBestModel.transform(dataset)
+    )
   }
 
   override def transformSchema(schema: StructType): StructType = getBestModel.transformSchema(schema)

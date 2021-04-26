@@ -22,25 +22,26 @@ class RecommendationIndexer(override val uid: String)
   def this() = this(Identifiable.randomUID("RecommendationIndexer"))
 
   override def fit(dataset: Dataset[_]): RecommendationIndexerModel = {
-    logFit()
-    val userIndexModel: StringIndexerModel = new StringIndexer()
-      .setInputCol(getUserInputCol)
-      .setOutputCol(getUserOutputCol)
-      .fit(dataset)
+    logFit({
+      val userIndexModel: StringIndexerModel = new StringIndexer()
+        .setInputCol(getUserInputCol)
+        .setOutputCol(getUserOutputCol)
+        .fit(dataset)
 
-    val itemIndexModel: StringIndexerModel = new StringIndexer()
-      .setInputCol(getItemInputCol)
-      .setOutputCol(getItemOutputCol)
-      .fit(dataset)
+      val itemIndexModel: StringIndexerModel = new StringIndexer()
+        .setInputCol(getItemInputCol)
+        .setOutputCol(getItemOutputCol)
+        .fit(dataset)
 
-    new RecommendationIndexerModel(uid)
-      .setParent(this)
-      .setUserIndexModel(userIndexModel)
-      .setItemIndexModel(itemIndexModel)
-      .setUserInputCol(getUserInputCol)
-      .setUserOutputCol(getUserOutputCol)
-      .setItemInputCol(getItemInputCol)
-      .setItemOutputCol(getItemOutputCol)
+      new RecommendationIndexerModel(uid)
+        .setParent(this)
+        .setUserIndexModel(userIndexModel)
+        .setItemIndexModel(itemIndexModel)
+        .setUserInputCol(getUserInputCol)
+        .setUserOutputCol(getUserOutputCol)
+        .setItemInputCol(getItemInputCol)
+        .setItemOutputCol(getItemOutputCol)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[RecommendationIndexerModel] = defaultCopy(extra)
@@ -56,8 +57,9 @@ class RecommendationIndexerModel(override val uid: String) extends Model[Recomme
   override def copy(extra: ParamMap): RecommendationIndexerModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    getItemIndexModel.transform(getUserIndexModel.transform(dataset))
+    logTransform[DataFrame](
+      getItemIndexModel.transform(getUserIndexModel.transform(dataset))
+    )
   }
 
   def this() = this(Identifiable.randomUID("RecommendationIndexerModel"))

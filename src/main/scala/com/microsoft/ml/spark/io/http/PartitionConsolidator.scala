@@ -119,14 +119,15 @@ class PartitionConsolidator(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    dataset.toDF().mapPartitions { it =>
-      if (it.hasNext) {
-        consolidatorHolder.get.registerAndReceive(it).flatten
-      } else {
-        Iterator()
-      }
-    }(RowEncoder(dataset.schema))
+    logTransform[DataFrame]({
+      dataset.toDF().mapPartitions { it =>
+        if (it.hasNext) {
+          consolidatorHolder.get.registerAndReceive(it).flatten
+        } else {
+          Iterator()
+        }
+      }(RowEncoder(dataset.schema))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

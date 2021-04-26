@@ -47,15 +47,16 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    if (getDisable)
-      dataset.toDF
-    else if (getN < dataset.rdd.getNumPartitions)
-      dataset.coalesce(getN).toDF()
-    else
-      dataset.sqlContext.createDataFrame(
-        dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
-        dataset.schema)
+    logTransform[DataFrame]({
+      if (getDisable)
+        dataset.toDF
+      else if (getN < dataset.rdd.getNumPartitions)
+        dataset.coalesce(getN).toDF()
+      else
+        dataset.sqlContext.createDataFrame(
+          dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
+          dataset.schema)
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

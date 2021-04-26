@@ -73,14 +73,15 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
-    logFit()
-    val (colsToFill, fillValues) = getReplacementValues(
-      dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
-    new CleanMissingDataModel(uid)
-      .setColsToFill(colsToFill.toArray)
-      .setFillValues(fillValues.toArray)
-      .setInputCols(getInputCols)
-      .setOutputCols(getOutputCols)
+    logFit({
+      val (colsToFill, fillValues) = getReplacementValues(
+        dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
+      new CleanMissingDataModel(uid)
+        .setColsToFill(colsToFill.toArray)
+        .setFillValues(fillValues.toArray)
+        .setInputCols(getInputCols)
+        .setOutputCols(getOutputCols)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[CleanMissingDataModel] = defaultCopy(extra)
@@ -160,17 +161,18 @@ class CleanMissingDataModel(val uid: String)
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val datasetCols = dataset.columns.map(name => dataset(name)).toList
-    val datasetInputCols = getInputCols.zip(getOutputCols)
-      .flatMap(io =>
-        if (io._1 == io._2) {
-          None
-        } else {
-          Some(dataset(io._1).as(io._2))
-        }).toList
-    val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
-    addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
+    logTransform[DataFrame]({
+      val datasetCols = dataset.columns.map(name => dataset(name)).toList
+      val datasetInputCols = getInputCols.zip(getOutputCols)
+        .flatMap(io =>
+          if (io._1 == io._2) {
+            None
+          } else {
+            Some(dataset(io._1).as(io._2))
+          }).toList
+      val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
+      addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType =

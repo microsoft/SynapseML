@@ -175,18 +175,20 @@ class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)
 
   override def fit(dataset: Dataset[_]): TabularLIMEModel = {
-    logFit()
-    val fitScaler = new StandardScaler()
-      .setInputCol(getInputCol)
-      .setOutputCol(getOutputCol)
-      .setWithStd(true)
-      .setWithMean(true)
-      .fit(dataset)
+    logFit({
+      val fitScaler = new StandardScaler()
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+        .setWithStd(true)
+        .setWithMean(true)
+        .fit(dataset)
 
-    extractParamMap().toSeq.foldLeft(new TabularLIMEModel()){ case (m, pp) =>
-      m.set(m.getParam(pp.param.name), pp.value)}
-      .setColumnMeans(fitScaler.mean.toArray)
-      .setColumnSTDs(fitScaler.std.toArray)
+      extractParamMap().toSeq.foldLeft(new TabularLIMEModel()) { case (m, pp) =>
+        m.set(m.getParam(pp.param.name), pp.value)
+      }
+        .setColumnMeans(fitScaler.mean.toArray)
+        .setColumnSTDs(fitScaler.std.toArray)
+    })
   }
 
   override def copy(extra: ParamMap): TabularLIME = super.defaultCopy(extra)
@@ -229,23 +231,24 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
     UDFUtils.oldUdf(perturbedDenseVectors _, ArrayType(VectorType, true))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF
-    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
-    val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
-    val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+      val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
+      val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
 
-    val mapped = df.withColumn(idCol, monotonically_increasing_id())
-      .withColumnRenamed(getInputCol, inputCol2)
-      .withColumn(getInputCol, explode_outer(perturbedDenseVectorsUDF(col(inputCol2))))
-      .mlTransform(getModel)
+      val mapped = df.withColumn(idCol, monotonically_increasing_id())
+        .withColumnRenamed(getInputCol, inputCol2)
+        .withColumn(getInputCol, explode_outer(perturbedDenseVectorsUDF(col(inputCol2))))
+        .mlTransform(getModel)
 
-   LIMEUtils.localAggregateBy(mapped, idCol, Seq(getInputCol, getPredictionCol))
-      .withColumn(getInputCol, arrToMatUDF(col(getInputCol)))
-      .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
-      .withColumn(getOutputCol, fitLassoUDF(col(getInputCol), col(getPredictionCol), lit(getRegularization)))
-      .drop(statesCol, getPredictionCol, idCol, getInputCol)
-      .withColumnRenamed(inputCol2, getInputCol)
+      LIMEUtils.localAggregateBy(mapped, idCol, Seq(getInputCol, getPredictionCol))
+        .withColumn(getInputCol, arrToMatUDF(col(getInputCol)))
+        .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
+        .withColumn(getOutputCol, fitLassoUDF(col(getInputCol), col(getPredictionCol), lit(getRegularization)))
+        .drop(statesCol, getPredictionCol, idCol, getInputCol)
+        .withColumnRenamed(inputCol2, getInputCol)
+    })
   }
 
   override def copy(extra: ParamMap): TabularLIMEModel = defaultCopy(extra)
@@ -279,44 +282,45 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
     samplingFraction -> 0.3, superpixelCol -> "superpixels")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF
-    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
-    val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
-    val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+      val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
+      val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
 
-    // Data frame with new column containing superpixels (Array[Cluster]) for each row (image)
-    val spt = new SuperpixelTransformer()
-      .setCellSize(getCellSize)
-      .setModifier(getModifier)
-      .setInputCol(getInputCol)
-      .setOutputCol(getSuperpixelCol)
+      // Data frame with new column containing superpixels (Array[Cluster]) for each row (image)
+      val spt = new SuperpixelTransformer()
+        .setCellSize(getCellSize)
+        .setModifier(getModifier)
+        .setInputCol(getInputCol)
+        .setOutputCol(getSuperpixelCol)
 
-    val spDF = spt.transform(df)
+      val spDF = spt.transform(df)
 
-    // Indices of the columns containing each image and image's superpixels
-    val inputType = df.schema(getInputCol).dataType
-    val maskUDF = inputType match {
-      case BinaryType => Superpixel.MaskBinaryUDF
-      case t if ImageSchemaUtils.isImage(t) => Superpixel.MaskImageUDF
-    }
+      // Indices of the columns containing each image and image's superpixels
+      val inputType = df.schema(getInputCol).dataType
+      val maskUDF = inputType match {
+        case BinaryType => Superpixel.MaskBinaryUDF
+        case t if ImageSchemaUtils.isImage(t) => Superpixel.MaskImageUDF
+      }
 
-    val mapped = spDF.withColumn(idCol, monotonically_increasing_id())
-      .withColumnRenamed(getInputCol, inputCol2)
-      .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getSuperpixelCol).getField("clusters")))))
-      .withColumn(getInputCol, maskUDF(col(inputCol2), col(spt.getOutputCol), col(statesCol)))
-      .withColumn(statesCol, UDFUtils.oldUdf(
-        { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
-        VectorType)(col(statesCol)))
-      .mlTransform(getModel)
-      .drop(getInputCol)
+      val mapped = spDF.withColumn(idCol, monotonically_increasing_id())
+        .withColumnRenamed(getInputCol, inputCol2)
+        .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getSuperpixelCol).getField("clusters")))))
+        .withColumn(getInputCol, maskUDF(col(inputCol2), col(spt.getOutputCol), col(statesCol)))
+        .withColumn(statesCol, UDFUtils.oldUdf(
+          { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
+          VectorType)(col(statesCol)))
+        .mlTransform(getModel)
+        .drop(getInputCol)
 
-    LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
-      .withColumn(statesCol, arrToMatUDF(col(statesCol)))
-      .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
-      .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
-      .drop(statesCol, getPredictionCol)
-      .withColumnRenamed(inputCol2, getInputCol)
+      LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
+        .withColumn(statesCol, arrToMatUDF(col(statesCol)))
+        .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
+        .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
+        .drop(statesCol, getPredictionCol)
+        .withColumnRenamed(inputCol2, getInputCol)
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

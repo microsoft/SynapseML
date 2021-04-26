@@ -124,12 +124,13 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    if (get(url).isEmpty) {
-      setUrl(s"https://$getServiceName.search.windows.net" +
-        s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")
-    }
-    super.transform(dataset)
+    logTransform[DataFrame]({
+      if (get(url).isEmpty) {
+        setUrl(s"https://$getServiceName.search.windows.net" +
+          s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")
+      }
+      super.transform(dataset)
+    })
   }
 
   override def prepareEntity: Row => Option[AbstractHttpEntity] = row =>

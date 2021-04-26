@@ -45,37 +45,38 @@ class TextLIME(val uid: String) extends Model[TextLIME]
   def setTokenCol(v: String): this.type = set(tokenCol, v)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF
+    logTransform[DataFrame]({
+      val df = dataset.toDF
 
-    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
-    val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
-    val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
+      val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+      val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
+      val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
 
-    val tokenizer = new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokenCol)
+      val tokenizer = new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokenCol)
 
-    val tokenDF = tokenizer.transform(df)
+      val tokenDF = tokenizer.transform(df)
 
-    // Indices of the columns containing each image and image's superpixels
-    val inputType = df.schema(getInputCol).dataType
-    val maskUDF = UDFUtils.oldUdf(maskText _, StringType)
+      // Indices of the columns containing each image and image's superpixels
+      val inputType = df.schema(getInputCol).dataType
+      val maskUDF = UDFUtils.oldUdf(maskText _, StringType)
 
-    val mapped = tokenDF.withColumn(idCol, monotonically_increasing_id())
-      .withColumnRenamed(getInputCol, inputCol2)
-      .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getTokenCol)))))
-      .withColumn(getInputCol, maskUDF(col(getTokenCol), col(statesCol)))
-      .withColumn(statesCol, UDFUtils.oldUdf(
-        { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
-        VectorType)(col(statesCol)))
-      .mlTransform(getModel)
-      .drop(getInputCol)
+      val mapped = tokenDF.withColumn(idCol, monotonically_increasing_id())
+        .withColumnRenamed(getInputCol, inputCol2)
+        .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getTokenCol)))))
+        .withColumn(getInputCol, maskUDF(col(getTokenCol), col(statesCol)))
+        .withColumn(statesCol, UDFUtils.oldUdf(
+          { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
+          VectorType)(col(statesCol)))
+        .mlTransform(getModel)
+        .drop(getInputCol)
 
-    LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
-      .withColumn(statesCol, arrToMatUDF(col(statesCol)))
-      .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
-      .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
-      .drop(statesCol, getPredictionCol)
-      .withColumnRenamed(inputCol2, getInputCol)
+      LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
+        .withColumn(statesCol, arrToMatUDF(col(statesCol)))
+        .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
+        .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
+        .drop(statesCol, getPredictionCol)
+        .withColumnRenamed(inputCol2, getInputCol)
+    })
   }
 
   override def copy(extra: ParamMap): TextLIME = defaultCopy(extra)

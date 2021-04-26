@@ -59,29 +59,30 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
   setDefault(headers -> Map[String, String](), method -> "POST")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val df = dataset.toDF()
-    val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getOutputCol)
-    val entityCol   = newCol("entity")(colsToAvoid)
-    val urlCol      = newCol("url")(colsToAvoid)
-    val headersCol  = newCol("headers")(colsToAvoid)
-    val requestCol  = newCol("request")(colsToAvoid)
-    val methodCol   = newCol("method")(colsToAvoid)
+    logTransform[DataFrame]({
+      val df = dataset.toDF()
+      val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getOutputCol)
+      val entityCol = newCol("entity")(colsToAvoid)
+      val urlCol = newCol("url")(colsToAvoid)
+      val headersCol = newCol("headers")(colsToAvoid)
+      val requestCol = newCol("request")(colsToAvoid)
+      val methodCol = newCol("method")(colsToAvoid)
 
-    val headers = getHeaders.toArray.map(x =>
+      val headers = getHeaders.toArray.map(x =>
         HeaderData(x._1, x._2)) ++ Array(HeaderData("Content-type", "application/json"))
 
-    df.withColumn(entityCol, df.schema(getInputCol).dataType match {
-      case _: StructType => to_json(col(getInputCol))
-      case _: ArrayType  => to_json(col(getInputCol))
-      case _             => to_json(struct(getInputCol))
-    }).withColumn(urlCol, lit(getUrl))
-      .withColumn(headersCol, typedLit(headers))
-      .withColumn(methodCol, lit(getMethod))
-      .withColumn(requestCol,
-                  HTTPSchema.to_http_request(urlCol, headersCol, methodCol, entityCol))
-      .drop(entityCol, urlCol, headersCol, methodCol)
-      .withColumnRenamed(requestCol, getOutputCol)
+      df.withColumn(entityCol, df.schema(getInputCol).dataType match {
+        case _: StructType => to_json(col(getInputCol))
+        case _: ArrayType => to_json(col(getInputCol))
+        case _ => to_json(struct(getInputCol))
+      }).withColumn(urlCol, lit(getUrl))
+        .withColumn(headersCol, typedLit(headers))
+        .withColumn(methodCol, lit(getMethod))
+        .withColumn(requestCol,
+          HTTPSchema.to_http_request(urlCol, headersCol, methodCol, entityCol))
+        .drop(entityCol, urlCol, headersCol, methodCol)
+        .withColumnRenamed(requestCol, getOutputCol)
+    })
   }
 
 }
@@ -130,15 +131,16 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val parseInputExpression = {
-      (get(udfScala), get(udfPython)) match {
-        case (Some(f), None) => f(col(getInputCol))
-        case (None, Some(f)) => f(col(getInputCol))
-        case _ => throw new IllegalArgumentException("Need to set either parseInput or parseInputPy")
+    logTransform[DataFrame]({
+      val parseInputExpression = {
+        (get(udfScala), get(udfPython)) match {
+          case (Some(f), None) => f(col(getInputCol))
+          case (None, Some(f)) => f(col(getInputCol))
+          case _ => throw new IllegalArgumentException("Need to set either parseInput or parseInputPy")
+        }
       }
-    }
-    dataset.toDF().withColumn(getOutputCol, parseInputExpression)
+      dataset.toDF().withColumn(getOutputCol, parseInputExpression)
+    })
   }
 
 }
@@ -184,15 +186,16 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
-    val parsed = dataset.toDF.withColumn(getOutputCol,
-      from_json(stringEntityCol, getDataType, Map("charset"->"UTF-8")))
+    logTransform[DataFrame]({
+      val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
+      val parsed = dataset.toDF.withColumn(getOutputCol,
+        from_json(stringEntityCol, getDataType, Map("charset" -> "UTF-8")))
 
-    getPostProcessor.map(_
+      getPostProcessor.map(_
         .setInputCol(getOutputCol)
         .setOutputCol(getOutputCol)
         .transform(parsed)).getOrElse(parsed)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -210,9 +213,10 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   def this() = this(Identifiable.randomUID("StringOutputParser"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
-    dataset.toDF.withColumn(getOutputCol, stringEntityCol)
+    logTransform[DataFrame]({
+      val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
+      dataset.toDF.withColumn(getOutputCol, stringEntityCol)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -259,16 +263,17 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform()
-    val parseOutputExpression = {
-      (get(udfScala), get(udfPython)) match {
-        case (Some(f), None) => f(col(getInputCol))
-        case (None, Some(f)) => f(col(getInputCol))
-        case _ => throw new IllegalArgumentException("Need to set either parseOutput or parseOutputPy")
+    logTransform[DataFrame]({
+      val parseOutputExpression = {
+        (get(udfScala), get(udfPython)) match {
+          case (Some(f), None) => f(col(getInputCol))
+          case (None, Some(f)) => f(col(getInputCol))
+          case _ => throw new IllegalArgumentException("Need to set either parseOutput or parseOutputPy")
+        }
       }
-    }
-    dataset.toDF()
-      .withColumn(getOutputCol, parseOutputExpression)
+      dataset.toDF()
+        .withColumn(getOutputCol, parseOutputExpression)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {
