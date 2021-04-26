@@ -4,13 +4,13 @@
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.nbtest.SynapseUtilities._
+import com.microsoft.ml.spark.nbtest.SynapseUtilities.exec
 import org.json4s.JsonAST.JObject
 
 import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
 import scala.sys.process.Process
 
@@ -33,7 +33,6 @@ case class Applications(nJobs: Int,
 class SynapseTests extends TestBase {
 
   test("SynapsePPE") {
-    val maxJobsNum: Int = 6
 
     val os = sys.props("os.name").toLowerCase
     os match {
@@ -43,7 +42,7 @@ class SynapseTests extends TestBase {
         Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
     }
 
-    listPythonFiles().map(f => {
+    SynapseUtilities.listPythonFiles().map(f => {
       val newPath = f
         .replace(" ", "")
         .replace("-", "")
@@ -58,28 +57,11 @@ class SynapseTests extends TestBase {
       poolName +
       "/batches"
 
-    val livyBatches = listPythonJobFiles()
+    val livyBatches = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
       .filterNot(_.contains("-"))
       .map(f => {
-        var nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
-        var nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
-        while (nActiveJob >= maxJobsNum) {
-          println(s"Current job num >= $maxJobsNum, waiting 10s")
-          blocking {
-            Thread.sleep(10000)
-          }
-          nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
-          nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
-        }
-        while ((nActiveJob > 0) && (nRunningJob == 0)) {
-          println(s"some jobs are submitting, but none job is running, waiting 10s")
-          blocking {
-            Thread.sleep(10000)
-          }
-          nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
-          nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
-        }
+        SynapseUtilities.monitorPool(workspaceName, poolName)
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
         println(s"submitted livy job: ${livyBatch.id}")
         livyBatch

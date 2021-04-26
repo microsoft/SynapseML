@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.Secrets
@@ -9,15 +12,16 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
-import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization
 import org.json4s.jackson.Serialization.write
-import org.json4s.{Formats, NoTypeHints, _}
+import org.json4s.{Formats, NoTypeHints}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.io.{File, InputStream}
 import java.util
+import scala.annotation.tailrec
 import scala.concurrent.{TimeoutException, blocking}
 import scala.io.Source
 import scala.sys.process._
@@ -32,6 +36,7 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "wenqxstorage"
   val StorageContainer: String = "gatedbuild"
+  val maxJobsNum: Int = 6
 
   def listPythonFiles(): Array[String] = {
     Option(
@@ -126,6 +131,24 @@ object SynapseUtilities {
     activeJobs
   }
 
+  @tailrec
+  def monitorPool(workspaceName: String, poolName: String): Unit = {
+    val nRunningJob = showRunningJobs(workspaceName, poolName).nJobs
+    val nActiveJob = showActiveJobs(workspaceName, poolName).nJobs
+    if ((nActiveJob <= maxJobsNum) && (nRunningJob > 0)) {
+      println(s"Spark Pool has $nActiveJob jobs active include $nRunningJob jobs running")
+    } else if ((nActiveJob == 0) && (nRunningJob == 0)) {
+      println(s"Spark Pool has 0 jobs active include 0 jobs running")
+    } else {
+      println(s"Spark Pool has $nActiveJob jobs active include $nRunningJob jobs running, wait 10s...")
+      blocking {
+        Thread.sleep(10000)
+      }
+      monitorPool(workspaceName, poolName)
+    }
+  }
+
+  @tailrec
   def retry(id: Int, livyUrl: String, timeout: Int, startTime: Long): LivyBatch = {
     val batch = poll(id, livyUrl)
     println(s"batch state $id : ${batch.state}")
