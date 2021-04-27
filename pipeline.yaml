@@ -82,7 +82,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
 
-- job: E2E_Databricks
+- job: E2E
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-18.04
