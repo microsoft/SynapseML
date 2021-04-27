@@ -6,14 +6,17 @@ package com.microsoft.ml.spark.logging
 import org.apache.spark.internal.Logging
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
+import com.microsoft.ml.spark.build.BuildInfo
+
 case class BasicLogInfo(
                        uid: String,
                        className: String,
-                       method: String
+                       method: String,
+                       buildVersion: String
                        )
 
 object LogJsonProtocol extends DefaultJsonProtocol {
-  implicit val LogFormat: RootJsonFormat[BasicLogInfo] = jsonFormat3(BasicLogInfo)
+  implicit val LogFormat: RootJsonFormat[BasicLogInfo] = jsonFormat4(BasicLogInfo)
 }
 
 import LogJsonProtocol._
@@ -22,10 +25,16 @@ import spray.json._
 trait BasicLogging extends Logging {
 
   val uid: String
+  val ver: String = BuildInfo.version
 
   protected def logBase(methodName: String): Unit = {
-    val message: String = BasicLogInfo(uid, getClass.toString, methodName).toJson.compactPrint
+    val message: String = BasicLogInfo(uid, getClass.toString, methodName, ver).toJson.compactPrint
     logInfo(s"metrics/ $message")
+  }
+
+  protected def logErrorBase(methodName: String, e: Exception): Unit = {
+    val message: String = BasicLogInfo(uid, getClass.toString, methodName, ver).toJson.compactPrint
+    logError(message, e)
   }
 
   def logClass(): Unit = {
@@ -38,7 +47,7 @@ trait BasicLogging extends Logging {
       f
     } catch {
       case e: Exception => {
-        logError("fit exception ", e)
+        logErrorBase("fit", e)
         throw e
       }
     }
@@ -50,7 +59,7 @@ trait BasicLogging extends Logging {
       f
     } catch {
       case e: Exception => {
-        logError("train exception ", e)
+        logErrorBase("train", e)
         throw e
       }
     }
@@ -62,7 +71,7 @@ trait BasicLogging extends Logging {
       f
     } catch {
       case e: Exception => {
-        logError("transform exception ", e)
+        logErrorBase("transform", e)
         throw e
       }
     }
@@ -74,7 +83,7 @@ trait BasicLogging extends Logging {
       f
     } catch {
       case e: Exception => {
-        logError("predict exception ", e)
+        logErrorBase("predict", e)
         throw e
       }
     }
