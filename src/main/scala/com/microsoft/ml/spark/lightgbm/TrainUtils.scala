@@ -379,7 +379,8 @@ private object TrainUtils extends Serializable {
           val score = lightgbmlib.doubleArray_getitem(evalResults, index.toLong)
           log.info(s"Valid $evalName=$score")
           val cmp =
-            if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@"))
+            if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@") ||
+              evalName.startsWith("average_precision"))
               (x: Double, y: Double, tol: Double) => x - y > tol
             else
               (x: Double, y: Double, tol: Double) => x - y < tol
