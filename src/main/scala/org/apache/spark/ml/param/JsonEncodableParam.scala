@@ -61,14 +61,14 @@ class ServiceParam[T](parent: Params,
     with PythonWrappableParam[Either[T, String]] {
   type ValueType = T
 
-  override def valueToPython(v: Either[T, String]): String = {
+  override def pyValue(v: Either[T, String]): String = {
     v match {
-      case Left(t) => PythonWrappableParam.defaultPythonize(t)
+      case Left(t) => PythonWrappableParam.pyDefaultRender(t)
       case Right(n) => s""""$n""""
     }
   }
 
-  override def pythonizedParamName(v: Either[T, String]): String = {
+  override def pyName(v: Either[T, String]): String = {
     v match {
       case Left(_) => name
       case Right(_) => name + "Col"

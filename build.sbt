@@ -1,12 +1,13 @@
 import java.io.{File, PrintWriter}
 import java.net.URL
-
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 import sbt.internal.util.ManagedLogger
+
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.sys.process.Process
+import BuildUtils._
 
 val condaEnvName = "mmlspark"
 name := "mmlspark"
@@ -46,6 +47,16 @@ libraryDependencies ++= Seq(
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
+def activateCondaEnv: Seq[String] = {
+  if (sys.props("os.name").toLowerCase.contains("windows")) {
+    osPrefix ++ Seq("activate", condaEnvName, "&&")
+  } else {
+    Seq()
+    //TODO figure out why this doesent work
+    //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
+  }
+}
+
 // skip dependency elements with a scope
 pomPostProcess := { (node: XmlNode) =>
   new RuleTransformer(new RewriteRule {
@@ -67,63 +78,42 @@ pomPostProcess := { (node: XmlNode) =>
 
 resolvers += "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
-def join(folders: String*): File = {
-  folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
-}
-
 val createCondaEnvTask = TaskKey[Unit]("createCondaEnv", "create conda env")
 createCondaEnvTask := {
   val s = streams.value
   val hasEnv = Process("conda env list").lineStream.toList
     .map(_.split("\\s+").head).contains(condaEnvName)
   if (!hasEnv) {
-    Process(
-      "conda env create -f environment.yaml",
-      new File(".")) ! s.log
+    runCmd(Seq("conda", "env", "create", "-f", "environment.yaml"))
   } else {
     println("Found conda env " + condaEnvName)
   }
 }
 
+val condaEnvLocation = TaskKey[String]("condaEnvLocation", "get install location of conda env")
+condaEnvLocation := {
+  val s = streams.value
+  createCondaEnvTask.value
+  Process("conda env list").lineStream.toList
+    .map(_.split("\\s+"))
+    .map(l => (l.head, l.reverse.head))
+    .filter(p => p._1 == condaEnvName)
+    .head._2
+}
+
+
 val cleanCondaEnvTask = TaskKey[Unit]("cleanCondaEnv", "create conda env")
 cleanCondaEnvTask := {
-  val s = streams.value
-  Process(
-    s"conda env remove --name $condaEnvName -y",
-    new File(".")) ! s.log
-}
-
-def isWindows: Boolean = {
-  sys.props("os.name").toLowerCase.contains("windows")
-}
-
-def osPrefix: Seq[String] = {
-  if (isWindows) {
-    Seq("cmd", "/C")
-  } else {
-    Seq()
-  }
-}
-
-def activateCondaEnv: Seq[String] = {
-  if (sys.props("os.name").toLowerCase.contains("windows")) {
-    osPrefix ++ Seq("activate", condaEnvName, "&&")
-  } else {
-    Seq()
-    //TODO figure out why this doesent work
-    //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
-  }
+  runCmd(Seq("conda", "env", "remove", "--name", condaEnvName, "-y"))
 }
 
 val codegenTask = TaskKey[Unit]("codegen", "Generate Code")
 codegenTask := {
-  val s = streams.value
   (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.CodeGen").value
 }
 
 val testgenTask = TaskKey[Unit]("testgen", "Generate Tests")
 testgenTask := {
-  val s = streams.value
   (runMain in Test).toTask(" com.microsoft.ml.spark.codegen.TestGen").value
 }
 
@@ -134,6 +124,8 @@ val unifiedDocDir = join(genDir.toString, "doc")
 val pythonDocDir = join(unifiedDocDir.toString, "pyspark")
 val pythonPackageDir = join(genDir.toString, "package", "python")
 val pythonTestDir = join(genDir.toString, "test", "python")
+val rSrcDir = join(genDir.toString, "src", "R", "mmlspark")
+val rPackageDir = join(genDir.toString, "package", "R")
 
 val pythonizedVersion = settingKey[String]("Pythonized version")
 pythonizedVersion := {
@@ -144,55 +136,81 @@ pythonizedVersion := {
   }
 }
 
-def uploadToBlob(source: String, dest: String,
-                 container: String, log: ManagedLogger,
-                 accountName: String = "mmlspark"): Int = {
-  val command = Seq("az", "storage", "blob", "upload-batch",
-    "--source", source,
-    "--destination", container,
-    "--destination-path", dest,
-    "--account-name", accountName,
-    "--account-key", Secrets.storageKey)
-  Process(osPrefix ++ command) ! log
+val rVersion = settingKey[String]("R version")
+rVersion := {
+  if (version.value.contains("-")) {
+    version.value.split("-".head).head
+  } else {
+    version.value
+  }
 }
 
-def downloadFromBlob(source: String, dest: String,
-                     container: String, log: ManagedLogger,
-                     accountName: String = "mmlspark"): Int = {
-  val command = Seq("az", "storage", "blob", "download-batch",
-    "--destination", dest,
-    "--pattern", source,
-    "--source", container,
-    "--account-name", accountName,
-    "--account-key", Secrets.storageKey)
-  Process(osPrefix ++ command) ! log
+def rCmd(cmd: Seq[String], wd: File, libPath: String): Unit = {
+  runCmd(activateCondaEnv ++ cmd, wd, Map("R_LIBS" -> libPath, "R_USER_LIBS" -> libPath))
 }
-def singleUploadToBlob(source: String, dest: String,
-                       container: String, log: ManagedLogger,
-                       accountName: String = "mmlspark", extraArgs: Seq[String] = Seq()): Int = {
-  val command = Seq("az", "storage", "blob", "upload",
-    "--file", source,
-    "--container-name", container,
-    "--name", dest,
-    "--account-name", accountName,
-    "--account-key", Secrets.storageKey) ++ extraArgs
-  Process(osPrefix ++ command) ! log
+
+val packageR = TaskKey[Unit]("packageR", "Generate roxygen docs and zip R package")
+packageR := {
+  createCondaEnvTask.value
+  codegenTask.value
+  val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
+  rCmd(Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
+  rPackageDir.mkdirs()
+  zipFolder(rSrcDir, new File(rPackageDir, s"mmlspark-${version.value}.zip"))
+}
+
+val testR = TaskKey[Unit]("testR", "Run testthat on R tests")
+testR := {
+  packageR.value
+  publishLocal.value
+  val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
+  rCmd(Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", "mmlspark"), rSrcDir.getParentFile, libPath)
+  val testRunner = join("tools", "tests", "run_r_tests.R").getAbsolutePath
+  rCmd(Seq("Rscript", testRunner), rSrcDir, libPath)
+}
+
+val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
+publishR := {
+  codegenTask.value
+  packageR.value
+  val rPackage = rPackageDir.listFiles().head
+  singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr")
+}
+
+val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
+packagePythonTask := {
+  codegenTask.value
+  createCondaEnvTask.value
+  val destPyDir = join("target", s"scala-${scalaMajorVersion}", "classes", "mmlspark")
+  if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
+  FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
+  runCmd(
+    activateCondaEnv ++
+      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
+    pythonSrcDir)
+}
+
+val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
+installPipPackageTask := {
+  packagePythonTask.value
+  publishLocal.value
+  runCmd(
+    activateCondaEnv ++ Seq("pip", "install", "-I",
+      s"mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl"),
+    pythonPackageDir)
 }
 
 val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
 generatePythonDoc := {
-  val s = streams.value
   installPipPackageTask.value
-  Process(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
-  Process(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
-    join(pythonSrcDir.toString, "mmlspark")) ! s.log
-
+  runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."),
+    join(pythonSrcDir.toString, "mmlspark"))
+  runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"),
+    join(pythonSrcDir.toString, "mmlspark"))
 }
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
-  val s = streams.value
   generatePythonDoc.value
   (Compile / unidoc).value
   val html =
@@ -206,62 +224,25 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(unidocDir, scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
-  uploadToBlob(unifiedDocDir.toString, version.value, "docs", s.log)
-}
-
-val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
-publishR := {
-  val s = streams.value
-  codegenTask.value
-  val rPackage = join("target", s"scala-${scalaMajorVersion}", "generated", "package", "R")
-    .listFiles().head
-  singleUploadToBlob(rPackage.toString, rPackage.getName, "rrr", s.log)
-}
-
-val packagePythonTask = TaskKey[Unit]("packagePython", "Package python sdk")
-packagePythonTask := {
-  val s = streams.value
-  codegenTask.value
-  createCondaEnvTask.value
-  val destPyDir = join("target", s"scala-${scalaMajorVersion}", "classes", "mmlspark")
-  if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-  FileUtils.copyDirectory(join(pythonSrcDir.getAbsolutePath, "mmlspark"), destPyDir)
-
-  Process(
-    activateCondaEnv ++
-      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", s"${pythonPackageDir.absolutePath}"),
-    pythonSrcDir) ! s.log
-}
-
-val installPipPackageTask = TaskKey[Unit]("installPipPackage", "install python sdk")
-installPipPackageTask := {
-  val s = streams.value
-  publishLocal.value
-  packagePythonTask.value
-  Process(
-    activateCondaEnv ++ Seq("pip", "install", "-I",
-      s"mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl"),
-    pythonPackageDir) ! s.log
+  uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
 val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
 publishPython := {
-  val s = streams.value
   publishLocal.value
   packagePythonTask.value
   singleUploadToBlob(
     join(pythonPackageDir.toString, s"mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl").toString,
     version.value + s"/mmlspark-${pythonizedVersion.value}-py2.py3-none-any.whl",
-    "pip", s.log)
+    "pip")
 }
 
 val testPythonTask = TaskKey[Unit]("testPython", "test python sdk")
 
 testPythonTask := {
-  val s = streams.value
   installPipPackageTask.value
   testgenTask.value
-  Process(
+  runCmd(
     activateCondaEnv ++ Seq("python",
       "-m",
       "pytest",
@@ -271,7 +252,7 @@ testPythonTask := {
       "mmlsparktest"
     ),
     new File(s"target/scala-${scalaMajorVersion}/generated/test/python/")
-  ) ! s.log
+  )
 }
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
@@ -294,24 +275,22 @@ getDatasetsTask := {
 
 val genBuildInfo = TaskKey[Unit]("genBuildInfo", "generate a build info file")
 genBuildInfo := {
-
   val buildInfo =
     s"""
-      |MMLSpark Build and Release Information
-      |---------------
-      |
-      |### Maven Coordinates
-      | `${organization.value}:${name.value}_${scalaMajorVersion}:${version.value}`
-      |
-      |### Maven Resolver
-      | `https://mmlspark.azureedge.net/maven`
-      |
-      |### Documentation Pages:
-      |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
-      |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
-      |
+       |MMLSpark Build and Release Information
+       |---------------
+       |
+       |### Maven Coordinates
+       | `${organization.value}:${name.value}_${scalaMajorVersion}:${version.value}`
+       |
+       |### Maven Resolver
+       | `https://mmlspark.azureedge.net/maven`
+       |
+       |### Documentation Pages:
+       |[Scala Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/scala/index.html)
+       |[Python Documentation](https://mmlspark.blob.core.windows.net/docs/${version.value}/pyspark/index.html)
+       |
     """.stripMargin
-
   val infoFile = join("target", "Build.md")
   if (infoFile.exists()) FileUtils.forceDelete(infoFile)
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
@@ -326,7 +305,6 @@ setupTask := {
 
 val publishBlob = TaskKey[Unit]("publishBlob", "publish the library to mmlspark blob")
 publishBlob := {
-  val s = streams.value
   publishM2.value
   val scalaVersionSuffix = scalaVersion.value.split(".".toCharArray.head).dropRight(1).mkString(".")
   val nameAndScalaVersion = s"${name.value}_$scalaVersionSuffix"
@@ -338,7 +316,7 @@ publishBlob := {
 
   val blobMavenFolder = organization.value.replace(".", "/") +
     s"/$nameAndScalaVersion/${version.value}"
-  uploadToBlob(localPackageFolder, blobMavenFolder, "maven", s.log)
+  uploadToBlob(localPackageFolder, blobMavenFolder, "maven")
 }
 
 val release = TaskKey[Unit]("release", "publish the library to mmlspark blob")
@@ -357,8 +335,6 @@ release := Def.taskDyn {
 
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
 publishBadges := {
-  val s = streams.value
-
   def enc(s: String): String = {
     s.replaceAllLiterally("_", "__").replaceAllLiterally(" ", "_").replaceAllLiterally("-", "--")
   }
@@ -366,13 +342,12 @@ publishBadges := {
   def uploadBadge(left: String, right: String, color: String, filename: String): Unit = {
     val badgeDir = join(baseDirectory.value.toString, "target", "badges")
     if (!badgeDir.exists()) badgeDir.mkdirs()
-    Process(Seq("curl",
+    runCmd(Seq("curl",
       "-o", join(badgeDir.toString, filename).toString,
-      s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}")
-      , new File(".")) ! s.log
+      s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", s.log, extraArgs = Seq("--content-cache-control", "no-cache"))
+      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
@@ -383,7 +358,7 @@ val settings = Seq(
   logBuffered in Test := false,
   buildInfoKeys := Seq[BuildInfoKey](
     name, version, scalaVersion, sbtVersion,
-    baseDirectory, datasetDir, pythonizedVersion),
+    baseDirectory, datasetDir, pythonizedVersion, rVersion),
   parallelExecution in Test := false,
   test in assembly := {},
   assemblyMergeStrategy in assembly := {

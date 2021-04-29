@@ -98,11 +98,11 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def valueToPython(v: DataFrame): String = {
+  override def pyValue(v: DataFrame): String = {
     s"""${name}DF"""
   }
 
-  override def loadParameter(modelNum: Int): String = {
+  override def pyLoadLine(modelNum: Int): String = {
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
   }
 

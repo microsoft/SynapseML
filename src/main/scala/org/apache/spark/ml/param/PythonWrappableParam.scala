@@ -23,16 +23,16 @@ object PythonPrinter extends PythonPrinter
 
 object PythonWrappableParam {
 
-  def defaultPythonize[T](value: T, jsonFunc: T => String): String = {
+  def pyDefaultRender[T](value: T, jsonFunc: T => String): String = {
     PythonPrinter(jsonFunc(value).parseJson)
   }
 
-  def defaultPythonize[T](value: T)(implicit dataFormat: JsonFormat[T]): String = {
-    defaultPythonize(value, { v: T => v.toJson.compactPrint })
+  def pyDefaultRender[T](value: T)(implicit dataFormat: JsonFormat[T]): String = {
+    pyDefaultRender(value, { v: T => v.toJson.compactPrint })
   }
 
-  def defaultPythonize[T](value: T, param: Param[T]): String = {
-    defaultPythonize(value, { v: T => param.jsonEncode(v) })
+  def pyDefaultRender[T](value: T, param: Param[T]): String = {
+    pyDefaultRender(value, { v: T => param.jsonEncode(v) })
   }
 
 }
@@ -43,24 +43,24 @@ trait PythonWrappableParam[T] extends Param[T] {
 
   type InnerType = T
 
-  def valueToPython(v: T): String
+  def pyValue(v: T): String
 
-  def pythonizedParamName(v: T): String = {
+  def pyName(v: T): String = {
     name
   }
 
-  def costructorBasedValue(v: T): String = {
-    s"""${pythonizedParamName(v)}=${valueToPython(v)}"""
+  def pyConstructorLine(v: T): String = {
+    s"""${pyName(v)}=${pyValue(v)}"""
   }
 
-  def setterBasedValue(v: T): String = {
-    s"""set${pythonizedParamName(v).capitalize}(${valueToPython(v)})"""
+  def pySetterLine(v: T): String = {
+    s"""set${pyName(v).capitalize}(${pyValue(v)})"""
   }
 
 }
 
 trait ExternalPythonWrappableParam[T] extends PythonWrappableParam[T] {
 
-  def loadParameter(modelNum: Int): String
+  def pyLoadLine(modelNum: Int): String
 
 }
