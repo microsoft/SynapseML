@@ -3,7 +3,11 @@ name: Sync issue to Azure DevOps work item
 on:
   issues:
     types:
-      [opened, edited, deleted, closed, reopened, labeled, unlabeled, assigned, created]
+      [opened, edited, deleted, closed, reopened, labeled, unlabeled, assigned]
+  pull_request:
+    types: [opened, edited, closed]
+    branches:
+      - master
 
 jobs:
   alert:
