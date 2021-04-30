@@ -4,10 +4,6 @@ on:
   issues:
     types:
       [opened, edited, deleted, closed, reopened, labeled, unlabeled, assigned]
-  pull_request:
-    types: [opened, edited, closed]
-    branches:
-      - master
 
 jobs:
   alert:
