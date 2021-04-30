@@ -5,11 +5,11 @@ package com.microsoft.ml.spark.image
 
 import java.awt.image.BufferedImage
 import java.awt.{Image => JImage}
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.image.ImageSchema
@@ -56,7 +56,8 @@ object ResizeUtils {
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
 class ResizeImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   import ResizeUtils._
 
@@ -83,18 +84,22 @@ class ResizeImageTransformer(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
-    val inputType = dataset.schema(getInputCol).dataType
-    if (ImageSchemaUtils.isImage(inputType)) {
-      val resizeUDF = UDFUtils.oldUdf(resizeSparkImage(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
-      dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
-    } else if (inputType == BinaryType) {
-      val resizeBytesUDF = UDFUtils.oldUdf(resizeBytes(getWidth, getHeight, get(nChannels)) _, ImageSchema.columnSchema)
-      dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
-    } else {
-      throw new IllegalArgumentException(
-        s"Improper dataset schema: $inputType, need image type or byte array")
-    }
+    logTransform[DataFrame]({
+      require(getWidth >= 0 && getHeight >= 0, "width and height should be nonnegative")
+      val inputType = dataset.schema(getInputCol).dataType
+      if (ImageSchemaUtils.isImage(inputType)) {
+        val resizeUDF = UDFUtils.oldUdf(resizeSparkImage(getWidth, getHeight,
+          get(nChannels)) _, ImageSchema.columnSchema)
+        dataset.toDF.withColumn(getOutputCol, resizeUDF(col(getInputCol)))
+      } else if (inputType == BinaryType) {
+        val resizeBytesUDF = UDFUtils.oldUdf(resizeBytes(getWidth, getHeight,
+          get(nChannels)) _, ImageSchema.columnSchema)
+        dataset.toDF.withColumn(getOutputCol, resizeBytesUDF(col(getInputCol)))
+      } else {
+        throw new IllegalArgumentException(
+          s"Improper dataset schema: $inputType, need image type or byte array")
+      }
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

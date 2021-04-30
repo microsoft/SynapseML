@@ -5,11 +5,11 @@ package com.microsoft.ml.spark.featurize
 
 import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
 import com.microsoft.ml.spark.featurize.text.TextFeaturizer
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.spark.ml.feature.{Imputer, OneHotEncoder, SQLTransformer, VectorAssembler}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -34,7 +34,8 @@ object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols {
+  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Featurize"))
 
@@ -118,111 +119,113 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     */
   //noinspection ScalaStyle
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    val columnState = new ColumnState(dataset)
+    logFit({
+      val columnState = new ColumnState(dataset)
 
-    val (oldEncoderCols, newEncoderCols) = getInputCols.flatMap {
-      baseCol =>
-        val metadata = dataset.schema(baseCol).metadata
-        val isCategorical = getOneHotEncodeCategoricals &&
-          metadata.contains("ml_attr") &&
-          metadata.getMetadata("ml_attr").contains("type") &&
-          metadata.getMetadata("ml_attr").getString("type") == "nominal"
-        columnState.getCurrentInfo(baseCol).dataType match {
-          case _ if isCategorical =>
-            Some(columnState.getCurrentInfo(baseCol).currentName, columnState.makeNewCol(baseCol, VectorType))
-          case _ =>
-            None
-        }
-    }.unzip
+      val (oldEncoderCols, newEncoderCols) = getInputCols.flatMap {
+        baseCol =>
+          val metadata = dataset.schema(baseCol).metadata
+          val isCategorical = getOneHotEncodeCategoricals &&
+            metadata.contains("ml_attr") &&
+            metadata.getMetadata("ml_attr").contains("type") &&
+            metadata.getMetadata("ml_attr").getString("type") == "nominal"
+          columnState.getCurrentInfo(baseCol).dataType match {
+            case _ if isCategorical =>
+              Some(columnState.getCurrentInfo(baseCol).currentName, columnState.makeNewCol(baseCol, VectorType))
+            case _ =>
+              None
+          }
+      }.unzip
 
-    val encoders: Array[PipelineStage] = Array(new OneHotEncoder()
-      .setInputCols(oldEncoderCols).setOutputCols(newEncoderCols))
+      val encoders: Array[PipelineStage] = Array(new OneHotEncoder()
+        .setInputCols(oldEncoderCols).setOutputCols(newEncoderCols))
 
-    val casters: Array[PipelineStage] = getInputCols.flatMap {
-      baseCol =>
-        val metadata = dataset.schema(baseCol).metadata
-        val isCategorical = getOneHotEncodeCategoricals &&
-          metadata.contains("ml_attr") &&
-          metadata.getMetadata("ml_attr").contains("type") &&
-          metadata.getMetadata("ml_attr").getString("type") == "nominal"
-        columnState.getCurrentInfo(baseCol).dataType match {
-          case _ if isCategorical =>
-            None
-          case _: FloatType | _: LongType | _: IntegerType =>
-            val oldCol = columnState.getCurrentInfo(baseCol).currentName
-            val newCol = columnState.makeNewCol(baseCol, DoubleType)
-            Some(new SQLTransformer().setStatement(s"SELECT *, cast(`$oldCol` as double) AS `$newCol` FROM __THIS__"))
-          case _ =>
-            None
-        }
-    }
+      val casters: Array[PipelineStage] = getInputCols.flatMap {
+        baseCol =>
+          val metadata = dataset.schema(baseCol).metadata
+          val isCategorical = getOneHotEncodeCategoricals &&
+            metadata.contains("ml_attr") &&
+            metadata.getMetadata("ml_attr").contains("type") &&
+            metadata.getMetadata("ml_attr").getString("type") == "nominal"
+          columnState.getCurrentInfo(baseCol).dataType match {
+            case _ if isCategorical =>
+              None
+            case _: FloatType | _: LongType | _: IntegerType =>
+              val oldCol = columnState.getCurrentInfo(baseCol).currentName
+              val newCol = columnState.makeNewCol(baseCol, DoubleType)
+              Some(new SQLTransformer().setStatement(s"SELECT *, cast(`$oldCol` as double) AS `$newCol` FROM __THIS__"))
+            case _ =>
+              None
+          }
+      }
 
-    val (oldImputerCols, newImputerCols) = getInputCols.flatMap {
-      baseCol =>
-        columnState.getCurrentInfo(baseCol).dataType match {
-          case _: DoubleType if getImputeMissing =>
-            Some(columnState.getCurrentInfo(baseCol).currentName, columnState.makeNewCol(baseCol, DoubleType))
-          case _ =>
-            None
-        }
-    }.unzip
+      val (oldImputerCols, newImputerCols) = getInputCols.flatMap {
+        baseCol =>
+          columnState.getCurrentInfo(baseCol).dataType match {
+            case _: DoubleType if getImputeMissing =>
+              Some(columnState.getCurrentInfo(baseCol).currentName, columnState.makeNewCol(baseCol, DoubleType))
+            case _ =>
+              None
+          }
+      }.unzip
 
-    val imputers: Array[PipelineStage] = Array(new CleanMissingData()
-      .setInputCols(oldImputerCols).setOutputCols(newImputerCols))
+      val imputers: Array[PipelineStage] = Array(new CleanMissingData()
+        .setInputCols(oldImputerCols).setOutputCols(newImputerCols))
 
-    val featurizers: Array[PipelineStage] = getInputCols.flatMap {
-      baseCol =>
-        val oldCol = columnState.getCurrentInfo(baseCol).currentName
-        columnState.getCurrentInfo(baseCol).dataType match {
-          case _: StringType =>
-            val newCol = columnState.makeNewCol(baseCol, VectorType)
-            val m0 = new Lambda().setTransform(df => df.na.fill("", Seq(oldCol))).setTransformSchema({
-              x => x
-            })
-            val m1 = new TextFeaturizer().setNumFeatures(getNumFeatures).setInputCol(oldCol).setOutputCol(newCol)
-            val newCol2 = columnState.makeNewCol(baseCol, VectorType)
-            val m2 = new CountSelector().setInputCol(newCol).setOutputCol(newCol2)
-            Some(new Pipeline().setStages(Array(m0, m1, m2)))
-          case _: TimestampType =>
-            val newCol = columnState.makeNewCol(baseCol, VectorType)
-            val featurizeUdf = udf((ts: Timestamp) => {
-              val localDate = ts.toLocalDateTime
-              Vectors.dense(Array[Double](
-                ts.getTime.toDouble,
-                localDate.getYear.toDouble,
-                localDate.getDayOfWeek.getValue.toDouble,
-                localDate.getMonth.getValue.toDouble,
-                localDate.getDayOfMonth.toDouble,
-                localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
-                localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
-                localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
-            })
-            Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
-          case _: DateType =>
-            val newCol = columnState.makeNewCol(baseCol, VectorType)
-            val featurizeUdf = udf((d: Date) => {
-              val localDate = d.toLocalDate
-              Vectors.dense(Array[Double](d.getTime.toDouble,
-                localDate.getYear.toDouble,
-                localDate.getDayOfWeek.getValue.toDouble,
-                localDate.getMonth.getValue.toDouble,
-                localDate.getDayOfMonth.toDouble))
-            })
-            Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
-          case _ =>
-            None
-        }
-    }
+      val featurizers: Array[PipelineStage] = getInputCols.flatMap {
+        baseCol =>
+          val oldCol = columnState.getCurrentInfo(baseCol).currentName
+          columnState.getCurrentInfo(baseCol).dataType match {
+            case _: StringType =>
+              val newCol = columnState.makeNewCol(baseCol, VectorType)
+              val m0 = new Lambda().setTransform(df => df.na.fill("", Seq(oldCol))).setTransformSchema({
+                x => x
+              })
+              val m1 = new TextFeaturizer().setNumFeatures(getNumFeatures).setInputCol(oldCol).setOutputCol(newCol)
+              val newCol2 = columnState.makeNewCol(baseCol, VectorType)
+              val m2 = new CountSelector().setInputCol(newCol).setOutputCol(newCol2)
+              Some(new Pipeline().setStages(Array(m0, m1, m2)))
+            case _: TimestampType =>
+              val newCol = columnState.makeNewCol(baseCol, VectorType)
+              val featurizeUdf = udf((ts: Timestamp) => {
+                val localDate = ts.toLocalDateTime
+                Vectors.dense(Array[Double](
+                  ts.getTime.toDouble,
+                  localDate.getYear.toDouble,
+                  localDate.getDayOfWeek.getValue.toDouble,
+                  localDate.getMonth.getValue.toDouble,
+                  localDate.getDayOfMonth.toDouble,
+                  localDate.get(ChronoField.HOUR_OF_DAY).toDouble,
+                  localDate.get(ChronoField.MINUTE_OF_HOUR).toDouble,
+                  localDate.get(ChronoField.SECOND_OF_MINUTE).toDouble))
+              })
+              Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
+            case _: DateType =>
+              val newCol = columnState.makeNewCol(baseCol, VectorType)
+              val featurizeUdf = udf((d: Date) => {
+                val localDate = d.toLocalDate
+                Vectors.dense(Array[Double](d.getTime.toDouble,
+                  localDate.getYear.toDouble,
+                  localDate.getDayOfWeek.getValue.toDouble,
+                  localDate.getMonth.getValue.toDouble,
+                  localDate.getDayOfMonth.toDouble))
+              })
+              Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
+            case _ =>
+              None
+          }
+      }
 
-    val va: Array[PipelineStage] = Array(
-      new VectorAssembler()
-        .setInputCols(columnState.getCurrentCols.toArray)
-        .setOutputCol(getOutputCol)
-        .setHandleInvalid("skip"),
-      new DropColumns().setCols(columnState.getColsToDrop.toArray)
-    )
+      val va: Array[PipelineStage] = Array(
+        new VectorAssembler()
+          .setInputCols(columnState.getCurrentCols.toArray)
+          .setOutputCol(getOutputCol)
+          .setHandleInvalid("skip"),
+        new DropColumns().setCols(columnState.getColsToDrop.toArray)
+      )
 
-    new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
+      new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[PipelineModel] = {

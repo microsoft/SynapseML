@@ -4,10 +4,10 @@
 package com.microsoft.ml.spark.featurize
 
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.CategoricalMap
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute
@@ -54,7 +54,8 @@ object NullOrdering {
   * Similar to StringIndexer except it can be used on any value types.
   */
 class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel]
-  with ValueIndexerParams {
+  with ValueIndexerParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexer"))
 
@@ -64,25 +65,27 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
     * @return The model for transforming columns to categorical.
     */
   override def fit(dataset: Dataset[_]): ValueIndexerModel = {
-    val dataType = dataset.schema(getInputCol).dataType
-    val levels = dataset.select(getInputCol).distinct().collect().map(row => row(0))
-    // Sort the levels
-    val castSortLevels =
-      dataType match {
-        case _: IntegerType => sortLevels[JInt](levels)(NullOrdering[JInt](Ordering[JInt]))
-        case _: LongType => sortLevels[JLong](levels)(NullOrdering[JLong](Ordering[JLong]))
-        case _: DoubleType => sortLevels[JDouble](levels)(NullOrdering[JDouble](Ordering[JDouble]))
-        case _: StringType => sortLevels[String](levels)(NullOrdering[String](Ordering[String]))
-        case _: BooleanType => sortLevels[JBoolean](levels)(NullOrdering[JBoolean](Ordering[JBoolean]))
-        case _ => throw new UnsupportedOperationException(
-          "Unsupported Categorical type " + dataType.toString + " for column: " + getInputCol)
-      }
-    // Create the indexer
-    new ValueIndexerModel()
-      .setInputCol(getInputCol)
-      .setOutputCol(getOutputCol)
-      .setLevels(castSortLevels)
-      .setDataType(dataType)
+    logFit({
+      val dataType = dataset.schema(getInputCol).dataType
+      val levels = dataset.select(getInputCol).distinct().collect().map(row => row(0))
+      // Sort the levels
+      val castSortLevels =
+        dataType match {
+          case _: IntegerType => sortLevels[JInt](levels)(NullOrdering[JInt](Ordering[JInt]))
+          case _: LongType => sortLevels[JLong](levels)(NullOrdering[JLong](Ordering[JLong]))
+          case _: DoubleType => sortLevels[JDouble](levels)(NullOrdering[JDouble](Ordering[JDouble]))
+          case _: StringType => sortLevels[String](levels)(NullOrdering[String](Ordering[String]))
+          case _: BooleanType => sortLevels[JBoolean](levels)(NullOrdering[JBoolean](Ordering[JBoolean]))
+          case _ => throw new UnsupportedOperationException(
+            "Unsupported Categorical type " + dataType.toString + " for column: " + getInputCol)
+        }
+      // Create the indexer
+      new ValueIndexerModel()
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+        .setLevels(castSortLevels)
+        .setDataType(dataType)
+    })
   }
 
   private def sortLevels[T: TypeTag](levels: Array[_])
@@ -101,7 +104,8 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
-  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable {
+  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))
 
@@ -148,44 +152,46 @@ class ValueIndexerModel(val uid: String)
 
   /** Transform the input column to categorical */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val nonNullLevels = getLevels.filter(_ != null)
+    logTransform[DataFrame]({
+      val nonNullLevels = getLevels.filter(_ != null)
 
-    val castLevels = nonNullLevels.map { l =>
-      (getDataType, l) match {
-        case (_: IntegerType, v: scala.math.BigInt) => v.toInt
-        case (_: IntegerType, v: scala.math.BigDecimal) => v.toInt
-        case (_: IntegerType, v) => v.asInstanceOf[Int]
-        case (_: LongType, v: scala.math.BigDecimal) => v.toLong
-        case (_: LongType, v) => v.asInstanceOf[Long]
-        case (_: DoubleType, v: scala.math.BigDecimal) => v.toDouble
-        case (_: DoubleType, v) => v.asInstanceOf[Double]
-        case (_: StringType, v: String) => v
-        case (_: StringType, v) => v.asInstanceOf[String]
-        case (_: BooleanType, v: Boolean) => v
-        case (_: BooleanType, v) => v.asInstanceOf[Boolean]
-        case _ => throw new UnsupportedOperationException(s"Unsupported type ${l.getClass} for type ${getDataType} ")
+      val castLevels = nonNullLevels.map { l =>
+        (getDataType, l) match {
+          case (_: IntegerType, v: scala.math.BigInt) => v.toInt
+          case (_: IntegerType, v: scala.math.BigDecimal) => v.toInt
+          case (_: IntegerType, v) => v.asInstanceOf[Int]
+          case (_: LongType, v: scala.math.BigDecimal) => v.toLong
+          case (_: LongType, v) => v.asInstanceOf[Long]
+          case (_: DoubleType, v: scala.math.BigDecimal) => v.toDouble
+          case (_: DoubleType, v) => v.asInstanceOf[Double]
+          case (_: StringType, v: String) => v
+          case (_: StringType, v) => v.asInstanceOf[String]
+          case (_: BooleanType, v: Boolean) => v
+          case (_: BooleanType, v) => v.asInstanceOf[Boolean]
+          case _ => throw new UnsupportedOperationException(s"Unsupported type ${l.getClass} for type ${getDataType} ")
+        }
       }
-    }
-    val hasNullLevel = getLevels.length != nonNullLevels.length
-    val map = new CategoricalMap(castLevels, false, hasNullLevel)
-    val unknownIndex =
-      if (!map.hasNullLevel) {
-        map.numLevels
-      } else {
-        map.numLevels + 1
-      }
-    val getIndex = udf((level: Any) => {
-      // Treat nulls and NaNs specially
-      if (level == null || (level.isInstanceOf[Double] && level.asInstanceOf[Double].isNaN)) {
-        map.numLevels
-      } else {
-        map.getIndexOption(level).getOrElse(unknownIndex)
-      }
+      val hasNullLevel = getLevels.length != nonNullLevels.length
+      val map = new CategoricalMap(castLevels, false, hasNullLevel)
+      val unknownIndex =
+        if (!map.hasNullLevel) {
+          map.numLevels
+        } else {
+          map.numLevels + 1
+        }
+      val getIndex = udf((level: Any) => {
+        // Treat nulls and NaNs specially
+        if (level == null || (level.isInstanceOf[Double] && level.asInstanceOf[Double].isNaN)) {
+          map.numLevels
+        } else {
+          map.getIndexOption(level).getOrElse(unknownIndex)
+        }
+      })
+      // Add the MML style and sparkML style metadata for categoricals
+      val metadata = map.toMetadata(map.toMetadata(dataset.schema(getInputCol).metadata, true), false)
+      val inputColIndex = getIndex(dataset(getInputCol))
+      dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))
     })
-    // Add the MML style and sparkML style metadata for categoricals
-    val metadata = map.toMetadata(map.toMetadata(dataset.schema(getInputCol).metadata, true), false)
-    val inputColIndex = getIndex(dataset(getInputCol))
-    dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))
 
   }
 

@@ -13,6 +13,7 @@ import AnomalyDetectorProtocol._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.ErrorUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.sql.functions.{arrays_zip, col, collect_list, explode, size, struct, udf}
@@ -117,7 +118,8 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
-class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) {
+class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
@@ -134,7 +136,8 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
-class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) {
+class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
@@ -152,7 +155,8 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies] with Serializable
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
-  with HasOutputCol {
+  with HasOutputCol with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 
@@ -196,43 +200,45 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
-    val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
-    setVectorParam(series, inputsCol)
+    logTransform[DataFrame]({
+      val contextCol = DatasetExtensions.findUnusedColumnName("context", dataset.schema)
+      val inputsCol = DatasetExtensions.findUnusedColumnName("inputs", dataset.schema)
+      setVectorParam(series, inputsCol)
 
-    val inputDF = dataset.toDF()
-      .withColumn(contextCol, struct("*"))
-      .withColumn(inputsCol, struct(
-        col(getTimestampCol).alias("timestamp"),
-        col(getValueCol).alias("value")))
-    val sortUDF = UDFUtils.oldUdf(sortWithContext _,
-      new StructType()
-        .add(inputsCol, ArrayType(TimeSeriesPoint.schema))
-        .add(contextCol, ArrayType(inputDF.schema(contextCol).dataType))
-    )
+      val inputDF = dataset.toDF()
+        .withColumn(contextCol, struct("*"))
+        .withColumn(inputsCol, struct(
+          col(getTimestampCol).alias("timestamp"),
+          col(getValueCol).alias("value")))
+      val sortUDF = UDFUtils.oldUdf(sortWithContext _,
+        new StructType()
+          .add(inputsCol, ArrayType(TimeSeriesPoint.schema))
+          .add(contextCol, ArrayType(inputDF.schema(contextCol).dataType))
+      )
 
-    val groupedDF = inputDF
-      .groupBy(getGroupbyCol)
-      .agg(
-        collect_list(inputsCol).alias(inputsCol),
-        collect_list(contextCol).alias(contextCol))
-      .select(sortUDF(col(inputsCol), col(contextCol)).alias("sorted"))
-      .select("sorted.*")
+      val groupedDF = inputDF
+        .groupBy(getGroupbyCol)
+        .agg(
+          collect_list(inputsCol).alias(inputsCol),
+          collect_list(contextCol).alias(contextCol))
+        .select(sortUDF(col(inputsCol), col(contextCol)).alias("sorted"))
+        .select("sorted.*")
 
-    val outputDF = super.transform(groupedDF)
+      val outputDF = super.transform(groupedDF)
 
-    outputDF.select(
-      col(getErrorCol),
-      explode(arrays_zip(
-        col(contextCol),
-        UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
-          col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
-      )).alias(getOutputCol)
-    ).select(
-      s"$getOutputCol.$contextCol.*",
-      getErrorCol,
-      s"$getOutputCol.1"
-    ).withColumnRenamed("1", getOutputCol)
+      outputDF.select(
+        col(getErrorCol),
+        explode(arrays_zip(
+          col(contextCol),
+          UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
+            col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
+        )).alias(getOutputCol)
+      ).select(
+        s"$getOutputCol.$contextCol.*",
+        getErrorCol,
+        s"$getOutputCol.1"
+      ).withColumnRenamed("1", getOutputCol)
+    })
 
   }
 

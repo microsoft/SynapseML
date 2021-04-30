@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -21,7 +22,9 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
   */
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
-    with LightGBMBase[LightGBMRankerModel] {
+    with LightGBMBase[LightGBMRankerModel] with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
   // Set default objective to be ranking classification
@@ -107,7 +110,8 @@ class LightGBMRankerModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
 
@@ -120,21 +124,25 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    updateBoosterParamsBeforePredict()
-    var outputData = super.transform(dataset)
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-    }
-    outputData.toDF
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      var outputData = super.transform(dataset)
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+      }
+      outputData.toDF
+    })
   }
 
   override def predict(features: Vector): Double = {
-    getModel.score(features, false, false)(0)
+    logPredict(
+      getModel.score(features, false, false)(0)
+    )
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)

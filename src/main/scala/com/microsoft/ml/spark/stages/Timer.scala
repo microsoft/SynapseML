@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam, TransformerParam}
 import org.apache.spark.ml.util._
@@ -52,7 +53,8 @@ trait TimerParams extends Wrappable {
 }
 
 class Timer(val uid: String) extends Estimator[TimerModel]
-  with TimerParams with ComplexParamsWritable {
+  with TimerParams with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("Timer"))
 
@@ -77,9 +79,11 @@ class Timer(val uid: String) extends Estimator[TimerModel]
   }
 
   def fit(dataset: Dataset[_]): TimerModel = {
-    val (model, message) = fitWithTime(dataset)
-    log(message)
-    model
+    logFit({
+      val (model, message) = fitWithTime(dataset)
+      log(message)
+      model
+    })
   }
 
 }
@@ -87,7 +91,8 @@ class Timer(val uid: String) extends Estimator[TimerModel]
 object TimerModel extends ComplexParamsReadable[TimerModel]
 
 class TimerModel(val uid: String)
-  extends Model[TimerModel] with TimerParams with ComplexParamsWritable {
+  extends Model[TimerModel] with TimerParams with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TimerModel"))
 
@@ -118,9 +123,11 @@ class TimerModel(val uid: String)
   def transformSchema(schema: StructType): StructType = getTransformer.transformSchema(schema)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    val (model, message) = transformWithTime(dataset)
-    log(message)
-    model
+    logTransform[DataFrame]({
+      val (model, message) = transformWithTime(dataset)
+      log(message)
+      model
+    })
   }
 
 }
