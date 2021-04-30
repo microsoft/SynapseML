@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.automl
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasEvaluationMetric
 import com.microsoft.ml.spark.core.metrics.MetricConstants
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.train.ComputeModelStatistics
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArrayParam, TransformerParam}
@@ -46,7 +47,8 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams {
+class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
 
@@ -66,45 +68,47 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
     * @return The Model that results from the fitting
     */
   override def fit(dataset: Dataset[_]): BestModel = {
-    import FindBestModel._
-    import dataset.sparkSession.implicits._
+    logFit({
+      import FindBestModel._
+      import dataset.sparkSession.implicits._
 
-    // Staging
-    val trainedModels = getModels
-    if (trainedModels.isEmpty) {
-      throw new Exception("No trained models to evaluate.")
-    }
-    if (!(MetricConstants.FindBestModelMetrics contains getEvaluationMetric)) {
-      throw new Exception("Invalid evaluation metric")
-    }
-    val evaluator = new ComputeModelStatistics()
-    evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
+      // Staging
+      val trainedModels = getModels
+      if (trainedModels.isEmpty) {
+        throw new Exception("No trained models to evaluate.")
+      }
+      if (!(MetricConstants.FindBestModelMetrics contains getEvaluationMetric)) {
+        throw new Exception("Invalid evaluation metric")
+      }
+      val evaluator = new ComputeModelStatistics()
+      evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
 
-    val firstModel = trainedModels(0)
-    val (metricColName, operator) = EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
-    val models = trainedModels.map(_.uid)
-    val parameters = trainedModels.map(EvaluationUtils.modelParamsToString)
-    val tdfs = trainedModels.map(_.transform(dataset))
-    val metrics = tdfs.map(evaluator.transform(_))
-    val simpleMetrics = metrics.map(_.select(metricColName).first()(0).toString.toDouble)
+      val firstModel = trainedModels(0)
+      val (metricColName, operator) = EvaluationUtils.getMetricWithOperator(firstModel, getEvaluationMetric)
+      val models = trainedModels.map(_.uid)
+      val parameters = trainedModels.map(EvaluationUtils.modelParamsToString)
+      val tdfs = trainedModels.map(_.transform(dataset))
+      val metrics = tdfs.map(evaluator.transform(_))
+      val simpleMetrics = metrics.map(_.select(metricColName).first()(0).toString.toDouble)
 
-    val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
-      case (best, curr) =>
-        if (best._1.isNaN || operator.gt(best._1, curr._1))
-          curr
-        else
-          best
-    }._2
-    val bestScoredDf = tdfs(bestIndex)
-    evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
-    val allModelMetrics = (models,simpleMetrics,parameters).zipped.toSeq.toDF(ModelNameCol, MetricsCol, ParamsCol)
+      val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
+        case (best, curr) =>
+          if (best._1.isNaN || operator.gt(best._1, curr._1))
+            curr
+          else
+            best
+      }._2
+      val bestScoredDf = tdfs(bestIndex)
+      evaluator.set(evaluator.evaluationMetric, MetricConstants.AllSparkMetrics)
+      val allModelMetrics = (models, simpleMetrics, parameters).zipped.toSeq.toDF(ModelNameCol, MetricsCol, ParamsCol)
 
-    new BestModel(uid)
-      .setBestModel(trainedModels(bestIndex))
-      .setScoredDataset(bestScoredDf)
-      .setBestModelMetrics(evaluator.transform(bestScoredDf))
-      .setRocCurve(evaluator.rocCurve)
-      .setAllModelMetrics(allModelMetrics)
+      new BestModel(uid)
+        .setBestModel(trainedModels(bestIndex))
+        .setScoredDataset(bestScoredDf)
+        .setBestModelMetrics(evaluator.transform(bestScoredDf))
+        .setRocCurve(evaluator.rocCurve)
+        .setAllModelMetrics(allModelMetrics)
+    })
   }
 
   // Choose a random model as we don't know which one will be chosen yet - all will transform schema in same way
@@ -128,7 +132,8 @@ trait HasBestModel extends Params {
 
 /** Model produced by [[FindBestModel]]. */
 class BestModel(val uid: String) extends Model[BestModel]
-  with ComplexParamsWritable with Wrappable with HasBestModel {
+  with ComplexParamsWritable with Wrappable with HasBestModel with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("BestModel"))
 
@@ -176,7 +181,11 @@ class BestModel(val uid: String) extends Model[BestModel]
 
   override def copy(extra: ParamMap): BestModel = defaultCopy(extra)
 
-  override def transform(dataset: Dataset[_]): DataFrame = getBestModel.transform(dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame](
+      getBestModel.transform(dataset)
+    )
+  }
 
   override def transformSchema(schema: StructType): StructType = getBestModel.transformSchema(schema)
 

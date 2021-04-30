@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions._
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
@@ -20,7 +21,8 @@ object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifi
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
   with VowpalWabbitBase
-  with ComplexParamsWritable {
+  with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -34,23 +36,25 @@ class VowpalWabbitClassifier(override val uid: String)
   def setLabelConversion(value: Boolean): this.type = set(labelConversion, value)
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
-    val model = new VowpalWabbitClassificationModel(uid)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
-      .setPredictionCol(getPredictionCol)
-      .setProbabilityCol(getProbabilityCol)
-      .setRawPredictionCol(getRawPredictionCol)
+    logTrain({
+      val model = new VowpalWabbitClassificationModel(uid)
+        .setFeaturesCol(getFeaturesCol)
+        .setAdditionalFeatures(getAdditionalFeatures)
+        .setPredictionCol(getPredictionCol)
+        .setProbabilityCol(getProbabilityCol)
+        .setRawPredictionCol(getRawPredictionCol)
 
-    val finalDataset = if (!getLabelConversion)
-      dataset
-    else {
-      val inputLabelCol = dataset.withDerivativeCol("label")
-      dataset
-        .withColumnRenamed(getLabelCol, inputLabelCol)
-        .withColumn(getLabelCol, col(inputLabelCol) * 2 - 1)
-    }
+      val finalDataset = if (!getLabelConversion)
+        dataset
+      else {
+        val inputLabelCol = dataset.withDerivativeCol("label")
+        dataset
+          .withColumnRenamed(getLabelCol, inputLabelCol)
+          .withColumn(getLabelCol, col(inputLabelCol) * 2 - 1)
+      }
 
-    trainInternal(finalDataset, model)
+      trainInternal(finalDataset, model)
+    })
   }
 
   override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
@@ -60,7 +64,8 @@ class VowpalWabbitClassifier(override val uid: String)
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable with Wrappable {
+    with ComplexParamsWritable with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitClassificationModel"))
 
@@ -69,26 +74,29 @@ class VowpalWabbitClassificationModel(override val uid: String)
   def numClasses: Int = 2
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = transformImplInternal(dataset)
+    logTransform[DataFrame]({
+      val df = transformImplInternal(dataset)
 
-    // which mode one wants to use depends a bit on how this should be deployed
-    // 1. if you stay in spark w/o link=logistic is probably more convenient as it also returns the raw prediction
-    // 2. if you want to export the model *and* get probabilities at scoring term w/ link=logistic is preferable
+      // which mode one wants to use depends a bit on how this should be deployed
+      // 1. if you stay in spark w/o link=logistic is probably more convenient as it also returns the raw prediction
+      // 2. if you want to export the model *and* get probabilities at scoring term w/ link=logistic is preferable
 
-    // convert raw prediction to probability (if needed)
-    val probabilityUdf = if (vwArgs.getArgs.contains("--link logistic"))
-      udf { (pred: Double) => Vectors.dense(Array(1 - pred, pred)) }
-    else
-      udf { (pred: Double) => {
-        val prob = 1.0 / (1.0 + exp(-pred))
-        Vectors.dense(Array(1 - prob, prob))
-      } }
+      // convert raw prediction to probability (if needed)
+      val probabilityUdf = if (vwArgs.getArgs.contains("--link logistic"))
+        udf { (pred: Double) => Vectors.dense(Array(1 - pred, pred)) }
+      else
+        udf { (pred: Double) => {
+          val prob = 1.0 / (1.0 + exp(-pred))
+          Vectors.dense(Array(1 - prob, prob))
+        }
+        }
 
-    val df2 = df.withColumn($(probabilityCol), probabilityUdf(col($(rawPredictionCol))))
+      val df2 = df.withColumn($(probabilityCol), probabilityUdf(col($(rawPredictionCol))))
 
-    // convert probability to prediction
-    val probability2predictionUdf = udf(probability2prediction _)
-    df2.withColumn($(predictionCol), probability2predictionUdf(col($(probabilityCol))))
+      // convert probability to prediction
+      val probability2predictionUdf = udf(probability2prediction _)
+      df2.withColumn($(predictionCol), probability2predictionUdf(col($(probabilityCol))))
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

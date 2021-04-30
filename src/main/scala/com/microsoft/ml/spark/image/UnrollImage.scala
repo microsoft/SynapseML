@@ -6,11 +6,11 @@ package com.microsoft.ml.spark.image
 import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
-
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -149,7 +149,8 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
   * @param uid The id of the module
   */
 class UnrollImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   import UnrollImage._
 
@@ -158,10 +159,12 @@ class UnrollImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF
-    assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
-    val unrollUDF = udf(unroll _)
-    df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
+      val unrollUDF = udf(unroll _)
+      df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -181,7 +184,8 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   * @param uid The id of the module
   */
 class UnrollBinaryImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
   import UnrollImage._
 
   def this() = this(Identifiable.randomUID("UnrollImage"))
@@ -207,13 +211,16 @@ class UnrollBinaryImage(val uid: String) extends Transformer
   setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF
-    assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      assert(df.schema(getInputCol).dataType == BinaryType, "input column should have Binary type")
 
-    val unrollUDF = UDFUtils.oldUdf({ bytes: Array[Byte] =>
-      unrollBytes(bytes, get(width), get(height), get(nChannels)) }, VectorType)
+      val unrollUDF = UDFUtils.oldUdf({ bytes: Array[Byte] =>
+        unrollBytes(bytes, get(width), get(height), get(nChannels))
+      }, VectorType)
 
-    df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
+      df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

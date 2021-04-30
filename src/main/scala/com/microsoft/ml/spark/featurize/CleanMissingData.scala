@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.featurize
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCols}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
@@ -45,7 +46,8 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   * `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable {
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
@@ -71,13 +73,15 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
-    val (colsToFill, fillValues) = getReplacementValues(
-      dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
-    new CleanMissingDataModel(uid)
-      .setColsToFill(colsToFill.toArray)
-      .setFillValues(fillValues.toArray)
-      .setInputCols(getInputCols)
-      .setOutputCols(getOutputCols)
+    logFit({
+      val (colsToFill, fillValues) = getReplacementValues(
+        dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
+      new CleanMissingDataModel(uid)
+        .setColsToFill(colsToFill.toArray)
+        .setFillValues(fillValues.toArray)
+        .setInputCols(getInputCols)
+        .setOutputCols(getOutputCols)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[CleanMissingDataModel] = defaultCopy(extra)
@@ -136,7 +140,8 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 /** Model produced by [[CleanMissingData]]. */
 class CleanMissingDataModel(val uid: String)
   extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
-    with HasInputCols with HasOutputCols {
+    with HasInputCols with HasOutputCols with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingDataModel"))
 
@@ -156,16 +161,18 @@ class CleanMissingDataModel(val uid: String)
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val datasetCols = dataset.columns.map(name => dataset(name)).toList
-    val datasetInputCols = getInputCols.zip(getOutputCols)
-      .flatMap(io =>
-        if (io._1 == io._2) {
-          None
-        } else {
-          Some(dataset(io._1).as(io._2))
-        }).toList
-    val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
-    addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
+    logTransform[DataFrame]({
+      val datasetCols = dataset.columns.map(name => dataset(name)).toList
+      val datasetInputCols = getInputCols.zip(getOutputCols)
+        .flatMap(io =>
+          if (io._1 == io._2) {
+            None
+          } else {
+            Some(dataset(io._1).as(io._2))
+          }).toList
+      val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
+      addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType =

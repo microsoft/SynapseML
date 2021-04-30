@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.featurize.text
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
@@ -20,7 +21,9 @@ object PageSplitter extends DefaultParamsReadable[PageSplitter]
   * @param uid The id of the module
   */
 class PageSplitter(override val uid: String)
-  extends Transformer with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  extends Transformer with HasInputCol with HasOutputCol
+    with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("PageSplitter"))
 
@@ -90,7 +93,9 @@ class PageSplitter(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol)))
+    logTransform[DataFrame](
+      dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol)))
+    )
   }
 
   override def copy(extra: ParamMap): MultiNGram =

@@ -7,11 +7,14 @@ import com.microsoft.ml.spark.nn._
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.Dataset
 import breeze.linalg.{DenseVector => BDV}
+import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.types._
 
-trait OptimizedCKNNFitting extends ConditionalKNNParams {
+trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
+
     val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -32,6 +35,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): ConditionalKNNModel = {
+
     val vt = dataset.schema(getValuesCol).dataType
     val lt = dataset.schema(getLabelCol).dataType
     (vt, lt) match {
@@ -44,9 +48,10 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams {
 
 }
 
-trait OptimizedKNNFitting extends KNNParams {
+trait OptimizedKNNFitting extends KNNParams with BasicLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
+
     val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
       .map { row =>
         val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
@@ -64,6 +69,7 @@ trait OptimizedKNNFitting extends KNNParams {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): KNNModel = {
+
     dataset.schema(getValuesCol).dataType match {
       case avt: AtomicType => fitGeneric[avt.InternalType](dataset)
       case _ => fitGeneric[Any](dataset)
