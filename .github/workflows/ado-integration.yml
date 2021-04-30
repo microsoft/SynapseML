@@ -15,7 +15,7 @@ jobs:
           github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"
           ado_organization: "msdata"
           ado_project: "A365"
-          ado_area_path: "A365\Synapse ML"
+          ado_area_path: "A365\\Synapse ML"
           ado_iteration_path: "A365\\CY21- H1"
           ado_wit: "Task"
           ado_new_state: "New"
