@@ -12,8 +12,8 @@ jobs:
     steps:
     - uses: mhamilton723/github-actions-pr-to-work-item@master
       env:
-        ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'   
-        github_token: '${{ secrets.GH_TOKEN }}'    
+        ado_token: "${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}"
+        github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"
         ado_organization: "msdata"
         ado_project: "A365"
         ado_area_path: "A365\\Synapse ML"
