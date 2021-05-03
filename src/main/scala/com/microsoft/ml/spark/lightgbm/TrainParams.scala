@@ -39,6 +39,7 @@ abstract class TrainParams extends Serializable {
   def minDataInLeaf: Int
   def featureNames: Array[String]
   def delegate: Option[LightGBMDelegate]
+  def chunkSize: Int
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -71,7 +72,8 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
                                  boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                  maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
-                                 featureNames: Array[String], delegate: Option[LightGBMDelegate])
+                                 featureNames: Array[String], delegate: Option[LightGBMDelegate],
+                                 chunkSize: Int)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -95,7 +97,8 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
-                                featureNames: Array[String], delegate: Option[LightGBMDelegate])
+                                featureNames: Array[String], delegate: Option[LightGBMDelegate],
+                                chunkSize: Int)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -116,7 +119,8 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
                              labelGain: Array[Double], isProvideTrainingMetric: Boolean,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
                              maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
-                             featureNames: Array[String], delegate: Option[LightGBMDelegate])
+                             featureNames: Array[String], delegate: Option[LightGBMDelegate],
+                             chunkSize: Int)
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
