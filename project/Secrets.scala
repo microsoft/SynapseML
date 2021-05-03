@@ -23,7 +23,11 @@ object Secrets {
 
   // Keep overhead of setting account down
   lazy val accountString: String = {
-    exec(s"az account set -s $subscriptionID")
+    try {
+      exec(s"az account set -s $subscriptionID")
+    } catch {
+      case e: IOException => println("Error: " + e.toString)
+    }
     subscriptionID
   }
 
