@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Running Workflow
     steps:       
-    - uses: danhellem/github-actions-pr-to-work-item@master
+    - uses: mhamilton723/github-actions-pr-to-work-item@master
       env:     
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}' 
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}' 
