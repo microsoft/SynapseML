@@ -112,10 +112,10 @@ private object TrainUtils extends Serializable {
                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     var numRows = 0
-    val defaultChunkSize = 1000
-    val labelsChunkedArray = new floatChunkedArray(defaultChunkSize)
-    val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(defaultChunkSize) }
-    val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(defaultChunkSize) }
+    val chunkSize = trainParams.chunkSize
+    val labelsChunkedArray = new floatChunkedArray(chunkSize)
+    val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(chunkSize) }
+    val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(chunkSize) }
     var featuresChunkedArrayOpt: Option[doubleChunkedArray] = None
     val groupColumnValues: ListBuffer[Row] = new ListBuffer[Row]()
     try {
@@ -130,7 +130,7 @@ private object TrainUtils extends Serializable {
         val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
         numCols = rowAsDoubleArray.length
         if (featuresChunkedArrayOpt.isEmpty) {
-          featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols * defaultChunkSize))
+          featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols * chunkSize))
         }
         addFeaturesToChunkedArray(featuresChunkedArrayOpt, numCols, rowAsDoubleArray)
         addInitScoreColumnRow(initScoreChunkedArrayOpt, row, columnParams, schema)
@@ -140,7 +140,7 @@ private object TrainUtils extends Serializable {
       val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
       log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
       val datasetPtr = Some(LightGBMUtils.generateDenseDataset(numRows, numCols, featuresChunkedArrayOpt.get,
-        referenceDataset, slotNames, trainParams, defaultChunkSize))
+        referenceDataset, slotNames, trainParams, chunkSize))
       datasetPtr.get.addFloatField(labelsChunkedArray, "label", numRows)
 
       weightChunkedArrayOpt.foreach(datasetPtr.get.addFloatField(_, "weight", numRows))

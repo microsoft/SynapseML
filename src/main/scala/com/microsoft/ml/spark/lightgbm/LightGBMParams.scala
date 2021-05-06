@@ -77,6 +77,15 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getNumTasks: Int = $(numTasks)
   def setNumTasks(value: Int): this.type = set(numTasks, value)
+
+  val chunkSize = new IntParam(this, "chunkSize",
+    "Advanced parameter to specify the chunk size for copying Java data to native.  " +
+      "If set too high, memory may be wasted, but if set too low, performance may be reduced during data copy." +
+      "If dataset size is known beforehand, set to the number of rows in the dataset.")
+  setDefault(chunkSize -> 10000)
+
+  def getChunkSize: Int = $(chunkSize)
+  def setChunkSize(value: Int): this.type = set(chunkSize, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
