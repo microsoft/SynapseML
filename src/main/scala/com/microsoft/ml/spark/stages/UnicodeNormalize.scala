@@ -8,9 +8,11 @@ import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions.udf
+
 import java.text.Normalizer
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]
@@ -18,7 +20,9 @@ object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]
 /** <code>UnicodeNormalize</code> takes a dataframe and normalizes the unicode representation.
   */
 class UnicodeNormalize(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("UnicodeNormalize"))
 
   val form = new Param[String](this, "form", "Unicode normalization form: NFC, NFD, NFKC, NFKD")
@@ -46,22 +50,24 @@ class UnicodeNormalize(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val inputIndex = dataset.columns.indexOf(getInputCol)
+    logTransform[DataFrame]({
+      val inputIndex = dataset.columns.indexOf(getInputCol)
 
-    require(inputIndex != -1, s"Input column $getInputCol does not exist")
+      require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
-    val normalizeFunc = (value: String) =>
-      if (value == null) null
-      else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
+      val normalizeFunc = (value: String) =>
+        if (value == null) null
+        else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
-    val f = if (getLower)
-      (value: String) => Option(value).map(s => normalizeFunc(s.toLowerCase)).orNull
-    else
-      normalizeFunc
+      val f = if (getLower)
+        (value: String) => Option(value).map(s => normalizeFunc(s.toLowerCase)).orNull
+      else
+        normalizeFunc
 
-    val textMapper = udf(f)
+      val textMapper = udf(f)
 
-    dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+      dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

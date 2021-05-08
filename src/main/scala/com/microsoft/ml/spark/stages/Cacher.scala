@@ -4,13 +4,15 @@
 package com.microsoft.ml.spark.stages
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 
-class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   val disable = new BooleanParam(this,
     "disable", "Whether or disable caching (so that you can turn it off during evaluation)")
@@ -22,11 +24,13 @@ class Cacher(val uid: String) extends Transformer with Wrappable with DefaultPar
   setDefault(disable->false)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    if (!getDisable) {
-      dataset.toDF.cache()
-    } else {
-      dataset.toDF
-    }
+    logTransform[DataFrame]({
+      if (!getDisable) {
+        dataset.toDF.cache()
+      } else {
+        dataset.toDF
+      }
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

@@ -209,9 +209,9 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def getNumRowsForChunksArray(numRows: Int, numCols: Int, defaultChunkSize: Int): SWIGTYPE_p_int = {
-    var numChunks = Math.floorDiv(numRows, defaultChunkSize)
-    var leftoverChunk = numRows % defaultChunkSize
+  def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
+    var numChunks = Math.floorDiv(numRows, chunkSize)
+    var leftoverChunk = numRows % chunkSize
     if (leftoverChunk > 0) {
       numChunks += 1
     }
@@ -220,7 +220,7 @@ object LightGBMUtils {
       if (index == numChunks - 1 && leftoverChunk > 0) {
         lightgbmlib.intArray_setitem(numRowsForChunks, index, leftoverChunk)
       } else {
-        lightgbmlib.intArray_setitem(numRowsForChunks, index, defaultChunkSize)
+        lightgbmlib.intArray_setitem(numRowsForChunks, index, chunkSize)
       }
     })
     numRowsForChunks
@@ -229,7 +229,7 @@ object LightGBMUtils {
   def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
-                           trainParams: TrainParams, defaultChunkSize: Int): LightGBMDataset = {
+                           trainParams: TrainParams, chunkSize: Int): LightGBMDataset = {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
@@ -238,7 +238,7 @@ object LightGBMUtils {
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    val numRowsForChunks = getNumRowsForChunksArray(numRows, numCols, defaultChunkSize)
+    val numRowsForChunks = getNumRowsForChunksArray(numRows, chunkSize)
     try {
       // Generate the dataset for features
       featuresArray.get_last_chunk_add_count()
@@ -249,6 +249,7 @@ object LightGBMUtils {
         "Dataset create")
     } finally {
       featuresArray.release()
+      lightgbmlib.delete_intArray(numRowsForChunks)
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)

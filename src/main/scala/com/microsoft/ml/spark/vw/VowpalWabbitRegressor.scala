@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.vw
 
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -16,19 +17,22 @@ object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBase
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
-    val model = new VowpalWabbitRegressionModel(uid)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
-      .setPredictionCol(getPredictionCol)
+    logTrain({
+      val model = new VowpalWabbitRegressionModel(uid)
+        .setFeaturesCol(getFeaturesCol)
+        .setAdditionalFeatures(getAdditionalFeatures)
+        .setPredictionCol(getPredictionCol)
 
-    trainInternal(dataset, model)
+      trainInternal(dataset, model)
+    })
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
@@ -37,7 +41,8 @@ class VowpalWabbitRegressor(override val uid: String)
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModel
-    with ComplexParamsWritable with Wrappable {
+    with ComplexParamsWritable with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
 
@@ -49,7 +54,9 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    throw new NotImplementedError("Not implement")
+    logPredict(
+      throw new NotImplementedError("Not implement")
+    )
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

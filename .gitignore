@@ -44,7 +44,14 @@ htmlcov
 # Files created by remark-link
 package-lock.json
 node_modules/
+<<<<<<< HEAD
 
 # Notebook Test Files
 /notebooks/samples/*.py
 /notebooks/samples/*.txt
+=======
+.Rproj.user
+
+# R output
+*.Rout
+>>>>>>> master

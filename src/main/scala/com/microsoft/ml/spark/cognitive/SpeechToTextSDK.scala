@@ -8,17 +8,17 @@ import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{Conversation,
-  ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber,
+  ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.io.http.HasURL
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.{CompressedStream, WavStream}
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
@@ -78,7 +78,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
+  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging {
 
   type ResponseType <: SharedSpeechFields
 
@@ -363,41 +363,43 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF
-    val schema = dataset.schema
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      val schema = dataset.schema
 
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+      val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
+      val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+      assert(badColumns.isEmpty,
+        s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-    val enrichedDf = df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
-    val addedSchema = if (getStreamIntermediateResults) {
-      responseTypeBinding.schema
-    } else {
-      ArrayType(responseTypeBinding.schema)
-    }
+      val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+        case Nil => Seq(lit(false).alias("placeholder"))
+        case l => l
+      }
+      val enrichedDf = df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
+      val addedSchema = if (getStreamIntermediateResults) {
+        responseTypeBinding.schema
+      } else {
+        ArrayType(responseTypeBinding.schema)
+      }
 
-    val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
-    val sc = df.sparkSession.sparkContext
-    val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
-    val isUriAudio = df.schema(getAudioDataCol).dataType match {
-      case StringType => true
-      case BinaryType => false
-      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
-    }
-    val toRow = responseTypeBinding.makeToRowConverter
-    enrichedDf.mapPartitions(transformAudioRows(
-      dynamicParamColName,
-      toRow,
-      bConf,
-      isUriAudio
-    ))(enc)
-      .drop(dynamicParamColName)
+      val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
+      val sc = df.sparkSession.sparkContext
+      val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
+      val isUriAudio = df.schema(getAudioDataCol).dataType match {
+        case StringType => true
+        case BinaryType => false
+        case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+      }
+      val toRow = responseTypeBinding.makeToRowConverter
+      enrichedDf.mapPartitions(transformAudioRows(
+        dynamicParamColName,
+        toRow,
+        bConf,
+        isUriAudio
+      ))(enc)
+        .drop(dynamicParamColName)
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -416,7 +418,8 @@ abstract class SpeechSDKBase extends Transformer
   }
 }
 
-class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
+class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = SpeechResponse
 
@@ -487,7 +490,8 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
 
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
-class ConversationTranscription(override val uid: String) extends SpeechSDKBase {
+class ConversationTranscription(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = TranscriptionResponse
 

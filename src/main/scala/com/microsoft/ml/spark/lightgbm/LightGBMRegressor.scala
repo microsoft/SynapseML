@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -33,7 +34,9 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   */
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMBase[LightGBMRegressionModel] {
+    with LightGBMBase[LightGBMRegressionModel] with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
   // Set default objective to be regression
@@ -60,7 +63,7 @@ class LightGBMRegressor(override val uid: String)
       getEarlyStoppingRound, getImprovementTolerance, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf,
       numTasks, modelStr, getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1,
       getLambdaL2, getIsProvideTrainingMetric, getMetric, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getChunkSize)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
@@ -86,7 +89,8 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
 
@@ -99,21 +103,25 @@ class LightGBMRegressionModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    updateBoosterParamsBeforePredict()
-    var outputData = super.transform(dataset)
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-    }
-    outputData.toDF
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      var outputData = super.transform(dataset)
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+      }
+      outputData.toDF
+    })
   }
 
   override def predict(features: Vector): Double = {
-    getModel.score(features, false, false)(0)
+    logPredict(
+      getModel.score(features, false, false)(0)
+    )
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)

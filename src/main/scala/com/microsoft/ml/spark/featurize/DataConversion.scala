@@ -4,8 +4,8 @@
 package com.microsoft.ml.spark.featurize
 
 import java.sql.Timestamp
-
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
@@ -18,7 +18,10 @@ import org.apache.spark.sql.{DataFrame, Dataset}
  *
   * @param uid The id of the module
   */
-class DataConversion(override val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class DataConversion(override val uid: String) extends Transformer
+  with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("DataConversion"))
 
   /** Comma separated list of columns whose type will be converted
@@ -64,37 +67,39 @@ class DataConversion(override val uid: String) extends Transformer with Wrappabl
     * @return The transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    require(dataset != null, "No dataset supplied")
-    require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
-    val colsList = $(cols).map(_.trim)
-    val errorList = verifyCols(dataset.toDF(), colsList)
-    if (errorList.nonEmpty) {
-      throw new NoSuchElementException
-    }
-    var df = dataset.toDF
-
-    val res: DataFrame =  {
-      for (convCol <- colsList) {
-        df = $(convertTo) match {
-          case "boolean" => numericTransform(df, BooleanType, convCol)
-          case "byte" => numericTransform(df, ByteType, convCol)
-          case "short" => numericTransform(df, ShortType, convCol)
-          case "integer" => numericTransform(df, IntegerType, convCol)
-          case "long" => numericTransform(df, LongType, convCol)
-          case "float" => numericTransform(df, FloatType, convCol)
-          case "double" => numericTransform(df, DoubleType, convCol)
-          case "string" => numericTransform(df, StringType, convCol)
-          case "toCategorical" =>
-            val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
-            model.transform(df)
-          case "clearCategorical" =>
-            new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
-          case "date" => toDateConversion(df, convCol)
-        }
+    logTransform[DataFrame]({
+      require(dataset != null, "No dataset supplied")
+      require(dataset.columns.length != 0, "Dataset with no columns cannot be converted")
+      val colsList = $(cols).map(_.trim)
+      val errorList = verifyCols(dataset.toDF(), colsList)
+      if (errorList.nonEmpty) {
+        throw new NoSuchElementException
       }
-      df
-    }
-    res
+      var df = dataset.toDF
+
+      val res: DataFrame = {
+        for (convCol <- colsList) {
+          df = $(convertTo) match {
+            case "boolean" => numericTransform(df, BooleanType, convCol)
+            case "byte" => numericTransform(df, ByteType, convCol)
+            case "short" => numericTransform(df, ShortType, convCol)
+            case "integer" => numericTransform(df, IntegerType, convCol)
+            case "long" => numericTransform(df, LongType, convCol)
+            case "float" => numericTransform(df, FloatType, convCol)
+            case "double" => numericTransform(df, DoubleType, convCol)
+            case "string" => numericTransform(df, StringType, convCol)
+            case "toCategorical" =>
+              val model = new ValueIndexer().setInputCol(convCol).setOutputCol(convCol).fit(df)
+              model.transform(df)
+            case "clearCategorical" =>
+              new IndexToValue().setInputCol(convCol).setOutputCol(convCol).transform(df)
+            case "date" => toDateConversion(df, convCol)
+          }
+        }
+        df
+      }
+      res
+    })
   }
 
   /** Transform the schema

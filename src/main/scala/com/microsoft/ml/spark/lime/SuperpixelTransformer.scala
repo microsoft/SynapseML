@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.lime
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, Params}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -35,16 +36,20 @@ trait HasModifier extends Params {
   */
 class SuperpixelTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol
-  with Wrappable with DefaultParamsWritable with HasCellSize with HasModifier {
+  with Wrappable with DefaultParamsWritable with HasCellSize with HasModifier with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("SuperpixelTransformer"))
 
   setDefault(cellSize->16.0, modifier->130.0, outputCol->s"${uid}_output")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val getSuperPixels = Superpixel.getSuperpixelUDF(
-      dataset.schema(getInputCol).dataType, getCellSize, getModifier)
+    logTransform[DataFrame]({
+      val getSuperPixels = Superpixel.getSuperpixelUDF(
+        dataset.schema(getInputCol).dataType, getCellSize, getModifier)
 
-    dataset.toDF().withColumn(getOutputCol, getSuperPixels(col(getInputCol)))
+      dataset.toDF().withColumn(getOutputCol, getSuperPixels(col(getInputCol)))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

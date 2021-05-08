@@ -1,0 +1,23 @@
+name: Sync Pull Request to Azure Boards
+
+on:
+  pull_request:
+    types: [edited, opened, closed]
+    branches:
+      - master
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    name: Running Workflow
+    steps:       
+    - uses: mhamilton723/github-actions-pr-to-work-item@master
+      env:     
+        ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}' 
+        github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}' 
+        ado_organization: 'msdata'
+        ado_project: 'A365'
+        ado_wit: 'Task' 
+        ado_new_state: 'New'
+        ado_active_state: 'Active'
+        ado_close_state: 'Closed'

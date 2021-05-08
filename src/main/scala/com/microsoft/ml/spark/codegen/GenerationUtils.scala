@@ -34,18 +34,18 @@ object GenerationUtils {
     }
   }
 
-  def pythonizeParam[T](pp: ParamPair[T]): String = {
-    pythonizeParam(pp.param, pp.value)
+  def pyRenderParam[T](pp: ParamPair[T]): String = {
+    pyRenderParam(pp.param, pp.value)
   }
 
-  def pythonizeParam[T](p: Param[T], v: T): String = {
+  def pyRenderParam[T](p: Param[T], v: T): String = {
     p match {
       case pwp: PythonWrappableParam[_] =>
-        pwp.costructorBasedValue(v.asInstanceOf[pwp.InnerType])
+        pwp.pyConstructorLine(v.asInstanceOf[pwp.InnerType])
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
-        s"""${p.name}=${PythonWrappableParam.defaultPythonize(v, p)}"""
+        s"""${p.name}=${PythonWrappableParam.pyDefaultRender(v, p)}"""
     }
   }
 

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.vw
 
 import java.util
 import com.microsoft.ml.spark.io.http.SharedVariable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -106,7 +107,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
     with VowpalWabbitContextualBanditBase
     with HasParallelismInjected
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -261,32 +263,36 @@ class VowpalWabbitContextualBandit(override val uid: String)
   }
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitContextualBanditModel = {
-    val model = new VowpalWabbitContextualBanditModel(uid)
-      .setFeaturesCol(getFeaturesCol)
-      .setAdditionalFeatures(getAdditionalFeatures)
-      .setSharedCol(getSharedCol)
-      .setAdditionalSharedFeatures(getAdditionalSharedFeatures)
-      .setPredictionCol(getPredictionCol)
+    logTrain({
+      val model = new VowpalWabbitContextualBanditModel(uid)
+        .setFeaturesCol(getFeaturesCol)
+        .setAdditionalFeatures(getAdditionalFeatures)
+        .setSharedCol(getSharedCol)
+        .setAdditionalSharedFeatures(getAdditionalSharedFeatures)
+        .setPredictionCol(getPredictionCol)
 
-    trainInternal(dataset, model)
+      trainInternal(dataset, model)
+    })
   }
 
   override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
-    transformSchema(dataset.schema, logging = true)
-    log.info(s"Parallelism: $getParallelism")
+    logFit({
+      transformSchema(dataset.schema, logging = true)
+      log.info(s"Parallelism: $getParallelism")
 
-    // Create execution context based on $(parallelism)
-    val executionContext = getExecutionContextProxy
-    val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
-      Future[VowpalWabbitContextualBanditModel] {
-        log.info(s"Future $paramIndex started with params: $paramMap")
-        val result = fit(dataset, paramMap)
-        log.info(s"Future $paramIndex ended")
-        result
-      }(executionContext)
-    }
+      // Create execution context based on $(parallelism)
+      val executionContext = getExecutionContextProxy
+      val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
+        Future[VowpalWabbitContextualBanditModel] {
+          log.info(s"Future $paramIndex started with params: $paramMap")
+          val result = fit(dataset, paramMap)
+          log.info(s"Future $paramIndex ended")
+          result
+        }(executionContext)
+      }
 
-    awaitFutures(modelFutures).map(model => model.setParent(this))
+      awaitFutures(modelFutures).map(model => model.setParent(this))
+    })
   }
 
   def parallelFit(dataset: Dataset[_], paramMaps: util.ArrayList[ParamMap]):
@@ -304,7 +310,8 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel
     with VowpalWabbitContextualBanditBase
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBanditModel"))
 
@@ -319,43 +326,46 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
-    val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
+    logTransform[DataFrame]({
+      val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
+      val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
 
-    val schema = dataset.schema
+      val schema = dataset.schema
 
-    val actionNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(
-      schema,
-      getHashSeed,
-      allActionFeatureColumns)
+      val actionNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(
+        schema,
+        getHashSeed,
+        allActionFeatureColumns)
 
-    val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
+      val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
 
-    val predictUDF = udf { (row: Row) =>
-      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
-        examples => {
-          vw.predict(examples)
-            .asInstanceOf[vowpalWabbit.responses.ActionProbs]
-            .getActionProbs
-            .sortBy {
-              _.getAction
-            }
-            .map {
-              _.getProbability.toDouble
-            }
-        })
-    }
+      val predictUDF = udf { (row: Row) =>
+        VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
+          examples => {
+            vw.predict(examples)
+              .asInstanceOf[vowpalWabbit.responses.ActionProbs]
+              .getActionProbs
+              .sortBy {
+                _.getAction
+              }
+              .map {
+                _.getProbability.toDouble
+              }
+          })
+      }
 
-    // We're intentionally not using map partition here because there is only a single model instance.
-    // Eventually it would be good to be able to send the model to each partition.
-    dataset.withColumn(
-      $(predictionCol),
-      predictUDF(struct(dataset.columns.map(dataset(_)): _*)))
+      // We're intentionally not using map partition here because there is only a single model instance.
+      // Eventually it would be good to be able to send the model to each partition.
+      dataset.withColumn(
+        $(predictionCol),
+        predictUDF(struct(dataset.columns.map(dataset(_)): _*)))
+    })
   }
 
   override def predict(features: Row): Double = {
-    throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of " +
-      "probabilities not a single double. Use transform instead.")
+    logPredict(
+      throw new NotImplementedError("Predict is not implemented, as the prediction output of this model is a list of " +
+        "probabilities not a single double. Use transform instead."))
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

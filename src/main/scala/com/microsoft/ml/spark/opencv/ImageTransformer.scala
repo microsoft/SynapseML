@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.opencv
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchemaUtils}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param.{ParamMap, _}
@@ -279,7 +280,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   * @param uid The id of the module
   */
 class ImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   import ImageTransformer._
 
@@ -355,36 +357,38 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
 
-    //  load native OpenCV library on each partition
-    // TODO: figure out more elegant way
-    val df = OpenCVUtils.loadOpenCV(dataset.toDF)
-    val decodeMode = df.schema(getInputCol).dataType match {
-      case s if ImageSchemaUtils.isImage(s) => "image"
-      case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
-      case s if s == BinaryType => "binary"
-      case s =>
-        throw new IllegalArgumentException(s"input column should have Image or BinaryFile type, got $s")
+      //  load native OpenCV library on each partition
+      // TODO: figure out more elegant way
+      val df = OpenCVUtils.loadOpenCV(dataset.toDF)
+      val decodeMode = df.schema(getInputCol).dataType match {
+        case s if ImageSchemaUtils.isImage(s) => "image"
+        case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
+        case s if s == BinaryType => "binary"
+        case s =>
+          throw new IllegalArgumentException(s"input column should have Image or BinaryFile type, got $s")
 
-    }
-
-    val transforms = ListBuffer[ImageTransformerStage]()
-    for (stage <- getStages) {
-      stage(stageName) match {
-        case ResizeImage.stageName => transforms += new ResizeImage(stage)
-        case CropImage.stageName => transforms += new CropImage(stage)
-        case ColorFormat.stageName => transforms += new ColorFormat(stage)
-        case Blur.stageName => transforms += new Blur(stage)
-        case Threshold.stageName => transforms += new Threshold(stage)
-        case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
-        case Flip.stageName => transforms += new Flip(stage)
-        case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
       }
-    }
 
-    val convert = UDFUtils.oldUdf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
+      val transforms = ListBuffer[ImageTransformerStage]()
+      for (stage <- getStages) {
+        stage(stageName) match {
+          case ResizeImage.stageName => transforms += new ResizeImage(stage)
+          case CropImage.stageName => transforms += new CropImage(stage)
+          case ColorFormat.stageName => transforms += new ColorFormat(stage)
+          case Blur.stageName => transforms += new Blur(stage)
+          case Threshold.stageName => transforms += new Threshold(stage)
+          case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
+          case Flip.stageName => transforms += new Flip(stage)
+          case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
+        }
+      }
 
-    df.withColumn(getOutputCol, convert(df(getInputCol)))
+      val convert = UDFUtils.oldUdf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
+
+      df.withColumn(getOutputCol, convert(df(getInputCol)))
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
