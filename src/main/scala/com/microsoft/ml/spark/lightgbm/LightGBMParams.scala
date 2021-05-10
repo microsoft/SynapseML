@@ -121,6 +121,45 @@ trait LightGBMBinParams extends Wrappable {
   def setBinSampleCount(value: Int): this.type = set(binSampleCount, value)
 }
 
+/** Defines parameters for dart mode across all LightGBM learners.
+ */
+trait LightGBMDartParams extends Wrappable {
+  val dropRate = new DoubleParam(this, "dropRate",
+    "Dropout rate: a fraction of previous trees to drop during the dropout")
+  setDefault(dropRate -> 0.1)
+
+  def getDropRate: Double = $(dropRate)
+  def setDropRate(value: Double): this.type = set(dropRate, value)
+
+  val maxDrop = new IntParam(this, "maxDrop",
+    "Max number of dropped trees during one boosting iteration")
+  setDefault(maxDrop -> 50)
+
+  def getMaxDrop: Int = $(maxDrop)
+  def setMaxDrop(value: Int): this.type = set(maxDrop, value)
+
+  val skipDrop = new DoubleParam(this, "skipDrop",
+    "Probability of skipping the dropout procedure during a boosting iteration")
+  setDefault(skipDrop -> 0.5)
+
+  def getSkipDrop: Double = $(skipDrop)
+  def setSkipDrop(value: Double): this.type = set(skipDrop, value)
+
+  val xgboostDartMode = new BooleanParam(this, "xgboostDartMode",
+    "Set this to true to use xgboost dart mode")
+  setDefault(xgboostDartMode -> false)
+
+  def getXGBoostDartMode: Boolean = $(xgboostDartMode)
+  def setXGBoostDartMode(value: Boolean): this.type = set(xgboostDartMode, value)
+
+  val uniformDrop = new BooleanParam(this, "uniformDrop",
+    "Set this to true to use uniform drop in dart mode")
+  setDefault(uniformDrop -> false)
+
+  def getUniformDrop: Boolean = $(uniformDrop)
+  def setUniformDrop(value: Boolean): this.type = set(uniformDrop, value)
+}
+
 /** Defines parameters for slots across all LightGBM learners.
  */
 trait LightGBMSlotParams extends Wrappable {
@@ -231,7 +270,7 @@ trait LightGBMModelParams extends Wrappable {
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
   with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
-  with LightGBMPredictionParams {
+  with LightGBMDartParams with LightGBMPredictionParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
