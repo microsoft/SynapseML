@@ -40,6 +40,7 @@ abstract class TrainParams extends Serializable {
   def featureNames: Array[String]
   def delegate: Option[LightGBMDelegate]
   def chunkSize: Int
+  def dartModeParams: DartModeParams
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -51,10 +52,11 @@ abstract class TrainParams extends Serializable {
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
       s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
-      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2  metric=$metric min_gain_to_split=$minGainToSplit " +
+      s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2 metric=$metric min_gain_to_split=$minGainToSplit " +
       s"max_delta_step=$maxDeltaStep min_data_in_leaf=$minDataInLeaf " +
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
-      (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")}")
+      (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")} ") +
+      (if (boostingType == "dart") s"${dartModeParams.toString()}" else "")
   }
 }
 
@@ -73,7 +75,7 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                  maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                                  featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                                 chunkSize: Int)
+                                 chunkSize: Int, dartModeParams: DartModeParams)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
@@ -98,7 +100,7 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                                 featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                                chunkSize: Int)
+                                chunkSize: Int, dartModeParams: DartModeParams)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -120,7 +122,7 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
                              maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                              featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                             chunkSize: Int)
+                             chunkSize: Int, dartModeParams: DartModeParams)
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
@@ -128,5 +130,15 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
     val evalAtStr =
       if (evalAt.isEmpty) "" else s"eval_at=${evalAt.mkString(",")}"
     s"max_position=$maxPosition $labelGainStr $evalAtStr ${super.toString()}"
+  }
+}
+
+/** Defines the dart mode parameters passed to the LightGBM learners.
+  */
+case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
+                          xgboostDartMode: Boolean, uniformDrop: Boolean) extends Serializable {
+  override def toString(): String = {
+    s"drop_rate=$dropRate max_drop=$maxDrop skip_drop=$skipDrop xgboost_dart_mode=$xgboostDartMode " +
+    s"uniform_drop=$uniformDrop "
   }
 }
