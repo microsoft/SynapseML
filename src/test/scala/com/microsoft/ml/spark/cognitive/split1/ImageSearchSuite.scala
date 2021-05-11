@@ -11,12 +11,12 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-trait HasImageSearchKey {
-  lazy val imageSearchKey = sys.env.getOrElse("BING_IMAGE_SEARCH_KEY", Secrets.BingImageSearchKey)
+trait HasSearchKey {
+  lazy val searchKey = sys.env.getOrElse("BING_SEARCH_KEY", Secrets.BingSearchKey)
 }
 
 class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
-  with HasImageSearchKey {
+  with HasSearchKey {
 
   import spark.implicits._
 
@@ -28,7 +28,7 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     .toDF("queries", "offsets")
 
   lazy val bis = new BingImageSearch()
-    .setSubscriptionKey(imageSearchKey)
+    .setSubscriptionKey(searchKey)
     .setOffsetCol("offsets")
     .setQueryCol("queries")
     .setCount(10)
@@ -57,7 +57,7 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     val df = Seq(row).toDF()
 
     val staticBis = new BingImageSearch()
-      .setSubscriptionKey(imageSearchKey)
+      .setSubscriptionKey(searchKey)
       .setOffset(row._1)
       .setQuery(row._2)
       .setCount(row._3)
@@ -80,7 +80,7 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     assert(sdf.collect().head.getAs[Row]("images") != null)
 
     val dynamicBis = new BingImageSearch()
-      .setSubscriptionKey(imageSearchKey)
+      .setSubscriptionKey(searchKey)
       .setOffsetCol("_1")
       .setQueryCol("_2")
       .setCountCol("_3")
