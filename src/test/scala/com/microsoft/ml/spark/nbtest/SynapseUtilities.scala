@@ -54,7 +54,7 @@ object SynapseUtilities {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
-  val StorageAccount: String = "mmlsparkgatedbuild"
+  val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "build"
 
   def listPythonFiles(): Array[String] = {
@@ -120,7 +120,7 @@ object SynapseUtilities {
   def showSubmittingJobs(workspaceName: String, poolName: String): Applications = {
     val uri: String =
       "https://" +
-        s"$workspaceName.dev.azuresynapse-dogfood.net" +
+        s"$workspaceName.dev.azuresynapse.net" +
         "/monitoring/workloadTypes/spark/applications" +
         "?api-version=2020-10-01-preview" +
         "&filter=(((state%20eq%20%27Queued%27)%20or%20(state%20eq%20%27Submitting%27))" +
@@ -235,10 +235,25 @@ object SynapseUtilities {
          | }
       """.stripMargin
 
+    val livyPayloadDebug: String =
+      s"""
+         |{
+         | "file" : "$path",
+         | "name" : "$jobName",
+         | "driverMemory" : "28g",
+         | "driverCores" : 4,
+         | "executorMemory" : "28g",
+         | "executorCores" : 4,
+         | "numExecutors" : 2,
+         | "conf" :
+         |      {}
+         | }
+      """.stripMargin
+
     val createRequest = new HttpPost(livyUrl)
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
-    createRequest.setEntity(new StringEntity(livyPayload))
+    createRequest.setEntity(new StringEntity(livyPayloadDebug))
     try {
       val response = RESTHelpers.Client.execute(createRequest)
 
