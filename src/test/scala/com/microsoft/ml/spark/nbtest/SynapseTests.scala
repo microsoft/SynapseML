@@ -73,7 +73,7 @@ class SynapseTests extends TestBase {
       val failures = batchFutures
         .map(f => Await.ready(f, Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
         .filter(f => f.isFailure)
-      // assert(failures.isEmpty)
+      assert(failures.isEmpty)
     }
     catch {
       case t: Throwable =>
