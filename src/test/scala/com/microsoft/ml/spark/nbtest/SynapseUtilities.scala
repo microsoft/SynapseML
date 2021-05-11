@@ -55,7 +55,7 @@ object SynapseUtilities {
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "mmlsparkgatedbuild"
-  val StorageContainer: String = "gatedbuild"
+  val StorageContainer: String = "build"
 
   def listPythonFiles(): Array[String] = {
     Option(

@@ -33,8 +33,8 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val workspaceName = "mmlsparkgatedbuild"
-    val sparkPools = Array("gatedbuildpool", "gatedbuildpool2", "gatedbuildpool3")
+    val workspaceName = "mmlspark"
+    val sparkPools = Array("buildpool", "buildpool2", "buildpool3")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
@@ -43,7 +43,7 @@ class SynapseTests extends TestBase {
         val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
         val livyUrl = "https://" +
           workspaceName +
-          ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+          ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
           poolName +
           "/batches"
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
