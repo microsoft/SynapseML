@@ -180,6 +180,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
+  protected def getDartParams(): DartModeParams = {
+    DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
+  }
+
   /**
     * Inner train method for LightGBM learners.  Calculates the number of workers,
     * creates a driver thread, and runs mapPartitions on the dataset.
