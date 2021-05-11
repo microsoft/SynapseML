@@ -71,7 +71,7 @@ class BingImageSearch(override val uid: String)
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 
-  setDefault(url -> "https://api.cognitive.microsoft.com/bing/v7.0/images/search")
+  setDefault(url -> "https://api.bing.microsoft.com/v7.0/search")
 
   override def prepareMethod(): HttpRequestBase = new HttpGet()
 
