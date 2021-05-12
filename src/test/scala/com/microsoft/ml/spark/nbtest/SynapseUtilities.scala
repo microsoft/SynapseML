@@ -28,7 +28,6 @@ import scala.io.Source
 import scala.language.postfixOps
 import scala.sys.process._
 
-
 case class LivyBatch(id: Int,
                      state: String,
                      appId: Option[String],
@@ -46,7 +45,6 @@ case class Application(state: String,
 case class Applications(nJobs: Int,
                         sparkJobs: Seq[Application])
 
-//noinspection ScalaStyle
 object SynapseUtilities {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
@@ -56,8 +54,8 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 20 * 60 * 1000
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "build"
-  val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-  val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
+  val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
   def listPythonFiles(): Array[String] = {
     Option(
@@ -206,6 +204,35 @@ object SynapseUtilities {
     }
   }
 
+  def getSynapseToken: String = {
+    val spnKey: String = Secrets.SynapseSpnKey
+
+    val uri: String = s"https://login.microsoftonline.com/$TenantId/oauth2/token"
+
+    val createRequest = new HttpPost(uri)
+    createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
+
+    val bodyList: util.List[BasicNameValuePair] = new util.ArrayList[BasicNameValuePair]()
+    bodyList.add(new BasicNameValuePair("grant_type", "client_credentials"))
+    bodyList.add(new BasicNameValuePair("client_id", s"$ClientId"))
+    bodyList.add(new BasicNameValuePair("client_secret", s"$spnKey"))
+    bodyList.add(new BasicNameValuePair("resource", "https://dev.azuresynapse.net/"))
+
+    createRequest.setEntity(new UrlEncodedFormEntity(bodyList, "UTF-8"))
+
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    val inputStream: InputStream = response.getEntity.getContent
+    val pageContent: String = Source.fromInputStream(inputStream).mkString
+    pageContent.parseJson.asJsObject().fields("access_token").convertTo[String]
+  }
+
+  def cancelRun(livyUrl: String, batchId: Int): Unit = {
+    val createRequest = new HttpDelete(s"$livyUrl/$batchId")
+    createRequest.setHeader("Authorization", s"Bearer $Token")
+    val response = RESTHelpers.safeSend(createRequest, close = false)
+    println(response.getEntity.getContent)
+  }
+
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
     // MMLSpark info
     val truncatedScalaVersion: String =
@@ -237,65 +264,16 @@ object SynapseUtilities {
          | }
       """.stripMargin
 
-    val livyPayloadDebug: String =
-      s"""
-         |{
-         | "file" : "$path",
-         | "name" : "$jobName",
-         | "driverMemory" : "28g",
-         | "driverCores" : 4,
-         | "executorMemory" : "28g",
-         | "executorCores" : 4,
-         | "numExecutors" : 2,
-         | "conf" :
-         |      {}
-         | }
-      """.stripMargin
-
     val createRequest = new HttpPost(livyUrl)
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
-    createRequest.setEntity(new StringEntity(livyPayloadDebug))
-    try {
-      val response = RESTHelpers.Client.execute(createRequest)
+    createRequest.setEntity(new StringEntity(livyPayload))
+    val response = RESTHelpers.safeSend(createRequest)
 
-      val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
-      val batch: LivyBatch = parse(content).extract[LivyBatch]
-      val status: Int = response.getStatusLine.getStatusCode
-      assert(status == 200)
-      batch
-    }
-    catch {
-      case _: Throwable => LivyBatch(0, "none", null, null, Seq())
-    }
-  }
-
-  def cancelRun(livyUrl: String, batchId: Int): Unit = {
-    val createRequest = new HttpDelete(s"$livyUrl/$batchId")
-    createRequest.setHeader("Authorization", s"Bearer $Token")
-    val response = RESTHelpers.safeSend(createRequest, close = false)
-    println(response.getEntity.getContent)
-  }
-
-  def getSynapseToken: String = {
-    val spnKey: String = Secrets.SynapseSpnKey
-
-    val uri: String = s"https://login.microsoftonline.com/$tenantId/oauth2/token"
-
-    val createRequest = new HttpPost(uri)
-    createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
-
-    val bodyList: util.List[BasicNameValuePair] = new util.ArrayList[BasicNameValuePair]()
-    bodyList.add(new BasicNameValuePair("grant_type", "client_credentials"))
-    bodyList.add(new BasicNameValuePair("client_id", s"$clientId"))
-    bodyList.add(new BasicNameValuePair("client_secret", s"$spnKey"))
-    bodyList.add(new BasicNameValuePair("resource", "https://dev.azuresynapse.net/"))
-
-    createRequest.setEntity(new UrlEncodedFormEntity(bodyList, "UTF-8"))
-
-    val response = RESTHelpers.safeSend(createRequest, close = false)
-    val inputStream: InputStream = response.getEntity.getContent
-    val pageContent: String = Source.fromInputStream(inputStream).mkString
-    pageContent.parseJson.asJsObject().fields("access_token").convertTo[String]
+    val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
+    val batch: LivyBatch = parse(content).extract[LivyBatch]
+    val status: Int = response.getStatusLine.getStatusCode
+    assert(status == 200)
+    batch
   }
 }
