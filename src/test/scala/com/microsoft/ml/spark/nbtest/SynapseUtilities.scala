@@ -258,17 +258,18 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |      {
-         |        "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
-         |        "spark.jars.repositories" : "$repository"
          |      }
          | }
       """.stripMargin
+
+    //        "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
+    //        "spark.jars.repositories" : "$repository"
 
     val createRequest = new HttpPost(livyUrl)
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
-    val response = RESTHelpers.safeSend(createRequest)
+    val response = RESTHelpers.safeSend(createRequest, close=false)
 
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
