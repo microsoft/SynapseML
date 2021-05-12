@@ -59,7 +59,6 @@ object SynapseUtilities {
   val tenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val clientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
-
   def listPythonFiles(): Array[String] = {
     Option(
       FileUtilities
