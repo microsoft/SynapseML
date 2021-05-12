@@ -257,13 +257,13 @@ object SynapseUtilities {
          | "executorCores" : 4,
          | "numExecutors" : 2,
          | "conf" :
-         |      {
-         |      }
+         |     {
+         |         "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
+         |         "spark.jars.repositories" : "$repository",
+         |         "spark.yarn.user.classpath.first": "true"
+         |     }
          | }
       """.stripMargin
-
-    //        "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
-    //        "spark.jars.repositories" : "$repository"
 
     val createRequest = new HttpPost(livyUrl)
     createRequest.setHeader("Content-Type", "application/json")
