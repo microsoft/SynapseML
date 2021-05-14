@@ -25,6 +25,7 @@ import scala.language.existentials
   *
   * https://aka.ms/reco-sar
   *
+  * Fake Update
   * SAR is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and
   * items description. It produces easily explainable / interpretable recommendations
   *
