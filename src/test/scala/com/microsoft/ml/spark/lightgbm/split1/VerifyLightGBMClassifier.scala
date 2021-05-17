@@ -320,12 +320,15 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   test("Verify LightGBM Classifier with dart mode parameters") {
     // Assert the dart parameters work without failing and setting them to tuned values improves performance
     val Array(train, test) = pimaDF.randomSplit(Array(0.8, 0.2), seed)
-    val scoredDF1 = baseModel.setBoostingType("dart").fit(train).transform(test)
+    val scoredDF1 = baseModel.setBoostingType("dart").
+      setMaxDrop(1)
+      .setSkipDrop(0.9)
+      .fit(train).transform(test)
     val scoredDF2 = baseModel.setBoostingType("dart")
       .setXGBoostDartMode(true)
       .setDropRate(0.6)
       .setMaxDrop(60)
-      .setSkipDrop(0.6)
+      .setSkipDrop(0.4)
       .setUniformDrop(true)
       .fit(train).transform(test)
     assertBinaryImprovement(scoredDF1, scoredDF2)
