@@ -29,14 +29,23 @@ private object TrainUtils extends Serializable {
   def generateDataset(rowsIter: Iterator[Row], columnParams: ColumnParams,
                       referenceDataset: Option[LightGBMDataset], schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
-    val hrow = rowsIter.next()
+    val (concatRowsIter: Iterator[Row], isSparse: Boolean) =
+      if (trainParams.executionParams.matrixType == "auto") {
+        sampleRowsForArrayType(rowsIter, schema, columnParams)
+      } else if (trainParams.executionParams.matrixType == "sparse") {
+        (rowsIter: Iterator[Row], true)
+      } else if (trainParams.executionParams.matrixType == "dense") {
+        (rowsIter: Iterator[Row], false)
+      } else {
+        throw new Exception(s"Invalid parameter matrix type specified: ${trainParams.executionParams.matrixType}")
+      }
     var datasetPtr: Option[LightGBMDataset] = None
-    if (hrow.get(schema.fieldIndex(columnParams.featuresColumn)).isInstanceOf[DenseVector]) {
-      datasetPtr = aggregateDenseStreamedData(hrow, rowsIter, columnParams, referenceDataset, schema, log, trainParams)
+    if (!isSparse) {
+      datasetPtr = aggregateDenseStreamedData(concatRowsIter, columnParams, referenceDataset, schema, log, trainParams)
       // Validate generated dataset has the correct number of rows and cols
       datasetPtr.get.validateDataset()
     } else {
-      val rows = (Iterator[Row](hrow) ++ rowsIter).toArray
+      val rows = concatRowsIter.toArray
       val numRows = rows.length
       val labels = rows.map(row => row.getDouble(schema.fieldIndex(columnParams.labelColumn)))
       val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
@@ -58,6 +67,24 @@ private object TrainUtils extends Serializable {
       addGroupColumn(rows, columnParams.groupColumn, datasetPtr, numRows, schema, None)
     }
     datasetPtr
+  }
+
+  /**
+    * Sample the first several rows to determine whether to construct sparse or dense matrix in lightgbm native code.
+    * @param rowsIter  Iterator of rows.
+    * @param schema The schema.
+    * @param columnParams The column parameters.
+    * @return A reconstructed iterator with the same original rows and whether the matrix should be sparse or dense.
+    */
+  def sampleRowsForArrayType(rowsIter: Iterator[Row], schema: StructType,
+                             columnParams: ColumnParams): (Iterator[Row], Boolean) = {
+    val numSampledRows = 10
+    val sampleRows = rowsIter.take(numSampledRows).toArray
+    val numDense = sampleRows.map(row =>
+      row.get(schema.fieldIndex(columnParams.featuresColumn)).isInstanceOf[DenseVector]).filter(value => value).length
+    val numSparse = sampleRows.length - numDense
+    // recreate the iterator
+    (sampleRows.toIterator ++ rowsIter, numSparse > numDense)
   }
 
   def getRowAsDoubleArray(row: Row, columnParams: ColumnParams, schema: StructType): Array[Double] = {
@@ -108,11 +135,11 @@ private object TrainUtils extends Serializable {
     initScoreChunkedArrayOpt.foreach(_.release())
   }
 
-  def aggregateDenseStreamedData(hrow: Row, rowsIter: Iterator[Row], columnParams: ColumnParams,
+  def aggregateDenseStreamedData(rowsIter: Iterator[Row], columnParams: ColumnParams,
                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     var numRows = 0
-    val chunkSize = trainParams.chunkSize
+    val chunkSize = trainParams.executionParams.chunkSize
     val labelsChunkedArray = new floatChunkedArray(chunkSize)
     val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(chunkSize) }
     val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(chunkSize) }
@@ -120,8 +147,8 @@ private object TrainUtils extends Serializable {
     val groupColumnValues: ListBuffer[Row] = new ListBuffer[Row]()
     try {
       var numCols = 0
-      while (rowsIter.hasNext || numRows == 0) {
-        val row = if (numRows == 0) hrow else rowsIter.next()
+      while (rowsIter.hasNext) {
+        val row = rowsIter.next()
         numRows += 1
         labelsChunkedArray.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
         columnParams.weightColumn.map { col =>

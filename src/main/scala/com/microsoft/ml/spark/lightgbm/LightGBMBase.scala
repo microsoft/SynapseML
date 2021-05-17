@@ -184,6 +184,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
   }
 
+  protected def getExecutionParams(): ExecutionParams = {
+    ExecutionParams(getChunkSize, getMatrixType)
+  }
+
   /**
     * Inner train method for LightGBM learners.  Calculates the number of workers,
     * creates a driver thread, and runs mapPartitions on the dataset.
