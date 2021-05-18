@@ -3,6 +3,9 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{LightGBMModelParams, LightGBMPredictionParams,
+  RegressorTrainParams, TrainParams}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
@@ -58,12 +61,12 @@ class LightGBMRegressor(override val uid: String)
   def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RegressorTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
-      getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount,
-      getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getImprovementTolerance, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf,
-      numTasks, modelStr, getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1,
-      getLambdaL2, getIsProvideTrainingMetric, getMetric, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(), getExecutionParams())
+      getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction,
+      getNegBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr, getVerbosity, categoricalIndexes,
+      getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getMetric,
+      getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate,
+      getDartParams(), getExecutionParams(), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
@@ -77,7 +80,7 @@ class LightGBMRegressor(override val uid: String)
   }
 
   def stringFromTrainedModel(model: LightGBMRegressionModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def copy(extra: ParamMap): LightGBMRegressor = defaultCopy(extra)
@@ -134,7 +137,7 @@ class LightGBMRegressionModel(override val uid: String)
 
 object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {
   def loadNativeModelFromFile(filename: String): LightGBMRegressionModel = {
-    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val uid = Identifiable.randomUID("LightGBMRegressionModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -143,7 +146,7 @@ object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionM
   }
 
   def loadNativeModelFromString(model: String): LightGBMRegressionModel = {
-    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val uid = Identifiable.randomUID("LightGBMRegressionModel")
     val lightGBMBooster = new LightGBMBooster(model)
     new LightGBMRegressionModel(uid).setLightGBMBooster(lightGBMBooster)
   }

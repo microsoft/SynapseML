@@ -6,13 +6,13 @@
   <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true"><parameters>
     <parameter name="maxLineLength">120</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
-    <check level="warning" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
+  <check level="warning" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
     <parameter name="regex">.{33}</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true"><parameters>
     <parameter name="header">^// Copyright \(C\) Microsoft Corporation\. All rights reserved\.
 // Licensed under the MIT License\. See LICENSE in project root for information\.
 
-package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm)[.
+package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm|com\.microsoft\.lightgbm)[.
 ]</parameter>
     <parameter name="regex">true</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"></check>

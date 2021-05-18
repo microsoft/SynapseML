@@ -9,6 +9,10 @@ import java.net._
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.downloader.FaultToleranceUtils
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
+import com.microsoft.ml.spark.lightgbm.params.{ClassifierTrainParams, TrainParams}
+import com.microsoft.ml.spark.lightgbm.swig.SwigUtils
 import org.apache.spark.{BarrierTaskContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -277,56 +281,35 @@ private object TrainUtils extends Serializable {
     groupCardinality
   }
 
-  def createBooster(trainParams: TrainParams, trainDatasetPtr: Option[LightGBMDataset],
-                    validDatasetPtr: Option[LightGBMDataset]): Option[SWIGTYPE_p_void] = {
+  def createBooster(trainParams: TrainParams, trainDatasetPtr: LightGBMDataset,
+                    validDatasetPtr: Option[LightGBMDataset]): LightGBMBooster = {
     // Create the booster
-    val boosterOutPtr = lightgbmlib.voidpp_handle()
     val parameters = trainParams.toString()
-    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDatasetPtr.map(_.dataset).get,
-      parameters, boosterOutPtr), "Booster")
-    val boosterPtr = Some(lightgbmlib.voidpp_value(boosterOutPtr))
+    val booster = new LightGBMBooster(trainDatasetPtr, parameters)
     trainParams.modelString.foreach { modelStr =>
-      val booster = LightGBMUtils.getBoosterPtrFromModelString(modelStr)
-      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterPtr.get, booster), "Booster Merge")
+      booster.mergeBooster(modelStr)
     }
     validDatasetPtr.foreach { lgbmdataset =>
-      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterAddValidData(boosterPtr.get,
-        lgbmdataset.dataset), "Add Validation Dataset")
+      booster.addValidationDataset(lgbmdataset)
     }
-    boosterPtr
-  }
-
-  def saveBoosterToString(boosterPtr: Option[SWIGTYPE_p_void], log: Logger): String = {
-    val bufferLength = LightGBMConstants.DefaultBufferLength
-    val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-    lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterPtr.get, 0, -1, 0, bufferLength, bufferOutLengthPtr)
-  }
-
-  def getEvalNames(boosterPtr: Option[SWIGTYPE_p_void]): Array[String] = {
-    // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
-    // For debugging, can get metric names
-    val stringArrayHandle = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterPtr.get)
-    LightGBMUtils.validateArray(stringArrayHandle, "Booster Get Eval Names")
-    val evalNames = lightgbmlib.StringArrayHandle_get_strings(stringArrayHandle)
-    lightgbmlib.StringArrayHandle_free(stringArrayHandle)
-    evalNames
+    booster
   }
 
   def beforeTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                           trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
+                           trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
     if (trainParams.delegate.isDefined) {
-      trainParams.delegate.get.beforeTrainIteration(batchIndex, partitionId, curIters, log, trainParams, boosterPtr,
+      trainParams.delegate.get.beforeTrainIteration(batchIndex, partitionId, curIters, log, trainParams, booster,
         hasValid)
     }
   }
 
   def afterTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                          trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean,
+                          trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean,
                           isFinished: Boolean,
                           trainEvalResults: Option[Map[String, Double]],
                           validEvalResults: Option[Map[String, Double]]): Unit = {
     if (trainParams.delegate.isDefined) {
-      trainParams.delegate.get.afterTrainIteration(batchIndex, partitionId, curIters, log, trainParams, boosterPtr,
+      trainParams.delegate.get.afterTrainIteration(batchIndex, partitionId, curIters, log, trainParams, booster,
         hasValid, isFinished, trainEvalResults, validEvalResults)
     }
   }
@@ -340,12 +323,45 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def trainCore(batchIndex: Int, trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void],
-                log: Logger, hasValid: Boolean): Option[Int] = {
+  def updateOneIteration(trainParams: TrainParams,
+                         booster: LightGBMBooster,
+                         log: Logger,
+                         iters: Int): Boolean = {
+    var isFinished = false
     val isFinishedPtr = lightgbmlib.new_intp()
+    try {
+      val result =
+        if (trainParams.objectiveParams.fobj.isDefined) {
+          val classification = trainParams.isInstanceOf[ClassifierTrainParams]
+          val (gradient, hessian) = trainParams.objectiveParams.fobj.get.getGradient(
+            booster.innerPredict(0, classification), booster.trainDataset.get)
+          val gradPtr = SwigUtils.floatArrayToNative(gradient)
+          val hessPtr = SwigUtils.floatArrayToNative(hessian)
+          lightgbmlib.LGBM_BoosterUpdateOneIterCustom(booster.boosterHandler.boosterPtr,
+            gradPtr, hessPtr, isFinishedPtr)
+        } else {
+          lightgbmlib.LGBM_BoosterUpdateOneIter(booster.boosterHandler.boosterPtr, isFinishedPtr)
+        }
+      LightGBMUtils.validate(result, "Booster Update One Iter")
+      isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
+      log.info("LightGBM running iteration: " + iters + " with is finished: " + isFinished)
+    } catch {
+      case e: java.lang.Exception =>
+        log.warn("LightGBM reached early termination on one task," +
+          " stopping training on task. This message should rarely occur." +
+          " Inner exception: " + e.toString)
+        isFinished = true
+    } finally {
+      lightgbmlib.delete_intp(isFinishedPtr)
+    }
+    isFinished
+  }
+
+  def trainCore(batchIndex: Int, trainParams: TrainParams, booster: LightGBMBooster,
+                log: Logger, hasValid: Boolean): Option[Int] = {
     var isFinished = false
     var iters = 0
-    val evalNames = getEvalNames(boosterPtr)
+    val evalNames = booster.getEvalNames()
     val evalCounts = evalNames.length
     val bestScore = new Array[Double](evalCounts)
     val bestScores = new Array[Array[Double]](evalCounts)
@@ -354,85 +370,55 @@ private object TrainUtils extends Serializable {
     var learningRate: Double = trainParams.learningRate
     var bestIterResult: Option[Int] = None
     while (!isFinished && iters < trainParams.numIterations) {
-      beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid)
+      beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, booster, hasValid)
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
         learningRate)
       if (newLearningRate != learningRate) {
         log.info(s"LightGBM task calling LGBM_BoosterResetParameter to reset learningRate" +
           s" (newLearningRate: $newLearningRate)")
-        LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterPtr.get,
-          s"learning_rate=$newLearningRate"), "Booster Reset learning_rate Param")
+        booster.resetParameter(s"learning_rate=$newLearningRate")
         learningRate = newLearningRate
       }
 
-      try {
-        val result = lightgbmlib.LGBM_BoosterUpdateOneIter(boosterPtr.get, isFinishedPtr)
-        LightGBMUtils.validate(result, "Booster Update One Iter")
-        isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
-        log.info("LightGBM running iteration: " + iters + " with result: " +
-          result + " and is finished: " + isFinished)
-      } catch {
-        case _: java.lang.Exception =>
-          isFinished = true
-          log.warn("LightGBM reached early termination on one task," +
-            " stopping training on task. This message should rarely occur")
-      }
+      isFinished = updateOneIteration(trainParams, booster, log, iters)
 
       val trainEvalResults: Option[Map[String, Double]] = if (trainParams.isProvideTrainingMetric && !isFinished) {
-        val trainResults = lightgbmlib.new_doubleArray(evalNames.length.toLong)
-        val dummyEvalCountsPtr = lightgbmlib.new_intp()
-        val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 0, dummyEvalCountsPtr, trainResults)
-        lightgbmlib.delete_intp(dummyEvalCountsPtr)
-        LightGBMUtils.validate(resultEval, "Booster Get Train Eval")
-
-        val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
-          val score = lightgbmlib.doubleArray_getitem(trainResults, index.toLong)
-          log.info(s"Train $evalName=$score")
-          (evalName, score)
-        }
-
-        Option(Map(results:_*))
+        val evalResults: Array[(String, Double)] = booster.getEvalResults(evalNames, 0)
+        evalResults.foreach { case (evalName: String, score: Double) => log.info(s"Train $evalName=$score") }
+        Option(Map(evalResults:_*))
       } else {
         None
       }
 
       val validEvalResults: Option[Map[String, Double]] = if (hasValid && !isFinished) {
-        val evalResults = lightgbmlib.new_doubleArray(evalNames.length.toLong)
-        val dummyEvalCountsPtr = lightgbmlib.new_intp()
-        val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterPtr.get, 1, dummyEvalCountsPtr, evalResults)
-        lightgbmlib.delete_intp(dummyEvalCountsPtr)
-        LightGBMUtils.validate(resultEval, "Booster Get Valid Eval")
-        val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
-          val score = lightgbmlib.doubleArray_getitem(evalResults, index.toLong)
-          log.info(s"Valid $evalName=$score")
+        val evalResults: Array[(String, Double)] = booster.getEvalResults(evalNames, 1)
+        val results: Array[(String, Double)] = evalResults.zipWithIndex.map { case ((evalName, evalScore), index) =>
+          log.info(s"Valid $evalName=$evalScore")
           val cmp =
             if (evalName.startsWith("auc") || evalName.startsWith("ndcg@") || evalName.startsWith("map@") ||
               evalName.startsWith("average_precision"))
               (x: Double, y: Double, tol: Double) => x - y > tol
             else
               (x: Double, y: Double, tol: Double) => x - y < tol
-          if (bestScores(index) == null || cmp(score, bestScore(index), trainParams.improvementTolerance)) {
-            bestScore(index) = score
+          if (bestScores(index) == null || cmp(evalScore, bestScore(index), trainParams.improvementTolerance)) {
+            bestScore(index) = evalScore
             bestIter(index) = iters
-            bestScores(index) = evalNames.indices
-              .map(j => lightgbmlib.doubleArray_getitem(evalResults, j.toLong)).toArray
+            bestScores(index) = evalResults.map(_._2)
           } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))
             bestIterResult = Some(bestIter(index))
           }
 
-          (evalName, score)
+          (evalName, evalScore)
         }
-
-        lightgbmlib.delete_doubleArray(evalResults)
 
         Option(Map(results:_*))
       } else {
         None
       }
 
-      afterTrainIteration(batchIndex, partitionId, iters, log, trainParams, boosterPtr, hasValid, isFinished,
+      afterTrainIteration(batchIndex, partitionId, iters, log, trainParams, booster, hasValid, isFinished,
         trainEvalResults, validEvalResults)
 
       iters = iters + 1
@@ -495,43 +481,42 @@ private object TrainUtils extends Serializable {
   def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[Broadcast[Array[Row]]],
                 log: Logger, trainParams: TrainParams, returnBooster: Boolean, schema: StructType,
                 inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    var trainDatasetPtr: Option[LightGBMDataset] = None
-    var validDatasetPtr: Option[LightGBMDataset] = None
+    var trainDatasetOpt: Option[LightGBMDataset] = None
+    var validDatasetOpt: Option[LightGBMDataset] = None
     try {
       beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
-      trainDatasetPtr = generateDataset(inputRows, columnParams, None, schema, log, trainParams)
+      trainDatasetOpt = generateDataset(inputRows, columnParams, None, schema, log, trainParams)
       afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
 
       if (validationData.isDefined) {
         beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
-        validDatasetPtr = generateDataset(validationData.get.value.toIterator, columnParams,
-          trainDatasetPtr, schema, log, trainParams)
+        validDatasetOpt = generateDataset(validationData.get.value.toIterator, columnParams,
+          trainDatasetOpt, schema, log, trainParams)
         afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
       }
 
-      var boosterPtr: Option[SWIGTYPE_p_void] = None
+      var boosterOpt: Option[LightGBMBooster] = None
       try {
-        boosterPtr = createBooster(trainParams, trainDatasetPtr, validDatasetPtr)
-        val bestIterResult = trainCore(batchIndex, trainParams, boosterPtr, log, validDatasetPtr.isDefined)
+        val booster = createBooster(trainParams, trainDatasetOpt.get, validDatasetOpt)
+        boosterOpt = Some(booster)
+        val bestIterResult = trainCore(batchIndex, trainParams, booster, log, validDatasetOpt.isDefined)
         if (returnBooster) {
-          val model = saveBoosterToString(boosterPtr, log)
-          val booster = new LightGBMBooster(model)
+          val model = booster.saveToString()
+          val modelBooster = new LightGBMBooster(model)
           // Set best iteration on booster if hit early stopping criteria in trainCore
-          bestIterResult.foreach(booster.setBestIteration(_))
-          Iterator.single(booster)
+          bestIterResult.foreach(modelBooster.setBestIteration(_))
+          Iterator.single(modelBooster)
         } else {
           Iterator.empty
         }
       } finally {
         // Free booster
-        boosterPtr.foreach { booster =>
-          LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(booster), "Finalize Booster")
-        }
+        boosterOpt.foreach(_.freeNativeMemory())
       }
     } finally {
       // Free datasets
-      trainDatasetPtr.foreach(_.close())
-      validDatasetPtr.foreach(_.close())
+      trainDatasetOpt.foreach(_.close())
+      validDatasetOpt.foreach(_.close())
     }
   }
 
