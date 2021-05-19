@@ -86,6 +86,14 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getChunkSize: Int = $(chunkSize)
   def setChunkSize(value: Int): this.type = set(chunkSize, value)
+
+  val matrixType = new Param[String](this, "matrixType",
+    "Advanced parameter to specify whether the native lightgbm matrix constructed should be sparse or dense.  " +
+      "Values can be auto, sparse or dense. Default value is auto, which samples first ten rows to determine type.")
+  setDefault(matrixType -> "auto")
+
+  def getMatrixType: String = $(matrixType)
+  def setMatrixType(value: String): this.type = set(matrixType, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
