@@ -7,8 +7,6 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
 
-import scala.collection.mutable
-
 /** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
 
@@ -20,8 +18,7 @@ object DatasetExtensions {
       * @return The unused column name.
       */
     def withDerivativeCol(prefix: String): String = {
-      val columnNamesSet = mutable.HashSet(df.columns: _*)
-      findUnusedColumnName(prefix)(columnNamesSet)
+      findUnusedColumnName(prefix)(df.columns.toSet)
     }
 
     /** Gets the column values as the given type.
@@ -36,12 +33,12 @@ object DatasetExtensions {
     /** Gets the spark sparse vector column.
       * @return The spark sparse vector column.
       */
-    def getSVCol: String => Seq[SparseVector] = getColAs[SparseVector] _
+    def getSVCol: String => Seq[SparseVector] = getColAs[SparseVector]
 
     /** Gets the spark dense vector column.
       * @return The spark dense vector column.
       */
-    def getDVCol: String => Seq[DenseVector] = getColAs[DenseVector] _
+    def getDVCol: String => Seq[DenseVector] = getColAs[DenseVector]
   }
 
   /** Finds an unused column name given initial column name and a list of existing column names.
@@ -51,13 +48,8 @@ object DatasetExtensions {
     * @return The unused column name.
     */
   def findUnusedColumnName(prefix: String)(columnNames: scala.collection.Set[String]): String = {
-    var counter = 2
-    var unusedColumnName = prefix
-    while (columnNames.contains(unusedColumnName)) {
-      unusedColumnName += "_" + counter
-      counter += 1
-    }
-    unusedColumnName
+    val stream = Iterator(prefix) ++ Iterator.from(1, 1).map(prefix + "_" + _)
+    stream.dropWhile(columnNames.contains).next()
   }
 
   def findUnusedColumnName(prefix: String, schema: StructType): String = {
@@ -67,5 +59,4 @@ object DatasetExtensions {
   def findUnusedColumnName(prefix: String, df: Dataset[_]): String = {
     findUnusedColumnName(prefix, df.schema)
   }
-
 }
