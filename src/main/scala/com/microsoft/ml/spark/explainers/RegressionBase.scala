@@ -9,6 +9,11 @@ case class RegressionResult(coefficients: BDV[Double], intercept: Double, rSquar
   def apply(x: BDV[Double]): Double = coefficients.dot(x) + intercept
 }
 
+/**
+  * The RegressionBase class centers and rescales the input matrix and output vector to support fitting intercept and
+  * specifying sampleWeights. The underlying regression algorithm does not need to support fitting intercept and sample
+  * weights.
+  */
 //noinspection ScalaStyle
 abstract class RegressionBase {
   def fit(data: BDM[Double], outputs: BDV[Double], fitIntercept: Boolean): RegressionResult = {
