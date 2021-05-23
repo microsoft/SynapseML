@@ -1,5 +1,6 @@
 package com.microsoft.ml.spark.explainers
 import breeze.linalg.{norm, sum, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.numerics.abs
 
 import scala.annotation.tailrec
 
@@ -67,5 +68,10 @@ final class LassoRegression(alpha: Double, maxIterations: Int = 1000, tol: Doubl
 
   override protected def regress(x: BDM[Double], y: BDV[Double]): BDV[Double] = {
     CoordinateDescentLasso(alpha, maxIterations, tol).fit(x, y)
+  }
+
+  override protected def computeLoss(coefficients: BDV[Double], intercept: Double)
+                                    (x: BDM[Double], y: BDV[Double], sampleWeights: BDV[Double]): Double = {
+    super.computeLoss(coefficients, intercept)(x, y, sampleWeights) + alpha * sum(abs(coefficients))
   }
 }

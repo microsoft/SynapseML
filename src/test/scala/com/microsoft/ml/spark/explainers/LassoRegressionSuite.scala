@@ -21,7 +21,8 @@ class LassoRegressionSuite extends TestBase {
 
     assert(norm(result.coefficients - BDV(0.94072731, 0.02135768)) < 1e-3, "coefficients disagreed")
     assert(abs(result.intercept - 0.12830579194328307) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9981453511123433) < 1e-3, "rSquared disagreed")
+    assert(abs(result.rSquared - 0.9981453805277254) < 1e-6, "rSquared disagreed")
+    assert(abs(result.loss - 0.05769498881462409) < 1e-6, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -39,7 +40,8 @@ class LassoRegressionSuite extends TestBase {
 
     assert(norm(result.coefficients - BDV(0.99482704, 0.00832043)) < 1e-3, "coefficients disagreed")
     assert(abs(result.intercept - 0d) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9997338898009382) < 1e-3, "rSquared disagreed")
+    assert(abs(result.rSquared - 0.9997338898009382) < 1e-6, "rSquared disagreed")
+    assert(abs(result.loss - 0.05153237409988701) < 1e-6, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -59,7 +61,8 @@ class LassoRegressionSuite extends TestBase {
 
     assert(norm(result.coefficients - BDV(0.94674003, 0.01273319)) < 1e-3, "coefficients disagreed")
     assert(abs(result.intercept - 0.10406005674125263) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9980302231860384) < 1e-3, "rSquared disagreed")
+    assert(abs(result.rSquared - 0.9975330780923556) < 1e-6, "rSquared disagreed")
+    assert(abs(result.loss - 0.0732464464883231) < 1e-6, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -79,7 +82,8 @@ class LassoRegressionSuite extends TestBase {
 
     assert(norm(result.coefficients - BDV(0.99295345, 0.00510841)) < 1e-3, "coefficients disagreed")
     assert(abs(result.intercept - 0d) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9995342774119687) < 1e-3, "rSquared disagreed")
+    assert(abs(result.rSquared - 0.9994167353137898) < 1e-6, "rSquared disagreed")
+    assert(abs(result.loss - 0.055878038756038625) < 1e-6, "loss disagreed")
   }
 
   ignore("LassoRegression can solve bigger inputs") {

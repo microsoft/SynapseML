@@ -1,10 +1,10 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{*, sum, DenseMatrix => BDM, DenseVector => BDV}
-import breeze.numerics.sqrt
+import breeze.numerics.{abs, sqrt}
 import breeze.stats.mean
 
-case class RegressionResult(coefficients: BDV[Double], intercept: Double, rSquared: Double)
+case class RegressionResult(coefficients: BDV[Double], intercept: Double, rSquared: Double, loss: Double)
   extends (BDV[Double] => Double) {
   def apply(x: BDV[Double]): Double = coefficients.dot(x) + intercept
 }
@@ -68,21 +68,36 @@ abstract class RegressionBase {
     // step 4: compute intercept
     val intercept = if (fitIntercept) yOffset - (xOffset dot coefficients) else 0d
 
-    val weightedRSquared: Double = {
-      val estimated = data(*, ::).map {
-        row => (row dot coefficients) + intercept
-      }
+    val loss = computeLoss(coefficients, intercept)(data, outputs, sampleWeights)
+    val rSquared = computeRSquared(coefficients, intercept)(data, outputs, sampleWeights)
 
-      val residuals = outputs - estimated
-      val weightedResiduals = sqrt(sampleWeights) * residuals
-      val sumSquaredResiduals = weightedResiduals dot weightedResiduals
+    RegressionResult(coefficients, intercept, rSquared, loss)
+  }
 
-      val weightedVariances = sqrt(sampleWeights) * (outputs - mean(outputs))
-      val tss = weightedVariances dot weightedVariances
-      1 - (sumSquaredResiduals / tss)
+  protected def computeLoss(coefficients: BDV[Double], intercept: Double)
+                         (x: BDM[Double], y: BDV[Double], sampleWeights: BDV[Double]): Double = {
+    sumSquaredResiduals(coefficients, intercept)(x, y, sampleWeights)
+  }
+
+  private def sumSquaredResiduals(coefficients: BDV[Double], intercept: Double)
+                                 (x: BDM[Double], y: BDV[Double], sampleWeights: BDV[Double]): Double = {
+    val estimated = x(*, ::).map {
+      row => (row dot coefficients) + intercept
     }
 
-    RegressionResult(coefficients, intercept, weightedRSquared)
+    val residuals = y - estimated
+    val weightedResiduals = sqrt(sampleWeights) * residuals
+    weightedResiduals dot weightedResiduals
+  }
+
+  private def computeRSquared(coefficients: BDV[Double], intercept: Double)
+                      (x: BDM[Double], y: BDV[Double], sampleWeights: BDV[Double]): Double = {
+    val loss = sumSquaredResiduals(coefficients, intercept)(x, y, sampleWeights)
+
+    val weightedMean = (sampleWeights dot y) / sum(sampleWeights)
+    val weightedVariance = sqrt(sampleWeights) *:* (y - weightedMean)
+    val tss = weightedVariance dot weightedVariance
+    1 - (loss / tss)
   }
 
   protected def regress(x: BDM[Double], y: BDV[Double]): BDV[Double]

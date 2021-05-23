@@ -26,6 +26,8 @@ class LeastSquaresRegressionSuite extends TestBase {
     assert(abs(result.coefficients(0) - 0.01518619) < 1e-6)
     assert(abs(result.coefficients(1) - 0.08135246) < 1e-6)
     assert(abs(result.coefficients(2) - 0.082494) < 1e-6)
+    assert(abs(result.rSquared - 0.43565371571037637) < 1e-6)
+    assert(abs(result.loss - 8.394650978808151) < 1e-6)
   }
 
   test("LeastSquaresRegression should regress correctly with weights without intercept.") {
@@ -48,6 +50,8 @@ class LeastSquaresRegressionSuite extends TestBase {
     assert(abs(result.coefficients(0) - 0.05328653) < 1e-6)
     assert(abs(result.coefficients(1) - 0.11516329) < 1e-6)
     assert(abs(result.coefficients(2) - 0.05274785) < 1e-6)
+    assert(abs(result.rSquared - 0.43422966666780527) < 1e-6)
+    assert(abs(result.loss - 8.415833708316397) < 1e-6)
   }
 
   test("LeastSquaresRegression should regress correctly without weights with intercept.") {
@@ -68,6 +72,8 @@ class LeastSquaresRegressionSuite extends TestBase {
     assert(abs(result.coefficients(0) - (-0.02680322)) < 1e-6)
     assert(abs(result.coefficients(1) - 0.03347144) < 1e-6)
     assert(abs(result.coefficients(2) - 0.13013435) < 1e-6)
+    assert(abs(result.rSquared - 0.5660246787755755) < 1e-6)
+    assert(abs(result.loss - 4.339753212244245) < 1e-6)
   }
 
   test("LeastSquaresRegression should regress correctly without weights without intercept.") {
@@ -84,12 +90,12 @@ class LeastSquaresRegressionSuite extends TestBase {
 
     val result = new LeastSquaresRegression().fit(x, y, fitIntercept = false)
 
-    println(result.coefficients)
-
     assert(abs(result.intercept - 0d) < 1e-6)
     assert(abs(result.coefficients(0) - 0.06309258) < 1e-6)
     assert(abs(result.coefficients(1) - 0.10904686) < 1e-6)
     assert(abs(result.coefficients(2) - 0.05810592) < 1e-6)
+    assert(abs(result.rSquared - 0.5579963439586114) < 1e-6)
+    assert(abs(result.loss - 4.420036560413886) < 1e-6)
   }
 
   ignore("LeastSquaresRegression can solve bigger inputs") {
