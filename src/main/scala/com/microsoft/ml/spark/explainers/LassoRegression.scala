@@ -36,31 +36,26 @@ private[spark] case class CoordinateDescentLasso(alpha: Double, maxIterations: I
     norm((oldBeta - newBeta) / oldBeta) < tol
   }
 
-  private def recurse[T](iteration: Int, iterateFunc: T => T, convergeFunc: (T, T) => Boolean)
-                        (value: T): T = {
-    @tailrec
-    def innerRecurse(iteration: Int, value: T): T = {
-      if (iteration > 0) {
-        val newVal = iterateFunc(value)
+  @tailrec
+  private def recurse[T](iterateFunc: T => T, convergeFunc: (T, T) => Boolean, iteration: Int, value: T): T = {
+    if (iteration > 0) {
+      val newVal = iterateFunc(value)
 
-        if (convergeFunc(value, newVal)) {
-          newVal
-        } else {
-          innerRecurse(iteration - 1, newVal)
-        }
+      if (convergeFunc(value, newVal)) {
+        newVal
       } else {
-        value
+        recurse(iterateFunc, convergeFunc, iteration - 1, newVal)
       }
+    } else {
+      value
     }
-
-    innerRecurse(iteration, value)
   }
 
   def fit(x: BDM[Double], y: BDV[Double]): BDV[Double] = {
     val initialBeta = BDV.zeros[Double](x.cols)
     val fitFunc = fitIteration(x, y) _
     val convergeFunc = converged(tol = tol) _
-    recurse(maxIterations, fitFunc, convergeFunc)(initialBeta)
+    recurse(fitFunc, convergeFunc, maxIterations, initialBeta)
   }
 }
 
