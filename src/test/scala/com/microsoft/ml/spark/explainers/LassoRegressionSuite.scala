@@ -83,7 +83,7 @@ class LassoRegressionSuite extends TestBase {
   }
 
   ignore("LassoRegression can solve bigger inputs") {
-    // Should take about 10 secs for 10000 * 200 inputs. Ignoring this test to save some time for unit test.
+    // Should take about 6 secs for 10000 * 200 inputs. Ignoring this test to save some time for unit test.
     val (rows, cols) = (10000, 200)
     val x = BDM.rand[Double](rows, cols)
     val y = BDV.rand[Double](rows)

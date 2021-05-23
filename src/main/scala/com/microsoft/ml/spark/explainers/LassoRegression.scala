@@ -26,7 +26,7 @@ private[spark] case class CoordinateDescentLasso(alpha: Double, maxIterations: I
         val xj = x(::, j)
         val arg1 = xj dot r
         val arg2 = this.alpha * x.rows
-        newBeta(j) = softThresholdingOp(arg1, arg2) / sum(xj *:* xj)
+        newBeta(j) = softThresholdingOp(arg1, arg2) / (xj dot xj)
     }
 
     newBeta
