@@ -186,7 +186,6 @@ class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
       extractParamMap().toSeq.foldLeft(new TabularLIMEModel()) { case (m, pp) =>
         m.set(m.getParam(pp.param.name), pp.value)
       }
-        .setColumnMeans(fitScaler.mean.toArray)
         .setColumnSTDs(fitScaler.std.toArray)
     })
   }
@@ -207,12 +206,6 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
 
   def this() = this(Identifiable.randomUID("TabularLIMEModel"))
 
-  val columnMeans = new DoubleArrayParam(this, "columnMeans", "the means of each of the columns for perturbation")
-
-  def getColumnMeans: Array[Double] = $(columnMeans)
-
-  def setColumnMeans(v: Array[Double]): this.type = set(columnMeans, v)
-
   val columnSTDs = new DoubleArrayParam(this, "columnSTDs",
     "the standard deviations of each of the columns for perturbation")
 
@@ -220,9 +213,9 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
 
   def setColumnSTDs(v: Array[Double]): this.type = set(columnSTDs, v)
 
-  private def perturbedDenseVectors(v: DenseVector): Seq[DenseVector] = {
+  private def perturbedDenseVectors(dv: DenseVector): Seq[DenseVector] = {
     Seq.fill(getNSamples) {
-      val perturbed = BDV.rand(v.size, Rand.gaussian) * BDV(getColumnSTDs) + BDV(getColumnMeans)
+      val perturbed = BDV.rand(dv.size, Rand.gaussian) * BDV(getColumnSTDs) + BDV(dv.values)
       new DenseVector(perturbed.toArray)
     }
   }
