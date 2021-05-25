@@ -3,6 +3,9 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{LightGBMModelParams, LightGBMPredictionParams,
+  RankerTrainParams, TrainParams}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
@@ -51,12 +54,13 @@ class LightGBMRanker(override val uid: String)
   def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
-      getObjective, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
+      getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(), getExecutionParams())
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(), getExecutionParams(),
+      getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
@@ -70,7 +74,7 @@ class LightGBMRanker(override val uid: String)
   }
 
   def stringFromTrainedModel(model: LightGBMRankerModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def getOptGroupCol: Option[String] = Some(getGroupCol)
@@ -157,7 +161,7 @@ class LightGBMRankerModel(override val uid: String)
 
 object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {
   def loadNativeModelFromFile(filename: String): LightGBMRankerModel = {
-    val uid = Identifiable.randomUID("LightGBMRanker")
+    val uid = Identifiable.randomUID("LightGBMRankerModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -166,7 +170,7 @@ object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {
   }
 
   def loadNativeModelFromString(model: String): LightGBMRankerModel = {
-    val uid = Identifiable.randomUID("LightGBMRanker")
+    val uid = Identifiable.randomUID("LightGBMRankerModel")
     val lightGBMBooster = new LightGBMBooster(model)
     new LightGBMRankerModel(uid).setLightGBMBooster(lightGBMBooster)
   }

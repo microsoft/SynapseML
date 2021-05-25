@@ -79,7 +79,7 @@ class VerifyLightGBMRegressor extends Benchmarks
     assert(fitModel != null)
 
     // Validate lambda parameters set on model
-    val modelStr = fitModel.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.model
+    val modelStr = fitModel.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.modelStr.get
     assert(modelStr.contains("[lambda_l1: 0.1]") || modelStr.contains("[lambda_l1: 0.5]"))
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
   }
