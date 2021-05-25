@@ -26,7 +26,10 @@ object Secrets {
     try {
       exec(s"az account set -s $subscriptionID")
     } catch {
-      case e: IOException => println("Error: " + e.toString)
+      case e: java.lang.RuntimeException =>
+        println(s"Secret fetch error: ${e.toString}")
+      case e: IOException =>
+        println(s"Secret fetch error: ${e.toString}")
     }
     subscriptionID
   }

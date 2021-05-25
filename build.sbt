@@ -57,6 +57,7 @@ def activateCondaEnv: Seq[String] = {
   }
 }
 
+val omittedDeps = Set(s"spark-core_${scalaMajorVersion}", s"spark-mllib_${scalaMajorVersion}", "org.scala-lang")
 // skip dependency elements with a scope
 pomPostProcess := { (node: XmlNode) =>
   new RuleTransformer(new RewriteRule {
@@ -67,9 +68,9 @@ pomPostProcess := { (node: XmlNode) =>
           s""" scoped dependency ${txt(e, "groupId")} % ${txt(e, "artifactId")}
              |% ${txt(e, "version")} % ${txt(e, "scope")} has been omitted """.stripMargin)
       case e: Elem if e.label == "dependency"
-        && e.child.exists(child => child.text == "org.scala-lang") =>
+        && e.child.exists(child => omittedDeps(child.text)) =>
         Comment(
-          s""" scala-lang dependency ${txt(e, "groupId")} % ${txt(e, "artifactId")}
+          s""" excluded dependency ${txt(e, "groupId")} % ${txt(e, "artifactId")}
              |% ${txt(e, "version")} has been omitted """.stripMargin)
       case _ => node
     }
