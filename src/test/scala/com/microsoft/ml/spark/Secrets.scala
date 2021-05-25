@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import java.io.IOException
+
 import sys.process._
 import spray.json._
 import DefaultJsonProtocol._
@@ -21,7 +23,14 @@ object Secrets {
 
   // Keep overhead of setting account down
   lazy val AccountString: String = {
-    exec(s"az account set -s $SubscriptionID")
+    try {
+      exec(s"az account set -s $SubscriptionID")
+    } catch {
+      case e: java.lang.RuntimeException =>
+        println(s"Secret fetch error: ${e.toString}")
+      case e: IOException =>
+        println(s"Secret fetch error: ${e.toString}")
+    }
     SubscriptionID
   }
 
