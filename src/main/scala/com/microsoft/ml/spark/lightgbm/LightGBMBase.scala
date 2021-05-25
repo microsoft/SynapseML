@@ -4,6 +4,9 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{DartModeParams, ExecutionParams, LightGBMParams,
+  ObjectiveParams, TrainParams}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -180,12 +183,28 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
+  /**
+    * Constructs the DartModeParams
+    * @return DartModeParams object containing parameters related to dart mode.
+    */
   protected def getDartParams(): DartModeParams = {
     DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
   }
 
+  /**
+    * Constructs the ExecutionParams.
+    * @return ExecutionParams object containing parameters related to LightGBM execution.
+    */
   protected def getExecutionParams(): ExecutionParams = {
     ExecutionParams(getChunkSize, getMatrixType)
+  }
+
+  /**
+    * Constructs the ObjectiveParams.
+    * @return ObjectiveParams object containing parameters related to the objective function.
+    */
+  protected def getObjectiveParams(): ObjectiveParams = {
+    ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
   /**

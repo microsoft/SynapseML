@@ -11,6 +11,8 @@ import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
+import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
+import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
@@ -245,7 +247,7 @@ object LightGBMUtils {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMats(featuresArray.get_chunks_count().toInt,
         featuresArray.data_as_void(), data64bitType,
         numRowsForChunks, numCols,
-        isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
+        isRowMajor, datasetParams, referenceDataset.map(_.datasetPtr).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
       featuresArray.release()
@@ -275,7 +277,7 @@ object LightGBMUtils {
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],
       sparseRows.length,
-      numCols, datasetParams, referenceDataset.map(_.dataset).orNull,
+      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
       datasetOutPtr),
       "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))

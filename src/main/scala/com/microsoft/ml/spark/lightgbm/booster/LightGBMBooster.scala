@@ -1,12 +1,15 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.booster
 
 import com.microsoft.ml.lightgbm._
+import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMUtils}
 import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelString
+import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.slf4j.Logger
 
 //scalastyle:off
 protected abstract class NativePtrHandler[T](val ptr: T) {
@@ -32,13 +35,17 @@ protected class LongLongNativePtrHandler(ptr: SWIGTYPE_p_long_long) extends Nati
 
 /** Wraps the boosterPtr and guarantees that Native library is initialized
  * everytime it is needed
- * @param model The string serialized representation of the learner
+ * @param boosterPtr The pointer to the native lightgbm booster
  */
-protected class BoosterHandler(model: String) {
-  LightGBMUtils.initializeNativeLibrary()
+protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
 
-  var boosterPtr: SWIGTYPE_p_void = {
-    getBoosterPtrFromModelString(model)
+  /** Wraps the boosterPtr and guarantees that Native library is initialized
+    * everytime it is needed
+    *
+    * @param model The string serialized representation of the learner
+    */
+  def this(model: String) = {
+    this(getBoosterPtrFromModelString(model))
   }
 
   val scoredDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
@@ -127,6 +134,13 @@ protected class BoosterHandler(model: String) {
   lazy val dataInt32bitType: Int = lightgbmlibConstants.C_API_DTYPE_INT32
   lazy val data64bitType: Int = lightgbmlibConstants.C_API_DTYPE_FLOAT64
 
+  def freeNativeMemory(): Unit = {
+    if (boosterPtr != null) {
+      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
+      boosterPtr = null
+    }
+  }
+
   private def getNumClasses: Int = {
     val numClassesOut = lightgbmlib.new_intp()
     LightGBMUtils.validate(
@@ -167,13 +181,6 @@ protected class BoosterHandler(model: String) {
     out
   }
 
-  private def freeNativeMemory(): Unit = {
-    if (boosterPtr != null) {
-      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterFree(boosterPtr), "Finalize Booster")
-      boosterPtr = null
-    }
-  }
-
   override protected def finalize(): Unit = {
     freeNativeMemory()
     super.finalize()
@@ -181,20 +188,147 @@ protected class BoosterHandler(model: String) {
 }
 
 /** Represents a LightGBM Booster learner
-  * @param model The string serialized representation of the learner
+  * @param trainDataset The training dataset
+  * @param parameters The booster initialization parameters
+  * @param modelStr Optional parameter with the string serialized representation of the learner
   */
 @SerialVersionUID(777L)
-class LightGBMBooster(val model: String) extends Serializable {
-  /** Transient variable containing local machine's pointer to native booster
+class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val parameters: Option[String] = None,
+                      val modelStr: Option[String] = None) extends Serializable {
+
+  /** Represents a LightGBM Booster learner
+    * @param trainDataset The training dataset
+    * @param parameters The booster initialization parameters
     */
+  def this(trainDataset: LightGBMDataset, parameters: String) = {
+    this(Some(trainDataset), Some(parameters))
+  }
+
+  /** Represents a LightGBM Booster learner
+    * @param model The string serialized representation of the learner
+    */
+  def this(model: String) = {
+    this(modelStr = Some(model))
+  }
+
   @transient
   lazy val boosterHandler: BoosterHandler = {
-    new BoosterHandler(model)
+    LightGBMUtils.initializeNativeLibrary()
+    if (trainDataset.isEmpty && modelStr.isEmpty) {
+      throw new IllegalArgumentException("One of training dataset or serialized model parameters must be specified")
+    }
+    if (trainDataset.isEmpty) {
+      new BoosterHandler(modelStr.get)
+    } else {
+      val boosterOutPtr = lightgbmlib.voidpp_handle()
+      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDataset.map(_.datasetPtr).get,
+        parameters.get, boosterOutPtr), "Booster")
+      new BoosterHandler(lightgbmlib.voidpp_value(boosterOutPtr))
+    }
   }
 
   var bestIteration: Int = -1
   private var startIteration: Int = 0
   private var numIterations: Int = -1
+
+  /** Merges this Booster with the specified model.
+    * @param model The string serialized representation of the learner to merge.
+    */
+  def mergeBooster(model: String): Unit = {
+    val boosterPtr = LightGBMUtils.getBoosterPtrFromModelString(model)
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterHandler.boosterPtr, boosterPtr),
+      "Booster Merge")
+  }
+
+  /** Adds the specified LightGBMDataset to be the validation dataset.
+    * @param dataset The LightGBMDataset to add as the validation dataset.
+    */
+  def addValidationDataset(dataset: LightGBMDataset): Unit = {
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterAddValidData(boosterHandler.boosterPtr,
+      dataset.datasetPtr), "Add Validation Dataset")
+  }
+
+  /** Saves the booster to string representation.
+    * @return The serialized string representation of the Booster.
+    */
+  def saveToString(): String = {
+      val bufferLength = LightGBMConstants.DefaultBufferLength
+      val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
+      lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterHandler.boosterPtr,
+        0, -1, 0, bufferLength, bufferOutLengthPtr)
+  }
+
+  /** Get the evaluation dataset column names from the native booster.
+    * @return The evaluation dataset column names.
+    */
+  def getEvalNames(): Array[String] = {
+    // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
+    // For debugging, can get metric names
+    val stringArrayHandle = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterHandler.boosterPtr)
+    LightGBMUtils.validateArray(stringArrayHandle, "Booster Get Eval Names")
+    val evalNames = lightgbmlib.StringArrayHandle_get_strings(stringArrayHandle)
+    lightgbmlib.StringArrayHandle_free(stringArrayHandle)
+    evalNames
+  }
+
+  /** Get the evaluation for the training data and validation data.
+    *
+    * @param evalNames      The names of the evaluation metrics.
+    * @param dataIndex Index of data, 0: training data, 1: 1st validation
+    *                  data, 2: 2nd validation data and so on.
+    * @return Array of tuples containing the evaluation metric name and metric value.
+    */
+  def getEvalResults(evalNames: Array[String], dataIndex: Int): Array[(String, Double)] = {
+    val evalResults = lightgbmlib.new_doubleArray(evalNames.length.toLong)
+    val dummyEvalCountsPtr = lightgbmlib.new_intp()
+    val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterHandler.boosterPtr, dataIndex,
+      dummyEvalCountsPtr, evalResults)
+    lightgbmlib.delete_intp(dummyEvalCountsPtr)
+    LightGBMUtils.validate(resultEval, s"Booster Get Eval Results for data index: ${dataIndex}")
+
+    val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
+      val score = lightgbmlib.doubleArray_getitem(evalResults, index.toLong)
+      (evalName, score)
+    }
+    lightgbmlib.delete_doubleArray(evalResults)
+    results
+  }
+
+  /** Reset the specified parameters on the native booster.
+    * @param newParameters The new parameters to set.
+    */
+  def resetParameter(newParameters: String) = {
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterHandler.boosterPtr,
+      newParameters), "Booster Reset learning_rate Param")
+  }
+
+  /** Get predictions for the training and evaluation data on the booster.
+    * @param dataIndex Index of data, 0: training data, 1: 1st validation
+    *                  data, 2: 2nd validation data and so on.
+    * @param classification Whether this is a classification scenario or not.
+    * @return The predictions as a 2D array where first level is for row index
+    *         and second level is optional if there are classes.
+    */
+  def innerPredict(dataIndex: Int, classification: Boolean): Array[Array[Double]] = {
+    val numRows = this.trainDataset.get.numData()
+    val scoredDataOutPtr = lightgbmlib.new_doubleArray(numClasses.toLong * numRows)
+    val scoredDataLengthPtr = lightgbmlib.new_int64_tp()
+    lightgbmlib.int64_tp_assign(scoredDataLengthPtr, 1)
+    lightgbmlib.LGBM_BoosterGetPredict(boosterHandler.boosterPtr, dataIndex,
+      scoredDataLengthPtr, scoredDataOutPtr)
+    val scoredDataLength = lightgbmlib.int64_tp_value(scoredDataLengthPtr)
+    if (classification && numClasses == 1) {
+      (0L until scoredDataLength).map(index =>
+        Array(lightgbmlib.doubleArray_getitem(scoredDataOutPtr, index))).toArray
+    } else {
+      val numRows = scoredDataLength / numClasses
+      (0L until numRows).map(rowIndex => {
+        val startIndex = rowIndex * numClasses
+        (0 until numClasses).map(classIndex =>
+          lightgbmlib.doubleArray_getitem(scoredDataOutPtr, startIndex + classIndex)).toArray
+      }).toArray
+    }
+  }
 
   def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
     val kind =
@@ -255,6 +389,57 @@ class LightGBMBooster(val model: String) extends Serializable {
     this.numIterations = bestIteration
   }
 
+  /** Saves the native model serialized representation to file.
+    * @param session The spark session
+    * @param filename The name of the file to save the model to
+    * @param overwrite Whether to overwrite if the file already exists
+    */
+  def saveNativeModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
+    if (filename == null || filename.isEmpty) {
+      throw new IllegalArgumentException("filename should not be empty or null.")
+    }
+    val rdd = session.sparkContext.parallelize(Seq(modelStr.get))
+    import session.sqlContext.implicits._
+    val dataset = session.sqlContext.createDataset(rdd)
+    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
+    dataset.coalesce(1).write.mode(mode).text(filename)
+  }
+
+  /** Dumps the native model pointer to file.
+    * @param session The spark session
+    * @param filename The name of the file to save the model to
+    * @param overwrite Whether to overwrite if the file already exists
+    */
+  def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
+    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, -1, 0, 1,
+      boosterHandler.dumpModelOutPtr.get().ptr)
+    val rdd = session.sparkContext.parallelize(Seq(json))
+    import session.sqlContext.implicits._
+    val dataset = session.sqlContext.createDataset(rdd)
+    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
+    dataset.coalesce(1).write.mode(mode).text(filename)
+  }
+
+  /** Frees any native memory held by the underlying booster pointer.
+    */
+  def freeNativeMemory(): Unit = {
+    boosterHandler.freeNativeMemory()
+  }
+
+  /**
+    * Calls into LightGBM to retrieve the feature importances.
+    * @param importanceType Can be "split" or "gain"
+    * @return The feature importance values as an array.
+    */
+  def getFeatureImportances(importanceType: String): Array[Double] = {
+    val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1,
+        importanceTypeNum, boosterHandler.featureImportanceOutPtr.get().ptr),
+      "Booster FeatureImportance")
+    (0L until numFeatures.toLong).map(lightgbmlib.doubleArray_getitem(boosterHandler.featureImportanceOutPtr.get().ptr, _)).toArray
+  }
+
   lazy val numClasses: Int = boosterHandler.numClasses
 
   lazy val numFeatures: Int = boosterHandler.numFeatures
@@ -300,41 +485,6 @@ class LightGBMBooster(val model: String) extends Serializable {
         isRowMajor, kind,
         this.startIteration, this.numIterations, datasetParams, dataLengthLongPtr, dataOutPtr),
       "Booster Predict")
-  }
-
-  def saveNativeModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    if (filename == null || filename.isEmpty) {
-      throw new IllegalArgumentException("filename should not be empty or null.")
-    }
-    val rdd = session.sparkContext.parallelize(Seq(model))
-    import session.sqlContext.implicits._
-    val dataset = session.sqlContext.createDataset(rdd)
-    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
-    dataset.coalesce(1).write.mode(mode).text(filename)
-  }
-
-  def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
-    val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, -1, 0, 1,
-      boosterHandler.dumpModelOutPtr.get().ptr)
-    val rdd = session.sparkContext.parallelize(Seq(json))
-    import session.sqlContext.implicits._
-    val dataset = session.sqlContext.createDataset(rdd)
-    val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
-    dataset.coalesce(1).write.mode(mode).text(filename)
-  }
-
-  /**
-    * Calls into LightGBM to retrieve the feature importances.
-    * @param importanceType Can be "split" or "gain"
-    * @return The feature importance values as an array.
-    */
-  def getFeatureImportances(importanceType: String): Array[Double] = {
-    val importanceTypeNum = if (importanceType.toLowerCase.trim == "gain") 1 else 0
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterFeatureImportance(boosterHandler.boosterPtr, -1,
-        importanceTypeNum, boosterHandler.featureImportanceOutPtr.get().ptr),
-      "Booster FeatureImportance")
-    (0L until numFeatures.toLong).map(lightgbmlib.doubleArray_getitem(boosterHandler.featureImportanceOutPtr.get().ptr, _)).toArray
   }
 
   private def predScoreToArray(classification: Boolean, scoredDataOutPtr: SWIGTYPE_p_double,

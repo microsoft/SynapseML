@@ -1,10 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.params
 
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasInitScoreCol, HasValidationIndicatorCol, HasWeightCol}
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMDelegate}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
@@ -273,12 +275,31 @@ trait LightGBMModelParams extends Wrappable {
   def setNumIterations(value: Int): this.type = set(numIterations, value)
 }
 
+/** Defines common objective parameters
+  */
+trait LightGBMObjectiveParams extends Wrappable {
+  val objective = new Param[String](this, "objective",
+    "The Objective. For regression applications, this can be: " +
+      "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
+      "For classification applications, this can be: binary, multiclass, or multiclassova. ")
+  setDefault(objective -> "regression")
+
+  def getObjective: String = $(objective)
+  def setObjective(value: String): this.type = set(objective, value)
+
+  val fobj = new FObjParam(this, "fobj", "Customized objective function. " +
+    "Should accept two parameters: preds, train_data, and return (grad, hess).")
+
+  def getFObj: FObjTrait = $(fobj)
+  def setFObj(value: FObjTrait): this.type = set(fobj, value)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
   with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
-  with LightGBMDartParams with LightGBMPredictionParams {
+  with LightGBMDartParams with LightGBMPredictionParams with LightGBMObjectiveParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -297,15 +318,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getNumLeaves: Int = $(numLeaves)
   def setNumLeaves(value: Int): this.type = set(numLeaves, value)
-
-  val objective = new Param[String](this, "objective",
-    "The Objective. For regression applications, this can be: " +
-      "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
-      "For classification applications, this can be: binary, multiclass, or multiclassova. ")
-  setDefault(objective -> "regression")
-
-  def getObjective: String = $(objective)
-  def setObjective(value: String): this.type = set(objective, value)
 
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)

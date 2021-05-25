@@ -1,30 +1,81 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.dataset
 
-import com.microsoft.ml.lightgbm.{floatChunkedArray, _}
+import com.microsoft.lightgbm.SwigPtrWrapper
+import com.microsoft.ml.lightgbm._
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils
+
+import scala.reflect.ClassTag
 
 /** Represents a LightGBM dataset.
   * Wraps the native implementation.
-  * @param dataset The native representation of the dataset.
+  * @param datasetPtr The native representation of the dataset.
   */
-class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
+class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
+  def getLabel(): Array[Float] = {
+    getField[Float]("label")
+  }
+
+  def getField[T: ClassTag](fieldName: String): Array[T] = {
+    // The result length
+    val tmpOutLenPtr = lightgbmlib.new_int32_tp()
+    // The type of the result array
+    val outTypePtr = lightgbmlib.new_int32_tp()
+    // The pointer to the result
+    val outArray = lightgbmlib.new_voidpp()
+    lightgbmlib.LGBM_DatasetGetField(datasetPtr, fieldName, tmpOutLenPtr, outArray, outTypePtr)
+    val outType = lightgbmlib.int32_tp_value(outTypePtr)
+    val outLength = lightgbmlib.int32_tp_value(tmpOutLenPtr)
+    // Note: hacky workaround for now until new pointer manipulation functions are added
+    val voidptr = lightgbmlib.voidpp_value(outArray)
+    val address = new SwigPtrWrapper(voidptr).getCPtrValue()
+    if (outType == lightgbmlibConstants.C_API_DTYPE_INT32) {
+      (0 until outLength).map(index =>
+        lightgbmlibJNI.intArray_getitem(address, index).asInstanceOf[T]).toArray
+    } else if (outType == lightgbmlibConstants.C_API_DTYPE_FLOAT32) {
+      (0 until outLength).map(index =>
+        lightgbmlibJNI.floatArray_getitem(address, index).asInstanceOf[T]).toArray
+    } else if (outType == lightgbmlibConstants.C_API_DTYPE_FLOAT64) {
+      (0 until outLength).map(index =>
+        lightgbmlibJNI.doubleArray_getitem(address, index).asInstanceOf[T]).toArray
+    } else {
+      throw new Exception("Unknown type returned from native lightgbm in LightGBMDataset getField")
+    }
+  }
+
+  /** Get the number of rows in the Dataset.
+    * @return The number of rows.
+    */
+  def numData(): Int = {
+    val numDataPtr = lightgbmlib.new_intp()
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
+    val numData = lightgbmlib.intp_value(numDataPtr)
+    lightgbmlib.delete_intp(numDataPtr)
+    numData
+  }
+
+  /** Get the number of features in the Dataset.
+    * @return The number of features.
+    */
+  def numFeature(): Int = {
+    val numFeaturePtr = lightgbmlib.new_intp()
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumFeature(datasetPtr, numFeaturePtr), "DatasetGetNumFeature")
+    val numFeature = lightgbmlib.intp_value(numFeaturePtr)
+    lightgbmlib.delete_intp(numFeaturePtr)
+    numFeature
+  }
+
   def validateDataset(): Unit = {
     // Validate num rows
-    val numDataPtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(dataset, numDataPtr), "DatasetGetNumData")
-    val numData = lightgbmlib.intp_value(numDataPtr)
+    val numData = this.numData()
     if (numData <= 0) {
       throw new Exception("Unexpected num data: " + numData)
     }
 
     // Validate num cols
-    val numFeaturePtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetGetNumFeature(dataset, numFeaturePtr),
-      "DatasetGetNumFeature")
-    val numFeature = lightgbmlib.intp_value(numFeaturePtr)
+    val numFeature = this.numFeature()
     if (numFeature <= 0) {
       throw new Exception("Unexpected num feature: " + numFeature)
     }
@@ -60,7 +111,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(field)
     val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
     LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data32bitType),
+      lightgbmlib.LGBM_DatasetSetField(datasetPtr, fieldName, colAsVoidPtr, numRows, data32bitType),
       "DatasetSetField")
   }
 
@@ -94,7 +145,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(field)
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data64bitType),
+      lightgbmlib.LGBM_DatasetSetField(datasetPtr, fieldName, colAsVoidPtr, numRows, data64bitType),
       "DatasetSetField")
   }
 
@@ -108,7 +159,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
       val colAsVoidPtr = lightgbmlib.int_to_voidp_ptr(colArray.get)
       val data32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
       LightGBMUtils.validate(
-        lightgbmlib.LGBM_DatasetSetField(dataset, fieldName, colAsVoidPtr, numRows, data32bitType),
+        lightgbmlib.LGBM_DatasetSetField(datasetPtr, fieldName, colAsVoidPtr, numRows, data32bitType),
         "DatasetSetField")
     } finally {
       // Free column
@@ -120,7 +171,7 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
     // Add in slot names if they exist
     featureNamesOpt.foreach { featureNamesVal =>
       if (featureNamesVal.nonEmpty) {
-        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(dataset, featureNamesVal, numCols),
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetPtr, featureNamesVal, numCols),
           "Dataset set feature names")
       }
     }
@@ -128,6 +179,6 @@ class LightGBMDataset(val dataset: SWIGTYPE_p_void) extends AutoCloseable {
 
   override def close(): Unit = {
     // Free dataset
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(dataset), "Finalize Dataset")
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr), "Finalize Dataset")
   }
 }
