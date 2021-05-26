@@ -154,7 +154,8 @@ case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
   *                   constructed should be sparse or dense.
   * @param numThreads The number of threads to run the native lightgbm training with on each worker.
   */
-case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) extends Serializable {
+case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int,
+                           useSingleDatasetMode: Boolean) extends Serializable {
   override def toString(): String = {
     s"num_threads=$numThreads "
   }

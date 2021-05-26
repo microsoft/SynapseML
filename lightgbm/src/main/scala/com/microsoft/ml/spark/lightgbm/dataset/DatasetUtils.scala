@@ -3,10 +3,11 @@
 
 package com.microsoft.ml.spark.lightgbm.dataset
 
-import com.microsoft.ml.lightgbm.{doubleChunkedArray, floatChunkedArray}
+import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, doubleChunkedArray, floatChunkedArray, lightgbmlib}
 import com.microsoft.ml.spark.lightgbm.{ColumnParams, LightGBMUtils}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import com.microsoft.ml.spark.lightgbm.params.TrainParams
+import com.microsoft.ml.spark.lightgbm.swig.DoubleChunkedArray
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
@@ -31,39 +32,18 @@ object DatasetUtils {
     }
   }
 
-  def generateDataset(rowsIter: Iterator[Row], columnParams: ColumnParams,
-                      referenceDataset: Option[LightGBMDataset], schema: StructType,
+  def generateDataset(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
+                      referenceDataset: Option[LightGBMDataset], isSparse: Boolean, schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
-    val (concatRowsIter: Iterator[Row], isSparse: Boolean) = getArrayType(rowsIter, columnParams, schema,
-      trainParams.executionParams.matrixType)
-    var datasetPtr: Option[LightGBMDataset] = None
+    var dataset: Option[LightGBMDataset] = None
     if (!isSparse) {
-      datasetPtr = aggregateDenseStreamedData(concatRowsIter, columnParams, referenceDataset, schema, log, trainParams)
-      // Validate generated dataset has the correct number of rows and cols
-      datasetPtr.get.validateDataset()
+      dataset = aggregateDenseStreamedData(aggregatedColumns, columnParams, referenceDataset, schema, log, trainParams)
     } else {
-      val rows = concatRowsIter.toArray
-      val numRows = rows.length
-      val labels = rows.map(row => row.getDouble(schema.fieldIndex(columnParams.labelColumn)))
-      val rowsAsSparse = rows.map(row => row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
-        case dense: DenseVector => dense.toSparse
-        case sparse: SparseVector => sparse
-      })
-      val numCols = rowsAsSparse(0).size
-      val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
-      log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
-      datasetPtr = Some(LightGBMUtils.generateSparseDataset(rowsAsSparse, referenceDataset, slotNames, trainParams))
-      // Validate generated dataset has the correct number of rows and cols
-      datasetPtr.get.validateDataset()
-      datasetPtr.get.addFloatField(labels, "label", numRows)
-      columnParams.weightColumn.foreach { col =>
-        val weights = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-        datasetPtr.get.addFloatField(weights, "weight", numRows)
-      }
-      addInitScoreColumn(rows, columnParams.initScoreColumn, datasetPtr, numRows, schema)
-      addGroupColumn(rows, columnParams.groupColumn, datasetPtr, numRows, schema, None)
+      dataset = aggregateSparseStreamedData(aggregatedColumns, columnParams, referenceDataset, schema, log, trainParams)
     }
-    datasetPtr
+    // Validate generated dataset has the correct number of rows and cols
+    dataset.get.validateDataset()
+    dataset
   }
 
   trait CardinalityType[T]
@@ -107,7 +87,7 @@ object DatasetUtils {
     groupCardinality
   }
 
-  def addInitScoreColumnRow(initScoreChunkedArrayOpt: Option[doubleChunkedArray], row: Row,
+  def addInitScoreColumnRow(initScoreChunkedArrayOpt: Option[DoubleChunkedArray], row: Row,
                             columnParams: ColumnParams, schema: StructType): Unit = {
     columnParams.initScoreColumn.foreach { col =>
       val field = schema.fields(schema.fieldIndex(col))
@@ -154,15 +134,35 @@ object DatasetUtils {
   def getRowAsDoubleArray(row: Row, columnParams: ColumnParams, schema: StructType): Array[Double] = {
     row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
       case dense: DenseVector => dense.toArray
-      case sparse: SparseVector => sparse.toDense.toArray
+      case sparse: SparseVector => sparse.toArray
     }
   }
 
-  def addFeaturesToChunkedArray(featuresChunkedArrayOpt: Option[doubleChunkedArray], numCols: Int,
+  def addFeaturesToChunkedArray(featuresChunkedArray: DoubleChunkedArray,
                                 rowAsDoubleArray: Array[Double]): Unit = {
-    featuresChunkedArrayOpt.foreach { featuresChunkedArray =>
-      rowAsDoubleArray.foreach { doubleVal =>
-        featuresChunkedArray.add(doubleVal)
+    rowAsDoubleArray.foreach { doubleVal =>
+      featuresChunkedArray.add(doubleVal)
+    }
+  }
+
+  def getInitScores(rows: Array[Row], initScoreColumn: Option[String],
+                    schema: StructType): Option[Array[Double]] = {
+    initScoreColumn.map { col =>
+      val field = schema.fields(schema.fieldIndex(col))
+      if (field.dataType == VectorType) {
+        val initScores = rows.map(row => row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector])
+        // Calculate # rows * # classes in multiclass case
+        val initScoresLength = initScores.length
+        val totalLength = initScoresLength * initScores(0).size
+        val flattenedInitScores = new Array[Double](totalLength)
+        initScores.zipWithIndex.foreach { case (rowVector, rowIndex) =>
+          rowVector.values.zipWithIndex.foreach { case (rowValue, colIndex) =>
+            flattenedInitScores(colIndex * initScoresLength + rowIndex) = rowValue
+          }
+        }
+        flattenedInitScores
+      } else {
+        rows.map(row => row.getDouble(schema.fieldIndex(col)))
       }
     }
   }
@@ -187,29 +187,6 @@ object DatasetUtils {
     }
   }
 
-  def addInitScoreColumn(rows: Array[Row], initScoreColumn: Option[String],
-                         datasetPtr: Option[LightGBMDataset], numRows: Int, schema: StructType): Unit = {
-    initScoreColumn.foreach { col =>
-      val field = schema.fields(schema.fieldIndex(col))
-      if (field.dataType == VectorType) {
-        val initScores = rows.map(row => row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector])
-        // Calculate # rows * # classes in multiclass case
-        val initScoresLength = initScores.length
-        val totalLength = initScoresLength * initScores(0).size
-        val flattenedInitScores = new Array[Double](totalLength)
-        initScores.zipWithIndex.foreach { case (rowVector, rowIndex) =>
-          rowVector.values.zipWithIndex.foreach { case (rowValue, colIndex) =>
-            flattenedInitScores(colIndex * initScoresLength + rowIndex) = rowValue
-          }
-        }
-        datasetPtr.get.addDoubleField(flattenedInitScores, "init_score", numRows)
-      } else {
-        val initScores = rows.map(row => row.getDouble(schema.fieldIndex(col)))
-        datasetPtr.get.addDoubleField(initScores, "init_score", numRows)
-      }
-    }
-  }
-
   def releaseArrays(labelsChunkedArray: floatChunkedArray, weightChunkedArrayOpt: Option[floatChunkedArray],
                     initScoreChunkedArrayOpt: Option[doubleChunkedArray]): Unit = {
     labelsChunkedArray.release()
@@ -217,49 +194,84 @@ object DatasetUtils {
     initScoreChunkedArrayOpt.foreach(_.release())
   }
 
-  def aggregateDenseStreamedData(rowsIter: Iterator[Row], columnParams: ColumnParams,
+  def aggregateDenseStreamedData(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
-    var numRows = 0
+    val denseAggregatedColumns = aggregatedColumns.asInstanceOf[BaseDenseAggregatedColumns]
     val chunkSize = trainParams.executionParams.chunkSize
-    val labelsChunkedArray = new floatChunkedArray(chunkSize)
-    val weightChunkedArrayOpt = columnParams.weightColumn.map { _ => new floatChunkedArray(chunkSize) }
-    val initScoreChunkedArrayOpt = columnParams.initScoreColumn.map { _ => new doubleChunkedArray(chunkSize) }
-    var featuresChunkedArrayOpt: Option[doubleChunkedArray] = None
-    val groupColumnValues: ListBuffer[Row] = new ListBuffer[Row]()
     try {
-      var numCols = 0
-      while (rowsIter.hasNext) {
-        val row = rowsIter.next()
-        numRows += 1
-        labelsChunkedArray.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
-        columnParams.weightColumn.map { col =>
-          weightChunkedArrayOpt.get.add(row.getDouble(schema.fieldIndex(col)).toFloat)
-        }
-        val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
-        numCols = rowAsDoubleArray.length
-        if (featuresChunkedArrayOpt.isEmpty) {
-          featuresChunkedArrayOpt = Some(new doubleChunkedArray(numCols * chunkSize))
-        }
-        addFeaturesToChunkedArray(featuresChunkedArrayOpt, numCols, rowAsDoubleArray)
-        addInitScoreColumnRow(initScoreChunkedArrayOpt, row, columnParams, schema)
-        addGroupColumnRow(row, groupColumnValues, columnParams, schema)
-      }
-
+      val numRows = denseAggregatedColumns.rowCount.get().toInt
+      val numCols = denseAggregatedColumns.getNumCols
       val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
       log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
-      val datasetPtr = Some(LightGBMUtils.generateDenseDataset(numRows, numCols, featuresChunkedArrayOpt.get,
+      val dataset = Some(LightGBMUtils.generateDenseDataset(numRows, numCols,
+        denseAggregatedColumns.featuresArray.array,
         referenceDataset, slotNames, trainParams, chunkSize))
-      datasetPtr.get.addFloatField(labelsChunkedArray, "label", numRows)
+      dataset.get.addFloatField(denseAggregatedColumns.labelsArray.array,
+        "label", numRows)
 
-      weightChunkedArrayOpt.foreach(datasetPtr.get.addFloatField(_, "weight", numRows))
-      initScoreChunkedArrayOpt.foreach(datasetPtr.get.addDoubleField(_, "init_score", numRows))
+      denseAggregatedColumns.weightArrayOpt
+        .foreach(weightArray => dataset.get.addFloatField(weightArray.array, "weight", numRows))
+      denseAggregatedColumns.initScoreArrayOpt
+        .foreach(initScoreArray => dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
       val overrideGroupIndex = Some(0)
-      addGroupColumn(groupColumnValues.toArray, columnParams.groupColumn, datasetPtr, numRows, schema,
-        overrideGroupIndex)
-      datasetPtr
+      addGroupColumn(denseAggregatedColumns.groupColumnValuesArray, columnParams.groupColumn, dataset,
+        numRows, schema, overrideGroupIndex)
+      dataset
     } finally {
-      releaseArrays(labelsChunkedArray, weightChunkedArrayOpt, initScoreChunkedArrayOpt)
+      denseAggregatedColumns.labelsArray.delete()
+      denseAggregatedColumns.weightArrayOpt.foreach(_.delete())
+      denseAggregatedColumns.initScoreArrayOpt.foreach(_.delete())
+    }
+  }
+
+  private def indptrArrayIncrement(indptrArray: SWIGTYPE_p_int, indptrCount: Long): Unit = {
+    // Update indptr array indexes in sparse matrix
+    (1L until indptrCount).foreach { index =>
+      val indptrPrevValue = lightgbmlib.intArray_getitem(indptrArray, index - 1)
+      val indptrCurrValue = lightgbmlib.intArray_getitem(indptrArray, index)
+      lightgbmlib.intArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
+    }
+  }
+
+  def aggregateSparseStreamedData(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
+                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
+                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
+    val sparseAggregatedColumns = aggregatedColumns.asInstanceOf[BaseSparseAggregatedColumns]
+    val chunkSize = trainParams.executionParams.chunkSize
+    try {
+      indptrArrayIncrement(sparseAggregatedColumns.indptrArray.array, sparseAggregatedColumns.indptrCount.get())
+      val numCols = sparseAggregatedColumns.getNumCols
+      val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols.toInt, trainParams)
+      val numRows = sparseAggregatedColumns.rowCount.get().toInt
+      log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
+      var dataset: Option[LightGBMDataset] = None
+      try {
+        dataset = Some(LightGBMUtils.generateSparseDataset(sparseAggregatedColumns.getNumCols,
+          sparseAggregatedColumns.indptrCount.get(), sparseAggregatedColumns.indexesCount.get(),
+          lightgbmlib.double_to_voidp_ptr(sparseAggregatedColumns.valuesArray.array),
+          sparseAggregatedColumns.indexesArray.array,
+          lightgbmlib.int_to_voidp_ptr(sparseAggregatedColumns.indptrArray.array),
+          referenceDataset, slotNames, trainParams))
+      } finally {
+        // Delete the input rows
+        sparseAggregatedColumns.valuesArray.delete()
+        sparseAggregatedColumns.indexesArray.delete()
+        sparseAggregatedColumns.indptrArray.delete()
+      }
+      dataset.get.addFloatField(sparseAggregatedColumns.labelsArray.array, "label", numRows)
+      sparseAggregatedColumns.weightArrayOpt.foreach(weightArray =>
+        dataset.get.addFloatField(weightArray.array, "weight", numRows))
+      sparseAggregatedColumns.initScoreArrayOpt.foreach(initScoreArray =>
+        dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
+      val overrideGroupIndex = Some(0)
+      addGroupColumn(sparseAggregatedColumns.groupColumnValuesArray,
+        columnParams.groupColumn, dataset, numRows, schema, overrideGroupIndex)
+      dataset
+    } finally {
+      sparseAggregatedColumns.labelsArray.delete()
+      sparseAggregatedColumns.weightArrayOpt.foreach(_.delete())
+      sparseAggregatedColumns.initScoreArrayOpt.foreach(_.delete())
     }
   }
 

@@ -195,10 +195,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   /**
     * Constructs the ExecutionParams.
+    *
+    * @param isLocalMode True if spark is run in local mode, on one machine.
+    * @param numTasksPerExec The number of tasks per executor.
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
-  protected def getExecutionParams(): ExecutionParams = {
-    ExecutionParams(getChunkSize, getMatrixType, getNumThreads)
+  protected def getExecutionParams(isLocalMode: Boolean, numTasksPerExec: Int): ExecutionParams = {
+    val useSingleDatasetMode = if (isLocalMode || numTasksPerExec == 1) false else getUseSingleDatasetMode
+    ExecutionParams(getChunkSize, getMatrixType, getNumThreads, useSingleDatasetMode)
   }
 
   /**
@@ -240,7 +244,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      */
     val encoder = Encoders.kryo[LightGBMBooster]
 
-    val trainParams = getTrainParams(numTasks, getCategoricalIndexes(df), dataset)
+    val trainParams = getTrainParams(numTasks, getCategoricalIndexes(df), dataset, numTasksPerExec)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
     val (trainingData, validationData) =
@@ -253,8 +257,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val schema = preprocessedDF.schema
     val columnParams = ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
     validateSlotNames(preprocessedDF, columnParams, trainParams)
-    val mapPartitionsFunc = PartitionProcessor.trainLightGBM(batchIndex, networkParams, columnParams,
-      validationData, log, trainParams, numTasksPerExec, schema)(_)
+    val sharedState: SharedSingleton[SharedState] = SharedSingleton(new SharedState(columnParams, schema, trainParams))
+    val mapPartitionsFunc = TaskTrainingMethods.trainLightGBM(batchIndex, networkParams, columnParams,
+      validationData, log, trainParams, numTasksPerExec, schema, sharedState.get)(_)
     val lightGBMBooster =
       if (getUseBarrierExecutionMode) {
         preprocessedDF.rdd.barrier().mapPartitions(mapPartitionsFunc).reduce((booster1, _) => booster1)
@@ -283,9 +288,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param numTasks The total number of tasks.
     * @param categoricalIndexes The indexes of the categorical slots in the features vector.
     * @param dataset The training dataset.
+    * @param numTasksPerExec The number of tasks per executor.
     * @return train parameters.
     */
-  protected def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
+  protected def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_],
+                               numTasksPerExec: Int): TrainParams
 
   protected def stringFromTrainedModel(model: TrainedModel): String
 

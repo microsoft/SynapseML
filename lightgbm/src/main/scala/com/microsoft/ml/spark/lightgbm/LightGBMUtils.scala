@@ -16,7 +16,6 @@ import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
-import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.slf4j.Logger
 
@@ -253,7 +252,7 @@ object LightGBMUtils {
     datasetParams
   }
 
-  def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
+  def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: SWIGTYPE_p_double,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
                            trainParams: TrainParams, chunkSize: Int): LightGBMDataset = {
@@ -261,19 +260,14 @@ object LightGBMUtils {
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = getDatasetParams(trainParams)
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    val numRowsForChunks = getNumRowsForChunksArray(numRows, chunkSize)
     try {
       // Generate the dataset for features
-      featuresArray.get_last_chunk_add_count()
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMats(featuresArray.get_chunks_count().toInt,
-        featuresArray.data_as_void(), data64bitType,
-        numRowsForChunks, numCols,
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(lightgbmlib.double_to_voidp_ptr(featuresArray),
+        data64bitType, numRows, numCols,
         isRowMajor, datasetParams, referenceDataset.map(_.datasetPtr).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
-      featuresArray.release()
-      lightgbmlib.delete_intArray(numRowsForChunks)
+      lightgbmlib.delete_doubleArray(featuresArray)
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)
@@ -282,26 +276,30 @@ object LightGBMUtils {
 
   /** Generates a sparse dataset in CSR format.
     *
-    * @param sparseRows The rows of sparse vector.
-    * @return
+    * @return The constructed and wrapped native LightGBMDataset.
     */
-  def generateSparseDataset(sparseRows: Array[SparseVector],
+  def generateSparseDataset(numCols: Long,
+                            indptrLength: Long,
+                            valuesLength: Long,
+                            values: SWIGTYPE_p_void,
+                            indexes: SWIGTYPE_p_int,
+                            indptr: SWIGTYPE_p_void,
                             referenceDataset: Option[LightGBMDataset],
                             featureNamesOpt: Option[Array[String]],
                             trainParams: TrainParams): LightGBMDataset = {
-    val numCols = sparseRows(0).size
-
     val datasetOutPtr = lightgbmlib.voidpp_handle()
     val datasetParams = getDatasetParams(trainParams)
+    val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     // Generate the dataset for features
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
-      sparseRows.asInstanceOf[Array[Object]],
-      sparseRows.length,
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(indptr,
+      dataInt32bitType, indexes, values, data64bitType,
+      indptrLength, valuesLength,
       numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
       datasetOutPtr),
       "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols)
+    dataset.setFeatureNames(featureNamesOpt, numCols.toInt)
     dataset
   }
 }

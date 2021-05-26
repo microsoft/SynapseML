@@ -40,11 +40,13 @@ class LightGBMClassifier(override val uid: String)
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
+  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int],
+                     dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
     val actualNumClasses = getNumClasses(dataset)
+    val isLocal = dataset.sparkSession.sparkContext.isLocal
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
       getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
@@ -53,7 +55,7 @@ class LightGBMClassifier(override val uid: String)
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
       getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames,
-      getDelegate, getDartParams(), getExecutionParams(), getObjectiveParams())
+      getDelegate, getDartParams(), getExecutionParams(isLocal, numTasksPerExec), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
