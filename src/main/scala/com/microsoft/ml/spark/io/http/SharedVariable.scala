@@ -49,7 +49,6 @@ class SharedSingleton[T: ClassTag](constructor: => T) extends AnyRef with Serial
   }
 
   def get: T = instance
-
 }
 
 object SharedSingleton {
