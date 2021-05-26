@@ -51,7 +51,9 @@ class LightGBMRanker(override val uid: String)
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
+  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int],
+                     dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
+    val isLocal = dataset.sparkSession.sparkContext.isLocal
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
@@ -59,8 +61,8 @@ class LightGBMRanker(override val uid: String)
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(), getExecutionParams(),
-      getObjectiveParams())
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(),
+      getExecutionParams(isLocal, numTasksPerExec), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {

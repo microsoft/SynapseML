@@ -17,7 +17,7 @@ import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SparseVector
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 import org.slf4j.Logger
 
 import scala.collection.immutable.HashSet
@@ -63,15 +63,6 @@ object LightGBMUtils {
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
       .setNumFeatures(featuresToHashTo)
     featurizer.fit(dataset)
-  }
-
-  def getBoosterPtrFromModelString(lgbModelString: String): SWIGTYPE_p_void = {
-    val boosterOutPtr = lightgbmlib.voidpp_handle()
-    val numItersOut = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
-      "Booster LoadFromString")
-    lightgbmlib.voidpp_value(boosterOutPtr)
   }
 
   def getCategoricalIndexes(df: DataFrame,
@@ -187,11 +178,10 @@ object LightGBMUtils {
     (host, port, f)
   }
 
-  /** Returns an integer ID for the current node.
-    *
-    * @return In cluster, returns the executor id.  In local case, returns the task id.
+  /** Returns an integer ID for the current worker.
+    * @return In cluster, returns the executor id.  In local case, returns the partition id.
     */
-  def getId(): Int = {
+  def getWorkerId(): Int = {
     val executorId = SparkEnv.get.executorId
     val ctx = TaskContext.get
     val partId = ctx.partitionId
@@ -201,14 +191,21 @@ object LightGBMUtils {
     idAsInt
   }
 
-  def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-  (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
-    val numCols = rowsAsDoubleArray.head.length
-    val data = lightgbmlib.new_doubleArray(numCols.toLong * numRows.toLong)
-    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
-      ri._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, (value._2 + (ri._2 * numCols)).toLong, value._1)))
-    (lightgbmlib.double_to_voidp_ptr(data), data)
+  /** Returns true if spark is run in local mode.
+    * @return True if spark is run in local mode.
+    */
+  def isLocalExecution(): Boolean = {
+    val executorId = SparkEnv.get.executorId
+    executorId == "driver"
+  }
+
+  /** Returns a unique task Id for the current task run on the executor.
+    * @return A unique task id.
+    */
+  def getTaskId(): Long = {
+    val ctx = TaskContext.get
+    val taskId = ctx.taskAttemptId()
+    taskId
   }
 
   def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils
 import com.microsoft.ml.spark.lightgbm.params.{DartModeParams, ExecutionParams, LightGBMParams,
   ObjectiveParams, TrainParams}
 import com.microsoft.ml.spark.logging.BasicLogging
@@ -169,7 +170,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val featuresSchema = schema.fields(schema.fieldIndex(getFeaturesCol))
     val metadata = AttributeGroup.fromStructField(featuresSchema)
     if (metadata.attributes.isDefined) {
-      val slotNamesOpt = TrainUtils.getSlotNames(df.schema,
+      val slotNamesOpt = DatasetUtils.getSlotNames(df.schema,
         columnParams.featuresColumn, metadata.attributes.get.length, trainParams)
       val pattern = new Regex("[\",:\\[\\]{}]")
       slotNamesOpt.foreach(slotNames => {
@@ -193,10 +194,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   /**
     * Constructs the ExecutionParams.
+    *
+    * @param isLocalMode True if spark is run in local mode, on one machine.
+    * @param numTasksPerExec The number of tasks per executor.
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
-  protected def getExecutionParams(): ExecutionParams = {
-    ExecutionParams(getChunkSize, getMatrixType)
+  protected def getExecutionParams(isLocalMode: Boolean, numTasksPerExec: Int): ExecutionParams = {
+    val useSingleDatasetMode = if (isLocalMode || numTasksPerExec == 1) false else getUseSingleDatasetMode
+    ExecutionParams(getChunkSize, getMatrixType, useSingleDatasetMode)
   }
 
   /**
@@ -238,7 +243,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
      */
     val encoder = Encoders.kryo[LightGBMBooster]
 
-    val trainParams = getTrainParams(numTasks, getCategoricalIndexes(df), dataset)
+    val trainParams = getTrainParams(numTasks, getCategoricalIndexes(df), dataset, numTasksPerExec)
     log.info(s"LightGBM parameters: ${trainParams.toString()}")
     val networkParams = NetworkParams(getDefaultListenPort, inetAddress, port, getUseBarrierExecutionMode)
     val (trainingData, validationData) =
@@ -278,9 +283,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   /** Gets the training parameters.
     *
+    * @param numTasks The total number of tasks.
+    * @param categoricalIndexes The indexes of the categorical slots in the features vector.
+    * @param dataset The training dataset.
+    * @param numTasksPerExec The number of tasks per executor.
     * @return train parameters.
     */
-  protected def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams
+  protected def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_],
+                               numTasksPerExec: Int): TrainParams
 
   protected def stringFromTrainedModel(model: TrainedModel): String
 

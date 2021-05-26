@@ -152,7 +152,8 @@ case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
   * @param matrixType Advanced parameter to specify whether the native lightgbm matrix
   *                   constructed should be sparse or dense.
   */
-case class ExecutionParams(chunkSize: Int, matrixType: String) extends Serializable
+case class ExecutionParams(chunkSize: Int, matrixType: String,
+                           useSingleDatasetMode: Boolean) extends Serializable
 
 /** Defines parameters related to the lightgbm objective function.
   *
