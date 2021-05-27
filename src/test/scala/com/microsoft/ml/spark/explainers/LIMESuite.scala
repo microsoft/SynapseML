@@ -133,7 +133,7 @@ class LIMESuite extends TestBase {
       Tuple1(2),
       Tuple1(3),
       Tuple1(4)
-    ) toDF ("col1")
+    ) toDF "col1"
 
     val predicted = model.transform(infer)
 
@@ -142,6 +142,7 @@ class LIMESuite extends TestBase {
       .setCategoricalFeatures(Array("col1"))
       .setOutputCol("weights")
       .setBackgroundDataset(data)
+      .setNumSamples(2000)
       .setModel(model)
       .setTargetCol("probability")
       .setTargetClass(1)
@@ -152,9 +153,9 @@ class LIMESuite extends TestBase {
       .toMap
 
     // weights for data point 1 and 4 should be close, 2 and 3 should be close by symmetry.
-    assert(math.abs(results(1) - 0.3780) < 1e-3)
-    assert(math.abs(results(2) - 0.4323) < 1e-3)
-    assert(math.abs(results(3) - 0.4311) < 1e-3)
-    assert(math.abs(results(4) - 0.3808) < 1e-3)
+    assert(math.abs(results(1) - 0.38) < 1e-2)
+    assert(math.abs(results(2) - 0.43) < 1e-2)
+    assert(math.abs(results(3) - 0.43) < 1e-2)
+    assert(math.abs(results(4) - 0.38) < 1e-2)
   }
 }

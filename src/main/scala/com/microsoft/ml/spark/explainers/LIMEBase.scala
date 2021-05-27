@@ -3,14 +3,17 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasInputCol, HasInputCols}
+import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{stddev, _}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, NumericType, StructField, StructType}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 trait LIMEParams extends HasNumSamples {
@@ -143,7 +146,7 @@ class TabularLIME(override val uid: String)
     with HasInputCols {
 
   def this() = {
-    this(Identifiable.randomUID("tablime"))
+    this(Identifiable.randomUID("tab_lime"))
   }
 
   val categoricalFeatures = new StringArrayParam(
@@ -169,11 +172,15 @@ class TabularLIME(override val uid: String)
 
     val sampler = new LIMETabularSampler(featureStats)
 
-    val rowType = StructType(featureStats.map(_.toStructField))
+    val sampleType = StructType(featureStats.map {
+      feature =>
+        val name = df.schema(feature.fieldIndex).name
+        StructField(name, DoubleType)
+    })
 
     val returnDataType = ArrayType(
       StructType(Seq(
-        StructField("sample", rowType),
+        StructField("sample", sampleType),
         StructField("distance", DoubleType)
       ))
     )
@@ -192,7 +199,11 @@ class TabularLIME(override val uid: String)
     )
 
     df.withColumn("samples", explode(samplesUdf(struct(df.columns.map(col): _*))))
-      .select(col(idCol), col("samples.distance").alias(distanceCol), col("samples.sample.*"))
+      .select(
+        col(idCol),
+        col("samples.distance").alias(distanceCol),
+        col("samples.sample.*")
+      )
   }
 
   override protected def row2Vector(row: Row): BDV[Double] = {
@@ -202,36 +213,40 @@ class TabularLIME(override val uid: String)
   import spark.implicits._
 
   override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats] = {
-    val catFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
-    val numFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
+    val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
+    val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 
-    val catFeatureStats = catFeatures.par.map {
+    val maxFeatureMembers: Int = 1000
+    val categoryFeatureStats = categoryFeatures.par.map {
       feature =>
         val freqMap = df.select(col(feature).cast(DoubleType).alias(feature))
           .groupBy(feature)
-          .agg(count("*").alias("count").cast(DoubleType))
+          .agg(count("*").cast(DoubleType).alias("count"))
+          .sort($"count".desc)
           .as[(Double, Double)]
-          .collect()
+          .head(maxFeatureMembers)
           .toMap
 
-        DiscreteFeatureStats(feature, freqMap)
+        val fieldIndex = df.schema.fieldIndex(feature)
+        DiscreteFeatureStats(fieldIndex, freqMap)
     }
 
-    val numAggs = numFeatures.map(f => stddev(f).cast(DoubleType).alias(f))
+    val numericAggregates = numericFeatures.map(f => stddev(f).cast(DoubleType).alias(f))
 
-    val numFeatureStats = if (numAggs.nonEmpty) {
-      val row = df.agg(numAggs.head, numAggs.tail: _*).head
+    val numFeatureStats = if (numericAggregates.nonEmpty) {
+      val row = df.agg(numericAggregates.head, numericAggregates.tail: _*).head
 
-      numFeatures.map {
+      numericFeatures.map {
         feature =>
           val stddev = row.getAs[Double](feature)
-          ContinuousFeatureStats(feature, stddev)
+          val fieldIndex = df.schema.fieldIndex(feature)
+          ContinuousFeatureStats(fieldIndex, stddev)
       }.toSeq
     } else {
       Seq.empty
     }
 
-    catFeatureStats.toArray ++: numFeatureStats
+    categoryFeatureStats.toArray ++: numFeatureStats
   }
 
   override protected def validateInputSchema(schema: StructType): Unit = {
@@ -239,13 +254,9 @@ class TabularLIME(override val uid: String)
 
     this.getInputCols.foreach {
       inputCol =>
-        val field = schema.find(p => p.name == inputCol).getOrElse(
-          throw new Exception(s"Field $inputCol not found in input schema: ${schema.simpleString}")
-        )
-
         require(
-          field.dataType.isInstanceOf[NumericType],
-          s"Field $inputCol is expected to be a numeric type, but got ${field.dataType} instead."
+          schema(inputCol).dataType.isInstanceOf[NumericType],
+          s"Field $inputCol is expected to be numeric type, but got ${schema(inputCol).dataType} instead."
         )
     }
 
@@ -270,7 +281,7 @@ class TabularLIME(override val uid: String)
 class VectorLIME(override val uid: String)
   extends LIMEBase(uid) with HasInputCol {
   def this() = {
-    this(Identifiable.randomUID("veclime"))
+    this(Identifiable.randomUID("vec_lime"))
   }
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
@@ -279,12 +290,59 @@ class VectorLIME(override val uid: String)
                                        featureStats: Seq[FeatureStats],
                                        idCol: String,
                                        distanceCol: String): DataFrame = {
-    ???
+    val numSamples = this.getNumSamples
+
+    val sampler = new LIMEVectorSampler(featureStats)
+
+    val sampleType = StructType(Array(StructField(
+      getInputCol, SQLDataTypes.VectorType
+    )))
+
+    val returnDataType = ArrayType(
+      StructType(Seq(
+        StructField("sample", sampleType),
+        StructField("distance", DoubleType)
+      ))
+    )
+
+    val samplesUdf = UDFUtils.oldUdf(
+      {
+        vector: SV =>
+          implicit val randBasis: RandBasis = RandBasis.mt0
+          (1 to numSamples).map(_ => sampler.sample(vector))
+      },
+      returnDataType
+    )
+
+    df.withColumn("samples", explode(samplesUdf(col(getInputCol))))
+      .select(
+        col(idCol),
+        col("samples.distance").alias(distanceCol),
+        col("samples.sample").alias(getInputCol)
+      )
   }
 
-  override protected def row2Vector(row: Row): BDV[Double] = ???
+  override protected def row2Vector(row: Row): BDV[Double] = {
+    row.getAs[SV](getInputCol).toBreeze
+  }
 
-  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats] = ???
+  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats] = {
+    val Row(std: SV) = df
+      .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
+      .select("summary.std")
+      .first()
 
-  override protected def validateInputSchema(schema: StructType): Unit = ???
+    std.toArray.zipWithIndex.map {
+      case (v, i) =>
+        ContinuousFeatureStats(i, v)
+    }
+  }
+
+  override protected def validateInputSchema(schema: StructType): Unit = {
+    super.validateInputSchema(schema)
+    require(
+      schema(getInputCol).dataType == SQLDataTypes.VectorType,
+      s"Field $getInputCol is expected to be vector type, but got ${schema(getInputCol).dataType} instead."
+    )
+  }
 }

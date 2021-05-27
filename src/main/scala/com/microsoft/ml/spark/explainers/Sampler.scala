@@ -5,7 +5,7 @@ import breeze.numerics.abs
 import breeze.stats.distributions.{RandBasis, Uniform}
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types._
+import org.apache.spark.ml.linalg.{Vector => SV, DenseVector => SDV}
 
 private[explainers] trait Sampler[T] extends Serializable {
   /**
@@ -23,8 +23,12 @@ private[explainers] trait Sampler[T] extends Serializable {
 private[explainers] object RowUtils {
   implicit class RowCanGetAsDouble(row: Row) {
     def getAsDouble(col: String): Double = {
-      val id = row.fieldIndex(col)
-      row.get(id) match {
+      val idx = row.fieldIndex(col)
+      getAsDouble(idx)
+    }
+
+    def getAsDouble(fieldIndex: Int): Double = {
+      row.get(fieldIndex) match {
         case v: Byte => v.toDouble
         case v: Short => v.toDouble
         case v: Int => v.toDouble
@@ -38,9 +42,7 @@ private[explainers] object RowUtils {
 }
 
 private[explainers] trait FeatureStats extends Sampler[Double] {
-  def name: String
-
-  def toStructField: StructField = StructField(this.name, DoubleType)
+  def fieldIndex: Int
 }
 
 private trait ContinuousFeatureSampler extends Sampler[Double] {
@@ -71,11 +73,7 @@ private trait DiscreteFeatureSampler extends Sampler[Double] {
   }
 
   private val cdfTable: Seq[(Double, Double)] = {
-    // TODO: Move this logic upwards to reduce memory cost.
-    // Sort by frequency in descending order, take top 1000, then order by key.
-    val maxFeatureMembers: Int = 1000
-    val processedFreq = this.freq.toSeq.sortBy(-_._2).take(maxFeatureMembers)
-    cdf(processedFreq)
+    cdf(this.freq.toSeq)
   }
 
   override def sample(instance: Double)(implicit randBasis: RandBasis): (Double, Double) = {
@@ -86,22 +84,28 @@ private trait DiscreteFeatureSampler extends Sampler[Double] {
 }
 
 private final case class ContinuousFeatureStats
-  (override val name: String, stddev: Double)
+  (override val fieldIndex: Int, stddev: Double)
   extends FeatureStats with ContinuousFeatureSampler
 
 private final case class DiscreteFeatureStats
-  (override val name: String, freq: Map[Double, Double])
+  (override val fieldIndex: Int, freq: Map[Double, Double])
   extends FeatureStats with DiscreteFeatureSampler
 
 private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats])
-  extends Sampler[BDV[Double]] {
-  override def sample(instance: BDV[Double])(implicit randBasis: RandBasis): (BDV[Double], Double) = {
-    val r = instance.mapPairs {
-      case (idx, value) => featureStats(idx).sample(value)
+  extends Sampler[SV] {
+  override def sample(instance: SV)(implicit randBasis: RandBasis): (SV, Double) = {
+    val (samples, distances) = featureStats.map {
+      stats =>
+        val value = instance(stats.fieldIndex)
+        stats.sample(value)
+    }.unzip match {
+      case (samples, distances) => (new SDV(samples.toArray), BDV(distances: _*))
     }
 
     val n = featureStats.size
-    (r.mapValues(_._1), norm(r.mapValues(_._2), 2) / math.sqrt(n))
+
+    // Set distance to normalized Euclidean distance
+    (samples, norm(distances, 2) / math.sqrt(n))
   }
 }
 
@@ -111,9 +115,8 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats])
   override def sample(instance: Row)(implicit randBasis: RandBasis): (Row, Double) = {
     val (samples, distances) = featureStats.map {
       stats: FeatureStats =>
-        val value = instance.getAsDouble(stats.name)
+        val value = instance.getAsDouble(stats.fieldIndex)
         val (sample, distance) = stats.sample(value)
-        // (stats.fromDouble(sample), distance)
         (sample, distance)
     }.unzip
 
