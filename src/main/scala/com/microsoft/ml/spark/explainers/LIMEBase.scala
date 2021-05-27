@@ -8,6 +8,7 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasInputCol, HasInputCols}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{stddev, _}
 import org.apache.spark.sql.types.{ArrayType, DoubleType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -50,6 +51,18 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     this
   }
 
+  private def getSampleWeightUdf: UserDefinedFunction = {
+    val kernelWidth = this.getKernelWidth
+
+    val kernelFunc = (distance: Double) => {
+      val t = distance / kernelWidth
+      math.sqrt(math.exp(-t * t))
+    }
+
+    val weightUdf = UDFUtils.oldUdf(kernelFunc, DoubleType)
+    weightUdf
+  }
+
   override def explain(instances: Dataset[_]): DataFrame = {
     val regularization = this.getRegularization
     val df = instances.toDF
@@ -61,19 +74,8 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
     val featureStats = createFeatureStats(this.backgroundData.getOrElse(dfWithId))
 
-    val kernelWidth = this.getKernelWidth
-
-    val kernelFunc = (distance: Double) => {
-      val t = distance / kernelWidth
-      math.sqrt(math.exp(-t * t))
-    }
-
-    val weightUdf = UDFUtils.oldUdf(kernelFunc, DoubleType)
-
     val samples = createSamples(dfWithId, featureStats, idCol, distanceCol)
-      .withColumn(weightCol, weightUdf(col(distanceCol)))
-
-    samples.filter($"weight" > 0.0).show(100)
+      .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
     val transformed = getModel.transform(samples)
 
@@ -148,7 +150,7 @@ class TabularLIME(override val uid: String)
 
     val sampler = new LIMETabularSampler(featureStats)
 
-    val rowType = StructType(featureStats.map(f => StructField(f.name, f.dataType)))
+    val rowType = StructType(featureStats.map(_.toStructField))
 
     val returnDataType = ArrayType(
       StructType(Seq(
@@ -185,15 +187,15 @@ class TabularLIME(override val uid: String)
     val numFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 
     val catFeatureStats = catFeatures.par.map {
-      f =>
-        val freqMap = df.select(col(f).cast(DoubleType).alias(f))
-          .groupBy(f)
+      feature =>
+        val freqMap = df.select(col(feature).cast(DoubleType).alias(feature))
+          .groupBy(feature)
           .agg(count("*").alias("count").cast(DoubleType))
           .as[(Double, Double)]
           .collect()
           .toMap
 
-        DiscreteFeatureStats(freqMap, df.schema(f).dataType, f)
+        DiscreteFeatureStats(feature, freqMap)
     }
 
     val numAggs = numFeatures.map(f => stddev(f).cast(DoubleType).alias(f))
@@ -202,9 +204,9 @@ class TabularLIME(override val uid: String)
       val row = df.agg(numAggs.head, numAggs.tail: _*).head
 
       numFeatures.map {
-        f =>
-          val stddev = row.getAs[Double](f)
-          ContinuousFeatureStats(stddev, df.schema(f).dataType, f)
+        feature =>
+          val stddev = row.getAs[Double](feature)
+          ContinuousFeatureStats(feature, stddev)
       }.toSeq
     } else {
       Seq.empty

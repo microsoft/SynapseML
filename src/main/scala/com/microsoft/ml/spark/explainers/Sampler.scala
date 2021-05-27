@@ -38,19 +38,9 @@ private[explainers] object RowUtils {
 }
 
 private[explainers] trait FeatureStats extends Sampler[Double] {
-  def dataType: DataType
   def name: String
 
-  def fromDouble(value: Double): Any = {
-    dataType match {
-      case _: ByteType => value.toByte
-      case _: ShortType => value.toShort
-      case _: IntegerType => value.toInt
-      case _: LongType => value.toLong
-      case _: FloatType => value.toFloat
-      case _: DoubleType => value
-    }
-  }
+  def toStructField: StructField = StructField(this.name, DoubleType)
 }
 
 private trait ContinuousFeatureSampler extends Sampler[Double] {
@@ -96,11 +86,11 @@ private trait DiscreteFeatureSampler extends Sampler[Double] {
 }
 
 private final case class ContinuousFeatureStats
-  (stddev: Double, override val dataType: DataType, override val name: String)
+  (override val name: String, stddev: Double)
   extends FeatureStats with ContinuousFeatureSampler
 
 private final case class DiscreteFeatureStats
-  (freq: Map[Double, Double], override val dataType: DataType, override val name: String)
+  (override val name: String, freq: Map[Double, Double])
   extends FeatureStats with DiscreteFeatureSampler
 
 private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats])
@@ -123,7 +113,8 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats])
       stats: FeatureStats =>
         val value = instance.getAsDouble(stats.name)
         val (sample, distance) = stats.sample(value)
-        (stats.fromDouble(sample), distance)
+        // (stats.fromDouble(sample), distance)
+        (sample, distance)
     }.unzip
 
     val n = featureStats.size

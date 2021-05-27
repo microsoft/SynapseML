@@ -12,7 +12,7 @@ class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
 
-    val featureStats = ContinuousFeatureStats(1.5, DoubleType, "feature")
+    val featureStats = ContinuousFeatureStats("feature", 1.5)
     val (samples, distances) = (1 to 1000).map {
       _ => featureStats.sample(3.0)
     }.unzip
@@ -28,7 +28,7 @@ class SamplerSuite extends TestBase {
 
     val freqTable = Map(2d -> 60d, 1d -> 900d, 3d -> 40d)
 
-    val featureStats = DiscreteFeatureStats(freqTable, DoubleType, "feature")
+    val featureStats = DiscreteFeatureStats("feature", freqTable)
 
     val (samples, distances) = (1 to 1000).map {
       _ => featureStats.sample(3.0)
@@ -48,8 +48,8 @@ class SamplerSuite extends TestBase {
   test("LIMEVectorSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val featureStats = Seq(
-      ContinuousFeatureStats(5.3, DoubleType, "feature1"),
-      DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d), DoubleType, "feature2")
+      ContinuousFeatureStats("feature1", 5.3),
+      DiscreteFeatureStats("feature2", Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
     val sampler = new LIMEVectorSampler(featureStats)
@@ -75,8 +75,8 @@ class SamplerSuite extends TestBase {
   test("LIMETabularSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val featureStats = Seq(
-      ContinuousFeatureStats(5.3, DoubleType, "feature1"),
-      DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d), IntegerType, "feature2")
+      ContinuousFeatureStats("feature1", 5.3),
+      DiscreteFeatureStats("feature2", Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
     val sampler = new LIMETabularSampler(featureStats)
@@ -89,7 +89,7 @@ class SamplerSuite extends TestBase {
     val (samples, distances) = (1 to 1000).map {
       _ =>
         val (r, d) = sampler.sample(row)
-        (BDV(r.getAs[Double](0), r.getAs[Int](1).toDouble), d)
+        (BDV(r.getAs[Double](0), r.getAs[Double](1)), d)
     }.unzip
 
     val sampleMatrix = BDM(samples: _*)

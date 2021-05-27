@@ -60,10 +60,10 @@ class LIMESuite extends TestBase {
     import spark.implicits._
 
     val data = Seq(
-      (-6.0, 1.0, 0),
-      (-5.0, -3.0, 0),
-      (5.0, -1.0, 1),
-      (6.0, 3.0, 1)
+      (-6, 1.0, 0),
+      (-5, -3.0, 0),
+      (5, -1.0, 1),
+      (6, 3.0, 1)
     ) toDF("col1", "col2", "label")
 
     val vecAssembler = new VectorAssembler().setInputCols(Array("col1", "col2")).setOutputCol("features")
@@ -106,5 +106,53 @@ class LIMESuite extends TestBase {
     // With 0.01 L1 regularization, the second feature gets removed due to low importance.
     assert(weightsVec(0) > 0.0)
     assert(weightsVec(1) == 0.0)
+  }
+
+  test("TabularLIME can explain a simple logistic model locally with categorical variables") {
+    import spark.implicits._
+
+    val data = Seq(
+      (1, 0),
+      (2, 0),
+      (3, 1),
+      (4, 1)
+    ) toDF("col1", "label")
+
+    val encoder = new OneHotEncoder().setInputCol("col1").setOutputCol("col1_enc")
+    val classifier = new LogisticRegression()
+      .setLabelCol("label")
+      .setFeaturesCol("col1_enc")
+
+    val pipeline = new Pipeline().setStages(Array(encoder, classifier))
+    val model = pipeline.fit(data)
+
+    val infer = Seq(
+      Tuple1(1),
+      Tuple1(2),
+      Tuple1(3),
+      Tuple1(4)
+    ) toDF ("col1")
+
+    val predicted = model.transform(infer)
+
+    val lime = new TabularLIME()
+      .setInputCols(Array("col1"))
+      .setCategoricalFeatures(Array("col1"))
+      .setOutputCol("weights")
+      .setBackgroundDataset(data)
+      .setModel(model)
+      .setTargetCol("probability")
+      .setTargetClass(1)
+
+    val weights = lime.explain(predicted)
+    val results = weights.select("col1", "weights").as[(Int, Array[Double])].collect()
+      .map(r => (r._1, r._2.head))
+      .toMap
+
+    // weights for data point 1 and 4 should be close, 2 and 3 should be close by symmetry.
+    assert(math.abs(results(1) - 0.3780) < 1e-3)
+    assert(math.abs(results(2) - 0.4323) < 1e-3)
+    assert(math.abs(results(3) - 0.4311) < 1e-3)
+    assert(math.abs(results(4) - 0.3808) < 1e-3)
   }
 }
