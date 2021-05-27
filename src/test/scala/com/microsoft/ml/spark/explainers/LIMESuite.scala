@@ -4,7 +4,10 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
-import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.linalg.{*, norm, DenseVector => BDV, DenseMatrix => BDM}
+import breeze.stats.distributions.Rand
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.regression.LinearRegression
 
 class LIMESuite extends TestBase {
   test("TabularLIME can explain a simple logistic model locally with one variable") {
@@ -84,7 +87,7 @@ class LIMESuite extends TestBase {
 
     val infer = Seq(
       (0.0, 0.0)
-    ) toDF ("col1", "col2")
+    ) toDF("col1", "col2")
 
     val predicted = model.transform(infer)
 
@@ -110,7 +113,7 @@ class LIMESuite extends TestBase {
     assert(weightsVec(1) == 0.0)
   }
 
-  test("TabularLIME can explain a simple logistic model locally with categorical variables") {
+  test("TabularLIME can explain a model locally with categorical variables") {
     import spark.implicits._
 
     val data = Seq(
@@ -157,5 +160,44 @@ class LIMESuite extends TestBase {
     assert(math.abs(results(2) - 0.43) < 1e-2)
     assert(math.abs(results(3) - 0.43) < 1e-2)
     assert(math.abs(results(4) - 0.38) < 1e-2)
+  }
+
+  test("VectorLIME can explain a model locally") {
+    import spark.implicits._
+
+    val nRows = 100
+    val intercept = math.random()
+    val d1 = 3
+    val d2 = 1
+
+    val coefficients: BDM[Double] = new BDM(d1, d2, Array(1.0, -1.0, 2.0))
+    val x: BDM[Double] = BDM.rand(nRows, d1, Rand.gaussian)
+    val y = x * coefficients + intercept
+
+    val xRows = x(*, ::).iterator.toSeq.map(dv => new DenseVector(dv.toArray))
+    val yRows = y(*, ::).iterator.toSeq.map(dv => dv(0))
+    val df = xRows.zip(yRows).toDF("features", "label")
+
+    val model = new LinearRegression().fit(df)
+
+    val predicted = model.transform(df)
+    val lime = new VectorLIME()
+      .setModel(model)
+      .setInputCol("features")
+      .setTargetCol(model.getPredictionCol)
+      .setOutputCol("weights")
+      .setNumSamples(1000)
+
+    val weights = lime.explain(predicted)
+
+    val weightsVecs = weights.select("weights").as[Seq[Double]].collect().map {
+      vec => BDV(vec: _*)
+    }
+
+    val weightsMatrix = BDM(weightsVecs: _*)
+    weightsMatrix(*, ::).foreach {
+      row =>
+        assert(norm(row - coefficients(::, 0)) < 1e-6)
+    }
   }
 }

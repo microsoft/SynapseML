@@ -294,13 +294,9 @@ class VectorLIME(override val uid: String)
 
     val sampler = new LIMEVectorSampler(featureStats)
 
-    val sampleType = StructType(Array(StructField(
-      getInputCol, SQLDataTypes.VectorType
-    )))
-
     val returnDataType = ArrayType(
       StructType(Seq(
-        StructField("sample", sampleType),
+        StructField("sample", SQLDataTypes.VectorType),
         StructField("distance", DoubleType)
       ))
     )
