@@ -3,7 +3,7 @@ package com.microsoft.ml.spark.explainers
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.param.shared.HasOutputCol
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 trait LocalExplainer
   extends Params with Serializable with HasExplainTarget with HasOutputCol with HasModel {
@@ -12,7 +12,7 @@ trait LocalExplainer
 
   final def setOutputCol(value: String): this.type = this.set(outputCol, value)
 
-  def explain(instances: DataFrame): DataFrame
+  def explain(instances: Dataset[_]): DataFrame
 
   protected def validateSchema(inputSchema: StructType): Unit = {
     if (inputSchema.fieldNames.contains(getOutputCol)) {
