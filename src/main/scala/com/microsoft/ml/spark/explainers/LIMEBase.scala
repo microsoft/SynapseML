@@ -30,6 +30,12 @@ trait LIMEParams extends HasNumSamples {
     ParamValidators.gt(0)
   )
 
+  val metricsCol = new Param[String](
+    this,
+    "metricsCol",
+    "Column name for fitting metrics"
+  )
+
   def getRegularization: Double = $(regularization)
 
   def setRegularization(v: Double): this.type = set(regularization, v)
@@ -38,7 +44,11 @@ trait LIMEParams extends HasNumSamples {
 
   def setKernelWidth(v: Double): this.type = set(kernelWidth, v)
 
-  setDefault(numSamples -> 1000, regularization -> 0.0, kernelWidth -> 0.75)
+  def getMetricsCol: String = $(metricsCol)
+
+  def setMetricsCol(v: String): this.type = this.set(metricsCol, v)
+
+  setDefault(numSamples -> 1000, regularization -> 0.0, kernelWidth -> 0.75, metricsCol -> "r2")
 }
 
 abstract class LIMEBase(override val uid: String) extends LocalExplainer with LIMEParams {
@@ -85,7 +95,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
-        val (inputs, outputs, weights) = rows.map{
+        val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row2Vector(row)
             val output = row.getAs[Double](explainTargetCol)
@@ -98,9 +108,8 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
         val weightsBV = BDV(weights: _*)
         val lassoResults = new LassoRegression(regularization).fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
 
-        // TODO: also expose R-squared for reporting fitting metrics
-        (id, lassoResults.coefficients.toArray)
-    }.toDF(idCol, this.getOutputCol)
+        (id, lassoResults.coefficients.toArray, lassoResults.rSquared)
+    }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     dfWithId.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
@@ -116,7 +125,17 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
   protected def row2Vector(row: Row): BDV[Double]
 
-  protected def validateInputSchema(schema: StructType): Unit
+  protected def validateInputSchema(schema: StructType): Unit = {
+    require(
+      !schema.fieldNames.contains(getMetricsCol),
+      s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
+    )
+
+    require(
+      !schema.fieldNames.contains(getOutputCol),
+      s"Input schema (${schema.simpleString}) already contains output column $getOutputCol"
+    )
+  }
 }
 
 class TabularLIME(override val uid: String)
@@ -216,6 +235,8 @@ class TabularLIME(override val uid: String)
   }
 
   override protected def validateInputSchema(schema: StructType): Unit = {
+    super.validateInputSchema(schema)
+
     this.getInputCols.foreach {
       inputCol =>
         val field = schema.find(p => p.name == inputCol).getOrElse(

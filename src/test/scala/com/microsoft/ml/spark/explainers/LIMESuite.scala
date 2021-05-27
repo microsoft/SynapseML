@@ -46,14 +46,16 @@ class LIMESuite extends TestBase {
       .setTargetClass(1)
 
     val weights = lime.explain(predicted)
-
-    val weightsVec = BDV(weights.select("weights").as[Seq[Double]].head: _*)
+    val result = weights.select("weights", "r2").as[(Seq[Double], Double)].head
+    val weightsVec = BDV(result._1: _*)
 
     // The derivative of the logistic function with coefficient k at x = 0, simplifies to k/4.
     // We set the kernel width to a very small value so we only consider a very close neighborhood
     // for regression, and set L1 regularization to zero so it does not affect the fit coefficient.
     // Therefore, the coefficient of the lasso regression should approximately match the derivative.
     assert(norm(weightsVec - BDV(coefficient / 4)) < 1e-2)
+
+    assert(math.abs(result._2 - 1d) < 1e-6, "R-squared of the fit should be close to 1.")
   }
 
   test("TabularLIME can explain a simple logistic model locally with multiple variables") {
