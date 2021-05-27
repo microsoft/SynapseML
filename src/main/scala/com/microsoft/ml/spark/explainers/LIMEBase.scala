@@ -19,7 +19,7 @@ trait LIMEParams extends HasNumSamples {
     this,
     "regularization",
     "Regularization param for the lasso. Default value: 0.",
-    ParamValidators.gt(0)
+    ParamValidators.gtEq(0)
   )
 
   val kernelWidth = new DoubleParam(
@@ -33,11 +33,11 @@ trait LIMEParams extends HasNumSamples {
 
   def setRegularization(v: Double): this.type = set(regularization, v)
 
-  def getKernelWidth: Option[Double] = this.get(kernelWidth)
+  def getKernelWidth: Double = $(kernelWidth)
 
   def setKernelWidth(v: Double): this.type = set(kernelWidth, v)
 
-  setDefault(numSamples -> 1000, regularization -> 0.0)
+  setDefault(numSamples -> 1000, regularization -> 0.0, kernelWidth -> 0.75)
 }
 
 abstract class LIMEBase(override val uid: String) extends LocalExplainer with LIMEParams {
@@ -61,7 +61,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
     val featureStats = createFeatureStats(this.backgroundData.getOrElse(dfWithId))
 
-    val kernelWidth = this.getKernelWidth.getOrElse(0.75 * math.sqrt(featureStats.size))
+    val kernelWidth = this.getKernelWidth
 
     val kernelFunc = (distance: Double) => {
       val t = distance / kernelWidth
@@ -73,6 +73,8 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     val samples = createSamples(dfWithId, featureStats, idCol, distanceCol)
       .withColumn(weightCol, weightUdf(col(distanceCol)))
 
+    samples.filter($"weight" > 0.0).show(100)
+
     val transformed = getModel.transform(samples)
 
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", transformed)
@@ -81,10 +83,18 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
-        val data = BDM(rows.map(row2Vector).toSeq: _*)
-        val outputs = BDV(rows.map(row => row.getAs[Double](explainTargetCol)).toSeq: _*)
-        val weights = BDV(rows.map(row => row.getAs[Double](weightCol)).toSeq: _*)
-        val lassoResults = new LassoRegression(regularization).fit(data, outputs, weights, fitIntercept = false)
+        val (inputs, outputs, weights) = rows.map{
+          row =>
+            val input = row2Vector(row)
+            val output = row.getAs[Double](explainTargetCol)
+            val weight = row.getAs[Double](weightCol)
+            (input, output, weight)
+        }.toSeq.unzip3
+
+        val inputsBV = BDM(inputs: _*)
+        val outputsBV = BDV(outputs: _*)
+        val weightsBV = BDV(weights: _*)
+        val lassoResults = new LassoRegression(regularization).fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
 
         // TODO: also expose R-squared for reporting fitting metrics
         (id, lassoResults.coefficients.toArray)
@@ -129,9 +139,6 @@ class TabularLIME(override val uid: String)
 
   setDefault(categoricalFeatures -> Array.empty)
 
-
-
-
   override protected def createSamples(df: DataFrame,
                                        featureStats: Seq[FeatureStats],
                                        idCol: String,
@@ -163,7 +170,7 @@ class TabularLIME(override val uid: String)
       returnDataType
     )
 
-    df.withColumn("samples", explode(samplesUdf(df.columns.map(col): _*)))
+    df.withColumn("samples", explode(samplesUdf(struct(df.columns.map(col): _*))))
       .select(col(idCol), col("samples.distance").alias(distanceCol), col("samples.sample.*"))
   }
 

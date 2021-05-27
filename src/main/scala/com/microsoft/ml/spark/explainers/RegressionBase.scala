@@ -23,8 +23,8 @@ abstract class RegressionBase {
 
   def fit(data: BDM[Double], outputs: BDV[Double], sampleWeights: BDV[Double], fitIntercept: Boolean)
   : RegressionResult = {
-    require(data.rows == sampleWeights.size)
-    require(sampleWeights.forall(_ > 0), "Weights must be positive.")
+    require(data.rows == sampleWeights.size, s"data.rows != sampleWeights.size: ${data.rows} != ${sampleWeights.size}")
+    require(sampleWeights.forall(_ >= 0), "Weights must be non-negative")
 
     val normalizedWeights = normalizeSampleWeights(sampleWeights)
 

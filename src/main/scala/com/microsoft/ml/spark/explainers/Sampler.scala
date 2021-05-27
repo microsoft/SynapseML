@@ -110,7 +110,8 @@ private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats])
       case (idx, value) => featureStats(idx).sample(value)
     }
 
-    (r.mapValues(_._1), norm(r.mapValues(_._2), 2))
+    val n = featureStats.size
+    (r.mapValues(_._1), norm(r.mapValues(_._2), 2) / math.sqrt(n))
   }
 }
 
@@ -125,6 +126,9 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats])
         (stats.fromDouble(sample), distance)
     }.unzip
 
-    (Row.fromSeq(samples), norm(BDV(distances: _*), 2))
+    val n = featureStats.size
+
+    // Set distance to normalized Euclidean distance
+    (Row.fromSeq(samples), norm(BDV(distances: _*), 2) / math.sqrt(n))
   }
 }
