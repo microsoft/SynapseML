@@ -20,7 +20,7 @@ import org.json4s.{Formats, NoTypeHints}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import java.io.{File, FileWriter, InputStream}
+import java.io.{File, InputStream}
 import java.util
 import scala.annotation.tailrec
 import scala.concurrent.{TimeoutException, blocking}
@@ -105,40 +105,6 @@ object SynapseUtilities {
     batch.log.foreach(println)
     write(batch)
     batch
-  }
-
-  def uploadDependencies(): Unit = {
-
-  }
-
-  def generateDependencies(): Unit = {
-    val source = "target/scala-2.12/mmlspark_2.12-1.0.0-rc3-169-c76bedc5-SNAPSHOT.pom"
-    val target = "pom.xml"
-
-    val sourceFile = Source.fromFile(source)
-    val targetFile = new FileWriter(target,false)
-    for (line <- sourceFile.getLines) {
-      if(line == "</project>"){
-        targetFile.write("    <repositories>\n")
-        targetFile.write("        <repository>\n")
-        targetFile.write("            <id>mmlspark-repo</id>\n")
-        targetFile.write("            <url>https://mmlspark.azureedge.net/maven</url>\n")
-        targetFile.write("        </repository>\n")
-        targetFile.write("    </repositories>\n")
-        targetFile.write("</project>\n")
-      }
-      else{
-        targetFile.write(line)
-        targetFile.write('\n')
-      }
-    }
-    sourceFile.close()
-    targetFile.close()
-
-    exec("mvn dependency:copy-dependencies -U " +
-      " \"-DexcludeGroupIds=org.scalatest,org.scala-lang\" " +
-      " \"-DexcludeTransitive=true\" " +
-      " -f ./")
   }
 
   def poll(id: Int, livyUrl: String, backOffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
