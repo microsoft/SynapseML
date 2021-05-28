@@ -114,7 +114,7 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.NotebookTests"'
+        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.DatabricksTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
