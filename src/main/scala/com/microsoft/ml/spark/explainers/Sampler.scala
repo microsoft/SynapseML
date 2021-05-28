@@ -1,15 +1,18 @@
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
 import breeze.numerics.abs
 import breeze.stats.distributions.{RandBasis, Uniform}
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
+import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.sql.Row
-import org.apache.spark.ml.linalg.{Vector => SV, DenseVector => SDV}
+import org.apache.spark.ml.linalg.{DenseVector => SDV, Vector => SV}
 
 private[explainers] trait Sampler[T] extends Serializable {
   /**
-    * Generates some samples based on the specified instance.
+    * Generates a sample based on the specified instance, together with the distance metric between
+    * the generated sample and the original instance.
     */
   def sample(instance: T)(implicit randBasis: RandBasis): (T, Double)
 }
@@ -56,6 +59,39 @@ private trait DiscreteFeatureSampler extends Sampler[Double] {
   }
 }
 
+private case class ImageFormat(origin: Option[String],
+                                height: Int,
+                                width: Int,
+                                nChannels: Int,
+                                mode: Int,
+                                data: Array[Byte])
+
+private trait ImageFeatureSampler extends Sampler[ImageFormat] {
+  self: ImageFeature =>
+  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, Double) = {
+    val bi = ImageUtils.toBufferedImage(instance.data, instance.width, instance.height, instance.nChannels)
+
+    val spd = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
+    val numClusters = spd.clusters.size
+    val mask: BitVector = BDV.rand(numClusters, randBasis.uniform) <:= samplingFraction
+
+    val maskAsDouble = BDV.zeros[Double](numClusters)
+    axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
+
+    val outputImage = Superpixel.maskImage(bi, spd, mask.toArray)
+
+    val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
+    val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
+
+    // Set distance to normalized Euclidean distance
+    // 1 in the mask means keep the superpixel, 0 means replace with background color,
+    // so a vector of all 1 means the original observation.
+    val distance = norm(1.0 - maskAsDouble, 2) / math.sqrt(maskAsDouble.size)
+
+    (imageFormat, distance)
+  }
+}
+
 private final case class ContinuousFeatureStats
   (override val fieldIndex: Int, stddev: Double)
   extends FeatureStats with ContinuousFeatureSampler
@@ -63,6 +99,9 @@ private final case class ContinuousFeatureStats
 private final case class DiscreteFeatureStats
   (override val fieldIndex: Int, freq: Map[Double, Double])
   extends FeatureStats with DiscreteFeatureSampler
+
+private final case class ImageFeature(cellSize: Double, modifier: Double, samplingFraction: Double)
+  extends ImageFeatureSampler
 
 private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats])
   extends Sampler[SV] {

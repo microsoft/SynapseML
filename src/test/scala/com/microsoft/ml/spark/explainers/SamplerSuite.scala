@@ -7,8 +7,13 @@ import breeze.stats.{mean, stddev}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.linalg.{Vectors => SVS}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
+import com.microsoft.ml.spark.io.IOImplicits._
+import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lime.Superpixel
 
 class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
@@ -106,5 +111,32 @@ class SamplerSuite extends TestBase {
     assert(sampleMatrix(::, 1).findAll(_ == 3d).size == 46)
 
     assert(distances.forall(_ > 0d))
+  }
+
+  test("ImageFeatureSampler can draw samples") {
+    import spark.implicits._
+
+    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+    val imageResource = this.getClass.getResource("/greyhound.jpg")
+
+    lazy val df: DataFrame = spark.read.image.load(imageResource.toString)
+
+    val Tuple1(image) = df.select("image").as[Tuple1[ImageFormat]].head
+    val imageSampler = ImageFeature(30d, 50d, 0.7)
+    val (sample, distance) = imageSampler.sample(image)
+
+    assert(sample.width == 209)
+    assert(sample.height == 201)
+    assert(sample.nChannels == 3)
+
+    // In this test case, 10/45 superpixel clusters are turned off by black background,
+    // so the distance should be sqrt(10/45).
+    assert(math.abs(distance - math.sqrt(10d/45d)) < 1e-6)
+
+    // Uncomment the following lines lines to view the randomly masked image.
+    // Change the RandBasis seed to see a different mask image.
+    // val maskedImage = ImageUtils.toBufferedImage(sample.data, sample.width, sample.height, sample.nChannels)
+    // Superpixel.displayImage(maskedImage)
+    // Thread.sleep(100000)
   }
 }

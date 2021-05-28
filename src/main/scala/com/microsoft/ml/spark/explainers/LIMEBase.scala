@@ -10,7 +10,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 trait LIMEParams extends HasNumSamples {
-  self: LocalExplainer =>
+  self: LIMEBase =>
 
   val regularization = new DoubleParam(
     this,
@@ -93,7 +93,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = row2Vector(row)
+            val input = extractInputVector(row)
             val output = row.getAs[Double](explainTargetCol)
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
@@ -119,7 +119,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
   protected def createFeatureStats(df: DataFrame): Seq[FeatureStats]
 
-  protected def row2Vector(row: Row): BDV[Double]
+  protected def extractInputVector(row: Row): BDV[Double]
 
   protected def validateInputSchema(schema: StructType): Unit = {
     require(

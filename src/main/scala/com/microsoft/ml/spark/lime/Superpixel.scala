@@ -111,30 +111,36 @@ object Superpixel {
       ImageSchema.getHeight(imgRow),
       ImageSchema.getNChannels(imgRow)
     )
+
+    maskImage(img, superpixels, clusterStates)
+  }
+
+  private val BlackRGB: Int = 0x000000
+
+  def maskImage(img: BufferedImage, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
+    assert(superpixels.clusters.size == clusterStates.length)
+
     val output = copyImage(img)
 
-    superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
-      if (!clusterStates(i)) {
-        cluster.foreach { case (x, y) =>
-          output.setRGB(x, y, 0x000000)
-        }
-      }
+    (superpixels.clusters zip clusterStates).filterNot(_._2).flatMap(_._1).foreach {
+      case (x, y) => output.setRGB(x, y, BlackRGB)
     }
+
     output
   }
 
   def maskBinary(bytes: Array[Byte],
                  superpixels: SuperpixelData,
                  clusterStates: Array[Boolean]): Option[BufferedImage] = {
+    assert(superpixels.clusters.size == clusterStates.length)
+
     val outputOpt = ImageUtils.safeRead(bytes)
+
     outputOpt.map{output =>
-      superpixels.clusters.zipWithIndex.foreach { case (cluster, i) =>
-        if (!clusterStates(i)) {
-          cluster.foreach { case (x, y) =>
-            output.setRGB(x, y, 0x000000)
-          }
-        }
+      (superpixels.clusters zip clusterStates).filterNot(_._2).flatMap(_._1).foreach {
+        case (x, y) => output.setRGB(x, y, BlackRGB)
       }
+
       output
     }
   }

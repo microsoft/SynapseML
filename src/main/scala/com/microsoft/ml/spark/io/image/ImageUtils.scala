@@ -53,6 +53,14 @@ object ImageUtils {
   }
 
   def toSparkImage(img: BufferedImage, path: Option[String] = None): Row = {
+    val (_, height, width, nChannels, mode, decoded) = toSparkImageTuple(img, path)
+
+    // the internal "Row" is needed, because the image is a single DataFrame column
+    Row(Row(path, height, width, nChannels, mode, decoded))
+  }
+
+  def toSparkImageTuple(img: BufferedImage, path: Option[String] = None)
+  : (Option[String], Int, Int, Int, Int, Array[Byte]) = {
     val isGray = img.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
     val hasAlpha = img.getColorModel.hasAlpha
 
@@ -96,8 +104,7 @@ object ImageUtils {
       }
     }
 
-    // the internal "Row" is needed, because the image is a single DataFrame column
-    Row(Row(path, height, width, nChannels, mode, decoded))
+    (path, height, width, nChannels, mode, decoded)
   }
 
   def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {

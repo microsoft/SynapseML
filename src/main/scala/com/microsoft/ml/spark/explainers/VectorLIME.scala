@@ -14,8 +14,9 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 class VectorLIME(override val uid: String)
   extends LIMEBase(uid) with HasInputCol {
+
   def this() = {
-    this(Identifiable.randomUID("vec_lime"))
+    this(Identifiable.randomUID("VectorLIME"))
   }
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
@@ -52,7 +53,7 @@ class VectorLIME(override val uid: String)
       )
   }
 
-  override protected def row2Vector(row: Row): BDV[Double] = {
+  override protected def extractInputVector(row: Row): BDV[Double] = {
     row.getAs[SV](getInputCol).toBreeze
   }
 

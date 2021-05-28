@@ -16,7 +16,7 @@ class TabularLIME(override val uid: String)
     with HasInputCols {
 
   def this() = {
-    this(Identifiable.randomUID("tab_lime"))
+    this(Identifiable.randomUID("TabularLIME"))
   }
 
   val categoricalFeatures = new StringArrayParam(
@@ -76,7 +76,7 @@ class TabularLIME(override val uid: String)
       )
   }
 
-  override protected def row2Vector(row: Row): BDV[Double] = {
+  override protected def extractInputVector(row: Row): BDV[Double] = {
     BDV(this.getInputCols.map(row.getAsDouble))
   }
 
