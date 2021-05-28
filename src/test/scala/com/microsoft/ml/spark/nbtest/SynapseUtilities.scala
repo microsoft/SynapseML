@@ -70,6 +70,7 @@ object SynapseUtilities {
         .filterNot(_.getAbsolutePath.contains("ConditionalKNN"))
         .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
         .filterNot(_.getAbsolutePath.contains("Regressor.py"))
+        .filterNot(_.getAbsolutePath.contains("Overview"))
         .map(file => file.getAbsolutePath))
       .get
       .sorted
@@ -171,6 +172,10 @@ object SynapseUtilities {
         postMortem(batch, livyUrl)
         throw new RuntimeException(s"Dead")
       }
+      else if (batch.state == "error") {
+        postMortem(batch, livyUrl)
+        throw new RuntimeException(s"Error")
+      }
       else {
         blocking {
           Thread.sleep(8000)
@@ -241,10 +246,15 @@ object SynapseUtilities {
         .mkString(".")
     val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
     val repository = "https://mmlspark.azureedge.net/maven"
-
     val sparkPackages: Array[String] = Array(deploymentBuild)
     val jobName = path.split('/').last.replace(".py", "")
-
+    val excludes: String =
+      "org.scala-lang:scala-reflect," +
+        "org.apache.spark:spark-tags_2.12," +
+        "org.scalactic:scalactic_2.12," +
+        "org.scalatest:scalatest_2.12"
+    var packageVersion: String = sparkPackages.map(s => s.trim).mkString(",")
+    packageVersion = "com.microsoft.ml.spark:mmlspark_2.12:1.0.0-rc3-59-bf337941-SNAPSHOT";
     val livyPayload: String =
       s"""
          |{
@@ -257,9 +267,11 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "${sparkPackages.map(s => s.trim).mkString(",")}",
+         |         "spark.jars.packages" : "$packageVersion",
          |         "spark.jars.repositories" : "$repository",
-         |         "spark.yarn.user.classpath.first": "true"
+         |         "spark.jars.excludes": "$excludes",
+         |         "spark.driver.userClassPathFirst": "true",
+         |         "spark.executor.userClassPathFirst": "true"
          |     }
          | }
       """.stripMargin
@@ -269,7 +281,6 @@ object SynapseUtilities {
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
     val response = RESTHelpers.safeSend(createRequest, close=false)
-
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode

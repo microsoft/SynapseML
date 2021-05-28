@@ -59,13 +59,7 @@ class SynapseTests extends TestBase {
           val livyUrl = batchJob.livyUrl
 
           if (batch.state != "success") {
-            if (batch.state == "error") {
-              SynapseUtilities.postMortem(batch, livyUrl)
-              throw new RuntimeException(s"${batch.id} returned with state ${batch.state}")
-            }
-            else {
-              SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
-            }
+            SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
           }
         }(ExecutionContext.global)
       })
