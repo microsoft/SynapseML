@@ -14,33 +14,6 @@ private[explainers] trait Sampler[T] extends Serializable {
   def sample(instance: T)(implicit randBasis: RandBasis): (T, Double)
 }
 
-//private[explainers] class KernelSHAPSampler[T](coalition: BDV[Int], background: T) extends Sampler[T] {
-//  override def sample(instance: T): T = {
-//    ???
-//  }
-//}
-
-private[explainers] object RowUtils {
-  implicit class RowCanGetAsDouble(row: Row) {
-    def getAsDouble(col: String): Double = {
-      val idx = row.fieldIndex(col)
-      getAsDouble(idx)
-    }
-
-    def getAsDouble(fieldIndex: Int): Double = {
-      row.get(fieldIndex) match {
-        case v: Byte => v.toDouble
-        case v: Short => v.toDouble
-        case v: Int => v.toDouble
-        case v: Long => v.toDouble
-        case v: Float => v.toDouble
-        case v: Double => v
-        case v => throw new Exception(s"Cannot convert $v to Double.")
-      }
-    }
-  }
-}
-
 private[explainers] trait FeatureStats extends Sampler[Double] {
   def fieldIndex: Int
 }

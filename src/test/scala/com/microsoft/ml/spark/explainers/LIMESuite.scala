@@ -190,11 +190,11 @@ class LIMESuite extends TestBase {
 
     val weights = lime.explain(predicted)
 
-    val weightsVecs = weights.select("weights").as[Seq[Double]].collect().map {
+    val weightsVectors = weights.select("weights").as[Seq[Double]].collect().map {
       vec => BDV(vec: _*)
     }
 
-    val weightsMatrix = BDM(weightsVecs: _*)
+    val weightsMatrix = BDM(weightsVectors: _*)
     weightsMatrix(*, ::).foreach {
       row =>
         assert(norm(row - coefficients(::, 0)) < 1e-6)

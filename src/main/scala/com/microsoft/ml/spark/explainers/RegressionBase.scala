@@ -1,8 +1,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{*, sum, DenseMatrix => BDM, DenseVector => BDV}
-import breeze.numerics.{abs, sqrt}
-import breeze.stats.mean
+import breeze.numerics.sqrt
 
 case class RegressionResult(coefficients: BDV[Double], intercept: Double, rSquared: Double, loss: Double)
   extends (BDV[Double] => Double) {

@@ -1,0 +1,24 @@
+package com.microsoft.ml.spark.explainers
+
+import org.apache.spark.sql.Row
+
+private[explainers] object RowUtils {
+  implicit class RowCanGetAsDouble(row: Row) {
+    def getAsDouble(col: String): Double = {
+      val idx = row.fieldIndex(col)
+      getAsDouble(idx)
+    }
+
+    def getAsDouble(fieldIndex: Int): Double = {
+      row.get(fieldIndex) match {
+        case v: Byte => v.toDouble
+        case v: Short => v.toDouble
+        case v: Int => v.toDouble
+        case v: Long => v.toDouble
+        case v: Float => v.toDouble
+        case v: Double => v
+        case v => throw new Exception(s"Cannot convert $v to Double.")
+      }
+    }
+  }
+}
