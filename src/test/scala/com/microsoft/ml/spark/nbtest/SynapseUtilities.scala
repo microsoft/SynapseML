@@ -253,8 +253,7 @@ object SynapseUtilities {
         "org.apache.spark:spark-tags_2.12," +
         "org.scalactic:scalactic_2.12," +
         "org.scalatest:scalatest_2.12"
-    var packageVersion: String = sparkPackages.map(s => s.trim).mkString(",")
-    packageVersion = "com.microsoft.ml.spark:mmlspark_2.12:1.0.0-rc3-59-bf337941-SNAPSHOT";
+    val packageVersion: String = sparkPackages.map(s => s.trim).mkString(",")
     val livyPayload: String =
       s"""
          |{
