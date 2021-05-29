@@ -1,15 +1,18 @@
 package com.microsoft.ml.spark.explainers
 
+import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
+import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
-import breeze.linalg.{*, norm, DenseVector => BDV, DenseMatrix => BDM}
-import breeze.stats.distributions.Rand
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.regression.LinearRegression
+import org.apache.spark.sql.DataFrame
 
-class LIMESuite extends TestBase {
+class LIMESuite extends TestBase with NetworkUtils {
   test("TabularLIME can explain a simple logistic model locally with one variable") {
     import spark.implicits._
 
@@ -199,5 +202,29 @@ class LIMESuite extends TestBase {
       row =>
         assert(norm(row - coefficients(::, 0)) < 1e-6)
     }
+  }
+
+  test("ImageLIME can explain a model locally") {
+    val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0)
+
+    val cellSize = 30.0
+    val modifier = 50.0
+    val lime: ImageLIME = new ImageLIME()
+      .setModel(resNetTransformer)
+      .setTargetCol(resNetTransformer.getOutputCol)
+      .setTargetClass(172)
+      .setOutputCol("weights")
+      .setInputCol("image")
+      .setCellSize(cellSize)
+      .setModifier(modifier)
+      .setNumSamples(20)
+
+    val imageResource = this.getClass.getResource("/greyhound.jpg")
+    val imageDf: DataFrame = spark.read.image.load(imageResource.toString)
+
+    val weights = lime.explain(imageDf)
+    weights.printSchema()
+
+    weights.show(false)
   }
 }

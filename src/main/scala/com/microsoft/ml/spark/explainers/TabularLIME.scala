@@ -1,9 +1,8 @@
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
-import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.StringArrayParam
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
@@ -34,13 +33,14 @@ class TabularLIME(override val uid: String)
   setDefault(categoricalFeatures -> Array.empty)
 
   override protected def createSamples(df: DataFrame,
-                                       featureStats: Seq[FeatureStats],
+                                       featureStats: Seq[FeatureStats[_, _]],
                                        idCol: String,
+                                       featureCol: String,
                                        distanceCol: String): DataFrame = {
 
     val numSamples = this.getNumSamples
 
-    val sampler = new LIMETabularSampler(featureStats)
+    val sampler = new LIMETabularSampler(featureStats.map(_.asInstanceOf[FeatureStats[Double, Double]]))
 
     val sampleType = StructType(featureStats.map {
       feature =>
@@ -51,6 +51,7 @@ class TabularLIME(override val uid: String)
     val returnDataType = ArrayType(
       StructType(Seq(
         StructField("sample", sampleType),
+        StructField("feature", SQLDataTypes.VectorType),
         StructField("distance", DoubleType)
       ))
     )
@@ -61,8 +62,8 @@ class TabularLIME(override val uid: String)
           implicit val randBasis: RandBasis = RandBasis.mt0
           (1 to numSamples).map {
             _ =>
-              val (sample, distance) = sampler.sample(row)
-              (sample, distance)
+              val (sample, feature, distance) = sampler.sample(row)
+              (sample, feature, distance)
           }
       },
       returnDataType
@@ -72,17 +73,14 @@ class TabularLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
+        col("samples.feature").alias(featureCol),
         col("samples.sample.*")
       )
   }
 
-  override protected def extractInputVector(row: Row): BDV[Double] = {
-    BDV(this.getInputCols.map(row.getAsDouble))
-  }
-
   import spark.implicits._
 
-  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats] = {
+  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]] = {
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 

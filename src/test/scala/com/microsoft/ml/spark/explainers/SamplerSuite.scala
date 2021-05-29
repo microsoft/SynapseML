@@ -6,23 +6,20 @@ import breeze.stats.distributions.RandBasis
 import breeze.stats.{mean, stddev}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import com.microsoft.ml.spark.io.IOImplicits._
-import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.Superpixel
 
 class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
 
     val featureStats = ContinuousFeatureStats(0, 1.5)
-    val (samples, distances) = (1 to 1000).map {
+    val (samples, _, distances) = (1 to 1000).map {
       _ => featureStats.sample(3.0)
-    }.unzip
+    }.unzip3
 
     // println(samples(0 to 100))
     assert(abs(mean(samples) - 2.9557393788483997) < 1e-5)
@@ -37,9 +34,9 @@ class SamplerSuite extends TestBase {
 
     val featureStats = DiscreteFeatureStats(0, freqTable)
 
-    val (samples, distances) = (1 to 1000).map {
+    val (samples, _, distances) = (1 to 1000).map {
       _ => featureStats.sample(3.0)
-    }.unzip
+    }.unzip3
 
 //    println(samples(0 to 100))
 //    println(distances(0 to 100))
@@ -60,9 +57,9 @@ class SamplerSuite extends TestBase {
     )
 
     val sampler = new LIMEVectorSampler(featureStats)
-    val (samples, distances) = (1 to 1000).map {
+    val (samples, _, distances) = (1 to 1000).map {
       _ => sampler.sample(SVS.dense(3.2, 1.0))
-    }.unzip
+    }.unzip3
 
     val sampleMatrix = BDM(samples.map(_.toBreeze): _*)
 
@@ -95,7 +92,7 @@ class SamplerSuite extends TestBase {
 
     val (samples, distances) = (1 to 1000).map {
       _ =>
-        val (r, d) = sampler.sample(row)
+        val (r, _, d) = sampler.sample(row)
         (BDV(r.getAs[Double](0), r.getAs[Double](1)), d)
     }.unzip
 
@@ -123,11 +120,14 @@ class SamplerSuite extends TestBase {
 
     val Tuple1(image) = df.select("image").as[Tuple1[ImageFormat]].head
     val imageSampler = ImageFeature(30d, 50d, 0.7)
-    val (sample, distance) = imageSampler.sample(image)
+    val (sample, mask, distance) = imageSampler.sample(image)
 
     assert(sample.width == 209)
     assert(sample.height == 201)
     assert(sample.nChannels == 3)
+
+    // 35 superpixel clusters should be active.
+    assert((mask :== 1.0).activeSize == 35)
 
     // In this test case, 10/45 superpixel clusters are turned off by black background,
     // so the distance should be sqrt(10/45).
@@ -135,6 +135,8 @@ class SamplerSuite extends TestBase {
 
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
+    // import com.microsoft.ml.spark.io.image.ImageUtils
+    // import com.microsoft.ml.spark.lime.Superpixel
     // val maskedImage = ImageUtils.toBufferedImage(sample.data, sample.width, sample.height, sample.nChannels)
     // Superpixel.displayImage(maskedImage)
     // Thread.sleep(100000)

@@ -9,23 +9,27 @@ import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.sql.Row
 import org.apache.spark.ml.linalg.{DenseVector => SDV, Vector => SV}
 
-private[explainers] trait Sampler[T] extends Serializable {
+private[explainers] trait Sampler[TObservation, TFeature] extends Serializable {
   /**
     * Generates a sample based on the specified instance, together with the distance metric between
     * the generated sample and the original instance.
     */
-  def sample(instance: T)(implicit randBasis: RandBasis): (T, Double)
+  def sample(instance: TObservation)(implicit randBasis: RandBasis): (TObservation, TFeature, Double)
 }
 
-private[explainers] trait FeatureStats extends Sampler[Double] {
+private[explainers] trait FeatureStats[TObservation, TFeature] extends Sampler[TObservation, TFeature] {
   def fieldIndex: Int
 }
 
-private trait ContinuousFeatureSampler extends Sampler[Double] {
+private final case class ContinuousFeatureStats
+(override val fieldIndex: Int, stddev: Double)
+  extends FeatureStats[Double, Double] with ContinuousFeatureSampler
+
+private trait ContinuousFeatureSampler extends Sampler[Double, Double] {
   self: ContinuousFeatureStats =>
 
   override def sample(value: Double)
-                     (implicit randBasis: RandBasis): (Double, Double) = {
+                     (implicit randBasis: RandBasis): (Double, Double, Double) = {
     val sample = randBasis.gaussian(value, self.stddev).sample()
     val distance = if (self.stddev == 0d) {
       0d
@@ -34,11 +38,15 @@ private trait ContinuousFeatureSampler extends Sampler[Double] {
       abs(sample - value) / self.stddev
     }
 
-    (sample, distance)
+    (sample, sample, distance)
   }
 }
 
-private trait DiscreteFeatureSampler extends Sampler[Double] {
+private final case class DiscreteFeatureStats
+(override val fieldIndex: Int, freq: Map[Double, Double])
+  extends FeatureStats[Double, Double] with DiscreteFeatureSampler
+
+private trait DiscreteFeatureSampler extends Sampler[Double, Double] {
   self: DiscreteFeatureStats =>
 
   /**
@@ -52,10 +60,10 @@ private trait DiscreteFeatureSampler extends Sampler[Double] {
     cdf(this.freq.toSeq)
   }
 
-  override def sample(instance: Double)(implicit randBasis: RandBasis): (Double, Double) = {
+  override def sample(instance: Double)(implicit randBasis: RandBasis): (Double, Double, Double) = {
     val r = Uniform(0d, freq.values.sum).sample()
     val sample = cdfTable.find(r <= _._2).get._1
-    (sample, if (sample == instance) 0d else 1d)
+    (sample, sample, if (sample == instance) 0d else 1d)
   }
 }
 
@@ -66,9 +74,14 @@ private case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private trait ImageFeatureSampler extends Sampler[ImageFormat] {
+private final case class ImageFeature(cellSize: Double, modifier: Double, samplingFraction: Double)
+  extends FeatureStats[ImageFormat, BDV[Double]] with ImageFeatureSampler {
+  override def fieldIndex: Int = 0
+}
+
+private trait ImageFeatureSampler extends Sampler[ImageFormat, BDV[Double]] {
   self: ImageFeature =>
-  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, Double) = {
+  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, BDV[Double], Double) = {
     val bi = ImageUtils.toBufferedImage(instance.data, instance.width, instance.height, instance.nChannels)
 
     val spd = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
@@ -88,53 +101,47 @@ private trait ImageFeatureSampler extends Sampler[ImageFormat] {
     // so a vector of all 1 means the original observation.
     val distance = norm(1.0 - maskAsDouble, 2) / math.sqrt(maskAsDouble.size)
 
-    (imageFormat, distance)
+    (imageFormat, maskAsDouble, distance)
   }
 }
 
-private final case class ContinuousFeatureStats
-  (override val fieldIndex: Int, stddev: Double)
-  extends FeatureStats with ContinuousFeatureSampler
 
-private final case class DiscreteFeatureStats
-  (override val fieldIndex: Int, freq: Map[Double, Double])
-  extends FeatureStats with DiscreteFeatureSampler
+private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats[Double, Double]])
+  extends Sampler[SV, SV] {
 
-private final case class ImageFeature(cellSize: Double, modifier: Double, samplingFraction: Double)
-  extends ImageFeatureSampler
-
-private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats])
-  extends Sampler[SV] {
-  override def sample(instance: SV)(implicit randBasis: RandBasis): (SV, Double) = {
-    val (samples, distances) = featureStats.map {
+  override def sample(instance: SV)(implicit randBasis: RandBasis): (SV, SV, Double) = {
+    val (samples, features, distances) = featureStats.map {
       stats =>
         val value = instance(stats.fieldIndex)
         stats.sample(value)
-    }.unzip match {
-      case (samples, distances) => (new SDV(samples.toArray), BDV(distances: _*))
+    }.unzip3 match {
+      case (samples, features, distances) =>
+        (new SDV(samples.toArray), new SDV(features.toArray), BDV(distances: _*))
     }
 
     val n = featureStats.size
 
     // Set distance to normalized Euclidean distance
-    (samples, norm(distances, 2) / math.sqrt(n))
+    (samples, features, norm(distances, 2) / math.sqrt(n))
   }
 }
 
-private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats])
-  extends Sampler[Row] {
+private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Double, Double]])
+  extends Sampler[Row, SV] {
 
-  override def sample(instance: Row)(implicit randBasis: RandBasis): (Row, Double) = {
-    val (samples, distances) = featureStats.map {
-      stats: FeatureStats =>
+  override def sample(instance: Row)(implicit randBasis: RandBasis): (Row, SV, Double) = {
+    val (samples, features, distances) = featureStats.map {
+      stats: FeatureStats[Double, Double] =>
         val value = instance.getAsDouble(stats.fieldIndex)
-        val (sample, distance) = stats.sample(value)
-        (sample, distance)
-    }.unzip
+        val (sample, features, distance) = stats.sample(value)
+        (sample, features, distance)
+    }.unzip3
 
     val n = featureStats.size
 
+    val featuresVector = new SDV(features.toArray)
+
     // Set distance to normalized Euclidean distance
-    (Row.fromSeq(samples), norm(BDV(distances: _*), 2) / math.sqrt(n))
+    (Row.fromSeq(samples), featuresVector, norm(BDV(distances: _*), 2) / math.sqrt(n))
   }
 }

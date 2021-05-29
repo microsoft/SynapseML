@@ -8,6 +8,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.ml.linalg.{Vector => SV}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 trait LIMEParams extends HasNumSamples {
   self: LIMEBase =>
@@ -74,13 +76,14 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     val df = instances.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val weightCol = DatasetExtensions.findUnusedColumnName("weight", df)
+    val featureCol = DatasetExtensions.findUnusedColumnName("feature", df)
     val distanceCol = DatasetExtensions.findUnusedColumnName("distance", df)
 
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id()).cache
 
     val featureStats = createFeatureStats(this.backgroundData.getOrElse(dfWithId))
 
-    val samples = createSamples(dfWithId, featureStats, idCol, distanceCol)
+    val samples = createSamples(dfWithId, featureStats, idCol, featureCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
     val transformed = getModel.transform(samples)
@@ -93,7 +96,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = extractInputVector(row)
+            val input = extractInputVector(row, featureCol)
             val output = row.getAs[Double](explainTargetCol)
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
@@ -113,13 +116,16 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
   override def copy(extra: ParamMap): Params = this.defaultCopy(extra)
 
   protected def createSamples(df: DataFrame,
-                              featureStats: Seq[FeatureStats],
+                              featureStats: Seq[FeatureStats[_, _]],
                               idCol: String,
+                              featureCol: String,
                               distanceCol: String): DataFrame
 
-  protected def createFeatureStats(df: DataFrame): Seq[FeatureStats]
+  protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]]
 
-  protected def extractInputVector(row: Row): BDV[Double]
+  protected def extractInputVector(row: Row, featureCol: String): BDV[Double] = {
+    row.getAs[SV](featureCol).toBreeze
+  }
 
   protected def validateInputSchema(schema: StructType): Unit = {
     require(
