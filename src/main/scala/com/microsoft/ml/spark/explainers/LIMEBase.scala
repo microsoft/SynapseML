@@ -86,11 +86,17 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     val samples = createSamples(dfWithId, featureStats, idCol, featureCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
+    // DEBUG
+    // samples.select(weightCol, distanceCol).show(false)
+
     val transformed = getModel.transform(samples)
 
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", transformed)
 
     val modelOutput = transformed.withColumn(explainTargetCol, this.getExplainTarget(transformed.schema))
+
+    // DEBUG
+    // modelOutput.select(featureCol, explainTargetCol, weightCol, distanceCol).show(false)
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>

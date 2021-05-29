@@ -3,6 +3,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
 import breeze.numerics.abs
 import breeze.stats.distributions.{RandBasis, Uniform}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
@@ -75,13 +76,13 @@ private case class ImageFormat(origin: Option[String],
                                 data: Array[Byte])
 
 private final case class ImageFeature(cellSize: Double, modifier: Double, samplingFraction: Double)
-  extends FeatureStats[ImageFormat, BDV[Double]] with ImageFeatureSampler {
+  extends FeatureStats[ImageFormat, SV] with ImageFeatureSampler {
   override def fieldIndex: Int = 0
 }
 
-private trait ImageFeatureSampler extends Sampler[ImageFormat, BDV[Double]] {
+private trait ImageFeatureSampler extends Sampler[ImageFormat, SV] {
   self: ImageFeature =>
-  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, BDV[Double], Double) = {
+  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, SV, Double) = {
     val bi = ImageUtils.toBufferedImage(instance.data, instance.width, instance.height, instance.nChannels)
 
     val spd = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
@@ -101,7 +102,7 @@ private trait ImageFeatureSampler extends Sampler[ImageFormat, BDV[Double]] {
     // so a vector of all 1 means the original observation.
     val distance = norm(1.0 - maskAsDouble, 2) / math.sqrt(maskAsDouble.size)
 
-    (imageFormat, maskAsDouble, distance)
+    (imageFormat, maskAsDouble.toSpark, distance)
   }
 }
 

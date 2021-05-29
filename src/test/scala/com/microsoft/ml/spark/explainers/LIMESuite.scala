@@ -5,12 +5,15 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
+import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
-import org.apache.spark.sql.DataFrame
+
+import java.awt.image.BufferedImage
 
 class LIMESuite extends TestBase with NetworkUtils {
   test("TabularLIME can explain a simple logistic model locally with one variable") {
@@ -177,7 +180,7 @@ class LIMESuite extends TestBase with NetworkUtils {
     val x: BDM[Double] = BDM.rand(nRows, d1, Rand.gaussian)
     val y = x * coefficients + intercept
 
-    val xRows = x(*, ::).iterator.toSeq.map(dv => new DenseVector(dv.toArray))
+    val xRows = x(*, ::).iterator.toSeq.map(dv => SVS.dense(dv.toArray))
     val yRows = y(*, ::).iterator.toSeq.map(dv => dv(0))
     val df = xRows.zip(yRows).toDF("features", "label")
 
@@ -205,26 +208,42 @@ class LIMESuite extends TestBase with NetworkUtils {
   }
 
   test("ImageLIME can explain a model locally") {
-    val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0)
+    import spark.implicits._
+
+    val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
 
     val cellSize = 30.0
     val modifier = 50.0
     val lime: ImageLIME = new ImageLIME()
       .setModel(resNetTransformer)
       .setTargetCol(resNetTransformer.getOutputCol)
+      .setSamplingFraction(0.7)
       .setTargetClass(172)
       .setOutputCol("weights")
+      .setMetricsCol("r2")
       .setInputCol("image")
       .setCellSize(cellSize)
       .setModifier(modifier)
-      .setNumSamples(20)
+      .setNumSamples(50)
 
     val imageResource = this.getClass.getResource("/greyhound.jpg")
-    val imageDf: DataFrame = spark.read.image.load(imageResource.toString)
+    val imageDf = spark.read.image.load(imageResource.toString)
+    val Tuple1(image) = imageDf.select("image").as[Tuple1[ImageFormat]].head
 
-    val weights = lime.explain(imageDf)
-    weights.printSchema()
+    val (weights, r2) = lime.explain(imageDf).select("weights", "r2").as[(Seq[Double], Double)].head
+    // println(weights)
+    println(r2)
+    assert(math.abs(r2 - 0.91754) < 1e-2)
 
-    weights.show(false)
+    val spStates = weights.map(_ >= 0.2).toArray
+    // println(spStates.count(identity))
+    assert(spStates.count(identity) == 8)
+
+    // Uncomment the following lines lines to view the censoredImage image.
+    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
+    // val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
+    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
+    // Superpixel.displayImage(censoredImage)
+    // Thread.sleep(100000)
   }
 }

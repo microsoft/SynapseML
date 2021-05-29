@@ -127,7 +127,7 @@ class SamplerSuite extends TestBase {
     assert(sample.nChannels == 3)
 
     // 35 superpixel clusters should be active.
-    assert((mask :== 1.0).activeSize == 35)
+    assert((mask.toBreeze :== 1.0).activeSize == 35)
 
     // In this test case, 10/45 superpixel clusters are turned off by black background,
     // so the distance should be sqrt(10/45).
