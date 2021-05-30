@@ -20,13 +20,14 @@ class VectorLIME(override val uid: String)
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
   override protected def createSamples(df: DataFrame,
-                                       featureStats: Seq[FeatureStats[_, _]],
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String): DataFrame = {
     val numSamples = this.getNumSamples
 
-    val sampler = new LIMEVectorSampler(featureStats.map(_.asInstanceOf[FeatureStats[Double, Double]]))
+    val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
+
+    val sampler = new LIMEVectorSampler(featureStats)
 
     val returnDataType = ArrayType(
       StructType(Seq(
@@ -54,7 +55,7 @@ class VectorLIME(override val uid: String)
       )
   }
 
-  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double]] = {
     val Row(std: SV) = df
       .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
       .select("summary.std")

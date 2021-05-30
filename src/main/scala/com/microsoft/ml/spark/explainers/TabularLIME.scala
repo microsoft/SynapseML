@@ -33,14 +33,17 @@ class TabularLIME(override val uid: String)
   setDefault(categoricalFeatures -> Array.empty)
 
   override protected def createSamples(df: DataFrame,
-                                       featureStats: Seq[FeatureStats[_, _]],
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String): DataFrame = {
 
     val numSamples = this.getNumSamples
 
-    val sampler = new LIMETabularSampler(featureStats.map(_.asInstanceOf[FeatureStats[Double, Double]]))
+    val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
+
+    println(featureStats)
+
+    val sampler = new LIMETabularSampler(featureStats)
 
     val sampleType = StructType(featureStats.map {
       feature =>
@@ -80,7 +83,7 @@ class TabularLIME(override val uid: String)
 
   import spark.implicits._
 
-  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double]] = {
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 

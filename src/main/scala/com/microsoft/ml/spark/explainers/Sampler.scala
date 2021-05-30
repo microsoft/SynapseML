@@ -10,6 +10,8 @@ import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.sql.Row
 import org.apache.spark.ml.linalg.{DenseVector => SDV, Vector => SV}
 
+import java.awt.image.BufferedImage
+
 private[explainers] trait Sampler[TObservation, TFeature] extends Serializable {
   /**
     * Generates a sample based on the specified instance, together with the distance metric between
@@ -75,24 +77,30 @@ private case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private final case class ImageFeature(cellSize: Double, modifier: Double, samplingFraction: Double)
+private final case class ImageFeature(cellSize: Double, modifier: Double,
+                                      samplingFraction: Double, image: ImageFormat)
   extends FeatureStats[ImageFormat, SV] with ImageFeatureSampler {
   override def fieldIndex: Int = 0
+
+  protected lazy val bi: BufferedImage = ImageUtils.toBufferedImage(
+    image.data, image.width, image.height, image.nChannels
+  )
+
+  protected lazy val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
+
+  protected lazy val numClusters: Int = spd.clusters.size
 }
 
 private trait ImageFeatureSampler extends Sampler[ImageFormat, SV] {
   self: ImageFeature =>
   override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, SV, Double) = {
-    val bi = ImageUtils.toBufferedImage(instance.data, instance.width, instance.height, instance.nChannels)
 
-    val spd = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
-    val numClusters = spd.clusters.size
-    val mask: BitVector = BDV.rand(numClusters, randBasis.uniform) <:= samplingFraction
+    val mask: BitVector = BDV.rand(self.numClusters, randBasis.uniform) <:= samplingFraction
 
-    val maskAsDouble = BDV.zeros[Double](numClusters)
+    val maskAsDouble = BDV.zeros[Double](self.numClusters)
     axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
 
-    val outputImage = Superpixel.maskImage(bi, spd, mask.toArray)
+    val outputImage = Superpixel.maskImage(self.bi, self.spd, mask.toArray)
 
     val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
     val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)

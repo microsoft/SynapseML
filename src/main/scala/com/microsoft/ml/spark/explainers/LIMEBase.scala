@@ -81,9 +81,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id()).cache
 
-    val featureStats = createFeatureStats(this.backgroundData.getOrElse(dfWithId))
-
-    val samples = createSamples(dfWithId, featureStats, idCol, featureCol, distanceCol)
+    val samples = createSamples(dfWithId, idCol, featureCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
     // DEBUG
@@ -122,12 +120,11 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
   override def copy(extra: ParamMap): Params = this.defaultCopy(extra)
 
   protected def createSamples(df: DataFrame,
-                              featureStats: Seq[FeatureStats[_, _]],
                               idCol: String,
                               featureCol: String,
                               distanceCol: String): DataFrame
 
-  protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]]
+//  protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]]
 
   protected def extractInputVector(row: Row, featureCol: String): BDV[Double] = {
     row.getAs[SV](featureCol).toBreeze

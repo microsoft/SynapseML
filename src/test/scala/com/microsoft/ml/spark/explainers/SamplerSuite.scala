@@ -119,7 +119,7 @@ class SamplerSuite extends TestBase {
     lazy val df: DataFrame = spark.read.image.load(imageResource.toString)
 
     val Tuple1(image) = df.select("image").as[Tuple1[ImageFormat]].head
-    val imageSampler = ImageFeature(30d, 50d, 0.7)
+    val imageSampler = ImageFeature(30d, 50d, 0.7, image)
     val (sample, mask, distance) = imageSampler.sample(image)
 
     assert(sample.width == 209)

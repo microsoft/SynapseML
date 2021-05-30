@@ -35,15 +35,12 @@ class ImageLIME(override val uid: String)
   }
 
   override protected def createSamples(df: DataFrame,
-                                       featureStats: Seq[FeatureStats[_, _]],
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
 
     val numSamples = this.getNumSamples
-
-    val sampler = featureStats.head.asInstanceOf[ImageFeatureSampler]
 
     val sampleType = ArrayType(
       StructType(Seq(
@@ -52,6 +49,8 @@ class ImageLIME(override val uid: String)
         StructField("distance", DoubleType)
       ))
     )
+
+    val (cellSize, modifier, samplingFraction) = (this.getCellSize, this.getModifier, this.getSamplingFraction)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
@@ -66,6 +65,7 @@ class ImageLIME(override val uid: String)
           )
 
           implicit val randBasis: RandBasis = RandBasis.mt0
+          val sampler = ImageFeature(cellSize, modifier, samplingFraction, imageFormat)
           (1 to numSamples).map(_ => sampler.sample(imageFormat))
       },
       sampleType
@@ -78,11 +78,5 @@ class ImageLIME(override val uid: String)
         col("samples.feature").alias(featureCol),
         col("samples.sample").alias(getInputCol)
       )
-  }
-
-  override protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]] = {
-    Seq(
-      ImageFeature(this.getCellSize, this.getModifier, this.getSamplingFraction)
-    )
   }
 }

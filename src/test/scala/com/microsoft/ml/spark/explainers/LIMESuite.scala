@@ -5,15 +5,11 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
-import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
-
-import java.awt.image.BufferedImage
 
 class LIMESuite extends TestBase with NetworkUtils {
   test("TabularLIME can explain a simple logistic model locally with one variable") {
@@ -232,7 +228,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val (weights, r2) = lime.explain(imageDf).select("weights", "r2").as[(Seq[Double], Double)].head
     // println(weights)
-    println(r2)
+    // println(r2)
     assert(math.abs(r2 - 0.91754) < 1e-2)
 
     val spStates = weights.map(_ >= 0.2).toArray
@@ -240,10 +236,13 @@ class LIMESuite extends TestBase with NetworkUtils {
     assert(spStates.count(identity) == 8)
 
     // Uncomment the following lines lines to view the censoredImage image.
-    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    // val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
-    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
-    // Superpixel.displayImage(censoredImage)
-    // Thread.sleep(100000)
+    //    import com.microsoft.ml.spark.io.image.ImageUtils
+    //    import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
+    //    import java.awt.image.BufferedImage
+    //    val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
+    //    val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
+    //    val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
+    //    Superpixel.displayImage(censoredImage)
+    //    Thread.sleep(100000)
   }
 }
