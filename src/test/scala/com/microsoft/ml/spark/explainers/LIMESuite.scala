@@ -12,11 +12,12 @@ import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 
 class LIMESuite extends TestBase with NetworkUtils {
-  test("TabularLIME can explain a simple logistic model locally with one variable") {
-    import spark.implicits._
+  import spark.implicits._
 
+  test("TabularLIME can explain a simple logistic model locally with one variable") {
     val data = Seq(
       (-6.0, 0),
       (-5.0, 0),
@@ -66,8 +67,6 @@ class LIMESuite extends TestBase with NetworkUtils {
   }
 
   test("TabularLIME can explain a simple logistic model locally with multiple variables") {
-    import spark.implicits._
-
     val data = Seq(
       (-6, 1.0, 0),
       (-5, -3.0, 0),
@@ -110,7 +109,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val weightsVec = BDV(weights.select("weights").as[Seq[Double]].head: _*)
 
-    println(weightsVec)
+    // println(weightsVec)
 
     // With 0.01 L1 regularization, the second feature gets removed due to low importance.
     assert(weightsVec(0) > 0.0)
@@ -118,8 +117,6 @@ class LIMESuite extends TestBase with NetworkUtils {
   }
 
   test("TabularLIME can explain a model locally with categorical variables") {
-    import spark.implicits._
-
     val data = Seq(
       (1, 0),
       (2, 0),
@@ -167,8 +164,6 @@ class LIMESuite extends TestBase with NetworkUtils {
   }
 
   test("VectorLIME can explain a model locally") {
-    import spark.implicits._
-
     val nRows = 100
     val intercept = math.random()
     val d1 = 3
@@ -205,27 +200,26 @@ class LIMESuite extends TestBase with NetworkUtils {
     }
   }
 
-  test("ImageLIME can explain a model locally") {
-    import spark.implicits._
+  private val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
 
-    val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
+  private val cellSize = 30.0
+  private val modifier = 50.0
+  private val lime: ImageLIME = new ImageLIME()
+    .setModel(resNetTransformer)
+    .setTargetCol(resNetTransformer.getOutputCol)
+    .setSamplingFraction(0.7)
+    .setTargetClass(172)
+    .setOutputCol("weights")
+    .setSuperpixelCol("superpixels")
+    .setMetricsCol("r2")
+    .setInputCol("image")
+    .setCellSize(cellSize)
+    .setModifier(modifier)
+    .setNumSamples(50)
 
-    val cellSize = 30.0
-    val modifier = 50.0
-    val lime: ImageLIME = new ImageLIME()
-      .setModel(resNetTransformer)
-      .setTargetCol(resNetTransformer.getOutputCol)
-      .setSamplingFraction(0.7)
-      .setTargetClass(172)
-      .setOutputCol("weights")
-      .setSuperpixelCol("superpixels")
-      .setMetricsCol("r2")
-      .setInputCol("image")
-      .setCellSize(cellSize)
-      .setModifier(modifier)
-      .setNumSamples(50)
+  private val imageResource = this.getClass.getResource("/greyhound.jpg")
 
-    val imageResource = this.getClass.getResource("/greyhound.jpg")
+  test("ImageLIME can explain a model locally for image type observation") {
     val imageDf = spark.read.image.load(imageResource.toString)
 
     val (image, superpixels, weights, r2) = lime
@@ -252,9 +246,26 @@ class LIMESuite extends TestBase with NetworkUtils {
     // Thread.sleep(100000)
   }
 
-  test("TextLIME can explain a model locally") {
-    import spark.implicits._
+  test("ImageLIME can explain a model locally for binary type observation") {
+    val binaryDf = spark.read.binary.load(imageResource.toString)
+      .select(col("value.bytes").alias("image"))
 
+    val (weights, r2) = lime
+      .explain(binaryDf)
+      .select("weights", "r2")
+      .as[(Seq[Double], Double)]
+      .head
+
+    // println(weights)
+    // println(r2)
+    assert(math.abs(r2 - 0.91754) < 1e-2)
+
+    val spStates = weights.map(_ >= 0.2).toArray
+    // println(spStates.count(identity))
+    assert(spStates.count(identity) == 8)
+  }
+
+  test("TextLIME can explain a model locally") {
     val df: DataFrame = Seq(
       ("hi this is example 1", 1.0),
       ("hi this is cat 1", 0.0),

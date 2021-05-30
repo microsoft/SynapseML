@@ -6,13 +6,15 @@ import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
-import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+
+import java.awt.image.BufferedImage
 
 trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with HasSamplingFraction with HasInputCol {
   self: ImageLIME =>
@@ -50,34 +52,61 @@ class ImageLIME(override val uid: String)
       .transform(df)
   }
 
+  private def sample(numSamples: Int, samplingFraction: Double)(bi: BufferedImage, spd: SuperpixelData)
+    : Seq[(ImageFormat, SV, Double)] = {
+    implicit val randBasis: RandBasis = RandBasis.mt0
+    val sampler = ImageFeature(samplingFraction, spd)
+    (1 to numSamples).map {
+      _ =>
+        val (outputImage, feature, distance) = sampler.sample(bi)
+        val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
+        val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
+        (imageFormat, feature, distance)
+    }
+  }
+
+  private lazy val samplingFunc = sample(this.getNumSamples, this.getSamplingFraction) _
+
+  private lazy val imageSamplesUdf = {
+    UDFUtils.oldUdf(
+      {
+        (image: Row, sp: Row) =>
+          val bi = ImageUtils.toBufferedImage(image)
+          val spd = SuperpixelData.fromRow(sp)
+          samplingFunc(bi, spd)
+      },
+      getSampleSchema
+    )
+  }
+
+  private lazy val binarySamplesUdf = {
+    UDFUtils.oldUdf(
+      {
+        (data: Array[Byte], sp: Row) =>
+          val biOpt = ImageUtils.safeRead(data)
+          val spd = SuperpixelData.fromRow(sp)
+          biOpt.map {
+            bi => samplingFunc(bi, spd)
+          }.getOrElse(Seq.empty)
+      },
+      getSampleSchema
+    )
+  }
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
 
-    val (numSamples, samplingFraction) = (this.getNumSamples, this.getSamplingFraction)
+    val samplingUdf = df.schema(getInputCol).dataType match {
+      case BinaryType =>
+        this.binarySamplesUdf
+      case t if ImageSchemaUtils.isImage(t) =>
+        this.imageSamplesUdf
+    }
 
-    val samplesUdf = UDFUtils.oldUdf(
-      {
-        (image: Row, sp: Row) =>
-          val bi = ImageUtils.toBufferedImage(image)
-          val spd = SuperpixelData.fromRow(sp)
-
-          implicit val randBasis: RandBasis = RandBasis.mt0
-          val sampler = ImageFeature(samplingFraction, spd)
-          (1 to numSamples).map {
-            _ =>
-              val (outputImage, feature, distance) = sampler.sample(bi)
-              val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
-              val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
-              (imageFormat, feature, distance)
-          }
-      },
-      getSampleSchema
-    )
-
-    df.withColumn("samples", explode(samplesUdf(col(getInputCol), col(getSuperpixelCol))))
+    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
@@ -99,11 +128,10 @@ class ImageLIME(override val uid: String)
   override protected def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    // TODO: support binary input schema
-
     require(
-      ImageSchemaUtils.isImage(schema(getInputCol).dataType),
-      s"Field $getInputCol is expected to be image type, but got ${schema(getInputCol).dataType} instead."
+      ImageSchemaUtils.isImage(schema(getInputCol).dataType) || schema(getInputCol).dataType == BinaryType,
+      s"Field $getInputCol is expected to be image type or binary type, " +
+        s"but got ${schema(getInputCol).dataType} instead."
     )
   }
 }
