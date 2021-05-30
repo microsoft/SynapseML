@@ -224,7 +224,6 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val imageResource = this.getClass.getResource("/greyhound.jpg")
     val imageDf = spark.read.image.load(imageResource.toString)
-    val Tuple1(image) = imageDf.select("image").as[Tuple1[ImageFormat]].head
 
     val (weights, r2) = lime.explain(imageDf).select("weights", "r2").as[(Seq[Double], Double)].head
     // println(weights)
@@ -236,13 +235,14 @@ class LIMESuite extends TestBase with NetworkUtils {
     assert(spStates.count(identity) == 8)
 
     // Uncomment the following lines lines to view the censoredImage image.
-    //    import com.microsoft.ml.spark.io.image.ImageUtils
-    //    import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-    //    import java.awt.image.BufferedImage
-    //    val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    //    val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
-    //    val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
-    //    Superpixel.displayImage(censoredImage)
-    //    Thread.sleep(100000)
+    // import com.microsoft.ml.spark.io.image.ImageUtils
+    // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
+    // import java.awt.image.BufferedImage
+    // val Tuple1(image) = imageDf.select("image").as[Tuple1[ImageFormat]].head
+    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
+    // val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
+    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
+    // Superpixel.displayImage(censoredImage)
+    // Thread.sleep(100000)
   }
 }

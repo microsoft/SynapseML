@@ -1,8 +1,12 @@
 package com.microsoft.ml.spark.explainers
 
+
+import org.apache.spark.ml.feature.Tokenizer
+import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructField, StructType}
 
 trait TextLIMEParams extends LIMEParams with HasSamplingFraction with HasInputCol {
   self: TextLIME =>
@@ -26,6 +30,18 @@ class TextLIME(override val uid: String)
                                        featureCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
-    ???
+    val numSamples = this.getNumSamples
+    val tokenizer = new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokenCol)
+    val tokenDF = tokenizer.transform(df)
+
+    val sampleType = ArrayType(
+      StructType(Seq(
+        StructField("sample", StringType),
+        StructField("feature", SQLDataTypes.VectorType),
+        StructField("distance", DoubleType)
+      ))
+    )
+
+???
   }
 }

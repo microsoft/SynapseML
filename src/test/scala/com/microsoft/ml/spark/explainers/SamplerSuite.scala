@@ -7,8 +7,9 @@ import breeze.stats.{mean, stddev}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.io.IOImplicits._
+import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vectors => SVS}
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 
@@ -116,15 +117,24 @@ class SamplerSuite extends TestBase {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val imageResource = this.getClass.getResource("/greyhound.jpg")
 
-    lazy val df: DataFrame = spark.read.image.load(imageResource.toString)
+    val df = spark.read.image.load(imageResource.toString)
 
     val Tuple1(image) = df.select("image").as[Tuple1[ImageFormat]].head
-    val imageSampler = ImageFeature(30d, 50d, 0.7, image)
-    val (sample, mask, distance) = imageSampler.sample(image)
 
-    assert(sample.width == 209)
-    assert(sample.height == 201)
-    assert(sample.nChannels == 3)
+    val bi = ImageUtils.toBufferedImage(
+      image.data, image.width, image.height, image.nChannels
+    )
+
+    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
+
+    val imageSampler = ImageFeature(0.7, spd)
+
+    val (sample, mask, distance) = imageSampler.sample(bi)
+
+    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(sample)
+    assert(width == 209)
+    assert(height == 201)
+    assert(nChannels == 3)
 
     // 35 superpixel clusters should be active.
     assert((mask.toBreeze :== 1.0).activeSize == 35)
@@ -135,10 +145,10 @@ class SamplerSuite extends TestBase {
 
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
-    // import com.microsoft.ml.spark.io.image.ImageUtils
-    // import com.microsoft.ml.spark.lime.Superpixel
-    // val maskedImage = ImageUtils.toBufferedImage(sample.data, sample.width, sample.height, sample.nChannels)
-    // Superpixel.displayImage(maskedImage)
-    // Thread.sleep(100000)
+     import com.microsoft.ml.spark.io.image.ImageUtils
+     import com.microsoft.ml.spark.lime.Superpixel
+     val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
+     Superpixel.displayImage(maskedImage)
+     Thread.sleep(100000)
   }
 }

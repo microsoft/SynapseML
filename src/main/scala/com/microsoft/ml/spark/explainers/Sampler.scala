@@ -5,7 +5,6 @@ import breeze.numerics.abs
 import breeze.stats.distributions.{RandBasis, Uniform}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
-import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.sql.Row
 import org.apache.spark.ml.linalg.{DenseVector => SDV, Vector => SV}
@@ -77,43 +76,56 @@ private case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private final case class ImageFeature(cellSize: Double, modifier: Double,
-                                      samplingFraction: Double, image: ImageFormat)
-  extends FeatureStats[ImageFormat, SV] with ImageFeatureSampler {
+private final case class ImageFeature(samplingFraction: Double, spd: SuperpixelData)
+  extends FeatureStats[BufferedImage, SV] with ImageFeatureSampler {
   override def fieldIndex: Int = 0
-
-  protected lazy val bi: BufferedImage = ImageUtils.toBufferedImage(
-    image.data, image.width, image.height, image.nChannels
-  )
-
-  protected lazy val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, cellSize, modifier))
-
   protected lazy val numClusters: Int = spd.clusters.size
 }
 
-private trait ImageFeatureSampler extends Sampler[ImageFormat, SV] {
+private trait ImageFeatureSampler extends Sampler[BufferedImage, SV] {
   self: ImageFeature =>
-  override def sample(instance: ImageFormat)(implicit randBasis: RandBasis): (ImageFormat, SV, Double) = {
-
-    val mask: BitVector = BDV.rand(self.numClusters, randBasis.uniform) <:= samplingFraction
+  override def sample(instance: BufferedImage)(implicit randBasis: RandBasis): (BufferedImage, SV, Double) = {
+    val mask: BitVector = BDV.rand(self.numClusters, randBasis.uniform) <:= self.samplingFraction
 
     val maskAsDouble = BDV.zeros[Double](self.numClusters)
     axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
 
-    val outputImage = Superpixel.maskImage(self.bi, self.spd, mask.toArray)
-
-    val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
-    val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
+    val outputImage = Superpixel.maskImage(instance, self.spd, mask.toArray)
 
     // Set distance to normalized Euclidean distance
     // 1 in the mask means keep the superpixel, 0 means replace with background color,
     // so a vector of all 1 means the original observation.
     val distance = norm(1.0 - maskAsDouble, 2) / math.sqrt(maskAsDouble.size)
 
-    (imageFormat, maskAsDouble.toSpark, distance)
+    (outputImage, maskAsDouble.toSpark, distance)
   }
 }
 
+private final case class TextFeature(samplingFraction: Double)
+  extends FeatureStats[Seq[String], SV] with TextFeatureSampler {
+  override def fieldIndex: Int = 0
+}
+
+private trait TextFeatureSampler extends Sampler[Seq[String], SV] {
+  self: TextFeature =>
+  override def sample(instance: Seq[String])(implicit randBasis: RandBasis): (Seq[String], SV, Double) = {
+    val mask: BitVector = BDV.rand(instance.size, randBasis.uniform) <:= self.samplingFraction
+
+    val maskAsDouble = BDV.zeros[Double](instance.size)
+    axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
+
+    val maskedTokens = (instance, mask.toArray).zipped.collect {
+      case (token, state) if state => token
+    }
+
+    // Set distance to normalized Euclidean distance
+    // 1 in the mask means keep the token, 0 means remove the token,
+    // so a vector of all 1 means the original observation.
+    val distance = norm(1.0 - maskAsDouble, 2) / math.sqrt(maskAsDouble.size)
+
+    (maskedTokens.toSeq, maskAsDouble.toSpark, distance)
+  }
+}
 
 private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats[Double, Double]])
   extends Sampler[SV, SV] {
