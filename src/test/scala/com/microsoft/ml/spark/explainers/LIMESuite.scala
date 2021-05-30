@@ -225,6 +225,8 @@ class LIMESuite extends TestBase with NetworkUtils {
     val imageResource = this.getClass.getResource("/greyhound.jpg")
     val imageDf = spark.read.image.load(imageResource.toString)
 
+    lime.explain(imageDf).printSchema()
+
     val (weights, r2) = lime.explain(imageDf).select("weights", "r2").as[(Seq[Double], Double)].head
     // println(weights)
     // println(r2)
@@ -244,5 +246,9 @@ class LIMESuite extends TestBase with NetworkUtils {
     // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
     // Superpixel.displayImage(censoredImage)
     // Thread.sleep(100000)
+  }
+
+  test("TextLIME can explain a model locally") {
+
   }
 }

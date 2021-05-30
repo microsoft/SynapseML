@@ -13,6 +13,8 @@ import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 
+import java.nio.file.{Files, Path}
+
 class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
@@ -150,5 +152,19 @@ class SamplerSuite extends TestBase {
      val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
      Superpixel.displayImage(maskedImage)
      Thread.sleep(100000)
+  }
+
+  test("TextFeatureSampler can draw samples") {
+    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+    val file = this.getClass.getResource("/audio1.txt")
+    val text = Files.readString(Path.of(file.toURI))
+
+    val tokens = text.toLowerCase.split("\\s")
+
+    val textSampler = TextFeature(0.7)
+    val (sampled, features, distance) = textSampler.sample(tokens)
+
+    assert(sampled.length == (features.toBreeze :== 1.0).activeSize)
+    assert(distance == math.sqrt((tokens.size - 80) / tokens.size.toDouble))
   }
 }

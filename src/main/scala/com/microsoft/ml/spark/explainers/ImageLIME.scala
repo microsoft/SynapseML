@@ -1,12 +1,13 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
-import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
@@ -16,9 +17,20 @@ import org.apache.spark.sql.{DataFrame, Row}
 trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with HasSamplingFraction with HasInputCol {
   self: ImageLIME =>
 
+  val superpixelCol = new Param[String](
+    this,
+    "superpixelCol",
+    "The column holding the superpixel decompositions"
+  )
+
+  def getSuperpixelCol: String = $(superpixelCol)
+
+  def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
+
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
-  setDefault(numSamples -> 900, cellSize -> 16, modifier -> 130, regularization -> 0.0, samplingFraction -> 0.7)
+  setDefault(numSamples -> 900, cellSize -> 16, modifier -> 130, regularization -> 0.0, samplingFraction -> 0.7,
+    superpixelCol -> "superpixels")
 }
 
 class ImageLIME(override val uid: String)
@@ -35,14 +47,13 @@ class ImageLIME(override val uid: String)
                                       ): DataFrame = {
 
     val numSamples = this.getNumSamples
-    val superpixelsCol = DatasetExtensions.findUnusedColumnName("superpixels", df)
 
     // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
     val spDF = new SuperpixelTransformer()
       .setCellSize(getCellSize)
       .setModifier(getModifier)
       .setInputCol(getInputCol)
-      .setOutputCol(superpixelsCol)
+      .setOutputCol(getSuperpixelCol)
       .transform(df)
 
     val samplingFraction = this.getSamplingFraction
@@ -66,9 +77,10 @@ class ImageLIME(override val uid: String)
       getSampleSchema
     )
 
-    spDF.withColumn("samples", explode(samplesUdf(col(getInputCol), col(superpixelsCol))))
+    spDF.withColumn("samples", explode(samplesUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
+        col(getSuperpixelCol),
         col("samples.distance").alias(distanceCol),
         col("samples.feature").alias(featureCol),
         col("samples.sample").alias(getInputCol)
@@ -76,14 +88,13 @@ class ImageLIME(override val uid: String)
   }
 
   private def getSampleSchema: DataType = {
-    val sampleType = ArrayType(
+    ArrayType(
       StructType(Seq(
         StructField("sample", ImageSchema.columnSchema),
         StructField("feature", SQLDataTypes.VectorType),
         StructField("distance", DoubleType)
       ))
     )
-    sampleType
   }
 
   override protected def validateSchema(schema: StructType): Unit = {
