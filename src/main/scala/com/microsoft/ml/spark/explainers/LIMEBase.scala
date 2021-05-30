@@ -54,7 +54,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
   protected var backgroundData: Option[DataFrame] = None
 
-  def setBackgroundDataset(backgroundDataset: DataFrame): this.type = {
+  final def setBackgroundDataset(backgroundDataset: DataFrame): this.type = {
     this.backgroundData = Some(backgroundDataset)
     this
   }
@@ -71,6 +71,8 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     weightUdf
   }
 
+  protected def preprocess(df: DataFrame): DataFrame = df
+
   final override def explain(instances: Dataset[_]): DataFrame = {
 
     this.validateSchema(instances.schema)
@@ -82,9 +84,10 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     val featureCol = DatasetExtensions.findUnusedColumnName("feature", df)
     val distanceCol = DatasetExtensions.findUnusedColumnName("distance", df)
 
-    val dfWithId = df.withColumn(idCol, monotonically_increasing_id()).cache
+    val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
+    val preprocessed = preprocess(dfWithId).cache()
 
-    val samples = createSamples(dfWithId, idCol, featureCol, distanceCol)
+    val samples = createSamples(preprocessed, idCol, featureCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
     // DEBUG
@@ -103,7 +106,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = extractInputVector(row, featureCol)
+            val input = row.getAs[SV](featureCol).toBreeze
             val output = row.getAs[Double](explainTargetCol)
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
@@ -117,7 +120,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
         (id, lassoResults.coefficients.toArray, lassoResults.rSquared)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
-    dfWithId.join(fitted, Seq(idCol), "inner").drop(idCol)
+    preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
 
   override def copy(extra: ParamMap): Params = this.defaultCopy(extra)
@@ -126,12 +129,6 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
                               idCol: String,
                               featureCol: String,
                               distanceCol: String): DataFrame
-
-//  protected def createFeatureStats(df: DataFrame): Seq[FeatureStats[_, _]]
-
-  protected def extractInputVector(row: Row, featureCol: String): BDV[Double] = {
-    row.getAs[SV](featureCol).toBreeze
-  }
 
   protected override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)

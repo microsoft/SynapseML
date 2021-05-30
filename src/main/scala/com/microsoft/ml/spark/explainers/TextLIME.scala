@@ -6,6 +6,7 @@ import org.apache.spark.ml.feature.Tokenizer
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
@@ -27,16 +28,21 @@ trait TextLIMEParams extends LIMEParams with HasSamplingFraction with HasInputCo
 
 class TextLIME(override val uid: String)
   extends LIMEBase(uid) with TextLIMEParams {
+
+  def this() = {
+    this(Identifiable.randomUID("TextLIME"))
+  }
+
+  override protected def preprocess(df: DataFrame): DataFrame = {
+    new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokensCol).transform(df)
+  }
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
-    val numSamples = this.getNumSamples
-
-    val tokenDF = new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokensCol).transform(df)
-
-    val samplingFraction = this.getSamplingFraction
+    val (numSamples, samplingFraction) = (this.getNumSamples, this.getSamplingFraction)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
@@ -53,10 +59,9 @@ class TextLIME(override val uid: String)
       getSampleSchema
     )
 
-    tokenDF.withColumn("samples", explode(samplesUdf(col(getTokensCol))))
+    df.withColumn("samples", explode(samplesUdf(col(getTokensCol))))
       .select(
         col(idCol),
-        col(getTokensCol),
         col("samples.distance").alias(distanceCol),
         col("samples.feature").alias(featureCol),
         col("samples.sample").alias(getInputCol)

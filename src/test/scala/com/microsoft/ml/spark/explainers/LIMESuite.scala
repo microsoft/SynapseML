@@ -5,11 +5,13 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
-import org.apache.spark.ml.Pipeline
+import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.sql.DataFrame
 
 class LIMESuite extends TestBase with NetworkUtils {
   test("TabularLIME can explain a simple logistic model locally with one variable") {
@@ -216,6 +218,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setSamplingFraction(0.7)
       .setTargetClass(172)
       .setOutputCol("weights")
+      .setSuperpixelCol("superpixels")
       .setMetricsCol("r2")
       .setInputCol("image")
       .setCellSize(cellSize)
@@ -225,9 +228,12 @@ class LIMESuite extends TestBase with NetworkUtils {
     val imageResource = this.getClass.getResource("/greyhound.jpg")
     val imageDf = spark.read.image.load(imageResource.toString)
 
-    lime.explain(imageDf).printSchema()
+    val (image, superpixels, weights, r2) = lime
+      .explain(imageDf)
+      .select("image", "superpixels", "weights", "r2")
+      .as[(ImageFormat, SuperpixelData, Seq[Double], Double)]
+      .head
 
-    val (weights, r2) = lime.explain(imageDf).select("weights", "r2").as[(Seq[Double], Double)].head
     // println(weights)
     // println(r2)
     assert(math.abs(r2 - 0.91754) < 1e-2)
@@ -240,15 +246,67 @@ class LIMESuite extends TestBase with NetworkUtils {
     // import com.microsoft.ml.spark.io.image.ImageUtils
     // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
     // import java.awt.image.BufferedImage
-    // val Tuple1(image) = imageDf.select("image").as[Tuple1[ImageFormat]].head
     // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    // val superPixels = SuperpixelData.fromSuperpixel(new Superpixel(originalImage, cellSize, modifier))
-    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superPixels, spStates)
+    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
     // Superpixel.displayImage(censoredImage)
     // Thread.sleep(100000)
   }
 
   test("TextLIME can explain a model locally") {
+    import spark.implicits._
 
+    val df: DataFrame = Seq(
+      ("hi this is example 1", 1.0),
+      ("hi this is cat 1", 0.0),
+      ("hi this is example 1", 1.0),
+      ("foo this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is cat 1", 0.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi bar is cat 1", 0.0),
+      ("hi this is example 1", 1.0)
+    ) toDF("text", "label")
+
+    val tok: Tokenizer = new Tokenizer().setInputCol("text").setOutputCol("tokens")
+    val si: HashingTF = new HashingTF().setInputCol("tokens").setOutputCol("features")
+    val lr: LogisticRegression = new LogisticRegression()
+      .setFeaturesCol("features").setLabelCol("label").setProbabilityCol("prob")
+
+    val textClassifier: Pipeline = new Pipeline().setStages(Array(tok, si, lr))
+
+    val model: PipelineModel = textClassifier.fit(df)
+
+    val textLime = new TextLIME()
+      .setModel(model)
+      .setInputCol("text")
+      .setTargetCol("prob")
+      .setTargetClass(1)
+      .setOutputCol("weights")
+      .setTokensCol("tokens")
+      .setSamplingFraction(0.7)
+      .setNumSamples(1000)
+
+    val target: DataFrame = Seq(
+      ("hi this is example 1", 1.0),
+      ("hi bar is cat 1", 0.0)
+    ) toDF("text", "label")
+
+    val results = textLime.explain(target).select("tokens", "weights", "r2")
+      .as[(Seq[String], Seq[Double], Double)]
+      .collect()
+      .map {
+        case (tokens, weights, r2) => (tokens(3), weights(3), r2)
+      }
+
+    results.foreach {
+      case (token, weight, r2) if token == "example" =>
+        assert(weight > 0.2)
+        assert(r2 > 0.6)
+      case (token, weight, r2) if token == "cat" =>
+        assert(weight < 0)
+        assert(r2 > 0.3)
+    }
   }
 }

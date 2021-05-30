@@ -40,23 +40,23 @@ class ImageLIME(override val uid: String)
     this(Identifiable.randomUID("ImageLIME"))
   }
 
+  override protected def preprocess(df: DataFrame): DataFrame = {
+    // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
+    new SuperpixelTransformer()
+      .setCellSize(getCellSize)
+      .setModifier(getModifier)
+      .setInputCol(getInputCol)
+      .setOutputCol(getSuperpixelCol)
+      .transform(df)
+  }
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        featureCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
 
-    val numSamples = this.getNumSamples
-
-    // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
-    val spDF = new SuperpixelTransformer()
-      .setCellSize(getCellSize)
-      .setModifier(getModifier)
-      .setInputCol(getInputCol)
-      .setOutputCol(getSuperpixelCol)
-      .transform(df)
-
-    val samplingFraction = this.getSamplingFraction
+    val (numSamples, samplingFraction) = (this.getNumSamples, this.getSamplingFraction)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
@@ -77,10 +77,9 @@ class ImageLIME(override val uid: String)
       getSampleSchema
     )
 
-    spDF.withColumn("samples", explode(samplesUdf(col(getInputCol), col(getSuperpixelCol))))
+    df.withColumn("samples", explode(samplesUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
-        col(getSuperpixelCol),
         col("samples.distance").alias(distanceCol),
         col("samples.feature").alias(featureCol),
         col("samples.sample").alias(getInputCol)
