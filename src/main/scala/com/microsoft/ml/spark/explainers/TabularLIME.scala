@@ -12,7 +12,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 class TabularLIME(override val uid: String)
   extends LIMEBase(uid)
-    with HasInputCols {
+    with HasInputCols
+    with HasBackgroundData {
 
   def this() = {
     this(Identifiable.randomUID("TabularLIME"))

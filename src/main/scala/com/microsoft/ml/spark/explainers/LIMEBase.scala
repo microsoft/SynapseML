@@ -11,7 +11,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.linalg.{Vector => SV}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
-trait LIMEParams extends HasNumSamples {
+trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>
 
   val regularization = new DoubleParam(
@@ -28,12 +28,6 @@ trait LIMEParams extends HasNumSamples {
     ParamValidators.gt(0)
   )
 
-  val metricsCol = new Param[String](
-    this,
-    "metricsCol",
-    "Column name for fitting metrics"
-  )
-
   def getRegularization: Double = $(regularization)
 
   def setRegularization(v: Double): this.type = set(regularization, v)
@@ -42,22 +36,11 @@ trait LIMEParams extends HasNumSamples {
 
   def setKernelWidth(v: Double): this.type = set(kernelWidth, v)
 
-  def getMetricsCol: String = $(metricsCol)
-
-  def setMetricsCol(v: String): this.type = this.set(metricsCol, v)
-
   setDefault(numSamples -> 1000, regularization -> 0.0, kernelWidth -> 0.75, metricsCol -> "r2")
 }
 
 abstract class LIMEBase(override val uid: String) extends LocalExplainer with LIMEParams {
   import spark.implicits._
-
-  protected var backgroundData: Option[DataFrame] = None
-
-  final def setBackgroundDataset(backgroundDataset: DataFrame): this.type = {
-    this.backgroundData = Some(backgroundDataset)
-    this
-  }
 
   private def getSampleWeightUdf: UserDefinedFunction = {
     val kernelWidth = this.getKernelWidth

@@ -20,3 +20,25 @@ trait LocalExplainer
     }
   }
 }
+
+object LocalExplainer {
+  object LIME {
+    def tabular: TabularLIME = {
+      new TabularLIME()
+    }
+
+    def vector: VectorLIME = {
+      new VectorLIME()
+    }
+
+    def image: ImageLIME = {
+      new ImageLIME()
+    }
+
+    def text: TextLIME = {
+      new TextLIME()
+    }
+  }
+
+  object KernelSHAP
+}

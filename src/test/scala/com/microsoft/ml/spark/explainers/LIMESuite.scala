@@ -43,7 +43,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val predicted = model.transform(infer)
 
-    val lime = new TabularLIME()
+    val lime = LocalExplainer.LIME.tabular
       .setInputCols(Array("col1"))
       .setOutputCol("weights")
       .setBackgroundDataset(data)
@@ -94,7 +94,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val predicted = model.transform(infer)
 
-    val lime = new TabularLIME()
+    val lime = LocalExplainer.LIME.tabular
       .setInputCols(Array("col1", "col2"))
       .setOutputCol("weights")
       .setBackgroundDataset(data)
@@ -141,7 +141,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val predicted = model.transform(infer)
 
-    val lime = new TabularLIME()
+    val lime = LocalExplainer.LIME.tabular
       .setInputCols(Array("col1"))
       .setCategoricalFeatures(Array("col1"))
       .setOutputCol("weights")
@@ -180,7 +180,7 @@ class LIMESuite extends TestBase with NetworkUtils {
     val model = new LinearRegression().fit(df)
 
     val predicted = model.transform(df)
-    val lime = new VectorLIME()
+    val lime = LocalExplainer.LIME.vector
       .setModel(model)
       .setInputCol("features")
       .setTargetCol(model.getPredictionCol)
@@ -204,7 +204,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
   private val cellSize = 30.0
   private val modifier = 50.0
-  private val lime: ImageLIME = new ImageLIME()
+  private val lime: ImageLIME = LocalExplainer.LIME.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setSamplingFraction(0.7)
@@ -289,7 +289,7 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     val model: PipelineModel = textClassifier.fit(df)
 
-    val textLime = new TextLIME()
+    val textLime = LocalExplainer.LIME.text
       .setModel(model)
       .setInputCol("text")
       .setTargetCol("prob")

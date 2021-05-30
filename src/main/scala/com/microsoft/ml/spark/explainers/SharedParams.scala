@@ -1,12 +1,59 @@
 package com.microsoft.ml.spark.explainers
 
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{IntParam, Param, Params}
-import org.apache.spark.sql.Column
-import org.apache.spark.sql.functions.{col, expr, lit}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, MapType, NumericType, StructType}
 import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.param._
+import org.apache.spark.sql.Column
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+trait HasMetricsCol extends Params {
+  val metricsCol = new Param[String](
+    this,
+    "metricsCol",
+    "Column name for fitting metrics"
+  )
+
+  def getMetricsCol: String = $(metricsCol)
+
+  def setMetricsCol(v: String): this.type = this.set(metricsCol, v)
+}
+
+trait HasModel extends Params {
+  val model = new TransformerParam(this, "model", "The model to be interpreted.")
+
+  def getModel: Transformer = $(model)
+
+  def setModel(v: Transformer): this.type = set(model, v)
+}
+
+trait HasNumSamples extends Params {
+  final val numSamples: IntParam = new IntParam(
+    this,
+    "numSamples",
+    "Number of samples to generate.",
+    ParamValidators.gt(0)
+  )
+
+  final def getNumSamples: Int = $(numSamples)
+
+  final def setNumSamples(value: Int): this.type = this.set(numSamples, value)
+}
+
+trait HasSamplingFraction extends Params {
+  val samplingFraction = new DoubleParam(
+    this,
+    "samplingFraction",
+    "The fraction of superpixels (for image) or tokens (for text) to keep on",
+    ParamValidators.inRange(0, 1)
+  )
+
+  def getSamplingFraction: Double = $(samplingFraction)
+
+  def setSamplingFraction(d: Double): this.type = set(samplingFraction, d)
+}
 
 trait HasExplainTarget extends Params {
   final val targetCol: Param[String] = new Param[String](
