@@ -11,7 +11,7 @@ import org.apache.spark.sql.types.{ArrayType, DoubleType, StructField, StructTyp
 import org.apache.spark.sql.{DataFrame, Row}
 
 class VectorLIME(override val uid: String)
-  extends LIMEBase(uid) with HasInputCol {
+  extends LIMEBase(uid) with HasInputCol with HasBackgroundData {
 
   def this() = {
     this(Identifiable.randomUID("VectorLIME"))
@@ -55,7 +55,7 @@ class VectorLIME(override val uid: String)
       )
   }
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double, Double]] = {
     val Row(std: SV) = df
       .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
       .select("summary.std")

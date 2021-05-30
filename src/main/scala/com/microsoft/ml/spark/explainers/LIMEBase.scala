@@ -116,14 +116,10 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
   protected override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
+    // TODO: extract the following check to the HasMetricsCol trait
     require(
       !schema.fieldNames.contains(getMetricsCol),
       s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
-    )
-
-    require(
-      !schema.fieldNames.contains(getOutputCol),
-      s"Input schema (${schema.simpleString}) already contains output column $getOutputCol"
     )
   }
 }

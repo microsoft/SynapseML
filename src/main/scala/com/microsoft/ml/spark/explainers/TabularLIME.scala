@@ -84,7 +84,7 @@ class TabularLIME(override val uid: String)
 
   import spark.implicits._
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double, Double]] = {
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 

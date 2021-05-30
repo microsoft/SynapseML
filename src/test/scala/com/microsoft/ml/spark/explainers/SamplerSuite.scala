@@ -143,15 +143,15 @@ class SamplerSuite extends TestBase {
 
     // In this test case, 10/45 superpixel clusters are turned off by black background,
     // so the distance should be sqrt(10/45).
-    assert(math.abs(distance - math.sqrt(10d/45d)) < 1e-6)
+    assert(math.abs(distance - math.sqrt(10d / 45d)) < 1e-6)
 
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
-     import com.microsoft.ml.spark.io.image.ImageUtils
-     import com.microsoft.ml.spark.lime.Superpixel
-     val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
-     Superpixel.displayImage(maskedImage)
-     Thread.sleep(100000)
+    // import com.microsoft.ml.spark.io.image.ImageUtils
+    // import com.microsoft.ml.spark.lime.Superpixel
+    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
+    // Superpixel.displayImage(maskedImage)
+    // Thread.sleep(100000)
   }
 
   test("TextFeatureSampler can draw samples") {

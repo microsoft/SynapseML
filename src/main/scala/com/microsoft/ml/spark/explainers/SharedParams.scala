@@ -39,6 +39,8 @@ trait HasNumSamples extends Params {
 
   final def getNumSamples: Int = $(numSamples)
 
+  final def getNumSamplesOpt: Option[Int] = this.get(numSamples)
+
   final def setNumSamples(value: Int): this.type = this.set(numSamples, value)
 }
 
