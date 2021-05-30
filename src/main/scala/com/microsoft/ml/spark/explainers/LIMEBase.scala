@@ -71,7 +71,10 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     weightUdf
   }
 
-  override def explain(instances: Dataset[_]): DataFrame = {
+  final override def explain(instances: Dataset[_]): DataFrame = {
+
+    this.validateSchema(instances.schema)
+
     val regularization = this.getRegularization
     val df = instances.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
@@ -130,7 +133,9 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     row.getAs[SV](featureCol).toBreeze
   }
 
-  protected def validateInputSchema(schema: StructType): Unit = {
+  protected override def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
     require(
       !schema.fieldNames.contains(getMetricsCol),
       s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"

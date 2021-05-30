@@ -120,8 +120,8 @@ class TabularLIME(override val uid: String)
     categoryFeatureStats.toArray ++: numFeatureStats
   }
 
-  override protected def validateInputSchema(schema: StructType): Unit = {
-    super.validateInputSchema(schema)
+  override protected def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
 
     this.getInputCols.foreach {
       inputCol =>

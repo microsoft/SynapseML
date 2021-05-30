@@ -6,7 +6,7 @@ trait HasSamplingFraction extends Params {
   val samplingFraction = new DoubleParam(
     this,
     "samplingFraction",
-    "The fraction of superpixels to keep on",
+    "The fraction of superpixels (for image) or tokens (for text) to keep on",
     ParamValidators.inRange(0, 1)
   )
 

@@ -67,8 +67,9 @@ class VectorLIME(override val uid: String)
     }
   }
 
-  override protected def validateInputSchema(schema: StructType): Unit = {
-    super.validateInputSchema(schema)
+  override protected def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
     require(
       schema(getInputCol).dataType == SQLDataTypes.VectorType,
       s"Field $getInputCol is expected to be vector type, but got ${schema(getInputCol).dataType} instead."

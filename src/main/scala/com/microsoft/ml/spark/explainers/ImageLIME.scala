@@ -1,6 +1,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
@@ -24,7 +25,7 @@ trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
   setDefault(numSamples -> 900, cellSize -> 16, modifier -> 130, regularization -> 0.0,
-    samplingFraction -> 0.3, superpixelCol -> "superpixels")
+    samplingFraction -> 0.7, superpixelCol -> "superpixels")
 }
 
 class ImageLIME(override val uid: String)
@@ -78,5 +79,16 @@ class ImageLIME(override val uid: String)
         col("samples.feature").alias(featureCol),
         col("samples.sample").alias(getInputCol)
       )
+  }
+
+  override protected def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
+    // TODO: support binary input schema
+
+    require(
+      ImageSchemaUtils.isImage(schema(getInputCol).dataType),
+      s"Field $getInputCol is expected to be image type, but got ${schema(getInputCol).dataType} instead."
+    )
   }
 }
