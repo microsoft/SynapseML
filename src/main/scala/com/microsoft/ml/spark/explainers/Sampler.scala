@@ -221,25 +221,31 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Doub
   }
 }
 
-//private[explainers] trait KernelSHAPSupport {
-//
-//  def getNextCoalition
-//}
+private[explainers] class KernelSHAPTabularSampler(features: Seq[Int], background: Row, numSamples: Int)
+  extends RandomSampler[Row, SV, Unit] with KernelSHAPSupport {
 
-//private[explainers] class KernelSHAPTabularSampler(features: Seq[String], background: Row)
-//  extends Sampler[Row, SV, Unit] with RandomSampler {
-//
-//  // TODO: Kernel weight function for KernelSHAP samplers
-//
-//  override def nextState(instance: Row): SV = {
-//    // Get the next coalition
-//    ???
-//  }
-//
-//  override def createNewSample(instance: Row, state: SV): Row = {
-//    // Merge instance with background based on coalition
-//    ???
-//  }
-//
-//  override def getDistance(instance: Row, state: SV): Unit = ()
-//}
+  // TODO: Kernel weight function for KernelSHAP samplers
+
+  private lazy val coalitionGenerator: Iterator[BDV[Int]] = {
+    this.generateCoalitions(features.size, numSamples)
+  }
+
+  override def nextState(instance: Row)(implicit randBasis: RandBasis): SV = {
+    coalitionGenerator.next.mapValues(_.toDouble).toSpark
+  }
+
+  override def createNewSample(instance: Row, state: SV): Row = {
+    // Merge instance with background based on coalition
+    val newRow = Row.fromSeq(
+      features.map {
+        i =>
+          val row = if (state(i) == 1.0) instance else background
+          row.get(i)
+      }
+    )
+
+    newRow
+  }
+
+  override def getDistance(instance: Row, state: SV): Unit = ()
+}

@@ -10,8 +10,10 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vectors => SVS}
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
+import org.scalatest.Matchers._
 
 import java.nio.file.{Files, Path}
 
@@ -166,5 +168,38 @@ class SamplerSuite extends TestBase {
 
     assert(sampled.length == (features.toBreeze :== 1.0).activeSize)
     assert(distance == math.sqrt((tokens.size - 80) / tokens.size.toDouble))
+  }
+
+  test("KernelSHAPSampler can draw samples") {
+    implicit val randBasis: RandBasis = RandBasis.mt0
+
+    val numSamples = 8
+    val featureIndices = Seq(0, 1, 2)
+
+    val backgroundRow = Row.fromSeq(Seq(1d, 2L, "3"))
+
+    val sampler = new KernelSHAPTabularSampler(featureIndices, backgroundRow, numSamples)
+
+    val instance = Row.fromSeq(Seq(4d, 5L, "6"))
+
+    val samples = (1 to 8).map {
+      _ =>
+        val (r, _, _) = sampler.sample(instance)
+        (r.getAs[Double](0), r.getAs[Long](1), r.getAs[String](2))
+    }
+
+    // Should get all 8 unique combinations
+    samples.distinct.size shouldBe numSamples
+    samples.foreach {
+      case (col1, col2, col3) =>
+        Seq(1d, 4d) should contain(col1)
+        Seq(2L, 5L) should contain(col2)
+        Seq("3", "6") should contain(col3)
+    }
+
+    // No more coalitions can be generated anymore
+    an[NoSuchElementException] shouldBe thrownBy {
+      sampler.sample(instance)
+    }
   }
 }
