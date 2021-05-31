@@ -33,6 +33,8 @@ class TabularLIME(override val uid: String)
 
   setDefault(categoricalFeatures -> Array.empty)
 
+  private implicit val randBasis: RandBasis = RandBasis.mt0
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        featureCol: String,
@@ -41,8 +43,6 @@ class TabularLIME(override val uid: String)
     val numSamples = this.getNumSamples
 
     val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
-
-    println(featureStats)
 
     val sampler = new LIMETabularSampler(featureStats)
 

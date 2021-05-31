@@ -19,6 +19,8 @@ class VectorLIME(override val uid: String)
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
+  private implicit val randBasis: RandBasis = RandBasis.mt0
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        featureCol: String,
