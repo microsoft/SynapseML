@@ -33,11 +33,9 @@ class TabularLIME(override val uid: String)
 
   setDefault(categoricalFeatures -> Array.empty)
 
-  private implicit val randBasis: RandBasis = RandBasis.mt0
-
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
-                                       featureCol: String,
+                                       stateCol: String,
                                        distanceCol: String): DataFrame = {
 
     val numSamples = this.getNumSamples
@@ -77,7 +75,7 @@ class TabularLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
-        col("samples.feature").alias(featureCol),
+        col("samples.feature").alias(stateCol),
         col("samples.sample.*")
       )
   }

@@ -95,7 +95,7 @@ class ImageLIME(override val uid: String)
 
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
-                                       featureCol: String,
+                                       stateCol: String,
                                        distanceCol: String
                                       ): DataFrame = {
 
@@ -110,7 +110,7 @@ class ImageLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
-        col("samples.feature").alias(featureCol),
+        col("samples.feature").alias(stateCol),
         col("samples.sample").alias(getInputCol)
       )
   }

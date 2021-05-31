@@ -64,23 +64,23 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
     val df = instances.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val weightCol = DatasetExtensions.findUnusedColumnName("weight", df)
-    val featureCol = DatasetExtensions.findUnusedColumnName("feature", df)
+    val stateCol = DatasetExtensions.findUnusedColumnName("state", df)
     val distanceCol = DatasetExtensions.findUnusedColumnName("distance", df)
 
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
     val preprocessed = preprocess(dfWithId).cache()
 
-    val samples = createSamples(preprocessed, idCol, featureCol, distanceCol)
+    val samples = createSamples(preprocessed, idCol, stateCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
     // DEBUG
     // samples.select(weightCol, distanceCol).show(false)
 
-    val transformed = getModel.transform(samples)
+    val scored = getModel.transform(samples)
 
-    val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", transformed)
+    val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
 
-    val modelOutput = transformed.withColumn(explainTargetCol, this.getExplainTarget(transformed.schema))
+    val modelOutput = scored.withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
 
     // DEBUG
     // modelOutput.select(featureCol, explainTargetCol, weightCol, distanceCol).show(false)
@@ -89,7 +89,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = row.getAs[SV](featureCol).toBreeze
+            val input = row.getAs[SV](stateCol).toBreeze
             val output = row.getAs[Double](explainTargetCol)
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
@@ -110,7 +110,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
   protected def createSamples(df: DataFrame,
                               idCol: String,
-                              featureCol: String,
+                              stateCol: String,
                               distanceCol: String): DataFrame
 
   protected override def validateSchema(schema: StructType): Unit = {
