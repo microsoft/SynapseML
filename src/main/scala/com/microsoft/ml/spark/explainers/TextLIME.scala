@@ -3,7 +3,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.feature.Tokenizer
-import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
@@ -63,7 +63,7 @@ class TextLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
-        col("samples.feature").alias(stateCol),
+        col("samples.state").alias(stateCol),
         col("samples.sample").alias(getInputCol)
       )
   }
@@ -72,7 +72,7 @@ class TextLIME(override val uid: String)
     ArrayType(
       StructType(Seq(
         StructField("sample", StringType),
-        StructField("feature", SQLDataTypes.VectorType),
+        StructField("state", VectorType),
         StructField("distance", DoubleType)
       ))
     )

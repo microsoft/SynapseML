@@ -6,7 +6,8 @@ import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
@@ -110,7 +111,7 @@ class ImageLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
-        col("samples.feature").alias(stateCol),
+        col("samples.state").alias(stateCol),
         col("samples.sample").alias(getInputCol)
       )
   }
@@ -119,7 +120,7 @@ class ImageLIME(override val uid: String)
     ArrayType(
       StructType(Seq(
         StructField("sample", ImageSchema.columnSchema),
-        StructField("feature", SQLDataTypes.VectorType),
+        StructField("state", VectorType),
         StructField("distance", DoubleType)
       ))
     )

@@ -2,7 +2,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Row}
@@ -41,7 +41,7 @@ class TabularSHAP(override val uid: String)
     val returnDataType = ArrayType(
       StructType(Seq(
         StructField("sample", sampleType),
-        StructField("coalition", SQLDataTypes.VectorType)
+        StructField("coalition", VectorType)
       ))
     )
 
