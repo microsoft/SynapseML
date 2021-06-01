@@ -44,5 +44,9 @@ object LocalExplainer {
     def tabular: TabularSHAP = {
       new TabularSHAP()
     }
+
+    def vector: VectorSHAP = {
+      new VectorSHAP()
+    }
   }
 }

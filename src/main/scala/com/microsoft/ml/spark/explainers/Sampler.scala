@@ -221,16 +221,10 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Doub
   }
 }
 
-private[explainers] class KernelSHAPTabularSampler(background: Row, numSamples: Int)
+private[explainers] class KernelSHAPTabularSampler(background: Row, override val numSamples: Int)
   extends RandomSampler[Row, SV, Unit] with KernelSHAPSupport {
 
-  // TODO: Kernel weight function for KernelSHAP samplers
-
-  private val featureSize = background.size
-
-  private lazy val coalitionGenerator: Iterator[BDV[Int]] = {
-    this.generateCoalitions(featureSize, numSamples)
-  }
+  override protected def featureSize: Int = background.size
 
   override def nextState(instance: Row)(implicit randBasis: RandBasis): SV = {
     coalitionGenerator.next.mapValues(_.toDouble).toSpark
@@ -250,4 +244,22 @@ private[explainers] class KernelSHAPTabularSampler(background: Row, numSamples: 
   }
 
   override def getDistance(instance: Row, state: SV): Unit = ()
+}
+
+private[explainers] class KernelSHAPVectorSampler(background: SV, override val numSamples: Int)
+  extends RandomSampler[SV, SV, Unit] with KernelSHAPSupport {
+
+  override protected def featureSize: Int = background.size
+
+  override def nextState(instance: SV)(implicit randBasis: RandBasis): SV = {
+    coalitionGenerator.next.mapValues(_.toDouble).toSpark
+  }
+
+  override def createNewSample(instance: SV, state: SV): SV = {
+    val mask = state.toBreeze
+    val result = (mask *:* instance.toBreeze) + ((1.0 - mask) *:* background.toBreeze)
+    result.toSpark
+  }
+
+  override def getDistance(instance: SV, state: SV): Unit = ()
 }

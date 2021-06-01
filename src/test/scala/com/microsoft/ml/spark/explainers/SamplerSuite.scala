@@ -170,7 +170,7 @@ class SamplerSuite extends TestBase {
     assert(distance == math.sqrt((tokens.size - 80) / tokens.size.toDouble))
   }
 
-  test("KernelSHAPSampler can draw samples") {
+  test("KernelSHAPTabularSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.mt0
 
     val numSamples = 8
@@ -180,7 +180,7 @@ class SamplerSuite extends TestBase {
 
     val instance = Row.fromSeq(Seq(4d, 5L, "6"))
 
-    val samples = (1 to 8).map {
+    val samples = (1 to numSamples).map {
       _ =>
         val (r, _, _) = sampler.sample(instance)
         (r.getAs[Double](0), r.getAs[Long](1), r.getAs[String](2))
@@ -200,6 +200,36 @@ class SamplerSuite extends TestBase {
     // No more coalitions can be generated anymore
     an[NoSuchElementException] shouldBe thrownBy {
       sampler.sample(instance)
+    }
+  }
+
+  test("KernelSHAPVectorSampler can draw samples") {
+    implicit val randBasis: RandBasis = RandBasis.mt0
+    val numSamples = 32
+    val background = BDV.rand[Double](5, randBasis.uniform)
+
+    val sampler = new KernelSHAPVectorSampler(background.toSpark, numSamples)
+
+    val instance = BDV.rand[Double](5, randBasis.uniform)
+
+    val samples = (1 to numSamples).map {
+      _ =>
+        val (r, _, _) = sampler.sample(instance.toSpark)
+        r.toBreeze
+    }
+
+    samples.distinct.size shouldBe numSamples
+    samples.foreach {
+      vec =>
+        vec.foreachPair {
+          case (i, v) =>
+            Seq(instance(i), background(i)) should contain(v)
+        }
+    }
+
+    // No more coalitions can be generated anymore
+    an[NoSuchElementException] shouldBe thrownBy {
+      sampler.sample(instance.toSpark)
     }
   }
 }

@@ -7,6 +7,12 @@ import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDoub
 import scala.annotation.tailrec
 
 private[explainers] trait KernelSHAPSupport {
+  protected def featureSize: Int
+  protected def numSamples: Int
+
+  protected lazy val coalitionGenerator: Iterator[BDV[Int]] = {
+    this.generateCoalitions(featureSize, numSamples)
+  }
 
   private def generateSampleSizes(m: Int, nSamples: Int): List[Int] = {
     assert(m > 0)

@@ -105,5 +105,10 @@ object KernelSHAPBase {
       numerator / denominator
     }
   }
+
+  private[explainers] def getEffectiveNumSamples(defaultNumSamples: Option[Int], numFeature: Int): Int = {
+    val maxSamplesNeeded = math.pow(2, numFeature)
+    math.min(defaultNumSamples.getOrElse(2 * numFeature + 2048), maxSamplesNeeded).toInt
+  }
 }
 

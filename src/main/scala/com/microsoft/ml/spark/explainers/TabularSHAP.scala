@@ -20,11 +20,6 @@ class TabularSHAP(override val uid: String)
 
   def setInputCols(values: Array[String]): this.type = this.set(inputCols, values)
 
-  private def getEffectiveNumSamples(numFeature: Int): Int = {
-    val maxSamplesNeeded = math.pow(2, numFeature)
-    math.min(this.getNumSamplesOpt.getOrElse(2 * numFeature + 2048), maxSamplesNeeded).toInt
-  }
-
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
     val instances = df.select(col(idCol), struct(getInputCols.map(col): _*).alias("instance"))
     val background = this.backgroundData.getOrElse(instances)
@@ -32,7 +27,7 @@ class TabularSHAP(override val uid: String)
 
     val featureSize = this.getInputCols.length
 
-    val effectiveNumSamples = this.getEffectiveNumSamples(featureSize)
+    val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(this.getNumSamplesOpt, featureSize)
 
     // println(s"effectiveNumSamples: $effectiveNumSamples")
 
@@ -72,5 +67,25 @@ class TabularSHAP(override val uid: String)
         col("samples.coalition").alias(coalitionCol),
         col("samples.sample.*")
       )
+  }
+
+  override def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
+    if (backgroundData.isDefined) {
+      val bgDf = backgroundData.get
+
+      this.getInputCols.foreach {
+        col =>
+          val inputField: StructField = schema(col)
+          val backgroundField = bgDf.schema(col)
+
+          require(
+            DataType.equalsStructurally(inputField.dataType, backgroundField.dataType, ignoreNullability = true),
+            s"Field $col has type ${inputField.dataType} from input instance, but type ${backgroundField.dataType} " +
+              s"from background dataset."
+          )
+      }
+    }
   }
 }
