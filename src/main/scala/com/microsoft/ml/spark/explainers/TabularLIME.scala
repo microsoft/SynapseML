@@ -53,7 +53,7 @@ class TabularLIME(override val uid: String)
     val returnDataType = ArrayType(
       StructType(Seq(
         StructField("sample", sampleType),
-        StructField("feature", SQLDataTypes.VectorType),
+        StructField("state", SQLDataTypes.VectorType),
         StructField("distance", DoubleType)
       ))
     )
@@ -75,7 +75,7 @@ class TabularLIME(override val uid: String)
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
-        col("samples.feature").alias(stateCol),
+        col("samples.state").alias(stateCol),
         col("samples.sample.*")
       )
   }

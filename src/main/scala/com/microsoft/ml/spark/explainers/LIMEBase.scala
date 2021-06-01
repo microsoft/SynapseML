@@ -100,7 +100,7 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
         val weightsBV = BDV(weights: _*)
         val lassoResults = new LassoRegression(regularization).fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
 
-        (id, lassoResults.coefficients.toArray, lassoResults.rSquared)
+        (id, lassoResults.coefficients.toSpark, lassoResults.rSquared)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)

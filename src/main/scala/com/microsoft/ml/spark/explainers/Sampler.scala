@@ -221,13 +221,15 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Doub
   }
 }
 
-private[explainers] class KernelSHAPTabularSampler(features: Seq[Int], background: Row, numSamples: Int)
+private[explainers] class KernelSHAPTabularSampler(background: Row, numSamples: Int)
   extends RandomSampler[Row, SV, Unit] with KernelSHAPSupport {
 
   // TODO: Kernel weight function for KernelSHAP samplers
 
+  private val featureSize = background.size
+
   private lazy val coalitionGenerator: Iterator[BDV[Int]] = {
-    this.generateCoalitions(features.size, numSamples)
+    this.generateCoalitions(featureSize, numSamples)
   }
 
   override def nextState(instance: Row)(implicit randBasis: RandBasis): SV = {
@@ -237,7 +239,7 @@ private[explainers] class KernelSHAPTabularSampler(features: Seq[Int], backgroun
   override def createNewSample(instance: Row, state: SV): Row = {
     // Merge instance with background based on coalition
     val newRow = Row.fromSeq(
-      features.map {
+      (0 until featureSize).map {
         i =>
           val row = if (state(i) == 1.0) instance else background
           row.get(i)

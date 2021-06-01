@@ -8,11 +8,12 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml.linalg.{Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 class LIMESuite extends TestBase with NetworkUtils {
   import spark.implicits._
@@ -53,17 +54,17 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClass(1)
 
-    val weights = lime.explain(predicted)
-    val result = weights.select("weights", "r2").as[(Seq[Double], Double)].head
-    val weightsVec = BDV(result._1: _*)
+    val (weights, r2) = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].head
+
+    val weightsBz = weights.toBreeze
 
     // The derivative of the logistic function with coefficient k at x = 0, simplifies to k/4.
     // We set the kernel width to a very small value so we only consider a very close neighborhood
     // for regression, and set L1 regularization to zero so it does not affect the fit coefficient.
     // Therefore, the coefficient of the lasso regression should approximately match the derivative.
-    assert(norm(weightsVec - BDV(coefficient / 4)) < 1e-2)
+    assert(norm(weightsBz - BDV(coefficient / 4)) < 1e-2)
 
-    assert(math.abs(result._2 - 1d) < 1e-6, "R-squared of the fit should be close to 1.")
+    assert(math.abs(r2 - 1d) < 1e-6, "R-squared of the fit should be close to 1.")
   }
 
   test("TabularLIME can explain a simple logistic model locally with multiple variables") {
@@ -82,7 +83,6 @@ class LIMESuite extends TestBase with NetworkUtils {
     val pipeline = new Pipeline().setStages(Array(vecAssembler, classifier))
     val model = pipeline.fit(data)
 
-    // coefficient should be around 3.61594667
     val coefficients = model.stages(1).asInstanceOf[LogisticRegressionModel].coefficients.toArray
 
     assert(math.abs(coefficients(0) - 3.5279868) < 1e-5)
@@ -105,15 +105,15 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClass(1)
 
-    val weights = lime.explain(predicted)
+    val (weights, _) = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].head
 
-    val weightsVec = BDV(weights.select("weights").as[Seq[Double]].head: _*)
+    val weightsBz = weights.toBreeze
 
-    // println(weightsVec)
+    // println(weightsBz)
 
     // With 0.01 L1 regularization, the second feature gets removed due to low importance.
-    assert(weightsVec(0) > 0.0)
-    assert(weightsVec(1) == 0.0)
+    assert(weightsBz(0) > 0.0)
+    assert(weightsBz(1) == 0.0)
   }
 
   test("TabularLIME can explain a model locally with categorical variables") {
@@ -152,8 +152,8 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetClass(1)
 
     val weights = lime.explain(predicted)
-    val results = weights.select("col1", "weights").as[(Int, Array[Double])].collect()
-      .map(r => (r._1, r._2.head))
+    val results = weights.select("col1", "weights").as[(Int, SV)].collect()
+      .map(r => (r._1, r._2(0)))
       .toMap
 
     // weights for data point 1 and 4 should be close, 2 and 3 should be close by symmetry.
@@ -187,13 +187,11 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setOutputCol("weights")
       .setNumSamples(1000)
 
-    val weights = lime.explain(predicted)
-
-    val weightsVectors = weights.select("weights").as[Seq[Double]].collect().map {
-      vec => BDV(vec: _*)
+    val weights = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].collect().map {
+      case (vec, _) => vec.toBreeze
     }
 
-    val weightsMatrix = BDM(weightsVectors: _*)
+    val weightsMatrix = BDM(weights: _*)
     weightsMatrix(*, ::).foreach {
       row =>
         assert(norm(row - coefficients(::, 0)) < 1e-6)
@@ -225,14 +223,14 @@ class LIMESuite extends TestBase with NetworkUtils {
     val (image, superpixels, weights, r2) = lime
       .explain(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, Seq[Double], Double)]
+      .as[(ImageFormat, SuperpixelData, SV, Double)]
       .head
 
     // println(weights)
     // println(r2)
     assert(math.abs(r2 - 0.91754) < 1e-2)
 
-    val spStates = weights.map(_ >= 0.2).toArray
+    val spStates = weights.toBreeze.map(_ >= 0.2).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
 
@@ -253,14 +251,14 @@ class LIMESuite extends TestBase with NetworkUtils {
     val (weights, r2) = lime
       .explain(binaryDf)
       .select("weights", "r2")
-      .as[(Seq[Double], Double)]
+      .as[(SV, Double)]
       .head
 
     // println(weights)
     // println(r2)
     assert(math.abs(r2 - 0.91754) < 1e-2)
 
-    val spStates = weights.map(_ >= 0.2).toArray
+    val spStates = weights.toBreeze.map(_ >= 0.2).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
   }
@@ -305,7 +303,7 @@ class LIMESuite extends TestBase with NetworkUtils {
     ) toDF("text", "label")
 
     val results = textLime.explain(target).select("tokens", "weights", "r2")
-      .as[(Seq[String], Seq[Double], Double)]
+      .as[(Seq[String], SV, Double)]
       .collect()
       .map {
         case (tokens, weights, r2) => (tokens(3), weights(3), r2)

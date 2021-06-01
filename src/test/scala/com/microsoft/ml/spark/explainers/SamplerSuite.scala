@@ -174,11 +174,9 @@ class SamplerSuite extends TestBase {
     implicit val randBasis: RandBasis = RandBasis.mt0
 
     val numSamples = 8
-    val featureIndices = Seq(0, 1, 2)
-
     val backgroundRow = Row.fromSeq(Seq(1d, 2L, "3"))
 
-    val sampler = new KernelSHAPTabularSampler(featureIndices, backgroundRow, numSamples)
+    val sampler = new KernelSHAPTabularSampler(backgroundRow, numSamples)
 
     val instance = Row.fromSeq(Seq(4d, 5L, "6"))
 
@@ -187,6 +185,8 @@ class SamplerSuite extends TestBase {
         val (r, _, _) = sampler.sample(instance)
         (r.getAs[Double](0), r.getAs[Long](1), r.getAs[String](2))
     }
+
+    // samples.foreach(println)
 
     // Should get all 8 unique combinations
     samples.distinct.size shouldBe numSamples

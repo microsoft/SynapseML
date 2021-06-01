@@ -40,5 +40,9 @@ object LocalExplainer {
     }
   }
 
-  object KernelSHAP
+  object KernelSHAP {
+    def tabular: TabularSHAP = {
+      new TabularSHAP()
+    }
+  }
 }
