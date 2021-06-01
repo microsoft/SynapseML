@@ -4,16 +4,16 @@
 package com.microsoft.ml.spark.nn
 
 import breeze.linalg.{DenseVector => BDV}
-import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol}
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.injections.OptimizedKNNFitting
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -101,9 +101,9 @@ class KNNModel(val uid: String) extends Model[KNNModel]
       if (broadcastedModelOption.isEmpty) {
         broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
       }
-      val getNeighborUDF = UDFUtils.oldUdf({ dv: DenseVector =>
+      val getNeighborUDF = UDFUtils.oldUdf({ v: Vector =>
         val bt = broadcastedModelOption.get.value
-        bt.findMaximumInnerProducts(new BDV(dv.values), getK)
+        bt.findMaximumInnerProducts(new BDV(v.toDense.values), getK)
           .map(bm => Row(bt.values(bm.index), bm.distance))
       }, ArrayType(new StructType()
         .add("value", dataset.schema(getValuesCol).dataType)

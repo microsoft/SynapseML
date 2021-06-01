@@ -3,12 +3,11 @@
 
 package org.apache.spark.sql.types.injections
 
-import com.microsoft.ml.spark.nn._
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.Dataset
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.internal.Logging
+import com.microsoft.ml.spark.nn._
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
 trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
@@ -17,7 +16,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
     val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
       .map { row =>
-        val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
+        val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)
         val label = row.getAs[L](getLabelCol)
         (bdv, value, label)
@@ -54,7 +53,7 @@ trait OptimizedKNNFitting extends KNNParams with BasicLogging {
 
     val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
       .map { row =>
-        val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
+        val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)
         (bdv, value)
       }
