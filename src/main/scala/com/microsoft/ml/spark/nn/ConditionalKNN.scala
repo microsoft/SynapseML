@@ -8,11 +8,11 @@ import com.microsoft.ml.spark.core.contracts.HasLabelCol
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.{ConditionalBallTreeParam, Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.injections.OptimizedCKNNFitting
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -63,11 +63,10 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
 
 private[ml] object KNNFuncHolder {
   def queryFunc[L, V](bbt: Broadcast[ConditionalBallTree[L, V]], k: Int)
-                     (dv: DenseVector, conditioner: Seq[L]): Seq[Row] = {
-    bbt.value.findMaximumInnerProducts(new BDV(dv.values), conditioner.toSet, k)
+                     (v: Vector, conditioner: Seq[L]): Seq[Row] = {
+    bbt.value.findMaximumInnerProducts(new BDV(v.toDense.values), conditioner.toSet, k)
       .map(bm => Row(bbt.value.values(bm.index), bm.distance, bbt.value.labels(bm.index)))
   }
-
 }
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
