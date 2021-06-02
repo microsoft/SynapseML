@@ -130,4 +130,8 @@ class KernelSHAPSuite extends TestBase {
     // R-squared of the underlying regression should be close to 1.
     assert(math.abs(r2 - 1d) < 1E-5)
   }
+
+  test("ImageKernelSHAP can explain a model locally") {
+
+  }
 }

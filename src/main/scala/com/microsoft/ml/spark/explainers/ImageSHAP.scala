@@ -1,0 +1,129 @@
+package com.microsoft.ml.spark.explainers
+
+import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.io.image.ImageUtils
+import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.image.ImageSchema
+import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.shared.HasInputCol
+import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.functions.{col, explode, lit}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row}
+
+import java.awt.image.BufferedImage
+
+trait ImageSHAPParams extends KernelSHAPParams with HasCellSize with HasModifier with HasInputCol {
+  self: ImageSHAP =>
+
+  val superpixelCol = new Param[String](
+    this,
+    "superpixelCol",
+    "The column holding the superpixel decompositions"
+  )
+
+  def getSuperpixelCol: String = $(superpixelCol)
+
+  def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
+
+  def setInputCol(value: String): this.type = this.set(inputCol, value)
+
+  setDefault(cellSize -> 16, modifier -> 130, superpixelCol -> "superpixels")
+}
+
+class ImageSHAP(override val uid: String)
+  extends KernelSHAPBase(uid) with ImageSHAPParams {
+
+  def this() = {
+    this(Identifiable.randomUID("ImageSHAP"))
+  }
+
+  override protected def preprocess(df: DataFrame): DataFrame = {
+    // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
+    new SuperpixelTransformer()
+      .setCellSize(getCellSize)
+      .setModifier(getModifier)
+      .setInputCol(getInputCol)
+      .setOutputCol(getSuperpixelCol)
+      .transform(df)
+  }
+
+  private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, SV)] = {
+    val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, spd.clusters.size)
+    val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples)
+    (1 to effectiveNumSamples).map {
+      _ =>
+        val (outputImage, feature, _) = sampler.sample
+        val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
+        val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
+        (imageFormat, feature)
+    }
+  }
+
+  private lazy val imageSamplesUdf = {
+    UDFUtils.oldUdf(
+      {
+        (image: Row, sp: Row, numSamples: Option[Int]) =>
+          val bi = ImageUtils.toBufferedImage(image)
+          val spd = SuperpixelData.fromRow(sp)
+          sample(bi, spd, numSamples)
+      },
+      getSampleSchema
+    )
+  }
+
+  private lazy val binarySamplesUdf = {
+    UDFUtils.oldUdf(
+      {
+        (data: Array[Byte], sp: Row, numSamples: Option[Int]) =>
+          val biOpt = ImageUtils.safeRead(data)
+          val spd = SuperpixelData.fromRow(sp)
+          biOpt.map {
+            bi =>
+              sample(bi, spd, numSamples)
+          }.getOrElse(Seq.empty)
+      },
+      getSampleSchema
+    )
+  }
+
+  override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
+    val samplingUdf = df.schema(getInputCol).dataType match {
+      case BinaryType =>
+        this.binarySamplesUdf
+      case t if ImageSchemaUtils.isImage(t) =>
+        this.imageSamplesUdf
+    }
+
+    val numSampleOpt = this.getNumSamplesOpt
+
+    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol), lit(numSampleOpt))))
+      .select(
+        col(idCol),
+        col("samples.coalition").alias(coalitionCol),
+        col("samples.sample").alias(getInputCol)
+      )
+  }
+
+  private def getSampleSchema: DataType = {
+    ArrayType(
+      StructType(Seq(
+        StructField("sample", ImageSchema.columnSchema),
+        StructField("coalition", VectorType)
+      ))
+    )
+  }
+
+  override protected def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
+    require(
+      ImageSchemaUtils.isImage(schema(getInputCol).dataType) || schema(getInputCol).dataType == BinaryType,
+      s"Field $getInputCol is expected to be image type or binary type, " +
+        s"but got ${schema(getInputCol).dataType} instead."
+    )
+  }
+}

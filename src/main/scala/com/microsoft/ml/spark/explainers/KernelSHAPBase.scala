@@ -85,11 +85,6 @@ abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer w
   }
 
   protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame
-
-//  private def getEffectiveNumSamples(numFeature: Int): Int = {
-//    val maxSamplesNeeded = math.pow(2, numFeature)
-//    math.min(this.getNumSamplesOpt.getOrElse(2 * numFeature + 2048), maxSamplesNeeded).toInt
-//  }
 }
 
 object KernelSHAPBase {
