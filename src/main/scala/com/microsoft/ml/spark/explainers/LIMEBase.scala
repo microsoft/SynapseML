@@ -10,6 +10,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.linalg.{Vector => SV}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.logging.BasicLogging
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>
@@ -39,7 +40,11 @@ trait LIMEParams extends HasNumSamples with HasMetricsCol {
   setDefault(numSamples -> 1000, regularization -> 0.0, kernelWidth -> 0.75, metricsCol -> "r2")
 }
 
-abstract class LIMEBase(override val uid: String) extends LocalExplainer with LIMEParams {
+abstract class LIMEBase(override val uid: String)
+  extends LocalExplainer
+    with LIMEParams
+    with BasicLogging {
+
   import spark.implicits._
 
   private def getSampleWeightUdf: UserDefinedFunction = {
@@ -56,10 +61,8 @@ abstract class LIMEBase(override val uid: String) extends LocalExplainer with LI
 
   protected def preprocess(df: DataFrame): DataFrame = df
 
-  final override def explain(instances: Dataset[_]): DataFrame = {
-
+  final override def explain(instances: Dataset[_]): DataFrame = logExplain {
     this.validateSchema(instances.schema)
-
     val regularization = this.getRegularization
     val df = instances.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)

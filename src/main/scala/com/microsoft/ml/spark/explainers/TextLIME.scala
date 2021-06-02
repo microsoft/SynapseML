@@ -29,6 +29,8 @@ trait TextLIMEParams extends LIMEParams with HasSamplingFraction with HasInputCo
 class TextLIME(override val uid: String)
   extends LIMEBase(uid) with TextLIMEParams {
 
+  logClass()
+
   def this() = {
     this(Identifiable.randomUID("TextLIME"))
   }

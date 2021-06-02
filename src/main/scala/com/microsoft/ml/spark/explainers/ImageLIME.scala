@@ -38,6 +38,7 @@ trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with 
 
 class ImageLIME(override val uid: String)
   extends LIMEBase(uid) with ImageLIMEParams {
+  logClass()
 
   def this() = {
     this(Identifiable.randomUID("ImageLIME"))

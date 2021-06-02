@@ -3,6 +3,7 @@ import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
@@ -17,12 +18,16 @@ trait KernelSHAPParams extends HasNumSamples with HasMetricsCol {
   setDefault(metricsCol -> "r2")
 }
 
-abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer with KernelSHAPParams {
+abstract class KernelSHAPBase(override val uid: String)
+  extends LocalExplainer
+    with KernelSHAPParams
+    with BasicLogging {
+
   import spark.implicits._
 
   protected def preprocess(df: DataFrame): DataFrame = df
 
-  override def explain(instances: Dataset[_]): DataFrame = {
+  override def explain(instances: Dataset[_]): DataFrame = logExplain {
     this.validateSchema(instances.schema)
 
     val df = instances.toDF

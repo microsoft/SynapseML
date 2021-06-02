@@ -15,6 +15,8 @@ class VectorSHAP(override val uid: String)
     with HasInputCol
     with HasBackgroundData {
 
+  logClass()
+
   def this() = {
     this(Identifiable.randomUID("VectorSHAP"))
   }

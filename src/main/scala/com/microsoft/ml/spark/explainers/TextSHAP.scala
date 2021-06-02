@@ -28,6 +28,8 @@ trait TextSHAPParams extends KernelSHAPParams with HasInputCol {
 class TextSHAP(override val uid: String)
   extends KernelSHAPBase(uid) with TextSHAPParams {
 
+  logClass()
+
   def this() = {
     this(Identifiable.randomUID("TextSHAP"))
   }

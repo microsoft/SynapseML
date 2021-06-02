@@ -14,6 +14,8 @@ class TabularSHAP(override val uid: String)
     with HasInputCols
     with HasBackgroundData {
 
+  logClass()
+  
   def this() = {
     this(Identifiable.randomUID("TabularSHAP"))
   }

@@ -37,6 +37,8 @@ trait ImageSHAPParams extends KernelSHAPParams with HasCellSize with HasModifier
 class ImageSHAP(override val uid: String)
   extends KernelSHAPBase(uid) with ImageSHAPParams {
 
+  logClass()
+
   def this() = {
     this(Identifiable.randomUID("ImageSHAP"))
   }

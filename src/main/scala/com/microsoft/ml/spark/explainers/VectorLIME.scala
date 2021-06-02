@@ -13,6 +13,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 class VectorLIME(override val uid: String)
   extends LIMEBase(uid) with HasInputCol with HasBackgroundData {
 
+  logClass()
+
   def this() = {
     this(Identifiable.randomUID("VectorLIME"))
   }
