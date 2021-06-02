@@ -6,7 +6,6 @@ import breeze.stats.distributions.RandBasis
 import breeze.stats.{mean, stddev}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vectors => SVS}
@@ -16,6 +15,7 @@ import org.apache.spark.sql.types._
 import org.scalatest.Matchers._
 
 import java.nio.file.{Files, Path}
+import javax.imageio.ImageIO
 
 class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
@@ -121,19 +121,11 @@ class SamplerSuite extends TestBase {
     assert(distances.forall(_ > 0d))
   }
 
-  test("ImageFeatureSampler can draw samples") {
-    import spark.implicits._
+  test("LIMEImageSampler can draw samples") {
 
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val imageResource = this.getClass.getResource("/greyhound.jpg")
-
-    val df = spark.read.image.load(imageResource.toString)
-
-    val Tuple1(image) = df.select("image").as[Tuple1[ImageFormat]].head
-
-    val bi = ImageUtils.toBufferedImage(
-      image.data, image.width, image.height, image.nChannels
-    )
+    val bi = ImageIO.read(imageResource)
 
     val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
 
@@ -162,7 +154,7 @@ class SamplerSuite extends TestBase {
     // Thread.sleep(100000)
   }
 
-  test("TextFeatureSampler can draw samples") {
+  test("LIMETextSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val file = this.getClass.getResource("/audio1.txt")
     val text = Files.readString(Path.of(file.toURI))
@@ -170,9 +162,9 @@ class SamplerSuite extends TestBase {
     val tokens = text.toLowerCase.split("\\s")
 
     val textSampler = new LIMETextSampler(tokens, 0.7)
-    val (sampled, features, distance) = textSampler.sample
+    val (sampled, state, distance) = textSampler.sample
 
-    assert(sampled.length == (features.toBreeze :== 1.0).activeSize)
+    assert(sampled.length == (state.toBreeze :== 1.0).activeSize)
     assert(distance == math.sqrt((tokens.size - 80) / tokens.size.toDouble))
   }
 
@@ -236,5 +228,75 @@ class SamplerSuite extends TestBase {
     an[NoSuchElementException] shouldBe thrownBy {
       sampler.sample
     }
+  }
+
+  test("KernelSHAPImageSampler can draw samples") {
+
+    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+    val imageResource = this.getClass.getResource("/greyhound.jpg")
+    val bi = ImageIO.read(imageResource)
+
+    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
+
+    val imageSampler = new KernelSHAPImageSampler(bi, spd, 150)
+
+    (0 to 1) foreach {
+      _ =>
+        val (_, mask, _) = imageSampler.sample
+        val num1 = (mask.toBreeze :== 1.0).activeSize
+        assert(num1 == 0 || num1 == 45)
+    }
+
+    (2 to 91) foreach {
+      _ =>
+        val (_, mask, _) = imageSampler.sample
+        val num1 = (mask.toBreeze :== 1.0).activeSize
+        assert(num1 == 1 || num1 == 44)
+    }
+
+    (92 to 148) foreach {
+      i =>
+        val (_, mask, _) = imageSampler.sample
+        val num1 = (mask.toBreeze :== 1.0).activeSize
+        assert(num1 == 2 || num1 == 43, i)
+    }
+
+    val (last, _, _) = imageSampler.sample
+    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(last)
+
+    // No more coalitions can be generated anymore
+    an[NoSuchElementException] shouldBe thrownBy {
+      imageSampler.sample
+    }
+
+    // Uncomment the following lines lines to view the randomly masked image.
+    // Change the RandBasis seed to see a different mask image.
+    // import com.microsoft.ml.spark.io.image.ImageUtils
+    // import com.microsoft.ml.spark.lime.Superpixel
+    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
+    // Superpixel.displayImage(maskedImage)
+    // Thread.sleep(100000)
+  }
+
+  test("KernelSHAPTextSampler can draw samples") {
+    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+
+    val text = "Lorem ipsum dolor sit amet vivendum principes sadipscing cu has"
+    val tokens = text.toLowerCase.split("\\s")
+
+    val textSampler = new KernelSHAPTextSampler(tokens, 150)
+    val (samples, states) = (1 to 150).map {
+      _ =>
+        val (sampled, state, _) = textSampler.sample
+        (sampled, state)
+    }.unzip
+
+    // No more coalitions can be generated anymore
+    an[NoSuchElementException] shouldBe thrownBy {
+      textSampler.sample
+    }
+
+    assert(samples.size == 150)
+    assert(states.size == 150)
   }
 }
