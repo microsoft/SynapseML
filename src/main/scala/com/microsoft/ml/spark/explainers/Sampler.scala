@@ -97,25 +97,21 @@ private case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private final case class ImageFeature(samplingFraction: Double, spd: SuperpixelData)
-  extends FeatureStats[BufferedImage, SV, Double] with ImageFeatureSampler {
-  override def fieldIndex: Int = 0
-  protected lazy val numClusters: Int = spd.clusters.size
-}
+private class ImageFeatureSampler(samplingFraction: Double, spd: SuperpixelData)
+  extends RandomSampler[BufferedImage, SV, Double] {
 
-private trait ImageFeatureSampler extends RandomSampler[BufferedImage, SV, Double] {
-  self: ImageFeature =>
+  private lazy val numClusters: Int = spd.clusters.size
 
   override def nextState(instance: BufferedImage)(implicit randBasis: RandBasis): SV = {
-    val mask: BitVector = BDV.rand(self.numClusters, randBasis.uniform) <:= self.samplingFraction
-    val maskAsDouble = BDV.zeros[Double](self.numClusters)
+    val mask: BitVector = BDV.rand(this.numClusters, randBasis.uniform) <:= this.samplingFraction
+    val maskAsDouble = BDV.zeros[Double](this.numClusters)
     axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
     maskAsDouble.toSpark
   }
 
   override def createNewSample(instance: BufferedImage, state: SV): BufferedImage = {
     val mask = state.toArray.map(_ == 1.0)
-    val outputImage = Superpixel.maskImage(instance, self.spd, mask)
+    val outputImage = Superpixel.maskImage(instance, this.spd, mask)
     outputImage
   }
 
@@ -127,16 +123,11 @@ private trait ImageFeatureSampler extends RandomSampler[BufferedImage, SV, Doubl
   }
 }
 
-private final case class TextFeature(samplingFraction: Double, seed: Int = 0)
-  extends FeatureStats[Seq[String], SV, Double] with TextFeatureSampler {
-  override def fieldIndex: Int = 0
-}
-
-private trait TextFeatureSampler extends RandomSampler[Seq[String], SV, Double] {
-  self: TextFeature =>
+private class TextFeatureSampler(samplingFraction: Double)
+  extends RandomSampler[Seq[String], SV, Double] {
 
   override def nextState(instance: Seq[String])(implicit randBasis: RandBasis): SV = {
-    val mask: BitVector = BDV.rand(instance.size, randBasis.uniform) <:= self.samplingFraction
+    val mask: BitVector = BDV.rand(instance.size, randBasis.uniform) <:= this.samplingFraction
     val maskAsDouble = BDV.zeros[Double](instance.size)
     axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
     maskAsDouble.toSpark

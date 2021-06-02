@@ -56,7 +56,7 @@ class ImageLIME(override val uid: String)
   private def sample(numSamples: Int, samplingFraction: Double)(bi: BufferedImage, spd: SuperpixelData)
     : Seq[(ImageFormat, SV, Double)] = {
     implicit val randBasis: RandBasis = RandBasis.mt0
-    val sampler = ImageFeature(samplingFraction, spd)
+    val sampler = new ImageFeatureSampler(samplingFraction, spd)
     (1 to numSamples).map {
       _ =>
         val (outputImage, feature, distance) = sampler.sample(bi)

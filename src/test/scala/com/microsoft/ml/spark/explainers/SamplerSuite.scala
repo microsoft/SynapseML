@@ -131,7 +131,7 @@ class SamplerSuite extends TestBase {
 
     val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
 
-    val imageSampler = ImageFeature(0.7, spd)
+    val imageSampler = new ImageFeatureSampler(0.7, spd)
 
     val (sample, mask, distance) = imageSampler.sample(bi)
 
@@ -163,7 +163,7 @@ class SamplerSuite extends TestBase {
 
     val tokens = text.toLowerCase.split("\\s")
 
-    val textSampler = TextFeature(0.7)
+    val textSampler = new TextFeatureSampler(0.7)
     val (sampled, features, distance) = textSampler.sample(tokens)
 
     assert(sampled.length == (features.toBreeze :== 1.0).activeSize)
