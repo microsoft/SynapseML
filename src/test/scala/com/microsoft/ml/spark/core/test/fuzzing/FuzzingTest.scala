@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark.core.test.fuzzing
 
+import java.lang.reflect.ParameterizedType
+
 import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils
@@ -10,7 +12,6 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
-import java.lang.reflect.ParameterizedType
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
@@ -261,17 +262,17 @@ class FuzzingTest extends TestBase {
   // set the context loader to pick up on the jars
   //Thread.currentThread().setContextClassLoader(JarLoadingUtils.classLoader)
 
-  private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]
+  private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]()
 
-  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]
+  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]()
 
   private lazy val experimentFuzzers: List[ExperimentFuzzing[_ <: PipelineStage]] =
-    JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]
+    JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]()
 
   private lazy val serializationFuzzers: List[SerializationFuzzing[_ <: PipelineStage with MLWritable]] =
-    JarLoadingUtils.instantiateServices[SerializationFuzzing[_ <: PipelineStage with MLWritable]]
+    JarLoadingUtils.instantiateServices[SerializationFuzzing[_ <: PipelineStage with MLWritable]]()
 
   private lazy val pytestFuzzers: List[PyTestFuzzing[_ <: PipelineStage]] =
-    JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]
+    JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]()
 
 }

@@ -33,7 +33,6 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Style Check'
       inputs:
@@ -46,7 +45,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda info
@@ -87,7 +86,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda info
@@ -128,14 +127,13 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Get Docker Tag + Version'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
-          VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
           echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
     - task: Docker@2
@@ -226,7 +224,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
@@ -275,7 +273,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
@@ -389,7 +387,7 @@ jobs:
       vw:
         PACKAGE: "vw"
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:

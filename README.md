@@ -60,7 +60,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> |<img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
 |:--:|:--:|:--:|
-|  **Isolation Forest on Spark**  | [**CyberML**](https://github.com/Azure/mmlspark/blob/master/notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | **Conditional KNN**  |
+|  **Isolation Forest on Spark**  | [**CyberML**](https://github.com/Azure/mmlspark/blob/master/notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | **Conditional KNN**  |
 |  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries | 
 
 
@@ -86,29 +86,29 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 -   Train and evaluate a flight delay prediction system ([example 2])
 -   Finding anomalous data access patterns using the Access Anomalies package of CyberML ([example 11])
 
-See our [notebooks](notebooks/samples/) for all examples.
+See our [notebooks](notebooks/) for all examples.
 
-[example 1]: notebooks/samples/Classification%20-%20Adult%20Census.ipynb "Adult Census Income Training"
+[example 1]: notebooks/Classification%20-%20Adult%20Census.ipynb "Adult Census Income Training"
 
-[example 2]: notebooks/samples/Regression%20-%20Flight%20Delays.ipynb "Regression Example with Flight Delay Dataset"
+[example 2]: notebooks/Regression%20-%20Flight%20Delays.ipynb "Regression Example with Flight Delay Dataset"
 
-[example 3]: notebooks/samples/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb "Quantile Regression with LightGBM"
+[example 3]: notebooks/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb "Quantile Regression with LightGBM"
 
-[example 4]: notebooks/samples/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb "Amazon Book Reviews - TextFeaturizer"
+[example 4]: notebooks/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb "Amazon Book Reviews - TextFeaturizer"
 
-[example 5]: notebooks/samples/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb "Hyperparameter Tuning with MMLSpark"
+[example 5]: notebooks/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb "Hyperparameter Tuning with MMLSpark"
 
-[example 6]: notebooks/samples/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb "CIFAR10 CNTK CNN Evaluation"
+[example 6]: notebooks/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb "CIFAR10 CNTK CNN Evaluation"
 
-[example 7]: notebooks/samples/OpenCV%20-%20Pipeline%20Image%20Transformations.ipynb "Pipeline Image Transformations"
+[example 7]: notebooks/OpenCV%20-%20Pipeline%20Image%20Transformations.ipynb "Pipeline Image Transformations"
 
-[example 8]: notebooks/samples/DeepLearning%20-%20BiLSTM%20Medical%20Entity%20Extraction.ipynb "Medical Entity Extraction"
+[example 8]: notebooks/DeepLearning%20-%20BiLSTM%20Medical%20Entity%20Extraction.ipynb "Medical Entity Extraction"
 
-[example 9]: notebooks/samples/DeepLearning%20-%20Flower%20Image%20Classification.ipynb "Deep Flower Classification"
+[example 9]: notebooks/DeepLearning%20-%20Flower%20Image%20Classification.ipynb "Deep Flower Classification"
 
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb "CIFAR10 CNTK CNN Training"
 
-[example 11]: notebooks/samples/CyberML%20-%20Anomalous%20Access%20Detection.ipynb "Access Anomalies documenation, training and evaluation example"
+[example 11]: notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb "Access Anomalies documenation, training and evaluation example"
 
 ## A short example
 
@@ -127,7 +127,7 @@ scoredImages = cntkModel.transform(imagesWithLabels)
 ...
 ```
 
-See [other sample notebooks](notebooks/samples/) as well as the MMLSpark
+See [other sample notebooks](notebooks/) as well as the MMLSpark
 documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
