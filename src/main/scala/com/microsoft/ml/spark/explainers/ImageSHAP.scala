@@ -53,10 +53,6 @@ class ImageSHAP(override val uid: String)
 
   private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, SV)] = {
     val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, spd.clusters.size)
-    println("numSamplesOpt: " + numSamplesOpt)
-    println("spd.clusters.size: " + spd.clusters.size)
-    println("effectiveNumSamples: " + effectiveNumSamples)
-
     val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples)
     (1 to effectiveNumSamples).map {
       _ =>

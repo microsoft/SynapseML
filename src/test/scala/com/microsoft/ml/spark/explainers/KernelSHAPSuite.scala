@@ -7,10 +7,11 @@ import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
-import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
+import org.apache.spark.ml.feature.{HashingTF, OneHotEncoder, StringIndexer, Tokenizer, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
 class KernelSHAPSuite extends TestBase with NetworkUtils {
@@ -149,7 +150,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setInputCol("image")
       .setCellSize(cellSize)
       .setModifier(modifier)
-      .setNumSamples(250)
+      .setNumSamples(90)
 
     val imageResource = this.getClass.getResource("/greyhound.jpg")
     val imageDf = spark.read.image.load(imageResource.toString)
@@ -180,5 +181,66 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
     // Superpixel.displayImage(censoredImage)
     // Thread.sleep(100000)
+  }
+
+  test("TextSHAP can explain a model locally") {
+    val df: DataFrame = Seq(
+      ("hi this is example 1", 1.0),
+      ("hi this is cat 1", 0.0),
+      ("hi this is example 1", 1.0),
+      ("foo this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is cat 1", 0.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi this is example 1", 1.0),
+      ("hi bar is cat 1", 0.0),
+      ("hi this is example 1", 1.0)
+    ) toDF("text", "label")
+
+    val tok: Tokenizer = new Tokenizer().setInputCol("text").setOutputCol("tokens")
+    val si: HashingTF = new HashingTF().setInputCol("tokens").setOutputCol("features")
+    val lr: LogisticRegression = new LogisticRegression()
+      .setFeaturesCol("features").setLabelCol("label").setProbabilityCol("prob")
+
+    val textClassifier: Pipeline = new Pipeline().setStages(Array(tok, si, lr))
+
+    val model: PipelineModel = textClassifier.fit(df)
+
+    val shap = LocalExplainer.KernelSHAP.text
+      .setModel(model)
+      .setInputCol("text")
+      .setTargetCol("prob")
+      .setTargetClass(1)
+      .setOutputCol("weights")
+      .setTokensCol("tokens")
+      .setNumSamples(100)
+
+    val target: DataFrame = Seq(
+      ("hi this is example 1", 1.0),
+      ("hi bar is cat 1", 0.0)
+    ) toDF("text", "label")
+
+    val results = shap.explain(target).select("tokens", "weights", "r2")
+      .as[(Seq[String], SV, Double)]
+      .collect()
+      .map {
+        case (tokens, shapValues, r2) => (tokens(3), shapValues, r2)
+      }
+
+    results.foreach {
+      case (_, _, r2) =>
+        assert(math.abs(1 - r2) < 1e-5)
+    }
+
+    // Sum of shap values should match predicted value
+    results.foreach {
+      case (token, shapValues, _) if token == "example" =>
+        assert(math.abs(1 - breeze.linalg.sum(shapValues.toBreeze)) < 1e-5)
+        assert(shapValues(4) > 0.29)
+      case (token, shapValues, r2) if token == "cat" =>
+        assert(math.abs(breeze.linalg.sum(shapValues.toBreeze)) < 1e-5)
+        assert(shapValues(4) < -0.29)
+    }
   }
 }

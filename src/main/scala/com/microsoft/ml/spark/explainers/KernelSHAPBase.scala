@@ -36,9 +36,6 @@ abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer w
     val sampleWeightUdf = UDFUtils.oldUdf(kernelWeight _, DoubleType)
     val samples = createSamples(preprocessed, idCol, coalitionCol)
 
-    // DEBUG
-    // samples.show(false)
-
     val scored = getModel.transform(samples)
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
 
@@ -47,9 +44,6 @@ abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer w
       .groupBy(col(idCol), col(coalitionCol))
       .agg(mean(col(explainTargetCol)).alias(explainTargetCol))
       .withColumn(weightCol, sampleWeightUdf(col(coalitionCol)))
-
-    // DEBUG
-    // coalitionScores.select(idCol, coalitionCol, explainTargetCol, weightCol).show(false)
 
     val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
@@ -64,10 +58,6 @@ abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer w
         val inputsBV = BDM(inputs: _*)
         val outputsBV = BDV(outputs: _*)
         val weightsBV = BDV(weights: _*)
-
-        println((inputsBV.rows, inputsBV.cols))
-        println(outputsBV.size)
-        println(weightsBV.size)
 
         val result = new LeastSquaresRegression().fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
         val shapValues = SVS.dense(result.intercept +: result.coefficients.toArray)
@@ -106,9 +96,11 @@ object KernelSHAPBase {
     }
   }
 
-  private[explainers] def getEffectiveNumSamples(defaultNumSamples: Option[Int], numFeature: Int): Int = {
+  private[explainers] def getEffectiveNumSamples(numSamplesParam: Option[Int], numFeature: Int): Int = {
+    val minSamplesNeeded = numFeature
     val maxSamplesNeeded = math.pow(2, numFeature)
-    math.min(defaultNumSamples.getOrElse(2 * numFeature + 2048), maxSamplesNeeded).toInt
+
+    val value = numSamplesParam.getOrElse(2 * numFeature + 2048)
+    math.max(math.min(value, maxSamplesNeeded).toInt, minSamplesNeeded)
   }
 }
-

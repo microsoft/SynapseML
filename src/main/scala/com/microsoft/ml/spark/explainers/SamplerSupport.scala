@@ -7,6 +7,7 @@ import org.apache.spark.ml.linalg.{Vector => SV}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 import scala.annotation.tailrec
+import scala.util.Random
 
 private[explainers] trait SamplerSupport {
   def nextState: SV
@@ -42,10 +43,11 @@ private[explainers] trait LIMESamplerSupport extends SamplerSupport {
 
 private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
   protected def featureSize: Int
+
   protected def numSamples: Int
 
   protected lazy val randomStateGenerator: Iterator[SV] = {
-    this.generateCoalitions(featureSize, numSamples).map{
+    this.generateCoalitions(featureSize, numSamples).map {
       v => v.mapValues(_.toDouble).toSpark
     }
   }
@@ -110,20 +112,20 @@ private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
         (m, k, size)
     }.flatMap {
       case (n, k, size) =>
-        if (size == comb(n, k)) {
-          // Generate all possible combinations
-          (0 until n).combinations(k).map {
-            comb =>
-              val v = BDV.zeros[Int](m)
-              v(comb) := 1
-              v
-          }
+        // Generate all possible combinations
+        val allCombs = (0 until n).combinations(k)
+        val combs = if (size == comb(n, k)) {
+          allCombs
         } else {
           // Randomly sample {size} number of combinations
-          (0 until size).map {
-            _ =>
-              randomComb(n, k)
-          }
+          Random.shuffle(allCombs).take(size)
+        }
+
+        combs.map {
+          comb =>
+            val v = BDV.zeros[Int](m)
+            v(comb) := 1
+            v
         }
     }
   }
