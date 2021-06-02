@@ -1,18 +1,56 @@
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{DenseVector => BDV}
+import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
 import breeze.stats.distributions.{Rand, RandBasis}
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
+import org.apache.spark.ml.linalg.{Vector => SV}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 import scala.annotation.tailrec
 
-private[explainers] trait KernelSHAPSupport {
+private[explainers] trait SamplerSupport {
+  def nextState: SV
+
+  def getDistance(state: SV): Double = {
+    // Set distance to normalized Euclidean distance
+    // 1 in the mask means keep the superpixel, 0 means replace with background color,
+    // so a vector of all 1 means the original observation.
+    norm(1.0 - state.toBreeze, 2) / math.sqrt(state.size)
+  }
+}
+
+private[explainers] trait LIMESamplerSupport extends SamplerSupport {
+  def featureSize: Int
+
+  def randBasis: RandBasis
+
+  def samplingFraction: Double
+
+  private lazy val randomStateGenerator: Iterator[SV] = new Iterator[SV] {
+    override def hasNext: Boolean = true
+
+    override def next(): SV = {
+      val mask: BitVector = BDV.rand(featureSize, randBasis.uniform) <:= samplingFraction
+      val maskAsDouble = BDV.zeros[Double](featureSize)
+      axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
+      maskAsDouble.toSpark
+    }
+  }
+
+  override def nextState: SV = this.randomStateGenerator.next
+}
+
+private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
   protected def featureSize: Int
   protected def numSamples: Int
 
-  protected lazy val coalitionGenerator: Iterator[BDV[Int]] = {
-    this.generateCoalitions(featureSize, numSamples)
+  protected lazy val randomStateGenerator: Iterator[SV] = {
+    this.generateCoalitions(featureSize, numSamples).map{
+      v => v.mapValues(_.toDouble).toSpark
+    }
   }
+
+  override def nextState: SV = this.randomStateGenerator.next
 
   private def generateSampleSizes(m: Int, nSamples: Int): List[Int] = {
     assert(m > 0)

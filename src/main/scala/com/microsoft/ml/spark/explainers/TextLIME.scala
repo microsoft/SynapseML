@@ -48,10 +48,10 @@ class TextLIME(override val uid: String)
       {
         (tokens: Seq[String]) =>
           implicit val randBasis: RandBasis = RandBasis.mt0
-          val sampler = new TextFeatureSampler(samplingFraction)
+          val sampler = new LIMETextSampler(tokens, samplingFraction)
           (1 to numSamples).map {
             _ =>
-              val (sampleTokens, features, distance) = sampler.sample(tokens)
+              val (sampleTokens, features, distance) = sampler.sample
               val sampleText = sampleTokens.mkString(" ")
               (sampleText, features, distance)
           }

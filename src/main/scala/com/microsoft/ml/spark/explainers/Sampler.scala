@@ -1,8 +1,7 @@
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
-import breeze.numerics.abs
-import breeze.stats.distributions.{RandBasis, Uniform}
+import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
@@ -11,151 +10,93 @@ import org.apache.spark.sql.Row
 
 import java.awt.image.BufferedImage
 
-private[explainers] trait RandomSampler[TObservation, TState, TDistance] extends Serializable {
+private[explainers] trait Sampler[TObservation, TState] extends Serializable {
+  def instance: TObservation
+
   /**
     * Generates a sample based on the specified instance, together with the perturbed state, and
     * distance metric between the generated sample and the original instance.
     */
-  def sample(instance: TObservation)(implicit randBasis: RandBasis): (TObservation, TState, TDistance) = {
-    val state = nextState(instance)
+  def sample: (TObservation, TState, Double) = {
+    val state = nextState
     val newSample = createNewSample(instance, state)
-    val distance = getDistance(instance, state)
+    val distance = getDistance(state)
     (newSample, state, distance)
   }
 
-  def nextState(instance: TObservation)(implicit randBasis: RandBasis): TState
+  def nextState: TState
 
   def createNewSample(instance: TObservation, state: TState): TObservation
 
-  def getDistance(instance: TObservation, state: TState): TDistance
+  def getDistance(state: TState): Double
 }
 
-private[explainers] trait FeatureStats[TObservation, TState, TDistance]
-  extends RandomSampler[TObservation, TState, TDistance] {
-  def fieldIndex: Int
-}
-
-private final case class ContinuousFeatureStats(override val fieldIndex: Int, stddev: Double)
-  extends FeatureStats[Double, Double, Double] with ContinuousFeatureSampler
-
-private trait ContinuousFeatureSampler extends RandomSampler[Double, Double, Double] {
-  self: ContinuousFeatureStats =>
-
-  override def nextState(instance: Double)(implicit randBasis: RandBasis): Double = {
-    randBasis.gaussian(instance, self.stddev).sample
-  }
-
-  override def createNewSample(instance: Double, state: Double): Double = {
-    state
-  }
-
-  override def getDistance(instance: Double, state: Double): Double = {
-    if (self.stddev == 0d) {
-      0d
-    } else {
-      // Normalize by stddev
-      abs(state - instance) / self.stddev
-    }
-  }
-}
-
-private final case class DiscreteFeatureStats(override val fieldIndex: Int, freq: Map[Double, Double])
-  extends FeatureStats[Double, Double, Double] with DiscreteFeatureSampler
-
-private trait DiscreteFeatureSampler extends RandomSampler[Double, Double, Double] {
-  self: DiscreteFeatureStats =>
-
-  /**
-    * Returns the cumulative density function (CDF) of the given frequency table.
-    */
-  private def cdf[V](freq: Seq[(V, Double)]): Seq[(V, Double)] = {
-    freq.map(_._1) zip freq.map(_._2).scanLeft(0d)(_ + _).drop(1)
-  }
-
-  private val cdfTable: Seq[(Double, Double)] = {
-    cdf(this.freq.toSeq)
-  }
-
-  override def createNewSample(instance: Double, state: Double): Double = {
-    state
-  }
-
-  override def nextState(instance: Double)(implicit randBasis: RandBasis): Double = {
-    val r = Uniform(0d, freq.values.sum).sample
-    cdfTable.find(r <= _._2).get._1
-  }
-
-  override def getDistance(instance: Double, state: Double): Double = {
-    if (instance == state) 0d else 1d
-  }
-}
-
-private case class ImageFormat(origin: Option[String],
+private[explainers] case class ImageFormat(origin: Option[String],
                                 height: Int,
                                 width: Int,
                                 nChannels: Int,
                                 mode: Int,
                                 data: Array[Byte])
 
-private class ImageFeatureSampler(samplingFraction: Double, spd: SuperpixelData)
-  extends RandomSampler[BufferedImage, SV, Double] {
-
-  private lazy val numClusters: Int = spd.clusters.size
-
-  override def nextState(instance: BufferedImage)(implicit randBasis: RandBasis): SV = {
-    val mask: BitVector = BDV.rand(this.numClusters, randBasis.uniform) <:= this.samplingFraction
-    val maskAsDouble = BDV.zeros[Double](this.numClusters)
-    axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
-    maskAsDouble.toSpark
-  }
+private[explainers] trait ImageSampler extends Sampler[BufferedImage, SV] {
+  def spd: SuperpixelData
 
   override def createNewSample(instance: BufferedImage, state: SV): BufferedImage = {
     val mask = state.toArray.map(_ == 1.0)
     val outputImage = Superpixel.maskImage(instance, this.spd, mask)
     outputImage
   }
-
-  override def getDistance(instance: BufferedImage, state: SV): Double = {
-    // Set distance to normalized Euclidean distance
-    // 1 in the mask means keep the superpixel, 0 means replace with background color,
-    // so a vector of all 1 means the original observation.
-    norm(1.0 - state.toBreeze, 2) / math.sqrt(state.size)
-  }
 }
 
-private class TextFeatureSampler(samplingFraction: Double)
-  extends RandomSampler[Seq[String], SV, Double] {
+private[explainers] class LIMEImageSampler(val instance: BufferedImage,
+                                           val samplingFraction: Double,
+                                           val spd: SuperpixelData)
+                                          (implicit val randBasis: RandBasis)
+  extends ImageSampler
+    with LIMESamplerSupport {
+  override def featureSize: Int = spd.clusters.size
+}
 
-  override def nextState(instance: Seq[String])(implicit randBasis: RandBasis): SV = {
-    val mask: BitVector = BDV.rand(instance.size, randBasis.uniform) <:= this.samplingFraction
-    val maskAsDouble = BDV.zeros[Double](instance.size)
-    axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
-    maskAsDouble.toSpark
-  }
+private[explainers] class KernelSHAPImageSampler(val instance: BufferedImage,
+                                                 val spd: SuperpixelData,
+                                                 val numSamples: Int)
+  extends ImageSampler
+    with KernelSHAPSamplerSupport {
+  override protected def featureSize: Int = spd.clusters.size
+}
 
-  override def createNewSample(instance: Seq[String], state: SV): Seq[String] = {
+private[explainers] trait TextSampler extends Sampler[Seq[String], SV] {
+  def createNewSample(instance: Seq[String], state: SV): Seq[String] = {
     val mask = state.toArray.map(_ == 1.0)
     (instance, mask).zipped.collect {
       case (token, state) if state => token
     }.toSeq
   }
-
-  override def getDistance(instance: Seq[String], state: SV): Double = {
-    // Set distance to normalized Euclidean distance
-    // 1 in the mask means keep the token, 0 means remove the token,
-    // so a vector of all 1 means the original observation.
-    norm(1.0 - state.toBreeze, 2) / math.sqrt(state.size)
-  }
 }
 
-private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats[Double, Double, Double]])
-  extends RandomSampler[SV, SV, Double] {
+private[explainers] class LIMETextSampler(val instance: Seq[String], val samplingFraction: Double)
+                                         (implicit val randBasis: RandBasis)
+  extends TextSampler
+    with LIMESamplerSupport {
+  override def featureSize: Int = instance.size
+}
 
-  override def nextState(instance: SV)(implicit randBasis: RandBasis): SV = {
+private[explainers] class KernelSHAPTextSampler(val instance: Seq[String],
+                                                val numSamples: Int)
+  extends TextSampler
+    with KernelSHAPSamplerSupport {
+  override protected def featureSize: Int = instance.size
+}
+
+private[explainers] class LIMEVectorSampler(val instance: SV, val featureStats: Seq[FeatureStats[Double]])
+                                           (implicit val randBasis: RandBasis)
+  extends Sampler[SV, SV] {
+
+  override def nextState: SV = {
     val states = featureStats.map {
       feature =>
         val value = instance(feature.fieldIndex)
-        feature.nextState(value)
+        feature.sample(value)
     }
 
     SVS.dense(states.toArray)
@@ -165,7 +106,7 @@ private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats[Doubl
     state
   }
 
-  override def getDistance(instance: SV, state: SV): Double = {
+  override def getDistance(state: SV): Double = {
     // Set distance to normalized Euclidean distance
 
     val n = featureStats.size
@@ -179,14 +120,15 @@ private[explainers] class LIMEVectorSampler(featureStats: Seq[FeatureStats[Doubl
   }
 }
 
-private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Double, Double, Double]])
-  extends RandomSampler[Row, SV, Double] {
+private[explainers] class LIMETabularSampler(val instance: Row, val featureStats: Seq[FeatureStats[Double]])
+                                            (implicit val randBasis: RandBasis)
+  extends Sampler[Row, SV] {
 
-  override def nextState(instance: Row)(implicit randBasis: RandBasis): SV = {
+  override def nextState: SV = {
     val states = featureStats.map {
       feature =>
         val value = instance.getAsDouble(feature.fieldIndex)
-        feature.nextState(value)
+        feature.sample(value)
     }
 
     SVS.dense(states.toArray)
@@ -196,7 +138,7 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Doub
     Row.fromSeq(state.toArray)
   }
 
-  override def getDistance(instance: Row, state: SV): Double = {
+  override def getDistance(state: SV): Double = {
     // Set distance to normalized Euclidean distance
 
     val n = featureStats.size
@@ -212,14 +154,12 @@ private[explainers] class LIMETabularSampler(featureStats: Seq[FeatureStats[Doub
   }
 }
 
-private[explainers] class KernelSHAPTabularSampler(background: Row, override val numSamples: Int)
-  extends RandomSampler[Row, SV, Unit] with KernelSHAPSupport {
+private[explainers] class KernelSHAPTabularSampler(val instance: Row,
+                                                   val background: Row,
+                                                   val numSamples: Int)
+  extends Sampler[Row, SV] with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
-
-  override def nextState(instance: Row)(implicit randBasis: RandBasis): SV = {
-    coalitionGenerator.next.mapValues(_.toDouble).toSpark
-  }
 
   override def createNewSample(instance: Row, state: SV): Row = {
     // Merge instance with background based on coalition
@@ -233,24 +173,19 @@ private[explainers] class KernelSHAPTabularSampler(background: Row, override val
 
     newRow
   }
-
-  override def getDistance(instance: Row, state: SV): Unit = ()
 }
 
-private[explainers] class KernelSHAPVectorSampler(background: SV, override val numSamples: Int)
-  extends RandomSampler[SV, SV, Unit] with KernelSHAPSupport {
+private[explainers] class KernelSHAPVectorSampler(val instance: SV,
+                                                  val background: SV,
+                                                  val numSamples: Int)
+  extends Sampler[SV, SV]
+    with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
-
-  override def nextState(instance: SV)(implicit randBasis: RandBasis): SV = {
-    coalitionGenerator.next.mapValues(_.toDouble).toSpark
-  }
 
   override def createNewSample(instance: SV, state: SV): SV = {
     val mask = state.toBreeze
     val result = (mask *:* instance.toBreeze) + ((1.0 - mask) *:* background.toBreeze)
     result.toSpark
   }
-
-  override def getDistance(instance: SV, state: SV): Unit = ()
 }

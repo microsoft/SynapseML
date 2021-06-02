@@ -42,7 +42,7 @@ class TabularLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
 
-    val sampler = new LIMETabularSampler(featureStats)
+
 
     val sampleType = StructType(featureStats.map {
       feature =>
@@ -62,9 +62,11 @@ class TabularLIME(override val uid: String)
       {
         row: Row =>
           implicit val randBasis: RandBasis = RandBasis.mt0
+          val sampler = new LIMETabularSampler(row, featureStats)
           (1 to numSamples).map {
             _ =>
-              val (sample, feature, distance) = sampler.sample(row)
+
+              val (sample, feature, distance) = sampler.sample
               (sample, feature, distance)
           }
       },
@@ -82,7 +84,7 @@ class TabularLIME(override val uid: String)
 
   import spark.implicits._
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double, Double]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 

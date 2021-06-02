@@ -48,11 +48,11 @@ class TabularSHAP(override val uid: String)
     val samplesUdf = UDFUtils.oldUdf(
       {
         (instance: Row, background: Row) =>
-          val sampler = new KernelSHAPTabularSampler(background, effectiveNumSamples)
+          val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples)
           (1 to effectiveNumSamples) map {
             _ =>
               implicit val randBasis: RandBasis = RandBasis.mt0
-              sampler.sample(instance)
+              sampler.sample
           } map {
             case (sample, state, _) => (sample, state)
           }

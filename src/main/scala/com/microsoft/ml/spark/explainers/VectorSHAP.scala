@@ -39,11 +39,11 @@ class VectorSHAP(override val uid: String)
       {
         (instance: SV, background: SV) =>
           val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSampleOpt, instance.size)
-          val sampler = new KernelSHAPVectorSampler(background, effectiveNumSamples)
+          val sampler = new KernelSHAPVectorSampler(instance, background, effectiveNumSamples)
           (1 to effectiveNumSamples) map {
             _ =>
               implicit val randBasis: RandBasis = RandBasis.mt0
-              sampler.sample(instance)
+              sampler.sample
           } map {
             case (sample, state, _) => (sample, state)
           }
@@ -73,7 +73,7 @@ class VectorSHAP(override val uid: String)
 
       require(
         dataType == VectorType,
-        s"Field $getInputCol from background dataset must be Vector type, but got ${dataType} instead."
+        s"Field $getInputCol from background dataset must be Vector type, but got $dataType instead."
       )
     }
   }

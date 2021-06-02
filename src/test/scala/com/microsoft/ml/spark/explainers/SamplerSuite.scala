@@ -22,9 +22,12 @@ class SamplerSuite extends TestBase {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
 
     val featureStats = ContinuousFeatureStats(0, 1.5)
-    val (samples, _, distances) = (1 to 1000).map {
-      _ => featureStats.sample(3.0)
-    }.unzip3
+    val (samples, distances) = (1 to 1000).map {
+      _ =>
+        val sample = featureStats.sample(3.0)
+        val distance = featureStats.getDistance(3.0, sample)
+        (sample, distance)
+    }.unzip
 
     // println(samples(0 to 100))
     assert(abs(mean(samples) - 2.9557393788483997) < 1e-5)
@@ -39,9 +42,12 @@ class SamplerSuite extends TestBase {
 
     val featureStats = DiscreteFeatureStats(0, freqTable)
 
-    val (samples, _, distances) = (1 to 1000).map {
-      _ => featureStats.sample(3.0)
-    }.unzip3
+    val (samples, distances) = (1 to 1000).map {
+      _ =>
+        val sample = featureStats.sample(3.0)
+        val distance = featureStats.getDistance(3.0, sample)
+        (sample, distance)
+    }.unzip
 
 //    println(samples(0 to 100))
 //    println(distances(0 to 100))
@@ -61,9 +67,9 @@ class SamplerSuite extends TestBase {
       DiscreteFeatureStats(1, Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
-    val sampler = new LIMEVectorSampler(featureStats)
+    val sampler = new LIMEVectorSampler(SVS.dense(3.2, 1.0), featureStats)
     val (samples, _, distances) = (1 to 1000).map {
-      _ => sampler.sample(SVS.dense(3.2, 1.0))
+      _ => sampler.sample
     }.unzip3
 
     val sampleMatrix = BDM(samples.map(_.toBreeze): _*)
@@ -88,16 +94,16 @@ class SamplerSuite extends TestBase {
       DiscreteFeatureStats(1, Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
-    val sampler = new LIMETabularSampler(featureStats)
-
     val row = new GenericRowWithSchema(
       Array[Any](3.2d, 1),
       StructType(Array(StructField("feature1", DoubleType), StructField("feature2", IntegerType)))
     )
 
+    val sampler = new LIMETabularSampler(row, featureStats)
+
     val (samples, distances) = (1 to 1000).map {
       _ =>
-        val (r, _, d) = sampler.sample(row)
+        val (r, _, d) = sampler.sample
         (BDV(r.getAs[Double](0), r.getAs[Double](1)), d)
     }.unzip
 
@@ -131,9 +137,9 @@ class SamplerSuite extends TestBase {
 
     val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
 
-    val imageSampler = new ImageFeatureSampler(0.7, spd)
+    val imageSampler = new LIMEImageSampler(bi, 0.7, spd)
 
-    val (sample, mask, distance) = imageSampler.sample(bi)
+    val (sample, mask, distance) = imageSampler.sample
 
     val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(sample)
     assert(width == 209)
@@ -163,8 +169,8 @@ class SamplerSuite extends TestBase {
 
     val tokens = text.toLowerCase.split("\\s")
 
-    val textSampler = new TextFeatureSampler(0.7)
-    val (sampled, features, distance) = textSampler.sample(tokens)
+    val textSampler = new LIMETextSampler(tokens, 0.7)
+    val (sampled, features, distance) = textSampler.sample
 
     assert(sampled.length == (features.toBreeze :== 1.0).activeSize)
     assert(distance == math.sqrt((tokens.size - 80) / tokens.size.toDouble))
@@ -176,13 +182,13 @@ class SamplerSuite extends TestBase {
     val numSamples = 8
     val backgroundRow = Row.fromSeq(Seq(1d, 2L, "3"))
 
-    val sampler = new KernelSHAPTabularSampler(backgroundRow, numSamples)
-
     val instance = Row.fromSeq(Seq(4d, 5L, "6"))
+
+    val sampler = new KernelSHAPTabularSampler(instance, backgroundRow, numSamples)
 
     val samples = (1 to numSamples).map {
       _ =>
-        val (r, _, _) = sampler.sample(instance)
+        val (r, _, _) = sampler.sample
         (r.getAs[Double](0), r.getAs[Long](1), r.getAs[String](2))
     }
 
@@ -199,7 +205,7 @@ class SamplerSuite extends TestBase {
 
     // No more coalitions can be generated anymore
     an[NoSuchElementException] shouldBe thrownBy {
-      sampler.sample(instance)
+      sampler.sample
     }
   }
 
@@ -207,14 +213,13 @@ class SamplerSuite extends TestBase {
     implicit val randBasis: RandBasis = RandBasis.mt0
     val numSamples = 32
     val background = BDV.rand[Double](5, randBasis.uniform)
-
-    val sampler = new KernelSHAPVectorSampler(background.toSpark, numSamples)
-
     val instance = BDV.rand[Double](5, randBasis.uniform)
+
+    val sampler = new KernelSHAPVectorSampler(instance.toSpark, background.toSpark, numSamples)
 
     val samples = (1 to numSamples).map {
       _ =>
-        val (r, _, _) = sampler.sample(instance.toSpark)
+        val (r, _, _) = sampler.sample
         r.toBreeze
     }
 
@@ -229,7 +234,7 @@ class SamplerSuite extends TestBase {
 
     // No more coalitions can be generated anymore
     an[NoSuchElementException] shouldBe thrownBy {
-      sampler.sample(instance.toSpark)
+      sampler.sample
     }
   }
 }

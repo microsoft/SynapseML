@@ -4,7 +4,7 @@ import breeze.linalg.sum
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.scalatest.Matchers.{an, convertToAnyShouldWrapper, thrownBy}
 
-class KernelSHAPSupportSuite extends TestBase with KernelSHAPSupport {
+class KernelSHAPSupportSuite extends TestBase with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = 0
   override protected def numSamples: Int = 0

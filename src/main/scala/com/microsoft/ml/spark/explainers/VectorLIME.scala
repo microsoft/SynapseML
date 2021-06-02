@@ -29,8 +29,6 @@ class VectorLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
 
-    val sampler = new LIMEVectorSampler(featureStats)
-
     val returnDataType = ArrayType(
       StructType(Seq(
         StructField("sample", SQLDataTypes.VectorType),
@@ -43,7 +41,8 @@ class VectorLIME(override val uid: String)
       {
         vector: SV =>
           implicit val randBasis: RandBasis = RandBasis.mt0
-          (1 to numSamples).map(_ => sampler.sample(vector))
+          val sampler = new LIMEVectorSampler(vector, featureStats)
+          (1 to numSamples).map(_ => sampler.sample)
       },
       returnDataType
     )
@@ -57,7 +56,7 @@ class VectorLIME(override val uid: String)
       )
   }
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double, Double, Double]] = {
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
     val Row(std: SV) = df
       .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
       .select("summary.std")
