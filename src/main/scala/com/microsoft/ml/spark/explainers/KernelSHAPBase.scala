@@ -64,6 +64,11 @@ abstract class KernelSHAPBase(override val uid: String) extends LocalExplainer w
         val inputsBV = BDM(inputs: _*)
         val outputsBV = BDV(outputs: _*)
         val weightsBV = BDV(weights: _*)
+
+        println((inputsBV.rows, inputsBV.cols))
+        println(outputsBV.size)
+        println(weightsBV.size)
+
         val result = new LeastSquaresRegression().fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
         val shapValues = SVS.dense(result.intercept +: result.coefficients.toArray)
         (id, shapValues, result.rSquared)

@@ -48,5 +48,13 @@ object LocalExplainer {
     def vector: VectorSHAP = {
       new VectorSHAP()
     }
+
+    def image: ImageSHAP = {
+      new ImageSHAP()
+    }
+
+    def text: TextSHAP = {
+      new TextSHAP()
+    }
   }
 }

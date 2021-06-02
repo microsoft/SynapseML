@@ -4,13 +4,16 @@ import breeze.stats.distributions.RandBasis
 import breeze.linalg.{*, DenseMatrix => BDM}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
+import com.microsoft.ml.spark.io.IOImplicits._
+import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.sql.functions._
 
-class KernelSHAPSuite extends TestBase {
+class KernelSHAPSuite extends TestBase with NetworkUtils {
   import spark.implicits._
 
   test("TabularKernelSHAP can explain a model locally") {
@@ -132,6 +135,50 @@ class KernelSHAPSuite extends TestBase {
   }
 
   test("ImageKernelSHAP can explain a model locally") {
+    val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
 
+    val cellSize = 30.0
+    val modifier = 50.0
+    val shap = LocalExplainer.KernelSHAP.image
+      .setModel(resNetTransformer)
+      .setTargetCol(resNetTransformer.getOutputCol)
+      .setTargetClass(172)
+      .setOutputCol("weights")
+      .setSuperpixelCol("superpixels")
+      .setMetricsCol("r2")
+      .setInputCol("image")
+      .setCellSize(cellSize)
+      .setModifier(modifier)
+      .setNumSamples(250)
+
+    val imageResource = this.getClass.getResource("/greyhound.jpg")
+    val imageDf = spark.read.image.load(imageResource.toString)
+
+    val (image, superpixels, shapValues, r2) = shap
+      .explain(imageDf)
+      .select("image", "superpixels", "weights", "r2")
+      .as[(ImageFormat, SuperpixelData, SV, Double)]
+      .head
+
+    // println(shapValues)
+    // println(r2)
+
+    // Base value should be almost zero.
+    assert(math.abs(shapValues(0)) < 1e-4)
+
+    // R2 should be almost 1.
+    assert(math.abs(r2 - 1.0) < 1e-5)
+
+    val spStates = shapValues.toBreeze.apply(1 to -1).map(_ >= 0.05).toArray
+    // println(spStates.count(identity))
+    assert(spStates.count(identity) == 8)
+    // Uncomment the following lines lines to view the censoredImage image.
+    // import com.microsoft.ml.spark.io.image.ImageUtils
+    // import com.microsoft.ml.spark.lime.Superpixel
+    // import java.awt.image.BufferedImage
+    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
+    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
+    // Superpixel.displayImage(censoredImage)
+    // Thread.sleep(100000)
   }
 }

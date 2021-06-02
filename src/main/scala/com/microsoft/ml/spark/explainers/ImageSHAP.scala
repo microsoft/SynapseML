@@ -53,6 +53,10 @@ class ImageSHAP(override val uid: String)
 
   private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, SV)] = {
     val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, spd.clusters.size)
+    println("numSamplesOpt: " + numSamplesOpt)
+    println("spd.clusters.size: " + spd.clusters.size)
+    println("effectiveNumSamples: " + effectiveNumSamples)
+
     val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples)
     (1 to effectiveNumSamples).map {
       _ =>
@@ -63,13 +67,15 @@ class ImageSHAP(override val uid: String)
     }
   }
 
+  private lazy val numSampleOpt = this.getNumSamplesOpt
+
   private lazy val imageSamplesUdf = {
     UDFUtils.oldUdf(
       {
-        (image: Row, sp: Row, numSamples: Option[Int]) =>
+        (image: Row, sp: Row) =>
           val bi = ImageUtils.toBufferedImage(image)
           val spd = SuperpixelData.fromRow(sp)
-          sample(bi, spd, numSamples)
+          sample(bi, spd, numSampleOpt)
       },
       getSampleSchema
     )
@@ -78,12 +84,12 @@ class ImageSHAP(override val uid: String)
   private lazy val binarySamplesUdf = {
     UDFUtils.oldUdf(
       {
-        (data: Array[Byte], sp: Row, numSamples: Option[Int]) =>
+        (data: Array[Byte], sp: Row) =>
           val biOpt = ImageUtils.safeRead(data)
           val spd = SuperpixelData.fromRow(sp)
           biOpt.map {
             bi =>
-              sample(bi, spd, numSamples)
+              sample(bi, spd, numSampleOpt)
           }.getOrElse(Seq.empty)
       },
       getSampleSchema
@@ -98,9 +104,7 @@ class ImageSHAP(override val uid: String)
         this.imageSamplesUdf
     }
 
-    val numSampleOpt = this.getNumSamplesOpt
-
-    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol), lit(numSampleOpt))))
+    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
         col("samples.coalition").alias(coalitionCol),
