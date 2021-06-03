@@ -22,7 +22,7 @@ import com.microsoft.ml.spark.core.schema.SparkBindings
 case class BingImagesResponse(_type: String,
                               instrumentation: BingInstrumentation,
                               webSearchUrl: String,
-                              totalEstimatedMatches: Int,
+                              totalEstimatedMatches: Option[Int],
                               nextOffset: Int,
                               value: Seq[BingImage],
                               pivotSuggestions: Seq[BingPivot],
