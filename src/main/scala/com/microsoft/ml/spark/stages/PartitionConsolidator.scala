@@ -1,14 +1,16 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.io.http
+package com.microsoft.ml.spark.stages
 
 import java.util.concurrent.LinkedBlockingQueue
+
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.io.http.{HTTPParams, SharedSingleton}
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -133,4 +135,9 @@ class PartitionConsolidator(val uid: String)
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = schema
+}
+
+trait LocalAggregator[T] {
+  def prep(iter: Iterator[Row]): T
+  def merge(ts: Seq[T]): T
 }
