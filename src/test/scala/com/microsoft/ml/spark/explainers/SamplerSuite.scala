@@ -101,13 +101,16 @@ class SamplerSuite extends TestBase {
 
     val sampler = new LIMETabularSampler(row, featureStats)
 
-    val (samples, distances) = (1 to 1000).map {
+    val (samples, states, distances) = (1 to 1000).map {
       _ =>
-        val (r, _, d) = sampler.sample
-        (BDV(r.getAs[Double](0), r.getAs[Double](1)), d)
-    }.unzip
+        val (r, s, d) = sampler.sample
+        (BDV(r.getAs[Double](0), r.getAs[Double](1)), s.toBreeze, d)
+    }.unzip3
 
     val sampleMatrix = BDM(samples: _*)
+
+    val statesMatrix = BDM(states: _*)
+
 //    println(mean(sampleMatrix(::, 0)))
 //    println(stddev(sampleMatrix(::, 0)))
 
@@ -119,6 +122,10 @@ class SamplerSuite extends TestBase {
     assert(sampleMatrix(::, 1).findAll(_ == 3d).size == 46)
 
     assert(distances.forall(_ > 0d))
+
+    // For categorical variables, the state should be 1 if the sample is same as original, otherwise 0.
+    assert(statesMatrix(::, 1).findAll(_ == 1d).size == 883)
+    assert(statesMatrix(::, 1).findAll(_ != 1d).size == 117)
   }
 
   test("LIMEImageSampler can draw samples") {

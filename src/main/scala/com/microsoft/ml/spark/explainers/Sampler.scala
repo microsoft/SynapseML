@@ -124,6 +124,20 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
                                             (implicit val randBasis: RandBasis)
   extends Sampler[Row, SV] {
 
+  override def sample: (Row, SV, Double) = {
+    val (newSample, states, distance) = super.sample
+
+    val originalValues = (0 until instance.size).map(instance.getAsDouble)
+
+    // For categorical features, set state to 1 if it matches with original instance, otherwise set to 0.
+    val newStates = (featureStats, states.toArray, originalValues).zipped map {
+      case (_: DiscreteFeatureStats, state, orig) => if (state == orig) 1d else 0d
+      case (_, state, _) => state
+    }
+
+    (newSample, SVS.dense(newStates.toArray), distance)
+  }
+
   override def nextState: SV = {
     val states = featureStats.zipWithIndex.map {
       case (feature, i) =>

@@ -146,21 +146,28 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setCategoricalFeatures(Array("col1"))
       .setOutputCol("weights")
       .setBackgroundDataset(data)
-      .setNumSamples(2000)
+      .setNumSamples(1000)
       .setModel(model)
       .setTargetCol("probability")
       .setTargetClass(1)
 
     val weights = lime.explain(predicted)
+
+    weights.show(false)
+
     val results = weights.select("col1", "weights").as[(Int, SV)].collect()
       .map(r => (r._1, r._2(0)))
       .toMap
 
-    // weights for data point 1 and 4 should be close, 2 and 3 should be close by symmetry.
-    assert(math.abs(results(1) - 0.38) < 1e-2)
-    assert(math.abs(results(2) - 0.43) < 1e-2)
-    assert(math.abs(results(3) - 0.43) < 1e-2)
-    assert(math.abs(results(4) - 0.38) < 1e-2)
+    // Assuming local linear behavior:
+    // col1 == 1 reduces the model output by more than 60% compared to model not knowing about col1
+    assert(results(1) < -0.6)
+    // col1 == 2 reduces the model output by more than 60% compared to model not knowing about col1
+    assert(results(2) < -0.6)
+    // col1 == 3 increases the model output by more than 60% compared to model not knowing about col1
+    assert(results(3) > 0.6)
+    // col1 == 4 increases the model output by more than 60% compared to model not knowing about col1
+    assert(results(3) > 0.6)
   }
 
   test("VectorLIME can explain a model locally") {
