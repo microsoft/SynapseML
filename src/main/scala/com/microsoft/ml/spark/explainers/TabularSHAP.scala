@@ -24,7 +24,7 @@ class TabularSHAP(override val uid: String)
 
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
     val instances = df.select(col(idCol), struct(getInputCols.map(col): _*).alias("instance"))
-    val background = this.backgroundData.getOrElse(instances)
+    val background = this.backgroundData.getOrElse(df)
       .select(struct(getInputCols.map(col): _*).alias("background"))
 
     val featureSize = this.getInputCols.length

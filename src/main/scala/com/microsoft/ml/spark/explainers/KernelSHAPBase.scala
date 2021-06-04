@@ -1,5 +1,6 @@
 package com.microsoft.ml.spark.explainers
 import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
@@ -21,13 +22,14 @@ trait KernelSHAPParams extends HasNumSamples with HasMetricsCol {
 abstract class KernelSHAPBase(override val uid: String)
   extends LocalExplainer
     with KernelSHAPParams
+    // with Wrappable
     with BasicLogging {
-
-  import spark.implicits._
 
   protected def preprocess(df: DataFrame): DataFrame = df
 
   override def explain(instances: Dataset[_]): DataFrame = logExplain {
+    import instances.sparkSession.implicits._
+
     this.validateSchema(instances.schema)
 
     val df = instances.toDF

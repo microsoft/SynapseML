@@ -44,8 +44,6 @@ class TabularLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
 
-
-
     val sampleType = StructType(featureStats.map {
       feature =>
         val name = df.schema(feature.fieldIndex).name
@@ -84,9 +82,9 @@ class TabularLIME(override val uid: String)
       )
   }
 
-  import spark.implicits._
-
   private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
+    import df.sparkSession.implicits._
+
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
 
@@ -96,7 +94,7 @@ class TabularLIME(override val uid: String)
         val freqMap = df.select(col(feature).cast(DoubleType).alias(feature))
           .groupBy(feature)
           .agg(count("*").cast(DoubleType).alias("count"))
-          .sort($"count".desc)
+          .sort(col("count").desc)
           .as[(Double, Double)]
           .head(maxFeatureMembers)
           .toMap

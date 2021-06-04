@@ -25,7 +25,7 @@ class VectorSHAP(override val uid: String)
 
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
     val instances = df.select(col(idCol), col(getInputCol).alias("instance"))
-    val background = this.backgroundData.getOrElse(instances)
+    val background = this.backgroundData.getOrElse(df)
       .select(col(getInputCol).alias("background"))
 
     val numSampleOpt = this.getNumSamplesOpt

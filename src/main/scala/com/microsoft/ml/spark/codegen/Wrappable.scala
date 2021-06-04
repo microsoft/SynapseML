@@ -6,12 +6,13 @@ package com.microsoft.ml.spark.codegen
 import java.lang.reflect.ParameterizedType
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.explainers.LocalExplainer
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
+import org.apache.commons.lang.StringEscapeUtils
 
 import scala.collection.Iterator.iterate
 import scala.reflect.ClassTag
@@ -119,8 +120,12 @@ trait PythonWrappable extends BaseWrappable {
     }
   }
 
-  protected lazy val pyInheritedClasses =
-    Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
+  protected lazy val pyInheritedClasses: Seq[String] = {
+    this match {
+      case _: LocalExplainer => Seq("LocalExplainer")
+      case _ => Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
+    }
+  }
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {
@@ -134,10 +139,14 @@ trait PythonWrappable extends BaseWrappable {
         |""".stripMargin
   }
 
+  private def escape(raw: String): String = {
+    StringEscapeUtils.escapeJava(raw)
+  }
+
   protected lazy val pyParamsDefinitions: String = {
     this.params.map { p =>
       val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-      s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${p.doc}"$typeConverterString)
+      s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
           |""".stripMargin
     }.mkString("\n")
   }

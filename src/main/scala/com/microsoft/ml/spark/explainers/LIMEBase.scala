@@ -1,6 +1,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
@@ -43,9 +44,8 @@ trait LIMEParams extends HasNumSamples with HasMetricsCol {
 abstract class LIMEBase(override val uid: String)
   extends LocalExplainer
     with LIMEParams
+    // with Wrappable
     with BasicLogging {
-
-  import spark.implicits._
 
   private def getSampleWeightUdf: UserDefinedFunction = {
     val kernelWidth = this.getKernelWidth
@@ -62,6 +62,7 @@ abstract class LIMEBase(override val uid: String)
   protected def preprocess(df: DataFrame): DataFrame = df
 
   final override def explain(instances: Dataset[_]): DataFrame = logExplain {
+    import instances.sparkSession.implicits._
     this.validateSchema(instances.schema)
     val regularization = this.getRegularization
     val df = instances.toDF
@@ -76,17 +77,11 @@ abstract class LIMEBase(override val uid: String)
     val samples = createSamples(preprocessed, idCol, stateCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
 
-    // DEBUG
-    // samples.select(weightCol, distanceCol).show(false)
-
     val scored = getModel.transform(samples)
 
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
 
     val modelOutput = scored.withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
-
-    // DEBUG
-    // modelOutput.select(featureCol, explainTargetCol, weightCol, distanceCol).show(false)
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
