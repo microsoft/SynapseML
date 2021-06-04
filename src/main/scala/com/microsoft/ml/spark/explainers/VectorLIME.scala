@@ -64,10 +64,7 @@ class VectorLIME(override val uid: String)
       .select("summary.std")
       .first()
 
-    std.toArray.zipWithIndex.map {
-      case (v, i) =>
-        ContinuousFeatureStats(i, v)
-    }
+    std.toArray.map(ContinuousFeatureStats)
   }
 
   override protected def validateSchema(schema: StructType): Unit = {

@@ -21,7 +21,7 @@ class SamplerSuite extends TestBase {
   test("ContinuousFeatureStats can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
 
-    val featureStats = ContinuousFeatureStats(0, 1.5)
+    val featureStats = ContinuousFeatureStats(1.5)
     val (samples, distances) = (1 to 1000).map {
       _ =>
         val sample = featureStats.sample(3.0)
@@ -40,7 +40,7 @@ class SamplerSuite extends TestBase {
 
     val freqTable = Map(2d -> 60d, 1d -> 900d, 3d -> 40d)
 
-    val featureStats = DiscreteFeatureStats(0, freqTable)
+    val featureStats = DiscreteFeatureStats(freqTable)
 
     val (samples, distances) = (1 to 1000).map {
       _ =>
@@ -63,8 +63,8 @@ class SamplerSuite extends TestBase {
   test("LIMEVectorSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val featureStats = Seq(
-      ContinuousFeatureStats(0, 5.3),
-      DiscreteFeatureStats(1, Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
+      ContinuousFeatureStats(5.3),
+      DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
     val sampler = new LIMEVectorSampler(SVS.dense(3.2, 1.0), featureStats)
@@ -90,8 +90,8 @@ class SamplerSuite extends TestBase {
   test("LIMETabularSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val featureStats = Seq(
-      ContinuousFeatureStats(0, 5.3),
-      DiscreteFeatureStats(1, Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
+      ContinuousFeatureStats(5.3),
+      DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
     val row = new GenericRowWithSchema(

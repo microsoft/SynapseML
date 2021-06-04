@@ -4,14 +4,12 @@ import breeze.numerics.abs
 import breeze.stats.distributions.{RandBasis, Uniform}
 
 private[explainers] trait FeatureStats[T] {
-  def fieldIndex: Int
-
   def sample(instance: T)(implicit randBasis: RandBasis): T
 
   def getDistance(instance: T, sample: T): Double
 }
 
-private[explainers] final case class ContinuousFeatureStats(override val fieldIndex: Int, stddev: Double)
+private[explainers] final case class ContinuousFeatureStats(stddev: Double)
   extends FeatureStats[Double] with ContinuousFeatureSampler
 
 private[explainers] trait ContinuousFeatureSampler extends FeatureStats[Double] {
@@ -31,7 +29,7 @@ private[explainers] trait ContinuousFeatureSampler extends FeatureStats[Double] 
   }
 }
 
-private[explainers] final case class DiscreteFeatureStats(override val fieldIndex: Int, freq: Map[Double, Double])
+private[explainers] final case class DiscreteFeatureStats(freq: Map[Double, Double])
   extends FeatureStats[Double] with DiscreteFeatureSampler
 
 private[explainers] trait DiscreteFeatureSampler extends FeatureStats[Double] {

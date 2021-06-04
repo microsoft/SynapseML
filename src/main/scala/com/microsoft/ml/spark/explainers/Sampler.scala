@@ -93,9 +93,9 @@ private[explainers] class LIMEVectorSampler(val instance: SV, val featureStats: 
   extends Sampler[SV, SV] {
 
   override def nextState: SV = {
-    val states = featureStats.map {
-      feature =>
-        val value = instance(feature.fieldIndex)
+    val states = featureStats.zipWithIndex.map {
+      case (feature, i) =>
+        val value = instance(i)
         feature.sample(value)
     }
 
@@ -111,9 +111,9 @@ private[explainers] class LIMEVectorSampler(val instance: SV, val featureStats: 
 
     val n = featureStats.size
 
-    val distances = featureStats.map {
-      feature =>
-        feature.getDistance(instance(feature.fieldIndex), state(feature.fieldIndex))
+    val distances = featureStats.zipWithIndex.map {
+      case (feature, i) =>
+        feature.getDistance(instance(i), state(i))
     }
 
     norm(BDV(distances: _*), 2) / math.sqrt(n)
@@ -125,9 +125,9 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
   extends Sampler[Row, SV] {
 
   override def nextState: SV = {
-    val states = featureStats.map {
-      feature =>
-        val value = instance.getAsDouble(feature.fieldIndex)
+    val states = featureStats.zipWithIndex.map {
+      case (feature, i) =>
+        val value = instance.getAsDouble(i)
         feature.sample(value)
     }
 
@@ -143,10 +143,10 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
 
     val n = featureStats.size
 
-    val distances = featureStats.map {
-      feature =>
-        val value = instance.getAsDouble(feature.fieldIndex)
-        val s = state(feature.fieldIndex)
+    val distances = featureStats.zipWithIndex.map {
+      case (feature, i) =>
+        val value = instance.getAsDouble(i)
+        val s = state(i)
         feature.getDistance(value, s)
     }
 

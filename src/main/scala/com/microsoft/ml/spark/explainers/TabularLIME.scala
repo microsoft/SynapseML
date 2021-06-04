@@ -44,11 +44,7 @@ class TabularLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
 
-    val sampleType = StructType(featureStats.map {
-      feature =>
-        val name = df.schema(feature.fieldIndex).name
-        StructField(name, DoubleType)
-    })
+    val sampleType = StructType(this.getInputCols.map(StructField(_, DoubleType)))
 
     val returnDataType = ArrayType(
       StructType(Seq(
@@ -73,7 +69,7 @@ class TabularLIME(override val uid: String)
       returnDataType
     )
 
-    df.withColumn("samples", explode(samplesUdf(struct(df.columns.map(col): _*))))
+    df.withColumn("samples", explode(samplesUdf(struct(getInputCols.map(col): _*))))
       .select(
         col(idCol),
         col("samples.distance").alias(distanceCol),
@@ -99,8 +95,7 @@ class TabularLIME(override val uid: String)
           .head(maxFeatureMembers)
           .toMap
 
-        val fieldIndex = df.schema.fieldIndex(feature)
-        DiscreteFeatureStats(fieldIndex, freqMap)
+        (feature, DiscreteFeatureStats(freqMap))
     }
 
     val numericAggregates = numericFeatures.map(f => stddev(f).cast(DoubleType).alias(f))
@@ -111,14 +106,15 @@ class TabularLIME(override val uid: String)
       numericFeatures.map {
         feature =>
           val stddev = row.getAs[Double](feature)
-          val fieldIndex = df.schema.fieldIndex(feature)
-          ContinuousFeatureStats(fieldIndex, stddev)
+          (feature, ContinuousFeatureStats(stddev))
       }.toSeq
     } else {
       Seq.empty
     }
 
-    categoryFeatureStats.toArray ++: numFeatureStats
+    val stats = (categoryFeatureStats.toArray ++: numFeatureStats).toMap
+
+    this.getInputCols.map(stats)
   }
 
   override protected def validateSchema(schema: StructType): Unit = {
