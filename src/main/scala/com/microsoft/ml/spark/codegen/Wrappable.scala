@@ -122,7 +122,7 @@ trait PythonWrappable extends BaseWrappable {
 
   protected lazy val pyInheritedClasses: Seq[String] = {
     this match {
-      case _: LocalExplainer => Seq("LocalExplainer")
+      case _: LocalExplainer => Seq("_LocalExplainer")
       case _ => Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
     }
   }

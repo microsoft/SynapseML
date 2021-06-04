@@ -44,6 +44,9 @@ trait LIMEParams extends HasNumSamples with HasMetricsCol {
 abstract class LIMEBase(override val uid: String)
   extends LocalExplainer
     with LIMEParams
+    // Uncomment the "Wrappable" trait and run "sbt packagePython" to generate python bindings at
+    // target/scala-2.12/generated/src/python. However, the generated bindings require some manual modification
+    // for explainers that implements the HasBackgroundData trait.
     // with Wrappable
     with BasicLogging {
 
