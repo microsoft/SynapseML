@@ -13,11 +13,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class ImageSHAP(LocalExplainer):
+class ImageSHAP(_LocalExplainer):
     """
     Args:
         cellSize (float): Number that controls the size of the superpixels
@@ -344,4 +344,3 @@ class ImageSHAP(LocalExplainer):
         """
 
         return self.getOrDefault(self.targetCol)
-

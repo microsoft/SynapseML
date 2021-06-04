@@ -16,7 +16,7 @@ from pyspark.ml.wrapper import JavaParams, JavaWrapper
 
 
 @inherit_doc
-class LocalExplainer(ComplexParamsMixin, JavaParams):
+class _LocalExplainer(ComplexParamsMixin, JavaParams):
     def __init__(self, java_obj=None) -> None:
         super().__init__()
         self._java_obj = java_obj

@@ -14,11 +14,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class TabularLIME(LocalExplainer):
+class TabularLIME(_LocalExplainer):
     """
     Args:
         categoricalFeatures (list): Name of features that should be treated as categorical variables.
@@ -363,4 +363,3 @@ class TabularLIME(LocalExplainer):
         """
 
         return self.getOrDefault(self.targetCol)
-

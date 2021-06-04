@@ -14,11 +14,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class TabularSHAP(LocalExplainer):
+class TabularSHAP(_LocalExplainer):
     """
     Args:
         inputCols (list): input column names
@@ -278,4 +278,3 @@ class TabularSHAP(LocalExplainer):
         """
 
         return self.getOrDefault(self.targetCol)
-

@@ -13,11 +13,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class TextSHAP(LocalExplainer):
+class TextSHAP(_LocalExplainer):
     """
     Args:
         inputCol (object): input column name
@@ -288,4 +288,3 @@ class TextSHAP(LocalExplainer):
         """
 
         return self.getOrDefault(self.tokensCol)
-

@@ -14,11 +14,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class VectorSHAP(LocalExplainer):
+class VectorSHAP(_LocalExplainer):
     """
     Args:
         inputCol (object): input column name
@@ -278,4 +278,3 @@ class VectorSHAP(LocalExplainer):
         """
 
         return self.getOrDefault(self.targetCol)
-

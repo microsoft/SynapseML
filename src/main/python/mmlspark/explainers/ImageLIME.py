@@ -13,11 +13,11 @@ from mmlspark.core.serialize.java_params_patch import *
 from pyspark.ml.common import inherit_doc
 from mmlspark.core.schema.Utils import *
 from pyspark.ml.param import TypeConverters
-from mmlspark.explainers import LocalExplainer
+from mmlspark.explainers._LocalExplainer import _LocalExplainer
 
 
 @inherit_doc
-class ImageLIME(LocalExplainer):
+class ImageLIME(_LocalExplainer):
     """
     Args:
         cellSize (float): Number that controls the size of the superpixels
@@ -429,4 +429,3 @@ class ImageLIME(LocalExplainer):
         """
 
         return self.getOrDefault(self.targetCol)
-
