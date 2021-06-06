@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.sql._
@@ -25,15 +26,12 @@ trait KernelSHAPParams extends HasNumSamples with HasMetricsCol {
 abstract class KernelSHAPBase(override val uid: String)
   extends LocalExplainer
     with KernelSHAPParams
-    // Uncomment the "Wrappable" trait and run "sbt packagePython" to generate python bindings at
-    // target/scala-2.12/generated/src/python. However, the generated bindings require some manual modification
-    // for explainers that implements the HasBackgroundData trait.
-    // with Wrappable
+    with Wrappable
     with BasicLogging {
 
   protected def preprocess(df: DataFrame): DataFrame = df
 
-  override def explain(instances: Dataset[_]): DataFrame = logExplain {
+  override def transform(instances: Dataset[_]): DataFrame = logTransform {
     import instances.sparkSession.implicits._
 
     this.validateSchema(instances.schema)
@@ -80,7 +78,7 @@ abstract class KernelSHAPBase(override val uid: String)
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
 
-  override def copy(extra: ParamMap): Params = defaultCopy(extra)
+  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   protected override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)

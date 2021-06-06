@@ -15,6 +15,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.linalg.{Vector => SV}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.spark.ml.Transformer
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>
@@ -47,10 +48,7 @@ trait LIMEParams extends HasNumSamples with HasMetricsCol {
 abstract class LIMEBase(override val uid: String)
   extends LocalExplainer
     with LIMEParams
-    // Uncomment the "Wrappable" trait and run "sbt packagePython" to generate python bindings at
-    // target/scala-2.12/generated/src/python. However, the generated bindings require some manual modification
-    // for explainers that implements the HasBackgroundData trait.
-    // with Wrappable
+    with Wrappable
     with BasicLogging {
 
   private def getSampleWeightUdf: UserDefinedFunction = {
@@ -67,7 +65,7 @@ abstract class LIMEBase(override val uid: String)
 
   protected def preprocess(df: DataFrame): DataFrame = df
 
-  final override def explain(instances: Dataset[_]): DataFrame = logExplain {
+  final override def transform(instances: Dataset[_]): DataFrame = logTransform {
     import instances.sparkSession.implicits._
     this.validateSchema(instances.schema)
     val regularization = this.getRegularization
@@ -110,7 +108,7 @@ abstract class LIMEBase(override val uid: String)
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
 
-  override def copy(extra: ParamMap): Params = this.defaultCopy(extra)
+  override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 
   protected def createSamples(df: DataFrame,
                               idCol: String,

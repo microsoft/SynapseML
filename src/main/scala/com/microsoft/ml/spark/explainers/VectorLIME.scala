@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.stat.Summarizer
@@ -21,6 +22,8 @@ class VectorLIME(override val uid: String)
   def this() = {
     this(Identifiable.randomUID("VectorLIME"))
   }
+
+  override protected lazy val pyInternalWrapper = true
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
@@ -79,3 +82,5 @@ class VectorLIME(override val uid: String)
     )
   }
 }
+
+object VectorLIME extends ComplexParamsReadable[VectorLIME]

@@ -6,8 +6,9 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
+import com.microsoft.ml.spark.lime._
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV}
@@ -139,4 +140,13 @@ class ImageLIME(override val uid: String)
         s"but got ${schema(getInputCol).dataType} instead."
     )
   }
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema
+      .add(getSuperpixelCol, SuperpixelData.Schema)
+      .add(getOutputCol, VectorType)
+  }
 }
+
+object ImageLIME extends ComplexParamsReadable[ImageLIME]

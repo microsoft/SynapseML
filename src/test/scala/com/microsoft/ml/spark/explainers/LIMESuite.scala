@@ -57,7 +57,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClass(1)
 
-    val (weights, r2) = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].head
+    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(SV, Double)].head
 
     val weightsBz = weights.toBreeze
 
@@ -108,7 +108,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClass(1)
 
-    val (weights, _) = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].head
+    val (weights, _) = lime.transform(predicted).select("weights", "r2").as[(SV, Double)].head
 
     val weightsBz = weights.toBreeze
 
@@ -154,7 +154,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClass(1)
 
-    val weights = lime.explain(predicted)
+    val weights = lime.transform(predicted)
 
     weights.show(false)
 
@@ -197,7 +197,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setOutputCol("weights")
       .setNumSamples(1000)
 
-    val weights = lime.explain(predicted).select("weights", "r2").as[(SV, Double)].collect().map {
+    val weights = lime.transform(predicted).select("weights", "r2").as[(SV, Double)].collect().map {
       case (vec, _) => vec.toBreeze
     }
 
@@ -231,7 +231,7 @@ class LIMESuite extends TestBase with NetworkUtils {
     val imageDf = spark.read.image.load(imageResource.toString)
 
     val (image, superpixels, weights, r2) = lime
-      .explain(imageDf)
+      .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
       .as[(ImageFormat, SuperpixelData, SV, Double)]
       .head
@@ -259,7 +259,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       .select(col("value.bytes").alias("image"))
 
     val (weights, r2) = lime
-      .explain(binaryDf)
+      .transform(binaryDf)
       .select("weights", "r2")
       .as[(SV, Double)]
       .head
@@ -312,7 +312,7 @@ class LIMESuite extends TestBase with NetworkUtils {
       ("hi bar is cat 1", 0.0)
     ) toDF("text", "label")
 
-    val results = textLime.explain(target).select("tokens", "weights", "r2")
+    val results = textLime.transform(target).select("tokens", "weights", "r2")
       .as[(Seq[String], SV, Double)]
       .collect()
       .map {

@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
@@ -22,6 +23,8 @@ class TabularSHAP(override val uid: String)
   def this() = {
     this(Identifiable.randomUID("TabularSHAP"))
   }
+
+  override lazy val pyInternalWrapper: Boolean = true
 
   def setInputCols(values: Array[String]): this.type = this.set(inputCols, values)
 
@@ -94,3 +97,5 @@ class TabularSHAP(override val uid: String)
     }
   }
 }
+
+object TabularSHAP extends ComplexParamsReadable[TabularSHAP]

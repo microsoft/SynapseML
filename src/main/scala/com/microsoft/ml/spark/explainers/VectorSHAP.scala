@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.param.shared.HasInputCol
@@ -23,6 +24,8 @@ class VectorSHAP(override val uid: String)
   def this() = {
     this(Identifiable.randomUID("VectorSHAP"))
   }
+
+  override protected lazy val pyInternalWrapper = true
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
@@ -83,3 +86,5 @@ class VectorSHAP(override val uid: String)
     }
   }
 }
+
+object VectorSHAP extends ComplexParamsReadable[VectorSHAP]

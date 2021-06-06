@@ -57,10 +57,6 @@ trait BasicLogging extends Logging {
     logVerb("predict", f)
   }
 
-  def logExplain[T](f: => T): T = {
-    logVerb("explain", f)
-  }
-
   def logVerb[T](verb: String, f: => T): T = {
     logBase(verb)
     try {

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.feature.Tokenizer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.Param
@@ -87,4 +88,13 @@ class TextSHAP(override val uid: String)
       s"Field $getInputCol is expected to be string type, but got ${schema(getInputCol).dataType} instead."
     )
   }
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema
+      .add(getTokensCol, ArrayType(StringType))
+      .add(getOutputCol, VectorType)
+  }
 }
+
+object TextSHAP extends ComplexParamsReadable[TextSHAP]

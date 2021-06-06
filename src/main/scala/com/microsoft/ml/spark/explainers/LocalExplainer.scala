@@ -3,22 +3,25 @@
 
 package com.microsoft.ml.spark.explainers
 
-import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.HasOutputCol
+import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset}
 
 trait LocalExplainer
-  extends Params with Serializable with HasExplainTarget with HasOutputCol with HasModel {
+  extends Transformer with HasExplainTarget with HasOutputCol with HasModel with ComplexParamsWritable {
 
   final def setOutputCol(value: String): this.type = this.set(outputCol, value)
-
-  def explain(instances: Dataset[_]): DataFrame
 
   protected def validateSchema(inputSchema: StructType): Unit = {
     if (inputSchema.fieldNames.contains(getOutputCol)) {
       throw new IllegalArgumentException(s"Input schema already has column $getOutputCol")
     }
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema.add(getOutputCol, VectorType)
   }
 }
 

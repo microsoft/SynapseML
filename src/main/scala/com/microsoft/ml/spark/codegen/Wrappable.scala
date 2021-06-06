@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.explainers.LocalExplainer
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
@@ -120,12 +119,8 @@ trait PythonWrappable extends BaseWrappable {
     }
   }
 
-  protected lazy val pyInheritedClasses: Seq[String] = {
-    this match {
-      case _: LocalExplainer => Seq("_LocalExplainer")
-      case _ => Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
-    }
-  }
+  protected lazy val pyInheritedClasses: Seq[String] =
+    Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {

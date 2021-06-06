@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.StringArrayParam
 import org.apache.spark.ml.param.shared.HasInputCols
@@ -23,6 +24,8 @@ class TabularLIME(override val uid: String)
   def this() = {
     this(Identifiable.randomUID("TabularLIME"))
   }
+
+  override protected lazy val pyInternalWrapper = true
 
   val categoricalFeatures = new StringArrayParam(
     this,
@@ -148,3 +151,5 @@ class TabularLIME(override val uid: String)
     )
   }
 }
+
+object TabularLIME extends ComplexParamsReadable[TabularLIME]

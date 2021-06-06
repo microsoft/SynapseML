@@ -58,7 +58,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setTargetClass(1)
 
     val (probability, shapValues, r2) = kernelShap
-      .explain(predicted)
+      .transform(predicted)
       .select("probability", "shapValues", "r2").as[(SV, SV, Double)]
       .head
 
@@ -114,7 +114,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setTargetClass(1)
 
     val (probability, shapValues, r2) = kernelShap
-      .explain(predicted)
+      .transform(predicted)
       .select("probability", "shapValues", "r2").as[(SV, SV, Double)]
       .head
 
@@ -159,7 +159,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     val imageDf = spark.read.image.load(imageResource.toString)
 
     val (image, superpixels, shapValues, r2) = shap
-      .explain(imageDf)
+      .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
       .as[(ImageFormat, SuperpixelData, SV, Double)]
       .head
@@ -224,7 +224,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       ("hi bar is cat 1", 0.0)
     ) toDF("text", "label")
 
-    val results = shap.explain(target).select("tokens", "weights", "r2")
+    val results = shap.transform(target).select("tokens", "weights", "r2")
       .as[(Seq[String], SV, Double)]
       .collect()
       .map {

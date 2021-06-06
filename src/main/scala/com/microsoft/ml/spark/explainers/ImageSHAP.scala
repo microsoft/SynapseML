@@ -5,15 +5,16 @@ package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData, SuperpixelTransformer}
+import com.microsoft.ml.spark.lime._
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
-import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.{col, explode, lit}
+import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -131,4 +132,13 @@ class ImageSHAP(override val uid: String)
         s"but got ${schema(getInputCol).dataType} instead."
     )
   }
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema
+      .add(getSuperpixelCol, SuperpixelData.Schema)
+      .add(getOutputCol, VectorType)
+  }
 }
+
+object ImageSHAP extends ComplexParamsReadable[ImageSHAP]
