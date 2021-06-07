@@ -59,7 +59,8 @@ abstract class TrainParams extends Serializable {
       s"max_delta_step=$maxDeltaStep min_data_in_leaf=$minDataInLeaf ${objectiveParams.toString()} " +
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
       (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")} ") +
-      (if (boostingType == "dart") s"${dartModeParams.toString()}" else "") +
+      (if (boostingType == "dart") s"${dartModeParams.toString()} " else "") +
+      executionParams.toString() +
       s"device_type=$deviceType"
   }
 }
@@ -153,8 +154,14 @@ case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
   * @param chunkSize Advanced parameter to specify the chunk size for copying Java data to native.
   * @param matrixType Advanced parameter to specify whether the native lightgbm matrix
   *                   constructed should be sparse or dense.
+  * @param numThreads The number of threads to run the native lightgbm training with on each worker.
   */
-case class ExecutionParams(chunkSize: Int, matrixType: String) extends Serializable
+case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) extends Serializable {
+  override def toString(): String = {
+    s"num_threads=$numThreads "
+  }
+}
+
 
 /** Defines parameters related to the lightgbm objective function.
   *

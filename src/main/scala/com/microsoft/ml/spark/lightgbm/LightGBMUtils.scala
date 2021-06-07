@@ -228,16 +228,22 @@ object LightGBMUtils {
     numRowsForChunks
   }
 
+  def getDatasetParams(trainParams: TrainParams): String = {
+    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
+      s"bin_construct_sample_cnt=${trainParams.binSampleCount} " +
+      s"num_threads=${trainParams.executionParams.numThreads} " +
+      (if (trainParams.categoricalFeatures.isEmpty) ""
+      else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
+    datasetParams
+  }
+
   def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
                            trainParams: TrainParams, chunkSize: Int): LightGBMDataset = {
     val isRowMajor = 1
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
-      s"bin_construct_sample_cnt=${trainParams.binSampleCount} " +
-      (if (trainParams.categoricalFeatures.isEmpty) ""
-      else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
+    val datasetParams = getDatasetParams(trainParams)
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
     val numRowsForChunks = getNumRowsForChunksArray(numRows, chunkSize)
@@ -270,9 +276,7 @@ object LightGBMUtils {
     val numCols = sparseRows(0).size
 
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
-      (if (trainParams.categoricalFeatures.isEmpty) ""
-       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
+    val datasetParams = getDatasetParams(trainParams)
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],

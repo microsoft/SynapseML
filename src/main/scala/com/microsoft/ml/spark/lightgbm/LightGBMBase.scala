@@ -196,7 +196,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
   protected def getExecutionParams(): ExecutionParams = {
-    ExecutionParams(getChunkSize, getMatrixType)
+    ExecutionParams(getChunkSize, getMatrixType, getNumThreads)
   }
 
   /**

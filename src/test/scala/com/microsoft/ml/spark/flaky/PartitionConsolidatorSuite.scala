@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.flaky
 
 import com.microsoft.ml.spark.core.test.base.{SparkSessionFactory, TestBase, TimeLimitedFlaky}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.ml.spark.io.http.PartitionConsolidator
+import com.microsoft.ml.spark.stages.PartitionConsolidator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{DoubleType, StructType}

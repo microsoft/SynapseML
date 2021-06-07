@@ -96,6 +96,13 @@ trait LightGBMExecutionParams extends Wrappable {
 
   def getMatrixType: String = $(matrixType)
   def setMatrixType(value: String): this.type = set(matrixType, value)
+
+  val numThreads = new IntParam(this, "numThreads",
+    "Number of threads for LightGBM. For the best speed, set this to the number of real CPU cores.")
+  setDefault(numThreads -> 0)
+
+  def getNumThreads: Int = $(numThreads)
+  def setNumThreads(value: Int): this.type = set(numThreads, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
