@@ -13,7 +13,7 @@ import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{HashingTF, OneHotEncoder, StringIndexer, Tokenizer, VectorAssembler}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS, Matrix => SM}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
@@ -55,14 +55,14 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setNumSamples(1000)
       .setModel(model)
       .setTargetCol("probability")
-      .setTargetClass(1)
+      .setTargetClasses(Array(1))
 
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, SV, Double)]
+      .select("probability", "shapValues", "r2").as[(SV, SM, SV)]
       .head
 
-    val shapBz = shapValues.toBreeze
+    val shapBz = shapValues.toBreeze(0, ::).t
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
@@ -78,7 +78,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     assert(math.abs(shapBz(1) - shapBz(3)) < 1E-5)
 
     // R-squared of the underlying regression should be close to 1.
-    assert(math.abs(r2 - 1d) < 1E-5)
+    assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
   test("VectorKernelSHAP can explain a model locally") {
@@ -111,16 +111,16 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setNumSamples(1000)
       .setModel(model)
       .setTargetCol("probability")
-      .setTargetClass(1)
+      .setTargetClasses(Array(1))
 
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, SV, Double)]
+      .select("probability", "shapValues", "r2").as[(SV, SM, SV)]
       .head
 
     // println((probability, shapValues, r2))
 
-    val shapBz = shapValues.toBreeze
+    val shapBz = shapValues.toBreeze(0, ::).t
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
@@ -135,7 +135,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     assert(math.abs(shapBz(5)) < 1E-2)
 
     // R-squared of the underlying regression should be close to 1.
-    assert(math.abs(r2 - 1d) < 1E-5)
+    assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
   test("ImageKernelSHAP can explain a model locally") {
@@ -146,7 +146,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     val shap = LocalExplainer.KernelSHAP.image
       .setModel(resNetTransformer)
       .setTargetCol(resNetTransformer.getOutputCol)
-      .setTargetClass(172)
+      .setTargetClasses(Array(172))
       .setOutputCol("weights")
       .setSuperpixelCol("superpixels")
       .setMetricsCol("r2")
@@ -161,19 +161,19 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     val (image, superpixels, shapValues, r2) = shap
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, SV, Double)]
+      .as[(ImageFormat, SuperpixelData, SM, SV)]
       .head
 
     // println(shapValues)
     // println(r2)
 
     // Base value should be almost zero.
-    assert(math.abs(shapValues(0)) < 1e-4)
+    assert(math.abs(shapValues(0, 0)) < 1e-4)
 
     // R2 should be almost 1.
-    assert(math.abs(r2 - 1.0) < 1e-5)
+    assert(math.abs(r2(0) - 1.0) < 1e-5)
 
-    val spStates = shapValues.toBreeze.apply(1 to -1).map(_ >= 0.05).toArray
+    val spStates = shapValues.toBreeze(0, ::).t(1 to -1).map(_ >= 0.05).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
     // Uncomment the following lines lines to view the censoredImage image.
@@ -214,7 +214,7 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
       .setModel(model)
       .setInputCol("text")
       .setTargetCol("prob")
-      .setTargetClass(1)
+      .setTargetClasses(Array(1))
       .setOutputCol("weights")
       .setTokensCol("tokens")
       .setNumSamples(100)
@@ -225,10 +225,10 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     ) toDF("text", "label")
 
     val results = shap.transform(target).select("tokens", "weights", "r2")
-      .as[(Seq[String], SV, Double)]
+      .as[(Seq[String], SM, SV)]
       .collect()
       .map {
-        case (tokens, shapValues, r2) => (tokens(3), shapValues, r2)
+        case (tokens, shapValues, r2) => (tokens(3), shapValues.toBreeze(0, ::).t, r2(0))
       }
 
     results.foreach {
@@ -239,10 +239,10 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     // Sum of shap values should match predicted value
     results.foreach {
       case (token, shapValues, _) if token == "example" =>
-        assert(math.abs(1 - breeze.linalg.sum(shapValues.toBreeze)) < 1e-5)
+        assert(math.abs(1 - breeze.linalg.sum(shapValues)) < 1e-5)
         assert(shapValues(4) > 0.29)
-      case (token, shapValues, r2) if token == "cat" =>
-        assert(math.abs(breeze.linalg.sum(shapValues.toBreeze)) < 1e-5)
+      case (token, shapValues, _) if token == "cat" =>
+        assert(math.abs(breeze.linalg.sum(shapValues)) < 1e-5)
         assert(shapValues(4) < -0.29)
     }
   }

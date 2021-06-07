@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions._
@@ -72,37 +72,72 @@ trait HasExplainTarget extends Params {
   final def getTargetCol: String = $(targetCol)
   final def setTargetCol(value: String): this.type = this.set(targetCol, value)
 
-  final val targetClass: IntParam = new IntParam(
+  final val targetClasses: IntArrayParam = new IntArrayParam(
     this,
-    "targetClass",
-    "The index of the classes for multinomial classification models. Default: 0." +
+    "targetClasses",
+    "The indices of the classes for multinomial classification models. Default: 0." +
       "For regression models this parameter is ignored."
   )
 
-  setDefault(targetClass, 0)
-  final def getTargetClass: Int = $(targetClass)
-  final def setTargetClass(value: Int): this.type = this.set(targetClass, value)
+  final def getTargetClasses: Array[Int] = $(targetClasses)
+  final def setTargetClasses(values: Array[Int]): this.type = this.set(targetClasses, values)
 
-  final val targetClassCol: Param[String] = new Param[String](
+  final val targetClassesCol: Param[String] = new Param[String](
     this,
-    "targetClassCol",
-    "The name of the column that specifies the index of the class for multinomial classification models."
+    "targetClassesCol",
+    "The name of the column that specifies the indices of the classes for multinomial classification models."
   )
 
-  final def getTargetClassCol: String = $(targetClassCol)
-  final def setTargetClassCol(value: String): this.type = this.set(targetClassCol, value)
+  final def getTargetClassesCol: String = $(targetClassesCol)
+  final def setTargetClassesCol(value: String): this.type = this.set(targetClassesCol, value)
+
+  private def slice[T](values: Int => T, indices: Seq[Int])(num: Numeric[_]): SV = {
+    val n = num.asInstanceOf[Numeric[T]]
+    SVS.dense(indices.map(values.apply).map(n.toDouble).toArray)
+  }
+
+  private val dataTypeToNumericMap: Map[NumericType, Numeric[_]] = Map(
+    FloatType -> implicitly[Numeric[Float]],
+    DoubleType -> implicitly[Numeric[Double]],
+    ByteType -> implicitly[Numeric[Byte]],
+    ShortType -> implicitly[Numeric[Short]],
+    IntegerType -> implicitly[Numeric[Int]],
+    LongType -> implicitly[Numeric[Long]]
+  )
 
   def getExplainTarget(schema: StructType): Column = {
+    val toVector = UDFUtils.oldUdf(
+      (values: Seq[Double]) => SVS.dense(values.toArray),
+      VectorType
+    )
+
     val explainTarget = schema(getTargetCol).dataType match {
       case _: NumericType =>
-        col(getTargetCol)
+        toVector(array(col(getTargetCol)))
       case VectorType =>
-        val classCol = this.get(targetClassCol).map(col).getOrElse(lit(getTargetClass))
-        val vectorAccessor = UDFUtils.oldUdf((v: SV, index: Int) => v(index), DoubleType)
-        vectorAccessor(col(getTargetCol), classCol)
-      case ArrayType(_: NumericType, _) | MapType(_, _: NumericType, _) =>
-        val classIndex = this.get(targetClassCol).getOrElse(getTargetClass.toString)
-        expr(s"$getTargetCol[cast($classIndex as int)]")
+        val vectorSlicer = UDFUtils.oldUdf(
+          (v: SV, indices: Seq[Int]) => slice(v.apply, indices)(implicitly[Numeric[Double]]),
+          VectorType
+        )
+
+        val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
+        vectorSlicer(col(getTargetCol), classesCol)
+      case ArrayType(et: NumericType, _) =>
+        val arraySlicer = UDFUtils.oldUdf(
+          (v: Seq[Any], indices: Seq[Int]) => slice(v.apply, indices)(dataTypeToNumericMap(et)),
+          VectorType
+        )
+
+        val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
+        arraySlicer(col(getTargetCol), classesCol)
+      case MapType(_: IntegerType, et: NumericType, _) =>
+        val mapSlicer = UDFUtils.oldUdf(
+          (m: Map[Int, Any], indices: Seq[Int]) => slice(m.apply, indices)(dataTypeToNumericMap(et)),
+          VectorType
+        )
+
+        val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
+        mapSlicer(col(getTargetCol), classesCol)
       case other =>
         throw new IllegalArgumentException(
           s"Only numeric types, vector type, array of numeric types and map types with numeric value type " +

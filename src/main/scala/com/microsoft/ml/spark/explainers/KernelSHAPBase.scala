@@ -2,7 +2,7 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark.explainers
-import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{*, sum, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.explainers.BreezeUtils._
@@ -11,8 +11,10 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
-import org.apache.spark.ml.param.{ParamMap, Params}
+import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
+import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -54,7 +56,7 @@ abstract class KernelSHAPBase(override val uid: String)
     val coalitionScores = scored
       .withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
       .groupBy(col(idCol), col(coalitionCol))
-      .agg(mean(col(explainTargetCol)).alias(explainTargetCol))
+      .agg(Summarizer.mean(col(explainTargetCol)).alias(explainTargetCol))
       .withColumn(weightCol, sampleWeightUdf(col(coalitionCol)))
 
     val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
@@ -62,18 +64,22 @@ abstract class KernelSHAPBase(override val uid: String)
         val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row.getAs[SV](coalitionCol).toBreeze
-            val output = row.getAs[Double](explainTargetCol)
+            val output = row.getAs[SV](explainTargetCol).toBreeze
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
         }.toSeq.unzip3
 
         val inputsBV = BDM(inputs: _*)
-        val outputsBV = BDV(outputs: _*)
+        val outputsBV = BDM(outputs: _*)
         val weightsBV = BDV(weights: _*)
 
-        val result = new LeastSquaresRegression().fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
-        val shapValues = SVS.dense(result.intercept +: result.coefficients.toArray)
-        (id, shapValues, result.rSquared)
+        val wlsResults = outputsBV(::, *).toIndexedSeq.map {
+          new LeastSquaresRegression().fit(inputsBV, _, weightsBV, fitIntercept = true)
+        }
+
+        val coefficientsMatrix = BDM(wlsResults.map(r => BDV(r.intercept +: r.coefficients.toArray)): _*)
+        val metrics = BDV(wlsResults.map(_.rSquared): _*)
+        (id, coefficientsMatrix.toSpark, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
@@ -84,7 +90,6 @@ abstract class KernelSHAPBase(override val uid: String)
   protected override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    // TODO: extract the following check to the HasMetricsCol trait
     require(
       !schema.fieldNames.contains(getMetricsCol),
       s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
@@ -92,6 +97,13 @@ abstract class KernelSHAPBase(override val uid: String)
   }
 
   protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema
+      .add(getOutputCol, MatrixType)
+      .add(getMetricsCol, VectorType)
+  }
 }
 
 object KernelSHAPBase {

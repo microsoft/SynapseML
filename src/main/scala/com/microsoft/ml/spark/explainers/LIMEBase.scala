@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
@@ -16,6 +16,7 @@ import org.apache.spark.ml.linalg.{Vector => SV}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>
@@ -93,17 +94,23 @@ abstract class LIMEBase(override val uid: String)
         val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row.getAs[SV](stateCol).toBreeze
-            val output = row.getAs[Double](explainTargetCol)
+            val output = row.getAs[SV](explainTargetCol).toBreeze
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
         }.toSeq.unzip3
 
         val inputsBV = BDM(inputs: _*)
-        val outputsBV = BDV(outputs: _*)
+        val outputsBV = BDM(outputs: _*)
         val weightsBV = BDV(weights: _*)
-        val lassoResults = new LassoRegression(regularization).fit(inputsBV, outputsBV, weightsBV, fitIntercept = true)
 
-        (id, lassoResults.coefficients.toSpark, lassoResults.rSquared)
+        val lassoResults = outputsBV(::, *).toIndexedSeq.map {
+          new LassoRegression(regularization).fit(inputsBV, _, weightsBV, fitIntercept = true)
+        }
+
+        val coefficientsMatrix = BDM(lassoResults.map(_.coefficients): _*)
+        val metrics = BDV(lassoResults.map(_.rSquared): _*)
+
+        (id, coefficientsMatrix.toSpark, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
@@ -119,10 +126,16 @@ abstract class LIMEBase(override val uid: String)
   protected override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    // TODO: extract the following check to the HasMetricsCol trait
     require(
       !schema.fieldNames.contains(getMetricsCol),
       s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
     )
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    this.validateSchema(schema)
+    schema
+      .add(getOutputCol, MatrixType)
+      .add(getMetricsCol, VectorType)
   }
 }
