@@ -17,7 +17,7 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.scalatest.Matchers._
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Paths}
 import javax.imageio.ImageIO
 
 class SamplerSuite extends TestBase {
@@ -167,7 +167,8 @@ class SamplerSuite extends TestBase {
   test("LIMETextSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val file = this.getClass.getResource("/audio1.txt")
-    val text = Files.readString(Path.of(file.toURI))
+
+    val text = new String(Files.readAllBytes(Paths.get(file.toURI)))
 
     val tokens = text.toLowerCase.split("\\s")
 
