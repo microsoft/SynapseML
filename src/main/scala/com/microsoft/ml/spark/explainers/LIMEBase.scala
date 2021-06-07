@@ -80,6 +80,7 @@ abstract class LIMEBase(override val uid: String)
 
     val samples = createSamples(preprocessed, idCol, stateCol, distanceCol)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
+      .repartition()
 
     val scored = getModel.transform(samples)
 

@@ -46,6 +46,7 @@ abstract class KernelSHAPBase(override val uid: String)
 
     val sampleWeightUdf = UDFUtils.oldUdf(kernelWeight _, DoubleType)
     val samples = createSamples(preprocessed, idCol, coalitionCol)
+      .repartition()
 
     val scored = getModel.transform(samples)
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
