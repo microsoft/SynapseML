@@ -532,7 +532,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
       val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
 
       val unbatchedDF = if (getBatchInput) {
-        new FlattenBatch().transform(droppedDF)
+        new FlattenBatch().transform(droppedDF.cache())
       } else {
         droppedDF
       }
