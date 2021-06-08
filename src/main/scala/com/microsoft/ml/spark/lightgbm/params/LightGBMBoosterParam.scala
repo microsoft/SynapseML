@@ -1,9 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.params
 
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
 import org.apache.spark.ml.param.Params
 
 /** Custom ComplexParam for LightGBMBooster, to make it settable on the LightGBM models.

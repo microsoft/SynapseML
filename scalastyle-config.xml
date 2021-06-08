@@ -12,7 +12,7 @@
     <parameter name="header">^// Copyright \(C\) Microsoft Corporation\. All rights reserved\.
 // Licensed under the MIT License\. See LICENSE in project root for information\.
 
-package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm)[.
+package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm|com\.microsoft\.lightgbm)[.
 ]</parameter>
     <parameter name="regex">true</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"></check>

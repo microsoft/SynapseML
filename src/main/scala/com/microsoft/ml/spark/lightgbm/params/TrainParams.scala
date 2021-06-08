@@ -1,7 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.lightgbm
+package com.microsoft.ml.spark.lightgbm.params
+
+import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMDelegate}
 
 /** Defines the common Booster parameters passed to the LightGBM learners.
   */
@@ -24,7 +26,6 @@ abstract class TrainParams extends Serializable {
   def maxDepth: Int
   def minSumHessianInLeaf: Double
   def numMachines: Int
-  def objective: String
   def modelString: Option[String]
   def verbosity: Int
   def categoricalFeatures: Array[Int]
@@ -41,6 +42,7 @@ abstract class TrainParams extends Serializable {
   def delegate: Option[LightGBMDelegate]
   def dartModeParams: DartModeParams
   def executionParams: ExecutionParams
+  def objectiveParams: ObjectiveParams
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
@@ -51,12 +53,13 @@ abstract class TrainParams extends Serializable {
       s"neg_bagging_fraction=$negBaggingFraction bagging_freq=$baggingFreq " +
       s"bagging_seed=$baggingSeed early_stopping_round=$earlyStoppingRound " +
       s"feature_fraction=$featureFraction max_depth=$maxDepth min_sum_hessian_in_leaf=$minSumHessianInLeaf " +
-      s"num_machines=$numMachines objective=$objective verbosity=$verbosity " +
+      s"num_machines=$numMachines verbosity=$verbosity " +
       s"lambda_l1=$lambdaL1 lambda_l2=$lambdaL2 metric=$metric min_gain_to_split=$minGainToSplit " +
-      s"max_delta_step=$maxDeltaStep min_data_in_leaf=$minDataInLeaf " +
+      s"max_delta_step=$maxDeltaStep min_data_in_leaf=$minDataInLeaf ${objectiveParams.toString()} " +
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
       (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")} ") +
-      (if (boostingType == "dart") s"${dartModeParams.toString()}" else "")
+      (if (boostingType == "dart") s"${dartModeParams.toString()} " else "") +
+      executionParams.toString()
   }
 }
 
@@ -68,18 +71,18 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
                                  baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
                                  improvementTolerance: Double, featureFraction: Double,
                                  maxDepth: Int, minSumHessianInLeaf: Double,
-                                 numMachines: Int, objective: String, modelString: Option[String],
-                                 isUnbalance: Boolean, verbosity: Int, categoricalFeatures: Array[Int],
-                                 numClass: Int, boostFromAverage: Boolean,
-                                 boostingType: String, lambdaL1: Double, lambdaL2: Double,
+                                 numMachines: Int, modelString: Option[String], isUnbalance: Boolean,
+                                 verbosity: Int, categoricalFeatures: Array[Int], numClass: Int,
+                                 boostFromAverage: Boolean, boostingType: String, lambdaL1: Double, lambdaL2: Double,
                                  isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                  maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                                  featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                                 dartModeParams: DartModeParams, executionParams: ExecutionParams)
+                                 dartModeParams: DartModeParams, executionParams: ExecutionParams,
+                                 objectiveParams: ObjectiveParams)
   extends TrainParams {
   override def toString(): String = {
     val extraStr =
-      if (objective != LightGBMConstants.BinaryObjective) s"num_class=$numClass"
+      if (objectiveParams.objective != LightGBMConstants.BinaryObjective) s"num_class=$numClass"
       else s"is_unbalance=${isUnbalance.toString}"
     s"metric=$metric boost_from_average=${boostFromAverage.toString} ${super.toString()} $extraStr"
   }
@@ -88,11 +91,10 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
 /** Defines the Booster parameters passed to the LightGBM regressor.
   */
 case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
-                                numLeaves: Int, objective: String, alpha: Double,
-                                tweedieVariancePower: Double, maxBin: Int, binSampleCount: Int,
-                                baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                                baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int,
-                                improvementTolerance: Double, featureFraction: Double,
+                                numLeaves: Int, alpha: Double, tweedieVariancePower: Double, maxBin: Int,
+                                binSampleCount: Int, baggingFraction: Double, posBaggingFraction: Double,
+                                negBaggingFraction: Double, baggingFreq: Int, baggingSeed: Int,
+                                earlyStoppingRound: Int, improvementTolerance: Double, featureFraction: Double,
                                 maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                                 modelString: Option[String], verbosity: Int,
                                 categoricalFeatures: Array[Int], boostFromAverage: Boolean,
@@ -100,7 +102,8 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 isProvideTrainingMetric: Boolean, metric: String, minGainToSplit: Double,
                                 maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                                 featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                                dartModeParams: DartModeParams, executionParams: ExecutionParams)
+                                dartModeParams: DartModeParams, executionParams: ExecutionParams,
+                                objectiveParams: ObjectiveParams)
   extends TrainParams {
   override def toString(): String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -111,9 +114,9 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
 /** Defines the Booster parameters passed to the LightGBM ranker.
   */
 case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int, learningRate: Double,
-                             numLeaves: Int, objective: String, maxBin: Int, binSampleCount: Int,
-                             baggingFraction: Double, posBaggingFraction: Double, negBaggingFraction: Double,
-                             baggingFreq: Int, baggingSeed: Int, earlyStoppingRound: Int, improvementTolerance: Double,
+                             numLeaves: Int, maxBin: Int, binSampleCount: Int, baggingFraction: Double,
+                             posBaggingFraction: Double, negBaggingFraction: Double, baggingFreq: Int,
+                             baggingSeed: Int, earlyStoppingRound: Int, improvementTolerance: Double,
                              featureFraction: Double, maxDepth: Int, minSumHessianInLeaf: Double, numMachines: Int,
                              modelString: Option[String], verbosity: Int,
                              categoricalFeatures: Array[Int], boostingType: String,
@@ -122,7 +125,8 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
                              metric: String, evalAt: Array[Int], minGainToSplit: Double,
                              maxDeltaStep: Double, maxBinByFeature: Array[Int], minDataInLeaf: Int,
                              featureNames: Array[String], delegate: Option[LightGBMDelegate],
-                             dartModeParams: DartModeParams, executionParams: ExecutionParams)
+                             dartModeParams: DartModeParams, executionParams: ExecutionParams,
+                             objectiveParams: ObjectiveParams)
   extends TrainParams {
   override def toString(): String = {
     val labelGainStr =
@@ -143,4 +147,34 @@ case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
   }
 }
 
-case class ExecutionParams(chunkSize: Int, matrixType: String) extends Serializable
+/** Defines parameters related to lightgbm execution in spark.
+  *
+  * @param chunkSize Advanced parameter to specify the chunk size for copying Java data to native.
+  * @param matrixType Advanced parameter to specify whether the native lightgbm matrix
+  *                   constructed should be sparse or dense.
+  * @param numThreads The number of threads to run the native lightgbm training with on each worker.
+  */
+case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) extends Serializable {
+  override def toString(): String = {
+    s"num_threads=$numThreads "
+  }
+}
+
+
+/** Defines parameters related to the lightgbm objective function.
+  *
+  * @param objective The Objective. For regression applications, this can be:
+  *                  regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie.
+  *                  For classification applications, this can be: binary, multiclass, or multiclassova.
+  * @param fobj      Customized objective function.
+  *                  Should accept two parameters: preds, train_data, and return (grad, hess).
+  */
+case class ObjectiveParams(objective: String, fobj: Option[FObjTrait]) extends Serializable {
+  override def toString(): String = {
+    if (fobj.isEmpty) {
+      s"objective=$objective "
+    } else {
+      ""
+    }
+  }
+}

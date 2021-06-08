@@ -3,6 +3,9 @@
 
 package com.microsoft.ml.spark.lightgbm
 
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{ClassifierTrainParams, LightGBMModelParams,
+  LightGBMPredictionParams, TrainParams}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
@@ -46,11 +49,11 @@ class LightGBMClassifier(override val uid: String)
     ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
       getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, getObjective, modelStr,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
       getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames,
-      getDelegate, getDartParams(), getExecutionParams())
+      getDelegate, getDartParams(), getExecutionParams(), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
@@ -69,7 +72,7 @@ class LightGBMClassifier(override val uid: String)
   }
 
   def stringFromTrainedModel(model: LightGBMClassificationModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
@@ -187,7 +190,7 @@ class LightGBMClassificationModel(override val uid: String)
 
 object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassificationModel] {
   def loadNativeModelFromFile(filename: String): LightGBMClassificationModel = {
-    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val uid = Identifiable.randomUID("LightGBMClassificationModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -197,7 +200,7 @@ object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassif
   }
 
   def loadNativeModelFromString(model: String): LightGBMClassificationModel = {
-    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val uid = Identifiable.randomUID("LightGBMClassificationModel")
     val lightGBMBooster = new LightGBMBooster(model)
     val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)
