@@ -13,7 +13,7 @@ import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{HashingTF, OneHotEncoder, StringIndexer, Tokenizer, VectorAssembler}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS, Matrix => SM}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
@@ -59,10 +59,10 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
 
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, SM, SV)]
+      .select("probability", "shapValues", "r2").as[(SV, Seq[SV], SV)]
       .head
 
-    val shapBz = shapValues.toBreeze(0, ::).t
+    val shapBz = shapValues.head.toBreeze
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
@@ -115,12 +115,12 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
 
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, SM, SV)]
+      .select("probability", "shapValues", "r2").as[(SV, Seq[SV], SV)]
       .head
 
     // println((probability, shapValues, r2))
 
-    val shapBz = shapValues.toBreeze(0, ::).t
+    val shapBz = shapValues.head.toBreeze
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
@@ -161,19 +161,19 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     val (image, superpixels, shapValues, r2) = shap
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, SM, SV)]
+      .as[(ImageFormat, SuperpixelData, Seq[SV], SV)]
       .head
 
     // println(shapValues)
     // println(r2)
 
     // Base value should be almost zero.
-    assert(math.abs(shapValues(0, 0)) < 1e-4)
+    assert(math.abs(shapValues.head(0)) < 1e-4)
 
     // R2 should be almost 1.
     assert(math.abs(r2(0) - 1.0) < 1e-5)
 
-    val spStates = shapValues.toBreeze(0, ::).t(1 to -1).map(_ >= 0.05).toArray
+    val spStates = shapValues.head.toBreeze(1 to -1).map(_ >= 0.05).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
     // Uncomment the following lines lines to view the censoredImage image.
@@ -225,10 +225,10 @@ class KernelSHAPSuite extends TestBase with NetworkUtils {
     ) toDF("text", "label")
 
     val results = shap.transform(target).select("tokens", "weights", "r2")
-      .as[(Seq[String], SM, SV)]
+      .as[(Seq[String], Seq[SV], SV)]
       .collect()
       .map {
-        case (tokens, shapValues, r2) => (tokens(3), shapValues.toBreeze(0, ::).t, r2(0))
+        case (tokens, shapValues, r2) => (tokens(3), shapValues.head.toBreeze, r2(0))
       }
 
     results.foreach {

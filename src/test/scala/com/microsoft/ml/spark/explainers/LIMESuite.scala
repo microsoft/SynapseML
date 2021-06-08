@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{*, argsort, argtopk, norm, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS, Matrix => SM}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
@@ -57,12 +57,12 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClasses(Array(0, 1))
 
-    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(SM, SV)].head
-    assert(weights.numRows == 2)
+    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].head
+    assert(weights.size == 2)
     assert(r2.size == 2)
 
-    val weightsBz0 = weights.toBreeze(0, ::).t
-    val weightsBz1 = weights.toBreeze(1, ::).t
+    val weightsBz0 = weights.head.toBreeze
+    val weightsBz1 = weights(1).toBreeze
 
     // The derivative of the logistic function with coefficient k at x = 0, simplifies to k/4.
     // We set the kernel width to a very small value so we only consider a very close neighborhood
@@ -113,10 +113,10 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setTargetCol("probability")
       .setTargetClasses(Array(1))
 
-    val (weights, _) = lime.transform(predicted).select("weights", "r2").as[(SM, SV)].head
-    assert(weights.numRows == 1)
+    val (weights, _) = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].head
+    assert(weights.size == 1)
 
-    val weightsBz = weights.toBreeze(0, ::).t
+    val weightsBz = weights.head
 
     // println(weightsBz)
 
@@ -164,8 +164,8 @@ class LIMESuite extends TestBase with NetworkUtils {
 
     weights.show(false)
 
-    val results = weights.select("col1", "weights").as[(Int, SM)].collect()
-      .map(r => (r._1, r._2.toBreeze(0, ::).t.apply(0)))
+    val results = weights.select("col1", "weights").as[(Int, Seq[SV])].collect()
+      .map(r => (r._1, r._2.head.toBreeze(0)))
       .toMap
 
     // Assuming local linear behavior:
@@ -203,8 +203,8 @@ class LIMESuite extends TestBase with NetworkUtils {
       .setOutputCol("weights")
       .setNumSamples(1000)
 
-    val weights = lime.transform(predicted).select("weights", "r2").as[(SM, SV)].collect().map {
-      case (m, _) => m.toBreeze(0, ::).t
+    val weights = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].collect().map {
+      case (m, _) => m.head.toBreeze
     }
 
     val weightsMatrix = BDM(weights: _*)
@@ -239,14 +239,14 @@ class LIMESuite extends TestBase with NetworkUtils {
     val (image, superpixels, weights, r2) = lime
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, SM, SV)]
+      .as[(ImageFormat, SuperpixelData, Seq[SV], SV)]
       .head
 
     // println(weights)
     // println(r2)
     assert(math.abs(r2(0) - 0.91754) < 1e-2)
 
-    val spStates = weights.toBreeze(0, ::).t.map(_ >= 0.2).toArray
+    val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
 
@@ -267,14 +267,14 @@ class LIMESuite extends TestBase with NetworkUtils {
     val (weights, r2) = lime
       .transform(binaryDf)
       .select("weights", "r2")
-      .as[(SM, SV)]
+      .as[(Seq[SV], SV)]
       .head
 
     // println(weights)
     // println(r2)
     assert(math.abs(r2(0) - 0.91754) < 1e-2)
 
-    val spStates = weights.toBreeze(0, ::).t.map(_ >= 0.2).toArray
+    val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
     // println(spStates.count(identity))
     assert(spStates.count(identity) == 8)
   }
@@ -319,10 +319,10 @@ class LIMESuite extends TestBase with NetworkUtils {
     ) toDF("text", "label")
 
     val results = textLime.transform(target).select("tokens", "weights", "r2")
-      .as[(Seq[String], SM, SV)]
+      .as[(Seq[String], Seq[SV], SV)]
       .collect()
       .map {
-        case (tokens, weights, r2) => (tokens(3), weights(0, 3), r2(0))
+        case (tokens, weights, r2) => (tokens(3), weights.head(3), r2(0))
       }
 
     results.foreach {

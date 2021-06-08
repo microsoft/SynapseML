@@ -6,17 +6,17 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.ml.linalg.{Vector => SV}
-import com.microsoft.ml.spark.explainers.BreezeUtils._
-import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>
@@ -107,10 +107,10 @@ abstract class LIMEBase(override val uid: String)
           new LassoRegression(regularization).fit(inputsBV, _, weightsBV, fitIntercept = true)
         }
 
-        val coefficientsMatrix = BDM(lassoResults.map(_.coefficients): _*)
+        val coefficientsMatrix = lassoResults.map(_.coefficients.toSpark)
         val metrics = BDV(lassoResults.map(_.rSquared): _*)
 
-        (id, coefficientsMatrix.toSpark, metrics.toSpark)
+        (id, coefficientsMatrix, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
@@ -135,7 +135,7 @@ abstract class LIMEBase(override val uid: String)
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)
     schema
-      .add(getOutputCol, MatrixType)
+      .add(getOutputCol, ArrayType(VectorType))
       .add(getMetricsCol, VectorType)
   }
 }

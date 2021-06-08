@@ -11,8 +11,8 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql._
@@ -77,9 +77,9 @@ abstract class KernelSHAPBase(override val uid: String)
           new LeastSquaresRegression().fit(inputsBV, _, weightsBV, fitIntercept = true)
         }
 
-        val coefficientsMatrix = BDM(wlsResults.map(r => BDV(r.intercept +: r.coefficients.toArray)): _*)
+        val coefficientsMatrix = wlsResults.map(r => SVS.dense(r.intercept, r.coefficients.toArray: _*))
         val metrics = BDV(wlsResults.map(_.rSquared): _*)
-        (id, coefficientsMatrix.toSpark, metrics.toSpark)
+        (id, coefficientsMatrix, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
@@ -101,7 +101,7 @@ abstract class KernelSHAPBase(override val uid: String)
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)
     schema
-      .add(getOutputCol, MatrixType)
+      .add(getOutputCol, ArrayType(VectorType))
       .add(getMetricsCol, VectorType)
   }
 }
