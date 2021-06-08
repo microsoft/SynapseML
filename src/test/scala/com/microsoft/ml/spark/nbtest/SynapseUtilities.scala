@@ -71,6 +71,7 @@ object SynapseUtilities {
         .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
         .filterNot(_.getAbsolutePath.contains("Regressor.py"))
         .filterNot(_.getAbsolutePath.contains("Overview"))
+        .filterNot(_.getAbsolutePath.contains("ModelInterpretation"))
         .map(file => file.getAbsolutePath))
       .get
       .sorted
