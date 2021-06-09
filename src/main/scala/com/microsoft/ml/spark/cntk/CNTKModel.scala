@@ -534,7 +534,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
       val unbatchedDF = if (getBatchInput) {
         // TODO: The cache call is a workaround for issue 1075:
         //  https://github.com/Azure/mmlspark/issues/1075
-        new FlattenBatch().transform(droppedDF.cache())
+        val cacheAttempted = if (droppedDF.isStreaming) droppedDF else droppedDF.cache()
+        new FlattenBatch().transform(cacheAttempted)
       } else {
         droppedDF
       }
