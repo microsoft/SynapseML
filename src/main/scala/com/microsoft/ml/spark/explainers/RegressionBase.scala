@@ -55,7 +55,7 @@ abstract class RegressionBase {
     }
 
     // step 2: rescale x, y by sqrt(weights)
-    val x_rescaled = BDM.tabulate(data.rows, data.cols) {
+    val xRescaled = BDM.tabulate(data.rows, data.cols) {
       (i, j) =>
         sqrt(normalizedWeights(i)) * x(i, j)
     }
@@ -65,7 +65,7 @@ abstract class RegressionBase {
     }
 
     // step 3: solve for coefficients
-    val coefficients = regress(x_rescaled, yRescaled)
+    val coefficients = regress(xRescaled, yRescaled)
 
     // step 4: compute intercept
     val intercept = if (fitIntercept) yOffset - (xOffset dot coefficients) else 0d
