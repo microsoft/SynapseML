@@ -167,8 +167,9 @@ trait TextSentimentBaseSuite extends TestBase with TextKey {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("en", "Hello world. This is some input text that I love."),
-    ("fr", "Bonjour tout le monde"),
+    ("en", "Hello, my name is Preeti."),
+    //("fr", "Bonjour tout le monde"),
+    ("en", "I hate the color blue so much."),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     (null, "ich bin ein berliner"),
     (null, null),
@@ -192,7 +193,8 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
 
     assert(List(4,5).forall(results(_).get(0) == null))
     assert(
-      results(0).getSeq[Row](0).head.getString(0) == "positive" &&
+      results(0).getSeq[Row](0).head.getString(0) == "neutral" &&
+        results(1).getSeq[Row](0).head.getString(0) == "negative" &&
       results(2).getSeq[Row](0).head.getString(0) == "negative")
   }
 
