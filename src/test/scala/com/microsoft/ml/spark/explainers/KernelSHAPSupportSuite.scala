@@ -36,12 +36,12 @@ class KernelSHAPSupportSuite extends TestBase with KernelSHAPSamplerSupport {
     c2.length shouldBe 1
     c2.count(coal => sum(coal) == 0) shouldBe 1
 
-    val c3 = this.generateCoalitions(1000, 2003).toList
-    c3.length shouldBe 2003
+    val c3 = this.generateCoalitions(500, 1003).toList
+    c3.length shouldBe 1003
     c3.count(coal => sum(coal) == 0) shouldBe 1
-    c3.count(coal => sum(coal) == 1000) shouldBe 1
-    c3.count(coal => sum(coal) == 1) shouldBe 1000
-    c3.count(coal => sum(coal) == 999) shouldBe 1000
+    c3.count(coal => sum(coal) == 500) shouldBe 1
+    c3.count(coal => sum(coal) == 1) shouldBe 500
+    c3.count(coal => sum(coal) == 499) shouldBe 500
     c3.count(coal => sum(coal) == 2) shouldBe 1
   }
 }

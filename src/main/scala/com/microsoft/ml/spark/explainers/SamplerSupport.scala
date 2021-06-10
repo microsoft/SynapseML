@@ -96,13 +96,6 @@ private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
     generateCoalitionLengths(m, 0, nSamples)
   }
 
-  private def randomComb(n: Int, k: Int): BDV[Int] = {
-    val indices = Rand.permutation(n).sample.take(k)
-    val v = BDV.zeros[Int](n)
-    v(indices) := 1
-    v
-  }
-
   protected def generateCoalitions(m: Int, nSamples: Int): Iterator[BDV[Int]] = {
     assert(m > 0)
     assert(nSamples > 0)

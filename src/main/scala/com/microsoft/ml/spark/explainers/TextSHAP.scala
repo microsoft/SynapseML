@@ -75,7 +75,7 @@ class TextSHAP(override val uid: String)
     ArrayType(
       StructType(Seq(
         StructField("sample", StringType),
-        StructField("coalition", VectorType),
+        StructField("coalition", VectorType)
       ))
     )
   }
