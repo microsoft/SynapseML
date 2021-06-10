@@ -9,10 +9,12 @@ import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
+import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
+import java.io.File
 import java.net.URL
 
 abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
@@ -45,8 +47,17 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setModifier(modifier)
     .setNumSamples(50)
 
-  val imageResource: URL = this.getClass.getResource("/greyhound.jpg")
-  val imageDf: DataFrame = spark.read.image.load(imageResource.toString)
+  lazy val greyhoundImageLocation: String = {
+    val loc = "/tmp/greyhound.jpg"
+    val f = new File(loc)
+    if (f.exists()) {
+      f.delete()
+    }
+    FileUtils.copyURLToFile(new URL("https://mmlspark.blob.core.windows.net/datasets/LIME/greyhound.jpg"), f)
+    loc
+  }
+
+  val imageDf: DataFrame = spark.read.image.load(greyhoundImageLocation)
 }
 
 class ImageSHAPSuite extends ImageExplainersSuite
@@ -99,8 +110,6 @@ class ImageLIMESuite extends ImageExplainersSuite
   import spark.implicits._
 
   test("ImageLIME can explain a model locally for image type observation") {
-    val imageDf = spark.read.image.load(imageResource.toString)
-
     val (image, superpixels, weights, r2) = lime
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
@@ -126,7 +135,7 @@ class ImageLIMESuite extends ImageExplainersSuite
   }
 
   test("ImageLIME can explain a model locally for binary type observation") {
-    val binaryDf = spark.read.binary.load(imageResource.toString)
+    val binaryDf = spark.read.binary.load(greyhoundImageLocation)
       .select(col("value.bytes").alias("image"))
 
     val (weights, r2) = lime
