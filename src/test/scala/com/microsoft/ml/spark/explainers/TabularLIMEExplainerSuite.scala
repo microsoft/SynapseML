@@ -5,17 +5,17 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{norm, DenseVector => BDV}
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 
 class TabularLIMEExplainerSuite extends TestBase
-  with ExperimentFuzzing[TabularLIME]
-  with PyTestFuzzing[TabularLIME] {
+  with TransformerFuzzing[TabularLIME] {
 
   import spark.implicits._
 
@@ -180,13 +180,8 @@ class TabularLIMEExplainerSuite extends TestBase
     assert(results(3) > 0.6)
   }
 
-  private lazy val testObjects = Seq(new TestObject(lime, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[TabularLIME]] = testObjects
+  override def testObjects(): Seq[TestObject[TabularLIME]] = Seq(new TestObject(lime, infer))
 
-  override def pyTestObjects(): Seq[TestObject[TabularLIME]] = testObjects
-
-  test("saving") {
-    this.makePyTestFile()
-  }
+  override def reader: MLReadable[_] = TabularLIME
 }

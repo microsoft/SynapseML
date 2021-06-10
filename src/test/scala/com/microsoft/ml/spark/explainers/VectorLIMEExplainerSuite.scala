@@ -6,15 +6,15 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, norm, DenseMatrix => BDM}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 class VectorLIMEExplainerSuite extends TestBase
-  with ExperimentFuzzing[VectorLIME]
-  with PyTestFuzzing[VectorLIME] {
+  with TransformerFuzzing[VectorLIME] {
 
   import spark.implicits._
 
@@ -58,9 +58,7 @@ class VectorLIMEExplainerSuite extends TestBase
     }
   }
 
-  private lazy val testObjects = Seq(new TestObject(lime, df))
+  override def testObjects(): Seq[TestObject[VectorLIME]] = Seq(new TestObject(lime, df))
 
-  override def experimentTestObjects(): Seq[TestObject[VectorLIME]] = testObjects
-
-  override def pyTestObjects(): Seq[TestObject[VectorLIME]] = testObjects
+  override def reader: MLReadable[_] = VectorLIME
 }

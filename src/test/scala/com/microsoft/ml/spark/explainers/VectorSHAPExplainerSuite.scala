@@ -3,19 +3,19 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{*, DenseVector => BDV, DenseMatrix => BDM}
+import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import org.apache.spark.ml.util.MLReadable
 
 class VectorSHAPExplainerSuite extends TestBase
-  with ExperimentFuzzing[VectorSHAP]
-  with PyTestFuzzing[VectorSHAP] {
+  with TransformerFuzzing[VectorSHAP] {
 
   import spark.implicits._
 
@@ -77,9 +77,8 @@ class VectorSHAPExplainerSuite extends TestBase
     assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
-  private val testObjects = Seq(new TestObject(kernelShap, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
+  override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
-  override def pyTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
+  override def reader: MLReadable[_] = VectorSHAP
 }

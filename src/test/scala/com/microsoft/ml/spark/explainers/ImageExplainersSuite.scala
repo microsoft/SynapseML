@@ -4,13 +4,14 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
@@ -61,8 +62,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
 }
 
 class ImageSHAPExplainerSuite extends ImageExplainersSuite
-  with ExperimentFuzzing[ImageSHAP]
-  with PyTestFuzzing[ImageSHAP] {
+  with TransformerFuzzing[ImageSHAP] {
 
   import spark.implicits._
 
@@ -91,17 +91,13 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
     // Thread.sleep(100000)
   }
 
-  private lazy val testObjects: Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))
+  override def testObjects(): Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))
 
-  override def experimentTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
-
-  override def pyTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
-
+  override def reader: MLReadable[_] = ImageSHAP
 }
 
 class ImageLIMEExplainerSuite extends ImageExplainersSuite
-  with ExperimentFuzzing[ImageLIME]
-  with PyTestFuzzing[ImageLIME] {
+  with TransformerFuzzing[ImageLIME] {
 
   import spark.implicits._
 
@@ -155,9 +151,8 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     // Thread.sleep(100000)
   }
 
-  private lazy val testObjects: Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, imageDf))
 
-  override def experimentTestObjects(): Seq[TestObject[ImageLIME]] = testObjects
+  override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, imageDf))
 
-  override def pyTestObjects(): Seq[TestObject[ImageLIME]] = testObjects
+  override def reader: MLReadable[_] = ImageLIME
 }

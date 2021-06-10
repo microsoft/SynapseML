@@ -4,13 +4,14 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
+import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
-import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 abstract class TextExplainersSuite extends TestBase {
 
@@ -67,8 +68,7 @@ abstract class TextExplainersSuite extends TestBase {
 }
 
 class TextSHAPExplainerSuite extends TextExplainersSuite
-  with ExperimentFuzzing[TextSHAP]
-  with PyTestFuzzing[TextSHAP] {
+  with TransformerFuzzing[TextSHAP] {
 
   import spark.implicits._
 
@@ -96,16 +96,14 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
     }
   }
 
-  private lazy val testObjects: Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+  override def testObjects(): Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
 
-  override def pyTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+  override def reader: MLReadable[_] = TextSHAP
 }
 
 class TextLIMEExplainerSuite extends TextExplainersSuite
-  with ExperimentFuzzing[TextLIME]
-  with PyTestFuzzing[TextLIME] {
+  with TransformerFuzzing[TextLIME] {
 
   import spark.implicits._
 
@@ -127,9 +125,8 @@ class TextLIMEExplainerSuite extends TextExplainersSuite
     }
   }
 
-  private lazy val testObjects: Seq[TestObject[TextLIME]] = Seq(new TestObject(lime, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[TextLIME]] = testObjects
+  override def testObjects(): Seq[TestObject[TextLIME]] = Seq(new TestObject(lime, infer))
 
-  override def pyTestObjects(): Seq[TestObject[TextLIME]] = testObjects
+  override def reader: MLReadable[_] = TextLIME
 }
