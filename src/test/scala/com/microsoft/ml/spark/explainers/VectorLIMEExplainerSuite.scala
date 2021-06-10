@@ -12,7 +12,7 @@ import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
 import org.apache.spark.sql.DataFrame
 
-class VectorLIMESuite extends TestBase
+class VectorLIMEExplainerSuite extends TestBase
   with ExperimentFuzzing[VectorLIME]
   with PyTestFuzzing[VectorLIME] {
 

@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{norm, DenseVector => BDV}
+import com.microsoft.ml.spark.codegen.TestGen
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
@@ -13,7 +14,7 @@ import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 
-class TabularLIMESuite extends TestBase
+class TabularLIMEExplainerSuite extends TestBase
   with ExperimentFuzzing[TabularLIME]
   with PyTestFuzzing[TabularLIME] {
 
@@ -185,4 +186,8 @@ class TabularLIMESuite extends TestBase
   override def experimentTestObjects(): Seq[TestObject[TabularLIME]] = testObjects
 
   override def pyTestObjects(): Seq[TestObject[TabularLIME]] = testObjects
+
+  test("saving") {
+    this.makePyTestFile()
+  }
 }

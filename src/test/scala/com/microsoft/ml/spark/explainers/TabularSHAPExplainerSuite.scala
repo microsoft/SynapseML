@@ -14,7 +14,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
-class TabularSHAPSuite extends TestBase
+class TabularSHAPExplainerSuite extends TestBase
   with ExperimentFuzzing[TabularSHAP]
   with PyTestFuzzing[TabularSHAP] {
 

@@ -66,7 +66,7 @@ abstract class TextExplainersSuite extends TestBase {
   ) toDF("text", "label")
 }
 
-class TextSHAPSuite extends TextExplainersSuite
+class TextSHAPExplainerSuite extends TextExplainersSuite
   with ExperimentFuzzing[TextSHAP]
   with PyTestFuzzing[TextSHAP] {
 
@@ -103,7 +103,7 @@ class TextSHAPSuite extends TextExplainersSuite
   override def pyTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
 }
 
-class TextLIMESuite extends TextExplainersSuite
+class TextLIMEExplainerSuite extends TextExplainersSuite
   with ExperimentFuzzing[TextLIME]
   with PyTestFuzzing[TextLIME] {
 

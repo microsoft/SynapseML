@@ -60,7 +60,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
   val imageDf: DataFrame = spark.read.image.load(greyhoundImageLocation)
 }
 
-class ImageSHAPSuite extends ImageExplainersSuite
+class ImageSHAPExplainerSuite extends ImageExplainersSuite
   with ExperimentFuzzing[ImageSHAP]
   with PyTestFuzzing[ImageSHAP] {
 
@@ -99,7 +99,7 @@ class ImageSHAPSuite extends ImageExplainersSuite
 
 }
 
-class ImageLIMESuite extends ImageExplainersSuite
+class ImageLIMEExplainerSuite extends ImageExplainersSuite
   with ExperimentFuzzing[ImageLIME]
   with PyTestFuzzing[ImageLIME] {
 

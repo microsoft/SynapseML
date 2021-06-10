@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime._
+import com.microsoft.ml.spark.lime.{HasModifier, HasCellSize, SuperpixelTransformer, SuperpixelData}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema

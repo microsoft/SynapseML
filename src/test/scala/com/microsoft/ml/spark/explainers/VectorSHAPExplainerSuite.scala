@@ -13,7 +13,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
-class VectorSHAPSuite extends TestBase
+class VectorSHAPExplainerSuite extends TestBase
   with ExperimentFuzzing[VectorSHAP]
   with PyTestFuzzing[VectorSHAP] {
 
