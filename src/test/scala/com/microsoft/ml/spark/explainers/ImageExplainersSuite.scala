@@ -20,8 +20,8 @@ import java.net.URL
 abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
   val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
 
-  val cellSize = 30.0
-  val modifier = 50.0
+  val cellSize = 100.0
+  val modifier = 20.0
   val shap: ImageSHAP = LocalExplainer.KernelSHAP.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
@@ -32,7 +32,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setInputCol("image")
     .setCellSize(cellSize)
     .setModifier(modifier)
-    .setNumSamples(3)
+    .setNumSamples(20)
 
   val lime: ImageLIME = LocalExplainer.LIME.image
     .setModel(resNetTransformer)
