@@ -19,7 +19,10 @@ import java.io.File
 import java.net.URL
 
 abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
-  val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
+  val resNetTransformer: ImageFeaturizer = resNetModel()
+    .setCutOutputLayers(0)
+    .setInputCol("image")
+    .setMiniBatchSize(1)
 
   val cellSize = 100.0
   val modifier = 20.0
