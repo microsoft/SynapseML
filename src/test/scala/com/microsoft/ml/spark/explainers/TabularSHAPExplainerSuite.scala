@@ -5,7 +5,6 @@ package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
-import com.microsoft.ml.spark.image.NetworkUtils
 import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
@@ -39,7 +38,7 @@ class TabularSHAPExplainerSuite extends TestBase
   val kernelShap: TabularSHAP = LocalExplainer.KernelSHAP.tabular
     .setInputCols(Array("col1", "col2", "col3"))
     .setOutputCol("shapValues")
-    .setBackgroundDataset(data)
+    .setBackgroundData(data)
     .setNumSamples(1000)
     .setModel(model)
     .setTargetCol("probability")

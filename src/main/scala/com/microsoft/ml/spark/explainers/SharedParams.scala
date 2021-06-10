@@ -8,7 +8,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.Column
+import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -58,6 +58,18 @@ trait HasSamplingFraction extends Params {
   def getSamplingFraction: Double = $(samplingFraction)
 
   def setSamplingFraction(d: Double): this.type = set(samplingFraction, d)
+}
+
+trait HasBackgroundData extends Params {
+  val backgroundData: DataFrameParam = new DataFrameParam(
+    this,
+    "backgroundData",
+    "A dataframe containing background data"
+  )
+
+  def getBackgroundData: DataFrame = $(backgroundData)
+
+  def setBackgroundData(value: DataFrame): this.type = set(backgroundData, value)
 }
 
 trait HasExplainTarget extends Params {

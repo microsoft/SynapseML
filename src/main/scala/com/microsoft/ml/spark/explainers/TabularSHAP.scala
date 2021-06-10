@@ -24,13 +24,11 @@ class TabularSHAP(override val uid: String)
     this(Identifiable.randomUID("TabularSHAP"))
   }
 
-  override lazy val pyInternalWrapper: Boolean = true
-
   def setInputCols(values: Array[String]): this.type = this.set(inputCols, values)
 
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
     val instances = df.select(col(idCol), struct(getInputCols.map(col): _*).alias("instance"))
-    val background = this.backgroundData.getOrElse(df)
+    val background = this.get(backgroundData).getOrElse(df)
       .select(struct(getInputCols.map(col): _*).alias("background"))
 
     val featureSize = this.getInputCols.length
@@ -80,13 +78,11 @@ class TabularSHAP(override val uid: String)
   override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    if (backgroundData.isDefined) {
-      val bgDf = backgroundData.get
-
+    if (this.get(backgroundData).isDefined) {
       this.getInputCols.foreach {
         col =>
           val inputField: StructField = schema(col)
-          val backgroundField = bgDf.schema(col)
+          val backgroundField = this.getBackgroundData.schema(col)
 
           require(
             DataType.equalsStructurally(inputField.dataType, backgroundField.dataType, ignoreNullability = true),

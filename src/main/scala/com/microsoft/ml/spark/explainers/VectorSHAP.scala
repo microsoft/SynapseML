@@ -25,13 +25,11 @@ class VectorSHAP(override val uid: String)
     this(Identifiable.randomUID("VectorSHAP"))
   }
 
-  override protected lazy val pyInternalWrapper = true
-
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
     val instances = df.select(col(idCol), col(getInputCol).alias("instance"))
-    val background = this.backgroundData.getOrElse(df)
+    val background = this.get(backgroundData).getOrElse(df)
       .select(col(getInputCol).alias("background"))
 
     val numSampleOpt = this.getNumSamplesOpt
@@ -76,8 +74,8 @@ class VectorSHAP(override val uid: String)
       s"Field $getInputCol from input must be Vector type, but got ${schema(getInputCol).dataType} instead."
     )
 
-    if (backgroundData.isDefined) {
-      val dataType = backgroundData.get.schema(getInputCol).dataType
+    if (this.get(backgroundData).isDefined) {
+      val dataType = getBackgroundData.schema(getInputCol).dataType
 
       require(
         dataType == VectorType,

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.stat.Summarizer
@@ -23,8 +24,6 @@ class VectorLIME(override val uid: String)
     this(Identifiable.randomUID("VectorLIME"))
   }
 
-  override protected lazy val pyInternalWrapper = true
-
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
   private implicit val randBasis: RandBasis = RandBasis.mt0
@@ -35,7 +34,7 @@ class VectorLIME(override val uid: String)
                                        distanceCol: String): DataFrame = {
     val numSamples = this.getNumSamples
 
-    val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
+    val featureStats = this.createFeatureStats(this.get(backgroundData).getOrElse(df))
 
     val returnDataType = ArrayType(
       StructType(Seq(
@@ -77,9 +76,18 @@ class VectorLIME(override val uid: String)
     super.validateSchema(schema)
 
     require(
-      schema(getInputCol).dataType == SQLDataTypes.VectorType,
+      schema(getInputCol).dataType == VectorType,
       s"Field $getInputCol is expected to be vector type, but got ${schema(getInputCol).dataType} instead."
     )
+
+    if (this.get(backgroundData).isDefined) {
+      val dataType = getBackgroundData.schema(getInputCol).dataType
+
+      require(
+        dataType == VectorType,
+        s"Field $getInputCol from background dataset must be Vector type, but got $dataType instead."
+      )
+    }
   }
 }
 

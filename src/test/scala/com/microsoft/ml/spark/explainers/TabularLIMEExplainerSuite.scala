@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{norm, DenseVector => BDV}
-import com.microsoft.ml.spark.codegen.TestGen
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
@@ -44,7 +43,7 @@ class TabularLIMEExplainerSuite extends TestBase
   val lime: TabularLIME = LocalExplainer.LIME.tabular
     .setInputCols(Array("col1"))
     .setOutputCol("weights")
-    .setBackgroundDataset(data)
+    .setBackgroundData(data)
     .setKernelWidth(0.001)
     .setNumSamples(1000)
     .setModel(model)
@@ -107,7 +106,7 @@ class TabularLIMEExplainerSuite extends TestBase
     val lime = LocalExplainer.LIME.tabular
       .setInputCols(Array("col1", "col2"))
       .setOutputCol("weights")
-      .setBackgroundDataset(data)
+      .setBackgroundData(data)
       .setKernelWidth(0.05)
       .setNumSamples(1000)
       .setRegularization(0.01)
@@ -156,7 +155,7 @@ class TabularLIMEExplainerSuite extends TestBase
       .setInputCols(Array("col1"))
       .setCategoricalFeatures(Array("col1"))
       .setOutputCol("weights")
-      .setBackgroundDataset(data)
+      .setBackgroundData(data)
       .setNumSamples(1000)
       .setModel(model)
       .setTargetCol("probability")

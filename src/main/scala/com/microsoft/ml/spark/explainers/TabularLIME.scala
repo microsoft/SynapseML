@@ -25,8 +25,6 @@ class TabularLIME(override val uid: String)
     this(Identifiable.randomUID("TabularLIME"))
   }
 
-  override protected lazy val pyInternalWrapper = true
-
   val categoricalFeatures = new StringArrayParam(
     this,
     "categoricalFeatures",
@@ -48,7 +46,7 @@ class TabularLIME(override val uid: String)
 
     val numSamples = this.getNumSamples
 
-    val featureStats = this.createFeatureStats(this.backgroundData.getOrElse(df))
+    val featureStats = this.createFeatureStats(this.get(backgroundData).getOrElse(df))
 
     val sampleType = StructType(this.getInputCols.map(StructField(_, DoubleType)))
 
@@ -134,8 +132,8 @@ class TabularLIME(override val uid: String)
         )
     }
 
-    if (this.backgroundData.nonEmpty) {
-      val schema = this.backgroundData.get.schema
+    if (this.get(backgroundData).isDefined) {
+      val schema = this.getBackgroundData.schema
       this.getInputCols.foreach {
         inputCol =>
           require(

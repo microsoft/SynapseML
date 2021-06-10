@@ -44,7 +44,7 @@ class VectorSHAPExplainerSuite extends TestBase
   val kernelShap: VectorSHAP = LocalExplainer.KernelSHAP.vector
     .setInputCol("features")
     .setOutputCol("shapValues")
-    .setBackgroundDataset(data)
+    .setBackgroundData(data)
     .setNumSamples(1000)
     .setModel(model)
     .setTargetCol("probability")
