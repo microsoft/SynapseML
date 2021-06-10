@@ -3,19 +3,15 @@
 
 package com.microsoft.ml.spark.core.test.fuzzing
 
-import java.lang.reflect.ParameterizedType
-
-import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils
-import com.microsoft.ml.spark.core.utils.JarLoadingUtils.AllClasses
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
+import java.lang.reflect.ParameterizedType
 import scala.language.existentials
-import scala.reflect.classTag
 
 /** Tests to validate fuzzing of modules. */
 class FuzzingTest extends TestBase {
@@ -186,7 +182,6 @@ class FuzzingTest extends TestBase {
     pipelineStages.foreach { pipelineStage =>
       pipelineStage.params.foreach { param =>
         assertOrLog(!param.name.contains(badChars), param.name)
-        assertOrLog(!param.doc.contains("\""), param.doc)
       }
     }
   }
@@ -239,8 +234,17 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitClassificationModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitRegressionModel",
-      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel"
+      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.ml.spark.explainers.ImageLIME",
+      "com.microsoft.ml.spark.explainers.ImageSHAP",
+      "com.microsoft.ml.spark.explainers.TabularLIME",
+      "com.microsoft.ml.spark.explainers.TabularSHAP",
+      "com.microsoft.ml.spark.explainers.TextLIME",
+      "com.microsoft.ml.spark.explainers.TextSHAP",
+      "com.microsoft.ml.spark.explainers.VectorLIME",
+      "com.microsoft.ml.spark.explainers.VectorSHAP"
     )
+
     pipelineStages.foreach { stage =>
       if (!exemptions(stage.getClass.getName)) {
         stage.params.foreach { param =>

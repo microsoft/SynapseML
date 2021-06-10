@@ -15,18 +15,12 @@ import org.apache.spark.sql.functions._
 
 import java.net.URL
 
-class ImageExplainersSuite extends TestBase
-  with NetworkUtils
-  with ExperimentFuzzing[LocalExplainer]
-  with PyTestFuzzing[LocalExplainer] {
-
-  import spark.implicits._
-
+abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
   val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0).setInputCol("image")
 
   val cellSize = 30.0
   val modifier = 50.0
-  private val shap: ImageSHAP = LocalExplainer.KernelSHAP.image
+  val shap: ImageSHAP = LocalExplainer.KernelSHAP.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setTargetClasses(Array(172))
@@ -38,7 +32,7 @@ class ImageExplainersSuite extends TestBase
     .setModifier(modifier)
     .setNumSamples(90)
 
-  private val lime: ImageLIME = LocalExplainer.LIME.image
+  val lime: ImageLIME = LocalExplainer.LIME.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setSamplingFraction(0.7)
@@ -53,6 +47,13 @@ class ImageExplainersSuite extends TestBase
 
   val imageResource: URL = this.getClass.getResource("/greyhound.jpg")
   val imageDf: DataFrame = spark.read.image.load(imageResource.toString)
+}
+
+class ImageSHAPSuite extends ImageExplainersSuite
+  with ExperimentFuzzing[ImageSHAP]
+  with PyTestFuzzing[ImageSHAP] {
+
+  import spark.implicits._
 
   test("ImageKernelSHAP can explain a model locally") {
     val (image, superpixels, shapValues, r2) = shap
@@ -82,6 +83,20 @@ class ImageExplainersSuite extends TestBase
     // Superpixel.displayImage(censoredImage)
     // Thread.sleep(100000)
   }
+
+  private lazy val testObjects: Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))
+
+  override def experimentTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
+
+  override def pyTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
+
+}
+
+class ImageLIMESuite extends ImageExplainersSuite
+  with ExperimentFuzzing[ImageLIME]
+  with PyTestFuzzing[ImageLIME] {
+
+  import spark.implicits._
 
   test("ImageLIME can explain a model locally for image type observation") {
     val imageDf = spark.read.image.load(imageResource.toString)
@@ -129,12 +144,9 @@ class ImageExplainersSuite extends TestBase
     assert(spStates.count(identity) == 8)
   }
 
-  private lazy val testObjects: Seq[TestObject[LocalExplainer]] = Seq(
-    new TestObject(shap, imageDf),
-    new TestObject(lime, imageDf)
-  )
+  private lazy val testObjects: Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, imageDf))
 
-  override def experimentTestObjects(): Seq[TestObject[LocalExplainer]] = testObjects
+  override def experimentTestObjects(): Seq[TestObject[ImageLIME]] = testObjects
 
-  override def pyTestObjects(): Seq[TestObject[LocalExplainer]] = testObjects
+  override def pyTestObjects(): Seq[TestObject[ImageLIME]] = testObjects
 }

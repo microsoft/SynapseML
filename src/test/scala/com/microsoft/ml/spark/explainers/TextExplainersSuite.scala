@@ -10,10 +10,7 @@ import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
-class TextExplainersSuite extends TestBase
-  with NetworkUtils
-  with ExperimentFuzzing[LocalExplainer]
-  with PyTestFuzzing[LocalExplainer] {
+abstract class TextExplainersSuite extends TestBase with NetworkUtils {
 
   import spark.implicits._
 
@@ -65,6 +62,13 @@ class TextExplainersSuite extends TestBase
     ("hi this is example 1", 1.0),
     ("hi bar is cat 1", 0.0)
   ) toDF("text", "label")
+}
+
+class TextSHAPSuite extends TextExplainersSuite
+  with ExperimentFuzzing[TextSHAP]
+  with PyTestFuzzing[TextSHAP] {
+
+  import spark.implicits._
 
   test("TextSHAP can explain a model locally") {
     val results = shap.transform(infer).select("tokens", "weights", "r2")
@@ -90,6 +94,19 @@ class TextExplainersSuite extends TestBase
     }
   }
 
+  private lazy val testObjects: Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
+
+  override def experimentTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+
+  override def pyTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+}
+
+class TextLIMESuite extends TextExplainersSuite
+  with ExperimentFuzzing[TextLIME]
+  with PyTestFuzzing[TextLIME] {
+
+  import spark.implicits._
+
   test("TextLIME can explain a model locally") {
     val results = lime.transform(infer).select("tokens", "weights", "r2")
       .as[(Seq[String], Seq[SV], SV)]
@@ -108,12 +125,9 @@ class TextExplainersSuite extends TestBase
     }
   }
 
-  private lazy val testObjects: Seq[TestObject[LocalExplainer]] = Seq(
-    new TestObject(shap, infer),
-    new TestObject(lime, infer)
-  )
+  private lazy val testObjects: Seq[TestObject[TextLIME]] = Seq(new TestObject(lime, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[LocalExplainer]] = testObjects
+  override def experimentTestObjects(): Seq[TestObject[TextLIME]] = testObjects
 
-  override def pyTestObjects(): Seq[TestObject[LocalExplainer]] = testObjects
+  override def pyTestObjects(): Seq[TestObject[TextLIME]] = testObjects
 }
