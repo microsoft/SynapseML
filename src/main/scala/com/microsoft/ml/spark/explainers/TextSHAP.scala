@@ -44,8 +44,7 @@ class TextSHAP(override val uid: String)
 
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
-                                       coalitionCol: String,
-                                      ): DataFrame = {
+                                       coalitionCol: String): DataFrame = {
     val numSamplesOpt = this.getNumSamplesOpt
 
     val samplesUdf = UDFUtils.oldUdf(
@@ -72,12 +71,10 @@ class TextSHAP(override val uid: String)
   }
 
   private def getSampleSchema: DataType = {
-    ArrayType(
-      StructType(Seq(
-        StructField("sample", StringType),
-        StructField("coalition", VectorType)
-      ))
-    )
+    ArrayType(StructType(Seq(
+      StructField("sample", StringType),
+      StructField("coalition", VectorType)
+    )))
   }
 
   override protected def validateSchema(schema: StructType): Unit = {
