@@ -5,7 +5,6 @@ package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
-import com.microsoft.ml.spark.image.NetworkUtils
 import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
@@ -13,7 +12,7 @@ import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
-abstract class TextExplainersSuite extends TestBase with NetworkUtils {
+abstract class TextExplainersSuite extends TestBase {
 
   import spark.implicits._
 

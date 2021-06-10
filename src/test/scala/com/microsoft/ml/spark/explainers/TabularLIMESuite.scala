@@ -7,7 +7,6 @@ import breeze.linalg.{norm, DenseVector => BDV}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import com.microsoft.ml.spark.image.NetworkUtils
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector => SV}
@@ -15,7 +14,6 @@ import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 
 class TabularLIMESuite extends TestBase
-  with NetworkUtils
   with ExperimentFuzzing[TabularLIME]
   with PyTestFuzzing[TabularLIME] {
 
@@ -165,7 +163,7 @@ class TabularLIMESuite extends TestBase
 
     val weights = lime.transform(predicted)
 
-    weights.show(false)
+    // weights.show(false)
 
     val results = weights.select("col1", "weights").as[(Int, Seq[SV])].collect()
       .map(r => (r._1, r._2.head.toBreeze(0)))

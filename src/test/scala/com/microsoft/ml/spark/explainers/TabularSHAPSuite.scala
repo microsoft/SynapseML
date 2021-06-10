@@ -15,7 +15,6 @@ import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 
 class TabularSHAPSuite extends TestBase
-  with NetworkUtils
   with ExperimentFuzzing[TabularSHAP]
   with PyTestFuzzing[TabularSHAP] {
 

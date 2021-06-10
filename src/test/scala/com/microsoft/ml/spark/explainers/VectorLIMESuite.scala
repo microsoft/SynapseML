@@ -8,13 +8,11 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import com.microsoft.ml.spark.image.NetworkUtils
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
 import org.apache.spark.sql.DataFrame
 
 class VectorLIMESuite extends TestBase
-  with NetworkUtils
   with ExperimentFuzzing[VectorLIME]
   with PyTestFuzzing[VectorLIME] {
 
