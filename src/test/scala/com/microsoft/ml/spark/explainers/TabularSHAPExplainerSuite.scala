@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
 import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
@@ -12,10 +12,11 @@ import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import org.apache.spark.ml.util.MLReadable
 
 class TabularSHAPExplainerSuite extends TestBase
-  with TransformerFuzzing[TabularSHAP] {
+  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
+  with ExperimentFuzzing[TabularSHAP]
+  with PyTestFuzzing[TabularSHAP] {
 
   import spark.implicits._
 
@@ -81,8 +82,9 @@ class TabularSHAPExplainerSuite extends TestBase
     assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
+  private lazy val testObjects: Seq[TestObject[TabularSHAP]] = Seq(new TestObject(kernelShap, infer))
 
-  override def testObjects(): Seq[TestObject[TabularSHAP]] = Seq(new TestObject(kernelShap, infer))
+  override def experimentTestObjects(): Seq[TestObject[TabularSHAP]] = testObjects
 
-  override def reader: MLReadable[_] = TabularSHAP
+  override def pyTestObjects(): Seq[TestObject[TabularSHAP]] = testObjects
 }

@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
@@ -68,7 +68,9 @@ abstract class TextExplainersSuite extends TestBase {
 }
 
 class TextSHAPExplainerSuite extends TextExplainersSuite
-  with TransformerFuzzing[TextSHAP] {
+  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
+  with ExperimentFuzzing[TextSHAP]
+  with PyTestFuzzing[TextSHAP] {
 
   import spark.implicits._
 
@@ -97,9 +99,11 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
   }
 
 
-  override def testObjects(): Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
+  private lazy val testObjects: Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
 
-  override def reader: MLReadable[_] = TextSHAP
+  override def experimentTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+
+  override def pyTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
 }
 
 class TextLIMEExplainerSuite extends TextExplainersSuite

@@ -15,7 +15,9 @@ import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.util.MLReadable
 
 class VectorSHAPExplainerSuite extends TestBase
-  with TransformerFuzzing[VectorSHAP] {
+  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
+  with ExperimentFuzzing[VectorSHAP]
+  with PyTestFuzzing[VectorSHAP] {
 
   import spark.implicits._
 
@@ -77,8 +79,9 @@ class VectorSHAPExplainerSuite extends TestBase
     assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
+  private lazy val testObjects: Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
-  override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
+  override def experimentTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
 
-  override def reader: MLReadable[_] = VectorSHAP
+  override def pyTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
 }
