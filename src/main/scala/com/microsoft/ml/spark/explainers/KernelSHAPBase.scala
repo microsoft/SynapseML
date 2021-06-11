@@ -8,12 +8,12 @@ import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{DoubleParam, ParamMap, ParamValidators}
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -22,7 +22,18 @@ import org.apache.spark.sql.types._
 trait KernelSHAPParams extends HasNumSamples with HasMetricsCol {
   self: KernelSHAPBase =>
 
-  setDefault(metricsCol -> "r2")
+  val infWeight = new DoubleParam(
+    this,
+    "infWeight",
+    "The double value to represent infinite weight. Default: 1E8.",
+    ParamValidators.gtEq(1)
+  )
+
+  def getInfWeight: Double = $(infWeight)
+
+  def setInfWeight(value: Double): this.type = this.set(infWeight, value)
+
+  setDefault(metricsCol -> "r2", infWeight -> 1E8)
 }
 
 abstract class KernelSHAPBase(override val uid: String)
@@ -46,7 +57,7 @@ abstract class KernelSHAPBase(override val uid: String)
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
     val preprocessed = preprocess(dfWithId).cache()
 
-    val sampleWeightUdf = UDFUtils.oldUdf(kernelWeight _, DoubleType)
+    val sampleWeightUdf = UDFUtils.oldUdf(kernelWeight(this.getInfWeight) _, DoubleType)
     val samples = createSamples(preprocessed, idCol, coalitionCol)
       .repartition()
 
@@ -104,24 +115,37 @@ abstract class KernelSHAPBase(override val uid: String)
       .add(getOutputCol, ArrayType(VectorType))
       .add(getMetricsCol, VectorType)
   }
+
+  protected def getSampleSchema(sampleType: DataType): DataType = {
+    ArrayType(
+      StructType(Seq(
+        StructField("sample", sampleType),
+        StructField("coalition", VectorType)
+      ))
+    )
+  }
+
 }
 
 object KernelSHAPBase {
-  private[explainers] def kernelWeight(coalition: SV): Double = {
+  private[explainers] def kernelWeight(infWeight: Double)(coalition: SV): Double = {
     val activeSize = sum(coalition.toBreeze)
     val inactiveSize = coalition.size - activeSize
 
     if (activeSize == 0 || inactiveSize == 0) {
-      1E6
+      infWeight
     } else {
-      val numerator = coalition.size - 1
-      val denominator = comb(coalition.size, activeSize.toInt) * activeSize * inactiveSize
-      numerator / denominator
+      1.0
     }
   }
 
+  /**
+    * For Kernel SHAP coalition sampling, the number of samples needed should be numFeature + 2 at minimum (otherwise
+    * the least squares regression algorithm cannot run). The maximum should be 2^^numFeature.
+    * The default value is set to 2 * numFeature + 2048, following default settings in https://github.com/slundberg/shap
+    */
   private[explainers] def getEffectiveNumSamples(numSamplesParam: Option[Int], numFeature: Int): Int = {
-    val minSamplesNeeded = numFeature
+    val minSamplesNeeded = numFeature + 2
     val maxSamplesNeeded = math.pow(2, numFeature)
 
     val value = numSamplesParam.getOrElse(2 * numFeature + 2048)

@@ -21,18 +21,14 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import java.awt.image.BufferedImage
 
-trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with HasSamplingFraction with HasInputCol {
+trait ImageLIMEParams
+  extends LIMEParams
+  with HasSamplingFraction
+  with HasCellSize
+  with HasModifier
+  with HasInputCol
+  with HasSuperpixelCol {
   self: ImageLIME =>
-
-  val superpixelCol = new Param[String](
-    this,
-    "superpixelCol",
-    "The column holding the superpixel decompositions"
-  )
-
-  def getSuperpixelCol: String = $(superpixelCol)
-
-  def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
@@ -41,21 +37,13 @@ trait ImageLIMEParams extends LIMEParams with HasCellSize with HasModifier with 
 }
 
 class ImageLIME(override val uid: String)
-  extends LIMEBase(uid) with ImageLIMEParams {
+  extends LIMEBase(uid)
+    with ImageLIMEParams
+    with ImageExplainer {
   logClass()
 
   def this() = {
     this(Identifiable.randomUID("ImageLIME"))
-  }
-
-  override protected def preprocess(df: DataFrame): DataFrame = {
-    // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
-    new SuperpixelTransformer()
-      .setCellSize(getCellSize)
-      .setModifier(getModifier)
-      .setInputCol(getInputCol)
-      .setOutputCol(getSuperpixelCol)
-      .transform(df)
   }
 
   private def sample(numSamples: Int, samplingFraction: Double)(bi: BufferedImage, spd: SuperpixelData)
@@ -81,7 +69,7 @@ class ImageLIME(override val uid: String)
           val spd = SuperpixelData.fromRow(sp)
           samplingFunc(bi, spd)
       },
-      getSampleSchema
+      getSampleSchema(ImageSchema.columnSchema)
     )
   }
 
@@ -95,7 +83,7 @@ class ImageLIME(override val uid: String)
             bi => samplingFunc(bi, spd)
           }.getOrElse(Seq.empty)
       },
-      getSampleSchema
+      getSampleSchema(ImageSchema.columnSchema)
     )
   }
 
@@ -119,16 +107,6 @@ class ImageLIME(override val uid: String)
         col("samples.state").alias(stateCol),
         col("samples.sample").alias(getInputCol)
       )
-  }
-
-  private def getSampleSchema: DataType = {
-    ArrayType(
-      StructType(Seq(
-        StructField("sample", ImageSchema.columnSchema),
-        StructField("state", VectorType),
-        StructField("distance", DoubleType)
-      ))
-    )
   }
 
   override protected def validateSchema(schema: StructType): Unit = {

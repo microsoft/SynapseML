@@ -11,7 +11,6 @@ import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV}
-import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
@@ -20,18 +19,13 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import java.awt.image.BufferedImage
 
-trait ImageSHAPParams extends KernelSHAPParams with HasCellSize with HasModifier with HasInputCol {
+trait ImageSHAPParams
+  extends KernelSHAPParams
+    with HasCellSize
+    with HasModifier
+    with HasInputCol
+    with HasSuperpixelCol {
   self: ImageSHAP =>
-
-  val superpixelCol = new Param[String](
-    this,
-    "superpixelCol",
-    "The column holding the superpixel decompositions"
-  )
-
-  def getSuperpixelCol: String = $(superpixelCol)
-
-  def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
@@ -39,22 +33,14 @@ trait ImageSHAPParams extends KernelSHAPParams with HasCellSize with HasModifier
 }
 
 class ImageSHAP(override val uid: String)
-  extends KernelSHAPBase(uid) with ImageSHAPParams {
+  extends KernelSHAPBase(uid)
+    with ImageSHAPParams
+    with ImageExplainer {
 
   logClass()
 
   def this() = {
     this(Identifiable.randomUID("ImageSHAP"))
-  }
-
-  override protected def preprocess(df: DataFrame): DataFrame = {
-    // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
-    new SuperpixelTransformer()
-      .setCellSize(getCellSize)
-      .setModifier(getModifier)
-      .setInputCol(getInputCol)
-      .setOutputCol(getSuperpixelCol)
-      .transform(df)
   }
 
   private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, SV)] = {
@@ -79,7 +65,7 @@ class ImageSHAP(override val uid: String)
           val spd = SuperpixelData.fromRow(sp)
           sample(bi, spd, numSampleOpt)
       },
-      getSampleSchema
+      getSampleSchema(ImageSchema.columnSchema)
     )
   }
 
@@ -94,7 +80,7 @@ class ImageSHAP(override val uid: String)
               sample(bi, spd, numSampleOpt)
           }.getOrElse(Seq.empty)
       },
-      getSampleSchema
+      getSampleSchema(ImageSchema.columnSchema)
     )
   }
 
@@ -112,15 +98,6 @@ class ImageSHAP(override val uid: String)
         col("samples.coalition").alias(coalitionCol),
         col("samples.sample").alias(getInputCol)
       )
-  }
-
-  private def getSampleSchema: DataType = {
-    ArrayType(
-      StructType(Seq(
-        StructField("sample", ImageSchema.columnSchema),
-        StructField("coalition", VectorType)
-      ))
-    )
   }
 
   override protected def validateSchema(schema: StructType): Unit = {

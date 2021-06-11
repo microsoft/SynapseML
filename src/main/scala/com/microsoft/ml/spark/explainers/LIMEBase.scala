@@ -138,4 +138,14 @@ abstract class LIMEBase(override val uid: String)
       .add(getOutputCol, ArrayType(VectorType))
       .add(getMetricsCol, VectorType)
   }
+
+  protected def getSampleSchema(sampleType: DataType): DataType = {
+    ArrayType(
+      StructType(Seq(
+        StructField("sample", sampleType),
+        StructField("state", VectorType),
+        StructField("distance", DoubleType)
+      ))
+    )
+  }
 }

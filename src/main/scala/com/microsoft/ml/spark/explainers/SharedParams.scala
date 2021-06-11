@@ -13,23 +13,23 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 trait HasMetricsCol extends Params {
-  val metricsCol = new Param[String](
+  final val metricsCol = new Param[String](
     this,
     "metricsCol",
     "Column name for fitting metrics"
   )
 
-  def getMetricsCol: String = $(metricsCol)
+  final def getMetricsCol: String = $(metricsCol)
 
-  def setMetricsCol(v: String): this.type = this.set(metricsCol, v)
+  final def setMetricsCol(v: String): this.type = this.set(metricsCol, v)
 }
 
 trait HasModel extends Params {
-  val model = new TransformerParam(this, "model", "The model to be interpreted.")
+  final val model = new TransformerParam(this, "model", "The model to be interpreted.")
 
-  def getModel: Transformer = $(model)
+  final def getModel: Transformer = $(model)
 
-  def setModel(v: Transformer): this.type = set(model, v)
+  final def setModel(v: Transformer): this.type = set(model, v)
 }
 
 trait HasNumSamples extends Params {
@@ -47,29 +47,53 @@ trait HasNumSamples extends Params {
   final def setNumSamples(value: Int): this.type = this.set(numSamples, value)
 }
 
+trait HasTokensCol extends Params {
+  final val tokensCol = new Param[String](
+    this,
+    "tokensCol",
+    "The column holding the tokens"
+  )
+
+  final def getTokensCol: String = $(tokensCol)
+
+  final def setTokensCol(v: String): this.type = this.set(tokensCol, v)
+}
+
+trait HasSuperpixelCol extends Params {
+  final val superpixelCol = new Param[String](
+    this,
+    "superpixelCol",
+    "The column holding the superpixel decompositions"
+  )
+
+  final def getSuperpixelCol: String = $(superpixelCol)
+
+  final def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
+}
+
 trait HasSamplingFraction extends Params {
-  val samplingFraction = new DoubleParam(
+  final val samplingFraction = new DoubleParam(
     this,
     "samplingFraction",
     "The fraction of superpixels (for image) or tokens (for text) to keep on",
     ParamValidators.inRange(0, 1)
   )
 
-  def getSamplingFraction: Double = $(samplingFraction)
+  final def getSamplingFraction: Double = $(samplingFraction)
 
-  def setSamplingFraction(d: Double): this.type = set(samplingFraction, d)
+  final def setSamplingFraction(d: Double): this.type = set(samplingFraction, d)
 }
 
 trait HasBackgroundData extends Params {
-  val backgroundData: DataFrameParam = new DataFrameParam(
+  final val backgroundData: DataFrameParam = new DataFrameParam(
     this,
     "backgroundData",
     "A dataframe containing background data"
   )
 
-  def getBackgroundData: DataFrame = $(backgroundData)
+  final def getBackgroundData: DataFrame = $(backgroundData)
 
-  def setBackgroundData(value: DataFrame): this.type = set(backgroundData, value)
+  final def setBackgroundData(value: DataFrame): this.type = set(backgroundData, value)
 }
 
 trait HasExplainTarget extends Params {
