@@ -3,51 +3,50 @@
 
 package com.microsoft.ml.spark.vw
 
-import java.util
 import com.microsoft.ml.spark.io.http.SharedVariable
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
-import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.tuning.{CrossValidator, TrainValidationSplit}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, PredictionModel, Predictor}
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{struct, udf}
 import org.apache.spark.sql.types._
 import org.vowpalwabbit.spark.{VowpalWabbitExample, VowpalWabbitNative}
 import vowpalWabbit.responses.ActionProbs
-import org.apache.spark.sql.functions.{col, struct, udf}
 
-import scala.collection.mutable
+import java.util
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.math.max
 
 object VowpalWabbitContextualBandit extends ComplexParamsReadable[VowpalWabbitContextualBandit]
 
 class ExampleStack(val vw: VowpalWabbitNative) {
-  val stack = new mutable.Stack[VowpalWabbitExample]
+  val stack = new ListBuffer[VowpalWabbitExample] // new mutable.Stack[VowpalWabbitExample]
 
   def getOrCreateExample(): VowpalWabbitExample = {
     val ex = if (stack.isEmpty)
       vw.createExample
-    else
-      stack.pop
+    else {
+      stack.remove(0)
+    }
 
-    ex.clear
-    ex.setDefaultLabel
+    ex.clear()
+    ex.setDefaultLabel()
 
     ex
   }
 
   def returnExample(ex: VowpalWabbitExample): Unit = {
-    stack.push(ex)
+    stack.prepend(ex)
   }
 
-  def close(): Unit =
-    while (stack.nonEmpty)
-      stack.pop.close()
+  def close(): Unit = {
+    stack.foreach(_.close())
+    stack.clear()
+  }
 }
 
 // https://github.com/VowpalWabbit/estimators/blob/master/ips_snips.py
@@ -103,6 +102,7 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   setDefault(additionalSharedFeatures -> Array.empty)
 }
 
+//noinspection ScalaStyle
 class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
     with VowpalWabbitContextualBanditBase
@@ -141,7 +141,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
 
   // Used in the base class to remove unneeded columns from the dataframe.
-  protected override def getAdditionalColumns(): Seq[String] =
+  protected override def getAdditionalColumns: Seq[String] =
     Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures
 
   protected override def addExtraArgs(args: StringBuilder): Unit = {
@@ -220,7 +220,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
       getHashSeed,
       allActionFeatureColumns)
 
-    val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
+    val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns)
     val chosenActionColIdx = schema.fieldIndex(getChosenActionCol)
     val labelGetter = getAsFloat(schema, schema.fieldIndex(getLabelCol))
     val probabilityGetter = getAsFloat(schema, schema.fieldIndex(getProbabilityCol))
@@ -252,10 +252,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
           val probs = prediction.getActionProbs
           val selectedActionIdxZeroBased = selectedActionIdx - 1
-          probs.find(item => item.getAction() == selectedActionIdxZeroBased) match {
+          probs.find(item => item.getAction == selectedActionIdxZeroBased) match {
             case Some(evalProb) =>
               ctx.contextualBanditMetrics.addExample(loggedProbability, cost,evalProb.getProbability())
-            case None => log.warn(s"No action found for index: ${selectedActionIdxZeroBased} " +
+            case None => log.warn(s"No action found for index: $selectedActionIdxZeroBased " +
               s"in ${probs.mkString("Array(", ", ", ")")}.")
           }
         })
@@ -306,6 +306,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitContextualBandit = defaultCopy(extra)
 }
 
+//noinspection ScalaStyle
 class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel
@@ -337,7 +338,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
         getHashSeed,
         allActionFeatureColumns)
 
-      val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns);
+      val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns)
 
       val predictUDF = udf { (row: Row) =>
         VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
@@ -371,4 +372,5 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 }
 
+//noinspection ScalaStyle
 object VowpalWabbitContextualBanditModel extends ComplexParamsReadable[VowpalWabbitContextualBanditModel]

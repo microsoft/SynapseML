@@ -7,7 +7,11 @@ import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
+import scala.reflect.{ClassTag, classTag}
+
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
+
+  implicit protected def clsTag: ClassTag[T] = classTag
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""

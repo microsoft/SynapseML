@@ -7,16 +7,13 @@ import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
-import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.sql.expressions.{MutableAggregationBuffer, UserDefinedAggregateFunction}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 import spray.json.DefaultJsonProtocol._
-
-import scala.collection.mutable
 
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
@@ -57,7 +54,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
 
   val allowedStrategies: Set[String] = Set("mean")
   val strategy = new Param[String](this, "strategy", "How to ensemble the scores, ex: mean",
-                { x: String => allowedStrategies(x) })
+    { x: String => allowedStrategies(x) })
 
   def getStrategy: String = $(strategy)
 
@@ -72,7 +69,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
 
   def setCollapseGroup(value: Boolean): this.type = set(collapseGroup, value)
 
-  val vectorDims =new MapParam[String, Int](this, "vectorDims",
+  val vectorDims = new MapParam[String, Int](this, "vectorDims",
     "the dimensions of any vector columns, used to avoid materialization")
 
   def getVectorDims: Map[String, Int] = get(vectorDims).getOrElse(Map())
@@ -96,9 +93,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
 
       val strategyToVectorFunction = Map(
         "mean" -> { (x: String, y: String) =>
-          val dim = getVectorDims.getOrElse(x,
-            dataset.select(x).take(1)(0).getAs[DenseVector](0).size)
-          new VectorAvg(dim)(dataset(x)).alias(y)
+          Summarizer.mean(col(x)).alias(y)
         }
       )
 
@@ -154,55 +149,4 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   }
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)
-
-}
-
-private class VectorAvg(n: Int) extends UserDefinedAggregateFunction {
-
-  def inputSchema: StructType = new StructType().add("v", VectorType)
-
-  def bufferSchema: StructType =
-    new StructType().add("buff", ArrayType(DoubleType)).add("count", LongType)
-
-  def dataType: DataType = VectorType
-
-  def deterministic: Boolean = true
-
-  def initialize(buffer: MutableAggregationBuffer): Unit = {
-    buffer.update(0, Array.fill(n)(0.0))
-    buffer.update(1, 0L)
-  }
-
-  def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
-    if (!input.isNullAt(0)) {
-      val buff = buffer.getAs[mutable.WrappedArray[Double]](0)
-      val count = buffer.getLong(1)
-
-      val v = input.getAs[Vector](0).toSparse
-      for (i <- v.indices) {
-        buff(i) += v(i)
-      }
-      buffer.update(0, buff)
-      buffer.update(1, count + 1L)
-    }
-  }
-
-  def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
-    val buff1 = buffer1.getAs[mutable.WrappedArray[Double]](0)
-    val buff2 = buffer2.getAs[mutable.WrappedArray[Double]](0)
-    val c1 = buffer1.getLong(1)
-    val c2 = buffer2.getLong(1)
-
-    for ((x, i) <- buff2.zipWithIndex) {
-      buff1(i) += x
-    }
-    buffer1.update(0, buff1)
-    buffer1.update(1, c1 + c2)
-  }
-
-  def evaluate(buffer: Row): Vector = {
-    val c = buffer.getLong(1)
-    Vectors.dense(buffer.getAs[Seq[Double]](0).map(_ / c).toArray)
-  }
-
 }

@@ -124,7 +124,7 @@ class HTTPTransformer(val uid: String)
             c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
           })
           responsesWithContext.map { rwc =>
-            Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.flatMap(Option(_)).map(toRow).orNull))
+            Row.fromSeq(rwc.context.get.asInstanceOf[Row].toSeq :+ rwc.response.flatMap(Option.apply).map(toRow).orNull)
           }
         }
       }(enc)

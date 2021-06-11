@@ -117,8 +117,7 @@ object ImageUtils {
         val bytes = StreamUtilities.using(fs.open(path)) { is => IOUtils.toByteArray(is) }.get
         val imageRow = ImageInjections.decode(path.toString, bytes)
           .getOrElse(Row(null)) //scalastyle:ignore null
-        val ret = Row.merge(Seq(row, imageRow): _*)
-        ret
+        Row.fromSeq(row.toSeq ++ imageRow.toSeq)
       }
     }(encoder)
   }
@@ -130,9 +129,9 @@ object ImageUtils {
       rows.map { row =>
         val path = row.getAs[String](pathCol)
         val bytes = row.getAs[Array[Byte]](bytesCol)
-        val imageRow = ImageInjections.decode(path, bytes).getOrElse(Row(null)) //scalastyle:ignore null
-        val ret = Row.merge(Seq(row, imageRow): _*)
-        ret
+        val imageRow = ImageInjections.decode(path, bytes)
+          .getOrElse(Row(null)) //scalastyle:ignore null
+        Row.fromSeq(row.toSeq ++ imageRow.toSeq)
       }
     }(encoder)
   }
@@ -149,11 +148,11 @@ object ImageUtils {
         val bytes = new Base64().decode(
           if (dropPrefix) encoded.split(",")(1) else encoded
         )
-        val imageRow = ImageInjections.decode(null, bytes).getOrElse(Row(null)) //scalastyle:ignore null
-        val ret = Row.merge(Seq(row, imageRow): _*)
-        ret
+
+        val imageRow = ImageInjections.decode(null, bytes) //scalastyle:ignore null
+          .getOrElse(Row(null)) //scalastyle:ignore null
+        Row.fromSeq(row.toSeq ++ imageRow.toSeq)
       }
     }(encoder)
   }
-
 }

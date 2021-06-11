@@ -15,7 +15,6 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.collection.mutable
 import spray.json.DefaultJsonProtocol._
 
 object MultiNGram extends DefaultParamsReadable[MultiNGram]
@@ -33,9 +32,11 @@ class MultiNGram(override val uid: String)
 
   setDefault(outputCol, uid + "_output")
 
-  val lengths =
-    new TypedArrayParam[Int](this, "lengths",
-      "the collection of lengths to use for ngram extraction", {x=>true})
+  val lengths = new TypedArrayParam[Int](
+    this,
+    "lengths",
+    "the collection of lengths to use for ngram extraction"
+  )
 
   def getLengths: Seq[Int] = $(lengths)
 
@@ -55,7 +56,7 @@ class MultiNGram(override val uid: String)
         val mergedNGrams = intermediateOutputCols
           .map(col => row.getAs[Seq[String]](col))
           .reduce(_ ++ _)
-        Row.merge(row, Row(mergedNGrams))
+        Row.fromSeq(row.toSeq :+ mergedNGrams)
       }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
         .drop(intermediateOutputCols: _*)
     })
@@ -68,5 +69,4 @@ class MultiNGram(override val uid: String)
     assert(schema(getInputCol).dataType == ArrayType(StringType))
     schema.add(getOutputCol, ArrayType(StringType))
   }
-
 }
