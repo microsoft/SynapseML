@@ -5,13 +5,14 @@ package com.microsoft.ml.spark.nn
 
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.ml.spark.core.contracts.HasLabelCol
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.{ConditionalBallTreeParam, Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.injections.OptimizedCKNNFitting
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -28,7 +29,8 @@ trait ConditionalKNNParams extends KNNParams with HasLabelCol {
 object ConditionalKNN extends DefaultParamsReadable[ConditionalKNN]
 
 class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNModel]
-  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting {
+  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ConditionalKNN"))
 
@@ -41,7 +43,9 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
   setDefault(conditionerCol, "conditioner")
 
   override def fit(dataset: Dataset[_]): ConditionalKNNModel = {
-    fitOptimized(dataset)
+    logFit(
+      fitOptimized(dataset)
+    )
   }
 
   override def copy(extra: ParamMap): Estimator[ConditionalKNNModel] =
@@ -59,15 +63,16 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
 
 private[ml] object KNNFuncHolder {
   def queryFunc[L, V](bbt: Broadcast[ConditionalBallTree[L, V]], k: Int)
-                     (dv: DenseVector, conditioner: Seq[L]): Seq[Row] = {
-    bbt.value.findMaximumInnerProducts(new BDV(dv.values), conditioner.toSet, k)
+                     (v: Vector, conditioner: Seq[L]): Seq[Row] = {
+    bbt.value.findMaximumInnerProducts(new BDV(v.toDense.values), conditioner.toSet, k)
       .map(bm => Row(bbt.value.values(bm.index), bm.distance, bbt.value.labels(bm.index)))
   }
-
 }
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
-  with ComplexParamsWritable with ConditionalKNNParams {
+  with ComplexParamsWritable with ConditionalKNNParams with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("ConditionalKNNModel"))
 
   private var broadcastedModelOption: Option[Broadcast[ConditionalBallTree[_, _]]] = None
@@ -86,18 +91,20 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   override def copy(extra: ParamMap): ConditionalKNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    if (broadcastedModelOption.isEmpty) {
-      broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
-    }
-    val getNeighborUDF = UDFUtils.oldUdf(KNNFuncHolder.queryFunc[Any, Any](
-      broadcastedModelOption.get.asInstanceOf[Broadcast[ConditionalBallTree[Any, Any]]], getK) _,
-      ArrayType(new StructType()
-        .add("value", dataset.schema(getValuesCol).dataType)
-        .add("distance", DoubleType)
-        .add("label", dataset.schema(getLabelCol).dataType)
-      ))
+    logTransform[DataFrame]({
+      if (broadcastedModelOption.isEmpty) {
+        broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
+      }
+      val getNeighborUDF = UDFUtils.oldUdf(KNNFuncHolder.queryFunc[Any, Any](
+        broadcastedModelOption.get.asInstanceOf[Broadcast[ConditionalBallTree[Any, Any]]], getK) _,
+        ArrayType(new StructType()
+          .add("value", dataset.schema(getValuesCol).dataType)
+          .add("distance", DoubleType)
+          .add("label", dataset.schema(getLabelCol).dataType)
+        ))
 
-    dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol), col(getConditionerCol)))
+      dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol), col(getConditionerCol)))
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

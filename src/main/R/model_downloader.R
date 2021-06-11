@@ -19,7 +19,7 @@ DEFAULT_URL = "https://mmlspark.azureedge.net/datasets/CNTKModels/"
 smd_model_downloader <- function(sc, localPath, serverURL=DEFAULT_URL, ...) {
     session <- spark_session(sc)
     env <- new.env(parent = emptyenv())
-    env$model <- "com.microsoft.ml.spark.ModelDownloader"
+    env$model <- "com.microsoft.ml.spark.downloader.ModelDownloader"
     downloader <- invoke_new(sc, env$model, session, localPath, serverURL)
 }
 

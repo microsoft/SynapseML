@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasLabelCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasLabelCol
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.RangePartitioner
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -27,7 +29,9 @@ object StratifiedRepartition extends DefaultParamsReadable[DropColumns]
   * at least one instance of each label to be present on each partition.
   */
 class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
-  with DefaultParamsWritable with HasLabelCol with HasSeed {
+  with DefaultParamsWritable with HasLabelCol with HasSeed with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("StratifiedRepartition"))
 
   val mode = new Param[String](this, "mode",
@@ -42,27 +46,29 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     * @return The DataFrame that results from stratified repartitioning
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // Count unique values in label column
-    val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
-    val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))
-    val labelToFraction =
-      getMode match {
-        case SPConstants.Equal => getEqualLabelCount(labelToCount, dataset)
-        case SPConstants.Mixed =>
-          val equalLabelToCount = getEqualLabelCount(labelToCount, dataset)
-          val normalizedRatio = equalLabelToCount.map { case (label, count) => count }.sum / labelToCount.length
-          labelToCount.map { case (label, count) => (label, count / normalizedRatio)}.toMap
-        case SPConstants.Original => labelToCount.map { case (label, count) => (label, 1.0) }.toMap
-        case _ => throw new Exception(s"Unknown mode specified to StratifiedRepartition: $getMode")
-      }
-    val labelColIndex = dataset.schema.fieldIndex(getLabelCol)
-    val spdata = dataset.toDF().rdd.keyBy(row => row.getInt(labelColIndex))
-      .sampleByKeyExact(true, labelToFraction, getSeed)
-      .mapPartitions(keyToRow => keyToRow.zipWithIndex.map { case ((key, row), index) => (index, row) })
-    val rangePartitioner = new RangePartitioner(dataset.rdd.getNumPartitions, spdata)
-    val rspdata = spdata.partitionBy(rangePartitioner).mapPartitions(keyToRow =>
-      keyToRow.map{case (key, row) => row}).persist()
-    dataset.sqlContext.createDataFrame(rspdata, dataset.schema)
+    logTransform[DataFrame]({
+      // Count unique values in label column
+      val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
+      val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))
+      val labelToFraction =
+        getMode match {
+          case SPConstants.Equal => getEqualLabelCount(labelToCount, dataset)
+          case SPConstants.Mixed =>
+            val equalLabelToCount = getEqualLabelCount(labelToCount, dataset)
+            val normalizedRatio = equalLabelToCount.map { case (label, count) => count }.sum / labelToCount.length
+            labelToCount.map { case (label, count) => (label, count / normalizedRatio) }.toMap
+          case SPConstants.Original => labelToCount.map { case (label, count) => (label, 1.0) }.toMap
+          case _ => throw new Exception(s"Unknown mode specified to StratifiedRepartition: $getMode")
+        }
+      val labelColIndex = dataset.schema.fieldIndex(getLabelCol)
+      val spdata = dataset.toDF().rdd.keyBy(row => row.getInt(labelColIndex))
+        .sampleByKeyExact(true, labelToFraction, getSeed)
+        .mapPartitions(keyToRow => keyToRow.zipWithIndex.map { case ((key, row), index) => (index, row) })
+      val rangePartitioner = new RangePartitioner(dataset.rdd.getNumPartitions, spdata)
+      val rspdata = spdata.partitionBy(rangePartitioner).mapPartitions(keyToRow =>
+        keyToRow.map { case (key, row) => row }).persist()
+      dataset.sqlContext.createDataFrame(rspdata, dataset.schema)
+    })
   }
 
   private def getEqualLabelCount(labelToCount: Array[(Int, Long)], dataset: Dataset[_]): Map[Int, Double] = {

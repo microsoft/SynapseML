@@ -143,7 +143,7 @@ class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with Text
 
   lazy val detector: EntityDetector = new EntityDetector()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+    .setLocation("eastus")
     .setLanguage("en")
     .setOutputCol("replies")
 
@@ -309,8 +309,8 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 
     println(results)
 
-    assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
-    assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
+    assert(results(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
+    assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "carretera", "ayer"))
   }
 
   override def testObjects(): Seq[TestObject[KeyPhraseExtractor]] =
@@ -383,11 +383,11 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
 
     val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
 
-    assert(testRow.getAs[String]("text") === "Seattle")
-    assert(testRow.getAs[Int]("offset") === 26)
-    assert(testRow.getAs[Int]("length") === 7)
-    assert(testRow.getAs[Double]("confidenceScore") > 0.8)
-    assert(testRow.getAs[String]("category") === "Location")
+    assert(testRow.getAs[String]("text") === "trip")
+    assert(testRow.getAs[Int]("offset") === 18)
+    assert(testRow.getAs[Int]("length") === 4)
+    assert(testRow.getAs[Double]("confidenceScore") > 0.7)
+    assert(testRow.getAs[String]("category") === "Event")
 
   }
 

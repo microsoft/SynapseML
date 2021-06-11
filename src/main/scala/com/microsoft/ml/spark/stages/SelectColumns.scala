@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -19,7 +20,9 @@ object SelectColumns extends DefaultParamsReadable[SelectColumns]
   * The columns to be selected is a list of column names
   */
 
-class SelectColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class SelectColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("SelectColumns"))
 
   val cols: StringArrayParam = new StringArrayParam(this, "cols", "Comma separated list of selected column names")
@@ -36,8 +39,10 @@ class SelectColumns(val uid: String) extends Transformer with Wrappable with Def
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    verifySchema(dataset.schema)
-    dataset.toDF().select(getCols.map(col): _*)
+    logTransform[DataFrame]({
+      verifySchema(dataset.schema)
+      dataset.toDF().select(getCols.map(col): _*)
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

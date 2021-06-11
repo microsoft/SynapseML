@@ -8,17 +8,17 @@ import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{Conversation,
-  ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber,
+  ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.io.http.HasURL
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.{CompressedStream, WavStream}
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
@@ -78,7 +78,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable {
+  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging {
 
   type ResponseType <: SharedSpeechFields
 
@@ -134,13 +134,16 @@ abstract class SpeechSDKBase extends Transformer
     isURLParam = true
   )
 
-  val participants = new ServiceParam[Seq[(String, String, String)]](
-    this, "participants",
-    "A list of conversation participants (emil, language, user)")
+  val participantsJson = new ServiceParam[String](
+    this, "participantsJson",
+    "a json representation of a list of conversation participants (email, language, user)")
 
-  def setParticipants(v: Seq[(String, String, String)]): this.type = setScalarParam(participants, v)
+  def setParticipantsJson(v: String): this.type = setScalarParam(participantsJson, v)
 
-  def setParticipantsCol(v: String): this.type = setVectorParam(participants, v)
+  def setParticipants(v: Seq[(String, String, String)]): this.type =
+    setParticipantsJson(v.map(t => TranscriptionParticipant(t._1, t._2, t._3)).toJson.compactPrint)
+
+  def setParticipantsJsonCol(v: String): this.type = setVectorParam(participantsJson, v)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
@@ -319,9 +322,9 @@ abstract class SpeechSDKBase extends Transformer
           getValue(dynamicParamRow, language),
           getValue(dynamicParamRow, format),
           getValueOpt(dynamicParamRow, fileType),
-          getValueOpt(dynamicParamRow, participants)
-            .getOrElse(Seq())
-            .map(t => TranscriptionParticipant(t._1, t._2, t._3))
+          getValueOpt(dynamicParamRow, participantsJson)
+            .getOrElse("[]")
+            .parseJson.convertTo[Seq[TranscriptionParticipant]]
         )
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))
@@ -360,41 +363,43 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF
-    val schema = dataset.schema
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      val schema = dataset.schema
 
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+      val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", dataset)
+      val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+      assert(badColumns.isEmpty,
+        s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-    val enrichedDf = df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
-    val addedSchema = if (getStreamIntermediateResults) {
-      responseTypeBinding.schema
-    } else {
-      ArrayType(responseTypeBinding.schema)
-    }
+      val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+        case Nil => Seq(lit(false).alias("placeholder"))
+        case l => l
+      }
+      val enrichedDf = df.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))
+      val addedSchema = if (getStreamIntermediateResults) {
+        responseTypeBinding.schema
+      } else {
+        ArrayType(responseTypeBinding.schema)
+      }
 
-    val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
-    val sc = df.sparkSession.sparkContext
-    val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
-    val isUriAudio = df.schema(getAudioDataCol).dataType match {
-      case StringType => true
-      case BinaryType => false
-      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
-    }
-    val toRow = responseTypeBinding.makeToRowConverter
-    enrichedDf.mapPartitions(transformAudioRows(
-      dynamicParamColName,
-      toRow,
-      bConf,
-      isUriAudio
-    ))(enc)
-      .drop(dynamicParamColName)
+      val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
+      val sc = df.sparkSession.sparkContext
+      val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
+      val isUriAudio = df.schema(getAudioDataCol).dataType match {
+        case StringType => true
+        case BinaryType => false
+        case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+      }
+      val toRow = responseTypeBinding.makeToRowConverter
+      enrichedDf.mapPartitions(transformAudioRows(
+        dynamicParamColName,
+        toRow,
+        bConf,
+        isUriAudio
+      ))(enc)
+        .drop(dynamicParamColName)
+    })
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -413,7 +418,8 @@ abstract class SpeechSDKBase extends Transformer
   }
 }
 
-class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
+class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = SpeechResponse
 
@@ -463,6 +469,18 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
     recognizer.recognized.addEventListener(makeEventHandler(recognizedHandler))
     recognizer.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
     recognizer.startContinuousRecognitionAsync.get
+
+    if (getExtraFfmpegArgs.contains("-t")) {
+      val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
+      Future {
+        blocking {
+          Thread.sleep((timeLimit + 20)*1000)
+        }
+        queue.put(None)
+        cleanUp()
+      }(ExecutionContext.global)
+    }
+
     new BlockingQueueIterator[String](queue, cleanUp).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[SpeechResponse]
@@ -472,7 +490,8 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase {
 
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
-class ConversationTranscription(override val uid: String) extends SpeechSDKBase {
+class ConversationTranscription(override val uid: String) extends SpeechSDKBase with BasicLogging {
+  logClass()
 
   override type ResponseType = TranscriptionResponse
 
@@ -540,6 +559,19 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
     transcriber.transcribed.addEventListener(makeEventHandler(recognizedHandler))
     transcriber.sessionStopped.addEventListener(makeEventHandler(sessionStoppedHandler))
     transcriber.startTranscribingAsync().get
+
+    if (getExtraFfmpegArgs.contains("-t")) {
+      val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
+      Future {
+        blocking {
+          Thread.sleep((timeLimit + 20)*1000)
+        }
+        queue.put(None)
+        cleanUp()
+      }(ExecutionContext.global)
+    }
+
+
     new BlockingQueueIterator[String](queue, cleanUp()).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[TranscriptionResponse]

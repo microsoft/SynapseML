@@ -4,9 +4,8 @@
 package com.microsoft.ml.spark.cognitive
 
 import java.net.URL
-
-import com.microsoft.ml.spark.core.env.InternalWrapper
 import com.microsoft.ml.spark.core.utils.AsyncUtils
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.Lambda
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
@@ -63,14 +62,16 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
   }
 }
 
-@InternalWrapper
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  logClass()
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
 
-  setDefault(url -> "https://api.cognitive.microsoft.com/bing/v7.0/images/search")
+  setDefault(url -> "https://api.bing.microsoft.com/v7.0/images/search")
 
   override def prepareMethod(): HttpRequestBase = new HttpGet()
 

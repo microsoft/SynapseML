@@ -4,12 +4,11 @@
 package com.microsoft.ml.spark.automl
 
 import java.util.concurrent._
-
 import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
-import com.microsoft.ml.spark.core.contracts.{HasEvaluationMetric, Wrappable}
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.HasEvaluationMetric
 import com.microsoft.ml.spark.core.metrics.MetricConstants
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
@@ -25,7 +24,6 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 import scala.util.control.NonFatal
 
 /** Tunes model hyperparameters
@@ -33,9 +31,9 @@ import scala.util.control.NonFatal
   * Allows user to specify multiple untrained models to tune using various search strategies.
   * Currently supports cross validation with random grid search.
   */
-@InternalWrapper
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
-  with Wrappable with ComplexParamsWritable with HasEvaluationMetric {
+  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
@@ -128,73 +126,75 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @return The trained classification model.
     */
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
-    val sparkSession = dataset.sparkSession
-    val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
-    val hyperParams = getParamSpace.paramMaps
-    val schema = dataset.schema
-    val executionContext = getExecutionContext
-    val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
-      EvaluationUtils.getMetricWithOperator(getModels.head, getEvaluationMetric)
-    val paramsPerRun = ListBuffer[ParamMap]()
-    for (_ <- 0 until getNumRuns) {
-      // Generate the new parameters, stepping through estimators sequentially
-      paramsPerRun += hyperParams.next()
-    }
-    val numModels = getModels.length
-
-    val metrics = splits.zipWithIndex.map { case ((training, validation), _) =>
-      val trainingDataset = sparkSession.createDataFrame(training, schema).cache()
-      val validationDataset = sparkSession.createDataFrame(validation, schema).cache()
-
-      val modelParams = ListBuffer[ParamMap]()
-      for (n <- 0 until getNumRuns) {
-        val params = paramsPerRun(n)
-        modelParams += params
+    logFit({
+      val sparkSession = dataset.sparkSession
+      val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
+      val hyperParams = getParamSpace.paramMaps
+      val schema = dataset.schema
+      val executionContext = getExecutionContext
+      val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
+        EvaluationUtils.getMetricWithOperator(getModels.head, getEvaluationMetric)
+      val paramsPerRun = ListBuffer[ParamMap]()
+      for (_ <- 0 until getNumRuns) {
+        // Generate the new parameters, stepping through estimators sequentially
+        paramsPerRun += hyperParams.next()
       }
-      val foldMetricFutures = modelParams.zipWithIndex.map { case (paramMap, paramIndex) =>
-        Future[Double] {
-          val model = getModels(paramIndex % numModels).fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
-          val scoredDataset = model.transform(validationDataset, paramMap)
-          val evaluator = new ComputeModelStatistics()
-          evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
-          model match {
-            case _: TrainedRegressorModel =>
-              logDebug("Evaluating trained regressor model.")
-            case _: TrainedClassifierModel =>
-              logDebug("Evaluating trained classifier model.")
-            case classificationModel: ClassificationModel[_, _] =>
-              logDebug(s"Evaluating SparkML ${model.uid} classification model.")
-              evaluator
-                .setLabelCol(classificationModel.getLabelCol)
-                .setScoredLabelsCol(classificationModel.getPredictionCol)
-                .setScoresCol(classificationModel.getRawPredictionCol)
-              if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                evaluator.setEvaluationMetric(MetricConstants.ClassificationMetricsName)
-            case regressionModel: RegressionModel[_, _] =>
-              logDebug(s"Evaluating SparkML ${model.uid} regression model.")
-              evaluator
-                .setLabelCol(regressionModel.getLabelCol)
-                .setScoredLabelsCol(regressionModel.getPredictionCol)
-              if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
-                evaluator.setEvaluationMetric(MetricConstants.RegressionMetricsName)
-          }
-          val metrics = evaluator.transform(scoredDataset)
-          val metric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
-          logDebug(s"Got metric $metric for model trained with $paramMap.")
-          metric
-        }(executionContext)
-      }
-      val foldMetrics = foldMetricFutures.toArray.map(awaitResult(_, Duration.Inf))
+      val numModels = getModels.length
 
-      trainingDataset.unpersist()
-      validationDataset.unpersist()
-      foldMetrics
-    }.transpose.map(_.sum / $(numFolds)) // Calculate average metric over all splits
+      val metrics = splits.zipWithIndex.map { case ((training, validation), _) =>
+        val trainingDataset = sparkSession.createDataFrame(training, schema).cache()
+        val validationDataset = sparkSession.createDataFrame(validation, schema).cache()
 
-    val (bestMetric, bestIndex) = metrics.zipWithIndex.maxBy(_._1)(operator)
-    // Compute best model fit on dataset
-    val bestModel = getModels(bestIndex % numModels).fit(dataset, paramsPerRun(bestIndex)).asInstanceOf[Model[_]]
-    new TuneHyperparametersModel(uid, bestModel, bestMetric)
+        val modelParams = ListBuffer[ParamMap]()
+        for (n <- 0 until getNumRuns) {
+          val params = paramsPerRun(n)
+          modelParams += params
+        }
+        val foldMetricFutures = modelParams.zipWithIndex.map { case (paramMap, paramIndex) =>
+          Future[Double] {
+            val model = getModels(paramIndex % numModels).fit(trainingDataset, paramMap).asInstanceOf[Model[_]]
+            val scoredDataset = model.transform(validationDataset, paramMap)
+            val evaluator = new ComputeModelStatistics()
+            evaluator.set(evaluator.evaluationMetric, getEvaluationMetric)
+            model match {
+              case _: TrainedRegressorModel =>
+                logDebug("Evaluating trained regressor model.")
+              case _: TrainedClassifierModel =>
+                logDebug("Evaluating trained classifier model.")
+              case classificationModel: ClassificationModel[_, _] =>
+                logDebug(s"Evaluating SparkML ${model.uid} classification model.")
+                evaluator
+                  .setLabelCol(classificationModel.getLabelCol)
+                  .setScoredLabelsCol(classificationModel.getPredictionCol)
+                  .setScoresCol(classificationModel.getRawPredictionCol)
+                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.ClassificationMetricsName)
+              case regressionModel: RegressionModel[_, _] =>
+                logDebug(s"Evaluating SparkML ${model.uid} regression model.")
+                evaluator
+                  .setLabelCol(regressionModel.getLabelCol)
+                  .setScoredLabelsCol(regressionModel.getPredictionCol)
+                if (getEvaluationMetric == MetricConstants.AllSparkMetrics)
+                  evaluator.setEvaluationMetric(MetricConstants.RegressionMetricsName)
+            }
+            val metrics = evaluator.transform(scoredDataset)
+            val metric = metrics.select(evaluationMetricColumnName).first()(0).toString.toDouble
+            logDebug(s"Got metric $metric for model trained with $paramMap.")
+            metric
+          }(executionContext)
+        }
+        val foldMetrics = foldMetricFutures.toArray.map(awaitResult(_, Duration.Inf))
+
+        trainingDataset.unpersist()
+        validationDataset.unpersist()
+        foldMetrics
+      }.transpose.map(_.sum / $(numFolds)) // Calculate average metric over all splits
+
+      val (bestMetric, bestIndex) = metrics.zipWithIndex.maxBy(_._1)(operator)
+      // Compute best model fit on dataset
+      val bestModel = getModels(bestIndex % numModels).fit(dataset, paramsPerRun(bestIndex)).asInstanceOf[Model[_]]
+      new TuneHyperparametersModel(uid).setBestModel(bestModel).setBestMetric(bestMetric)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[TuneHyperparametersModel] = defaultCopy(extra)
@@ -206,30 +206,33 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
 object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 
 /** Model produced by [[TuneHyperparameters]]. */
-@InternalWrapper
-class TuneHyperparametersModel(val uid: String,
-                               val model: Transformer,
-                               val bestMetric: Double)
-  extends Model[TuneHyperparametersModel] with ConstructorWritable[TuneHyperparametersModel] {
+class TuneHyperparametersModel(val uid: String)
+  extends Model[TuneHyperparametersModel] with ComplexParamsWritable
+    with Wrappable with HasBestModel with BasicLogging {
+  logClass()
 
-  override val ttag: TypeTag[TuneHyperparametersModel] = typeTag[TuneHyperparametersModel]
+  def this() = this(Identifiable.randomUID("TuneHyperparametersModel"))
 
-  override def objectsToSave: List[Any] = List(uid, model, bestMetric)
+  override protected lazy val pyInternalWrapper = true
 
-  override def copy(extra: ParamMap): TuneHyperparametersModel =
-    new TuneHyperparametersModel(uid, model.copy(extra), bestMetric)
+  val bestMetric = new DoubleParam(this, "bestMetric", "the best metric from the runs")
 
-  override def transform(dataset: Dataset[_]): DataFrame = model.transform(dataset)
+  def getBestMetric: Double = $(bestMetric)
 
-  @DeveloperApi
-  override def transformSchema(schema: StructType): StructType = model.transformSchema(schema)
+  def setBestMetric(v: Double): this.type = set(bestMetric, v)
 
-  def getBestMetric: Double = bestMetric
+  override def copy(extra: ParamMap): TuneHyperparametersModel = defaultCopy(extra)
 
-  def getBestModel: Transformer = model
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame](
+      getBestModel.transform(dataset)
+    )
+  }
 
-  def getBestModelInfo: String = EvaluationUtils.modelParamsToString(model)
+  override def transformSchema(schema: StructType): StructType = getBestModel.transformSchema(schema)
+
+  def getBestModelInfo: String = EvaluationUtils.modelParamsToString(getBestModel)
 
 }
 
-object TuneHyperparametersModel extends ConstructorReadable[TuneHyperparametersModel]
+object TuneHyperparametersModel extends ComplexParamsReadable[TuneHyperparametersModel]

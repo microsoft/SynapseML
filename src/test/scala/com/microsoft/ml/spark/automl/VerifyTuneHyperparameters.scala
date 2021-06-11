@@ -76,7 +76,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
     test("Verify classifier can be trained and scored on " + fileName) {
       val fileLocation = DatasetUtils.binaryTrainFile(fileName).toString
       val bestModel = tuneDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
-      val bestMetric = bestModel.bestMetric
+      val bestMetric = bestModel.getBestMetric
       addBenchmark(s"binary_$fileName", bestMetric, decimals)
     }
   }
@@ -88,7 +88,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
     test("Verify classifier can be trained and scored on multiclass " + fileName) {
       val fileLocation = DatasetUtils.multiclassTrainFile(fileName).toString
       val bestModel = tuneDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
-      val bestMetric = bestModel.bestMetric
+      val bestMetric = bestModel.getBestMetric
       addBenchmark(s"multiclass_$fileName", bestMetric, decimals)
     }
   }

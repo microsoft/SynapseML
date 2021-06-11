@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -17,15 +19,19 @@ object RenameColumn extends DefaultParamsReadable[RenameColumn]
   * as the output column name.
   */
 class RenameColumn(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable
-  with HasInputCol with HasOutputCol {
+  with HasInputCol with HasOutputCol with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("RenameColumn"))
 
   /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from renaming the input column
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema, logging = true)
-    dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
+    logTransform[DataFrame]({
+      transformSchema(dataset.schema, logging = true)
+      dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
+    })
   }
 
   def validateAndTransformSchema(schema: StructType): StructType = {

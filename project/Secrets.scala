@@ -21,10 +21,22 @@ object Secrets {
     }
   }
 
-  private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName")
+  // Keep overhead of setting account down
+  lazy val accountString: String = {
     try {
       exec(s"az account set -s $subscriptionID")
+    } catch {
+      case e: java.lang.RuntimeException =>
+        println(s"Secret fetch error: ${e.toString}")
+      case e: IOException =>
+        println(s"Secret fetch error: ${e.toString}")
+    }
+    subscriptionID
+  }
+
+  private def getSecret(secretName: String): String = {
+    println(s"fetching secret: $secretName from $accountString")
+    try {
       val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
       secretJson.parseJson.asJsObject().fields("value").convertTo[String]
     } catch {

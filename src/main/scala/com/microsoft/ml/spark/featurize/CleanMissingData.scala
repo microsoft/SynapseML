@@ -2,17 +2,16 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark.featurize
-import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCols, Wrappable}
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCols, HasOutputCols}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
-
-import reflect.runtime.universe.{TypeTag, typeTag}
-import scala.collection.mutable.ListBuffer
 
 object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   val MeanOpt = "Mean"
@@ -27,10 +26,10 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
       if (oldSchema.fieldNames.contains(io._2)) {
         val index = oldSchema.fieldIndex(io._2)
         val fields = oldSchema.fields
-        fields(index) = oldSchema.fields(oldSchema.fieldIndex(io._1))
+        fields(index) = StructField(io._1, oldSchema.fields(oldSchema.fieldIndex(io._1)).dataType)
         StructType(fields)
       } else {
-        oldSchema.add(oldSchema.fields(oldSchema.fieldIndex(io._1)))
+        oldSchema.add(io._2, oldSchema.fields(oldSchema.fieldIndex(io._1)).dataType)
       }
     })
   }
@@ -38,29 +37,34 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
 
 /** Removes missing values from input dataset.
   * The following modes are supported:
-  *   Mean   - replaces missings with mean of fit column
-  *   Median - replaces missings with approximate median of fit column
-  *   Custom - replaces missings with custom value specified by user
+  * Mean   - replaces missings with mean of fit column
+  * Median - replaces missings with approximate median of fit column
+  * Custom - replaces missings with custom value specified by user
   * For mean and median modes, only numeric column types are supported, specifically:
-  *   `Int`, `Long`, `Float`, `Double`
+  * `Int`, `Long`, `Float`, `Double`
   * For custom mode, the types above are supported and additionally:
-  *   `String`, `Boolean`
+  * `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable {
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
 
   val cleaningMode: Param[String] = new Param[String](this, "cleaningMode", "Cleaning mode")
-  setDefault(cleaningMode->CleanMissingData.MeanOpt)
+  setDefault(cleaningMode -> CleanMissingData.MeanOpt)
+
   def setCleaningMode(value: String): this.type = set(cleaningMode, value)
+
   def getCleaningMode: String = $(cleaningMode)
 
   /** Custom value for imputation, supports numeric, string and boolean types.
     * Date and Timestamp currently not supported.
     */
   val customValue: Param[String] = new Param[String](this, "customValue", "Custom value for replacement")
+
   def setCustomValue(value: String): this.type = set(customValue, value)
+
   def getCustomValue: String = $(customValue)
 
   /** Fits the dataset, prepares the transformation function.
@@ -69,8 +73,15 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
     * @return The model for removing missings.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
-    val replacementValues = getReplacementValues(dataset, getInputCols, getOutputCols, getCleaningMode)
-    new CleanMissingDataModel(uid, replacementValues, getInputCols, getOutputCols)
+    logFit({
+      val (colsToFill, fillValues) = getReplacementValues(
+        dataset, getInputCols, getOutputCols, getCleaningMode).toSeq.unzip
+      new CleanMissingDataModel(uid)
+        .setColsToFill(colsToFill.toArray)
+        .setFillValues(fillValues.toArray)
+        .setInputCols(getInputCols)
+        .setOutputCols(getOutputCols)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[CleanMissingDataModel] = defaultCopy(extra)
@@ -114,8 +125,8 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
         verifyColumnsSupported(dataset, colsToClean)
         val row =
           dataset.select(columns.map(column => callUDF("percentile_approx",
-                                                       column, lit(0.5))): _*)
-          .collect()(0)
+            column, lit(0.5))): _*)
+            .collect()(0)
         rowToValues(row)
       case CleanMissingData.CustomOpt =>
         // Note: All column types supported for custom value
@@ -127,34 +138,45 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 }
 
 /** Model produced by [[CleanMissingData]]. */
-class CleanMissingDataModel(val uid: String,
-                            val replacementValues: Map[String, Any],
-                            val inputCols: Array[String],
-                            val outputCols: Array[String])
-    extends Model[CleanMissingDataModel] with ConstructorWritable[CleanMissingDataModel] {
+class CleanMissingDataModel(val uid: String)
+  extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
+    with HasInputCols with HasOutputCols with BasicLogging {
+  logClass()
 
-  val ttag: TypeTag[CleanMissingDataModel] = typeTag[CleanMissingDataModel]
-  def objectsToSave: List[Any] = List(uid, replacementValues, inputCols, outputCols)
+  def this() = this(Identifiable.randomUID("CleanMissingDataModel"))
 
-  override def copy(extra: ParamMap): CleanMissingDataModel =
-    new CleanMissingDataModel(uid, replacementValues, inputCols, outputCols)
+  val colsToFill = new StringArrayParam(
+    this, "colsToFill", "The columns to fill with")
+  val fillValues = new UntypedArrayParam(
+    this, "fillValues", "what to replace in the columns")
+
+  def getColsToFill: Array[String] = $(colsToFill)
+
+  def getFillValues: Array[Any] = $(fillValues)
+
+  def setColsToFill(v: Array[String]): this.type = set(colsToFill, v)
+
+  def setFillValues(v: Array[Any]): this.type = set(fillValues, v)
+
+  override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val datasetCols = dataset.columns.map(name => dataset(name)).toList
-    val datasetInputCols = inputCols.zip(outputCols)
-      .flatMap(io =>
-        if (io._1 == io._2) {
-          None
-        } else {
-          Some(dataset(io._1).as(io._2))
-        }).toList
-    val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
-    addedCols.na.fill(replacementValues)
+    logTransform[DataFrame]({
+      val datasetCols = dataset.columns.map(name => dataset(name)).toList
+      val datasetInputCols = getInputCols.zip(getOutputCols)
+        .flatMap(io =>
+          if (io._1 == io._2) {
+            None
+          } else {
+            Some(dataset(io._1).as(io._2))
+          }).toList
+      val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
+      addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
+    })
   }
 
-  @DeveloperApi
   override def transformSchema(schema: StructType): StructType =
-    CleanMissingData.validateAndTransformSchema(schema, inputCols, outputCols)
+    CleanMissingData.validateAndTransformSchema(schema, getInputCols, getOutputCols)
 }
 
-object CleanMissingDataModel extends ConstructorReadable[CleanMissingDataModel]
+object CleanMissingDataModel extends ComplexParamsReadable[CleanMissingDataModel]

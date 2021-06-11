@@ -4,9 +4,10 @@
 package com.microsoft.ml.spark.featurize.text
 
 import java.util.NoSuchElementException
-
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.stages.DropColumns
 import org.apache.spark.ml.{Pipeline, _}
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
@@ -20,6 +21,7 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
 trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 
   /** Tokenize the input when set to true
+    *
     * @group param
     */
   val useTokenizer = new BooleanParam(this, "useTokenizer", "Whether to tokenize the input")
@@ -28,6 +30,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getUseTokenizer: Boolean = $(useTokenizer)
 
   /** Indicates whether the regex splits on gaps (true) or matches tokens (false)
+    *
     * @group param
     */
   val tokenizerGaps = new BooleanParam(
@@ -40,6 +43,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getTokenizerGaps: Boolean = $(tokenizerGaps)
 
   /** Minumum token length; must be 0 or greater.
+    *
     * @group param
     */
   val minTokenLength = new IntParam(this, "minTokenLength", "Minimum token length, >= 0.")
@@ -48,6 +52,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getMinTokenLength: Int = $(minTokenLength)
 
   /** Regex pattern used to match delimiters if gaps (true) or tokens (false)
+    *
     * @group param
     */
   val tokenizerPattern = new Param[String](
@@ -59,6 +64,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getTokenizerPattern: String = $(tokenizerPattern)
 
   /** Indicates whether to convert all characters to lowercase before tokenizing.
+    *
     * @group param
     */
   val toLowercase = new BooleanParam(
@@ -70,6 +76,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getToLowercase: Boolean = $(toLowercase)
 
   /** Indicates whether to remove stop words from tokenized data.
+    *
     * @group param
     */
   val useStopWordsRemover = new BooleanParam(this,
@@ -80,6 +87,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getUseStopWordsRemover: Boolean = $(useStopWordsRemover)
 
   /** Indicates whether a case sensitive comparison is performed on stop words.
+    *
     * @group param
     */
   val caseSensitiveStopWords = new BooleanParam(
@@ -92,6 +100,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 
   /** Specify the language to use for stop word removal. The Use the custom setting when using the
     * stopWords input
+    *
     * @group param
     */
   val defaultStopWordLanguage = new Param[String](this,
@@ -111,6 +120,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getStopWords: String = $(stopWords)
 
   /** Enumerate N grams when set
+    *
     * @group param
     */
   val useNGram = new BooleanParam(this, "useNGram", "Whether to enumerate N grams")
@@ -119,6 +129,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getUseNGram: Boolean = $(useNGram)
 
   /** The size of the Ngrams
+    *
     * @group param
     */
   val nGramLength = new IntParam(this, "nGramLength", "The size of the Ngrams")
@@ -127,6 +138,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getNGramLength: Int = $(nGramLength)
 
   /** All nonnegative word counts are set to 1 when set to true
+    *
     * @group param
     */
   val binary = new BooleanParam(
@@ -138,6 +150,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getBinary: Boolean = $(binary)
 
   /** Set the number of features to hash each document to
+    *
     * @group param
     */
   val numFeatures = new IntParam(
@@ -149,6 +162,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getNumFeatures: Int = $(numFeatures)
 
   /** Scale the Term Frequencies by IDF when set to true
+    *
     * @group param
     */
   val useIDF = new BooleanParam(
@@ -160,6 +174,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   final def getUseIDF: Boolean = $(useIDF)
 
   /** Minimum number of documents in which a term should appear.
+    *
     * @group param
     */
   val minDocFreq = new IntParam(
@@ -179,8 +194,10 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
   * @param uid The id of the module
   */
 class TextFeaturizer(override val uid: String)
-  extends Estimator[TextFeaturizerModel]
-    with TextFeaturizerParams with HasInputCol with HasOutputCol {
+  extends Estimator[PipelineModel]
+    with TextFeaturizerParams with HasInputCol with HasOutputCol with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
 
   setDefault(outputCol, uid + "_output")
@@ -201,7 +218,7 @@ class TextFeaturizer(override val uid: String)
 
   /** @group setParam */
   def setTokenizerPattern(value: String): this.type =
-  set(tokenizerPattern, value)
+    set(tokenizerPattern, value)
 
   setDefault(tokenizerPattern -> "\\s+")
 
@@ -212,19 +229,19 @@ class TextFeaturizer(override val uid: String)
 
   /** @group setParam */
   def setUseStopWordsRemover(value: Boolean): this.type =
-  set(useStopWordsRemover, value)
+    set(useStopWordsRemover, value)
 
   setDefault(useStopWordsRemover -> false)
 
   /** @group setParam */
   def setCaseSensitiveStopWords(value: Boolean): this.type =
-  set(caseSensitiveStopWords, value)
+    set(caseSensitiveStopWords, value)
 
   setDefault(caseSensitiveStopWords -> false)
 
   /** @group setParam */
   def setDefaultStopWordLanguage(value: String): this.type =
-  set(defaultStopWordLanguage, value)
+    set(defaultStopWordLanguage, value)
 
   setDefault(defaultStopWordLanguage -> "english")
 
@@ -265,70 +282,72 @@ class TextFeaturizer(override val uid: String)
     model.getOrDefault(model.getParam(name))
   }
 
-  override def fit(dataset: Dataset[_]): TextFeaturizerModel = {
-    try {
-      getUseTokenizer
-    } catch {
-      case _: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
-    }
-
-    transformSchema(dataset.schema)
-    var models: List[PipelineStage] = Nil
-    if (getUseTokenizer)
-      models ::= new RegexTokenizer()
-        .setGaps(getTokenizerGaps)
-        .setPattern(getTokenizerPattern)
-        .setMinTokenLength(getMinTokenLength)
-        .setToLowercase(getToLowercase)
-    if (getUseStopWordsRemover) {
-      val swr =
-        new StopWordsRemover().setCaseSensitive(getCaseSensitiveStopWords)
-      if (getDefaultStopWordLanguage == "custom") {
-        models ::= swr.setStopWords(getStopWords.split(","))
-      } else {
-        models ::= swr.setStopWords(
-          StopWordsRemover.loadDefaultStopWords(getDefaultStopWordLanguage))
+  override def fit(dataset: Dataset[_]): PipelineModel = {
+    logFit({
+      try {
+        getUseTokenizer
+      } catch {
+        case _: NoSuchElementException => setUseTokenizer(needsTokenizer(dataset.schema))
       }
-    }
-    if (getUseNGram)
-      models ::= new NGram().setN(getNGramLength)
-    models ::= new HashingTF()
-      .setBinary(getBinary)
-      .setNumFeatures(getNumFeatures)
-    if (getUseIDF)
-      models ::= new IDF().setMinDocFreq(getMinDocFreq)
-    models = models.reverse
 
-    val chainedModels = models
-      .zip(0 to models.length)
-      .map(
-        { pair: (PipelineStage, Int) =>
-          val model = pair._1
-          val i = pair._2
-          if (i == 0) {
-            setParamInternal(model, "inputCol", getInputCol)
-          } else if (i < models.length - 1) {
-            setParamInternal(model,
-              "inputCol",
-              getParamInternal(models(i - 1), "outputCol"))
-          } else {
-            val m1 =
-              setParamInternal(model,
-                "inputCol",
-                getParamInternal(models(i - 1), "outputCol"))
-            setParamInternal(m1, "outputCol", getOutputCol)
-          }
+      transformSchema(dataset.schema)
+      var models: List[PipelineStage] = Nil
+      if (getUseTokenizer)
+        models ::= new RegexTokenizer()
+          .setGaps(getTokenizerGaps)
+          .setPattern(getTokenizerPattern)
+          .setMinTokenLength(getMinTokenLength)
+          .setToLowercase(getToLowercase)
+          .setOutputCol(uid + "__Tokens")
+      if (getUseStopWordsRemover) {
+        val swr =
+          new StopWordsRemover()
+            .setCaseSensitive(getCaseSensitiveStopWords)
+            .setOutputCol(uid + "__Stopwords")
+        if (getDefaultStopWordLanguage == "custom") {
+          models ::= swr.setStopWords(getStopWords.split(","))
+        } else {
+          models ::= swr.setStopWords(
+            StopWordsRemover.loadDefaultStopWords(getDefaultStopWordLanguage))
         }
-      )
-    val colsToDrop = chainedModels.reverse.tail
-      .map(getParamInternal(_, "outputCol").asInstanceOf[String])
-    val fitPipeline =
-      new Pipeline().setStages(chainedModels.toArray).fit(dataset)
-    new TextFeaturizerModel(uid, fitPipeline, colsToDrop).setParent(this)
+      }
+      if (getUseNGram)
+        models ::= new NGram().setN(getNGramLength).setOutputCol(uid + "__ngrams")
+      models ::= new HashingTF()
+        .setBinary(getBinary)
+        .setNumFeatures(getNumFeatures).setOutputCol(uid + "__hash")
+      if (getUseIDF)
+        models ::= new IDF().setMinDocFreq(getMinDocFreq).setOutputCol(uid + "__idf")
+      models = models.reverse
+
+      val chainedModels = models
+        .zip(0 to models.length)
+        .map(
+          { pair: (PipelineStage, Int) =>
+            val model = pair._1
+            val i = pair._2
+            if (i == 0) {
+              setParamInternal(model, "inputCol", getInputCol)
+            } else if (i < models.length - 1) {
+              setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
+              setParamInternal(model, "inputCol", getParamInternal(models(i - 1), "outputCol"))
+            } else {
+              setParamInternal(models(i - 1), "outputCol", getParamInternal(models(i - 1), "outputCol"))
+              val m1 = setParamInternal(model, "inputCol",
+                getParamInternal(models(i - 1), "outputCol"))
+              setParamInternal(m1, "outputCol", getOutputCol)
+            }
+          }
+        )
+      val colsToDrop = chainedModels.reverse.tail
+        .map(getParamInternal(_, "outputCol").asInstanceOf[String])
+
+      val stages = chainedModels ++ Seq(new DropColumns().setCols(colsToDrop.toArray))
+      new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
+    })
   }
 
-  override def copy(extra: ParamMap): Estimator[TextFeaturizerModel] =
-    defaultCopy(extra)
+  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {
     val inputType = schema($(inputCol)).dataType
@@ -384,25 +403,3 @@ class TextFeaturizer(override val uid: String)
     StructType(schema.fields :+ col)
   }
 }
-
-class TextFeaturizerModel(val uid: String,
-                          fitPipeline: PipelineModel,
-                          colsToDrop: List[String])
-  extends Model[TextFeaturizerModel] with ConstructorWritable[TextFeaturizerModel] {
-
-  override def copy(extra: ParamMap): TextFeaturizerModel = defaultCopy(extra)
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    colsToDrop.foldRight(fitPipeline.transform(dataset))((col, df) =>
-      df.drop(col))
-  }
-
-  override def transformSchema(schema: StructType): StructType =
-    colsToDrop.foldRight(fitPipeline.transformSchema(schema))((col, schema) =>
-      StructType(schema.drop(schema.fieldIndex(col))))
-
-  override val ttag: TypeTag[TextFeaturizerModel] = typeTag[TextFeaturizerModel]
-  override def objectsToSave: List[AnyRef] = List(uid, fitPipeline, colsToDrop)
-}
-
-object TextFeaturizerModel extends ConstructorReadable[TextFeaturizerModel]

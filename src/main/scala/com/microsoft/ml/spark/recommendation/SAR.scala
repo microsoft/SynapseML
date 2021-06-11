@@ -5,10 +5,9 @@ package com.microsoft.ml.spark.recommendation
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
-
 import breeze.linalg.{CSCMatrix => BSM, DenseMatrix => BDM, Matrix => BM}
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{RecommendationParams, Constants => C}
@@ -34,8 +33,9 @@ import scala.language.existentials
   *
   * @param uid The id of the module
   */
-@InternalWrapper
-class SAR(override val uid: String) extends Estimator[SARModel] with SARParams with DefaultParamsWritable {
+class SAR(override val uid: String) extends Estimator[SARModel]
+  with SARParams with DefaultParamsWritable with BasicLogging {
+  logClass()
 
   /** @group getParam */
   def getSimilarityFunction: String = $(similarityFunction)
@@ -64,13 +64,15 @@ class SAR(override val uid: String) extends Estimator[SARModel] with SARParams w
   }
 
   override def fit(dataset: Dataset[_]): SARModel = {
-    new SARModel(uid)
-      .setUserDataFrame(calculateUserItemAffinities(dataset))
-      .setItemDataFrame(calculateItemItemSimilarity(dataset))
-      .setParent(this)
-      .setSupportThreshold(getSupportThreshold)
-      .setItemCol(getItemCol)
-      .setUserCol(getUserCol)
+    logFit({
+      new SARModel(uid)
+        .setUserDataFrame(calculateUserItemAffinities(dataset))
+        .setItemDataFrame(calculateItemItemSimilarity(dataset))
+        .setParent(this)
+        .setSupportThreshold(getSupportThreshold)
+        .setItemCol(getItemCol)
+        .setUserCol(getUserCol)
+    })
   }
 
   /**

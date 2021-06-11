@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{ClassifierTrainParams, LightGBMModelParams,
+  LightGBMPredictionParams, TrainParams}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -20,10 +23,11 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMBase[LightGBMClassificationModel] {
+  with LightGBMBase[LightGBMClassificationModel] with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
   // Set default objective to be binary classification
@@ -45,10 +49,11 @@ class LightGBMClassifier(override val uid: String)
     ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
       getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, getObjective, modelStr,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
-      getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
+      getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames,
+      getDelegate, getDartParams(), getExecutionParams(), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
@@ -62,11 +67,12 @@ class LightGBMClassifier(override val uid: String)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
       .setActualNumClasses(classifierTrainParams.numClass)
+      .setNumIterations(lightGBMBooster.bestIteration)
     if (isDefined(thresholds)) model.setThresholds(getThresholds) else model
   }
 
   def stringFromTrainedModel(model: LightGBMClassificationModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def copy(extra: ParamMap): LightGBMClassifier = defaultCopy(extra)
@@ -83,11 +89,15 @@ trait HasActualNumClasses extends Params {
 }
 
 /** Model produced by [[LightGBMClassifier]]. */
-@InternalWrapper
 class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
-      with HasActualNumClasses with ComplexParamsWritable {
+      with HasActualNumClasses with ComplexParamsWritable with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to
@@ -98,47 +108,50 @@ class LightGBMClassificationModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema, logging = true)
-    if (isDefined(thresholds)) {
-      require(getThresholds.length == numClasses, this.getClass.getSimpleName +
-        ".transform() called with non-matching numClasses and thresholds.length." +
-        s" numClasses=$numClasses, but thresholds has length ${getThresholds.length}")
-    }
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      transformSchema(dataset.schema, logging = true)
+      if (isDefined(thresholds)) {
+        require(getThresholds.length == numClasses, this.getClass.getSimpleName +
+          ".transform() called with non-matching numClasses and thresholds.length." +
+          s" numClasses=$numClasses, but thresholds has length ${getThresholds.length}")
+      }
 
-    // Output selected columns only.
-    var outputData = dataset
-    var numColsOutput = 0
-    if (getRawPredictionCol.nonEmpty) {
-      val predictRawUDF = udf(predictRaw _)
-      outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getProbabilityCol.nonEmpty) {
-      val probabilityUDF = udf(predictProbability _)
-      outputData = outputData.withColumn(getProbabilityCol,  probabilityUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getPredictionCol.nonEmpty) {
-      val predUDF = predictColumn
-      outputData = outputData.withColumn(getPredictionCol, predUDF)
-      numColsOutput += 1
-    }
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-      numColsOutput += 1
-    }
+      // Output selected columns only.
+      var outputData = dataset
+      var numColsOutput = 0
+      if (getRawPredictionCol.nonEmpty) {
+        val predictRawUDF = udf(predictRaw _)
+        outputData = outputData.withColumn(getRawPredictionCol, predictRawUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getProbabilityCol.nonEmpty) {
+        val probabilityUDF = udf(predictProbability _)
+        outputData = outputData.withColumn(getProbabilityCol, probabilityUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getPredictionCol.nonEmpty) {
+        val predUDF = predictColumn
+        outputData = outputData.withColumn(getPredictionCol, predUDF)
+        numColsOutput += 1
+      }
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+        numColsOutput += 1
+      }
 
-    if (numColsOutput == 0) {
-      this.logWarning(s"$uid: LightGBMClassificationModel.transform() was called as NOOP" +
-        " since no output columns were set.")
-    }
-    outputData.toDF
+      if (numColsOutput == 0) {
+        this.logWarning(s"$uid: LightGBMClassificationModel.transform() was called as NOOP" +
+          " since no output columns were set.")
+      }
+      outputData.toDF
+    })
   }
 
   override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
@@ -177,7 +190,7 @@ class LightGBMClassificationModel(override val uid: String)
 
 object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassificationModel] {
   def loadNativeModelFromFile(filename: String): LightGBMClassificationModel = {
-    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val uid = Identifiable.randomUID("LightGBMClassificationModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -187,7 +200,7 @@ object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassif
   }
 
   def loadNativeModelFromString(model: String): LightGBMClassificationModel = {
-    val uid = Identifiable.randomUID("LightGBMClassifier")
+    val uid = Identifiable.randomUID("LightGBMClassificationModel")
     val lightGBMBooster = new LightGBMBooster(model)
     val actualNumClasses = lightGBMBooster.numClasses
     new LightGBMClassificationModel(uid).setLightGBMBooster(lightGBMBooster).setActualNumClasses(actualNumClasses)

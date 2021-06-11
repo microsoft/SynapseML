@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -17,7 +18,9 @@ object DropColumns extends DefaultParamsReadable[DropColumns]
   *
   */
 
-class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("DropColumns"))
 
   val cols: StringArrayParam = new StringArrayParam(this, "cols", "Comma separated list of column names")
@@ -34,8 +37,10 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    verifySchema(dataset.schema)
-    dataset.toDF().drop(getCols: _*)
+    logTransform[DataFrame]({
+      verifySchema(dataset.schema)
+      dataset.toDF().drop(getCols: _*)
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

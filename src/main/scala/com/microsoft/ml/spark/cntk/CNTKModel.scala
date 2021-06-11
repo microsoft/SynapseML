@@ -7,9 +7,9 @@ import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.CNTKUtils._
 import com.microsoft.CNTK.{CNTKExtensions, DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
 import com.microsoft.ml.spark.cntk.ConversionUtils.GVV
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast._
@@ -142,9 +142,11 @@ private object CNTKModelUtils extends java.io.Serializable {
 
 object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
-@InternalWrapper
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
-  with HasMiniBatcher with Wrappable {
+  with HasMiniBatcher with Wrappable with BasicLogging {
+  logClass()
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("CNTKModel"))
 
@@ -495,45 +497,50 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     * @return featurized dataset
     */
   def transform(dataset: Dataset[_]): DataFrame = {
-    val spark = dataset.sparkSession
-    val df = dataset.toDF()
+    logTransform[DataFrame]({
+      val spark = dataset.sparkSession
+      val df = dataset.toDF()
 
-    transformSchema(df.schema) // Check if the schema is correct
+      transformSchema(df.schema) // Check if the schema is correct
 
-    val batchedDF = if (getBatchInput) {
-      getMiniBatcher.transform(df)
-    } else {
-      df
-    }
+      val batchedDF = if (getBatchInput) {
+        getMiniBatcher.transform(df)
+      } else {
+        df
+      }
 
-    val (preprocessedDF, coercedFeedDict) =
-      coerceDFAndFeedDict(batchedDF, getFeedDict)
+      val (preprocessedDF, coercedFeedDict) =
+        coerceDFAndFeedDict(batchedDF, getFeedDict)
 
-    val columnIndexToVar = coercedFeedDict.map { case (k, v) =>
-      k -> preprocessedDF.schema.fieldIndex(v)
-    }
+      val columnIndexToVar = coercedFeedDict.map { case (k, v) =>
+        k -> preprocessedDF.schema.fieldIndex(v)
+      }
 
-    if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
+      if (broadcastedModelOption.isEmpty) rebroadcastCNTKModel(spark)
 
-    val encoder = RowEncoder(getModel.getOutputSchema(getFetchDict)
-      .foldLeft(preprocessedDF.schema) { case (st, sf) => st.add(sf.name, ArrayType(sf.dataType)) }
-    )
+      val encoder = RowEncoder(getModel.getOutputSchema(getFetchDict)
+        .foldLeft(preprocessedDF.schema) { case (st, sf) => st.add(sf.name, ArrayType(sf.dataType)) }
+      )
 
-    val outputDF = preprocessedDF.mapPartitions { it =>
-      CNTKModelUtils.applyModel(
-        columnIndexToVar,
-        broadcastedModelOption.get,
-        getFetchDict)(it)
-    }(encoder)
+      val outputDF = preprocessedDF.mapPartitions { it =>
+        CNTKModelUtils.applyModel(
+          columnIndexToVar,
+          broadcastedModelOption.get,
+          getFetchDict)(it)
+      }(encoder)
 
-    val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
+      val droppedDF = outputDF.drop(outputDF.columns.filter(_.startsWith(coercionPrefix)): _*)
 
-    val unbatchedDF = if (getBatchInput) {
-      new FlattenBatch().transform(droppedDF)
-    } else {
-      droppedDF
-    }
-    coerceOutputDF(unbatchedDF)
+      val unbatchedDF = if (getBatchInput) {
+        // TODO: The cache call is a workaround for issue 1075:
+        //  https://github.com/Azure/mmlspark/issues/1075
+        val cacheAttempted = if (droppedDF.isStreaming) droppedDF else droppedDF.cache()
+        new FlattenBatch().transform(cacheAttempted)
+      } else {
+        droppedDF
+      }
+      coerceOutputDF(unbatchedDF)
+    })
   }
 
 }

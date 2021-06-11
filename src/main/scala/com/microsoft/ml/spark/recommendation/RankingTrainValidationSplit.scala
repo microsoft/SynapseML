@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark.recommendation
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
@@ -15,16 +15,19 @@ import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 import spray.json.DefaultJsonProtocol._
 
-@InternalWrapper
+import scala.annotation.tailrec
+
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
-  with RankingTrainValidationSplitParams with Wrappable
-  with ComplexParamsWritable with RecommendationParams {
+  with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
+  with RecommendationParams with BasicLogging {
+  logClass()
+
+  override lazy val pyInternalWrapper: Boolean = true
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplit"))
 
@@ -89,54 +92,57 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   }
 
   override def fit(dataset: Dataset[_]): RankingTrainValidationSplitModel = {
-    val schema = dataset.schema
-    transformSchema(schema, logging = true)
-    val est = getEstimator
-    val eval = getEvaluator.asInstanceOf[RankingEvaluator]
-    val epm = getEstimatorParamMaps
+    logFit({
+      val schema = dataset.schema
+      transformSchema(schema, logging = true)
+      val est = getEstimator
+      val eval = getEvaluator.asInstanceOf[RankingEvaluator]
+      val epm = getEstimatorParamMaps
 
-    dataset.cache()
-    eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
-    val filteredDataset = filterRatings(dataset.dropDuplicates())
+      dataset.cache()
+      eval.setNItems(dataset.agg(countDistinct(col(getItemCol))).take(1)(0).getLong(0))
+      val filteredDataset = filterRatings(dataset.dropDuplicates())
 
-    //Stratified Split of Dataset
-    val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
-    trainingDataset.cache()
-    validationDataset.cache()
+      //Stratified Split of Dataset
+      val Array(trainingDataset, validationDataset): Array[DataFrame] = splitDF(filteredDataset)
+      trainingDataset.cache()
+      validationDataset.cache()
 
-    val executionContext = getExecutionContext
+      val executionContext = getExecutionContext
 
-    def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
-      case pm: PipelineModel =>
-        //Assume Rec Algo is last stage of pipeline
-        val modelTemp =pm.stages.last
-        calculateMetrics(modelTemp, validationDataset)
-      case alsm: ALSModel      =>
-        val recs = alsm.recommendForAllUsers(eval.getK)
-        val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
-        eval.evaluate(preparedTest)
-    }
+      @tailrec
+      def calculateMetrics(model: Transformer, validationDataset: Dataset[_]): Double = model match {
+        case pm: PipelineModel =>
+          //Assume Rec Algo is last stage of pipeline
+          val modelTemp = pm.stages.last
+          calculateMetrics(modelTemp, validationDataset)
+        case alsm: ALSModel =>
+          val recs = alsm.recommendForAllUsers(eval.getK)
+          val preparedTest: Dataset[_] = prepareTestData(validationDataset.toDF(), recs, eval.getK)
+          eval.evaluate(preparedTest)
+      }
 
-    val metricFutures = epm.zipWithIndex.map { case (paramMap, _) =>
-      Future[Double] {
-        val model = est.fit(trainingDataset, paramMap)
-        calculateMetrics(model, validationDataset)
-      }(executionContext)
-    }
+      val metricFutures = epm.zipWithIndex.map { case (paramMap, _) =>
+        Future[Double] {
+          val model = est.fit(trainingDataset, paramMap)
+          calculateMetrics(model, validationDataset)
+        }(executionContext)
+      }
 
-    val metrics = metricFutures.map(SparkHelpers.getThreadUtils.awaitResult(_, Duration.Inf))
+      val metrics = metricFutures.map(SparkHelpers.getThreadUtils.awaitResult(_, Duration.Inf))
 
-    trainingDataset.unpersist()
-    validationDataset.unpersist()
+      trainingDataset.unpersist()
+      validationDataset.unpersist()
 
-    val (_, bestIndex) =
-      if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
-      else metrics.zipWithIndex.minBy(_._1)
+      val (_, bestIndex) =
+        if (eval.isLargerBetter) metrics.zipWithIndex.maxBy(_._1)
+        else metrics.zipWithIndex.minBy(_._1)
 
-    copyValues(new RankingTrainValidationSplitModel(uid)
-      .setBestModel(est.fit(dataset, epm(bestIndex)))
-      .setValidationMetrics(metrics)
-      .setParent(this))
+      copyValues(new RankingTrainValidationSplitModel(uid)
+        .setBestModel(est.fit(dataset, epm(bestIndex)))
+        .setValidationMetrics(metrics)
+        .setParent(this))
+    })
   }
 
   override def copy(extra: ParamMap): RankingTrainValidationSplit = defaultCopy(extra)
@@ -186,7 +192,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
         .withColumn("train", sliceudf(col("shuffle")))
         .withColumn("test", dropudf(col("shuffle")))
         .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
-        //.cache()
+      //.cache()
 
       val train = testds
         .select(getUserCol, "train")
@@ -283,15 +289,18 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
 
 object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainValidationSplit]
 
-@InternalWrapper
 class RankingTrainValidationSplitModel(
-  override val uid: String)
+                                        override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
+
+  override protected lazy val pyInternalWrapper = true
 
   def setValidationMetrics(value: Seq[Double]): this.type = set(validationMetrics, value)
 
   val validationMetrics = new TypedArrayParam[Double](this, "validationMetrics", "Best Model")
+
   /** @group getParam */
   def getValidationMetrics: Seq[_] = $(validationMetrics)
 
@@ -299,9 +308,9 @@ class RankingTrainValidationSplitModel(
 
   val bestModel: TransformerParam =
     new TransformerParam(
-    this,
-    "bestModel", "The internal ALS model used splitter",
-    { t => t.isInstanceOf[Model[_]] })
+      this,
+      "bestModel", "The internal ALS model used splitter",
+      { t => t.isInstanceOf[Model[_]] })
 
   /** @group getParam */
   def getBestModel: Model[_] = $(bestModel).asInstanceOf[Model[_]]
@@ -314,15 +323,32 @@ class RankingTrainValidationSplitModel(
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema, logging = true)
+    logTransform[DataFrame]({
+      transformSchema(dataset.schema, logging = true)
 
-    //sort to pass unit test
-    $(bestModel).transform(dataset).sort("prediction")
+      //sort to pass unit test
+      getBestModel.transform(dataset).sort("prediction")
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    $(bestModel).transformSchema(schema)
+    getBestModel.transformSchema(schema)
   }
+
+  def recommendForAllUsers(numItems: Int): DataFrame = {
+    getBestModel match {
+      case als: ALSModel => als.recommendForAllUsers(numItems)
+      case br: BaseRecommendationModel => br.recommendForAllUsers(numItems)
+    }
+  }
+
+  def recommendForAllItems(numUsers: Int): DataFrame = {
+    getBestModel match {
+      case als: ALSModel => als.recommendForAllItems(numUsers)
+      case br: BaseRecommendationModel => br.recommendForAllItems(numUsers)
+    }
+  }
+
 }
 
 object RankingTrainValidationSplitModel extends ComplexParamsReadable[RankingTrainValidationSplitModel]

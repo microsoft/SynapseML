@@ -145,7 +145,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val model = tr.fit(dataset)
     val prediction = model.transform(dataset)
     val evaluatedData = new ComputeModelStatistics().transform(prediction)
-    assert(evaluatedData.collect()(0).getDouble(2) === 0.97758720062440)
+    assert(math.abs(evaluatedData.collect()(0).getDouble(2) - 0.9772518203539127) < .01)
   }
 
   test("Smoke test to train regressor, score and evaluate on a dataset using all three modules") {

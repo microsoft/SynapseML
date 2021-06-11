@@ -4,6 +4,10 @@
 package com.microsoft.ml.spark.lightgbm
 
 import com.microsoft.ml.spark.core.utils.ClusterUtil
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{DartModeParams, ExecutionParams, LightGBMParams,
+  ObjectiveParams, TrainParams}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
@@ -18,7 +22,7 @@ import scala.math.min
 import scala.util.matching.Regex
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark {
+  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark with BasicLogging {
 
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
@@ -26,27 +30,29 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return The trained model.
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
-    if (getNumBatches > 0) {
-      val ratio = 1.0 / getNumBatches
-      val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
-      datasets.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
-        if (model.isDefined) {
-          setModelString(stringFromTrainedModel(model.get))
-        }
+    logTrain({
+      if (getNumBatches > 0) {
+        val ratio = 1.0 / getNumBatches
+        val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
+        datasets.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
+          if (model.isDefined) {
+            setModelString(stringFromTrainedModel(model.get))
+          }
 
-        val dataset = datasetWithIndex._1
-        val batchIndex = datasetWithIndex._2
+          val dataset = datasetWithIndex._1
+          val batchIndex = datasetWithIndex._2
 
-        beforeTrainBatch(batchIndex, dataset, model)
+          beforeTrainBatch(batchIndex, dataset, model)
 
-        val newModel = innerTrain(dataset, batchIndex)
-        afterTrainBatch(batchIndex, dataset, newModel)
+          val newModel = innerTrain(dataset, batchIndex)
+          afterTrainBatch(batchIndex, dataset, newModel)
 
-        Some(newModel)
-      }.get
-    } else {
-      innerTrain(dataset, batchIndex = 0)
-    }
+          Some(newModel)
+        }.get
+      } else {
+        innerTrain(dataset, batchIndex = 0)
+      }
+    })
   }
 
   def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {
@@ -175,6 +181,30 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         }
       })
     }
+  }
+
+  /**
+    * Constructs the DartModeParams
+    * @return DartModeParams object containing parameters related to dart mode.
+    */
+  protected def getDartParams(): DartModeParams = {
+    DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
+  }
+
+  /**
+    * Constructs the ExecutionParams.
+    * @return ExecutionParams object containing parameters related to LightGBM execution.
+    */
+  protected def getExecutionParams(): ExecutionParams = {
+    ExecutionParams(getChunkSize, getMatrixType, getNumThreads)
+  }
+
+  /**
+    * Constructs the ObjectiveParams.
+    * @return ObjectiveParams object containing parameters related to the objective function.
+    */
+  protected def getObjectiveParams(): ObjectiveParams = {
+    ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
   /**

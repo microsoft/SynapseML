@@ -180,7 +180,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     assert(responses(1).categories.get.head.name === "text_sign")
   }
 
-
   override def testObjects(): Seq[TestObject[AnalyzeImage]] =
     Seq(new TestObject(ai, df))
 

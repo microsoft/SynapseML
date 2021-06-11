@@ -4,14 +4,16 @@
 package com.microsoft.ml.spark.nn
 
 import breeze.linalg.{DenseVector => BDV}
-import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.injections.OptimizedKNNFitting
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -44,7 +46,8 @@ trait KNNParams extends HasFeaturesCol with Wrappable with HasOutputCol {
 }
 
 class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
-  with DefaultParamsWritable with OptimizedKNNFitting {
+  with DefaultParamsWritable with OptimizedKNNFitting with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("KNN"))
 
@@ -55,7 +58,9 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(leafSize, 50)
 
   override def fit(dataset: Dataset[_]): KNNModel = {
-    fitOptimized(dataset)
+    logFit(
+      fitOptimized(dataset)
+    )
   }
 
   override def copy(extra: ParamMap): Estimator[KNNModel] =
@@ -70,7 +75,10 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 
 }
 
-class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritable with KNNParams {
+class KNNModel(val uid: String) extends Model[KNNModel]
+  with ComplexParamsWritable with KNNParams with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("KNNModel"))
 
   private var broadcastedModelOption: Option[Broadcast[BallTree[_]]] = None
@@ -89,19 +97,21 @@ class KNNModel(val uid: String) extends Model[KNNModel] with ComplexParamsWritab
   override def copy(extra: ParamMap): KNNModel = defaultCopy(extra)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    if (broadcastedModelOption.isEmpty) {
-      broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
-    }
-    val getNeighborUDF = UDFUtils.oldUdf({ dv: DenseVector =>
-      val bt = broadcastedModelOption.get.value
-      bt.findMaximumInnerProducts(new BDV(dv.values), getK)
-        .map(bm => Row(bt.values(bm.index), bm.distance))
-    }, ArrayType(new StructType()
-      .add("value", dataset.schema(getValuesCol).dataType)
-      .add("distance", DoubleType)
-    ))
+    logTransform[DataFrame]({
+      if (broadcastedModelOption.isEmpty) {
+        broadcastedModelOption = Some(dataset.sparkSession.sparkContext.broadcast(getBallTree))
+      }
+      val getNeighborUDF = UDFUtils.oldUdf({ v: Vector =>
+        val bt = broadcastedModelOption.get.value
+        bt.findMaximumInnerProducts(new BDV(v.toDense.values), getK)
+          .map(bm => Row(bt.values(bm.index), bm.distance))
+      }, ArrayType(new StructType()
+        .add("value", dataset.schema(getValuesCol).dataType)
+        .add("distance", DoubleType)
+      ))
 
-    dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol)))
+      dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol)))
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

@@ -9,12 +9,13 @@ import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import AnomalyDetectorProtocol._
+import com.microsoft.ml.spark.logging.BasicLogging
 import spray.json._
 import spray.json.DefaultJsonProtocol._
+
 import javax.sound.sampled.AudioFileFormat.Type
 import javax.sound.sampled._
 import java.io._
-
 import org.apache.spark.ml.ComplexParamsReadable
 
 import scala.language.existentials
@@ -22,7 +23,8 @@ import scala.language.existentials
 object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 

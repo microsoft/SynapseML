@@ -3,8 +3,10 @@
 
 package com.microsoft.ml.spark.io.http
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.io.http.HandlingUtils.HandlerFunc
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param._
@@ -84,7 +86,8 @@ object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 class HTTPTransformer(val uid: String)
   extends Transformer with HTTPParams with HasInputCol
     with HasOutputCol with HasHandler
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
 
   setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000)) //scalastyle:ignore magic.number
 
@@ -106,24 +109,26 @@ class HTTPTransformer(val uid: String)
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF()
-    val enc = RowEncoder(transformSchema(df.schema))
-    val colIndex = df.schema.fieldNames.indexOf(getInputCol)
-    val fromRow = HTTPRequestData.makeFromRowConverter
-    val toRow = HTTPResponseData.makeToRowConverter
-    df.mapPartitions { it =>
-      if (!it.hasNext) {
-        Iterator()
-      }else{
-        val c = clientHolder.get
-        val responsesWithContext = c.sendRequestsWithContext(it.map{row =>
-          c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
-        })
-        responsesWithContext.map { rwc =>
-          Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.flatMap(Option(_)).map(toRow).orNull))
+    logTransform[DataFrame]({
+      val df = dataset.toDF()
+      val enc = RowEncoder(transformSchema(df.schema))
+      val colIndex = df.schema.fieldNames.indexOf(getInputCol)
+      val fromRow = HTTPRequestData.makeFromRowConverter
+      val toRow = HTTPResponseData.makeToRowConverter
+      df.mapPartitions { it =>
+        if (!it.hasNext) {
+          Iterator()
+        } else {
+          val c = clientHolder.get
+          val responsesWithContext = c.sendRequestsWithContext(it.map { row =>
+            c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
+          })
+          responsesWithContext.map { rwc =>
+            Row.merge(rwc.context.get.asInstanceOf[Row], Row(rwc.response.flatMap(Option(_)).map(toRow).orNull))
+          }
         }
-      }
-    }(enc)
+      }(enc)
+    })
   }
 
   def copy(extra: ParamMap): HTTPTransformer = defaultCopy(extra)

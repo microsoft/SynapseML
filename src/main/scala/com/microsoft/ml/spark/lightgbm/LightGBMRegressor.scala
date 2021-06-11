@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{LightGBMModelParams, LightGBMPredictionParams,
+  RegressorTrainParams, TrainParams}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -32,10 +35,11 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   *    insurance, or for any target that might be tweedie-distributed
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMBase[LightGBMRegressionModel] {
+    with LightGBMBase[LightGBMRegressionModel] with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
   // Set default objective to be regression
@@ -57,12 +61,12 @@ class LightGBMRegressor(override val uid: String)
   def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RegressorTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
-      getObjective, getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount,
-      getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction, getBaggingFreq, getBaggingSeed,
-      getEarlyStoppingRound, getImprovementTolerance, getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf,
-      numTasks, modelStr, getVerbosity, categoricalIndexes, getBoostFromAverage, getBoostingType, getLambdaL1,
-      getLambdaL2, getIsProvideTrainingMetric, getMetric, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
+      getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction,
+      getNegBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
+      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr, getVerbosity, categoricalIndexes,
+      getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getMetric,
+      getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate,
+      getDartParams(), getExecutionParams(), getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
@@ -72,23 +76,28 @@ class LightGBMRegressor(override val uid: String)
       .setPredictionCol(getPredictionCol)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
+      .setNumIterations(lightGBMBooster.bestIteration)
   }
 
   def stringFromTrainedModel(model: LightGBMRegressionModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def copy(extra: ParamMap): LightGBMRegressor = defaultCopy(extra)
 }
 
 /** Model produced by [[LightGBMRegressor]]. */
-@InternalWrapper
 class LightGBMRegressionModel(override val uid: String)
   extends RegressionModel[Vector, LightGBMRegressionModel]
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.
@@ -97,20 +106,25 @@ class LightGBMRegressionModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    var outputData = super.transform(dataset)
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-    }
-    outputData.toDF
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      var outputData = super.transform(dataset)
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+      }
+      outputData.toDF
+    })
   }
 
   override def predict(features: Vector): Double = {
-    getModel.score(features, false, false)(0)
+    logPredict(
+      getModel.score(features, false, false)(0)
+    )
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
@@ -123,7 +137,7 @@ class LightGBMRegressionModel(override val uid: String)
 
 object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {
   def loadNativeModelFromFile(filename: String): LightGBMRegressionModel = {
-    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val uid = Identifiable.randomUID("LightGBMRegressionModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -132,7 +146,7 @@ object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionM
   }
 
   def loadNativeModelFromString(model: String): LightGBMRegressionModel = {
-    val uid = Identifiable.randomUID("LightGBMRegressor")
+    val uid = Identifiable.randomUID("LightGBMRegressionModel")
     val lightGBMBooster = new LightGBMBooster(model)
     new LightGBMRegressionModel(uid).setLightGBMBooster(lightGBMBooster)
   }

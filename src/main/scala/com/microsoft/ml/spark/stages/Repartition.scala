@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -16,7 +17,9 @@ object Repartition extends DefaultParamsReadable[Repartition]
 /** Partitions the dataset into n partitions
   * @param uid The id of the module
   */
-class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class Repartition(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("Repartition"))
 
   val disable = new BooleanParam(this, "disable",
@@ -44,14 +47,16 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     * @return partitoned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    if (getDisable)
-      dataset.toDF
-    else if (getN < dataset.rdd.getNumPartitions)
-      dataset.coalesce(getN).toDF()
-    else
-      dataset.sqlContext.createDataFrame(
-        dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
-        dataset.schema)
+    logTransform[DataFrame]({
+      if (getDisable)
+        dataset.toDF
+      else if (getN < dataset.rdd.getNumPartitions)
+        dataset.coalesce(getN).toDF()
+      else
+        dataset.sqlContext.createDataFrame(
+          dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
+          dataset.schema)
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

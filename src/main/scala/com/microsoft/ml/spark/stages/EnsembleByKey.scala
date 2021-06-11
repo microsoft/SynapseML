@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
@@ -19,7 +20,9 @@ import scala.collection.mutable
 
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
-class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable {
+class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("EnsembleByKey"))
 
   val keys = new StringArrayParam(this, "keys", "Keys to group by")
@@ -79,48 +82,50 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   setDefault(collapseGroup -> true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
 
-    if (get(colNames).isEmpty) {
-      setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))
-    }
-
-    transformSchema(dataset.schema)
-
-    val strategyToFloatFunction = Map(
-      "mean" -> { (x: String, y: String) => mean(x).alias(y) }
-    )
-
-    val strategyToVectorFunction = Map(
-      "mean" -> { (x: String, y: String) =>
-        val dim = getVectorDims.getOrElse(x,
-          dataset.select(x).take(1)(0).getAs[DenseVector](0).size)
-        new VectorAvg(dim)(dataset(x)).alias(y)
+      if (get(colNames).isEmpty) {
+        setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))
       }
-    )
 
-    val newCols = getCols.zip(getColNames).map { case (inColName, outColName) =>
-      dataset.schema(inColName).dataType match {
-        case _: DoubleType =>
-          strategyToFloatFunction(getStrategy)(inColName, outColName)
-        case _: FloatType =>
-          strategyToFloatFunction(getStrategy)(inColName, outColName)
-        case v if v == VectorType =>
-          strategyToVectorFunction(getStrategy)(inColName, outColName)
-        case t =>
-          throw new IllegalArgumentException(s"Cannot operate on type $t with strategy $getStrategy")
+      transformSchema(dataset.schema)
+
+      val strategyToFloatFunction = Map(
+        "mean" -> { (x: String, y: String) => mean(x).alias(y) }
+      )
+
+      val strategyToVectorFunction = Map(
+        "mean" -> { (x: String, y: String) =>
+          val dim = getVectorDims.getOrElse(x,
+            dataset.select(x).take(1)(0).getAs[DenseVector](0).size)
+          new VectorAvg(dim)(dataset(x)).alias(y)
+        }
+      )
+
+      val newCols = getCols.zip(getColNames).map { case (inColName, outColName) =>
+        dataset.schema(inColName).dataType match {
+          case _: DoubleType =>
+            strategyToFloatFunction(getStrategy)(inColName, outColName)
+          case _: FloatType =>
+            strategyToFloatFunction(getStrategy)(inColName, outColName)
+          case v if v == VectorType =>
+            strategyToVectorFunction(getStrategy)(inColName, outColName)
+          case t =>
+            throw new IllegalArgumentException(s"Cannot operate on type $t with strategy $getStrategy")
+        }
       }
-    }
 
-    val aggregated = dataset.toDF()
-      .groupBy(getKeys.head, getKeys.tail: _*)
-      .agg(newCols.head, newCols.tail: _*)
+      val aggregated = dataset.toDF()
+        .groupBy(getKeys.head, getKeys.tail: _*)
+        .agg(newCols.head, newCols.tail: _*)
 
-    if (getCollapseGroup) {
-      aggregated
-    } else {
-      val needToDrop = getColNames.toSet & dataset.columns.toSet
-      dataset.drop(needToDrop.toList: _*).toDF().join(aggregated, getKeys)
-    }
+      if (getCollapseGroup) {
+        aggregated
+      } else {
+        val needToDrop = getColNames.toSet & dataset.columns.toSet
+        dataset.drop(needToDrop.toList: _*).toDF().join(aggregated, getKeys)
+      }
+    })
 
   }
 

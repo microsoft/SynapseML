@@ -12,6 +12,9 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
+
 
 object ComputePerInstanceStatistics extends DefaultParamsReadable[ComputePerInstanceStatistics] {
   val Epsilon = 1e-15
@@ -40,63 +43,65 @@ trait CPISParams extends Wrappable with DefaultParamsWritable
   * - log_loss
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer
-  with CPISParams {
+  with CPISParams with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val (modelName, labelColumnName, scoreValueKind) =
-      MetricUtils.getSchemaInfo(
-        dataset.schema,
-        if (isDefined(labelCol)) Some(getLabelCol) else None,
-        getEvaluationMetric)
+    logTransform[DataFrame]({
+      val (modelName, labelColumnName, scoreValueKind) =
+        MetricUtils.getSchemaInfo(
+          dataset.schema,
+          if (isDefined(labelCol)) Some(getLabelCol) else None,
+          getEvaluationMetric)
 
-    val dataframe = dataset.toDF()
+      val dataframe = dataset.toDF()
 
-    if (scoreValueKind == SchemaConstants.ClassificationKind) {
-      // Compute the LogLoss for classification case
-      val scoredLabelsColumnName =
-        if (isDefined(scoredLabelsCol)) getScoredLabelsCol
-        else SparkSchema.getScoredLabelsColumnName(dataframe, modelName)
+      if (scoreValueKind == SchemaConstants.ClassificationKind) {
+        // Compute the LogLoss for classification case
+        val scoredLabelsColumnName =
+          if (isDefined(scoredLabelsCol)) getScoredLabelsCol
+          else SparkSchema.getScoredLabelsColumnName(dataframe, modelName)
 
-      // Get levels if categorical
-      val levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumnName)
-      val numLevels =
-        if (levels.isDefined && levels.get != null) {
-          if (levels.get.length > 2) levels.get.length else 2
-        } else {
-          // Otherwise compute unique levels
-          dataset.select(col(labelColumnName).cast(DoubleType)).rdd.distinct().count().toInt
-        }
+        // Get levels if categorical
+        val levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumnName)
+        val numLevels =
+          if (levels.isDefined && levels.get != null) {
+            if (levels.get.length > 2) levels.get.length else 2
+          } else {
+            // Otherwise compute unique levels
+            dataset.select(col(labelColumnName).cast(DoubleType)).rdd.distinct().count().toInt
+          }
 
-      val logLossFunc = udf((scoredLabel: Double, scores: org.apache.spark.ml.linalg.Vector) =>
-        if (scoredLabel < numLevels) {
-          -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.Epsilon, scores(scoredLabel.toInt))))
-        } else {
-          // penalize if no label seen in training
-          -Math.log(ComputePerInstanceStatistics.Epsilon)
-        })
-      val probabilitiesColumnName =
-        if (isDefined(scoredProbabilitiesCol)) getScoredProbabilitiesCol
-        else SparkSchema.getScoredProbabilitiesColumnName(dataframe, modelName)
-      dataframe.withColumn(MetricConstants.LogLossMetric,
-        logLossFunc(dataset(scoredLabelsColumnName), dataset(probabilitiesColumnName)))
-    } else {
-      val scoresColumnName =
-        if (isDefined(scoresCol)) getScoresCol
-        else SparkSchema.getScoresColumnName(dataframe, modelName)
-      // Compute the L1 and L2 loss for regression case
-      val l1LossFunc = udf((trueLabel: Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
-      val l2LossFunc = udf((trueLabel: Double, scoredLabel: Double) =>
-        {
+        val logLossFunc = udf((scoredLabel: Double, scores: org.apache.spark.ml.linalg.Vector) =>
+          if (scoredLabel < numLevels) {
+            -Math.log(Math.min(1, Math.max(ComputePerInstanceStatistics.Epsilon, scores(scoredLabel.toInt))))
+          } else {
+            // penalize if no label seen in training
+            -Math.log(ComputePerInstanceStatistics.Epsilon)
+          })
+        val probabilitiesColumnName =
+          if (isDefined(scoredProbabilitiesCol)) getScoredProbabilitiesCol
+          else SparkSchema.getScoredProbabilitiesColumnName(dataframe, modelName)
+        dataframe.withColumn(MetricConstants.LogLossMetric,
+          logLossFunc(dataset(scoredLabelsColumnName), dataset(probabilitiesColumnName)))
+      } else {
+        val scoresColumnName =
+          if (isDefined(scoresCol)) getScoresCol
+          else SparkSchema.getScoresColumnName(dataframe, modelName)
+        // Compute the L1 and L2 loss for regression case
+        val l1LossFunc = udf((trueLabel: Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
+        val l2LossFunc = udf((trueLabel: Double, scoredLabel: Double) => {
           val loss = math.abs(trueLabel - scoredLabel)
           loss * loss
         })
-      dataframe.withColumn(MetricConstants.L1LossMetric,
-        l1LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
-        .withColumn(MetricConstants.L2LossMetric,
-          l2LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
-    }
+        dataframe.withColumn(MetricConstants.L1LossMetric,
+          l1LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
+          .withColumn(MetricConstants.L2LossMetric,
+            l2LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
+      }
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = new ComputePerInstanceStatistics()

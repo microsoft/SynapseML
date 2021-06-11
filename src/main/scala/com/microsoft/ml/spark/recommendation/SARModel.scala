@@ -3,8 +3,8 @@
 
 package com.microsoft.ml.spark.recommendation
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}
 import org.apache.spark.ml.param.{DataFrameParam, ParamMap}
 import org.apache.spark.ml.recommendation.{BaseRecommendationModel, Constants}
@@ -19,9 +19,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
   *
   * @param uid The id of the module
   */
-@InternalWrapper
 class SARModel(override val uid: String) extends Model[SARModel]
-  with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable {
+  with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable with BasicLogging {
+  logClass()
+
+  override protected lazy val pyInternalWrapper = true
 
   /** @group setParam */
   def setUserDataFrame(value: DataFrame): this.type = set(userDataFrame, value)
@@ -141,7 +143,9 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
+    logTransform[DataFrame](
+      transform($(rank), $(userDataFrame), $(itemDataFrame), dataset)
+    )
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -164,6 +168,11 @@ class SARModel(override val uid: String) extends Model[SARModel]
     require(actualDataType.isInstanceOf[NumericType], s"Column $colName must be of type " +
       s"NumericType but was actually of type $actualDataType.$message")
   }
+
+  def recommendForAllItems(numItems: Int): DataFrame = {
+    recommendForAll(getItemDataFrame, getUserDataFrame, getItemCol, getUserCol, numItems)
+  }
+
 }
 
 object SARModel extends ComplexParamsReadable[SARModel]

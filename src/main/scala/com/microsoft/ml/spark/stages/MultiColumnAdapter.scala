@@ -3,8 +3,9 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
-import org.apache.spark.sql.{DataFrame, Dataset}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.spark.sql.Dataset
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
@@ -16,7 +17,9 @@ object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
   * and applies the pipeline stage to each input column after being fit
   */
 class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with ComplexParamsWritable {
+  with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))
 
   /** List of input column names, encoded as a string. These are the columns for the pipeline stage.
@@ -101,8 +104,10 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
     * @return PipelineModel fit on the columns bearing the input column names
     */
   override def fit(dataset: Dataset[_]): PipelineModel = {
-    transformSchema(dataset.schema)
-    new Pipeline(uid).setStages(getStages).fit(dataset)
+    logFit({
+      transformSchema(dataset.schema)
+      new Pipeline(uid).setStages(getStages).fit(dataset)
+    })
   }
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)

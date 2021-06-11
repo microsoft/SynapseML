@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
@@ -94,7 +96,9 @@ object TextPreprocessor extends ComplexParamsReadable[TextPreprocessor]
   * Priority is given to longer keys and from left to right.
   */
 class TextPreprocessor(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("TextPreprocessor"))
 
   val normFuncs: Map[String, Char => Char] = Map[String, Char => Char] (
@@ -125,16 +129,18 @@ class TextPreprocessor(val uid: String) extends Transformer
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val spark = dataset.sparkSession
-    val inputIndex = dataset.columns.indexOf(getInputCol)
-    val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)
-    val broadcastedTrie = spark.sparkContext.broadcast(trie)
+    logTransform[DataFrame]({
+      val spark = dataset.sparkSession
+      val inputIndex = dataset.columns.indexOf(getInputCol)
+      val trie = new Trie(normFunction = normFuncs(getNormFunc)).putAll(getMap)
+      val broadcastedTrie = spark.sparkContext.broadcast(trie)
 
-    require(inputIndex != -1, s"Input column $getInputCol does not exist")
+      require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
-    val mapText: String => String = broadcastedTrie.value.mapText
-    val textMapper = udf(mapText)
-    dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+      val mapText: String => String = broadcastedTrie.value.mapText
+      val textMapper = udf(mapText)
+      dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

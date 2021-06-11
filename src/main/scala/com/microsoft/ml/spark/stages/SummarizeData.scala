@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -99,28 +100,31 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
   */
 class SummarizeData(override val uid: String)
   extends Transformer
-    with SummarizeDataParams {
+    with SummarizeDataParams with BasicLogging {
+  logClass()
 
   import SummarizeData.Statistic._
 
   def this() = this(Identifiable.randomUID("SummarizeData"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
 
-    val df = dataset.toDF()
-    // Some of these statistics are bad to compute
-    df.persist(StorageLevel.MEMORY_ONLY)
+      val df = dataset.toDF()
+      // Some of these statistics are bad to compute
+      df.persist(StorageLevel.MEMORY_ONLY)
 
-    val subFrames = ListBuffer[DataFrame]()
-    if ($(counts)) subFrames += computeCounts(df)
-    if ($(basic)) subFrames += curriedBasic(df)
-    if ($(sample)) subFrames += sampleStats(df)
-    if ($(percentiles)) subFrames += curriedPerc(df)
+      val subFrames = ListBuffer[DataFrame]()
+      if ($(counts)) subFrames += computeCounts(df)
+      if ($(basic)) subFrames += curriedBasic(df)
+      if ($(sample)) subFrames += sampleStats(df)
+      if ($(percentiles)) subFrames += curriedPerc(df)
 
-    df.unpersist(false)
+      df.unpersist(false)
 
-    val base = createJoinBase(df)
-    subFrames.foldLeft(base) { (z, dfi) => z.join(dfi, SummarizeData.FeatureColumnName) }
+      val base = createJoinBase(df)
+      subFrames.foldLeft(base) { (z, dfi) => z.join(dfi, SummarizeData.FeatureColumnName) }
+    })
   }
 
   def transformSchema(schema: StructType): StructType = {

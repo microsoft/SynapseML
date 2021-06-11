@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.recommendation
 
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.utils.ModelEquality
 import org.apache.spark.ml.recommendation.ALSModel
 import org.apache.spark.ml.util.MLReadable
 

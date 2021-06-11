@@ -14,12 +14,12 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-
+import org.apache.spark.sql.functions.{lit, udf, col, split}
 import scala.collection.mutable
 import scala.concurrent.blocking
 
 trait AzureSearchKey {
-  lazy val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
+  lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
@@ -73,6 +73,15 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     name
   }
 
+  lazy val indexName: String = generateIndexName()
+
+  override def beforeAll(): Unit = {
+    print("WARNING CREATING SEARCH ENGINE!")
+    SearchIndex.createIfNoneExists(azureSearchKey,
+      testServiceName,
+      createSimpleIndexJson(indexName))
+  }
+
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
@@ -97,7 +106,9 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     } catch {
       case _: Exception if timeouts.nonEmpty =>
         println(s"Sleeping for ${timeouts.head}")
-        blocking {Thread.sleep(timeouts.head)}
+        blocking {
+          Thread.sleep(timeouts.head)
+        }
         retryWithBackoff(f, timeouts.tail)
     }
   }
@@ -109,15 +120,11 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   override val sortInDataframeEquality: Boolean = true
 
   lazy val ad: AddDocuments = {
-    val in = generateIndexName()
-    SearchIndex.createIfNoneExists(azureSearchKey,
-      testServiceName,
-      createSimpleIndexJson(in))
     new AddDocuments()
       .setSubscriptionKey(azureSearchKey)
       .setServiceName(testServiceName)
       .setOutputCol("out").setErrorCol("err")
-      .setIndexName(in)
+      .setIndexName(indexName)
       .setActionCol("searchAction")
   }
 
@@ -233,32 +240,33 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     */
   test("Handle null values for Collection(Edm.String) fields") {
     val in = generateIndexName()
-    val phraseIndex = s"""
-           |{
-           |    "name": "$in",
-           |    "fields": [
-           |      {
-           |        "name": "id",
-           |        "type": "Edm.String",
-           |        "key": true,
-           |        "facetable": false
-           |      },
-           |    {
-           |      "name": "fileName",
-           |      "type": "Edm.String",
-           |      "searchable": false,
-           |      "sortable": false,
-           |      "facetable": false
-           |    },
-           |    {
-           |      "name": "phrases",
-           |      "type": "Collection(Edm.String)",
-           |      "filterable": false,
-           |      "sortable": false,
-           |      "facetable": false
-           |    }
-           |    ]
-           |  }
+    val phraseIndex =
+      s"""
+         |{
+         |    "name": "$in",
+         |    "fields": [
+         |      {
+         |        "name": "id",
+         |        "type": "Edm.String",
+         |        "key": true,
+         |        "facetable": false
+         |      },
+         |    {
+         |      "name": "fileName",
+         |      "type": "Edm.String",
+         |      "searchable": false,
+         |      "sortable": false,
+         |      "facetable": false
+         |    },
+         |    {
+         |      "name": "phrases",
+         |      "type": "Collection(Edm.String)",
+         |      "filterable": false,
+         |      "sortable": false,
+         |      "facetable": false
+         |    }
+         |    ]
+         |  }
         """.stripMargin
     val phraseDF = Seq(
       ("upload", "0", "file0", Array("p1", "p2", "p3")),
@@ -294,12 +302,12 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
         "filterNulls" -> "true",
         "indexName" -> in,
         "keyCol" -> "id"
-    ))
+      ))
 
     retryWithBackoff(assertSize(in, 2))
   }
 
-  test("pipeline with analyze image"){
+  test("pipeline with analyze image") {
     val in = generateIndexName()
 
     val df = Seq(

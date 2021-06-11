@@ -3,13 +3,13 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.Wrappable
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
@@ -19,7 +19,9 @@ object Lambda extends ComplexParamsReadable[Lambda] {
   }
 }
 
-class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable {
+class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("Lambda"))
 
   val transformFunc = new UDFParam(this, "transformFunc", "holder for dataframe function")
@@ -43,7 +45,9 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    getTransform(dataset)
+    logTransform[DataFrame](
+      getTransform(dataset)
+    )
   }
 
   def transformSchema(schema: StructType): StructType = {

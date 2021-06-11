@@ -3,18 +3,20 @@
 
 package org.apache.spark.sql.types.injections
 
-import com.microsoft.ml.spark.nn._
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.Dataset
 import breeze.linalg.{DenseVector => BDV}
+import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.nn._
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
-trait OptimizedCKNNFitting extends ConditionalKNNParams {
+trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
+
     val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
       .map { row =>
-        val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
+        val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)
         val label = row.getAs[L](getLabelCol)
         (bdv, value, label)
@@ -32,6 +34,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): ConditionalKNNModel = {
+
     val vt = dataset.schema(getValuesCol).dataType
     val lt = dataset.schema(getLabelCol).dataType
     (vt, lt) match {
@@ -44,12 +47,13 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams {
 
 }
 
-trait OptimizedKNNFitting extends KNNParams {
+trait OptimizedKNNFitting extends KNNParams with BasicLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
+
     val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
       .map { row =>
-        val bdv = new BDV(row.getAs[DenseVector](getFeaturesCol).values)
+        val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)
         (bdv, value)
       }
@@ -64,6 +68,7 @@ trait OptimizedKNNFitting extends KNNParams {
   }
 
   protected def fitOptimized(dataset: Dataset[_]): KNNModel = {
+
     dataset.schema(getValuesCol).dataType match {
       case avt: AtomicType => fitGeneric[avt.InternalType](dataset)
       case _ => fitGeneric[Any](dataset)

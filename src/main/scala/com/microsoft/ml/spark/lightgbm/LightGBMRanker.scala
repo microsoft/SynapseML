@@ -3,7 +3,10 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.spark.core.env.InternalWrapper
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.{LightGBMModelParams, LightGBMPredictionParams,
+  RankerTrainParams, TrainParams}
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -20,10 +23,11 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
   * For parameter information see here: https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */
-@InternalWrapper
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
-    with LightGBMBase[LightGBMRankerModel] {
+    with LightGBMBase[LightGBMRankerModel] with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
 
   // Set default objective to be ranking classification
@@ -50,12 +54,13 @@ class LightGBMRanker(override val uid: String)
   def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int], dataset: Dataset[_]): TrainParams = {
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
-      getObjective, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
+      getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
       getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
       getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
       getVerbosity, categoricalIndexes, getBoostingType, getLambdaL1, getLambdaL2, getMaxPosition, getLabelGain,
       getIsProvideTrainingMetric, getMetric, getEvalAt, getMinGainToSplit, getMaxDeltaStep,
-      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate)
+      getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate, getDartParams(), getExecutionParams(),
+      getObjectiveParams())
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
@@ -65,10 +70,11 @@ class LightGBMRanker(override val uid: String)
       .setPredictionCol(getPredictionCol)
       .setLeafPredictionCol(getLeafPredictionCol)
       .setFeaturesShapCol(getFeaturesShapCol)
+      .setNumIterations(lightGBMBooster.bestIteration)
   }
 
   def stringFromTrainedModel(model: LightGBMRankerModel): String = {
-    model.getModel.model
+    model.getModel.modelStr.get
   }
 
   override def getOptGroupCol: Option[String] = Some(getGroupCol)
@@ -103,13 +109,17 @@ class LightGBMRanker(override val uid: String)
 }
 
 /** Model produced by [[LightGBMRanker]]. */
-@InternalWrapper
 class LightGBMRankerModel(override val uid: String)
   extends RankerModel[Vector, LightGBMRankerModel]
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable {
+    with ComplexParamsWritable with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
+
+  override protected lazy val pyInternalWrapper = true
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.
@@ -118,20 +128,25 @@ class LightGBMRankerModel(override val uid: String)
     * @return transformed dataset
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    var outputData = super.transform(dataset)
-    if (getLeafPredictionCol.nonEmpty) {
-      val predLeafUDF = udf(predictLeaf _)
-      outputData = outputData.withColumn(getLeafPredictionCol,  predLeafUDF(col(getFeaturesCol)))
-    }
-    if (getFeaturesShapCol.nonEmpty) {
-      val featureShapUDF = udf(featuresShap _)
-      outputData = outputData.withColumn(getFeaturesShapCol,  featureShapUDF(col(getFeaturesCol)))
-    }
-    outputData.toDF
+    logTransform[DataFrame]({
+      updateBoosterParamsBeforePredict()
+      var outputData = super.transform(dataset)
+      if (getLeafPredictionCol.nonEmpty) {
+        val predLeafUDF = udf(predictLeaf _)
+        outputData = outputData.withColumn(getLeafPredictionCol, predLeafUDF(col(getFeaturesCol)))
+      }
+      if (getFeaturesShapCol.nonEmpty) {
+        val featureShapUDF = udf(featuresShap _)
+        outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
+      }
+      outputData.toDF
+    })
   }
 
   override def predict(features: Vector): Double = {
-    getModel.score(features, false, false)(0)
+    logPredict(
+      getModel.score(features, false, false)(0)
+    )
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
@@ -146,7 +161,7 @@ class LightGBMRankerModel(override val uid: String)
 
 object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {
   def loadNativeModelFromFile(filename: String): LightGBMRankerModel = {
-    val uid = Identifiable.randomUID("LightGBMRanker")
+    val uid = Identifiable.randomUID("LightGBMRankerModel")
     val session = SparkSession.builder().getOrCreate()
     val textRdd = session.read.text(filename)
     val text = textRdd.collect().map { row => row.getString(0) }.mkString("\n")
@@ -155,7 +170,7 @@ object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {
   }
 
   def loadNativeModelFromString(model: String): LightGBMRankerModel = {
-    val uid = Identifiable.randomUID("LightGBMRanker")
+    val uid = Identifiable.randomUID("LightGBMRankerModel")
     val lightGBMBooster = new LightGBMBooster(model)
     new LightGBMRankerModel(uid).setLightGBMBooster(lightGBMBooster)
   }

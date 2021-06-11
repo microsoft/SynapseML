@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
+import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
+import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
@@ -40,12 +41,12 @@ trait LightGBMDelegate extends Serializable {
   }
 
   def beforeTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                           trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean): Unit = {
+                           trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
     // override this function and write code
   }
 
   def afterTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                          trainParams: TrainParams, boosterPtr: Option[SWIGTYPE_p_void], hasValid: Boolean,
+                          trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean,
                           isFinished: Boolean,
                           trainEvalResults: Option[Map[String, Double]],
                           validEvalResults: Option[Map[String, Double]]): Unit = {

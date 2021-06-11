@@ -3,6 +3,7 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
@@ -16,7 +17,8 @@ object DetectFace extends ComplexParamsReadable[DetectFace]
 
 class DetectFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("DetectFace"))
 
@@ -94,7 +96,8 @@ object FindSimilarFace extends ComplexParamsReadable[FindSimilarFace]
 class FindSimilarFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("FindSimilarFace"))
 
@@ -183,7 +186,8 @@ object GroupFaces extends ComplexParamsReadable[GroupFaces]
 class GroupFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasFaceIds with HasSetLocation
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
 
@@ -206,7 +210,8 @@ object IdentifyFaces extends ComplexParamsReadable[IdentifyFaces]
 class IdentifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("IdentifyFaces"))
 
@@ -274,7 +279,8 @@ object VerifyFaces extends ComplexParamsReadable[VerifyFaces]
 
 class VerifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("VerifyFaces"))
 

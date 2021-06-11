@@ -3,17 +3,15 @@
 
 package com.microsoft.ml.spark.stages
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
-import com.microsoft.ml.spark.core.serialize.{ConstructorReadable, ConstructorWritable}
-import org.apache.spark.ml.param.{BooleanParam, ParamMap}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
+import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.spark.ml.param.{BooleanParam, DataFrameParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.functions.{col, lit, max}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
+import org.apache.spark.sql.functions.{broadcast, col, lit, max}
 import org.apache.spark.sql.types.{DoubleType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.functions.broadcast
-
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 /** An estimator that calculates the weights for balancing a dataset.
   * For example, if the negative class is half the size of the positive class, the weights will be
@@ -25,7 +23,8 @@ import scala.reflect.runtime.universe.{TypeTag, typeTag}
   * @param uid
   */
 class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
-  with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
+  with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable with BasicLogging {
+  logClass()
 
   def this() = this(Identifiable.randomUID("ClassBalancer"))
 
@@ -41,12 +40,19 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
   setDefault(broadcastJoin -> true)
 
   def fit(dataset: Dataset[_]): ClassBalancerModel = {
-    val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
-    val maxVal = counts.agg(max("count")).collect().head.getLong(0)
-    val weights = counts
-      .withColumn(getOutputCol, lit(maxVal) / col("count"))
-      .select(getInputCol, getOutputCol)
-    new ClassBalancerModel(uid, getInputCol, getOutputCol, weights, getBroadcastJoin).setParent(this)
+    logFit({
+      val counts = dataset.toDF().select(getInputCol).groupBy(getInputCol).count()
+      val maxVal = counts.agg(max("count")).collect().head.getLong(0)
+      val weights = counts
+        .withColumn(getOutputCol, lit(maxVal) / col("count"))
+        .select(getInputCol, getOutputCol)
+      new ClassBalancerModel()
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+        .setWeights(weights)
+        .setBroadcastJoin(getBroadcastJoin)
+        .setParent(this)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[ClassBalancerModel] = defaultCopy(extra)
@@ -57,27 +63,39 @@ class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
 
 object ClassBalancer extends DefaultParamsReadable[ClassBalancer]
 
-class ClassBalancerModel(val uid: String, val inputCol: String,
-                         val outputCol: String, val weights: DataFrame, broadcastJoin: Boolean)
-  extends Model[ClassBalancerModel] with ConstructorWritable[ClassBalancerModel] {
+class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
+  with ComplexParamsWritable with Wrappable with HasInputCol with HasOutputCol with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("ClassBalancerModel"))
+
+  val weights = new DataFrameParam(this, "weights", "the dataframe of weights")
+
+  def getWeights: DataFrame = $(weights)
+
+  def setWeights(v: DataFrame): this.type = set(weights, v)
+
+  val broadcastJoin = new BooleanParam(this, "broadcastJoin", "whether to broadcast join")
+
+  def getBroadcastJoin: Boolean = $(broadcastJoin)
+
+  def setBroadcastJoin(v: Boolean): this.type = set(broadcastJoin, v)
 
   override def copy(extra: ParamMap): ClassBalancerModel = defaultCopy(extra)
 
-  val ttag: TypeTag[ClassBalancerModel] = typeTag[ClassBalancerModel]
-
-  def objectsToSave: List[Any] = List(uid, inputCol, outputCol, weights, broadcastJoin)
-
-  def transformSchema(schema: StructType): StructType = schema.add(outputCol, DoubleType)
+  def transformSchema(schema: StructType): StructType = schema.add(getOutputCol, DoubleType)
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    val w = if (broadcastJoin) {
-      broadcast(weights)
-    } else {
-      weights
-    }
-    dataset.toDF().join(w, inputCol)
+    logTransform[DataFrame]({
+      val w = if (getBroadcastJoin) {
+        broadcast(getWeights)
+      } else {
+        getWeights
+      }
+      dataset.toDF().join(w, getInputCol)
+    })
   }
 
 }
 
-object ClassBalancerModel extends ConstructorReadable[ClassBalancerModel]
+object ClassBalancerModel extends ComplexParamsReadable[ClassBalancerModel]

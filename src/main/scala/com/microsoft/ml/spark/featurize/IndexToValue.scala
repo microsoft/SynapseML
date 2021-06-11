@@ -3,7 +3,8 @@
 
 package com.microsoft.ml.spark.featurize
 
-import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol, Wrappable}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{CategoricalColumnInfo, CategoricalUtilities}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.ml.Transformer
@@ -13,6 +14,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.microsoft.ml.spark.core.schema.SchemaConstants._
+import com.microsoft.ml.spark.logging.BasicLogging
 
 import scala.reflect.ClassTag
 import reflect.runtime.universe.TypeTag
@@ -25,26 +27,30 @@ object IndexToValue extends DefaultParamsReadable[IndexToValue]
   */
 
 class IndexToValue(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  logClass()
+
   def this() = this(Identifiable.randomUID("IndexToValue"))
 
   /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from column selection
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
-    require(info.isCategorical, "column " + getInputCol + "is not Categorical")
-    val dataType = info.dataType
-    val getLevel =
-      dataType match {
-        case _: IntegerType => getLevelUDF[Int](dataset)
-        case _: LongType => getLevelUDF[Long](dataset)
-        case _: DoubleType => getLevelUDF[Double](dataset)
-        case _: StringType => getLevelUDF[String](dataset)
-        case _: BooleanType => getLevelUDF[Boolean](dataset)
-        case _ => throw new Exception("Unsupported type " + dataType.toString)
-      }
-    dataset.withColumn(getOutputCol, getLevel(dataset(getInputCol)).as(getOutputCol))
+    logTransform[DataFrame]({
+      val info = new CategoricalColumnInfo(dataset.toDF(), getInputCol)
+      require(info.isCategorical, "column " + getInputCol + "is not Categorical")
+      val dataType = info.dataType
+      val getLevel =
+        dataType match {
+          case _: IntegerType => getLevelUDF[Int](dataset)
+          case _: LongType => getLevelUDF[Long](dataset)
+          case _: DoubleType => getLevelUDF[Double](dataset)
+          case _: StringType => getLevelUDF[String](dataset)
+          case _: BooleanType => getLevelUDF[Boolean](dataset)
+          case _ => throw new Exception("Unsupported type " + dataType.toString)
+        }
+      dataset.withColumn(getOutputCol, getLevel(dataset(getInputCol)).as(getOutputCol))
+    })
   }
 
   private class Default[T] {var value: T = _ }

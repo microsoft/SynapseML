@@ -11,6 +11,8 @@ import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
+import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
+import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
@@ -56,9 +58,10 @@ object LightGBMUtils {
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
       !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
     val featurizer = new Featurize()
-      .setFeatureColumns(Map(featuresColumn -> featureColumns))
+      .setOutputCol(featuresColumn)
+      .setInputCols(featureColumns.toArray)
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
-      .setNumberOfFeatures(featuresToHashTo)
+      .setNumFeatures(featuresToHashTo)
     featurizer.fit(dataset)
   }
 
@@ -208,29 +211,53 @@ object LightGBMUtils {
     (lightgbmlib.double_to_voidp_ptr(data), data)
   }
 
-  def generateDenseDataset(numRows: Int, rowsAsDoubleArray: Array[Array[Double]],
-                           referenceDataset: Option[LightGBMDataset],
-                           featureNamesOpt: Option[Array[String]],
-                           trainParams: TrainParams): LightGBMDataset = {
-    val numCols = rowsAsDoubleArray.head.length
-    val isRowMajor = 1
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
+  def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
+    var numChunks = Math.floorDiv(numRows, chunkSize)
+    var leftoverChunk = numRows % chunkSize
+    if (leftoverChunk > 0) {
+      numChunks += 1
+    }
+    val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
+    (0 until numChunks).foreach({ index: Int =>
+      if (index == numChunks - 1 && leftoverChunk > 0) {
+        lightgbmlib.intArray_setitem(numRowsForChunks, index, leftoverChunk)
+      } else {
+        lightgbmlib.intArray_setitem(numRowsForChunks, index, chunkSize)
+      }
+    })
+    numRowsForChunks
+  }
+
+  def getDatasetParams(trainParams: TrainParams): String = {
     val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
       s"bin_construct_sample_cnt=${trainParams.binSampleCount} " +
+      s"num_threads=${trainParams.executionParams.numThreads} " +
       (if (trainParams.categoricalFeatures.isEmpty) ""
       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
+    datasetParams
+  }
+
+  def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
+                           referenceDataset: Option[LightGBMDataset],
+                           featureNamesOpt: Option[Array[String]],
+                           trainParams: TrainParams, chunkSize: Int): LightGBMDataset = {
+    val isRowMajor = 1
+    val datasetOutPtr = lightgbmlib.voidpp_handle()
+    val datasetParams = getDatasetParams(trainParams)
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
     var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
+    val numRowsForChunks = getNumRowsForChunksArray(numRows, chunkSize)
     try {
-      data = Some(generateData(numRows, rowsAsDoubleArray))
       // Generate the dataset for features
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
-        data.get._1, data64bitType,
-        numRows, numCols,
-        isRowMajor, datasetParams, referenceDataset.map(_.dataset).orNull, datasetOutPtr),
+      featuresArray.get_last_chunk_add_count()
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMats(featuresArray.get_chunks_count().toInt,
+        featuresArray.data_as_void(), data64bitType,
+        numRowsForChunks, numCols,
+        isRowMajor, datasetParams, referenceDataset.map(_.datasetPtr).orNull, datasetOutPtr),
         "Dataset create")
     } finally {
-      if (data.isDefined) lightgbmlib.delete_doubleArray(data.get._2)
+      featuresArray.release()
+      lightgbmlib.delete_intArray(numRowsForChunks)
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
     dataset.setFeatureNames(featureNamesOpt, numCols)
@@ -249,14 +276,12 @@ object LightGBMUtils {
     val numCols = sparseRows(0).size
 
     val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
-      (if (trainParams.categoricalFeatures.isEmpty) ""
-       else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
+    val datasetParams = getDatasetParams(trainParams)
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
       sparseRows.asInstanceOf[Array[Object]],
       sparseRows.length,
-      numCols, datasetParams, referenceDataset.map(_.dataset).orNull,
+      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
       datasetOutPtr),
       "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))

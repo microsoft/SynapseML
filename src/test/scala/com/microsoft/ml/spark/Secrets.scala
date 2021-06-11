@@ -3,6 +3,8 @@
 
 package com.microsoft.ml.spark
 
+import java.io.IOException
+
 import sys.process._
 import spray.json._
 import DefaultJsonProtocol._
@@ -19,9 +21,21 @@ object Secrets {
     }
   }
 
+  // Keep overhead of setting account down
+  lazy val AccountString: String = {
+    try {
+      exec(s"az account set -s $SubscriptionID")
+    } catch {
+      case e: java.lang.RuntimeException =>
+        println(s"Secret fetch error: ${e.toString}")
+      case e: IOException =>
+        println(s"Secret fetch error: ${e.toString}")
+    }
+    SubscriptionID
+  }
+
   private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName")
-    exec(s"az account set -s $SubscriptionID")
+    println(s"fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
@@ -33,7 +47,7 @@ object Secrets {
 
   lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
-  lazy val BingImageSearchKey: String = getSecret("bing-image-search-key")
+  lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
 
