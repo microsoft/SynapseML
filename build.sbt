@@ -9,8 +9,6 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.sys.process.Process
 import BuildUtils._
 
-scalacOptions ++= Seq("-deprecation", "-feature")
-
 val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
