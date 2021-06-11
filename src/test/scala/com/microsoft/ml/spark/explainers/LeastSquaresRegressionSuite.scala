@@ -5,9 +5,12 @@ package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
-import breeze.numerics.abs
+import org.scalactic.{Equality, TolerantNumerics}
 
 class LeastSquaresRegressionSuite extends TestBase {
+
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-3)
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-6)
 
   test("LeastSquaresRegression should regress correctly with weights with intercept.") {
     // Validated with the following code in Jupyter notebook:
@@ -25,12 +28,12 @@ class LeastSquaresRegressionSuite extends TestBase {
 
     val result = new LeastSquaresRegression().fit(x, y, weights, fitIntercept = true)
 
-    assert(abs(result.intercept - 0.6050434048734146) < 1e-6)
-    assert(abs(result.coefficients(0) - 0.01518619) < 1e-6)
-    assert(abs(result.coefficients(1) - 0.08135246) < 1e-6)
-    assert(abs(result.coefficients(2) - 0.082494) < 1e-6)
-    assert(abs(result.rSquared - 0.43565371571037637) < 1e-6)
-    assert(abs(result.loss - 8.394650978808151) < 1e-6)
+    assert(result.intercept === 0.6050434048734146)
+    assert(result.coefficients(0) === 0.01518619)
+    assert(result.coefficients(1) === 0.08135246)
+    assert(result.coefficients(2) === 0.082494)
+    assert(result.rSquared === 0.43565371571037637)
+    assert(result.loss === 8.394650978808151)
   }
 
   test("LeastSquaresRegression should regress correctly with weights without intercept.") {
@@ -49,12 +52,12 @@ class LeastSquaresRegressionSuite extends TestBase {
 
     val result = new LeastSquaresRegression().fit(x, y, weights, fitIntercept = false)
 
-    assert(abs(result.intercept - 0d) < 1e-6)
-    assert(abs(result.coefficients(0) - 0.05328653) < 1e-6)
-    assert(abs(result.coefficients(1) - 0.11516329) < 1e-6)
-    assert(abs(result.coefficients(2) - 0.05274785) < 1e-6)
-    assert(abs(result.rSquared - 0.43422966666780527) < 1e-6)
-    assert(abs(result.loss - 8.415833708316397) < 1e-6)
+    assert(result.intercept === 0d)
+    assert(result.coefficients(0) === 0.05328653)
+    assert(result.coefficients(1) === 0.11516329)
+    assert(result.coefficients(2) === 0.05274785)
+    assert(result.rSquared === 0.43422966666780527)
+    assert(result.loss === 8.415833708316397)
   }
 
   test("LeastSquaresRegression should regress correctly without weights with intercept.") {
@@ -71,12 +74,12 @@ class LeastSquaresRegressionSuite extends TestBase {
 
     val result = new LeastSquaresRegression().fit(x, y, fitIntercept = true)
 
-    assert(abs(result.intercept - 1.3262573957848578) < 1e-6)
-    assert(abs(result.coefficients(0) - (-0.02680322)) < 1e-6)
-    assert(abs(result.coefficients(1) - 0.03347144) < 1e-6)
-    assert(abs(result.coefficients(2) - 0.13013435) < 1e-6)
-    assert(abs(result.rSquared - 0.5660246787755755) < 1e-6)
-    assert(abs(result.loss - 4.339753212244245) < 1e-6)
+    assert(result.intercept === 1.3262573957848578)
+    assert(result.coefficients(0) === -0.02680322)
+    assert(result.coefficients(1) === 0.03347144)
+    assert(result.coefficients(2) === 0.13013435)
+    assert(result.rSquared === 0.5660246787755755)
+    assert(result.loss === 4.339753212244245)
   }
 
   test("LeastSquaresRegression should regress correctly without weights without intercept.") {
@@ -93,12 +96,12 @@ class LeastSquaresRegressionSuite extends TestBase {
 
     val result = new LeastSquaresRegression().fit(x, y, fitIntercept = false)
 
-    assert(abs(result.intercept - 0d) < 1e-6)
-    assert(abs(result.coefficients(0) - 0.06309258) < 1e-6)
-    assert(abs(result.coefficients(1) - 0.10904686) < 1e-6)
-    assert(abs(result.coefficients(2) - 0.05810592) < 1e-6)
-    assert(abs(result.rSquared - 0.5579963439586114) < 1e-6)
-    assert(abs(result.loss - 4.420036560413886) < 1e-6)
+    assert(result.intercept === 0d)
+    assert(result.coefficients(0) === 0.06309258)
+    assert(result.coefficients(1) === 0.10904686)
+    assert(result.coefficients(2) === 0.05810592)
+    assert(result.rSquared === 0.5579963439586114)
+    assert(result.loss === 4.420036560413886)
   }
 
   ignore("LeastSquaresRegression can solve bigger inputs") {

@@ -11,9 +11,11 @@ import org.apache.spark.sql.DataFrame
   * Common preprocessing logic for text explainers
   */
 trait TextExplainer {
-  self: HasInputCol with HasTokensCol =>
+  self: LocalExplainer
+    with HasInputCol
+    with HasTokensCol =>
 
-  protected def preprocess(df: DataFrame): DataFrame = {
+  protected override def preprocess(df: DataFrame): DataFrame = {
     new Tokenizer().setInputCol(getInputCol).setOutputCol(getTokensCol).transform(df)
   }
 }

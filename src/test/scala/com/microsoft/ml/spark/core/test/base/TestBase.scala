@@ -3,21 +3,21 @@
 
 package com.microsoft.ml.spark.core.test.base
 
-import java.nio.file.Files
-
+import breeze.linalg.norm.Impl
+import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.math.Field
 import org.apache.commons.io.FileUtils
 import org.apache.spark._
 import org.apache.spark.ml._
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, _}
-import org.apache.spark.streaming.{Seconds => SparkSeconds, StreamingContext}
+import org.apache.spark.streaming.{StreamingContext, Seconds => SparkSeconds}
+import org.scalactic.Equality
 import org.scalactic.source.Position
-import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest._
 import org.scalatest.concurrent.TimeLimits
 import org.scalatest.time.{Seconds, Span}
 
+import java.nio.file.Files
 import scala.concurrent._
 import scala.reflect.ClassTag
 
@@ -234,4 +234,12 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     }
   }
 
+  def breezeVectorEq[T: Field: ClassTag](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDV[T]] =
+    (a: BDV[T], b: Any) => {
+      b match {
+        case p: BDV[T] =>
+          norm(a - p) < tol
+        case _ => false
+      }
+    }
 }

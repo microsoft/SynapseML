@@ -10,7 +10,6 @@ import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, ParamValidators}
@@ -41,8 +40,6 @@ abstract class KernelSHAPBase(override val uid: String)
     with KernelSHAPParams
     with Wrappable
     with BasicLogging {
-
-  protected def preprocess(df: DataFrame): DataFrame = df
 
   override def transform(instances: Dataset[_]): DataFrame = logTransform {
     import instances.sparkSession.implicits._

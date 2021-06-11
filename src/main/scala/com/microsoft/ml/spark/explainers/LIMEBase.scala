@@ -64,8 +64,6 @@ abstract class LIMEBase(override val uid: String)
     weightUdf
   }
 
-  protected def preprocess(df: DataFrame): DataFrame = df
-
   final override def transform(instances: Dataset[_]): DataFrame = logTransform {
     import instances.sparkSession.implicits._
     this.validateSchema(instances.schema)

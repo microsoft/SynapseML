@@ -11,8 +11,13 @@ import org.apache.spark.sql.DataFrame
   * Common preprocessing logic for image explainers
   */
 trait ImageExplainer {
-  self: HasCellSize with HasModifier with HasInputCol with HasSuperpixelCol =>
-  def preprocess(df: DataFrame): DataFrame = {
+  self: LocalExplainer
+    with HasCellSize
+    with HasModifier
+    with HasInputCol
+    with HasSuperpixelCol =>
+
+  protected override def preprocess(df: DataFrame): DataFrame = {
     // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
     new SuperpixelTransformer()
       .setCellSize(getCellSize)

@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.explainers
 import org.apache.spark.ml.linalg.SQLDataTypes.MatrixType
 import org.apache.spark.ml.param.shared.HasOutputCol
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
 trait LocalExplainer
@@ -23,6 +24,8 @@ trait LocalExplainer
     this.validateSchema(schema)
     schema.add(getOutputCol, MatrixType)
   }
+
+  protected def preprocess(df: DataFrame): DataFrame = df
 }
 
 object LocalExplainer {

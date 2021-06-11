@@ -6,13 +6,12 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
+import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
-import com.microsoft.ml.spark.explainers.BreezeUtils._
-import org.apache.spark.ml.util.MLReadable
 
 class VectorSHAPExplainerSuite extends TestBase
   // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.

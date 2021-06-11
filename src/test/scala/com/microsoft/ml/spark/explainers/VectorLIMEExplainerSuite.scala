@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{*, norm, DenseMatrix => BDM}
+import breeze.linalg.{*, DenseVector => BDV, DenseMatrix => BDM}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -12,11 +12,14 @@ import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.scalactic.Equality
 
 class VectorLIMEExplainerSuite extends TestBase
   with TransformerFuzzing[VectorLIME] {
 
   import spark.implicits._
+
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-6)
 
   val d1 = 3
   val d2 = 1
@@ -54,7 +57,7 @@ class VectorLIMEExplainerSuite extends TestBase
     val weightsMatrix = BDM(weights: _*)
     weightsMatrix(*, ::).foreach {
       row =>
-        assert(norm(row - coefficients(::, 0)) < 1e-6)
+        assert(row === coefficients(::, 0))
     }
   }
 

@@ -4,7 +4,6 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
-import breeze.numerics.abs
 import breeze.stats.distributions.RandBasis
 import breeze.stats.{mean, stddev}
 import com.microsoft.ml.spark.core.test.base.TestBase
@@ -15,12 +14,16 @@ import org.apache.spark.ml.linalg.{Vectors => SVS}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
+import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest.Matchers._
 
 import java.nio.file.{Files, Paths}
 import javax.imageio.ImageIO
 
 class SamplerSuite extends TestBase {
+
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
+
   test("ContinuousFeatureStats can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
 
@@ -33,8 +36,8 @@ class SamplerSuite extends TestBase {
     }.unzip
 
     // println(samples(0 to 100))
-    assert(abs(mean(samples) - 2.9557393788483997) < 1e-5)
-    assert(abs(stddev(samples) - 1.483087711702025) < 1e-5)
+    assert(mean(samples) === 2.9557393788483997)
+    assert(stddev(samples) === 1.483087711702025)
     assert(distances.forall(_ > 0))
   }
 
@@ -80,8 +83,8 @@ class SamplerSuite extends TestBase {
 //    println(mean(sampleMatrix(::, 0)))
 //    println(stddev(sampleMatrix(::, 0)))
 
-    assert(abs(mean(sampleMatrix(::, 0)) - 2.9636538120292903) < 1e-5)
-    assert(abs(stddev(sampleMatrix(::, 0)) - 5.3043309761267565) < 1e-5)
+    assert(mean(sampleMatrix(::, 0)) === 2.9636538120292903)
+    assert(stddev(sampleMatrix(::, 0)) === 5.3043309761267565)
 
     assert(sampleMatrix(::, 1).findAll(_ == 1d).size == 883)
     assert(sampleMatrix(::, 1).findAll(_ == 2d).size == 71)
@@ -117,8 +120,8 @@ class SamplerSuite extends TestBase {
 //    println(mean(sampleMatrix(::, 0)))
 //    println(stddev(sampleMatrix(::, 0)))
 
-    assert(abs(mean(sampleMatrix(::, 0)) - 2.9636538120292903) < 1e-5)
-    assert(abs(stddev(sampleMatrix(::, 0)) - 5.3043309761267565) < 1e-5)
+    assert(mean(sampleMatrix(::, 0)) === 2.9636538120292903)
+    assert(stddev(sampleMatrix(::, 0)) === 5.3043309761267565)
 
     assert(sampleMatrix(::, 1).findAll(_ == 1d).size == 883)
     assert(sampleMatrix(::, 1).findAll(_ == 2d).size == 71)
@@ -153,7 +156,7 @@ class SamplerSuite extends TestBase {
 
     // In this test case, 10/45 superpixel clusters are turned off by black background,
     // so the distance should be sqrt(10/45).
-    assert(math.abs(distance - math.sqrt(10d / 45d)) < 1e-6)
+    assert(distance === math.sqrt(10d / 45d))
 
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.

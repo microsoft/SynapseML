@@ -3,11 +3,14 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{norm, DenseMatrix => BDM, DenseVector => BDV}
-import breeze.numerics.abs
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.core.test.base.TestBase
+import org.scalactic.{Equality, TolerantNumerics}
 
 class LassoRegressionSuite extends TestBase {
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-3)
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
+
   // The following test can be verified in python with following code:
   // from sklearn import linear_model
   // X = np.array([[1, 1], [2, -2], [3, 3], [4, 5]])
@@ -21,11 +24,10 @@ class LassoRegressionSuite extends TestBase {
     val b = BDV(1.01, 1.98, 3.03, 4.05)
 
     val result = new LassoRegression(0.05d).fit(a, b, fitIntercept = true)
-
-    assert(norm(result.coefficients - BDV(0.94072731, 0.02135768)) < 1e-3, "coefficients disagreed")
-    assert(abs(result.intercept - 0.12830579194328307) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9981453805277254) < 1e-6, "rSquared disagreed")
-    assert(abs(result.loss - 0.05769498881462409) < 1e-6, "loss disagreed")
+    assert(result.coefficients === BDV(0.94072731, 0.02135768), "coefficients disagreed")
+    assert(result.intercept === 0.12830579194328307, "intercept disagreed")
+    assert(result.rSquared === 0.9981453805277254, "rSquared disagreed")
+    assert(result.loss === 0.05769498881462409, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -41,10 +43,10 @@ class LassoRegressionSuite extends TestBase {
     val b = BDV(1.01, 1.98, 3.03, 4.05)
     val result = new LassoRegression(0.05d).fit(a, b, fitIntercept = false)
 
-    assert(norm(result.coefficients - BDV(0.99482704, 0.00832043)) < 1e-3, "coefficients disagreed")
-    assert(abs(result.intercept - 0d) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9997338898009382) < 1e-6, "rSquared disagreed")
-    assert(abs(result.loss - 0.05153237409988701) < 1e-6, "loss disagreed")
+    assert(result.coefficients === BDV(0.99482704, 0.00832043), "coefficients disagreed")
+    assert(result.intercept === 0d, "intercept disagreed")
+    assert(result.rSquared === 0.9997338898009382, "rSquared disagreed")
+    assert(result.loss === 0.05153237409988701, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -62,10 +64,10 @@ class LassoRegressionSuite extends TestBase {
     val weights = BDV(4d, 3d, 2d, 1d)
     val result = new LassoRegression(0.05d).fit(a, b, weights, fitIntercept = true)
 
-    assert(norm(result.coefficients - BDV(0.94674003, 0.01273319)) < 1e-3, "coefficients disagreed")
-    assert(abs(result.intercept - 0.10406005674125263) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9975330780923556) < 1e-6, "rSquared disagreed")
-    assert(abs(result.loss - 0.0732464464883231) < 1e-6, "loss disagreed")
+    assert(result.coefficients === BDV(0.94674003, 0.01273319), "coefficients disagreed")
+    assert(result.intercept === 0.10406005674125263, "intercept disagreed")
+    assert(result.rSquared === 0.9975330780923556, "rSquared disagreed")
+    assert(result.loss === 0.0732464464883231, "loss disagreed")
   }
 
   // The following test can be verified in python with following code:
@@ -83,10 +85,10 @@ class LassoRegressionSuite extends TestBase {
     val weights = BDV(4d, 3d, 2d, 1d)
     val result = new LassoRegression(0.05d).fit(a, b, weights, fitIntercept = false)
 
-    assert(norm(result.coefficients - BDV(0.99295345, 0.00510841)) < 1e-3, "coefficients disagreed")
-    assert(abs(result.intercept - 0d) < 1e-3, "intercept disagreed")
-    assert(abs(result.rSquared - 0.9994167353137898) < 1e-6, "rSquared disagreed")
-    assert(abs(result.loss - 0.055878038756038625) < 1e-6, "loss disagreed")
+    assert(result.coefficients === BDV(0.99295345, 0.00510841), "coefficients disagreed")
+    assert(result.intercept === 0d, "intercept disagreed")
+    assert(result.rSquared === 0.9994167353137898, "rSquared disagreed")
+    assert(result.loss === 0.055878038756038625, "loss disagreed")
   }
 
   ignore("LassoRegression can solve bigger inputs") {
