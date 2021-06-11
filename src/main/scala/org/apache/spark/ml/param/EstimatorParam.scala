@@ -7,11 +7,7 @@ import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
-import scala.reflect.{ClassTag, classTag}
-
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
-
-  implicit protected def clsTag: ClassTag[T] = classTag
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""
@@ -27,10 +23,10 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
-      case (e1: T, e2: T) =>
+      case (e1: PipelineStage, e2: PipelineStage) =>
         ModelEquality.assertEqual(e1,e2)
       case _ =>
-        throw new AssertionError("Values did not have Estimator type")
+        throw new AssertionError("Values do not extend from PipelineStage type")
     }
   }
 
