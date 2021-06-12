@@ -24,7 +24,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setInputCol("image")
     .setMiniBatchSize(1)
 
-  val cellSize = 100.0
+  val cellSize = 120.0
   val modifier = 20.0
   val shap: ImageSHAP = LocalExplainer.KernelSHAP.image
     .setModel(resNetTransformer)
@@ -36,7 +36,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setInputCol("image")
     .setCellSize(cellSize)
     .setModifier(modifier)
-    .setNumSamples(6)
+    .setNumSamples(8)
 
   val lime: ImageLIME = LocalExplainer.LIME.image
     .setModel(resNetTransformer)

@@ -43,7 +43,6 @@ abstract class KernelSHAPBase(override val uid: String)
 
   override def transform(instances: Dataset[_]): DataFrame = logTransform {
     import instances.sparkSession.implicits._
-
     this.validateSchema(instances.schema)
 
     val df = instances.toDF
@@ -146,6 +145,6 @@ object KernelSHAPBase {
     val maxSamplesNeeded = math.pow(2, numFeature)
 
     val value = numSamplesParam.getOrElse(2 * numFeature + 2048)
-    math.max(math.min(value, maxSamplesNeeded).toInt, minSamplesNeeded)
+    math.min(math.max(value, minSamplesNeeded), maxSamplesNeeded.toInt)
   }
 }
