@@ -49,7 +49,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setInputCol("image")
     .setCellSize(cellSize)
     .setModifier(modifier)
-    .setNumSamples(3)
+    .setNumSamples(8)
 
   lazy val greyhoundImageLocation: String = {
     val loc = "/tmp/greyhound.jpg"

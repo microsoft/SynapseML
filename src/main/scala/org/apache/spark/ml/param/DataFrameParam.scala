@@ -109,7 +109,8 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
       case (df1: Dataset[_], df2: Dataset[_]) =>
-        assert(df1.toDF() === df2.toDF())
+        // assert(df1.toDF() === df2.toDF())
+        assertDFEq(df1.toDF, df2.toDF)
       case _ =>
         throw new AssertionError("Values did not have DataFrame type")
     }
