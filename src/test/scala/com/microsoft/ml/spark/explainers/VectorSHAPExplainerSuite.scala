@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
@@ -19,6 +19,8 @@ class VectorSHAPExplainerSuite extends TestBase
   with TransformerFuzzing[VectorSHAP] {
 
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
+
+  override val sortInDataframeEquality = false
 
   import spark.implicits._
 
@@ -66,10 +68,10 @@ class VectorSHAPExplainerSuite extends TestBase
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
-    assert(math.abs(shapBz(0) - avgLabel) < 1E-5)
+    assert(shapBz(0) === avgLabel)
 
     // Sum of shap values should match prediction
-    assert(math.abs(probability(1) - breeze.linalg.sum(shapBz)) < 1E-5)
+    assert(probability(1) === breeze.linalg.sum(shapBz))
 
     // Null feature (col2) should have zero shap values
     assert(shapBz(1) === 0d)
@@ -77,7 +79,7 @@ class VectorSHAPExplainerSuite extends TestBase
     assert(shapBz(5) === 0d)
 
     // R-squared of the underlying regression should be close to 1.
-    assert(math.abs(r2(0) - 1d) < 1E-5)
+    assert(r2(0) === 1d)
   }
 
   override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))

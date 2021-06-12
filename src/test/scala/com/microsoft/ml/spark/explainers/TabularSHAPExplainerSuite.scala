@@ -4,15 +4,15 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
+import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
-import com.microsoft.ml.spark.explainers.BreezeUtils._
-import org.apache.spark.ml.util.MLReadable
 import org.scalactic.{Equality, TolerantNumerics}
 
 class TabularSHAPExplainerSuite extends TestBase
@@ -21,6 +21,8 @@ class TabularSHAPExplainerSuite extends TestBase
   import spark.implicits._
 
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
+
+  override val sortInDataframeEquality = false
 
   val data: DataFrame = (1 to 100).flatMap(_ => Seq(
     (-5d, "a", -5d, 0),

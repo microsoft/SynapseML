@@ -82,16 +82,16 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
 
     results.foreach {
       case (_, _, r2) =>
-        assert(math.abs(1 - r2) < 1e-5)
+        assert(r2 === 1d)
     }
 
     // Sum of shap values should match predicted value
     results.foreach {
       case (token, shapValues, _) if token == "example" =>
-        assert(math.abs(1 - breeze.linalg.sum(shapValues)) < 1e-5)
+        assert(breeze.linalg.sum(shapValues) === 1d)
         assert(shapValues(4) > 0.27)
       case (token, shapValues, _) if token == "cat" =>
-        assert(math.abs(breeze.linalg.sum(shapValues)) < 1e-5)
+        assert(breeze.linalg.sum(shapValues) === 0d)
         assert(shapValues(4) < -0.27)
     }
   }

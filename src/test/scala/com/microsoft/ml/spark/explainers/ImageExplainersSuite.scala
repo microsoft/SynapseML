@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
@@ -24,8 +24,6 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setInputCol("image")
     .setMiniBatchSize(1)
 
-  val cellSize = 120.0
-  val modifier = 20.0
   val shap: ImageSHAP = LocalExplainer.KernelSHAP.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
@@ -34,8 +32,8 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setSuperpixelCol("superpixels")
     .setMetricsCol("r2")
     .setInputCol("image")
-    .setCellSize(cellSize)
-    .setModifier(modifier)
+    .setCellSize(120.0)
+    .setModifier(20.0)
     .setNumSamples(8)
 
   val lime: ImageLIME = LocalExplainer.LIME.image
@@ -47,9 +45,9 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setSuperpixelCol("superpixels")
     .setMetricsCol("r2")
     .setInputCol("image")
-    .setCellSize(cellSize)
-    .setModifier(modifier)
-    .setNumSamples(8)
+    .setCellSize(100)
+    .setModifier(20)
+    .setNumSamples(3)
 
   lazy val greyhoundImageLocation: String = {
     val loc = "/tmp/greyhound.jpg"
