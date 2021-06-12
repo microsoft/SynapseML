@@ -330,7 +330,7 @@ abstract class SpeechSDKBase extends Transformer
         if (getStreamIntermediateResults) {
           results.map(speechResponse => Row.fromSeq(row.toSeq :+ toRow(speechResponse)))
         } else {
-          Seq(Row.fromSeq(row.toSeq ++ results.map(speechResponse => toRow(speechResponse)).toSeq))
+          Seq(Row.fromSeq(row.toSeq :+ results.map(speechResponse => toRow(speechResponse)).toSeq))
         }
       }
     }
