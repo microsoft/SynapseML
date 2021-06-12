@@ -21,7 +21,7 @@ class VectorLIMEExplainerSuite extends TestBase
 
   implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-6)
 
-  override val sortInDataframeEquality = false
+  override val sortInDataframeEquality = true
 
   val d1 = 3
   val d2 = 1

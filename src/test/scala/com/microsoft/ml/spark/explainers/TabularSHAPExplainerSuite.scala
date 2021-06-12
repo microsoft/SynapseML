@@ -22,7 +22,7 @@ class TabularSHAPExplainerSuite extends TestBase
 
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
 
-  override val sortInDataframeEquality = false
+  override val sortInDataframeEquality = true
 
   val data: DataFrame = (1 to 100).flatMap(_ => Seq(
     (-5d, "a", -5d, 0),

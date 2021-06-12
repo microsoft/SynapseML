@@ -22,7 +22,7 @@ class TabularLIMEExplainerSuite extends TestBase
   implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-2)
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
 
-  override val sortInDataframeEquality = false
+  override val sortInDataframeEquality = true
 
   val data: DataFrame = Seq(
     (-6.0, 0),

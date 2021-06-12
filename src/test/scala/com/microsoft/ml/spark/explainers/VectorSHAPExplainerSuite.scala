@@ -20,7 +20,7 @@ class VectorSHAPExplainerSuite extends TestBase
 
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
 
-  override val sortInDataframeEquality = false
+  override val sortInDataframeEquality = true
 
   import spark.implicits._
 
