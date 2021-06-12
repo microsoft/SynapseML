@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
@@ -13,11 +13,14 @@ import org.apache.spark.ml.linalg.{Vector => SV}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
+import org.scalactic.{Equality, TolerantNumerics}
 
 class TabularLIMEExplainerSuite extends TestBase
   with TransformerFuzzing[TabularLIME] {
 
   import spark.implicits._
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-2)
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
 
   val data: DataFrame = Seq(
     (-6.0, 0),
@@ -54,7 +57,7 @@ class TabularLIMEExplainerSuite extends TestBase
 
     // coefficient should be around 3.61594667
     val coefficient = model.stages(1).asInstanceOf[LogisticRegressionModel].coefficients.toArray.head
-    assert(math.abs(coefficient - 3.61594667) < 1e-5)
+    assert(coefficient === 3.61594667)
 
     val predicted = model.transform(infer)
 
@@ -69,11 +72,11 @@ class TabularLIMEExplainerSuite extends TestBase
     // We set the kernel width to a very small value so we only consider a very close neighborhood
     // for regression, and set L1 regularization to zero so it does not affect the fit coefficient.
     // Therefore, the coefficient of the lasso regression should approximately match the derivative.
-    assert(norm(weightsBz0 + BDV(coefficient / 4)) < 1e-2)
-    assert(math.abs(r2(0) - 1d) < 1e-6, "R-squared of the fit should be close to 1.")
+    assert(weightsBz0 === BDV(coefficient / 4))
+    assert(r2(0) === 1d, "R-squared of the fit should be close to 1.")
 
-    assert(norm(weightsBz1 - BDV(coefficient / 4)) < 1e-2)
-    assert(math.abs(r2(1) - 1d) < 1e-6, "R-squared of the fit should be close to 1.")
+    assert(weightsBz1 === BDV(coefficient / 4))
+    assert(r2(1) === 1d, "R-squared of the fit should be close to 1.")
   }
 
   test("TabularLIME can explain a simple logistic model locally with multiple variables") {
@@ -94,8 +97,8 @@ class TabularLIMEExplainerSuite extends TestBase
 
     val coefficients = model.stages(1).asInstanceOf[LogisticRegressionModel].coefficients.toArray
 
-    assert(math.abs(coefficients(0) - 3.5279868) < 1e-5)
-    assert(math.abs(coefficients(1) - 0.5962254) < 1e-5)
+    assert(coefficients(0) === 3.5279868)
+    assert(coefficients(1) === 0.5962254)
 
     val infer = Seq(
       (0.0, 0.0)

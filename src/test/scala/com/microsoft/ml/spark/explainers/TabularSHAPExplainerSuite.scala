@@ -12,6 +12,7 @@ import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import org.scalactic.{Equality, TolerantNumerics}
 
 class TabularSHAPExplainerSuite extends TestBase
   // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
@@ -19,6 +20,8 @@ class TabularSHAPExplainerSuite extends TestBase
   with PyTestFuzzing[TabularSHAP] {
 
   import spark.implicits._
+
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
 
   val data: DataFrame = (1 to 100).flatMap(_ => Seq(
     (-5d, "a", -5d, 0),
@@ -52,9 +55,9 @@ class TabularSHAPExplainerSuite extends TestBase
   test("TabularKernelSHAP can explain a model locally") {
     val coefficients = model.stages.last.asInstanceOf[LogisticRegressionModel].coefficients.toBreeze
 
-    assert(math.abs(coefficients(0) - 1.9099146508533622) < 1e-5)
-    assert(math.abs(coefficients(1)) < 1e-5)
-    assert(math.abs(coefficients(2) - 1.9099146508533622) < 1e-5)
+    assert(coefficients(0) === 1.9099146508533622)
+    assert(coefficients(1) === 0d)
+    assert(coefficients(2) === 1.9099146508533622)
 
     val predicted = model.transform(infer)
 
@@ -67,19 +70,19 @@ class TabularSHAPExplainerSuite extends TestBase
     val avgLabel = model.transform(data).select(avg("prediction")).as[Double].head
 
     // Base value (weightsBz(0)) should match average label from background data set.
-    assert(math.abs(shapBz(0) - avgLabel) < 1E-5)
+    assert(shapBz(0) === avgLabel)
 
     // Sum of shap values should match prediction
-    assert(math.abs(probability(1) - breeze.linalg.sum(shapBz)) < 1E-5)
+    assert(probability(1) === breeze.linalg.sum(shapBz))
 
     // Null feature (col2) should have zero shap values
-    assert(math.abs(shapBz(2)) < 1E-5)
+    assert(shapBz(2) === 1E-5)
 
     // col1 and col3 are symmetric so they should have same shap values.
-    assert(math.abs(shapBz(1) - shapBz(3)) < 1E-5)
+    assert(shapBz(1) === shapBz(3))
 
     // R-squared of the underlying regression should be close to 1.
-    assert(math.abs(r2(0) - 1d) < 1E-5)
+    assert(r2(0) === 1d)
   }
 
   private lazy val testObjects: Seq[TestObject[TabularSHAP]] = Seq(new TestObject(kernelShap, infer))

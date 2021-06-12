@@ -141,6 +141,13 @@ trait HasExplainTarget extends Params {
     LongType -> implicitly[Numeric[Long]]
   )
 
+  /**
+    * This function supports a variety of target column types:
+    * - NumericType: in the case of a regression model
+    * - VectorType: in the case of a typical Spark ML classification model with probability output
+    * - ArrayType(NumericType): in the case where the output was converted to an array of numeric types.
+    * - MapType(IntegerType, NumericType): this is to support ZipMap type of output for sklearn models via ONNX runtime.
+    */
   def getExplainTarget(schema: StructType): Column = {
     val toVector = UDFUtils.oldUdf(
       (values: Seq[Double]) => SVS.dense(values.toArray),
