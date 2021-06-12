@@ -72,7 +72,7 @@ class TabularLIMEExplainerSuite extends TestBase
     // We set the kernel width to a very small value so we only consider a very close neighborhood
     // for regression, and set L1 regularization to zero so it does not affect the fit coefficient.
     // Therefore, the coefficient of the lasso regression should approximately match the derivative.
-    assert(weightsBz0 === BDV(coefficient / 4))
+    assert(weightsBz0 === BDV(-coefficient / 4))
     assert(r2(0) === 1d, "R-squared of the fit should be close to 1.")
 
     assert(weightsBz1 === BDV(coefficient / 4))

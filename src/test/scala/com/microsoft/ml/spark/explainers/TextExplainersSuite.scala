@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
@@ -49,7 +49,7 @@ abstract class TextExplainersSuite extends TestBase {
     .setTargetClasses(Array(1))
     .setOutputCol("weights")
     .setTokensCol("tokens")
-    .setNumSamples(100)
+    .setNumSamples(1000)
 
   val lime: TextLIME = LocalExplainer.LIME.text
     .setModel(model)
@@ -68,9 +68,7 @@ abstract class TextExplainersSuite extends TestBase {
 }
 
 class TextSHAPExplainerSuite extends TextExplainersSuite
-  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
-  with ExperimentFuzzing[TextSHAP]
-  with PyTestFuzzing[TextSHAP] {
+  with TransformerFuzzing[TextSHAP] {
 
   import spark.implicits._
 
@@ -91,19 +89,16 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
     results.foreach {
       case (token, shapValues, _) if token == "example" =>
         assert(math.abs(1 - breeze.linalg.sum(shapValues)) < 1e-5)
-        assert(shapValues(4) > 0.29)
+        assert(shapValues(4) > 0.27)
       case (token, shapValues, _) if token == "cat" =>
         assert(math.abs(breeze.linalg.sum(shapValues)) < 1e-5)
-        assert(shapValues(4) < -0.29)
+        assert(shapValues(4) < -0.27)
     }
   }
 
+  override def testObjects(): Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
 
-  private lazy val testObjects: Seq[TestObject[TextSHAP]] = Seq(new TestObject(shap, infer))
-
-  override def experimentTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
-
-  override def pyTestObjects(): Seq[TestObject[TextSHAP]] = testObjects
+  override def reader: MLReadable[_] = TextSHAP
 }
 
 class TextLIMEExplainerSuite extends TextExplainersSuite

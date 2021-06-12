@@ -65,9 +65,7 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
 }
 
 class ImageSHAPExplainerSuite extends ImageExplainersSuite
-  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
-  with ExperimentFuzzing[ImageSHAP]
-  with PyTestFuzzing[ImageSHAP] {
+  with TransformerFuzzing[ImageSHAP] {
 
   import spark.implicits._
 
@@ -96,12 +94,9 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
     // Thread.sleep(100000)
   }
 
+  override def testObjects(): Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))
 
-  private lazy val testObjects: Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))
-
-  override def experimentTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
-
-  override def pyTestObjects(): Seq[TestObject[ImageSHAP]] = testObjects
+  override def reader: MLReadable[_] = ImageSHAP
 }
 
 class ImageLIMEExplainerSuite extends ImageExplainersSuite

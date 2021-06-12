@@ -6,22 +6,24 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject}
+import com.microsoft.ml.spark.core.test.fuzzing.{ExperimentFuzzing, PyTestFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
+import org.scalactic.{Equality, TolerantNumerics}
 
 class VectorSHAPExplainerSuite extends TestBase
-  // Excluding SerializationFuzzing here due to error caused by randomness in explanation after deserialization.
-  with ExperimentFuzzing[VectorSHAP]
-  with PyTestFuzzing[VectorSHAP] {
+  with TransformerFuzzing[VectorSHAP] {
+
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
 
   import spark.implicits._
 
   private val randBasis = RandBasis.withSeed(123)
-  private val m: BDM[Double] = BDM.rand[Double](100, 5, randBasis.gaussian)
+  private val m: BDM[Double] = BDM.rand[Double](1000, 5, randBasis.gaussian)
   private val l: BDV[Double] = m(*, ::).map {
     row =>
       if (row(2) + row(3) > 0.5) 1d else 0d
@@ -70,17 +72,15 @@ class VectorSHAPExplainerSuite extends TestBase
     assert(math.abs(probability(1) - breeze.linalg.sum(shapBz)) < 1E-5)
 
     // Null feature (col2) should have zero shap values
-    assert(math.abs(shapBz(1)) < 1E-2)
-    assert(math.abs(shapBz(2)) < 1E-2)
-    assert(math.abs(shapBz(5)) < 1E-2)
+    assert(shapBz(1) === 0d)
+    assert(shapBz(2) === 0d)
+    assert(shapBz(5) === 0d)
 
     // R-squared of the underlying regression should be close to 1.
     assert(math.abs(r2(0) - 1d) < 1E-5)
   }
 
-  private lazy val testObjects: Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
+  override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
-  override def experimentTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
-
-  override def pyTestObjects(): Seq[TestObject[VectorSHAP]] = testObjects
+  override def reader: MLReadable[_] = VectorSHAP
 }
