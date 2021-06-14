@@ -25,7 +25,7 @@ trait HasErrorCol extends Params {
   def setErrorCol(v: String): this.type = set(errorCol, v)
 
   def getErrorCol: String = $(errorCol)
-
+  setDefault(errorCol -> "Error")
 }
 
 object ErrorUtils extends Serializable {

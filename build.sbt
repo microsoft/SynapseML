@@ -38,6 +38,10 @@ libraryDependencies ++= Seq(
   "org.openpnp" % "opencv" % "3.2.0-1",
   "com.jcraft" % "jsch" % "0.1.54",
   "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+  // TA SDK (latest preview) https://mvnrepository.com/artifact/com.azure/azure-ai-textanalytics/5.1.0-beta.7
+  // |
+  // V
+  "com.azure" % "azure-ai-textanalytics" % "5.1.0-beta.7",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
   "com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110",
