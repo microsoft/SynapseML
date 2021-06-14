@@ -45,12 +45,13 @@ class VowpalWabbitClassifier(override val uid: String)
         .setRawPredictionCol(getRawPredictionCol)
 
       val finalDataset = if (!getLabelConversion)
-        dataset
+        dataset.toDF
       else {
         val inputLabelCol = dataset.withDerivativeCol("label")
         dataset
           .withColumnRenamed(getLabelCol, inputLabelCol)
           .withColumn(getLabelCol, col(inputLabelCol) * 2 - 1)
+          .toDF
       }
 
       trainInternal(finalDataset, model)

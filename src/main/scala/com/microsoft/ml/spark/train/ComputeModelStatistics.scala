@@ -248,7 +248,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
                                          confusionMatrix: Matrix,
                                          resultDF: DataFrame): DataFrame = {
     val schema = resultDF.schema.add(MetricConstants.ConfusionMatrix, SQLDataTypes.MatrixType)
-    resultDF.map { row => Row.merge(row, Row(confusionMatrix.asML)) }(RowEncoder(schema))
+    resultDF.map { row => Row.fromSeq(row.toSeq :+ confusionMatrix.asML) }(RowEncoder(schema))
   }
 
   private def selectAndCastToDF(dataset: Dataset[_],

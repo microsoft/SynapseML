@@ -84,7 +84,7 @@ class RecommendationIndexerModel(override val uid: String) extends Model[Recomme
 
   def getUserIndex: Map[Int, String] = {
     getUserIndexModel
-      .labels
+      .labelsArray.head
       .zipWithIndex
       .map(t => (t._2, t._1))
       .toMap
@@ -92,7 +92,7 @@ class RecommendationIndexerModel(override val uid: String) extends Model[Recomme
 
   def getItemIndex: Map[Int, String] = {
     getItemIndexModel
-      .labels
+      .labelsArray.head
       .zipWithIndex
       .map(t => (t._2, t._1))
       .toMap

@@ -21,6 +21,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRow
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -131,7 +132,7 @@ private object CNTKModelUtils extends java.io.Serializable {
         val feedDict = preprocessFunction(row)
         val outputGVVs = applyCNTKFunction(of, feedDict, outputVars, device)
         val resultRow = Row(outputGVVs.map(ConversionUtils.convertGVV): _*)
-        val outputRow = Row.merge(row, resultRow)
+        val outputRow = Row.fromSeq(row.toSeq ++ resultRow.toSeq)
         outputGVVs.foreach(ConversionUtils.deleteGVV)
         outputRow
       }
