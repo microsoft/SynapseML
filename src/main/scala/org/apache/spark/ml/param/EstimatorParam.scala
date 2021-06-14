@@ -23,10 +23,10 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
-      case (e1: T, e2: T) =>
+      case (e1: PipelineStage, e2: PipelineStage) =>
         ModelEquality.assertEqual(e1,e2)
       case _ =>
-        throw new AssertionError("Values did not have Estimator type")
+        throw new AssertionError("Values do not extend from PipelineStage type")
     }
   }
 

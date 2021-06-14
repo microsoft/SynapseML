@@ -309,7 +309,8 @@ abstract class SpeechSDKBase extends Transformer
                                    isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
       if (shouldSkip(row)) {
-        Seq(Row.merge(row, Row(None)))
+        //noinspection ScalaStyle
+        Seq(Row.fromSeq(row.toSeq :+ null))
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
         val (stream, audioFileFormat) = getStream(bconf, isUriAudio, row, dynamicParamRow)
@@ -327,9 +328,9 @@ abstract class SpeechSDKBase extends Transformer
             .parseJson.convertTo[Seq[TranscriptionParticipant]]
         )
         if (getStreamIntermediateResults) {
-          results.map(speechResponse => Row.merge(row, Row(toRow(speechResponse))))
+          results.map(speechResponse => Row.fromSeq(row.toSeq :+ toRow(speechResponse)))
         } else {
-          Seq(Row.merge(row, Row(results.map(speechResponse => toRow(speechResponse)).toSeq)))
+          Seq(Row.fromSeq(row.toSeq :+ results.map(speechResponse => toRow(speechResponse)).toSeq))
         }
       }
     }

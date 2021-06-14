@@ -16,6 +16,7 @@ import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRow
 import org.apache.spark.sql.functions.{col, explode, udf}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
@@ -54,7 +55,10 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
         AsyncUtils.bufferedAwaitSafeWithContext(
           futures, concurrency, Duration.fromNanos(timeout * 1e6.toLong))(ExecutionContext.global)
           .map {
-            case (bytesOpt, row) => Row.merge(row, Row(bytesOpt.getOrElse(null))) //scalastyle:ignore null
+            case (bytesOpt, row) =>
+              //noinspection ScalaStyle
+              val bytes: Array[Byte] = bytesOpt.getOrElse(null)
+              Row.fromSeq(row.toSeq :+ bytes)
           }
       }(encoder)
     })

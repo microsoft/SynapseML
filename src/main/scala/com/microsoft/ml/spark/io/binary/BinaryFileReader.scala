@@ -49,6 +49,8 @@ object BinaryFileReader {
     } else {
       Array(p)
     }
+
+    //noinspection ScalaCustomHdfsFormat
     spark.read.format(classOf[BinaryFileFormat].getName)
       .option("subsample", sampleRatio)
       .option("seed", seed)
@@ -94,8 +96,7 @@ object BinaryFileReader {
             val path = new Path(row.getAs[String](pathCol))
             val fs = path.getFileSystem(hconf.value)
             val bytes = StreamUtilities.using(fs.open(path)) {is => IOUtils.toByteArray(is)}.get
-            val ret = Row.merge(Seq(row, Row(bytes)): _*)
-            ret
+            Row.fromSeq(row.toSeq :+ bytes)
           }(ExecutionContext.global)
       }
       AsyncUtils.bufferedAwait(
