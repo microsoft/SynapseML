@@ -20,8 +20,8 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
     .setIncludeStatistics(true))
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
-    .setSubscriptionKey("91475c1eb6e14ede85d6a7bf491dacc3")
-    .setEndpoint("https://assafiwus.cognitiveservices.azure.com/")
+    .setSubscriptionKey("enter-key")
+    .setEndpoint("endpoint")
     .setInputCol("text2")
 
   test("Basic Usage") {
