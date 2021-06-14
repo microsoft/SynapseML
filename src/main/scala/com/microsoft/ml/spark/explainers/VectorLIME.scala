@@ -7,7 +7,7 @@ import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector => SV}
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.util.Identifiable
@@ -46,7 +46,7 @@ class VectorLIME(override val uid: String)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
-        vector: SV =>
+        vector: Vector =>
           implicit val randBasis: RandBasis = RandBasis.mt0
           val sampler = new LIMEVectorSampler(vector, featureStats)
           (1 to numSamples).map(_ => sampler.sample)
@@ -64,7 +64,7 @@ class VectorLIME(override val uid: String)
   }
 
   private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
-    val Row(std: SV) = df
+    val Row(std: Vector) = df
       .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
       .select("summary.std")
       .first()

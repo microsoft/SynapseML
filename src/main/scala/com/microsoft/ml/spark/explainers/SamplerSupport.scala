@@ -4,18 +4,18 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
-import breeze.stats.distributions.{Rand, RandBasis}
-import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
+import org.apache.spark.ml.linalg.Vector
 
 import scala.annotation.tailrec
 import scala.util.Random
 
 private[explainers] trait SamplerSupport {
-  def nextState: SV
+  def nextState: Vector
 
-  def getDistance(state: SV): Double = {
+  def getDistance(state: Vector): Double = {
     // Set distance to normalized Euclidean distance
     // 1 in the mask means keep the superpixel, 0 means replace with background color,
     // so a vector of all 1 means the original observation.
@@ -30,10 +30,10 @@ private[explainers] trait LIMESamplerSupport extends SamplerSupport {
 
   def samplingFraction: Double
 
-  private lazy val randomStateGenerator: Iterator[SV] = new Iterator[SV] {
+  private lazy val randomStateGenerator: Iterator[Vector] = new Iterator[Vector] {
     override def hasNext: Boolean = true
 
-    override def next(): SV = {
+    override def next(): Vector = {
       val mask: BitVector = BDV.rand(featureSize, randBasis.uniform) <:= samplingFraction
       val maskAsDouble = BDV.zeros[Double](featureSize)
       axpy(1.0, mask, maskAsDouble) // equivalent to: maskAsDouble += 1.0 * mask
@@ -41,7 +41,7 @@ private[explainers] trait LIMESamplerSupport extends SamplerSupport {
     }
   }
 
-  override def nextState: SV = this.randomStateGenerator.next
+  override def nextState: Vector = this.randomStateGenerator.next
 }
 
 private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
@@ -49,13 +49,13 @@ private[explainers] trait KernelSHAPSamplerSupport extends SamplerSupport {
 
   protected def numSamples: Int
 
-  protected lazy val randomStateGenerator: Iterator[SV] = {
+  protected lazy val randomStateGenerator: Iterator[Vector] = {
     this.generateCoalitions(featureSize, numSamples).map {
       v => v.mapValues(_.toDouble).toSpark
     }
   }
 
-  override def nextState: SV = this.randomStateGenerator.next
+  override def nextState: Vector = this.randomStateGenerator.next
 
   private def generateSampleSizes(m: Int, nSamples: Int): List[Int] = {
     assert(m > 0)

@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
@@ -127,9 +127,9 @@ trait HasExplainTarget extends Params {
   final def getTargetClassesCol: String = $(targetClassesCol)
   final def setTargetClassesCol(value: String): this.type = this.set(targetClassesCol, value)
 
-  private def slice[T](values: Int => T, indices: Seq[Int])(num: Numeric[_]): SV = {
+  private def slice[T](values: Int => T, indices: Seq[Int])(num: Numeric[_]): Vector = {
     val n = num.asInstanceOf[Numeric[T]]
-    SVS.dense(indices.map(values.apply).map(n.toDouble).toArray)
+    Vectors.dense(indices.map(values.apply).map(n.toDouble).toArray)
   }
 
   private val dataTypeToNumericMap: Map[NumericType, Numeric[_]] = Map(
@@ -150,7 +150,7 @@ trait HasExplainTarget extends Params {
     */
   def getExplainTarget(schema: StructType): Column = {
     val toVector = UDFUtils.oldUdf(
-      (values: Seq[Double]) => SVS.dense(values.toArray),
+      (values: Seq[Double]) => Vectors.dense(values.toArray),
       VectorType
     )
 
@@ -159,7 +159,7 @@ trait HasExplainTarget extends Params {
         toVector(array(col(getTargetCol)))
       case VectorType =>
         val vectorSlicer = UDFUtils.oldUdf(
-          (v: SV, indices: Seq[Int]) => slice(v.apply, indices)(implicitly[Numeric[Double]]),
+          (v: Vector, indices: Seq[Int]) => slice(v.apply, indices)(implicitly[Numeric[Double]]),
           VectorType
         )
 

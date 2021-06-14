@@ -10,7 +10,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-import org.apache.spark.ml.linalg.{Vectors => SVS}
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
@@ -73,7 +73,7 @@ class SamplerSuite extends TestBase {
       DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
     )
 
-    val sampler = new LIMEVectorSampler(SVS.dense(3.2, 1.0), featureStats)
+    val sampler = new LIMEVectorSampler(Vectors.dense(3.2, 1.0), featureStats)
     val (samples, _, distances) = (1 to 1000).map {
       _ => sampler.sample
     }.unzip3

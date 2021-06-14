@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import org.scalactic.{Equality, TolerantNumerics}
 
 class LassoRegressionSuite extends TestBase {
-  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-3)
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-3)
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
 
   // The following test can be verified in python with following code:

@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
@@ -64,7 +64,7 @@ class TabularSHAPExplainerSuite extends TestBase
 
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, Seq[SV], SV)]
+      .select("probability", "shapValues", "r2").as[(Vector, Seq[Vector], Vector)]
       .head
 
     val shapBz = shapValues.head.toBreeze

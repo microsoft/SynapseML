@@ -4,33 +4,33 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{DenseVector => BDV, SparseVector => BSV, Vector => BV, DenseMatrix => BDM}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS, Matrix => SM, Matrices => SMS}
+import org.apache.spark.ml.linalg.{Vector, Vectors, Matrix, Matrices}
 
 object BreezeUtils {
-  implicit class SparkVectorCanConvertToBreeze(sv: SV) {
+  implicit class SparkVectorCanConvertToBreeze(sv: Vector) {
     def toBreeze: BDV[Double] = {
       BDV(sv.toArray)
     }
   }
 
-  implicit class SparkMatrixCanConvertToBreeze(sm: SM) {
+  implicit class SparkMatrixCanConvertToBreeze(mat: Matrix) {
     def toBreeze: BDM[Double] = {
-      BDM(sm.rowIter.map(_.toBreeze).toArray: _*)
+      BDM(mat.rowIter.map(_.toBreeze).toArray: _*)
     }
   }
 
   implicit class BreezeVectorCanConvertToSpark(bv: BV[Double]) {
-    def toSpark: SV = {
+    def toSpark: Vector = {
       bv match {
-        case v: BDV[Double] => SVS.dense(v.toArray)
-        case v: BSV[Double] => SVS.sparse(v.size, v.activeIterator.toSeq).compressed
+        case v: BDV[Double] => Vectors.dense(v.toArray)
+        case v: BSV[Double] => Vectors.sparse(v.size, v.activeIterator.toSeq).compressed
       }
     }
   }
 
   implicit class BreezeMatrixCanConvertToSpark(bm: BDM[Double]) {
-    def toSpark: SM = {
-      SMS.dense(bm.rows, bm.cols, bm.data)
+    def toSpark: Matrix = {
+      Matrices.dense(bm.rows, bm.cols, bm.data)
     }
   }
 }

@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
@@ -19,7 +19,7 @@ class TabularLIMEExplainerSuite extends TestBase
   with TransformerFuzzing[TabularLIME] {
 
   import spark.implicits._
-  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-2)
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-2)
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-5)
 
   override val sortInDataframeEquality = true
@@ -63,7 +63,7 @@ class TabularLIMEExplainerSuite extends TestBase
 
     val predicted = model.transform(infer)
 
-    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].head
+    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(Seq[Vector], Vector)].head
     assert(weights.size == 2)
     assert(r2.size == 2)
 
@@ -119,7 +119,7 @@ class TabularLIMEExplainerSuite extends TestBase
       .setTargetCol("probability")
       .setTargetClasses(Array(1))
 
-    val (weights, _) = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].head
+    val (weights, _) = lime.transform(predicted).select("weights", "r2").as[(Seq[Vector], Vector)].head
     assert(weights.size == 1)
 
     val weightsBz = weights.head
@@ -170,7 +170,7 @@ class TabularLIMEExplainerSuite extends TestBase
 
     // weights.show(false)
 
-    val results = weights.select("col1", "weights").as[(Int, Seq[SV])].collect()
+    val results = weights.select("col1", "weights").as[(Int, Seq[Vector])].collect()
       .map(r => (r._1, r._2.head.toBreeze(0)))
       .toMap
 

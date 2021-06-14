@@ -10,7 +10,7 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
@@ -43,7 +43,7 @@ class ImageSHAP(override val uid: String)
     this(Identifiable.randomUID("ImageSHAP"))
   }
 
-  private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, SV)] = {
+  private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, Vector)] = {
     val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, spd.clusters.size)
     val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples)
     (1 to effectiveNumSamples).map {

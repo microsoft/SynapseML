@@ -4,14 +4,14 @@
 package com.microsoft.ml.spark.explainers
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import org.apache.spark.ml.linalg.{Vectors => SVS, Vector => SV}
+import org.apache.spark.ml.linalg.{Vectors, Vector}
 
 class HasExplainTargetSuite extends TestBase {
   test("getExplainTarget can handle different types of targets") {
     import spark.implicits._
 
     val df = Seq(
-      (Array(1, 2, 3), SVS.dense(1, 2, 3), Map(0 -> 1f, 1 -> 2f, 2 -> 3f), Array(0, 2))
+      (Array(1, 2, 3), Vectors.dense(1, 2, 3), Map(0 -> 1f, 1 -> 2f, 2 -> 3f), Array(0, 2))
     ) toDF("label1", "label2", "label3", "targets")
 
     // array of Int
@@ -20,8 +20,8 @@ class HasExplainTargetSuite extends TestBase {
       .setTargetClasses(Array(0, 2))
       .getExplainTarget(df.schema)
 
-    val Tuple1(v1) = df.select(target1).as[Tuple1[SV]].head
-    assert(v1 == SVS.dense(1d, 3d))
+    val Tuple1(v1) = df.select(target1).as[Tuple1[Vector]].head
+    assert(v1 == Vectors.dense(1d, 3d))
 
     // vector
     val target2 = LocalExplainer.LIME.vector
@@ -29,8 +29,8 @@ class HasExplainTargetSuite extends TestBase {
       .setTargetClasses(Array(0, 2))
       .getExplainTarget(df.schema)
 
-    val Tuple1(v2) = df.select(target2).as[Tuple1[SV]].head
-    assert(v2 == SVS.dense(1d, 3d))
+    val Tuple1(v2) = df.select(target2).as[Tuple1[Vector]].head
+    assert(v2 == Vectors.dense(1d, 3d))
 
     // Map of Int -> Float
     val target3 = LocalExplainer.LIME.vector
@@ -38,8 +38,8 @@ class HasExplainTargetSuite extends TestBase {
       .setTargetClasses(Array(0, 2))
       .getExplainTarget(df.schema)
 
-    val Tuple1(v3) = df.select(target3).as[Tuple1[SV]].head
-    assert(v3 == SVS.dense(1d, 3d))
+    val Tuple1(v3) = df.select(target3).as[Tuple1[Vector]].head
+    assert(v3 == Vectors.dense(1d, 3d))
 
     // Dynamically retrieve targets
     val target4 = LocalExplainer.LIME.vector
@@ -47,7 +47,7 @@ class HasExplainTargetSuite extends TestBase {
       .setTargetClassesCol("targets")
       .getExplainTarget(df.schema)
 
-    val Tuple1(v4) = df.select(target4).as[Tuple1[SV]].head
-    assert(v4 == SVS.dense(1d, 3d))
+    val Tuple1(v4) = df.select(target4).as[Tuple1[Vector]].head
+    assert(v4 == Vectors.dense(1d, 3d))
   }
 }

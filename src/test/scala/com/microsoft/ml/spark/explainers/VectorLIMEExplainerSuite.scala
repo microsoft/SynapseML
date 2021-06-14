@@ -8,7 +8,7 @@ import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
@@ -19,7 +19,7 @@ class VectorLIMEExplainerSuite extends TestBase
 
   import spark.implicits._
 
-  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-6)
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-6)
 
   override val sortInDataframeEquality = true
 
@@ -35,7 +35,7 @@ class VectorLIMEExplainerSuite extends TestBase
     val x: BDM[Double] = BDM.rand(nRows, d1, Rand.gaussian)
     val y = x * coefficients + intercept
 
-    val xRows = x(*, ::).iterator.toSeq.map(dv => SVS.dense(dv.toArray))
+    val xRows = x(*, ::).iterator.toSeq.map(dv => Vectors.dense(dv.toArray))
     val yRows = y(*, ::).iterator.toSeq.map(dv => dv(0))
     xRows.zip(yRows).toDF("features", "label")
   }
@@ -52,7 +52,7 @@ class VectorLIMEExplainerSuite extends TestBase
   test("VectorLIME can explain a model locally") {
 
     val predicted = model.transform(df)
-    val weights = lime.transform(predicted).select("weights", "r2").as[(Seq[SV], SV)].collect().map {
+    val weights = lime.transform(predicted).select("weights", "r2").as[(Seq[Vector], Vector)].collect().map {
       case (m, _) => m.head.toBreeze
     }
 

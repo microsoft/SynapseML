@@ -6,13 +6,12 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.{HasModifier, HasCellSize, SuperpixelTransformer, SuperpixelData}
+import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV}
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
@@ -47,7 +46,7 @@ class ImageLIME(override val uid: String)
   }
 
   private def sample(numSamples: Int, samplingFraction: Double)(bi: BufferedImage, spd: SuperpixelData)
-    : Seq[(ImageFormat, SV, Double)] = {
+    : Seq[(ImageFormat, Vector, Double)] = {
     implicit val randBasis: RandBasis = RandBasis.mt0
     val sampler = new LIMEImageSampler(bi, samplingFraction, spd)
     (1 to numSamples).map {

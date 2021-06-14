@@ -237,7 +237,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def breezeVectorEq[T: Field: ClassTag](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDV[T]] =
     (a: BDV[T], b: Any) => {
       b match {
-        case p: BDV[T] =>
+        case p: BDV[T @unchecked] =>
           norm(a - p) < tol
         case _ => false
       }

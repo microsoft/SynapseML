@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.DataFrame
@@ -74,7 +74,7 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
 
   test("TextSHAP can explain a model locally") {
     val results = shap.transform(infer).select("tokens", "weights", "r2")
-      .as[(Seq[String], Seq[SV], SV)]
+      .as[(Seq[String], Seq[Vector], Vector)]
       .collect()
       .map {
         case (tokens, shapValues, r2) => (tokens(3), shapValues.head.toBreeze, r2(0))
@@ -108,7 +108,7 @@ class TextLIMEExplainerSuite extends TextExplainersSuite
 
   test("TextLIME can explain a model locally") {
     val results = lime.transform(infer).select("tokens", "weights", "r2")
-      .as[(Seq[String], Seq[SV], SV)]
+      .as[(Seq[String], Seq[Vector], Vector)]
       .collect()
       .map {
         case (tokens, weights, r2) => (tokens(3), weights.head(3), r2(0))

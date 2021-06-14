@@ -8,7 +8,7 @@ import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql.Row
 
 import java.awt.image.BufferedImage
@@ -41,10 +41,10 @@ private[explainers] case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private[explainers] trait ImageSampler extends Sampler[BufferedImage, SV] {
+private[explainers] trait ImageSampler extends Sampler[BufferedImage, Vector] {
   def spd: SuperpixelData
 
-  override def createNewSample(instance: BufferedImage, state: SV): BufferedImage = {
+  override def createNewSample(instance: BufferedImage, state: Vector): BufferedImage = {
     val mask = state.toArray.map(_ == 1.0)
     val outputImage = Superpixel.maskImage(instance, this.spd, mask)
     outputImage
@@ -68,8 +68,8 @@ private[explainers] class KernelSHAPImageSampler(val instance: BufferedImage,
   override protected def featureSize: Int = spd.clusters.size
 }
 
-private[explainers] trait TextSampler extends Sampler[Seq[String], SV] {
-  def createNewSample(instance: Seq[String], state: SV): Seq[String] = {
+private[explainers] trait TextSampler extends Sampler[Seq[String], Vector] {
+  def createNewSample(instance: Seq[String], state: Vector): Seq[String] = {
     val mask = state.toArray.map(_ == 1.0)
     (instance, mask).zipped.collect {
       case (token, state) if state => token
@@ -91,25 +91,25 @@ private[explainers] class KernelSHAPTextSampler(val instance: Seq[String],
   override protected def featureSize: Int = instance.size
 }
 
-private[explainers] class LIMEVectorSampler(val instance: SV, val featureStats: Seq[FeatureStats[Double]])
+private[explainers] class LIMEVectorSampler(val instance: Vector, val featureStats: Seq[FeatureStats[Double]])
                                            (implicit val randBasis: RandBasis)
-  extends Sampler[SV, SV] {
+  extends Sampler[Vector, Vector] {
 
-  override def nextState: SV = {
+  override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
       case (feature, i) =>
         val value = instance(i)
         feature.sample(value)
     }
 
-    SVS.dense(states.toArray)
+    Vectors.dense(states.toArray)
   }
 
-  override def createNewSample(instance: SV, state: SV): SV = {
+  override def createNewSample(instance: Vector, state: Vector): Vector = {
     state
   }
 
-  override def getDistance(state: SV): Double = {
+  override def getDistance(state: Vector): Double = {
     // Set distance to normalized Euclidean distance
 
     val n = featureStats.size
@@ -125,9 +125,9 @@ private[explainers] class LIMEVectorSampler(val instance: SV, val featureStats: 
 
 private[explainers] class LIMETabularSampler(val instance: Row, val featureStats: Seq[FeatureStats[Double]])
                                             (implicit val randBasis: RandBasis)
-  extends Sampler[Row, SV] {
+  extends Sampler[Row, Vector] {
 
-  override def sample: (Row, SV, Double) = {
+  override def sample: (Row, Vector, Double) = {
     val (newSample, states, distance) = super.sample
 
     val originalValues = (0 until instance.size).map(instance.getAsDouble)
@@ -138,24 +138,24 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
       case (_, state, _) => state
     }
 
-    (newSample, SVS.dense(newStates.toArray), distance)
+    (newSample, Vectors.dense(newStates.toArray), distance)
   }
 
-  override def nextState: SV = {
+  override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
       case (feature, i) =>
         val value = instance.getAsDouble(i)
         feature.sample(value)
     }
 
-    SVS.dense(states.toArray)
+    Vectors.dense(states.toArray)
   }
 
-  override def createNewSample(instance: Row, state: SV): Row = {
+  override def createNewSample(instance: Row, state: Vector): Row = {
     Row.fromSeq(state.toArray)
   }
 
-  override def getDistance(state: SV): Double = {
+  override def getDistance(state: Vector): Double = {
     // Set distance to normalized Euclidean distance
 
     val n = featureStats.size
@@ -174,11 +174,11 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
 private[explainers] class KernelSHAPTabularSampler(val instance: Row,
                                                    val background: Row,
                                                    val numSamples: Int)
-  extends Sampler[Row, SV] with KernelSHAPSamplerSupport {
+  extends Sampler[Row, Vector] with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
 
-  override def createNewSample(instance: Row, state: SV): Row = {
+  override def createNewSample(instance: Row, state: Vector): Row = {
     // Merge instance with background based on coalition
     val newRow = Row.fromSeq(
       (0 until featureSize).map {
@@ -192,15 +192,15 @@ private[explainers] class KernelSHAPTabularSampler(val instance: Row,
   }
 }
 
-private[explainers] class KernelSHAPVectorSampler(val instance: SV,
-                                                  val background: SV,
+private[explainers] class KernelSHAPVectorSampler(val instance: Vector,
+                                                  val background: Vector,
                                                   val numSamples: Int)
-  extends Sampler[SV, SV]
+  extends Sampler[Vector, Vector]
     with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
 
-  override def createNewSample(instance: SV, state: SV): SV = {
+  override def createNewSample(instance: Vector, state: Vector): Vector = {
     val mask = state.toBreeze
     val result = (mask *:* instance.toBreeze) + ((1.0 - mask) *:* background.toBreeze)
     result.toSpark

@@ -10,7 +10,7 @@ import com.microsoft.ml.spark.image.{ImageFeaturizer, NetworkUtils}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -71,7 +71,7 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
     val (image, superpixels, shapValues, r2) = shap
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, Seq[SV], SV)]
+      .as[(ImageFormat, SuperpixelData, Seq[Vector], Vector)]
       .head
 
     // println(shapValues)
@@ -106,7 +106,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     val (image, superpixels, weights, r2) = lime
       .transform(imageDf)
       .select("image", "superpixels", "weights", "r2")
-      .as[(ImageFormat, SuperpixelData, Seq[SV], SV)]
+      .as[(ImageFormat, SuperpixelData, Seq[Vector], Vector)]
       .head
 
     // println(weights)
@@ -133,7 +133,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     val (weights, r2) = lime
       .transform(binaryDf)
       .select("weights", "r2")
-      .as[(Seq[SV], SV)]
+      .as[(Seq[Vector], Vector)]
       .head
 
     // println(weights)

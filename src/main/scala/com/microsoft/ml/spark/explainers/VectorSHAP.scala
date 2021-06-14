@@ -7,7 +7,7 @@ import breeze.stats.distributions.RandBasis
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.DataFrame
@@ -43,7 +43,7 @@ class VectorSHAP(override val uid: String)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
-        (instance: SV, background: SV) =>
+        (instance: Vector, background: Vector) =>
           val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSampleOpt, instance.size)
           val sampler = new KernelSHAPVectorSampler(instance, background, effectiveNumSamples)
           (1 to effectiveNumSamples) map {

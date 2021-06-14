@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.avg
@@ -43,7 +43,7 @@ class VectorSHAPExplainerSuite extends TestBase
   // println(model.coefficients)
 
   val infer: DataFrame = Seq(
-    Tuple1(SVS.dense(1d, 1d, 1d, 1d, 1d))
+    Tuple1(Vectors.dense(1d, 1d, 1d, 1d, 1d))
   ) toDF "features"
 
   val kernelShap: VectorSHAP = LocalExplainer.KernelSHAP.vector
@@ -59,7 +59,7 @@ class VectorSHAPExplainerSuite extends TestBase
     val predicted = model.transform(infer)
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(SV, Seq[SV], SV)]
+      .select("probability", "shapValues", "r2").as[(Vector, Seq[Vector], Vector)]
       .head
 
     // println((probability, shapValues, r2))

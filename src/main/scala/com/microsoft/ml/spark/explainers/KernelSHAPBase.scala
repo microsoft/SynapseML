@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV, Vectors => SVS}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, ParamValidators}
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql._
@@ -70,8 +70,8 @@ abstract class KernelSHAPBase(override val uid: String)
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = row.getAs[SV](coalitionCol).toBreeze
-            val output = row.getAs[SV](explainTargetCol).toBreeze
+            val input = row.getAs[Vector](coalitionCol).toBreeze
+            val output = row.getAs[Vector](explainTargetCol).toBreeze
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
         }.toSeq.unzip3
@@ -84,7 +84,7 @@ abstract class KernelSHAPBase(override val uid: String)
           new LeastSquaresRegression().fit(inputsBV, _, weightsBV, fitIntercept = true)
         }
 
-        val coefficientsMatrix = wlsResults.map(r => SVS.dense(r.intercept, r.coefficients.toArray: _*))
+        val coefficientsMatrix = wlsResults.map(r => Vectors.dense(r.intercept, r.coefficients.toArray: _*))
         val metrics = BDV(wlsResults.map(_.rSquared): _*)
         (id, coefficientsMatrix, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
@@ -124,7 +124,7 @@ abstract class KernelSHAPBase(override val uid: String)
 }
 
 object KernelSHAPBase {
-  private[explainers] def kernelWeight(infWeight: Double)(coalition: SV): Double = {
+  private[explainers] def kernelWeight(infWeight: Double)(coalition: Vector): Double = {
     val activeSize = sum(coalition.toBreeze)
     val inactiveSize = coalition.size - activeSize
 

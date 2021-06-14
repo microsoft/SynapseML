@@ -9,7 +9,7 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 class LeastSquaresRegressionSuite extends TestBase {
 
-  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq[Double](1E-3)
+  implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-3)
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-6)
 
   test("LeastSquaresRegression should regress correctly with weights with intercept.") {

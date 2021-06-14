@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector => SV}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -91,8 +91,8 @@ abstract class LIMEBase(override val uid: String)
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
-            val input = row.getAs[SV](stateCol).toBreeze
-            val output = row.getAs[SV](explainTargetCol).toBreeze
+            val input = row.getAs[Vector](stateCol).toBreeze
+            val output = row.getAs[Vector](explainTargetCol).toBreeze
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
         }.toSeq.unzip3
