@@ -4,9 +4,9 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.StringArrayParam
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
@@ -50,14 +50,6 @@ class TabularLIME(override val uid: String)
 
     val sampleType = StructType(this.getInputCols.map(StructField(_, DoubleType)))
 
-    val returnDataType = ArrayType(
-      StructType(Seq(
-        StructField("sample", sampleType),
-        StructField("state", SQLDataTypes.VectorType),
-        StructField("distance", DoubleType)
-      ))
-    )
-
     val samplesUdf = UDFUtils.oldUdf(
       {
         row: Row =>
@@ -70,15 +62,17 @@ class TabularLIME(override val uid: String)
               (sample, feature, distance)
           }
       },
-      returnDataType
+      getSampleSchema(sampleType)
     )
 
-    df.withColumn("samples", explode(samplesUdf(struct(getInputCols.map(col): _*))))
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
+    df.withColumn(samplesCol, explode(samplesUdf(struct(getInputCols.map(col): _*))))
       .select(
         col(idCol),
-        col("samples.distance").alias(distanceCol),
-        col("samples.state").alias(stateCol),
-        col("samples.sample.*")
+        col(samplesCol).getField(distanceField).alias(distanceCol),
+        col(samplesCol).getField(stateField).alias(stateCol),
+        col(samplesCol).getField(sampleField).getField("*")
       )
   }
 

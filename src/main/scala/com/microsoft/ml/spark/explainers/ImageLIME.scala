@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
-import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData}
 import org.apache.spark.injections.UDFUtils
@@ -99,12 +99,14 @@ class ImageLIME(override val uid: String)
         this.imageSamplesUdf
     }
 
-    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
+    df.withColumn(samplesCol, explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
-        col("samples.distance").alias(distanceCol),
-        col("samples.state").alias(stateCol),
-        col("samples.sample").alias(getInputCol)
+        col(samplesCol).getField(distanceField).alias(distanceCol),
+        col(samplesCol).getField(stateField).alias(stateCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol)
       )
   }
 

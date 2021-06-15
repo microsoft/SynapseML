@@ -112,11 +112,13 @@ abstract class KernelSHAPBase(override val uid: String)
       .add(getMetricsCol, VectorType)
   }
 
+  protected val sampleField = "sample"
+  protected val coalitionField = "coalition"
   protected def getSampleSchema(sampleType: DataType): DataType = {
     ArrayType(
       StructType(Seq(
-        StructField("sample", sampleType),
-        StructField("coalition", VectorType)
+        StructField(sampleField, sampleType),
+        StructField(coalitionField, VectorType)
       ))
     )
   }

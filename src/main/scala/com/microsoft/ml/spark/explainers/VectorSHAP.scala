@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -28,18 +29,14 @@ class VectorSHAP(override val uid: String)
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
   override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
-    val instances = df.select(col(idCol), col(getInputCol).alias("instance"))
+    val instanceCol = DatasetExtensions.findUnusedColumnName("instance", df)
+    val backgroundCol = DatasetExtensions.findUnusedColumnName("background", df)
+
+    val instances = df.select(col(idCol), col(getInputCol).alias(instanceCol))
     val background = this.get(backgroundData).getOrElse(df)
-      .select(col(getInputCol).alias("background"))
+      .select(col(getInputCol).alias(backgroundCol))
 
     val numSampleOpt = this.getNumSamplesOpt
-
-    val returnDataType = ArrayType(
-      StructType(Seq(
-        StructField("sample", VectorType),
-        StructField("coalition", VectorType)
-      ))
-    )
 
     val samplesUdf = UDFUtils.oldUdf(
       {
@@ -54,15 +51,17 @@ class VectorSHAP(override val uid: String)
             case (sample, state, _) => (sample, state)
           }
       },
-      returnDataType
+      getSampleSchema(VectorType)
     )
 
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
     instances.crossJoin(background)
-      .withColumn("samples", explode(samplesUdf(col("instance"), col("background"))))
+      .withColumn(samplesCol, explode(samplesUdf(col(instanceCol), col(backgroundCol))))
       .select(
         col(idCol),
-        col("samples.coalition").alias(coalitionCol),
-        col("samples.sample").alias(getInputCol)
+        col(samplesCol).getField(coalitionField).alias(coalitionCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol)
       )
   }
 

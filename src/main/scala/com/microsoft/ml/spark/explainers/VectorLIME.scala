@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -36,14 +37,6 @@ class VectorLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.get(backgroundData).getOrElse(df))
 
-    val returnDataType = ArrayType(
-      StructType(Seq(
-        StructField("sample", SQLDataTypes.VectorType),
-        StructField("state", SQLDataTypes.VectorType),
-        StructField("distance", DoubleType)
-      ))
-    )
-
     val samplesUdf = UDFUtils.oldUdf(
       {
         vector: Vector =>
@@ -51,15 +44,17 @@ class VectorLIME(override val uid: String)
           val sampler = new LIMEVectorSampler(vector, featureStats)
           (1 to numSamples).map(_ => sampler.sample)
       },
-      returnDataType
+      getSampleSchema(VectorType)
     )
 
-    df.withColumn("samples", explode(samplesUdf(col(getInputCol))))
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
+    df.withColumn(samplesCol, explode(samplesUdf(col(getInputCol))))
       .select(
         col(idCol),
-        col("samples.distance").alias(distanceCol),
-        col("samples.state").alias(stateCol),
-        col("samples.sample").alias(getInputCol)
+        col(samplesCol).getField(distanceField).alias(distanceCol),
+        col(samplesCol).getField(stateField).alias(stateCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol)
       )
   }
 

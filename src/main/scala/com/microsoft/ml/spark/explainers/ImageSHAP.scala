@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime._
 import org.apache.spark.injections.UDFUtils
@@ -92,11 +92,13 @@ class ImageSHAP(override val uid: String)
         this.imageSamplesUdf
     }
 
-    df.withColumn("samples", explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
+    df.withColumn(samplesCol, explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
-        col("samples.coalition").alias(coalitionCol),
-        col("samples.sample").alias(getInputCol)
+        col(samplesCol).getField(coalitionField).alias(coalitionCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol)
       )
   }
 

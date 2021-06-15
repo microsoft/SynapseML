@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.stats.distributions.RandBasis
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -54,12 +55,14 @@ class TextLIME(override val uid: String)
       getSampleSchema(StringType)
     )
 
-    df.withColumn("samples", explode(samplesUdf(col(getTokensCol))))
+    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+
+    df.withColumn(samplesCol, explode(samplesUdf(col(getTokensCol))))
       .select(
         col(idCol),
-        col("samples.distance").alias(distanceCol),
-        col("samples.state").alias(stateCol),
-        col("samples.sample").alias(getInputCol)
+        col(samplesCol).getField(distanceField).alias(distanceCol),
+        col(samplesCol).getField(stateField).alias(stateCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol)
       )
   }
 
