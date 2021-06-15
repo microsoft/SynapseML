@@ -39,8 +39,6 @@ class TabularSHAP(override val uid: String)
 
     val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(this.getNumSamplesOpt, featureSize)
 
-    // println(s"effectiveNumSamples: $effectiveNumSamples")
-
     val sampleType = StructType(this.getInputCols.map {
       feature =>
         df.schema.fields.find(_.name == feature).getOrElse {

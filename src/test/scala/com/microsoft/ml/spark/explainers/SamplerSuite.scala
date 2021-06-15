@@ -55,9 +55,6 @@ class SamplerSuite extends TestBase {
         (sample, distance)
     }.unzip
 
-//    println(samples(0 to 100))
-//    println(distances(0 to 100))
-
     assert(samples.count(_ == 1.0) == 897)
     assert(samples.count(_ == 2.0) == 63)
     assert(samples.count(_ == 3.0) == 40)

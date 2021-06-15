@@ -74,13 +74,9 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
       .as[(ImageFormat, SuperpixelData, Seq[Vector], Vector)]
       .head
 
-    // println(shapValues)
-    // println(r2)
-
     // R2 should be almost 1.
 
     val spStates = shapValues.head.toBreeze(1 to -1).map(_ >= 0.05).toArray
-    // println(spStates.count(identity))
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.ml.spark.io.image.ImageUtils
@@ -109,11 +105,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
       .as[(ImageFormat, SuperpixelData, Seq[Vector], Vector)]
       .head
 
-    // println(weights)
-    // println(r2)
-
     val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
-    // println(spStates.count(identity))
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.ml.spark.io.image.ImageUtils
@@ -125,7 +117,6 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     // Thread.sleep(100000)
   }
 
-  // Do not run in CI pipeline due to high memory needs
   test("ImageLIME can explain a model locally for binary type observation") {
     val binaryDf = spark.read.binary.load(greyhoundImageLocation)
       .select(col("value.bytes").alias("image"))
@@ -136,11 +127,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
       .as[(Seq[Vector], Vector)]
       .head
 
-    // println(weights)
-    // println(r2)
-
     val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
-    // println(spStates.count(identity))
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.ml.spark.io.image.ImageUtils
