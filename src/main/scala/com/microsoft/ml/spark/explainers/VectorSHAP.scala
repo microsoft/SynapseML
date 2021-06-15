@@ -33,7 +33,7 @@ class VectorSHAP(override val uid: String)
     val backgroundCol = DatasetExtensions.findUnusedColumnName("background", df)
 
     val instances = df.select(col(idCol), col(getInputCol).alias(instanceCol))
-    val background = this.get(backgroundData).getOrElse(df)
+    val background = this.getBackgroundData
       .select(col(getInputCol).alias(backgroundCol))
 
     val numSampleOpt = this.getNumSamplesOpt

@@ -48,6 +48,7 @@ class VectorLIMEExplainerSuite extends TestBase
     .setTargetCol(model.getPredictionCol)
     .setOutputCol("weights")
     .setNumSamples(1000)
+    .setBackgroundData(df)
 
   test("VectorLIME can explain a model locally") {
 

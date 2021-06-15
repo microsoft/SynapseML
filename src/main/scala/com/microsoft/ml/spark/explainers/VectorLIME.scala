@@ -8,12 +8,12 @@ import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, StructField, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row}
 
 class VectorLIME(override val uid: String)
@@ -35,7 +35,7 @@ class VectorLIME(override val uid: String)
                                        distanceCol: String): DataFrame = {
     val numSamples = this.getNumSamples
 
-    val featureStats = this.createFeatureStats(this.get(backgroundData).getOrElse(df))
+    val featureStats = this.createFeatureStats(this.getBackgroundData)
 
     val samplesUdf = UDFUtils.oldUdf(
       {

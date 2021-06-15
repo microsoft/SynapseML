@@ -46,7 +46,7 @@ class TabularLIME(override val uid: String)
 
     val numSamples = this.getNumSamples
 
-    val featureStats = this.createFeatureStats(this.get(backgroundData).getOrElse(df))
+    val featureStats = this.createFeatureStats(this.getBackgroundData)
 
     val sampleType = StructType(this.getInputCols.map(StructField(_, DoubleType)))
 
