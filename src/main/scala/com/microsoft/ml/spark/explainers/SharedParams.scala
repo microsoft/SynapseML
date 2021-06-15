@@ -3,14 +3,15 @@
 
 package com.microsoft.ml.spark.explainers
 
+import com.microsoft.ml.spark.core.utils.SlicerFunctions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Column, DataFrame}
 
 trait HasMetricsCol extends Params {
   final val metricsCol = new Param[String](
@@ -127,20 +128,6 @@ trait HasExplainTarget extends Params {
   final def getTargetClassesCol: String = $(targetClassesCol)
   final def setTargetClassesCol(value: String): this.type = this.set(targetClassesCol, value)
 
-  private def slice[T](values: Int => T, indices: Seq[Int])(num: Numeric[_]): Vector = {
-    val n = num.asInstanceOf[Numeric[T]]
-    Vectors.dense(indices.map(values.apply).map(n.toDouble).toArray)
-  }
-
-  private val dataTypeToNumericMap: Map[NumericType, Numeric[_]] = Map(
-    FloatType -> implicitly[Numeric[Float]],
-    DoubleType -> implicitly[Numeric[Double]],
-    ByteType -> implicitly[Numeric[Byte]],
-    ShortType -> implicitly[Numeric[Short]],
-    IntegerType -> implicitly[Numeric[Int]],
-    LongType -> implicitly[Numeric[Long]]
-  )
-
   /**
     * This function supports a variety of target column types:
     * - NumericType: in the case of a regression model
@@ -158,29 +145,14 @@ trait HasExplainTarget extends Params {
       case _: NumericType =>
         toVector(array(col(getTargetCol)))
       case VectorType =>
-        val vectorSlicer = UDFUtils.oldUdf(
-          (v: Vector, indices: Seq[Int]) => slice(v.apply, indices)(implicitly[Numeric[Double]]),
-          VectorType
-        )
-
         val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
-        vectorSlicer(col(getTargetCol), classesCol)
-      case ArrayType(et: NumericType, _) =>
-        val arraySlicer = UDFUtils.oldUdf(
-          (v: Seq[Any], indices: Seq[Int]) => slice(v.apply, indices)(dataTypeToNumericMap(et)),
-          VectorType
-        )
-
+        SlicerFunctions.vectorSlicer(col(getTargetCol), classesCol)
+      case ArrayType(elementType: NumericType, _) =>
         val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
-        arraySlicer(col(getTargetCol), classesCol)
-      case MapType(_: IntegerType, et: NumericType, _) =>
-        val mapSlicer = UDFUtils.oldUdf(
-          (m: Map[Int, Any], indices: Seq[Int]) => slice(m.apply, indices)(dataTypeToNumericMap(et)),
-          VectorType
-        )
-
+        SlicerFunctions.arraySlicer(elementType)(col(getTargetCol), classesCol)
+      case MapType(_: IntegerType, valueType: NumericType, _) =>
         val classesCol = this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses))
-        mapSlicer(col(getTargetCol), classesCol)
+        SlicerFunctions.mapSlicer(valueType)(col(getTargetCol), classesCol)
       case other =>
         throw new IllegalArgumentException(
           s"Only numeric types, vector type, array of numeric types and map types with numeric value type " +
