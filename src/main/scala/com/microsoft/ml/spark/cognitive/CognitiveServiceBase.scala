@@ -232,13 +232,13 @@ trait HasSetLocation extends Wrappable {
 trait HasSetEndpointFunc extends Wrappable {
   override def pyAdditionalMethods: String = {
     """
-      |def setEndpointFunc(self, value):
-      |    self._java_obj = self._java_obj.setEndpointFunc(value)
+      |def setEndpointFunc(self, func, value):
+      |    self._java_obj = self._java_obj.setEndpointFunc(func, value)
       |    return self
       |""".stripMargin
   }
 
-  def setEndpointFunc(v: String): this.type
+  def setEndpointFunc(endpointFunc: String => String, args: String): this.type
 }
 
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer

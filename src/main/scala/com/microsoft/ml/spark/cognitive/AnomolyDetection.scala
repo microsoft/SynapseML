@@ -149,12 +149,21 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
+  val path = "anomalydetector/v1.0/timeseries/entire/detect"
+
+  def setEndpoint(v: String): this.type =
+    setUrl(s"$v/$path")
+
+  def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
+    setEndpoint(endpointFunc(args))
+
+
   def setSeries(v: Seq[TimeSeriesPoint]): this.type = setScalarParam(series, v)
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/$path")
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
