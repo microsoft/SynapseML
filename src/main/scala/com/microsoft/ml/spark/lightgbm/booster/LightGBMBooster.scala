@@ -5,11 +5,10 @@ package com.microsoft.ml.spark.lightgbm.booster
 
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.lightgbm.{LightGBMConstants, LightGBMUtils}
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getBoosterPtrFromModelString
 import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
+import com.microsoft.ml.spark.lightgbm.swig.SwigUtils
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.slf4j.Logger
 
 //scalastyle:off
 protected abstract class NativePtrHandler[T](val ptr: T) {
@@ -33,6 +32,22 @@ protected class LongLongNativePtrHandler(ptr: SWIGTYPE_p_long_long) extends Nati
   }
 }
 
+protected object BoosterHandler {
+  /**
+    * Creates the native booster from the given string representation by calling LGBM_BoosterLoadModelFromString.
+    * @param lgbModelString The string representation of the model.
+    * @return The SWIG pointer to the native representation of the booster.
+    */
+  private def createBoosterPtrFromModelString(lgbModelString: String): SWIGTYPE_p_void = {
+    val boosterOutPtr = lightgbmlib.voidpp_handle()
+    val numItersOut = lightgbmlib.new_intp()
+    LightGBMUtils.validate(
+      lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
+      "Booster LoadFromString")
+    lightgbmlib.voidpp_value(boosterOutPtr)
+  }
+}
+
 /** Wraps the boosterPtr and guarantees that Native library is initialized
  * everytime it is needed
  * @param boosterPtr The pointer to the native lightgbm booster
@@ -45,7 +60,7 @@ protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
     * @param model The string serialized representation of the learner
     */
   def this(model: String) = {
-    this(getBoosterPtrFromModelString(model))
+    this(BoosterHandler.createBoosterPtrFromModelString(model))
   }
 
   val scoredDataOutPtr: ThreadLocal[DoubleNativePtrHandler] = {
@@ -235,8 +250,8 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     * @param model The string serialized representation of the learner to merge.
     */
   def mergeBooster(model: String): Unit = {
-    val boosterPtr = LightGBMUtils.getBoosterPtrFromModelString(model)
-    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterHandler.boosterPtr, boosterPtr),
+    val mergedBooster = new BoosterHandler(model)
+    LightGBMUtils.validate(lightgbmlib.LGBM_BoosterMerge(boosterHandler.boosterPtr, mergedBooster.boosterPtr),
       "Booster Merge")
   }
 
@@ -327,6 +342,48 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
         (0 until numClasses).map(classIndex =>
           lightgbmlib.doubleArray_getitem(scoredDataOutPtr, startIndex + classIndex)).toArray
       }).toArray
+    }
+  }
+
+  /** Updates the booster for one iteration.
+    * @return True if terminated training early.
+    */
+  def updateOneIteration(): Boolean = {
+    val isFinishedPtr = lightgbmlib.new_intp()
+    try {
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_BoosterUpdateOneIter(boosterHandler.boosterPtr, isFinishedPtr),
+        "Booster Update One Iter")
+      lightgbmlib.intp_value(isFinishedPtr) == 1
+    } finally {
+      lightgbmlib.delete_intp(isFinishedPtr)
+    }
+  }
+
+  /** Updates the booster with custom loss function for one iteration.
+    * @param gradient The gradient from custom loss function.
+    * @param hessian The hessian matrix from custom loss function.
+    * @return True if terminated training early.
+    */
+  def updateOneIterationCustom(gradient: Array[Float], hessian: Array[Float]): Boolean = {
+    var isFinishedPtrOpt: Option[SWIGTYPE_p_int] = None
+    var gradientPtrOpt: Option[SWIGTYPE_p_float] = None
+    var hessianPtrOpt: Option[SWIGTYPE_p_float] = None
+    try {
+      val gradPtr = SwigUtils.floatArrayToNative(gradient)
+      gradientPtrOpt = Some(gradPtr)
+      val hessPtr = SwigUtils.floatArrayToNative(hessian)
+      hessianPtrOpt = Some(hessPtr)
+      val isFinishedPtr = lightgbmlib.new_intp()
+      isFinishedPtrOpt = Some(isFinishedPtr)
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_BoosterUpdateOneIterCustom(boosterHandler.boosterPtr,
+          gradPtr, hessPtr, isFinishedPtr), "Booster Update One Iter Custom")
+      lightgbmlib.intp_value(isFinishedPtr) == 1
+    } finally {
+      isFinishedPtrOpt.foreach(lightgbmlib.delete_intp(_))
+      gradientPtrOpt.foreach(lightgbmlib.delete_floatArray(_))
+      hessianPtrOpt.foreach(lightgbmlib.delete_floatArray(_))
     }
   }
 
