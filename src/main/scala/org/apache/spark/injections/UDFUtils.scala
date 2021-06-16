@@ -11,7 +11,7 @@ import org.apache.spark.sql.functions.udf
 object UDFUtils {
   def unpackUdf(u: UserDefinedFunction): (AnyRef, DataType) = {
     u match {
-      case SparkUserDefinedFunction(f, dataType, _, _, _, _) =>
+      case SparkUserDefinedFunction(f, dataType, _, _, _, _, _) =>
         (f, dataType)
       case _ =>
         throw new IllegalArgumentException("Can only unpack scala UDFs")
