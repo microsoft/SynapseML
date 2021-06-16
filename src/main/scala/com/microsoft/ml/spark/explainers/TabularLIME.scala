@@ -72,7 +72,7 @@ class TabularLIME(override val uid: String)
         col(idCol),
         col(samplesCol).getField(distanceField).alias(distanceCol),
         col(samplesCol).getField(stateField).alias(stateCol),
-        col(samplesCol).getField(sampleField).getField("*")
+        expr(s"$samplesCol.$sampleField.*")
       )
   }
 

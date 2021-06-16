@@ -11,40 +11,60 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
 import org.scalactic.{Equality, TolerantNumerics}
 
+import scala.reflect.ClassTag
+
 
 trait DataFrameEquality extends Serializable {
   val epsilon = 1e-4
   @transient implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
 
-  @transient implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
-    def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr: DenseVector =>
-        a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
+  @transient implicit lazy val dvEq: Equality[DenseVector] = (a: DenseVector, b: Any) => b match {
+    case bArr: DenseVector =>
+      a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
+  }
+
+  @transient implicit lazy val seqEq: Equality[Seq[_]] = new Equality[Seq[_]] {
+    override def areEqual(a: Seq[_], b: Any): Boolean = {
+      b match {
+        case bSeq: Seq[_] =>
+          a.zip(bSeq).forall {
+            case (lhs, rhs) =>
+              lhs.getClass match {
+                case c if c == classOf[DenseVector] =>
+                  lhs.asInstanceOf[DenseVector] === rhs.asInstanceOf[DenseVector]
+                case c if c == classOf[Double] =>
+                  lhs.asInstanceOf[Double] === rhs.asInstanceOf[Double]
+                case _ =>
+                  lhs === rhs
+              }
+          }
+      }
     }
   }
 
-  @transient implicit lazy val rowEq: Equality[Row] = new Equality[Row] {
-    def areEqual(a: Row, bAny: Any): Boolean = bAny match {
-      case b: Row =>
-        if (a.length != b.length) {
-          false
-        } else {
-          (0 until a.length).forall(j => {
-            a(j) match {
-              case lhs: DenseVector =>
-                lhs === b(j)
-              case lhs: Array[Byte] =>
-                lhs === b(j)
-              case lhs: Double if lhs.isNaN =>
-                b(j).asInstanceOf[Double].isNaN
-              case lhs: Double =>
-                b(j).asInstanceOf[Double] === lhs
-              case lhs =>
-                lhs === b(j)
-            }
-          })
-        }
-    }
+
+  @transient implicit lazy val rowEq: Equality[Row] = (a: Row, bAny: Any) => bAny match {
+    case b: Row =>
+      if (a.length != b.length) {
+        false
+      } else {
+        (0 until a.length).forall(j => {
+          a(j) match {
+            case lhs: DenseVector =>
+              lhs === b(j)
+            case lhs: Seq[_] =>
+              lhs === b(j).asInstanceOf[Seq[_]]
+            case lhs: Array[Byte] =>
+              lhs === b(j)
+            case lhs: Double if lhs.isNaN =>
+              b(j).asInstanceOf[Double].isNaN
+            case lhs: Double =>
+              b(j).asInstanceOf[Double] === lhs
+            case lhs =>
+              lhs === b(j)
+          }
+        })
+      }
   }
 
   val sortInDataframeEquality = false
@@ -64,10 +84,11 @@ trait DataFrameEquality extends Serializable {
         }
 
         if (aList.length != bList.length) {
-          return false
-        }
-        aList.zip(bList).forall { case (rowA, rowB) =>
-          rowA === rowB
+          false
+        } else {
+          aList.zip(bList).forall { case (rowA, rowB) =>
+            rowA === rowB
+          }
         }
     }
   }

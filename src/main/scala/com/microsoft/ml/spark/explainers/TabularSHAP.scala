@@ -26,7 +26,10 @@ class TabularSHAP(override val uid: String)
 
   def setInputCols(values: Array[String]): this.type = this.set(inputCols, values)
 
-  override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
+  override protected def createSamples(df: DataFrame,
+                                       idCol: String,
+                                       coalitionCol: String,
+                                       weightCol: String): DataFrame = {
     val instanceCol = DatasetExtensions.findUnusedColumnName("instance", df)
     val backgroundCol = DatasetExtensions.findUnusedColumnName("background", df)
 
@@ -45,16 +48,15 @@ class TabularSHAP(override val uid: String)
         }
     })
 
+    val infWeightVal = this.getInfWeight
     val samplesUdf = UDFUtils.oldUdf(
       {
         (instance: Row, background: Row) =>
-          val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples)
+          val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples, infWeightVal)
           (1 to effectiveNumSamples) map {
             _ =>
               implicit val randBasis: RandBasis = RandBasis.mt0
               sampler.sample
-          } map {
-            case (sample, state, _) => (sample, state)
           }
       },
       getSampleSchema(sampleType)
@@ -66,8 +68,9 @@ class TabularSHAP(override val uid: String)
       .withColumn(samplesCol, explode(samplesUdf(col(instanceCol), col(backgroundCol))))
       .select(
         col(idCol),
+        expr(s"$samplesCol.$sampleField.*"),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(sampleField).getField("*")
+        col(samplesCol).getField(weightField).alias(weightCol)
       )
   }
 

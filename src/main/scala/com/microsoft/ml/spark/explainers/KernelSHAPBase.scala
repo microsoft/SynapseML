@@ -2,13 +2,11 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark.explainers
-import breeze.linalg.{*, sum, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.explainers.BreezeUtils._
-import com.microsoft.ml.spark.explainers.KernelSHAPBase.kernelWeight
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -53,8 +51,7 @@ abstract class KernelSHAPBase(override val uid: String)
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
     val preprocessed = preprocess(dfWithId).cache()
 
-    val sampleWeightUdf = UDFUtils.oldUdf(kernelWeight(this.getInfWeight) _, DoubleType)
-    val samples = createSamples(preprocessed, idCol, coalitionCol)
+    val samples = createSamples(preprocessed, idCol, coalitionCol, weightCol)
       .repartition()
 
     val scored = getModel.transform(samples)
@@ -63,8 +60,7 @@ abstract class KernelSHAPBase(override val uid: String)
     val coalitionScores = scored
       .withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
       .groupBy(col(idCol), col(coalitionCol))
-      .agg(Summarizer.mean(col(explainTargetCol)).alias(explainTargetCol))
-      .withColumn(weightCol, sampleWeightUdf(col(coalitionCol)))
+      .agg(Summarizer.mean(col(explainTargetCol)).alias(explainTargetCol), mean(weightCol).alias(weightCol))
 
     val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
@@ -103,7 +99,7 @@ abstract class KernelSHAPBase(override val uid: String)
     )
   }
 
-  protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame
+  protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String, weightCol: String): DataFrame
 
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)
@@ -114,11 +110,14 @@ abstract class KernelSHAPBase(override val uid: String)
 
   protected val sampleField = "sample"
   protected val coalitionField = "coalition"
+  protected val weightField = "weight"
+
   protected def getSampleSchema(sampleType: DataType): DataType = {
     ArrayType(
       StructType(Seq(
         StructField(sampleField, sampleType),
-        StructField(coalitionField, VectorType)
+        StructField(coalitionField, VectorType),
+        StructField(weightField, DoubleType)
       ))
     )
   }
@@ -126,17 +125,6 @@ abstract class KernelSHAPBase(override val uid: String)
 }
 
 object KernelSHAPBase {
-  private[explainers] def kernelWeight(infWeight: Double)(coalition: Vector): Double = {
-    val activeSize = sum(coalition.toBreeze)
-    val inactiveSize = coalition.size - activeSize
-
-    if (activeSize == 0 || inactiveSize == 0) {
-      infWeight
-    } else {
-      1.0
-    }
-  }
-
   /**
     * For Kernel SHAP coalition sampling, the number of samples needed should be numFeature + 2 at minimum (otherwise
     * the least squares regression algorithm cannot run). The maximum should be 2^^numFeature.

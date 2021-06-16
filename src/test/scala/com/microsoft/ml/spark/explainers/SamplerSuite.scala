@@ -187,7 +187,7 @@ class SamplerSuite extends TestBase {
 
     val instance = Row.fromSeq(Seq(4d, 5L, "6"))
 
-    val sampler = new KernelSHAPTabularSampler(instance, backgroundRow, numSamples)
+    val sampler = new KernelSHAPTabularSampler(instance, backgroundRow, numSamples, 1E8)
 
     val samples = (1 to numSamples).map {
       _ =>
@@ -218,7 +218,7 @@ class SamplerSuite extends TestBase {
     val background = BDV.rand[Double](5, randBasis.uniform)
     val instance = BDV.rand[Double](5, randBasis.uniform)
 
-    val sampler = new KernelSHAPVectorSampler(instance.toSpark, background.toSpark, numSamples)
+    val sampler = new KernelSHAPVectorSampler(instance.toSpark, background.toSpark, numSamples, 1E8)
 
     val samples = (1 to numSamples).map {
       _ =>
@@ -249,7 +249,7 @@ class SamplerSuite extends TestBase {
 
     val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
 
-    val imageSampler = new KernelSHAPImageSampler(bi, spd, 150)
+    val imageSampler = new KernelSHAPImageSampler(bi, spd, 150, 1E8)
 
     (0 to 1) foreach {
       _ =>
@@ -258,27 +258,22 @@ class SamplerSuite extends TestBase {
         assert(num1 == 0 || num1 == 45)
     }
 
-    (2 to 91) foreach {
+    (2 to 37) foreach {
       _ =>
         val (_, mask, _) = imageSampler.sample
         val num1 = (mask.toBreeze :== 1.0).activeSize
         assert(num1 == 1 || num1 == 44)
     }
 
-    (92 to 148) foreach {
-      i =>
+    (38 to 55) foreach {
+      _ =>
         val (_, mask, _) = imageSampler.sample
         val num1 = (mask.toBreeze :== 1.0).activeSize
-        assert(num1 == 2 || num1 == 43, i)
+        assert(num1 == 2 || num1 == 43)
     }
 
-    val (last, _, _) = imageSampler.sample
-    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(last)
-
-    // No more coalitions can be generated anymore
-    an[NoSuchElementException] shouldBe thrownBy {
-      imageSampler.sample
-    }
+    val (next, _, _) = imageSampler.sample
+    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(next)
 
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
@@ -295,7 +290,7 @@ class SamplerSuite extends TestBase {
     val text = "Lorem ipsum dolor sit amet vivendum principes sadipscing cu has"
     val tokens = text.toLowerCase.split("\\s")
 
-    val textSampler = new KernelSHAPTextSampler(tokens, 150)
+    val textSampler = new KernelSHAPTextSampler(tokens, 150, 1E8)
     val (samples, states) = (1 to 150).map {
       _ =>
         val (sampled, state, _) = textSampler.sample

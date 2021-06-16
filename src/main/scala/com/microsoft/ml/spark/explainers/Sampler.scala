@@ -20,18 +20,9 @@ private[explainers] trait Sampler[TObservation, TState] extends Serializable {
     * Generates a sample based on the specified instance, together with the perturbed state, and
     * distance metric between the generated sample and the original instance.
     */
-  def sample: (TObservation, TState, Double) = {
-    val state = nextState
-    val newSample = createNewSample(instance, state)
-    val distance = getDistance(state)
-    (newSample, state, distance)
-  }
+  def sample: (TObservation, TState, Double)
 
-  def nextState: TState
-
-  def createNewSample(instance: TObservation, state: TState): TObservation
-
-  def getDistance(state: TState): Double
+  protected def createNewSample(instance: TObservation, state: TState): TObservation
 }
 
 private[explainers] case class ImageFormat(origin: Option[String],
@@ -55,16 +46,18 @@ private[explainers] class LIMEImageSampler(val instance: BufferedImage,
                                            val samplingFraction: Double,
                                            val spd: SuperpixelData)
                                           (implicit val randBasis: RandBasis)
-  extends ImageSampler
-    with LIMESamplerSupport {
+  extends LIMEOnOffSampler[BufferedImage]
+    with ImageSampler {
   override def featureSize: Int = spd.clusters.size
 }
 
 private[explainers] class KernelSHAPImageSampler(val instance: BufferedImage,
                                                  val spd: SuperpixelData,
-                                                 val numSamples: Int)
-  extends ImageSampler
-    with KernelSHAPSamplerSupport {
+                                                 val numSamples: Int,
+                                                 val infWeight: Double)
+  extends KernelSHAPSampler[BufferedImage]
+    with KernelSHAPSamplerSupport
+    with ImageSampler {
   override protected def featureSize: Int = spd.clusters.size
 }
 
@@ -79,21 +72,23 @@ private[explainers] trait TextSampler extends Sampler[Seq[String], Vector] {
 
 private[explainers] class LIMETextSampler(val instance: Seq[String], val samplingFraction: Double)
                                          (implicit val randBasis: RandBasis)
-  extends TextSampler
-    with LIMESamplerSupport {
+  extends LIMEOnOffSampler[Seq[String]]
+    with TextSampler {
   override def featureSize: Int = instance.size
 }
 
 private[explainers] class KernelSHAPTextSampler(val instance: Seq[String],
-                                                val numSamples: Int)
-  extends TextSampler
-    with KernelSHAPSamplerSupport {
+                                                val numSamples: Int,
+                                                val infWeight: Double)
+  extends KernelSHAPSampler[Seq[String]]
+    with KernelSHAPSamplerSupport
+    with TextSampler {
   override protected def featureSize: Int = instance.size
 }
 
 private[explainers] class LIMEVectorSampler(val instance: Vector, val featureStats: Seq[FeatureStats[Double]])
                                            (implicit val randBasis: RandBasis)
-  extends Sampler[Vector, Vector] {
+  extends LIMESampler[Vector] {
 
   override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
@@ -125,7 +120,7 @@ private[explainers] class LIMEVectorSampler(val instance: Vector, val featureSta
 
 private[explainers] class LIMETabularSampler(val instance: Row, val featureStats: Seq[FeatureStats[Double]])
                                             (implicit val randBasis: RandBasis)
-  extends Sampler[Row, Vector] {
+  extends LIMESampler[Row] {
 
   override def sample: (Row, Vector, Double) = {
     val (newSample, states, distance) = super.sample
@@ -173,8 +168,9 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
 
 private[explainers] class KernelSHAPTabularSampler(val instance: Row,
                                                    val background: Row,
-                                                   val numSamples: Int)
-  extends Sampler[Row, Vector] with KernelSHAPSamplerSupport {
+                                                   val numSamples: Int,
+                                                   val infWeight: Double)
+  extends KernelSHAPSampler[Row] with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
 
@@ -194,9 +190,9 @@ private[explainers] class KernelSHAPTabularSampler(val instance: Row,
 
 private[explainers] class KernelSHAPVectorSampler(val instance: Vector,
                                                   val background: Vector,
-                                                  val numSamples: Int)
-  extends Sampler[Vector, Vector]
-    with KernelSHAPSamplerSupport {
+                                                  val numSamples: Int,
+                                                  val infWeight: Double)
+  extends KernelSHAPSampler[Vector] with KernelSHAPSamplerSupport {
 
   override protected def featureSize: Int = background.size
 

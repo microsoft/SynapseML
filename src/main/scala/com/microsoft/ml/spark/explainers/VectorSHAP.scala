@@ -28,7 +28,10 @@ class VectorSHAP(override val uid: String)
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
-  override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
+  override protected def createSamples(df: DataFrame,
+                                       idCol: String,
+                                       coalitionCol: String,
+                                       weightCol: String): DataFrame = {
     val instanceCol = DatasetExtensions.findUnusedColumnName("instance", df)
     val backgroundCol = DatasetExtensions.findUnusedColumnName("background", df)
 
@@ -37,18 +40,16 @@ class VectorSHAP(override val uid: String)
       .select(col(getInputCol).alias(backgroundCol))
 
     val numSampleOpt = this.getNumSamplesOpt
-
+    val infWeightVal = this.getInfWeight
     val samplesUdf = UDFUtils.oldUdf(
       {
         (instance: Vector, background: Vector) =>
           val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSampleOpt, instance.size)
-          val sampler = new KernelSHAPVectorSampler(instance, background, effectiveNumSamples)
+          val sampler = new KernelSHAPVectorSampler(instance, background, effectiveNumSamples, infWeightVal)
           (1 to effectiveNumSamples) map {
             _ =>
               implicit val randBasis: RandBasis = RandBasis.mt0
               sampler.sample
-          } map {
-            case (sample, state, _) => (sample, state)
           }
       },
       getSampleSchema(VectorType)
@@ -60,8 +61,9 @@ class VectorSHAP(override val uid: String)
       .withColumn(samplesCol, explode(samplesUdf(col(instanceCol), col(backgroundCol))))
       .select(
         col(idCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(sampleField).alias(getInputCol)
+        col(samplesCol).getField(weightField).alias(weightCol)
       )
   }
 

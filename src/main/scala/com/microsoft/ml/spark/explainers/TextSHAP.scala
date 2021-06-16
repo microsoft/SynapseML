@@ -34,19 +34,21 @@ class TextSHAP(override val uid: String)
 
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
-                                       coalitionCol: String): DataFrame = {
+                                       coalitionCol: String,
+                                       weightCol: String): DataFrame = {
     val numSamplesOpt = this.getNumSamplesOpt
 
+    val infWeightVal = this.getInfWeight
     val samplesUdf = UDFUtils.oldUdf(
       {
         (tokens: Seq[String]) =>
           val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, tokens.size)
-          val sampler = new KernelSHAPTextSampler(tokens, effectiveNumSamples)
+          val sampler = new KernelSHAPTextSampler(tokens, effectiveNumSamples, infWeightVal)
           (1 to effectiveNumSamples).map {
             _ =>
-              val (sampleTokens, features, distance) = sampler.sample
+              val (sampleTokens, features, weight) = sampler.sample
               val sampleText = sampleTokens.mkString(" ")
-              (sampleText, features, distance)
+              (sampleText, features, weight)
           }
       },
       getSampleSchema(StringType)
@@ -57,8 +59,9 @@ class TextSHAP(override val uid: String)
     df.withColumn(samplesCol, explode(samplesUdf(col(getTokensCol))))
       .select(
         col(idCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(sampleField).alias(getInputCol)
+        col(samplesCol).getField(weightField).alias(weightCol)
       )
   }
 

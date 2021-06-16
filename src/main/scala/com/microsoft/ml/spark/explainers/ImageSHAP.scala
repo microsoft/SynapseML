@@ -43,19 +43,21 @@ class ImageSHAP(override val uid: String)
     this(Identifiable.randomUID("ImageSHAP"))
   }
 
-  private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int]): Seq[(ImageFormat, Vector)] = {
+  private def sample(bi: BufferedImage, spd: SuperpixelData, numSamplesOpt: Option[Int], infWeight: Double)
+    : Seq[(ImageFormat, Vector, Double)] = {
     val effectiveNumSamples = KernelSHAPBase.getEffectiveNumSamples(numSamplesOpt, spd.clusters.size)
-    val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples)
+    val sampler = new KernelSHAPImageSampler(bi, spd, effectiveNumSamples, infWeight)
     (1 to effectiveNumSamples).map {
       _ =>
-        val (outputImage, feature, _) = sampler.sample
+        val (outputImage, feature, weight) = sampler.sample
         val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
         val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
-        (imageFormat, feature)
+        (imageFormat, feature, weight)
     }
   }
 
   private lazy val numSampleOpt = this.getNumSamplesOpt
+  private lazy val infWeightVal = this.getInfWeight
 
   private lazy val imageSamplesUdf = {
     UDFUtils.oldUdf(
@@ -63,7 +65,7 @@ class ImageSHAP(override val uid: String)
         (image: Row, sp: Row) =>
           val bi = ImageUtils.toBufferedImage(image)
           val spd = SuperpixelData.fromRow(sp)
-          sample(bi, spd, numSampleOpt)
+          sample(bi, spd, numSampleOpt, infWeightVal)
       },
       getSampleSchema(ImageSchema.columnSchema)
     )
@@ -77,14 +79,17 @@ class ImageSHAP(override val uid: String)
           val spd = SuperpixelData.fromRow(sp)
           biOpt.map {
             bi =>
-              sample(bi, spd, numSampleOpt)
+              sample(bi, spd, numSampleOpt, infWeightVal)
           }.getOrElse(Seq.empty)
       },
       getSampleSchema(ImageSchema.columnSchema)
     )
   }
 
-  override protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String): DataFrame = {
+  override protected def createSamples(df: DataFrame,
+                                       idCol: String,
+                                       coalitionCol: String,
+                                       weightCol: String): DataFrame = {
     val samplingUdf = df.schema(getInputCol).dataType match {
       case BinaryType =>
         this.binarySamplesUdf
@@ -97,8 +102,9 @@ class ImageSHAP(override val uid: String)
     df.withColumn(samplesCol, explode(samplingUdf(col(getInputCol), col(getSuperpixelCol))))
       .select(
         col(idCol),
+        col(samplesCol).getField(sampleField).alias(getInputCol),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(sampleField).alias(getInputCol)
+        col(samplesCol).getField(weightField).alias(weightCol)
       )
   }
 
