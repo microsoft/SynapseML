@@ -21,10 +21,7 @@ import spray.json._
 
 import java.net.URI
 
-abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
-  with HasSetLinkedService {
-
+trait TextAnalyticsInputParams extends HasServiceParams {
   val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
 
   def setTextCol(v: String): this.type = setVectorParam(text, v)
@@ -45,6 +42,12 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
   def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
 
   setDefault(language -> Left(Seq("en")))
+
+}
+
+abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
+  with HasSetLinkedService with TextAnalyticsInputParams {
 
   protected def innerResponseDataType: StructType =
     responseDataType("documents").dataType match {
@@ -335,6 +338,18 @@ class PII(override val uid: String)
   def setDomain(v: String): this.type = setScalarParam(domain, v)
 
   def setPiiCategories(v: Seq[String]): this.type = setScalarParam(piiCategories, v)
+
+  override def responseDataType: StructType = PIIResponseV3.schema
+
+  def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
+}
+
+object PII extends ComplexParamsReadable[PII]
+
+class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("PII"))
 
   override def responseDataType: StructType = PIIResponseV3.schema
 
