@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.core.contracts
 
 import org.apache.spark.ml.param._
 
-
 trait HasInputCol extends Params {
   /** The name of the input column
     *
