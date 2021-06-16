@@ -269,7 +269,7 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
 }
 
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
-  with HTTPParams with HasOutputCol
+  with ConcurrencyParams with HasOutputCol
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
