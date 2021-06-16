@@ -163,7 +163,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies] with Serializable
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
-  with HasOutputCol with BasicLogging {
+  with HasOutputCol with BasicLogging with HasSetEndpointFunc {
   logClass()
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
