@@ -206,3 +206,20 @@ trait HasGroupCol extends Params {
   /** @group getParam */
   def getGroupCol: String = $(groupCol)
 }
+
+trait HasConfidenceScoreCol extends Params {
+  /** The name of the confidence score column
+   *
+   * @group param
+   */
+  val confidenceScoreCol =
+    new Param[String](this, "confidenceScoreCol",
+      "Confidence score, usually a value between 0-1. Higher value implies higher model confidence.")
+
+  /** @group setParam */
+  def setConfidenceScoreCol(value: String): this.type = set(confidenceScoreCol, value)
+
+  /** @group getParam */
+  def getConfidenceScoreCol: String = $(confidenceScoreCol)
+  setDefault(confidenceScoreCol -> "ConfidenceScore")
+}
