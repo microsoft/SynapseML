@@ -275,7 +275,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     })
   }
 
-  override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+  def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
     logFit({
       transformSchema(dataset.schema, logging = true)
       log.info(s"Parallelism: $getParallelism")
