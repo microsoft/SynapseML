@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.stages
 import java.util.concurrent.LinkedBlockingQueue
 
 import com.microsoft.ml.spark.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.ml.spark.io.http.{HTTPParams, SharedSingleton}
+import com.microsoft.ml.spark.io.http.{ConcurrencyParams, SharedSingleton}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -20,7 +20,7 @@ import scala.concurrent.blocking
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
 
 class PartitionConsolidator(val uid: String)
-  extends Transformer with HTTPParams with HasInputCol
+  extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol
     with ComplexParamsWritable with BasicLogging {
   logClass()

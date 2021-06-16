@@ -22,6 +22,7 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -238,7 +239,10 @@ lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
+    libraryDependencies ++= Seq(
+      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+      "com.azure" % "azure-ai-textanalytics" % "5.1.0-beta.7"
+    ),
     resolvers += speechResolver,
     name := "mmlspark-cognitive"
   ): _*)
