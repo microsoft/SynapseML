@@ -17,8 +17,10 @@ import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SparseVector
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 import org.slf4j.Logger
+
+import ConnectionState._
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.ListBuffer
@@ -65,15 +67,6 @@ object LightGBMUtils {
     featurizer.fit(dataset)
   }
 
-  def getBoosterPtrFromModelString(lgbModelString: String): SWIGTYPE_p_void = {
-    val boosterOutPtr = lightgbmlib.voidpp_handle()
-    val numItersOut = lightgbmlib.new_intp()
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
-      "Booster LoadFromString")
-    lightgbmlib.voidpp_value(boosterOutPtr)
-  }
-
   def getCategoricalIndexes(df: DataFrame,
                             featuresCol: String,
                             slotNames: Array[String],
@@ -108,6 +101,53 @@ object LightGBMUtils {
     categoricalColumnIndexes.union(categoricalIndexes).distinct
   }
 
+  def sendDataToExecutors(hostAndPorts: ListBuffer[(Socket, String)], allConnections: String): Unit = {
+    hostAndPorts.foreach(hostAndPort => {
+      val writer = new BufferedWriter(new OutputStreamWriter(hostAndPort._1.getOutputStream))
+      writer.write(allConnections + "\n")
+      writer.flush()
+    })
+  }
+
+  def closeConnections(log: Logger, hostAndPorts: ListBuffer[(Socket, String)],
+                       driverServerSocket: ServerSocket): Unit = {
+    log.info("driver closing all sockets and server socket")
+    hostAndPorts.foreach(_._1.close())
+    driverServerSocket.close()
+  }
+
+  def addSocketAndComm(hostAndPorts: ListBuffer[(Socket, String)], log: Logger,
+                       comm: String, driverSocket: Socket): Unit = {
+    log.info(s"driver received socket from task: $comm")
+    val socketAndComm = (driverSocket, comm)
+    hostAndPorts += socketAndComm
+  }
+
+  /** Handles the connection to a task from the driver.
+    *
+    * @param driverServerSocket The driver socket.
+    * @param log The log4j logger.
+    * @param hostAndPorts A list of host and ports of connected tasks.
+    * @return The connection status, can be finished for barrier mode, empty task or connected.
+    */
+  def handleConnection(driverServerSocket: ServerSocket, log: Logger,
+                       hostAndPorts: ListBuffer[(Socket, String)]): ConnectionState = {
+    log.info("driver accepting a new connection...")
+    val driverSocket = driverServerSocket.accept()
+    val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
+    val comm = reader.readLine()
+    if (comm == LightGBMConstants.FinishedStatus) {
+      log.info("driver received all tasks from barrier stage")
+      Finished
+    } else if (comm == LightGBMConstants.IgnoreStatus) {
+      log.info("driver received ignore status from task")
+      EmptyTask
+    } else {
+      addSocketAndComm(hostAndPorts, log, comm, driverSocket)
+      Connected
+    }
+  }
+
   /**
     * Opens a socket communications channel on the driver, starts a thread that
     * waits for the host:port from the executors, and then sends back the
@@ -134,52 +174,22 @@ object LightGBMUtils {
       val hostAndPorts = ListBuffer[(Socket, String)]()
       if (barrierExecutionMode) {
         log.info(s"driver using barrier execution mode")
-        var finished = false
-        while (!finished) {
-          log.info("driver accepting a new connection...")
-          val driverSocket = driverServerSocket.accept()
-          val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
-          val comm = reader.readLine()
-          if (comm == LightGBMConstants.FinishedStatus) {
-            log.info("driver received all tasks from barrier stage")
-            finished = true
-          } else if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from task")
-          } else {
-            log.info(s"driver received socket from task: $comm")
-            val socketAndComm = (driverSocket, comm)
-            hostAndPorts += socketAndComm
-          }
-        }
+        def connectToWorkers: Boolean = handleConnection(driverServerSocket, log,
+          hostAndPorts) == Finished || connectToWorkers
+        connectToWorkers
       } else {
         log.info(s"driver expecting $numTasks connections...")
         while (hostAndPorts.size + emptyTaskCounter < numTasks) {
-          log.info("driver accepting a new connection...")
-          val driverSocket = driverServerSocket.accept()
-          val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
-          val comm = reader.readLine()
-          if (comm == LightGBMConstants.IgnoreStatus) {
-            log.info("driver received ignore status from task")
-            emptyTaskCounter += 1
-          } else {
-            log.info(s"driver received socket from task: $comm")
-            val socketAndComm = (driverSocket, comm)
-            hostAndPorts += socketAndComm
-          }
+          val connectionResult = handleConnection(driverServerSocket, log, hostAndPorts)
+          if (connectionResult == ConnectionState.EmptyTask) emptyTaskCounter += 1
         }
       }
       // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
       val allConnections = hostAndPorts.map(_._2).mkString(",")
       log.info(s"driver writing back to all connections: $allConnections")
-      // Send data back to all threads on executors
-      hostAndPorts.foreach(hostAndPort => {
-        val writer = new BufferedWriter(new OutputStreamWriter(hostAndPort._1.getOutputStream))
-        writer.write(allConnections + "\n")
-        writer.flush()
-      })
-      log.info("driver closing all sockets and server socket")
-      hostAndPorts.foreach(_._1.close())
-      driverServerSocket.close()
+      // Send data back to all tasks and helper tasks on executors
+      sendDataToExecutors(hostAndPorts, allConnections)
+      closeConnections(log, hostAndPorts, driverServerSocket)
     }
     val host = ClusterUtil.getDriverHost(df)
     val port = driverServerSocket.getLocalPort
@@ -187,11 +197,10 @@ object LightGBMUtils {
     (host, port, f)
   }
 
-  /** Returns an integer ID for the current node.
-    *
-    * @return In cluster, returns the executor id.  In local case, returns the task id.
+  /** Returns an integer ID for the current worker.
+    * @return In cluster, returns the executor id.  In local case, returns the partition id.
     */
-  def getId(): Int = {
+  def getWorkerId(): Int = {
     val executorId = SparkEnv.get.executorId
     val ctx = TaskContext.get
     val partId = ctx.partitionId
@@ -201,14 +210,21 @@ object LightGBMUtils {
     idAsInt
   }
 
-  def generateData(numRows: Int, rowsAsDoubleArray: Array[Array[Double]]):
-  (SWIGTYPE_p_void, SWIGTYPE_p_double) = {
-    val numCols = rowsAsDoubleArray.head.length
-    val data = lightgbmlib.new_doubleArray(numCols.toLong * numRows.toLong)
-    rowsAsDoubleArray.zipWithIndex.foreach(ri =>
-      ri._1.zipWithIndex.foreach(value =>
-        lightgbmlib.doubleArray_setitem(data, (value._2 + (ri._2 * numCols)).toLong, value._1)))
-    (lightgbmlib.double_to_voidp_ptr(data), data)
+  /** Returns true if spark is run in local mode.
+    * @return True if spark is run in local mode.
+    */
+  def isLocalExecution(): Boolean = {
+    val executorId = SparkEnv.get.executorId
+    executorId == "driver"
+  }
+
+  /** Returns a unique task Id for the current task run on the executor.
+    * @return A unique task id.
+    */
+  def getTaskId(): Long = {
+    val ctx = TaskContext.get
+    val taskId = ctx.taskAttemptId()
+    taskId
   }
 
   def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
