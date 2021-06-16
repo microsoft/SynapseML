@@ -44,4 +44,19 @@ object LightGBMConstants {
   /** The default num iterations for prediction
     */
   val DefaultNumIterations: Int = -1
+  /** The number of retries for network initialization of native lightgbm
+    */
+  val NetworkRetries: Int = 3
+  /**
+    * Delay prior to exponential backoff for network initialization
+    */
+  val InitialDelay: Long = 1000L
+}
+
+/**
+  * Connection state of a worker
+  */
+object ConnectionState extends Enumeration {
+  type ConnectionState = Value
+  val Finished, EmptyTask, Connected = Value
 }

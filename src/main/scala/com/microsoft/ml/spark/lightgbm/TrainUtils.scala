@@ -12,7 +12,6 @@ import com.microsoft.ml.spark.downloader.FaultToleranceUtils
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
 import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
 import com.microsoft.ml.spark.lightgbm.params.{ClassifierTrainParams, TrainParams}
-import com.microsoft.ml.spark.lightgbm.swig.SwigUtils
 import org.apache.spark.{BarrierTaskContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
@@ -328,22 +327,15 @@ private object TrainUtils extends Serializable {
                          log: Logger,
                          iters: Int): Boolean = {
     var isFinished = false
-    val isFinishedPtr = lightgbmlib.new_intp()
     try {
-      val result =
         if (trainParams.objectiveParams.fobj.isDefined) {
           val classification = trainParams.isInstanceOf[ClassifierTrainParams]
           val (gradient, hessian) = trainParams.objectiveParams.fobj.get.getGradient(
             booster.innerPredict(0, classification), booster.trainDataset.get)
-          val gradPtr = SwigUtils.floatArrayToNative(gradient)
-          val hessPtr = SwigUtils.floatArrayToNative(hessian)
-          lightgbmlib.LGBM_BoosterUpdateOneIterCustom(booster.boosterHandler.boosterPtr,
-            gradPtr, hessPtr, isFinishedPtr)
+          isFinished = booster.updateOneIterationCustom(gradient, hessian)
         } else {
-          lightgbmlib.LGBM_BoosterUpdateOneIter(booster.boosterHandler.boosterPtr, isFinishedPtr)
+          isFinished = booster.updateOneIteration()
         }
-      LightGBMUtils.validate(result, "Booster Update One Iter")
-      isFinished = lightgbmlib.intp_value(isFinishedPtr) == 1
       log.info("LightGBM running iteration: " + iters + " with is finished: " + isFinished)
     } catch {
       case e: java.lang.Exception =>
@@ -351,8 +343,6 @@ private object TrainUtils extends Serializable {
           " stopping training on task. This message should rarely occur." +
           " Inner exception: " + e.toString)
         isFinished = true
-    } finally {
-      lightgbmlib.delete_intp(isFinishedPtr)
     }
     isFinished
   }
@@ -374,7 +364,7 @@ private object TrainUtils extends Serializable {
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
         learningRate)
       if (newLearningRate != learningRate) {
-        log.info(s"LightGBM task calling LGBM_BoosterResetParameter to reset learningRate" +
+        log.info(s"LightGBM task calling booster.resetParameter to reset learningRate" +
           s" (newLearningRate: $newLearningRate)")
         booster.resetParameter(s"learning_rate=$newLearningRate")
         learningRate = newLearningRate
@@ -521,7 +511,7 @@ private object TrainUtils extends Serializable {
   }
 
   private def findOpenPort(defaultListenPort: Int, numTasksPerExec: Int, log: Logger): Socket = {
-    val basePort = defaultListenPort + (LightGBMUtils.getId() * numTasksPerExec)
+    val basePort = defaultListenPort + (LightGBMUtils.getWorkerId() * numTasksPerExec)
     if (basePort > LightGBMConstants.MaxPort) {
       throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
     }
@@ -645,24 +635,41 @@ private object TrainUtils extends Serializable {
     mainPort.toInt
   }
 
+  /** Retrieve the network nodes and current port information.
+    *
+    * Establish local socket connection.
+    *
+    * Note: Ideally we would start the socket connections in the C layer, this opens us up for
+    * race conditions in case other applications open sockets on cluster, but usually this
+    * should not be a problem
+    *
+    * @param networkParams The network parameters.
+    * @param numTasksPerExec The number of tasks per executor.
+    * @param log The logger.
+    * @param isEnabledWorker True if the current worker is enabled, including whether the partition
+    *                        was enabled and this is the chosen worker to initialize the network connection.
+    * @return A tuple containing the string with all nodes and the current worker's open socket connection.
+    */
+  def getNetworkInfo(networkParams: NetworkParams, numTasksPerExec: Int,
+                     log: Logger, isEnabledWorker: Boolean): (String, Int) = {
+    using(findOpenPort(networkParams.defaultListenPort, numTasksPerExec, log)) {
+      openPort =>
+        val localListenPort = openPort.getLocalPort
+        log.info(s"LightGBM task connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
+        FaultToleranceUtils.retryWithTimeout() {
+          (getNetworkInitNodes(networkParams, localListenPort, log, !isEnabledWorker), localListenPort)
+        }
+    }.get
+  }
+
   def trainLightGBM(batchIndex: Int, networkParams: NetworkParams, columnParams: ColumnParams,
                     validationData: Option[Broadcast[Array[Row]]], log: Logger,
                     trainParams: TrainParams, numTasksPerExec: Int, schema: StructType)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
     val emptyPartition = !inputRows.hasNext
-    // Ideally we would start the socket connections in the C layer, this opens us up for
-    // race conditions in case other applications open sockets on cluster, but usually this
-    // should not be a problem
-    val (nodes, localListenPort) = using(findOpenPort(networkParams.defaultListenPort, numTasksPerExec, log)) {
-      openPort =>
-        val localListenPort = openPort.getLocalPort
-        // Initialize the native library
-        LightGBMUtils.initializeNativeLibrary()
-        log.info(s"LightGBM task connecting to host: ${networkParams.addr} and port: ${networkParams.port}")
-        FaultToleranceUtils.retryWithTimeout() {
-          (getNetworkInitNodes(networkParams, localListenPort, log, emptyPartition), localListenPort)
-        }
-    }.get
+    // Initialize the native library
+    LightGBMUtils.initializeNativeLibrary()
+    val (nodes, localListenPort) = getNetworkInfo(networkParams, numTasksPerExec, log, !emptyPartition)
 
     if (emptyPartition) {
       log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions empty")

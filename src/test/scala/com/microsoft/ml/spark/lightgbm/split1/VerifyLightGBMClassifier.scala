@@ -6,15 +6,14 @@ package com.microsoft.ml.spark.lightgbm.split1
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
-import com.microsoft.ml.lightgbm.SWIGTYPE_p_void
-import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
+import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.ml.spark.featurize.ValueIndexer
 import com.microsoft.ml.spark.lightgbm._
 import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
 import com.microsoft.ml.spark.lightgbm.params.{FObjTrait, TrainParams}
-import com.microsoft.ml.spark.stages.{MultiColumnAdapter, SPConstants, StratifiedRepartition}
+import com.microsoft.ml.spark.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
