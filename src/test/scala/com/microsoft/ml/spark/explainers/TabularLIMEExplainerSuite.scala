@@ -63,7 +63,12 @@ class TabularLIMEExplainerSuite extends TestBase
 
     val predicted = model.transform(infer)
 
-    val (weights, r2) = lime.transform(predicted).select("weights", "r2").as[(Seq[Vector], Vector)].head
+    val (weights, r2) = lime
+      .transform(predicted)
+      .select("weights", "r2")
+      .as[(Seq[Vector], Vector)]
+      .head
+
     assert(weights.size == 2)
     assert(r2.size == 2)
 

@@ -44,18 +44,23 @@ class VectorLIMEExplainerSuite extends TestBase
 
   val lime: VectorLIME = LocalExplainer.LIME.vector
     .setModel(model)
+    .setBackgroundData(df)
     .setInputCol("features")
     .setTargetCol(model.getPredictionCol)
     .setOutputCol("weights")
     .setNumSamples(1000)
-    .setBackgroundData(df)
 
   test("VectorLIME can explain a model locally") {
 
     val predicted = model.transform(df)
-    val weights = lime.transform(predicted).select("weights", "r2").as[(Seq[Vector], Vector)].collect().map {
-      case (m, _) => m.head.toBreeze
-    }
+    val weights = lime
+      .transform(predicted)
+      .select("weights", "r2")
+      .as[(Seq[Vector], Vector)]
+      .collect()
+      .map {
+        case (m, _) => m.head.toBreeze
+      }
 
     val weightsMatrix = BDM(weights: _*)
     weightsMatrix(*, ::).foreach {

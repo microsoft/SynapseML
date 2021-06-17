@@ -20,7 +20,9 @@ trait DataFrameEquality extends Serializable {
 
   @transient implicit lazy val dvEq: Equality[DenseVector] = (a: DenseVector, b: Any) => b match {
     case bArr: DenseVector =>
-      a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
+      a.values.zip(bArr.values).forall {
+        case (x, y) => (x.isNaN && y.isNaN) || doubleEq.areEqual(x, y)
+      }
   }
 
   @transient implicit lazy val seqEq: Equality[Seq[_]] = new Equality[Seq[_]] {
@@ -99,9 +101,9 @@ trait DataFrameEquality extends Serializable {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(10)
+      df1.show(100, false)
       println("df2:")
-      df2.show(10)
+      df2.show(100, false)
     }
     assert(result)
   }
@@ -135,4 +137,6 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
         throw new AssertionError("Values did not have DataFrame type")
     }
   }
+
+  override val sortInDataframeEquality: Boolean = true
 }

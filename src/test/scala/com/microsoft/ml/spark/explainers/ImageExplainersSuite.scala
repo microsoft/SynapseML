@@ -45,8 +45,8 @@ abstract class ImageExplainersSuite extends TestBase with NetworkUtils {
     .setSuperpixelCol("superpixels")
     .setMetricsCol("r2")
     .setInputCol("image")
-    .setCellSize(100)
-    .setModifier(20)
+    .setCellSize(120.0)
+    .setModifier(20.0)
     .setNumSamples(3)
 
   lazy val greyhoundImageLocation: String = {
@@ -138,7 +138,6 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     // Superpixel.displayImage(censoredImage)
     // Thread.sleep(100000)
   }
-
 
   override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, imageDf))
 
