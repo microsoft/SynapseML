@@ -275,14 +275,14 @@ class VowpalWabbitContextualBandit(override val uid: String)
     })
   }
 
-  override def fit(dataset: Dataset[_], paramMaps: Array[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
+  override def fit(dataset: Dataset[_], paramMaps: Seq[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
     logFit({
       transformSchema(dataset.schema, logging = true)
       log.info(s"Parallelism: $getParallelism")
 
       // Create execution context based on $(parallelism)
       val executionContext = getExecutionContextProxy
-      val modelFutures = paramMaps.zipWithIndex.map { case (paramMap, paramIndex) =>
+      val modelFutures = paramMaps.toArray.zipWithIndex.map { case (paramMap, paramIndex) =>
         Future[VowpalWabbitContextualBanditModel] {
           log.info(s"Future $paramIndex started with params: $paramMap")
           val result = fit(dataset, paramMap)

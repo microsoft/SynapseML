@@ -205,7 +205,10 @@ class FlattenBatch(val uid: String)
     logTransform[DataFrame]({
       dataset.toDF().mapPartitions(it =>
         it.flatMap { rowOfLists =>
-          val transposed = transpose((0 until rowOfLists.length).map(rowOfLists.getSeq))
+          val transposed = transpose(
+            (0 until rowOfLists.length)
+              .filterNot(rowOfLists.isNullAt)
+              .map(rowOfLists.getSeq))
           transposed.map(Row.fromSeq)
         }
       )(RowEncoder(transformSchema(dataset.schema)))
