@@ -160,7 +160,6 @@ case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) 
   }
 }
 
-
 /** Defines parameters related to the lightgbm objective function.
   *
   * @param objective The Objective. For regression applications, this can be:
