@@ -5,7 +5,8 @@ package com.microsoft.ml.spark.lightgbm.split2
 
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.ml.spark.lightgbm.TrainUtils.CardinalityTypes._
+import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.CardinalityTypes._
+import com.microsoft.ml.spark.lightgbm.dataset.{DatasetUtils => CardinalityUtils}
 import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
 import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils, TrainUtils}
 import org.apache.spark.SparkException
@@ -128,13 +129,13 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   }
 
   test("verify cardinality counts: int") {
-    val counts = TrainUtils.countCardinality(Seq(1, 1, 2, 2, 2, 3))
+    val counts = CardinalityUtils.countCardinality(Seq(1, 1, 2, 2, 2, 3))
 
     counts shouldBe Seq(2, 3, 1)
   }
 
   test("verify cardinality counts: string") {
-    val counts = TrainUtils.countCardinality(Seq("a", "a", "b", "b", "b", "c"))
+    val counts = CardinalityUtils.countCardinality(Seq("a", "a", "b", "b", "b", "c"))
 
     counts shouldBe Seq(2, 3, 1)
   }
