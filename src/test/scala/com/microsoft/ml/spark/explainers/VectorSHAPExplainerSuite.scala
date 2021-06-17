@@ -125,12 +125,10 @@ class VectorSHAPExplainerSuite extends TestBase
 
     (actual zip expected) foreach {
       case (left, right) =>
-        assert(left._1 === right._1)
+        assert(left._1.toDense === right._1.toDense)
         assert(left._2 === right._2)
     }
   }
-
-
 
   override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
