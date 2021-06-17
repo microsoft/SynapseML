@@ -48,7 +48,7 @@ class TabularLIME(override val uid: String)
 
     val featureStats = this.createFeatureStats(this.getBackgroundData)
 
-    val sampleType = StructType(this.getInputCols.map(StructField(_, DoubleType)))
+    val sampleType = this.getSampleType(df.schema)
 
     val samplesUdf = UDFUtils.oldUdf(
       {
@@ -57,7 +57,6 @@ class TabularLIME(override val uid: String)
           val sampler = new LIMETabularSampler(row, featureStats)
           (1 to numSamples).map {
             _ =>
-
               val (sample, feature, distance) = sampler.sample
               (sample, feature, distance)
           }
@@ -76,21 +75,29 @@ class TabularLIME(override val uid: String)
       )
   }
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
-    import df.sparkSession.implicits._
+  private def getSampleType(inputSchema: StructType) = {
+    val fields = this.getInputCols map {
+      case c if getCategoricalFeatures.contains(c) =>
+        inputSchema(c)
+      case c =>
+        StructField(c, DoubleType)
+    }
 
+    StructType(fields)
+  }
+
+  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[_]] = {
     val categoryFeatures = this.getInputCols.filter(this.getCategoricalFeatures.contains)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
-
+    val countCol = DatasetExtensions.findUnusedColumnName("count", df)
     val maxFeatureMembers: Int = 1000
     val categoryFeatureStats = categoryFeatures.par.map {
       feature =>
-        val freqMap = df.select(col(feature).cast(DoubleType).alias(feature))
-          .groupBy(feature)
-          .agg(count("*").cast(DoubleType).alias("count"))
-          .sort(col("count").desc)
-          .as[(Double, Double)]
+        val freqMap = df.groupBy(feature)
+          .agg(count("*").cast(DoubleType).alias(countCol))
+          .sort(col(countCol).desc)
           .head(maxFeatureMembers)
+          .map(row => (row.get(0), row.getDouble(1)))
           .toMap
 
         (feature, DiscreteFeatureStats(freqMap))
@@ -118,7 +125,7 @@ class TabularLIME(override val uid: String)
   override protected def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    this.getInputCols.foreach {
+    this.getInputCols.filterNot(this.getCategoricalFeatures.contains).foreach {
       inputCol =>
         require(
           schema(inputCol).dataType.isInstanceOf[NumericType],

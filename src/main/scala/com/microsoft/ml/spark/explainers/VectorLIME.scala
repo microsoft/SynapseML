@@ -58,7 +58,7 @@ class VectorLIME(override val uid: String)
       )
   }
 
-  private def createFeatureStats(df: DataFrame): Seq[FeatureStats[Double]] = {
+  private def createFeatureStats(df: DataFrame): Seq[ContinuousFeatureStats] = {
     val Row(std: Vector) = df
       .select(Summarizer.metrics("std").summary(col($(inputCol))).as("summary"))
       .select("summary.std")

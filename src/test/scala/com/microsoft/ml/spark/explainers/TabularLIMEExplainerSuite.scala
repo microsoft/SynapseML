@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler}
+import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
@@ -133,32 +133,30 @@ class TabularLIMEExplainerSuite extends TestBase
 
   test("TabularLIME can explain a model locally with categorical variables") {
     val data = Seq(
-      (1, 0),
-      (2, 0),
-      (3, 1),
-      (4, 1)
-    ) toDF("col1", "label")
+      ("US", "M", 0),
+      ("US", "F", 0),
+      ("GB", "M", 1),
+      ("GB", "F", 1)
+    ) toDF("col1", "col2", "label")
 
-    val encoder = new OneHotEncoder().setInputCol("col1").setOutputCol("col1_enc")
-    val classifier = new LogisticRegression()
-      .setLabelCol("label")
-      .setFeaturesCol("col1_enc")
+    val indexer = new StringIndexer().setInputCols(Array("col1", "col2")).setOutputCols(Array("col1_idx", "col2_idx"))
+    val encoder = new OneHotEncoder()
+      .setInputCols(Array("col1_idx", "col2_idx"))
+      .setOutputCols(Array("col1_enc", "col2_enc"))
+    val assembler = new VectorAssembler().setInputCols(Array("col1_enc", "col2_enc")).setOutputCol("features")
+    val classifier = new LogisticRegression().setLabelCol("label").setFeaturesCol("features")
 
-    val pipeline = new Pipeline().setStages(Array(encoder, classifier))
+    val pipeline = new Pipeline().setStages(Array(indexer, encoder, assembler, classifier))
     val model = pipeline.fit(data)
 
     val infer = Seq(
-      Tuple1(1),
-      Tuple1(2),
-      Tuple1(3),
-      Tuple1(4)
-    ) toDF "col1"
-
-    val predicted = model.transform(infer)
+      ("GB", "M"),
+      ("US", "F")
+    ) toDF ("col1", "col2")
 
     val lime = LocalExplainer.LIME.tabular
-      .setInputCols(Array("col1"))
-      .setCategoricalFeatures(Array("col1"))
+      .setInputCols(Array("col1", "col2"))
+      .setCategoricalFeatures(Array("col1", "col2"))
       .setOutputCol("weights")
       .setBackgroundData(data)
       .setNumSamples(1000)
@@ -166,23 +164,17 @@ class TabularLIMEExplainerSuite extends TestBase
       .setTargetCol("probability")
       .setTargetClasses(Array(1))
 
-    val weights = lime.transform(predicted)
+    val weights = lime.transform(infer)
 
-    // weights.show(false)
+    val results = weights.select("col1", "col2", "weights").as[(String, String, Seq[Vector])].collect()
 
-    val results = weights.select("col1", "weights").as[(Int, Seq[Vector])].collect()
-      .map(r => (r._1, r._2.head.toBreeze(0)))
-      .toMap
+    val col1Results = results.map(r => (r._1, r._3.head.toBreeze(0))).toMap
+    val col2Results = results.map(r => (r._2, r._3.head.toBreeze(1))).toMap
 
-    // Assuming local linear behavior:
-    // col1 == 1 reduces the model output by more than 60% compared to model not knowing about col1
-    assert(results(1) < -0.6)
-    // col1 == 2 reduces the model output by more than 60% compared to model not knowing about col1
-    assert(results(2) < -0.6)
-    // col1 == 3 increases the model output by more than 60% compared to model not knowing about col1
-    assert(results(3) > 0.6)
-    // col1 == 4 increases the model output by more than 60% compared to model not knowing about col1
-    assert(results(3) > 0.6)
+    assert(col1Results("GB") === 1.0)
+    assert(col1Results("US") === -1.0)
+    assert(col2Results("M") === 0.0)
+    assert(col2Results("F") === 0.0)
   }
 
 

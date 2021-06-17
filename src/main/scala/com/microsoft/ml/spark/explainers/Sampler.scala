@@ -86,22 +86,26 @@ private[explainers] class KernelSHAPTextSampler(val instance: Seq[String],
   override protected def featureSize: Int = instance.size
 }
 
-private[explainers] class LIMEVectorSampler(val instance: Vector, val featureStats: Seq[FeatureStats[Double]])
+private[explainers] class LIMEVectorSampler(val instance: Vector, val featureStats: Seq[ContinuousFeatureStats])
                                            (implicit val randBasis: RandBasis)
   extends LIMESampler[Vector] {
 
   override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
       case (feature, i) =>
-        val value = instance(i)
-        feature.sample(value)
+        feature.getRandomState(instance(i))
     }
 
     Vectors.dense(states.toArray)
   }
 
   override def createNewSample(instance: Vector, state: Vector): Vector = {
-    state
+    val values: Seq[Double] = featureStats.zip(state.toArray).map {
+      case (feature, s) =>
+        feature.sample(s)
+    }
+
+    Vectors.dense(values.toArray)
   }
 
   override def getDistance(state: Vector): Double = {
@@ -111,25 +115,27 @@ private[explainers] class LIMEVectorSampler(val instance: Vector, val featureSta
 
     val distances = featureStats.zipWithIndex.map {
       case (feature, i) =>
-        feature.getDistance(instance(i), state(i))
+        val value = instance(i)
+        val sample = feature.sample(state(i))
+        feature.getDistance(value, sample)
     }
 
     norm(BDV(distances: _*), 2) / math.sqrt(n)
   }
 }
 
-private[explainers] class LIMETabularSampler(val instance: Row, val featureStats: Seq[FeatureStats[Double]])
+private[explainers] class LIMETabularSampler(val instance: Row, val featureStats: Seq[FeatureStats[_]])
                                             (implicit val randBasis: RandBasis)
   extends LIMESampler[Row] {
 
   override def sample: (Row, Vector, Double) = {
     val (newSample, states, distance) = super.sample
 
-    val originalValues = (0 until instance.size).map(instance.getAsDouble)
+    val originalValues = (0 until instance.size).map(instance.get)
 
     // For categorical features, set state to 1 if it matches with original instance, otherwise set to 0.
     val newStates = (featureStats, states.toArray, originalValues).zipped map {
-      case (_: DiscreteFeatureStats, state, orig) => if (state == orig) 1d else 0d
+      case (f: DiscreteFeatureStats[_], state, orig) => if (f.sample(state) == orig) 1d else 0d
       case (_, state, _) => state
     }
 
@@ -138,28 +144,38 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
 
   override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
+      case (feature: DiscreteFeatureStats[Any], i) =>
+        feature.getRandomState(instance.get(i))
       case (feature, i) =>
-        val value = instance.getAsDouble(i)
-        feature.sample(value)
+        feature.asInstanceOf[ContinuousFeatureStats]
+          .getRandomState(instance.getAsDouble(i))
     }
 
     Vectors.dense(states.toArray)
   }
 
   override def createNewSample(instance: Row, state: Vector): Row = {
-    Row.fromSeq(state.toArray)
+    val values = featureStats.zip(state.toArray).map {
+      case (feature, s) =>
+        feature.sample(s)
+    }
+
+    Row.fromSeq(values)
   }
 
   override def getDistance(state: Vector): Double = {
     // Set distance to normalized Euclidean distance
-
     val n = featureStats.size
 
     val distances = featureStats.zipWithIndex.map {
+      case (feature: DiscreteFeatureStats[Any], i) =>
+        val value = instance.get(i)
+        val sample = feature.sample(state(i))
+        feature.getDistance(value, sample)
       case (feature, i) =>
+        val cf = feature.asInstanceOf[ContinuousFeatureStats]
         val value = instance.getAsDouble(i)
-        val s = state(i)
-        feature.getDistance(value, s)
+        cf.getDistance(value, cf.sample(state(i)))
     }
 
     norm(BDV(distances: _*), 2) / math.sqrt(n)

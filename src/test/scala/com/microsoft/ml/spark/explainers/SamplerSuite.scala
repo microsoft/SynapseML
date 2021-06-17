@@ -30,7 +30,8 @@ class SamplerSuite extends TestBase {
     val featureStats = ContinuousFeatureStats(1.5)
     val (samples, distances) = (1 to 1000).map {
       _ =>
-        val sample = featureStats.sample(3.0)
+        val state = featureStats.getRandomState(3.0)
+        val sample = featureStats.sample(state)
         val distance = featureStats.getDistance(3.0, sample)
         (sample, distance)
     }.unzip
@@ -50,7 +51,8 @@ class SamplerSuite extends TestBase {
 
     val (samples, distances) = (1 to 1000).map {
       _ =>
-        val sample = featureStats.sample(3.0)
+        val state = featureStats.getRandomState(3.0)
+        val sample = featureStats.sample(state)
         val distance = featureStats.getDistance(3.0, sample)
         (sample, distance)
     }.unzip
@@ -67,25 +69,21 @@ class SamplerSuite extends TestBase {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
     val featureStats = Seq(
       ContinuousFeatureStats(5.3),
-      DiscreteFeatureStats(Map(2d -> 60d, 1d -> 900d, 3d -> 40d))
+      ContinuousFeatureStats(1.5)
     )
 
-    val sampler = new LIMEVectorSampler(Vectors.dense(3.2, 1.0), featureStats)
+    val sampler = new LIMEVectorSampler(Vectors.dense(15.2, 1.0), featureStats)
     val (samples, _, distances) = (1 to 1000).map {
       _ => sampler.sample
     }.unzip3
 
     val sampleMatrix = BDM(samples.map(_.toBreeze): _*)
 
-//    println(mean(sampleMatrix(::, 0)))
-//    println(stddev(sampleMatrix(::, 0)))
+    assert(mean(sampleMatrix(::, 0)) === 15.24238095323594)
+    assert(stddev(sampleMatrix(::, 0)) === 5.362969946915462)
 
-    assert(mean(sampleMatrix(::, 0)) === 2.9636538120292903)
-    assert(stddev(sampleMatrix(::, 0)) === 5.3043309761267565)
-
-    assert(sampleMatrix(::, 1).findAll(_ == 1d).size == 883)
-    assert(sampleMatrix(::, 1).findAll(_ == 2d).size == 71)
-    assert(sampleMatrix(::, 1).findAll(_ == 3d).size == 46)
+    assert(mean(sampleMatrix(::, 1)) === 1.018507479024409)
+    assert(stddev(sampleMatrix(::, 1)) === 1.4940793291730479)
 
     assert(distances.forall(_ > 0d))
   }
@@ -114,9 +112,6 @@ class SamplerSuite extends TestBase {
 
     val statesMatrix = BDM(states: _*)
 
-//    println(mean(sampleMatrix(::, 0)))
-//    println(stddev(sampleMatrix(::, 0)))
-
     assert(mean(sampleMatrix(::, 0)) === 2.9636538120292903)
     assert(stddev(sampleMatrix(::, 0)) === 5.3043309761267565)
 
@@ -129,6 +124,10 @@ class SamplerSuite extends TestBase {
     // For categorical variables, the state should be 1 if the sample is same as original, otherwise 0.
     assert(statesMatrix(::, 1).findAll(_ == 1d).size == 883)
     assert(statesMatrix(::, 1).findAll(_ != 1d).size == 117)
+
+    // For continuous variables, the state should match with sample.
+    assert(mean(statesMatrix(::, 0)) === 2.9636538120292903)
+    assert(stddev(statesMatrix(::, 0)) === 5.3043309761267565)
   }
 
   test("LIMEImageSampler can draw samples") {
