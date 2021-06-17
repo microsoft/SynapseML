@@ -8,11 +8,15 @@ import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.stages.UDFTransformer
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.avg
+import org.apache.spark.sql.functions.{avg, exp}
+import org.apache.spark.sql.types.DoubleType
 import org.scalactic.{Equality, TolerantNumerics}
 
 class VectorSHAPExplainerSuite extends TestBase
@@ -81,6 +85,52 @@ class VectorSHAPExplainerSuite extends TestBase
     // R-squared of the underlying regression should be close to 1.
     assert(r2(0) === 1d)
   }
+
+  test("VectorKernelSHAP explanation agrees with the shap library") {
+    // The following function was tested with the shap library from https://github.com/slundberg/shap
+    // with KernelExplainer, and the results should agree.
+    val predictUdf = UDFUtils.oldUdf({
+      vec: Vector =>
+        val (x, y, z) = (vec(0), vec(1), vec(2))
+        2 * x + 0.5 * y + 3 * z + 21 - 3 * x * y + 6 * x * z - 12 * x * y * z
+    }, DoubleType)
+
+    val model = new UDFTransformer()
+      .setInputCol("inputs")
+      .setOutputCol("output")
+      .setUDF(predictUdf)
+
+    val backgroundData = (0 until 100, 0 until 100, 0 until 100).zipped.toList
+    val testData = (0 until 5, 0 until 5, 0 until 5).zipped.toList
+
+    val assembler = new VectorAssembler().setInputCols(Array("x", "y", "z")).setOutputCol("inputs")
+    val backgroundDf = assembler.transform(backgroundData.toDF("x", "y", "z"))
+    val testDf = assembler.transform(testData.toDF("x", "y", "z"))
+
+    val shap = LocalExplainer.KernelSHAP.vector.setInputCol("inputs").setOutputCol("shaps").setTargetCol("output")
+      .setNumSamples(1000).setBackgroundData(backgroundDf).setModel(model)
+
+    val actual: Seq[(Vector, Double)] = shap.transform(testDf).orderBy("x").collect()
+      .map {
+        row => (row.getAs[Seq[Vector]]("shaps").head, row.getAs[Vector]("r2")(0))
+      }
+
+    val expected: Seq[(Vector, Double)] = Seq(
+      (Vectors.dense(-2930156.233697835, 975075.748907683, 985000.4989126588, 970100.9989126584), 1d),
+      (Vectors.dense(-2930156.233961462, 975075.2489613278, 984995.4989522084, 970102.9989488379), 1d),
+      (Vectors.dense(-2930156.234228749, 975053.7490012379, 984963.4989934831, 970086.9989931463), 1d),
+      (Vectors.dense(-2930156.2344993753, 974987.249043968, 984880.4990304362, 970028.9990351569), 1d),
+      (Vectors.dense(-2930156.234773022, 974851.749075277, 984722.4990798673, 969904.999072391), 1d)
+    )
+
+    (actual zip expected) foreach {
+      case (left, right) =>
+        assert(left._1 === right._1)
+        assert(left._2 === right._2)
+    }
+  }
+
+
 
   override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
