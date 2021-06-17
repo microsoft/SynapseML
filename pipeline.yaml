@@ -280,7 +280,7 @@ jobs:
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
-    - bash: curl https://archive.apache.org/dist/spark/spark-3.0.1/spark-3.0.1-bin-hadoop3.2.tgz -o spark-3.0.1-bin-hadoop3.2.tgz
+    - bash: curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
       displayName: Download spark
     - task: AzureCLI@1
       displayName: 'Test R Code'
