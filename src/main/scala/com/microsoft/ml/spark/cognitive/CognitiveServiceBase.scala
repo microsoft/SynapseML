@@ -229,18 +229,6 @@ trait HasSetLocation extends Wrappable {
   def setLocation(v: String): this.type
 }
 
-trait HasSetEndpointFunc extends Wrappable {
-  override def pyAdditionalMethods: String = {
-    """
-      |def setEndpointFunc(self, func, value):
-      |    self._java_obj = self._java_obj.setEndpointFunc(func, value)
-      |    return self
-      |""".stripMargin
-  }
-
-  def setEndpointFunc(endpointFunc: String => String, args: String): this.type
-}
-
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with HTTPParams with HasOutputCol
   with HasURL with ComplexParamsWritable

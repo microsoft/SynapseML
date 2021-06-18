@@ -172,7 +172,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies] with Serializable
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
-  with HasOutputCol with BasicLogging with HasSetEndpointFunc {
+  with HasOutputCol with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
@@ -212,6 +212,14 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     val s1 = timeSeries.zipWithIndex.sortBy(r => r._1.getString(0))
     val s2 = s1.map(s => context(s._2))
     Row(s1.map(_._1), s2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setEndpointFunc(self, func, value):
+      |    self._java_obj = self._java_obj.setEndpointFunc(func, value)
+      |    return self
+      |""".stripMargin
   }
 
   private def formatResultsFunc(): (Row, Int) => Seq[Row] = {
