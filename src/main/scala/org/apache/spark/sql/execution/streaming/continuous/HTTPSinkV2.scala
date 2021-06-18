@@ -13,7 +13,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.catalog.{SupportsWrite, Table, TableCapability}
 import org.apache.spark.sql.connector.write.streaming.{StreamingDataWriterFactory, StreamingWrite}
 import org.apache.spark.sql.connector.write._
-import org.apache.spark.sql.internal.connector.{SimpleTableProvider, SupportsStreamingUpdate}
+import org.apache.spark.sql.internal.connector.{SimpleTableProvider, SupportsStreamingUpdateAsAppend}
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -38,12 +38,10 @@ object HTTPSinkTable extends Table with SupportsWrite {
   }
 
   override def newWriteBuilder(info: LogicalWriteInfo): WriteBuilder = {
-    new WriteBuilder with SupportsTruncate with SupportsStreamingUpdate {
+    new WriteBuilder with SupportsTruncate with SupportsStreamingUpdateAsAppend {
       private val inputSchema: StructType = info.schema()
 
       override def truncate(): WriteBuilder = this
-
-      override def update(): WriteBuilder = this
 
       override def buildForStreaming(): StreamingWrite = {
         assert(inputSchema != null)

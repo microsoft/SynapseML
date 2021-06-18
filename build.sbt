@@ -13,7 +13,7 @@ val condaEnvName = "mmlspark"
 name := "mmlspark"
 organization := "com.microsoft.ml.spark"
 scalaVersion := "2.12.10"
-val sparkVersion = "3.0.1"
+val sparkVersion = "3.1.2"
 
 //val scalaMajorVersion  = settingKey[String]("scalaMajorVersion")
 //scalaMajorVersion  := {scalaVersion.value.split(".".toCharArray).dropRight(0).mkString(".")}
