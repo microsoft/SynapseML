@@ -1,20 +1,23 @@
 package com.microsoft.ml.spark.cognitive
 
-import com.azure.ai.textanalytics.models.TextAnalyticsRequestOptions
+import com.azure.ai.textanalytics.models.{SentenceSentiment, SentimentConfidenceScores, TextAnalyticsRequestOptions}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DataTypes, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import com.azure.ai.textanalytics.models
 
+import java.net.URI
 import scala.collection.JavaConverters._
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
@@ -118,7 +121,68 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
     }
 }
 
+object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
+class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+                                     override val uid: String = randomUID("TextSentimentV4"))
+  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
+    with HasConfidenceScoreCol {
+    logClass()
+
+  // Country Hint
+  final val countryHintCol: Param[String] = new Param[String](this, "countryHintCol", "country hint column name")
+
+  final def getCountryHintCol: String = $(countryHintCol)
+
+  final def setCountryHintCol(value: String): this.type = set(countryHintCol, value)
+  setDefault(countryHintCol -> "CountryHint")
+
+  override def outputSchema: StructType = SentimentResponseV4.schema
+  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4]= (text: String) =>{
+
+  val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
+      Seq(text).asJava, null, textAnalyticsOptions.orNull)
+    val textSentimentResult = textSentimentResultCollection.asScala.head
+
+      System.out.printf("Document ID: %s%n", textSentimentResult.getId());
+    val documentSentiment = textSentimentResult.getDocumentSentiment();
+    val sentimentResult = if (textSentimentResult.isError) {
+     None
+
+ } else {
+    Some(SentimentScoredDocumentV4(
+      documentSentiment.getSentiment().toString,
+      SentimentConfidenceScoreV4(
+        documentSentiment.getConfidenceScores().getNegative,
+        documentSentiment.getConfidenceScores().getNeutral,
+        documentSentiment.getConfidenceScores().getPositive)))
+
+     //documentSentiment.getSentences
+
+//     sentenceSentiment.getSentiment(),
+//     sentenceSentiment.getConfidenceScores().getPositive(),
+//     sentenceSentiment.getConfidenceScores().getNeutral(),
+//     sentenceSentiment.getConfidenceScores().getNegative())
+
+    }
+    val error = if(textSentimentResult.isError){
+      val error = textSentimentResult.getError
+      Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))
+    } else {
+      None
+    }
+    val stats = Option(textSentimentResult.getStatistics) match {
+      case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+      case None => None
+    }
+    TAResponseV4[SentimentScoredDocumentV4](
+      sentimentResult,
+      error,
+      stats,
+      Some(textSentimentResultCollection.getModelVersion))
+  }
+}
 object DetectLanguageResponseV4 extends SparkBindings[TAResponseV4[DetectedLanguageV4]]
+object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
 case class TAResponseV4[T](result: Option[T],
                            error: Option[TAErrorV4],
@@ -129,3 +193,14 @@ case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
 case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
 
+case class SentimentScoredDocumentV4(sentiment: String,
+                                     confidenceScores: SentimentConfidenceScoreV4)
+                                    // sentences: SentenceSentiment)
+
+//case class SentimentSentenceV4(text: Option[String],
+//                    sentiment: String,
+//                    confidenceScores: SentimentConfidenceScores,
+//                    offset: Int,
+//                    length: Int)
+//
+case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
