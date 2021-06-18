@@ -1,6 +1,6 @@
 package com.microsoft.ml.spark.cognitive
 
-import com.azure.ai.textanalytics.models.TextAnalyticsRequestOptions
+import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
@@ -128,4 +128,61 @@ case class TAResponseV4[T](result: Option[T],
 case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
 case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
+
+object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
+
+class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+                                     override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
+  extends TextAnalyticsSDKBase[ExtractedKeyphraseV3](textAnalyticsOptions)
+    with HasConfidenceScoreCol {
+  logClass()
+
+  override def outputSchema: StructType =  KeyPhraseResponseV3.schema
+
+  override protected val invokeTextAnalytics: String => TAResponseV4[ExtractedKeyphraseV3] = (text: String) =>
+  {
+    val ExtractKeyPhrasesResultCollection = textAnalyticsClient.extractKeyPhrasesBatch(
+      Seq(text).asJava, "english", textAnalyticsOptions.orNull)
+    val tester = 5
+    val keyPhraseExtractionResult = ExtractKeyPhrasesResultCollection.asScala.head
+
+
+    val keyphraseResult = if (keyPhraseExtractionResult.isError) {
+      None
+    } else {
+      Some(ExtractedKeyphraseV3(
+        keyPhraseExtractionResult.getKeyPhrases()))
+    }
+
+    val error = if (keyPhraseExtractionResult.isError) {
+      val error = keyPhraseExtractionResult.getError
+      Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))
+    } else {
+      None
+    }
+
+    val stats = Option(keyPhraseExtractionResult.getStatistics) match {
+      case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+      case None => None
+    }
+
+    TAResponseV4[ExtractedKeyphraseV3](
+      keyphraseResult,
+      error,
+      stats,
+      Some(ExtractKeyPhrasesResultCollection.getModelVersion))
+  }
+}
+
+
+//object KeyPhraseResponseV3 extends SparkBindings[TAResponseV3[ExtractedKeyphraseV3]]
+
+case class TAResponseV3[T](result: Option[T],
+                           error: Option[TAErrorV4],
+                           statistics: Option[DocumentStatistics],
+                           modelVersion: Option[String])
+
+//case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
+
+case class ExtractedKeyphraseV3(keyPhrases: KeyPhrasesCollection)
 
