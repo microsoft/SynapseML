@@ -11,40 +11,62 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
 import org.scalactic.{Equality, TolerantNumerics}
 
+import scala.reflect.ClassTag
+
 
 trait DataFrameEquality extends Serializable {
   val epsilon = 1e-4
   @transient implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
 
-  @transient implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
-    def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr: DenseVector =>
-        a.values.zip(bArr.values).forall { case (x, y) => doubleEq.areEqual(x, y) }
+  @transient implicit lazy val dvEq: Equality[DenseVector] = (a: DenseVector, b: Any) => b match {
+    case bArr: DenseVector =>
+      a.values.zip(bArr.values).forall {
+        case (x, y) => (x.isNaN && y.isNaN) || doubleEq.areEqual(x, y)
+      }
+  }
+
+  @transient implicit lazy val seqEq: Equality[Seq[_]] = new Equality[Seq[_]] {
+    override def areEqual(a: Seq[_], b: Any): Boolean = {
+      b match {
+        case bSeq: Seq[_] =>
+          a.zip(bSeq).forall {
+            case (lhs, rhs) =>
+              lhs.getClass match {
+                case c if c == classOf[DenseVector] =>
+                  lhs.asInstanceOf[DenseVector] === rhs.asInstanceOf[DenseVector]
+                case c if c == classOf[Double] =>
+                  lhs.asInstanceOf[Double] === rhs.asInstanceOf[Double]
+                case _ =>
+                  lhs === rhs
+              }
+          }
+      }
     }
   }
 
-  @transient implicit lazy val rowEq: Equality[Row] = new Equality[Row] {
-    def areEqual(a: Row, bAny: Any): Boolean = bAny match {
-      case b: Row =>
-        if (a.length != b.length) {
-          false
-        } else {
-          (0 until a.length).forall(j => {
-            a(j) match {
-              case lhs: DenseVector =>
-                lhs === b(j)
-              case lhs: Array[Byte] =>
-                lhs === b(j)
-              case lhs: Double if lhs.isNaN =>
-                b(j).asInstanceOf[Double].isNaN
-              case lhs: Double =>
-                b(j).asInstanceOf[Double] === lhs
-              case lhs =>
-                lhs === b(j)
-            }
-          })
-        }
-    }
+
+  @transient implicit lazy val rowEq: Equality[Row] = (a: Row, bAny: Any) => bAny match {
+    case b: Row =>
+      if (a.length != b.length) {
+        false
+      } else {
+        (0 until a.length).forall(j => {
+          a(j) match {
+            case lhs: DenseVector =>
+              lhs === b(j)
+            case lhs: Seq[_] =>
+              lhs === b(j).asInstanceOf[Seq[_]]
+            case lhs: Array[Byte] =>
+              lhs === b(j)
+            case lhs: Double if lhs.isNaN =>
+              b(j).asInstanceOf[Double].isNaN
+            case lhs: Double =>
+              b(j).asInstanceOf[Double] === lhs
+            case lhs =>
+              lhs === b(j)
+          }
+        })
+      }
   }
 
   val sortInDataframeEquality = false
@@ -64,10 +86,11 @@ trait DataFrameEquality extends Serializable {
         }
 
         if (aList.length != bList.length) {
-          return false
-        }
-        aList.zip(bList).forall { case (rowA, rowB) =>
-          rowA === rowB
+          false
+        } else {
+          aList.zip(bList).forall { case (rowA, rowB) =>
+            rowA === rowB
+          }
         }
     }
   }
@@ -78,9 +101,9 @@ trait DataFrameEquality extends Serializable {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(10)
+      df1.show(100, false)
       println("df2:")
-      df2.show(10)
+      df2.show(100, false)
     }
     assert(result)
   }
@@ -109,9 +132,11 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
       case (df1: Dataset[_], df2: Dataset[_]) =>
-        assert(df1.toDF() === df2.toDF())
+        assertDFEq(df1.toDF, df2.toDF)
       case _ =>
         throw new AssertionError("Values did not have DataFrame type")
     }
   }
+
+  override val sortInDataframeEquality: Boolean = true
 }
