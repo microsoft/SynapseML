@@ -11,7 +11,7 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    "Hello World",
+    "Hello world. This is some input text that I love.",
     "Bonjour tout le monde",
     "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
     ":) :( :D"
@@ -53,6 +53,6 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
     val replies = extractor.transform(df)
       .select("keyPhrases")
       .collect()
-    assert(replies(0).getString(0) == "Hello")
+    assert(replies(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
   }
 }
