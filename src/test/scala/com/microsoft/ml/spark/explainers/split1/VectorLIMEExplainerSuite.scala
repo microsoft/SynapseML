@@ -1,13 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.explainers
+package com.microsoft.ml.spark.explainers.split1
 
-import breeze.linalg.{*, DenseVector => BDV, DenseMatrix => BDM}
+import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.explainers.{LocalExplainer, VectorLIME}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
 import org.apache.spark.ml.util.MLReadable

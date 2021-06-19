@@ -1,21 +1,22 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.explainers
+package com.microsoft.ml.spark.explainers.split1
 
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.explainers.{LocalExplainer, VectorSHAP}
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{avg, exp}
+import org.apache.spark.sql.functions.avg
 import org.apache.spark.sql.types.DoubleType
 import org.scalactic.{Equality, TolerantNumerics}
 

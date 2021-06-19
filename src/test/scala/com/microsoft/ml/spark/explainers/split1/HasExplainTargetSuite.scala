@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.explainers
+package com.microsoft.ml.spark.explainers.split1
 
 import com.microsoft.ml.spark.core.test.base.TestBase
-import org.apache.spark.ml.linalg.{Vectors, Vector}
+import com.microsoft.ml.spark.explainers.LocalExplainer
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 
 class HasExplainTargetSuite extends TestBase {
   test("getExplainTarget can handle different types of targets") {
