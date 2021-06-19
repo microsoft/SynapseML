@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.explainers
+package com.microsoft.ml.spark.explainers.split1
 
-import com.microsoft.ml.spark.core.test.base.TestBase
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
+import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.explainers.LeastSquaresRegression
 import org.scalactic.{Equality, TolerantNumerics}
 
 class LeastSquaresRegressionSuite extends TestBase {
