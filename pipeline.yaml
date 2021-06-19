@@ -347,8 +347,12 @@ jobs:
         PACKAGE: "core"
       downloader:
         PACKAGE: "downloader"
-      explainers:
-        PACKAGE: "explainers"
+      explainers1:
+        PACKAGE: "explainers.split1"
+      explainers2:
+        PACKAGE: "explainers.split2"
+      explainers3:
+        PACKAGE: "explainers.split3"
       featurize:
         PACKAGE: "featurize"
       image:
