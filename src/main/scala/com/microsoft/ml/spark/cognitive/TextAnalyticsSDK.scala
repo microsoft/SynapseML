@@ -3,7 +3,7 @@ package com.microsoft.ml.spark.cognitive
 import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions, TextAnalyticsWarning}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
@@ -134,18 +134,15 @@ object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyt
 
 class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
                                      override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
-  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions)
-    with HasConfidenceScoreCol {
+  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
-
 
   override def outputSchema: StructType =  KeyPhraseResponseV4.schema
 
   override protected val invokeTextAnalytics: String => TAResponseV4[KeyphraseV4] = (text: String) =>
   {
     val ExtractKeyPhrasesResultCollection = textAnalyticsClient.extractKeyPhrasesBatch(
-      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
-   // val tester = 5
+      Seq(text).asJava,"en", textAnalyticsOptions.orNull)
     val keyPhraseExtractionResult = ExtractKeyPhrasesResultCollection.asScala.head
     val keyPhraseDocument = keyPhraseExtractionResult.getKeyPhrases()
 
