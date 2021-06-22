@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.{col, collect_list, lit, struct}
+import org.apache.spark.sql.functions.{col, collect_list, lit, log, struct}
 
 trait AnomalyKey {
   lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
@@ -158,16 +158,33 @@ class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalie
     .++(baseSeq.reverse.take(2).map(p => (p._1,p._2,2.0)))
     .toDF("timestamp","value","group")
 
-  lazy val sad = new SimpleDetectAnomalies()
+  lazy val sad: SimpleDetectAnomalies = new SimpleDetectAnomalies()
     .setSubscriptionKey(anomalyKey)
     .setLocation("westus2")
     .setOutputCol("anomalies")
     .setGroupbyCol("group")
     .setGranularity("monthly")
 
+  def customFuncExample(value: String): (String, String) = {
+    ("https://westus2.api.cognitive.microsoft.com", anomalyKey)
+  }
+
   test("Basic Usage"){
     val result = sad.transform(sdf)
       .collect().head.getAs[Row]("anomalies")
+    assert(!result.getBoolean(0))
+  }
+
+  test("User Defined Function"){
+    val sadUserDefinedFunc: SimpleDetectAnomalies = new SimpleDetectAnomalies()
+      .setEndpointKeyFunc(customFuncExample, "")
+      .setOutputCol("anomalies")
+      .setGroupbyCol("group")
+      .setGranularity("monthly")
+
+    val result = sadUserDefinedFunc.transform(sdf)
+      .collect().head.getAs[Row]("anomalies")
+
     assert(!result.getBoolean(0))
   }
 

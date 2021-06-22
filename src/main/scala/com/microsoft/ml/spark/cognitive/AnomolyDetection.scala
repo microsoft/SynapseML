@@ -160,14 +160,10 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 
-  def setEndpointKeyFunc(customFunc: String => String, funcInput: String): this.type = {
-    val funcOutput: String = customFunc(funcInput)
-    val cognitiveServiceInfo = JsonParser(funcOutput).asJsObject
-    val endpointKey = cognitiveServiceInfo.getFields("endpoint", "key")
-    val endpoint = endpointKey.head
-    val key = endpointKey(1)
+  def setEndpointKeyFunc(customFunc: String => (String, String), funcInput: String): this.type = {
+    val (endpoint, key): (String, String) = customFunc(funcInput)
     setUrl(s"$endpoint/anomalydetector/v1.0/timeseries/entire/detect")
-    setSubscriptionKey(key.toString)
+    setSubscriptionKey(key)
   }
 
   val timestampCol = new Param[String](this, "timestampCol", "column representing the time of the series")
@@ -202,11 +198,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setEndpointKeyFunc(self, func, value):
-      |    import json
-      |    funcOutput = func.__call__(value)
-      |    cognitiveServiceInfo = json.loads(funcOutput)
-      |    endpoint = cognitiveServiceInfo["endpoint"]
-      |    key = cognitiveServiceInfo["key"]
+      |    endpoint, key = func.__call__(value)
       |    self.setUrl(endpoint + "/anomalydetector/v1.0/timeseries/entire/detect")
       |    self.setSubscriptionKey(key)
       |    return self
