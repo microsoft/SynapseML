@@ -42,51 +42,30 @@ trait BasicLogging extends Logging {
   }
 
   def logFit[T](f: => T): T = {
-    logBase("fit")
-    try {
-      f
-    } catch {
-      case e: Exception => {
-        logErrorBase("fit", e)
-        throw e
-      }
-    }
+    logVerb("fit", f)
   }
 
   def logTrain[T](f: => T): T = {
-    logBase("train")
-    try {
-      f
-    } catch {
-      case e: Exception => {
-        logErrorBase("train", e)
-        throw e
-      }
-    }
+    logVerb("train", f)
   }
 
   def logTransform[T](f: => T): T = {
-    logBase("transform")
-    try {
-      f
-    } catch {
-      case e: Exception => {
-        logErrorBase("transform", e)
-        throw e
-      }
-    }
+    logVerb("transform", f)
   }
 
   def logPredict[T](f: => T): T = {
-    logBase("predict")
+    logVerb("predict", f)
+  }
+
+  def logVerb[T](verb: String, f: => T): T = {
+    logBase(verb)
     try {
       f
     } catch {
       case e: Exception => {
-        logErrorBase("predict", e)
+        logErrorBase(verb, e)
         throw e
       }
     }
   }
-
 }

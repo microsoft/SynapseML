@@ -22,7 +22,7 @@ object ModelEquality {
   }
 
   def assertEqual(m1: PipelineStage, m2: PipelineStage): Unit = {
-    assert(m1.getClass === m2.getClass)
+    assert(m1.getClass === m2.getClass, s"${m1.getClass} != ${m2.getClass}, assertion failed.")
     val m1Params = m1.extractParamMap().toSeq.map(pp => pp.param.name).toSet
     val m2Params = m2.extractParamMap().toSeq.map(pp => pp.param.name).toSet
     assert(m1Params === m2Params)
