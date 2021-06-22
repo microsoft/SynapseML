@@ -205,7 +205,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
       |    import json
       |    funcOutput = func.__call__(value)
       |    cognitiveServiceInfo = json.loads(funcOutput)
-      |    endpoint = cognitiveServiceInfo["endpiont"]
+      |    endpoint = cognitiveServiceInfo["endpoint"]
       |    key = cognitiveServiceInfo["key"]
       |    self.setUrl(endpoint + "/anomalydetector/v1.0/timeseries/entire/detect")
       |    self.setSubscriptionKey(key)
