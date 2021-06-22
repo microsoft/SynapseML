@@ -123,51 +123,61 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
-                                     override val uid: String = randomUID("TextSentimentV4"))
+                      override val uid: String = randomUID("TextSentimentV4"))
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
     with HasConfidenceScoreCol {
-    logClass()
-
-  // Country Hint
-  final val countryHintCol: Param[String] = new Param[String](this, "countryHintCol", "country hint column name")
-
-  final def getCountryHintCol: String = $(countryHintCol)
-
-  final def setCountryHintCol(value: String): this.type = set(countryHintCol, value)
-  setDefault(countryHintCol -> "CountryHint")
+  logClass()
 
   override def outputSchema: StructType = SentimentResponseV4.schema
-  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4]= (text: String) =>{
 
-  val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
-      Seq(text).asJava, "lang", textAnalyticsOptions.orNull)
+  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4]= (text: String) =>{
+    val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
+      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
+
+    def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
+      SentimentConfidenceScoreV4(
+        score.getNegative,
+        score.getNeutral,
+        score.getPositive)
+    }
+
     val textSentimentResult = textSentimentResultCollection.asScala.head
     val documentSentiment = textSentimentResult.getDocumentSentiment();
+
     val sentimentResult = if (textSentimentResult.isError){
       None
     } else {
-    Some(SentimentScoredDocumentV4(
-      documentSentiment.getSentiment().toString,
-      SentimentConfidenceScoreV4(
-        documentSentiment.getConfidenceScores().getNegative,
-        documentSentiment.getConfidenceScores().getNeutral,
-        documentSentiment.getConfidenceScores().getPositive),
+      Some(SentimentScoredDocumentV4(
+        documentSentiment.getSentiment().toString,
+        getConfidenceScore(documentSentiment.getConfidenceScores),
         documentSentiment.getSentences.asScala.toList.map(sentenceSentiment =>
           SentimentSentenceV4(
             sentenceSentiment.getText,
             sentenceSentiment.getSentiment.toString,
-            SentimentConfidenceScoreV4(
-              sentenceSentiment.getConfidenceScores.getNegative,
-              sentenceSentiment.getConfidenceScores.getNeutral,
-              sentenceSentiment.getConfidenceScores.getPositive),
-            null,
+            getConfidenceScore(sentenceSentiment.getConfidenceScores),
+            if(sentenceSentiment.getOpinions == null){
+              None
+            }else{
+              Some(sentenceSentiment.getOpinions.asScala.toList.map(op =>
+                OpinionV4(TargetV4(op.getTarget.getText,
+                  op.getTarget.getSentiment.toString,
+                  getConfidenceScore(op.getTarget.getConfidenceScores),
+                  op.getTarget.getOffset,
+                  op.getTarget.getLength)
+                  ,op.getAssessments.asScala.toList.map(assess =>
+                    AssessmentV4(assess.getText,
+                      assess.getSentiment.toString,
+                      getConfidenceScore(assess.getConfidenceScores),
+                      assess.isNegated,
+                      assess.getOffset,
+                      assess.getLength)))))
+            },
             sentenceSentiment.getOffset,
-            sentenceSentiment.getLength)
-          ),
-      documentSentiment.getWarnings.asScala.toList.map(warnings =>
-      WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)
-    )))
-
+            sentenceSentiment.getLength
+          )),
+        documentSentiment.getWarnings.asScala.toList.map(warnings =>
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)
+        )))
     }
     val error = if(textSentimentResult.isError){
       val error = textSentimentResult.getError
@@ -175,10 +185,12 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     } else {
       None
     }
+
     val stats = Option(textSentimentResult.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
     }
+
     TAResponseV4[SentimentScoredDocumentV4](
       sentimentResult,
       error,
@@ -198,6 +210,8 @@ case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
 case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
 
+case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
+
 case class SentimentScoredDocumentV4(sentiment: String,
                                      confidenceScores: SentimentConfidenceScoreV4,
                                      sentences: List[SentimentSentenceV4],
@@ -212,10 +226,10 @@ case class SentimentSentenceV4(text: String,
 
 case class OpinionV4(target: TargetV4, assessment: List[AssessmentV4])
 case class TargetV4(text: String,
-                      sentiment: String,
-                      confidenceScores: SentimentConfidenceScoreV4,
-                      offset: Int,
-                      length: Int)
+                    sentiment: String,
+                    confidenceScores: SentimentConfidenceScoreV4,
+                    offset: Int,
+                    length: Int)
 
 case class AssessmentV4(text: String,
                         sentiment: String,
@@ -223,7 +237,5 @@ case class AssessmentV4(text: String,
                         isNegated: Boolean,
                         offset: Int,
                         length: Int)
-
-case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
 
 case class WarningsV4(text: String, warningCode: String)

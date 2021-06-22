@@ -45,11 +45,9 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("Hello world. This is some input text that I love."),
-    ("Bonjour tout le monde"),
-    ("La carretera estaba atascada. Había mucho tráfico el día de ayer."),
-    ("ich bin ein berliner"),
-    (null)
+    "Hello world. This is some input text that I love.",
+    "I am sad",
+    "I am feeling okay"
   ).toDF( "text")
 
   val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
@@ -65,10 +63,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   }
   test("Basic Usage") {
     val replies = detector.transform(df)
-      .select("SentimentScoredDocumentV4")
+      .select("sentiment", "confidenceScores", "sentences", "warnings")
       .collect()
-    assert(List(4, 5).forall(replies(_).get(0) == null))
-    assert(replies(0).getString(0) == "positive" && replies(2).getString(0) == "negative")
-
+    assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
+      && replies(2).getString(0) == "neutral")
   }
+
+
 }
