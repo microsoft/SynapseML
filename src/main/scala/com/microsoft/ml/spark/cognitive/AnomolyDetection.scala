@@ -168,8 +168,8 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
-      |def setEndpointKeyFunc(self, func, value):
-      |    endpoint, key = func.__call__(value)
+      |def setEndpointKeyFunc(self, func, *argv):
+      |    endpoint, key = func.__call__(*argv)
       |    self.setUrl(endpoint + "/anomalydetector/v1.0/timeseries/entire/detect")
       |    self.setSubscriptionKey(key)
       |    return self
