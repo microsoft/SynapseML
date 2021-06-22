@@ -166,6 +166,16 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     setSubscriptionKey(key)
   }
 
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setEndpointKeyFunc(self, func, value):
+      |    endpoint, key = func.__call__(value)
+      |    self.setUrl(endpoint + "/anomalydetector/v1.0/timeseries/entire/detect")
+      |    self.setSubscriptionKey(key)
+      |    return self
+      |""".stripMargin
+  }
+
   val timestampCol = new Param[String](this, "timestampCol", "column representing the time of the series")
 
   def setTimestampCol(v: String): this.type = set(timestampCol, v)
@@ -193,16 +203,6 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     val s1 = timeSeries.zipWithIndex.sortBy(r => r._1.getString(0))
     val s2 = s1.map(s => context(s._2))
     Row(s1.map(_._1), s2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setEndpointKeyFunc(self, func, value):
-      |    endpoint, key = func.__call__(value)
-      |    self.setUrl(endpoint + "/anomalydetector/v1.0/timeseries/entire/detect")
-      |    self.setSubscriptionKey(key)
-      |    return self
-      |""".stripMargin
   }
 
   private def formatResultsFunc(): (Row, Int) => Seq[Row] = {
