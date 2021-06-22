@@ -122,11 +122,9 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
   logClass()
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
-
-  val path = "anomalydetector/v1.0/timeseries/last/detect"
-
+  
   def setEndpoint(v: String): this.type =
-    setUrl(s"$v/$path")
+    setUrl(s"$v/anomalydetector/v1.0/timeseries/last/detect")
 
   def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
     setEndpoint(endpointFunc(args))
@@ -136,7 +134,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/$path")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/last/detect")
 
   override def responseDataType: DataType = ADLastResponse.schema
 
@@ -149,10 +147,8 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
-  val path = "anomalydetector/v1.0/timeseries/entire/detect"
-
   def setEndpoint(v: String): this.type =
-    setUrl(s"$v/$path")
+    setUrl(s"$v/anomalydetector/v1.0/timeseries/entire/detect")
 
   def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
     setEndpoint(endpointFunc(args))
@@ -163,7 +159,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/$path")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
@@ -177,10 +173,8 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 
-  val path = "anomalydetector/v1.0/timeseries/entire/detect"
-
   def setEndpoint(v: String): this.type =
-    setUrl(s"$v/$path")
+    setUrl(s"$v/anomalydetector/v1.0/timeseries/entire/detect")
 
   def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
     setEndpoint(endpointFunc(args))
@@ -276,7 +270,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
   }
 
   def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/$path")
+    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
