@@ -122,12 +122,6 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
   logClass()
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
-  
-  def setEndpoint(v: String): this.type =
-    setUrl(s"$v/anomalydetector/v1.0/timeseries/last/detect")
-
-  def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
-    setEndpoint(endpointFunc(args))
 
   def setSeries(v: Seq[TimeSeriesPoint]): this.type = setScalarParam(series, v)
 
@@ -146,13 +140,6 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   logClass()
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
-
-  def setEndpoint(v: String): this.type =
-    setUrl(s"$v/anomalydetector/v1.0/timeseries/entire/detect")
-
-  def setEndpointFunc(endpointFunc: String => String, args: String): this.type =
-    setEndpoint(endpointFunc(args))
-
 
   def setSeries(v: Seq[TimeSeriesPoint]): this.type = setScalarParam(series, v)
 
