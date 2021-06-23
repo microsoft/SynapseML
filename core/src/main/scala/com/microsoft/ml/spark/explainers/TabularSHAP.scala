@@ -29,11 +29,12 @@ class TabularSHAP(override val uid: String)
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        coalitionCol: String,
-                                       weightCol: String): DataFrame = {
+                                       weightCol: String,
+                                       targetClassesCol: String): DataFrame = {
     val instanceCol = DatasetExtensions.findUnusedColumnName("instance", df)
     val backgroundCol = DatasetExtensions.findUnusedColumnName("background", df)
 
-    val instances = df.select(col(idCol), struct(getInputCols.map(col): _*).alias(instanceCol))
+    val instances = df.select(col(idCol), col(targetClassesCol), struct(getInputCols.map(col): _*).alias(instanceCol))
     val background = this.getBackgroundData
       .select(struct(getInputCols.map(col): _*).alias(backgroundCol))
 
@@ -70,7 +71,8 @@ class TabularSHAP(override val uid: String)
         col(idCol),
         expr(s"$samplesCol.$sampleField.*"),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(weightField).alias(weightCol)
+        col(samplesCol).getField(weightField).alias(weightCol),
+        col(targetClassesCol)
       )
   }
 

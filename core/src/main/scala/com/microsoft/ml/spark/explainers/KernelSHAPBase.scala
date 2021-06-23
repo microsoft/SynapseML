@@ -47,27 +47,31 @@ abstract class KernelSHAPBase(override val uid: String)
     val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val coalitionCol = DatasetExtensions.findUnusedColumnName("coalition", df)
     val weightCol = DatasetExtensions.findUnusedColumnName("weight", df)
+    val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
 
-    val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
+    val dfWithId = df
+      .withColumn(idCol, monotonically_increasing_id())
+      .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
+
     val preprocessed = preprocess(dfWithId).cache()
 
-    val samples = createSamples(preprocessed, idCol, coalitionCol, weightCol)
+    val samples = createSamples(preprocessed, idCol, coalitionCol, weightCol, targetClasses)
       .repartition()
 
     val scored = getModel.transform(samples)
-    val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
+    val targetCol = DatasetExtensions.findUnusedColumnName("target", scored)
 
     val coalitionScores = scored
-      .withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
+      .withColumn(targetCol, this.extractTarget(scored.schema, targetClasses))
       .groupBy(col(idCol), col(coalitionCol))
-      .agg(Summarizer.mean(col(explainTargetCol)).alias(explainTargetCol), mean(weightCol).alias(weightCol))
+      .agg(Summarizer.mean(col(targetCol)).alias(targetCol), mean(weightCol).alias(weightCol))
 
     val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row.getAs[Vector](coalitionCol).toBreeze
-            val output = row.getAs[Vector](explainTargetCol).toBreeze
+            val output = row.getAs[Vector](targetCol).toBreeze
             val weight = row.getAs[Double](weightCol)
             (input, output, weight)
         }.toSeq.unzip3
@@ -90,16 +94,11 @@ abstract class KernelSHAPBase(override val uid: String)
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  protected override def validateSchema(schema: StructType): Unit = {
-    super.validateSchema(schema)
-
-    require(
-      !schema.fieldNames.contains(getMetricsCol),
-      s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
-    )
-  }
-
-  protected def createSamples(df: DataFrame, idCol: String, coalitionCol: String, weightCol: String): DataFrame
+  protected def createSamples(df: DataFrame,
+                              idCol: String,
+                              coalitionCol: String,
+                              weightCol: String,
+                              targetClassesCol: String): DataFrame
 
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)
@@ -121,7 +120,6 @@ abstract class KernelSHAPBase(override val uid: String)
       ))
     )
   }
-
 }
 
 object KernelSHAPBase {

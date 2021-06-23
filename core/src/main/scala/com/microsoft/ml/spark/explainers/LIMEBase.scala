@@ -73,11 +73,14 @@ abstract class LIMEBase(override val uid: String)
     val weightCol = DatasetExtensions.findUnusedColumnName("weight", df)
     val stateCol = DatasetExtensions.findUnusedColumnName("state", df)
     val distanceCol = DatasetExtensions.findUnusedColumnName("distance", df)
+    val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
 
     val dfWithId = df.withColumn(idCol, monotonically_increasing_id())
+      .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
+
     val preprocessed = preprocess(dfWithId).cache()
 
-    val samples = createSamples(preprocessed, idCol, stateCol, distanceCol)
+    val samples = createSamples(preprocessed, idCol, stateCol, distanceCol, targetClasses)
       .withColumn(weightCol, getSampleWeightUdf(col(distanceCol)))
       .repartition()
 
@@ -85,7 +88,7 @@ abstract class LIMEBase(override val uid: String)
 
     val explainTargetCol = DatasetExtensions.findUnusedColumnName("target", scored)
 
-    val modelOutput = scored.withColumn(explainTargetCol, this.getExplainTarget(scored.schema))
+    val modelOutput = scored.withColumn(explainTargetCol, this.extractTarget(scored.schema, targetClasses))
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
       case (id: Long, rows: Iterator[Row]) =>
@@ -119,16 +122,8 @@ abstract class LIMEBase(override val uid: String)
   protected def createSamples(df: DataFrame,
                               idCol: String,
                               stateCol: String,
-                              distanceCol: String): DataFrame
-
-  protected override def validateSchema(schema: StructType): Unit = {
-    super.validateSchema(schema)
-
-    require(
-      !schema.fieldNames.contains(getMetricsCol),
-      s"Input schema (${schema.simpleString}) already contains metrics column $getMetricsCol"
-    )
-  }
+                              distanceCol: String,
+                              targetClassesCol: String): DataFrame
 
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)
