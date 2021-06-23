@@ -1,6 +1,7 @@
 package com.microsoft.ml.spark.cognitive
 
-import com.azure.ai.textanalytics.models.{SentenceSentiment, SentimentConfidenceScores, TextAnalyticsRequestOptions}
+import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
@@ -140,6 +141,50 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
         score.getNeutral,
         score.getPositive)
     }
+    def getTarget(target: TargetSentiment): TargetV4 = {
+      TargetV4(
+        target.getText,
+        target.getSentiment.toString,
+        getConfidenceScore(target.getConfidenceScores),
+        target.getOffset,
+        target.getLength)
+    }
+    def getAssessment(assess: AssessmentSentiment): AssessmentV4 = {
+      AssessmentV4(
+        assess.getText,
+        assess.getSentiment.toString,
+        getConfidenceScore(assess.getConfidenceScores),
+        assess.isNegated,
+        assess.getOffset,
+        assess.getLength)
+    }
+
+    def getSentenceSentiment(sentencesent: SentenceSentiment): SentimentSentenceV4 = {
+      SentimentSentenceV4(
+        sentencesent.getText,
+        sentencesent.getSentiment.toString,
+        getConfidenceScore(sentencesent.getConfidenceScores),
+        if(sentencesent.getOpinions == null){
+          None
+        }else{
+          Some(sentencesent.getOpinions.asScala.toList.map(op =>
+            OpinionV4(getTarget(op.getTarget)
+              ,op.getAssessments.asScala.toList.map(assessment =>
+                getAssessment(assessment)))))
+        },
+        sentencesent.getOffset,
+        sentencesent.getLength)
+    }
+
+    def getDocumentSentiment(doc: DocumentSentiment): SentimentScoredDocumentV4 = {
+      SentimentScoredDocumentV4(
+        doc.getSentiment.toString,
+        getConfidenceScore(doc.getConfidenceScores),
+        doc.getSentences.asScala.toList.map(sentenceSentiment =>
+          getSentenceSentiment(sentenceSentiment)),
+        doc.getWarnings.asScala.toList.map(warnings =>
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
+    }
 
     val textSentimentResult = textSentimentResultCollection.asScala.head
     val documentSentiment = textSentimentResult.getDocumentSentiment();
@@ -147,38 +192,9 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val sentimentResult = if (textSentimentResult.isError){
       None
     } else {
-      Some(SentimentScoredDocumentV4(
-        documentSentiment.getSentiment().toString,
-        getConfidenceScore(documentSentiment.getConfidenceScores),
-        documentSentiment.getSentences.asScala.toList.map(sentenceSentiment =>
-          SentimentSentenceV4(
-            sentenceSentiment.getText,
-            sentenceSentiment.getSentiment.toString,
-            getConfidenceScore(sentenceSentiment.getConfidenceScores),
-            if(sentenceSentiment.getOpinions == null){
-              None
-            }else{
-              Some(sentenceSentiment.getOpinions.asScala.toList.map(op =>
-                OpinionV4(TargetV4(op.getTarget.getText,
-                  op.getTarget.getSentiment.toString,
-                  getConfidenceScore(op.getTarget.getConfidenceScores),
-                  op.getTarget.getOffset,
-                  op.getTarget.getLength)
-                  ,op.getAssessments.asScala.toList.map(assess =>
-                    AssessmentV4(assess.getText,
-                      assess.getSentiment.toString,
-                      getConfidenceScore(assess.getConfidenceScores),
-                      assess.isNegated,
-                      assess.getOffset,
-                      assess.getLength)))))
-            },
-            sentenceSentiment.getOffset,
-            sentenceSentiment.getLength
-          )),
-        documentSentiment.getWarnings.asScala.toList.map(warnings =>
-          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)
-        )))
+      Some(getDocumentSentiment(documentSentiment))
     }
+
     val error = if(textSentimentResult.isError){
       val error = textSentimentResult.getError
       Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))

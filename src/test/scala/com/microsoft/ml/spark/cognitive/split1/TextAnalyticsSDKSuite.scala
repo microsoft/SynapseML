@@ -55,7 +55,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
+    .setEndpoint("endpoint")
     .setInputCol("text")
 
   test("foo"){
