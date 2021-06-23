@@ -55,7 +55,7 @@ this process:
 
 #### Implement documentation
 
--   Add a [sample Jupyter notebook](notebooks/samples) that shows the intended use
+-   Add a [sample Jupyter notebook](notebooks/) that shows the intended use
     case of your algorithm, with instructions in step-by-step manner.  (The same
     notebook could be used for testing the code.)
 -   Add in-line ScalaDoc comments to your source code, to generate the [API

@@ -58,7 +58,7 @@ model = (VowpalWabbitRegressor(args="--holdout_off --loss_function quantile -q :
 Through the args parameter you can pass command line parameters to VW as documented in the [VW Wiki](https://github.com/vowpalWabbit/vowpal_wabbit/wiki/Command-Line-Arguments).
 
 For an end to end application, check out the VowpalWabbit [notebook
-example](../notebooks/samples/Vowpal%20Wabbit%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb]).
+example](../notebooks/Vowpal%20Wabbit%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb]).
 
 ### Hyper-parameter tuning
 
