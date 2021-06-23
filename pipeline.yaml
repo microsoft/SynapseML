@@ -238,7 +238,7 @@ jobs:
         inlineScript: |
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage testPython
+          sbt coverage codegen testgen testPython
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -289,7 +289,7 @@ jobs:
         inlineScript: |
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage testR
+          sbt coverage codegen testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
