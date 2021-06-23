@@ -2,8 +2,12 @@ import java.io.File
 import java.lang.ProcessBuilder.Redirect
 
 object BuildUtils {
+  def join(root: File, folders: String*): File = {
+    folders.foldLeft(root) { case (f, s) => new File(f, s) }
+  }
+
   def join(folders: String*): File = {
-    folders.tail.foldLeft(new File(folders.head)) { case (f, s) => new File(f, s) }
+    join(new File(folders.head), folders.tail: _*)
   }
 
   def isWindows: Boolean = {
@@ -27,7 +31,7 @@ object BuildUtils {
       .redirectError(Redirect.INHERIT)
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
-    envVars.foreach(p =>env.put(p._1,p._2))
+    envVars.foreach(p => env.put(p._1, p._2))
     assert(pb.start().waitFor() == 0)
   }
 
@@ -56,6 +60,7 @@ object BuildUtils {
       "--account-key", Secrets.storageKey)
     runCmd(osPrefix ++ command)
   }
+
   def singleUploadToBlob(source: String,
                          dest: String,
                          container: String,
@@ -76,6 +81,7 @@ object BuildUtils {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
       (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)
     }
+
     loop(dir)
   }
 
@@ -91,7 +97,9 @@ object BuildUtils {
       zip.putNextEntry(new ZipEntry(file.toString.substring(prefixLen).replace(java.io.File.separator, "/")))
       val in = new BufferedInputStream(new FileInputStream(file), bufferSize)
       var b = 0
-      while (b >= 0) { zip.write(data, 0, b); b = in.read(data, 0, bufferSize) }
+      while (b >= 0) {
+        zip.write(data, 0, b); b = in.read(data, 0, bufferSize)
+      }
       in.close()
       zip.closeEntry()
     }
