@@ -143,6 +143,8 @@ trait FormRecognizerUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-21T02:24:38Z&se=2021" +
       "-06-25T02:24:00Z&sv=2020-02-10&sr=c&sig=eWWUe2Nvusuz5%2FmZoldVPbqimPo%2FcFVPQTfYA%2F0pyXI%3D"
   ).toDF("source")
+
+  lazy val df: DataFrame = Seq("").toDF()
 }
 
 class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout]
@@ -170,51 +172,45 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout]
   }
 
   test("Basic Usage with URL") {
-    val results = imageDf1.mlTransform(analyzeLayout, AnalyzeLayout.flattenReadResults("layout", "layout"))
-      .select("layout")
+    val results = imageDf1.mlTransform(analyzeLayout,
+      AnalyzeLayout.flattenReadResults("layout", "readlayout"),
+      AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
+      .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr.startsWith("Purchase Order Hero Limited Purchase Order Company Phone: 555-348-6512 " +
       "Website: www.herolimited.com "))
-
-    val pageResults = imageDf1.mlTransform(analyzeLayout, AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
-      .select("pageLayout")
-      .collect()
-    val pageHeadStr = pageResults.head.getString(0)
+    val pageHeadStr = results.head.getString(1)
     assert(pageHeadStr === "Details | Quantity | Unit Price | Total | Bindings | 20 | 1.00 | 20.00 | Covers Small" +
       " | 20 | 1.00 | 20.00 | Feather Bookmark | 20 | 5.00 | 100.00 | Copper Swirl Marker | 20 | 5.00 | " +
       "100.00\nSUBTOTAL | $140.00 | TAX | $4.00 |  |  | TOTAL | $144.00")
   }
 
   test("Basic Usage with pdf") {
-    val results = pdfDf1.mlTransform(analyzeLayout, AnalyzeLayout.flattenReadResults("layout", "layout"))
-      .select("layout")
+    val results = pdfDf1.mlTransform(analyzeLayout,
+      AnalyzeLayout.flattenReadResults("layout", "readlayout"),
+      AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
+      .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
     val correctPrefix = "UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM 10-Q"
     assert(headStr.startsWith(correctPrefix))
-
-    val pageResults = pdfDf1.mlTransform(analyzeLayout, AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
-      .select("pageLayout")
-      .collect()
-    val pageHeadStr = pageResults.head.getString(0)
+    val pageHeadStr = results.head.getString(1)
     assert(pageHeadStr === "Title of each class | Trading Symbol | Name of exchange on which registered | " +
       "Common stock, $0.00000625 par value per share | MSFT | NASDAQ | 2.125% Notes due 2021 | MSFT | NASDAQ |" +
       " 3.125% Notes due 2028 | MSFT | NASDAQ | 2.625% Notes due 2033 | MSFT | NASDAQ")
   }
 
   test("Basic Usage with Bytes") {
-    val results = bytesDF1.mlTransform(bytesAnalyzeLayout, AnalyzeLayout.flattenReadResults("layout", "layout"))
-      .select("layout")
+    val results = bytesDF1.mlTransform(bytesAnalyzeLayout,
+      AnalyzeLayout.flattenReadResults("layout", "readlayout"),
+      AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
+      .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr.startsWith("Purchase Order Hero Limited Purchase Order Company Phone: 555-348-6512" +
       " Website: www.herolimited.com "))
-
-    val pageResults = imageDf1.mlTransform(analyzeLayout, AnalyzeLayout.flattenPageResults("layout", "pageLayout"))
-      .select("pageLayout")
-      .collect()
-    val pageHeadStr = pageResults.head.getString(0)
+    val pageHeadStr = results.head.getString(1)
     assert(pageHeadStr === "Details | Quantity | Unit Price | Total | Bindings | 20 | 1.00 | 20.00 | Covers Small" +
       " | 20 | 1.00 | 20.00 | Feather Bookmark | 20 | 5.00 | 100.00 | Copper Swirl Marker | 20 | 5.00 | " +
       "100.00\nSUBTOTAL | $140.00 | TAX | $4.00 |  |  | TOTAL | $144.00")
@@ -251,34 +247,28 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts]
   }
 
   test("Basic Usage with URL") {
-    val results = imageDf2.mlTransform(analyzeReceipts, AnalyzeReceipts.flattenReadResults("receipts", "receipts"))
-      .select("receipts")
+    val results = imageDf2.mlTransform(analyzeReceipts,
+      AnalyzeReceipts.flattenReadResults("receipts", "readReceipts"),
+      AnalyzeReceipts.flattenDocumentResults("receipts", "docReceipts"))
+      .select("readReceipts", "docReceipts")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf2.mlTransform(analyzeReceipts,
-      AnalyzeReceipts.flattenDocumentResults("receipts", "docReceipts"))
-      .select("docReceipts")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith(
       ("""{"Items":{"type":"array","valueArray":[{"type":"object",""" +
         """"valueObject":{"Name":{"type":"string","valueString":"Surface Pro 6","text":"Surface Pro 6""").stripMargin))
   }
 
   test("Basic Usage with Bytes") {
-    val results = bytesDF2.mlTransform(bytesAnalyzeReceipts, AnalyzeReceipts.flattenReadResults("receipts", "receipts"))
-      .select("receipts")
+    val results = bytesDF2.mlTransform(bytesAnalyzeReceipts,
+      AnalyzeReceipts.flattenReadResults("receipts", "readReceipts"),
+      AnalyzeReceipts.flattenDocumentResults("receipts", "docReceipts"))
+      .select("readReceipts", "docReceipts")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = bytesDF2.mlTransform(bytesAnalyzeReceipts,
-      AnalyzeReceipts.flattenDocumentResults("receipts", "docReceipts"))
-      .select("docReceipts")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith(
       ("""{"Items":{"type":"array","valueArray":[{"type":"object",""" +
         """"valueObject":{"Name":{"type":"string","valueString":"Surface Pro 6","text":"Surface Pro 6""").stripMargin))
@@ -316,17 +306,13 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 
   test("Basic Usage with URL") {
     val results = imageDf3.mlTransform(analyzeBusinessCards,
-      AnalyzeBusinessCards.flattenReadResults("businessCards", "businessCards"))
-      .select("businessCards")
+      AnalyzeBusinessCards.flattenReadResults("businessCards", "readBusinessCards"),
+      AnalyzeBusinessCards.flattenDocumentResults("businessCards", "docBusinessCards"))
+      .select("readBusinessCards", "docBusinessCards")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf3.mlTransform(analyzeBusinessCards,
-      AnalyzeBusinessCards.flattenDocumentResults("businessCards", "docBusinessCards"))
-      .select("docBusinessCards")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"Addresses":{"type":"array","valueArray":[{"type":""" +
       """"string","valueString":"2 Kingdom Street Paddington, London, W2 6BD""").stripMargin))
@@ -334,17 +320,13 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 
   test("Basic Usage with Bytes") {
     val results = bytesDF3.mlTransform(bytesAnalyzeBusinessCards,
-      AnalyzeBusinessCards.flattenReadResults("businessCards", "businessCards"))
-      .select("businessCards")
+      AnalyzeBusinessCards.flattenReadResults("businessCards", "readBusinessCards"),
+      AnalyzeBusinessCards.flattenDocumentResults("businessCards", "docBusinessCards"))
+      .select("readBusinessCards", "docBusinessCards")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = bytesDF3.mlTransform(bytesAnalyzeBusinessCards,
-      AnalyzeBusinessCards.flattenDocumentResults("businessCards", "docBusinessCards"))
-      .select("docBusinessCards")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"Addresses":{"type":"array","valueArray":[{"type":""" +
         """"string","valueString":"2 Kingdom Street Paddington, London, W2 6BD""").stripMargin))
@@ -382,17 +364,13 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices]
 
   test("Basic Usage with URL") {
     val results = imageDf4.mlTransform(analyzeInvoices,
-      AnalyzeInvoices.flattenReadResults("invoices", "invoices"))
-      .select("invoices")
+      AnalyzeInvoices.flattenReadResults("invoices", "readInvoices"),
+      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
+      .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf4.mlTransform(analyzeInvoices,
-      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
-      .select("docInvoices")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"CustomerAddress":{"type":"string","valueString":"1020 Enterprise Way Sunnayvale, CA 87659","text":""" +
         """"1020 Enterprise Way Sunnayvale, CA 87659""").stripMargin))
@@ -400,35 +378,25 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices]
 
   test("Basic Usage with pdf") {
     val results = pdfDf2.mlTransform(analyzeInvoices,
-      AnalyzeInvoices.flattenReadResults("invoices", "invoices"))
-      .select("invoices")
+      AnalyzeInvoices.flattenReadResults("invoices", "readInvoices"),
+      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
+      .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf4.mlTransform(analyzeInvoices,
-      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
-      .select("docInvoices")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
-    assert(docHeadStr.startsWith((
-      """{"CustomerAddress":{"type":"string","valueString":"1020 Enterprise Way Sunnayvale, CA 87659","text":""" +
-        """"1020 Enterprise Way Sunnayvale, CA 87659""").stripMargin))
+    val docHeadStr = results.head.getString(1)
+    assert(docHeadStr.startsWith("""{"AmountDue":{"type":"number","valueNumber":610,"text":"$610.00"""))
   }
 
   test("Basic Usage with Bytes") {
     val results = bytesDF4.mlTransform(bytesAnalyzeInvoices,
-      AnalyzeInvoices.flattenReadResults("invoices", "invoices"))
-      .select("invoices")
+      AnalyzeInvoices.flattenReadResults("invoices", "readInvoices"),
+      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
+      .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = bytesDF4.mlTransform(bytesAnalyzeInvoices,
-      AnalyzeInvoices.flattenDocumentResults("invoices", "docInvoices"))
-      .select("docInvoices")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"CustomerAddress":{"type":"string","valueString":"1020 Enterprise Way Sunnayvale, CA 87659","text":""" +
         """"1020 Enterprise Way Sunnayvale, CA 87659""").stripMargin))
@@ -466,17 +434,13 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments]
 
   test("Basic Usage with URL") {
     val results = imageDf5.mlTransform(analyzeIDDocuments,
-      AnalyzeIDDocuments.flattenReadResults("ids", "ids"))
-      .select("ids")
+      AnalyzeIDDocuments.flattenReadResults("ids", "readIds"),
+      AnalyzeIDDocuments.flattenDocumentResults("ids", "docIds"))
+      .select("readIds", "docIds")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf5.mlTransform(analyzeIDDocuments,
-      AnalyzeIDDocuments.flattenDocumentResults("ids", "docIds"))
-      .select("docIds")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"Address":{"type":"string","valueString":"123 STREET ADDRESS YOUR CITY WA 99999-1234","text":""" +
         """"123 STREET ADDRESS YOUR CITY WA 99999-1234""").stripMargin))
@@ -484,17 +448,13 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments]
 
   test("Basic Usage with Bytes") {
     val results = bytesDF5.mlTransform(bytesAnalyzeIDDocuments,
-      AnalyzeIDDocuments.flattenReadResults("ids", "ids"))
-      .select("ids")
+      AnalyzeIDDocuments.flattenReadResults("ids", "readIds"),
+      AnalyzeIDDocuments.flattenDocumentResults("ids", "docIds"))
+      .select("readIds", "docIds")
       .collect()
     val headStr = results.head.getString(0)
     assert(headStr === "")
-
-    val docResults = imageDf5.mlTransform(analyzeIDDocuments,
-      AnalyzeIDDocuments.flattenDocumentResults("ids", "docIds"))
-      .select("docIds")
-      .collect()
-    val docHeadStr = docResults.head.getString(0)
+    val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
       """{"Address":{"type":"string","valueString":"123 STREET ADDRESS YOUR CITY WA 99999-1234","text":""" +
         """"123 STREET ADDRESS YOUR CITY WA 99999-1234""").stripMargin))
@@ -522,6 +482,24 @@ class TrainCustomModelSuite extends TransformerFuzzing[TrainCustomModel]
       df.select("source")
     }
     super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
+
+  override def afterAll(): Unit = {
+    val listCustomModels: ListCustomModels = new ListCustomModels()
+      .setSubscriptionKey(cognitiveKey)
+      .setLocation("eastus")
+      .setOp("full")
+      .setOutputCol("models")
+      .setConcurrency(5)
+    val results = listCustomModels.transform(df)
+      .withColumn("modelIds", col("models").getField("modelList").getField("modelId"))
+      .select("modelIds")
+      .collect()
+    val modelIds = results.flatMap(_.getAs[Seq[String]](0))
+    modelIds.foreach(
+      x => FormRecognizerUtils.formDelete(x)
+    )
+    super.afterAll()
   }
 
   test("Train custom model with blob storage dataset") {
@@ -620,7 +598,6 @@ class AnalyzeCustomFormSuite extends TransformerFuzzing[AnalyzeCustomForm]
 
 class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   with CognitiveKey with Flaky with FormRecognizerUtils {
-  import spark.implicits._
 
   lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
     .setSubscriptionKey(cognitiveKey)
@@ -643,8 +620,6 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
     }
     super.afterAll()
   }
-
-  lazy val df: DataFrame = Seq("").toDF()
 
   lazy val listCustomModels: ListCustomModels = new ListCustomModels()
     .setSubscriptionKey(cognitiveKey)
@@ -680,7 +655,7 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
       .withColumn("modelCount", col("models").getField("summary").getField("count"))
       .select("modelCount")
       .collect()
-    assert(results.head.getInt(0) >= 1)
+    assert(results.head.getInt(0) == 1)
   }
 
   override def testObjects(): Seq[TestObject[ListCustomModels]] =
@@ -714,8 +689,6 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
     }
     super.afterAll()
   }
-
-  lazy val df: DataFrame = Seq("").toDF()
 
   lazy val getCustomModel: GetCustomModel = new GetCustomModel()
     .setSubscriptionKey(cognitiveKey)
