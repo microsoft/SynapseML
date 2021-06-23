@@ -35,7 +35,8 @@ class TextSHAP(override val uid: String)
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        coalitionCol: String,
-                                       weightCol: String): DataFrame = {
+                                       weightCol: String,
+                                       targetClassesCol: String): DataFrame = {
     val numSamplesOpt = this.getNumSamplesOpt
 
     val infWeightVal = this.getInfWeight
@@ -61,7 +62,8 @@ class TextSHAP(override val uid: String)
         col(idCol),
         col(samplesCol).getField(sampleField).alias(getInputCol),
         col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(weightField).alias(weightCol)
+        col(samplesCol).getField(weightField).alias(weightCol),
+        col(targetClassesCol)
       )
   }
 

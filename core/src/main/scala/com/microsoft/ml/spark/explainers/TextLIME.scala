@@ -36,7 +36,8 @@ class TextLIME(override val uid: String)
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        stateCol: String,
-                                       distanceCol: String
+                                       distanceCol: String,
+                                       targetClassesCol: String
                                       ): DataFrame = {
     val (numSamples, samplingFraction) = (this.getNumSamples, this.getSamplingFraction)
 
@@ -62,7 +63,8 @@ class TextLIME(override val uid: String)
         col(idCol),
         col(samplesCol).getField(distanceField).alias(distanceCol),
         col(samplesCol).getField(stateField).alias(stateCol),
-        col(samplesCol).getField(sampleField).alias(getInputCol)
+        col(samplesCol).getField(sampleField).alias(getInputCol),
+        col(targetClassesCol)
       )
   }
 
