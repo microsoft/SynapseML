@@ -6,6 +6,7 @@ dependencies:
   - python=3.8.8
   - pyspark=3.1.2
   - requests
+  - pip
   - r-base
   - r-dplyr
   - r-sparklyr

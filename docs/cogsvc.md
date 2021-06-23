@@ -9,7 +9,7 @@
 Azure Cognitive Services on Spark enable working with Azure’s Intelligent Services at massive scales with the Apache Spark™ distributed computing ecosystem. Cognitive Services on Spark allows users to embed general purpose and continuously improving intelligent models directly into their Apache Spark™ and SQL computations. This liberates developers from low-level networking details, so they can focus on creating intelligent, distributed applications. Each Cognitive Service acts as a SparkML transformer, so users can add services to existing SparkML pipelines. This is a great example of our [HTTP-on-Spark](http.md) capability that lets you interact with HTTP services from Apache Spark.
 
 ## Usage
-To see an example of Cognitive Services on Spark in action, take a look at [this sample notebook](../notebooks/samples/CognitiveServices%20-%20Celebrity%20Quote%20Analysis.ipynb).
+To see an example of Cognitive Services on Spark in action, take a look at [this sample notebook](../notebooks/CognitiveServices%20-%20Celebrity%20Quote%20Analysis.ipynb).
 
 ## Cognitive Services on Apache Spark™
 Currently, the following Cognitive Services are available on Apache Spark™ through MMLSpark:

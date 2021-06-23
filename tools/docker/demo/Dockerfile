@@ -30,7 +30,7 @@ RUN conda install jupyter \
     && conda clean --all --yes
 
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup
-COPY notebooks/samples notebooks
+COPY notebooks notebooks
 WORKDIR notebooks
 
 ARG MMLSPARK_VERSION
