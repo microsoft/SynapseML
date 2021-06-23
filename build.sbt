@@ -124,7 +124,7 @@ generatePythonDoc := {
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
-  //generatePythonDoc.value
+  generatePythonDoc.value
   (root / Compile / unidoc).value
   val html =
     """
