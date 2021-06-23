@@ -78,7 +78,7 @@ object TestGen {
     clean(conf.pyTestDir)
     generatePythonTests(conf)
     generatePyPackageData(conf)
-    //TestBase.stopSparkSession()
+    TestBase.stopSparkSession()
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }

@@ -238,7 +238,7 @@ jobs:
         inlineScript: |
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage codegen testgen testPython
+          sbt coverage testPython
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -261,8 +261,7 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -289,7 +288,7 @@ jobs:
         inlineScript: |
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage codegen testR
+          sbt coverage testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -312,8 +311,7 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
