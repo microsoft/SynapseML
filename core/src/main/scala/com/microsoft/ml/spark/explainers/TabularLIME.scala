@@ -42,7 +42,8 @@ class TabularLIME(override val uid: String)
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        stateCol: String,
-                                       distanceCol: String): DataFrame = {
+                                       distanceCol: String,
+                                       targetClassesCol: String): DataFrame = {
 
     val numSamples = this.getNumSamples
 
@@ -71,6 +72,7 @@ class TabularLIME(override val uid: String)
         col(idCol),
         col(samplesCol).getField(distanceField).alias(distanceCol),
         col(samplesCol).getField(stateField).alias(stateCol),
+        col(targetClassesCol),
         expr(s"$samplesCol.$sampleField.*")
       )
   }
