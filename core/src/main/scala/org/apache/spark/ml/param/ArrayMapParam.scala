@@ -50,14 +50,6 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  def this(parent: String, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
-
-  def this(parent: Identifiable, name: String, doc: String, isValid: Array[Map[String, Any]] => Boolean) =
-    this(parent.uid, name, doc, isValid)
-
-  def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
-
   /** Creates a param pair with the given value (for Java). */
   override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
 
