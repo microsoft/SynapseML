@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.ml.spark.io.http.{HTTPOutputParser, HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
+import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.UDFTransformer
+import com.microsoft.ml.spark.build.BuildInfo
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
@@ -16,8 +16,8 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{DataType, StringType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
