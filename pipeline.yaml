@@ -58,7 +58,7 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishSigned publishDocs publishR publishPython
+        sbt publishBlob publishDocs publishR publishPython
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
         sbt release
