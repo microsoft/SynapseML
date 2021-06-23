@@ -655,7 +655,7 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
       .withColumn("modelCount", col("models").getField("summary").getField("count"))
       .select("modelCount")
       .collect()
-    assert(results.head.getInt(0) == 1)
+    assert(results.head.getInt(0) >= 1)
   }
 
   override def testObjects(): Seq[TestObject[ListCustomModels]] =
