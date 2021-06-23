@@ -3,18 +3,18 @@
 
 package com.microsoft.ml.spark.cognitive.split1
 
+import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.commons.io.IOUtils
+import org.apache.http.client.methods._
+import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.scalactic.Equality
-import com.microsoft.ml.spark.FluentAPI._
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpDelete, HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
-import org.apache.http.entity.StringEntity
 import org.apache.spark.sql.functions.col
+import org.scalactic.Equality
 import spray.json.DefaultJsonProtocol.{BooleanJsonFormat, StringJsonFormat, jsonFormat2, jsonFormat3}
 import spray.json._
 
