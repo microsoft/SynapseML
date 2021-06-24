@@ -43,7 +43,6 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     })
   }
 
-
   override def transformSchema(schema: StructType): StructType = {
     // Validate input schema
     val inputType = schema($(inputCol)).dataType
@@ -135,7 +134,7 @@ object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyt
 
 class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
                                      override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
-  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) with HasLangCol {
+  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
   override def outputSchema: StructType =  KeyPhraseResponseV4.schema
@@ -179,11 +178,14 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 }
 
 
+//object KeyPhraseResponseV3 extends SparkBindings[TAResponseV3[ExtractedKeyphraseV3]]
+
 case class TAResponseV3[T](result: Option[T],
                            error: Option[TAErrorV4],
                            statistics: Option[DocumentStatistics],
                            modelVersion: Option[String])
 
+//case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 case class TAWarningV4 (warningCode: String, message: String)
 case class KeyphraseV4(keyPhrases: List[String], warnings: List[TAWarningV4])
 
