@@ -237,5 +237,5 @@ trait HasLangCol extends Params {
 
   /** @group getParam */
   def getLangCol: String = $(langCol)
-  setDefault(langCol -> "en")
+  setDefault(langCol -> "langCol")
 }
