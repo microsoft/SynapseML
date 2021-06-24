@@ -23,13 +23,16 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
+
+    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+
     .setInputCol("text2")
 
   test("Basic Usage") {
     val replies = detector.transform(df)
       .select("name", "iso6391Name")
       .collect()
+
     assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
     assert(replies(0).getString(1) == "en" && replies(2).getString(1) == "es")
   }
