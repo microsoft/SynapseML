@@ -48,7 +48,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     .setEndpoint("endpoint")
     .setInputCol("text2")
 
-  test("KPE- Basic Usage") {
+  test("KPE - Basic Usage") {
     val replies = extractor.transform(df2)
       .select("keyPhrases")
       .collect()
