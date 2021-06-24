@@ -55,7 +55,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
-|  **HTTP on Spark** | **CNTK on Spark** |  **Interpretability on Spark**| **Spark Binding Autogeneration** |
+|  **HTTP on Spark** | **CNTK on Spark** |  **Model Interpretation on Spark**| **Spark Binding Autogeneration** |
 | An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration|Distributed Deep Learning with the Microsoft Cognitive Toolkit | Distributed, Model Agnostic, Interpretations for Classifiers | Automatically Generate Spark bindings for PySpark and SparklyR|
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> |<img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
