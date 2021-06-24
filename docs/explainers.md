@@ -1,14 +1,18 @@
-# Model Interpretability on Spark
+# Model Interpretation on Spark
 
-## Model Interpretability
+## Interpretable Machine Learning
 
-Model interpretability helps developers, data scientists and business stakeholders in the organization gain a comprehensive understanding of their machine learning models. It can also be used to debug models, explain predictions and enable auditing to meet compliance with regulatory requirements.
+Interpretable Machine Learning helps developers, data scientists and business stakeholders in the organization gain a comprehensive understanding of their machine learning models. It can also be used to debug models, explain predictions and enable auditing to meet compliance with regulatory requirements.
 
 ## Why run model interpretation on Spark
 
-Model Interpretability on Spark enables users to interpret a black box model at massive scales with the Apache Spark™ distributed computing ecosystem. Various components support local interpretation for tabular, vector, image and text classification models, with two popular model-agnostic interpretation methods: Local Surrogate (LIME) and Kernel SHAP.
+Model-agnostic interpretation methods can be computationally expensive due to the multiple evaluations needed to compute the explanations. Model interpretation on Spark enables users to interpret a black-box model at massive scales with the Apache Spark™ distributed computing ecosystem. Various components support local interpretation for tabular, vector, image and text classification models, with two popular model-agnostic interpretation methods: Local Surrogate (LIME) and Kernel SHAP.
 
 ## Usage
+
+Both LIME and Kernel SHAP are local interpretation methods. Local interpretation explains why does the model predict certain outcome for a given observation.
+
+Both explainers extends from `org.apache.spark.ml.Transformer`. After setting up the explainer parameters, simply call the `transform` function on a `DataFrame` of observations to interpret the model behavior on these observations.
 
 To see examples of model interpretability on Spark in action, take a look at these sample notebooks:
 
