@@ -39,7 +39,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       val inputColNames = dataset.columns.mkString(",")
       val lcol = col($(langCol))
       val icol = col($(inputCol))
-      dataset.withColumn("Out", invokeTextAnalyticsUdf(col($(inputCol)), col($(langCol))))
+      dataset.withColumn("Out", invokeTextAnalyticsUdf((col($(inputCol)), col($(langCol)))))
         .select($(inputCol), "Out.result.*", "Out.error.*", "Out.statistics.*", "Out.*")
         .drop("result", "error", "statistics")
     })
