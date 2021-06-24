@@ -27,7 +27,7 @@ import scala.concurrent.blocking
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput  with HasInternalJsonOutputParser with HasAsyncReply
-  with HasImageInput {
+  with HasImageInput with HasSetLocation {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
@@ -560,8 +560,31 @@ class AnalyzeCustomForm(override val uid: String) extends FormRecognizerBase(uid
 
   def this() = this(Identifiable.randomUID("AnalyzeCustomForm"))
 
-  def setLocationAndModelId(loc: String, modelId: String): this.type =
-    setUrl(s"https://$loc.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models/$modelId/analyze")
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
+
+  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
+
+  def setModelId(v: String): this.type = setScalarParam(modelId, v)
+
+  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    { row: Row =>
+      val base = getUrl + s"/${getValue(row, modelId)}/analyze"
+      val appended = if (!urlParams.isEmpty) {
+        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
 
   val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
     "Include text lines and element references in the result.", isURLParam = true)
@@ -618,8 +641,31 @@ class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid
 
   def this() = this(Identifiable.randomUID("GetCustomModel"))
 
-  def setLocationAndModelId(loc: String, modelId: String): this.type =
-    setUrl(s"https://$loc.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models/$modelId")
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
+
+  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
+
+  def setModelId(v: String): this.type = setScalarParam(modelId, v)
+
+  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    { row: Row =>
+      val base = getUrl + s"/${getValue(row, modelId)}"
+      val appended = if (!urlParams.isEmpty) {
+        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
 
   override protected def prepareMethod(): HttpRequestBase = new HttpGet()
 

@@ -85,66 +85,61 @@ trait FormRecognizerUtils extends TestBase {
 
   import spark.implicits._
 
-  lazy val imageDf1: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
-  ).toDF("source")
+  def createTestDataframe(v: Seq[String], returnBytes: Boolean): DataFrame = {
+    val df = v.toDF("source")
+    if (returnBytes) {
+      BingImageSearch
+        .downloadFromUrls("source", "imageBytes", 4, 10000)
+        .transform(df)
+        .select("imageBytes")
+    } else {
+      df
+    }
+  }
 
-  lazy val imageDf2: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"
-  ).toDF("source")
+  lazy val imageDf1: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"), returnBytes = false)
 
-  lazy val imageDf3: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"
-  ).toDF("source")
+  lazy val bytesDF1: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"), returnBytes = true)
 
-  lazy val imageDf4: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
-  ).toDF("source")
+  lazy val imageDf2: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"), returnBytes = false)
 
-  lazy val imageDf5: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"
-  ).toDF("source")
+  lazy val bytesDF2: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"), returnBytes = true)
 
-  lazy val pdfDf1: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout2.pdf"
-  ).toDF("source")
+  lazy val imageDf3: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"), returnBytes = false)
 
-  lazy val pdfDf2: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice1.pdf",
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice3.pdf"
-  ).toDF("source")
+  lazy val bytesDF3: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"), returnBytes = true)
 
-  lazy val bytesDF1: DataFrame = BingImageSearch
-    .downloadFromUrls("source", "imageBytes", 4, 10000)
-    .transform(imageDf1)
-    .select("imageBytes")
+  lazy val imageDf4: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"), returnBytes = false)
 
-  lazy val bytesDF2: DataFrame = BingImageSearch
-    .downloadFromUrls("source", "imageBytes", 4, 10000)
-    .transform(imageDf2)
-    .select("imageBytes")
+  lazy val bytesDF4: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"), returnBytes = true)
 
-  lazy val bytesDF3: DataFrame = BingImageSearch
-    .downloadFromUrls("source", "imageBytes", 4, 10000)
-    .transform(imageDf3)
-    .select("imageBytes")
+  lazy val imageDf5: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"), returnBytes = false)
 
-  lazy val bytesDF4: DataFrame = BingImageSearch
-    .downloadFromUrls("source", "imageBytes", 4, 10000)
-    .transform(imageDf4)
-    .select("imageBytes")
+  lazy val bytesDF5: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"), returnBytes = true)
 
-  lazy val bytesDF5: DataFrame = BingImageSearch
-    .downloadFromUrls("source", "imageBytes", 4, 10000)
-    .transform(imageDf5)
-    .select("imageBytes")
+  lazy val pdfDf1: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout2.pdf"), returnBytes = false)
 
-  lazy val trainingDataSAS: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-21T02:24:38Z&se=2021" +
+  lazy val pdfDf2: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice1.pdf",
+    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice3.pdf"), returnBytes = false)
+
+  lazy val trainingDataSAS: DataFrame = createTestDataframe(
+    Seq("https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-21T02:24:38Z&se=2021" +
       "-06-25T02:24:00Z&sv=2020-02-10&sr=c&sig=eWWUe2Nvusuz5%2FmZoldVPbqimPo%2FcFVPQTfYA%2F0pyXI%3D"
-  ).toDF("source")
+  ), returnBytes = false)
 
-  lazy val df: DataFrame = Seq("").toDF()
+  lazy val df: DataFrame = createTestDataframe(Seq(""), returnBytes = false)
 }
 
 class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout]
@@ -545,14 +540,16 @@ class AnalyzeCustomFormSuite extends TransformerFuzzing[AnalyzeCustomForm]
 
   lazy val analyzeCustomForm: AnalyzeCustomForm = new AnalyzeCustomForm()
     .setSubscriptionKey(cognitiveKey)
-    .setLocationAndModelId("eastus", modelId)
+    .setLocation("eastus")
+    .setModelId(modelId)
     .setImageUrlCol("source")
     .setOutputCol("form")
     .setConcurrency(5)
 
   lazy val bytesAnalyzeCustomForm: AnalyzeCustomForm = new AnalyzeCustomForm()
     .setSubscriptionKey(cognitiveKey)
-    .setLocationAndModelId("eastus", modelId)
+    .setLocation("eastus")
+    .setModelId(modelId)
     .setImageBytesCol("imageBytes")
     .setOutputCol("form")
     .setConcurrency(5)
@@ -692,7 +689,8 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
 
   lazy val getCustomModel: GetCustomModel = new GetCustomModel()
     .setSubscriptionKey(cognitiveKey)
-    .setLocationAndModelId("eastus", modelId)
+    .setLocation("eastus")
+    .setModelId(modelId)
     .setIncludeKeys(true)
     .setOutputCol("model")
     .setConcurrency(5)
