@@ -1,7 +1,8 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
@@ -132,8 +133,9 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   override def outputSchema: StructType = SentimentResponseV4.schema
 
   override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4]= (text: String) =>{
+
     val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
-      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
+       Seq(text).asJava, "en", textAnalyticsOptions.orNull)
 
     def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
       SentimentConfidenceScoreV4(
@@ -141,6 +143,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
         score.getNeutral,
         score.getPositive)
     }
+
     def getTarget(target: TargetSentiment): TargetV4 = {
       TargetV4(
         target.getText,
@@ -149,6 +152,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
         target.getOffset,
         target.getLength)
     }
+
     def getAssessment(assess: AssessmentSentiment): AssessmentV4 = {
       AssessmentV4(
         assess.getText,
@@ -164,14 +168,11 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
         sentencesent.getText,
         sentencesent.getSentiment.toString,
         getConfidenceScore(sentencesent.getConfidenceScores),
-        if(sentencesent.getOpinions == null){
-          None
-        }else{
-          Some(sentencesent.getOpinions.asScala.toList.map(op =>
+        Option(sentencesent.getOpinions).map(sentmap =>
+          sentmap.asScala.toList.map(op =>
             OpinionV4(getTarget(op.getTarget)
               ,op.getAssessments.asScala.toList.map(assessment =>
-                getAssessment(assessment)))))
-        },
+                getAssessment(assessment))))),
         sentencesent.getOffset,
         sentencesent.getLength)
     }
@@ -202,10 +203,8 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
       None
     }
 
-    val stats = Option(textSentimentResult.getStatistics) match {
-      case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
-      case None => None
-    }
+    val stats = Option(textSentimentResult.getStatistics).map(s =>
+       DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
 
     TAResponseV4[SentimentScoredDocumentV4](
       sentimentResult,

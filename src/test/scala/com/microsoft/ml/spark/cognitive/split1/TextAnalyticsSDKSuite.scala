@@ -9,7 +9,7 @@ import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 
-class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey {
+class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextKey {
   import spark.implicits._
   lazy val df: DataFrame = Seq(
     "Hello World",
@@ -24,15 +24,13 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
+    .setEndpoint("endpoint")
     .setInputCol("text2")
 
-  test("Basic Usage") {
+  test("Language Detection - Basic Usage") {
     val replies = detector.transform(df)
       .select("name", "iso6391Name")
       .collect()
-//      .select(detector.getPrimaryDetectedLanguageNameCol)
-//      .collect().toList
 
     assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish" )
     assert(replies(3).getString(0) == "Chinese_Traditional")
@@ -58,10 +56,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setEndpoint("endpoint")
     .setInputCol("text")
 
-  test("foo"){
+  test("Sentiment Analysis - foo"){
     detector.transform(df).printSchema()
   }
-  test("Basic Usage") {
+
+  test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
       .select("sentiment", "confidenceScores", "sentences", "warnings")
       .collect()
