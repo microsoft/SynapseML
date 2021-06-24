@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 
-class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey {
+class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
 
@@ -45,10 +45,10 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
 
   lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
+    .setEndpoint("endpoint")
     .setInputCol("text2")
 
-  test("Basic KPE Usage") {
+  test("KPE- Basic Usage") {
     val replies = extractor.transform(df2)
       .select("keyPhrases")
       .collect()

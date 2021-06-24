@@ -153,9 +153,9 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
     } else {
       Some(KeyphraseV4(
         keyPhraseDocument.asScala.toList,
-        keyPhraseDocument.getWarnings.asScala.toList.map(
+        keyPhraseDocument.getWarnings.asScala.map(
           item => TAWarningV4(item.getWarningCode.toString,item.getMessage)
-        )))
+        ).toList))
     }
 
 
@@ -178,11 +178,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
       Some(ExtractKeyPhrasesResultCollection.getModelVersion))
   }
 }
-
-case class TAResponseV3[T](result: Option[T],
-                           error: Option[TAErrorV4],
-                           statistics: Option[DocumentStatistics],
-                           modelVersion: Option[String])
 
 case class TAWarningV4 (warningCode: String, message: String)
 case class KeyphraseV4(keyPhrases: List[String], warnings: List[TAWarningV4])
