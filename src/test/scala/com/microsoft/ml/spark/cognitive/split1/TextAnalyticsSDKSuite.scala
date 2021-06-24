@@ -56,10 +56,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setEndpoint("endpoint")
     .setInputCol("text")
 
-  test("Sentiment Analysis - foo"){
-    detector.transform(df).printSchema()
-  }
-
   test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
       .select("sentiment", "confidenceScores", "sentences", "warnings")
