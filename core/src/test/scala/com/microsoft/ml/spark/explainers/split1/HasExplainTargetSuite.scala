@@ -18,8 +18,7 @@ class HasExplainTargetSuite extends TestBase {
     // array of Int
     val target1 = LocalExplainer.LIME.vector
       .setTargetCol("label1")
-      .setTargetClasses(Array(0, 2))
-      .getExplainTarget(df.schema)
+      .extractTarget(df.schema, "targets")
 
     val Tuple1(v1) = df.select(target1).as[Tuple1[Vector]].head
     assert(v1 == Vectors.dense(1d, 3d))
@@ -27,8 +26,7 @@ class HasExplainTargetSuite extends TestBase {
     // vector
     val target2 = LocalExplainer.LIME.vector
       .setTargetCol("label2")
-      .setTargetClasses(Array(0, 2))
-      .getExplainTarget(df.schema)
+      .extractTarget(df.schema, "targets")
 
     val Tuple1(v2) = df.select(target2).as[Tuple1[Vector]].head
     assert(v2 == Vectors.dense(1d, 3d))
@@ -36,19 +34,9 @@ class HasExplainTargetSuite extends TestBase {
     // Map of Int -> Float
     val target3 = LocalExplainer.LIME.vector
       .setTargetCol("label3")
-      .setTargetClasses(Array(0, 2))
-      .getExplainTarget(df.schema)
+      .extractTarget(df.schema, "targets")
 
     val Tuple1(v3) = df.select(target3).as[Tuple1[Vector]].head
     assert(v3 == Vectors.dense(1d, 3d))
-
-    // Dynamically retrieve targets
-    val target4 = LocalExplainer.LIME.vector
-      .setTargetCol("label2")
-      .setTargetClassesCol("targets")
-      .getExplainTarget(df.schema)
-
-    val Tuple1(v4) = df.select(target4).as[Tuple1[Vector]].head
-    assert(v4 == Vectors.dense(1d, 3d))
   }
 }

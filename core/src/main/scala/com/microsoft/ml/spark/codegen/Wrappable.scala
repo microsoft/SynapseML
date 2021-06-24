@@ -41,7 +41,6 @@ object DefaultParamInfo {
   val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat", "as.array")
   val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt", "as.array")
   val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list")
-  val MapArrayInfo = new ParamInfo[MapArrayParam]("dict")
   val MapInfo = new ParamInfo[MapParam[_, _]]("dict")
   val UnknownInfo = new ParamInfo[Param[_]]("object")
 
@@ -57,7 +56,6 @@ object DefaultParamInfo {
       case _: DoubleArrayParam => DoubleArrayInfo
       case _: IntArrayParam => IntArrayInfo
       case _: ByteArrayParam => ByteArrayInfo
-      case _: MapArrayParam => MapArrayInfo
       case _: MapParam[_, _] => MapInfo
       //case _: Param[String] => StringInfo //TODO fix erasure issues
       case _ => UnknownInfo

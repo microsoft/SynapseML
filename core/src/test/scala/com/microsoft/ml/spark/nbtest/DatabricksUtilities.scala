@@ -60,9 +60,9 @@ object DatabricksUtilities extends HasHttpClient {
     FileUtilities.join(BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile.listFiles()
   ).get
 
-  val ParallizableNotebooks = NotebookFiles.filterNot(_.getName.contains("Vowpal"))
+  val ParallizableNotebooks: Seq[File] = NotebookFiles
 
-  val NonParallizableNotebooks = NotebookFiles.filter(_.getName.contains("Vowpal"))
+  val NonParallizableNotebooks: Seq[File] = Nil
 
   def retry[T](backoffs: List[Int], f: () => T): T = {
     try {
