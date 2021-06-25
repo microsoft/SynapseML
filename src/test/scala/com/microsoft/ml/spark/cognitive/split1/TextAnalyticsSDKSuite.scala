@@ -8,6 +8,9 @@ import com.microsoft.ml.spark.core.test.fuzzing.TransformerFuzzing
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
+import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
+
+
 
 class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextKey {
   import spark.implicits._
@@ -24,7 +27,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("endpoint")
+    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text2")
 
   test("Language Detection - Basic Usage") {
@@ -40,20 +43,21 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 }
 
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
   import spark.implicits._
+
+  val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
+    .setIncludeStatistics(true))
 
   lazy val df: DataFrame = Seq(
     "Hello world. This is some input text that I love.",
     "I am sad",
     "I am feeling okay"
-  ).toDF( "text")
-
-  val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-    .setIncludeStatistics(true))
+  ).toDF("text")
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("endpoint")
+    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
 
   test("Sentiment Analysis - Basic Usage") {
@@ -63,6 +67,32 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
       && replies(2).getString(0) == "neutral")
   }
-
-
 }
+
+  class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+    import spark.implicits._
+
+    lazy val df2: DataFrame = Seq(
+      "Hello world. This is some input text that I love.",
+      "Glaciers are huge rivers of ice that ooze their way over land, powered by gravity and their own sheer weight.",
+      "Hello"
+    ).toDF("text2")
+
+    val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
+      .setIncludeStatistics(true))
+
+    lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
+      .setSubscriptionKey(textKey)
+      .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+      .setInputCol("text2")
+
+    test("KPE - Basic Usage") {
+      val replies = extractor.transform(df2)
+        .select("keyPhrases")
+        .collect()
+      assert(replies(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
+      assert(replies(1).getSeq[String](0).toSet === Set("land", "sheer weight",
+        "gravity", "way", "Glaciers", "ice", "huge rivers"))
+    }
+  }
+
