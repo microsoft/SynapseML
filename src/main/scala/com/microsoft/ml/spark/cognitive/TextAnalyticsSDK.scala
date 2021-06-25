@@ -1,20 +1,25 @@
 package com.microsoft.ml.spark.cognitive
 import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions,
-  TextAnalyticsWarning}
+  TextAnalyticsWarning,AssessmentSentiment, DocumentSentiment,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment}
+import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.{Param, ParamMap}
+import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DataTypes, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import com.azure.ai.textanalytics.models
 
+import java.net.URI
 import scala.collection.JavaConverters._
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
@@ -125,7 +130,7 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
   extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
-  override def outputSchema: StructType =  KeyPhraseResponseV4.schema
+  override def outputSchema: StructType = KeyPhraseResponseV4.schema
 
   override protected val invokeTextAnalytics: String => TAResponseV4[KeyphraseV4] = (text: String) =>
   {
@@ -163,5 +168,128 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
       stats,
       Some(ExtractKeyPhrasesResultCollection.getModelVersion))
   }
+
+}
+object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
+class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+                      override val uid: String = randomUID("TextSentimentV4"))
+  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
+    with HasConfidenceScoreCol {
+  logClass()
+
+  override def outputSchema: StructType = SentimentResponseV4.schema
+
+  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4] = (text: String) => {
+
+    val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
+      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
+
+    def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
+      SentimentConfidenceScoreV4(
+        score.getNegative,
+        score.getNeutral,
+        score.getPositive)
+    }
+
+    def getTarget(target: TargetSentiment): TargetV4 = {
+      TargetV4(
+        target.getText,
+        target.getSentiment.toString,
+        getConfidenceScore(target.getConfidenceScores),
+        target.getOffset,
+        target.getLength)
+    }
+
+    def getAssessment(assess: AssessmentSentiment): AssessmentV4 = {
+      AssessmentV4(
+        assess.getText,
+        assess.getSentiment.toString,
+        getConfidenceScore(assess.getConfidenceScores),
+        assess.isNegated,
+        assess.getOffset,
+        assess.getLength)
+    }
+
+    def getSentenceSentiment(sentencesent: SentenceSentiment): SentimentSentenceV4 = {
+      SentimentSentenceV4(
+        sentencesent.getText,
+        sentencesent.getSentiment.toString,
+        getConfidenceScore(sentencesent.getConfidenceScores),
+        Option(sentencesent.getOpinions).map(sentmap =>
+          sentmap.asScala.toList.map(op =>
+            OpinionV4(getTarget(op.getTarget)
+              , op.getAssessments.asScala.toList.map(assessment =>
+                getAssessment(assessment))))),
+        sentencesent.getOffset,
+        sentencesent.getLength)
+    }
+
+    def getDocumentSentiment(doc: DocumentSentiment): SentimentScoredDocumentV4 = {
+      SentimentScoredDocumentV4(
+        doc.getSentiment.toString,
+        getConfidenceScore(doc.getConfidenceScores),
+        doc.getSentences.asScala.toList.map(sentenceSentiment =>
+          getSentenceSentiment(sentenceSentiment)),
+        doc.getWarnings.asScala.toList.map(warnings =>
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
+    }
+
+    val textSentimentResult = textSentimentResultCollection.asScala.head
+    val documentSentiment = textSentimentResult.getDocumentSentiment();
+
+    val sentimentResult = if (textSentimentResult.isError) {
+      None
+    } else {
+      Some(getDocumentSentiment(documentSentiment))
+    }
+
+    val error = if (textSentimentResult.isError) {
+      val error = textSentimentResult.getError
+      Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))
+    } else {
+      None
+    }
+
+    val stats = Option(textSentimentResult.getStatistics).map(s =>
+      DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+
+    TAResponseV4[SentimentScoredDocumentV4](
+      sentimentResult,
+      error,
+      stats,
+      Some(textSentimentResultCollection.getModelVersion))
+  }
 }
 
+  object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
+
+  case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
+
+  case class SentimentScoredDocumentV4(sentiment: String,
+                                       confidenceScores: SentimentConfidenceScoreV4,
+                                       sentences: List[SentimentSentenceV4],
+                                       warnings: List[WarningsV4])
+
+  case class SentimentSentenceV4(text: String,
+                                 sentiment: String,
+                                 confidenceScores: SentimentConfidenceScoreV4,
+                                 opinion: Option[List[OpinionV4]],
+                                 offset: Int,
+                                 length: Int)
+
+  case class OpinionV4(target: TargetV4, assessment: List[AssessmentV4])
+
+  case class TargetV4(text: String,
+                      sentiment: String,
+                      confidenceScores: SentimentConfidenceScoreV4,
+                      offset: Int,
+                      length: Int)
+
+  case class AssessmentV4(text: String,
+                          sentiment: String,
+                          confidenceScores: SentimentConfidenceScoreV4,
+                          isNegated: Boolean,
+                          offset: Int,
+                          length: Int)
+
+  case class WarningsV4(text: String, warningCode: String)
