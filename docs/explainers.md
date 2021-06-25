@@ -6,7 +6,11 @@ Interpretable Machine Learning helps developers, data scientists and business st
 
 ## Why run model interpretation on Spark
 
-Model-agnostic interpretation methods can be computationally expensive due to the multiple evaluations needed to compute the explanations. Model interpretation on Spark enables users to interpret a black-box model at massive scales with the Apache Spark™ distributed computing ecosystem. Various components support local interpretation for tabular, vector, image and text classification models, with two popular model-agnostic interpretation methods: Local Surrogate (LIME) and Kernel SHAP.
+Model-agnostic interpretation methods can be computationally expensive due to the multiple evaluations needed to compute the explanations. Model interpretation on Spark enables users to interpret a black-box model at massive scales with the Apache Spark™ distributed computing ecosystem. Various components support local interpretation for tabular, vector, image and text classification models, with two popular model-agnostic interpretation methods: [LIME] and [Kernel SHAP].
+
+[LIME]: https://arxiv.org/abs/1602.04938
+
+[Kernel SHAP]: https://arxiv.org/abs/1705.07874
 
 ## Usage
 
@@ -31,11 +35,11 @@ All local explainers support the following params:
 
 | Param            | Type          | Default       | Description                                                                                                                                                                                             |
 |------------------|---------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| TargetCol        | `String`      | "probability" | The column name of the prediction target to explain (i.e. the response variable).  This is usually set to "prediction" for regression models and "probability" for probabilistic classification models. |
-| TargetClasses    | `Array[Int]`  | empty array   | The indices of the classes for multinomial classification models.                                                                                                                                       |
-| TargetClassesCol | `String`      |               | The name of the column that specifies the indices of the classes for multinomial classification models.                                                                                                 |
-| OutputCol        | `String`      |               | The name of the output column for interpretation results.                                                                                                                                               |
-| Model            | `Transformer` |               | The model to be interpreted.                                                                                                                                                                            |
+| targetCol        | `String`      | "probability" | The column name of the prediction target to explain (i.e. the response variable).  This is usually set to "prediction" for regression models and "probability" for probabilistic classification models. |
+| targetClasses    | `Array[Int]`  | empty array   | The indices of the classes for multinomial classification models.                                                                                                                                       |
+| targetClassesCol | `String`      |               | The name of the column that specifies the indices of the classes for multinomial classification models.                                                                                                 |
+| outputCol        | `String`      |               | The name of the output column for interpretation results.                                                                                                                                               |
+| model            | `Transformer` |               | The model to be explained.                                                                                                                                                                              |
 
 ### Common LIME explainer params
 
@@ -64,7 +68,7 @@ All tabular model explainers ([TabularLIME](#TabularLIME), [TabularSHAP](#Tabula
 
 | Param          | Type            | Default | Description                                                                                                  |
 |----------------|-----------------|---------|--------------------------------------------------------------------------------------------------------------|
-| InputCols      | `Array[String]` |         | The names of input columns to the black-box model.                                                           |
+| inputCols      | `Array[String]` |         | The names of input columns to the black-box model.                                                           |
 | backgroundData | `DataFrame`     |         | A dataframe containing background data. It must contain all the input columns needed by the black-box model. |
 
 ### Vector model explainer params
@@ -73,19 +77,19 @@ All vector model explainers ([VectorLIME](#VectorLIME), [VectorSHAP](#VectorSHAP
 
 | Param          | Type        | Default | Description                                                                                                    |
 |----------------|-------------|---------|----------------------------------------------------------------------------------------------------------------|
-| InputCol       | `String`    |         | The names of input vector column to the black-box model.                                                       |
+| inputCol       | `String`    |         | The names of input vector column to the black-box model.                                                       |
 | backgroundData | `DataFrame` |         | A dataframe containing background data. It must contain the input vector column needed by the black-box model. |
 
 ### Image model explainer params
 
 All image model explainers ([ImageLIME](#ImageLIME), [ImageSHAP](#ImageSHAP)) support the following params:
 
-| Param         | Type     | Default       | Description                                                       |
-|---------------|----------|---------------|-------------------------------------------------------------------|
-| InputCol      | `String` |               | The names of input image column to the black-box model.           |
-| CellSize      | `Double` | 16            | Number that controls the size of the superpixels.                 |
-| Modifier      | `Double` | 130           | Controls the trade-off spatial and color distance of superpixels. |
-| SuperpixelCol | `String` | "superpixels" | The column holding the superpixel decompositions.                 |
+| Param         | Type     | Default       | Description                                                        |
+|---------------|----------|---------------|--------------------------------------------------------------------|
+| inputCol      | `String` |               | The names of input image column to the black-box model.            |
+| cellSize      | `Double` | 16            | Number that controls the size of the super-pixels.                 |
+| modifier      | `Double` | 130           | Controls the trade-off spatial and color distance of super-pixels. |
+| superpixelCol | `String` | "superpixels" | The column holding the super-pixel decompositions.                 |
 
 ### Text model explainer params
 
@@ -93,14 +97,16 @@ All text model explainers ([TextLIME](#TextLIME), [TextSHAP](#TextSHAP)) support
 
 | Param     | Type     | Default  | Description                                            |
 |-----------|----------|----------|--------------------------------------------------------|
-| InputCol  | `String` |          | The names of input text column to the black-box model. |
-| TokensCol | `String` | "tokens" | The column holding the text tokens.                    |
+| inputCol  | `String` |          | The names of input text column to the black-box model. |
+| tokensCol | `String` | "tokens" | The column holding the text tokens.                    |
 
 ### `TabularLIME`
 
 | Param               | Type            | Default     | Description                                                          |
 |---------------------|-----------------|-------------|----------------------------------------------------------------------|
-| CategoricalFeatures | `Array[String]` | empty array | The name of columns that should be treated as categorical variables. |
+| categoricalFeatures | `Array[String]` | empty array | The name of columns that should be treated as categorical variables. |
+
+> For categorical features, `TabularLIME` creates new samples by drawing samples based on the value distribution from the background dataset. For numerical features, it creates new samples by drawing from a normal distribution with mean taken from the target value to be explained, and standard deviation taken from the background dataset.
 
 ### `TabularSHAP`
 
@@ -110,15 +116,19 @@ No additional params are supported.
 
 No additional params are supported.
 
+> `VectorLIME` assumes all features are numerical, and categorical features are not supported in `VectorLIME`.
+
 ### `VectorSHAP`
 
 No additional params are supported.
 
 ### `ImageLIME`
 
-| Param            | Type     | Default | Description                                             |
-|------------------|----------|---------|---------------------------------------------------------|
-| SamplingFraction | `Double` | 0.7     | The fraction of superpixels to keep on during sampling. |
+| Param            | Type     | Default | Description                                              |
+|------------------|----------|---------|----------------------------------------------------------|
+| samplingFraction | `Double` | 0.7     | The fraction of super-pixels to keep on during sampling. |
+
+> `ImageLIME` creates new samples by randomly turning super-pixels on or off with probability of keeping on set to `SamplingFraction`.
 
 ### `ImageSHAP`
 
@@ -126,9 +136,11 @@ No additional params are supported.
 
 ### `TextLIME`
 
-| Param            | Type     | Default | Description                                                   |
-|------------------|----------|---------|---------------------------------------------------------------|
-| SamplingFraction | `Double` | 0.7     | The fraction of tokens (for text) to keep on during sampling. |
+| Param            | Type     | Default | Description                                             |
+|------------------|----------|---------|---------------------------------------------------------|
+| samplingFraction | `Double` | 0.7     | The fraction of word tokens to keep on during sampling. |
+
+> `TextLIME` creates new samples by randomly turning word tokens on or off with probability of keeping on set to `SamplingFraction`.
 
 ### `TextSHAP`
 
@@ -138,14 +150,14 @@ No additional params are supported.
 
 ### LIME explainers
 
-LIME explainers return an array of vectors, and each vector maps to a class being explained. Each component of the vector is the coefficient for the corresponding feature/superpixel/token from the local surrogate model.
+LIME explainers return an array of vectors, and each vector maps to a class being explained. Each component of the vector is the coefficient for the corresponding feature, super-pixel, or word token from the local surrogate model.
 
-- For categorical variables, superpixels, or tokens, the coefficient shows the average change in model outcome if this feature is unknown to the model, if the superpixcel is replaced with background color (black), or if the token is replaced with empty string.
+- For categorical variables, super-pixels, or word tokens, the coefficient shows the average change in model outcome if this feature is unknown to the model, if the super-pixel is replaced with background color (black), or if the word token is replaced with empty string.
 - For numeric variables, the coefficient shows the change in model outcome if the feature value is incremented by 1 unit.
 
 ### SHAP explainers
 
-SHAP explainers return an array of vectors, and each vector maps to a class being explained. Each vector starts with the base value, and each following component of the vector is the Shapley value for each feature/superpixel/token.
+SHAP explainers return an array of vectors, and each vector maps to a class being explained. Each vector starts with the [base value](#base-value), and each following component of the vector is the Shapley value for each feature, super-pixel, or token.
 
 The base value and Shapley values are additive, and they should add up to the model output for the target observation.
 
