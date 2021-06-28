@@ -70,3 +70,56 @@ case class AnalyzeIDDocumentsResponse(status: String,
                                       createdDateTime: String,
                                       lastUpdatedDateTime: String,
                                       analyzeResult: AnalyzeResult)
+
+case class ModelInfo(modelId: String,
+                     status: String,
+                     createDateTime: String,
+                     lastUpdatedDateTime: String)
+
+case class TrainResult(trainingDocuments: Array[TrainingDocument],
+                       fields: Array[Field],
+                       errors: Seq[String])
+
+case class TrainingDocument(documentName: String,
+                            pages: Int,
+                            errors: Seq[String],
+                            status: String)
+
+object AnalyzeCustomModelResponse extends SparkBindings[AnalyzeCustomModelResponse]
+
+case class AnalyzeCustomModelResponse(status: String,
+                                      createdDateTime: String,
+                                      lastUpdatedDateTime: String,
+                                      analyzeResult: AnalyzeCustomModelAnalyzeResult)
+
+case class AnalyzeCustomModelAnalyzeResult(version: String,
+                                           readResults: Seq[FormReadResult],
+                                           pageResults: Option[Seq[AnalyzeCustomModelPageResult]],
+                                           documentResults: Option[Seq[DocumentResult]])
+
+case class AnalyzeCustomModelPageResult(page: Int,
+                                        keyValuePairs: Seq[KeyValuePair],
+                                        tables: Seq[Table])
+
+case class KeyValuePair(key: Element,
+                        value: Element)
+
+case class Element(text: String, boundingBox: Array[Double])
+
+object ListCustomModelsResponse extends SparkBindings[ListCustomModelsResponse]
+
+case class ListCustomModelsResponse(summary: Summary,
+                                    modelList: Array[ModelInfo],
+                                    nextLink: String)
+
+case class Summary(count: Int, limit: Int, lastUpdatedDateTime: String)
+
+object GetCustomModelResponse extends SparkBindings[GetCustomModelResponse]
+
+case class GetCustomModelResponse(modelInfo: ModelInfo,
+                                  keys: String,
+                                  trainResult: TrainResult)
+
+case class Key(clusters: Map[String, Array[String]])
+
+case class Field(fieldName: String, accuracy: Double)

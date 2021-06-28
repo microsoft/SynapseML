@@ -3,23 +3,16 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.io.http.{HTTPInputParser, HTTPOutputParser, HTTPParams,
-  HTTPRequestData, HTTPResponseData, HasErrorCol, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.logging.BasicLogging
-import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
-import com.microsoft.ml.spark.core.contracts.HasOutputCol
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
-import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable,
-  NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
+import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
+import org.apache.spark.sql.types.{DataType, StringType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -283,4 +276,86 @@ class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(ui
 
   override protected def responseDataType: DataType = AnalyzeIDDocumentsResponse.schema
 
+}
+
+object ListCustomModels extends ComplexParamsReadable[ListCustomModels] {
+  def flattenModelList(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = ListCustomModelsResponse.makeFromRowConverter
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.modelList.map(_.modelId).mkString(" "))
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+}
+
+class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("ListCustomModels"))
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
+
+  override protected def prepareMethod(): HttpRequestBase = new HttpGet()
+
+  val op = new ServiceParam[String](this, "op",
+    "Specify whether to return summary or full list of models.", isURLParam = true)
+
+  def setOp(v: String): this.type = setScalarParam(op, v)
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
+
+  override protected def responseDataType: DataType = ListCustomModelsResponse.schema
+}
+
+object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
+
+class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("GetCustomModel"))
+
+  def setLocation(v: String): this.type =
+    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
+
+  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
+
+  def setModelId(v: String): this.type = setScalarParam(modelId, v)
+
+  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    { row: Row =>
+      val base = getUrl + s"/${getValue(row, modelId)}"
+      val appended = if (!urlParams.isEmpty) {
+        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
+
+  override protected def prepareMethod(): HttpRequestBase = new HttpGet()
+
+  val includeKeys = new ServiceParam[Boolean](this, "includeKeys",
+    "Include list of extracted keys in model information.", isURLParam = true)
+
+  def setIncludeKeys(v: Boolean): this.type = setScalarParam(includeKeys, v)
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
+
+  override protected def responseDataType: DataType = GetCustomModelResponse.schema
 }
