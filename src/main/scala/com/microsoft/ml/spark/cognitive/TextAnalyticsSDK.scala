@@ -1,6 +1,7 @@
 package com.microsoft.ml.spark.cognitive
 
-import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions, TextAnalyticsWarning}
+import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions,
+  TextAnalyticsWarning}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol}
@@ -11,7 +12,7 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, column}
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -39,12 +40,11 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       val inputColNames = dataset.columns.mkString(",")
       val lcol = col($(langCol))
       val icol = col($(inputCol))
-      dataset.withColumn("Out", invokeTextAnalyticsUdf((col($(inputCol)), col($(langCol)))))
+      dataset.withColumn("Out", invokeTextAnalyticsUdf(col($(inputCol)), col($(langCol))))
         .select($(inputCol), "Out.result.*", "Out.error.*", "Out.statistics.*", "Out.*")
         .drop("result", "error", "statistics")
     })
   }
-
 
   override def transformSchema(schema: StructType): StructType = {
     // Validate input schema
@@ -86,7 +86,8 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
 
-  override protected val invokeTextAnalytics: (String, Option[String]) => TAResponseV4[DetectedLanguageV4] = (text: String, language: Option[String]) =>
+  override protected val invokeTextAnalytics: (String, Option[String]) => TAResponseV4[DetectedLanguageV4] =
+    (text: String, language: Option[String]) =>
     {
       val detectLanguageResultCollection = textAnalyticsClient.detectLanguageBatch(
         Seq(text).asJava, null, textAnalyticsOptions.orNull)
