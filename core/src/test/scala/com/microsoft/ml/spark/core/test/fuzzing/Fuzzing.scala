@@ -319,3 +319,11 @@ trait TransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] {
 }
 
 trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S]
+
+trait ModelFuzzing[S <: Model[S] with MLWritable] extends Fuzzing[S] {
+
+  override val ignoreEstimators: Boolean = true
+
+  override def modelReader: MLReadable[_] = reader
+
+}

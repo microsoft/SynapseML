@@ -3,27 +3,25 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
+import com.microsoft.ml.spark.io.http.{HTTPInputParser, HTTPOutputParser, HTTPParams,
+  HTTPRequestData, HTTPResponseData, HasErrorCol, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.logging.BasicLogging
-import com.microsoft.ml.spark.stages.UDFTransformer
-import com.microsoft.ml.spark.build.BuildInfo
-import org.apache.commons.io.IOUtils
+import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
+import com.microsoft.ml.spark.core.contracts.HasOutputCol
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable,
+  NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.ml.param.{ParamMap, ServiceParam}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{DataType, StringType}
+import org.apache.spark.sql.types.{DataType, StringType, StructType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import java.net.URI
-import java.util.concurrent.TimeoutException
-import scala.concurrent.blocking
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput  with HasInternalJsonOutputParser with HasAsyncReply
@@ -41,7 +39,7 @@ abstract class FormRecognizerBase(override val uid: String) extends CognitiveSer
 
 }
 
-object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] {
+trait flattenAnalyzeResult {
   def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
     def extractText(lines: Array[ReadLine]): String = {
@@ -74,7 +72,24 @@ object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] {
       .setOutputCol(outputCol)
   }
 
+  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
+    def extractFields(documentResults: Seq[DocumentResult]): String = {
+      documentResults.map(_.fields).mkString("\n")
+    }
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
 }
+
+object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] with flattenAnalyzeResult
 
 class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -120,39 +135,7 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) wi
 
 }
 
-object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts] {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeReceiptsResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeReceiptsResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
+object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts] with flattenAnalyzeResult
 
 class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -165,7 +148,7 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) 
   val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
   "Include text lines and element references in the result.", isURLParam = true)
 
-  def  setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
+  def setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
 
   setDefault(includeTextDetails -> Left(false))
 
@@ -189,39 +172,7 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) 
 
 }
 
-object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards] {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
+object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards] with flattenAnalyzeResult
 
 class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -258,39 +209,7 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
 
 }
 
-object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices] {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
+object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices] with flattenAnalyzeResult
 
 class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -327,39 +246,7 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) 
 
 }
 
-object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments] {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeIDDocumentsResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeIDDocumentsResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
+object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments] with flattenAnalyzeResult
 
 class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -386,214 +273,6 @@ class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(ui
   def setPagesCol(v: String): this.type = setVectorParam(pages, v)
 
   override protected def responseDataType: DataType = AnalyzeIDDocumentsResponse.schema
-
-}
-
-object TrainCustomModel extends ComplexParamsReadable[TrainCustomModel] {
-  def getModelId(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = TrainCustomModelResponse.makeFromRowConverter
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(_.modelInfo.modelId).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
-
-class TrainCustomModel(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with HasCognitiveServiceInput  with HasInternalJsonOutputParser with HasAsyncReply
-  with HasImageInput with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("TrainCustomModel"))
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
-
-  val prefix = new ServiceParam[String](this, "prefix", "A case-sensitive prefix string to filter" +
-    " documents in the source path for training. For example, when using a Azure storage blob Uri, use the prefix " +
-    "to restrict sub folders for training.")
-
-  def setPrefix(v: String): this.type = setScalarParam(prefix, v)
-
-  val includeSubFolders = new ServiceParam[Boolean](this, "includeSubFolders", "A flag to indicate " +
-    "if sub folders within the set of prefix folders will also need to be included when searching for content " +
-    "to be preprocessed.")
-
-  def setIncludeSubFolders(v: Boolean): this.type = setScalarParam(includeSubFolders, v)
-
-  setDefault(includeSubFolders -> Left(false))
-
-  val useLabelFile = new ServiceParam[Boolean](this, "useLabelFile", "Use label file for training a model.")
-
-  def setUseLabelFile(v: Boolean): this.type = setScalarParam(useLabelFile, v)
-
-  setDefault(useLabelFile -> Left(false))
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r => Some(new StringEntity(Map("source" -> getValue(r, imageUrl).toJson,
-      "sourceFilter" -> Map("prefix" -> getValue(r, prefix).toJson,
-        "includeSubFolders" -> getValue(r, includeSubFolders).toJson).toJson,
-      "useLabelFile" -> getValue(r, useLabelFile).toJson).toJson.compactPrint, ContentType.APPLICATION_JSON))
-  }
-
-  private def queryForResult(key: Option[String],
-                               client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData] = {
-    val get = new HttpGet()
-    get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
-    get.releaseConnection()
-    val modelInfo = IOUtils.toString(resp.entity.get.content, "UTF-8").
-      parseJson.asJsObject.fields.getOrElse("modelInfo", "")
-    var status = ""
-    modelInfo match {
-      case x: JsObject => x.fields.getOrElse("status", "") match {
-        case y: JsString => status = y.value
-        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
-      }
-      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
-    }
-    status match {
-      case "ready" | "invalid" => Some(resp)
-      case "creating" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
-  }
-
-  override protected def handlingFunc(client: CloseableHttpClient,
-                                      request: HTTPRequestData): HTTPResponseData = {
-    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 201) {
-      val location = new URI(response.headers.filter(_.name == "Location").head.value)
-      val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
-          }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
-      }
-    } else {
-      response
-    }
-  }
-
-  override protected def responseDataType: DataType = TrainCustomModelResponse.schema
-
-}
-
-object AnalyzeCustomForm extends ComplexParamsReadable[AnalyzeCustomForm] {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomFormResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomFormResponse.makeFromRowConverter
-    def extractTableText(pageResults: Seq[CustomFormPageResult]): String = {
-      pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
-    }
-    def generateKeyValuePairs(keyValuePair: KeyValuePair): String = {
-      "key: " + keyValuePair.key.text + " value: " + keyValuePair.value.text
-    }
-    def extractKeyValuePairs(pageResults: Seq[CustomFormPageResult]): String = {
-      pageResults.map(_.keyValuePairs.map(generateKeyValuePairs).mkString("\n")).mkString("\n\n")
-    }
-    def extractAllText(pageResults: Seq[CustomFormPageResult]): String = {
-      "KeyValuePairs: " + extractKeyValuePairs(pageResults) + "\n\n\n" + "Tables: " + extractTableText(pageResults)
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.pageResults.map(extractAllText).mkString(" "))
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomFormResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
-
-class AnalyzeCustomForm(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("AnalyzeCustomForm"))
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
-
-  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
-
-  def setModelId(v: String): this.type = setScalarParam(modelId, v)
-
-  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
-
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-    // This semicolon is needed to avoid argument confusion
-    { row: Row =>
-      val base = getUrl + s"/${getValue(row, modelId)}/analyze"
-      val appended = if (!urlParams.isEmpty) {
-        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
-  }
-
-  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
-    "Include text lines and element references in the result.", isURLParam = true)
-
-  def  setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
-
-  setDefault(includeTextDetails -> Left(false))
-
-  override protected def responseDataType: DataType = AnalyzeCustomFormResponse.schema
 
 }
 

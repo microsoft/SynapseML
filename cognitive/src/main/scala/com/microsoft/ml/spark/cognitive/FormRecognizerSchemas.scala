@@ -90,30 +90,26 @@ case class TrainingDocument(documentName: String,
                             errors: Seq[String],
                             status: String)
 
-object AnalyzeCustomFormResponse extends SparkBindings[AnalyzeCustomFormResponse]
+object AnalyzeCustomModelResponse extends SparkBindings[AnalyzeCustomModelResponse]
 
-case class AnalyzeCustomFormResponse(status: String,
+case class AnalyzeCustomModelResponse(status: String,
                                      createdDateTime: String,
                                      lastUpdatedDateTime: String,
-                                     analyzeResult: CustomFormAnalyzeResult)
+                                     analyzeResult: AnalyzeCustomModelAnalyzeResult)
 
-case class CustomFormAnalyzeResult(version: String,
-                                   readResults: Seq[FormReadResult],
-                                   pageResults: Option[Seq[CustomFormPageResult]],
-                                   documentResults: Option[Seq[DocumentResult]])
+case class AnalyzeCustomModelAnalyzeResult(version: String,
+                                           readResults: Seq[FormReadResult],
+                                           pageResults: Option[Seq[AnalyzeCustomModelPageResult]],
+                                           documentResults: Option[Seq[DocumentResult]])
 
-case class CustomFormPageResult(page: Int,
-                                keyValuePairs: Seq[KeyValuePair],
-                                tables: Seq[Table])
+case class AnalyzeCustomModelPageResult(page: Int,
+                                        keyValuePairs: Seq[KeyValuePair],
+                                        tables: Seq[Table])
 
 case class KeyValuePair(key: Element,
                         value: Element)
 
 case class Element(text: String, boundingBox: Array[Double])
-
-case class TrainCustomModelBody(source: String, sourceFilter: SourceFilter, useLabelFile: Boolean)
-
-case class SourceFilter(prefix: String, includeSubFolders: Boolean)
 
 object ListCustomModelsResponse extends SparkBindings[ListCustomModelsResponse]
 
