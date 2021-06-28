@@ -7,7 +7,7 @@ import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, ModelFuzzing, TestObject, TransformerFuzzing}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
@@ -19,11 +19,6 @@ import spray.json.DefaultJsonProtocol.{BooleanJsonFormat, StringJsonFormat, json
 import spray.json._
 
 import java.net.URI
-
-object CustomFormProtocol {
-  implicit val SFEnc = jsonFormat2(SourceFilter.apply)
-  implicit val TCMEnc = jsonFormat3(TrainCustomModelBody.apply)
-}
 
 object FormRecognizerUtils extends CognitiveKey {
 
@@ -47,7 +42,7 @@ object FormRecognizerUtils extends CognitiveKey {
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
           val bodyOpt = request match {
-            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent)
+            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
             case _ => ""
           }
           throw new RuntimeException(
@@ -59,25 +54,14 @@ object FormRecognizerUtils extends CognitiveKey {
           ""
         }
         else {
-          IOUtils.toString(response.getEntity.getContent)
+          IOUtils.toString(response.getEntity.getContent, "UTF-8")
         }
       }.get
     })
   }
 
-  def formPost[T](path: String, body: T, params: Map[String, String] = Map())
-                          (implicit format: JsonFormat[T]): String = {
-    val post = new HttpPost()
-    post.setEntity(new StringEntity(body.toJson.compactPrint))
-    formSend(post, path, params)
-  }
-
   def formDelete(path: String, params: Map[String, String] = Map()): String = {
     formSend(new HttpDelete(), "/" + path, params)
-  }
-
-  def formGet(path: String, params: Map[String, String] = Map()): String = {
-    formSend(new HttpGet(), path, params)
   }
 }
 
@@ -135,8 +119,8 @@ trait FormRecognizerUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice3.pdf"), returnBytes = false)
 
   lazy val trainingDataSAS: DataFrame = createTestDataframe(
-    Seq("https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-21T02:24:38Z&se=2021" +
-      "-06-25T02:24:00Z&sv=2020-02-10&sr=c&sig=eWWUe2Nvusuz5%2FmZoldVPbqimPo%2FcFVPQTfYA%2F0pyXI%3D"
+    Seq("https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-25T02:36:37Z&se=2021" +
+      "-07-03T02:36:00Z&sv=2020-08-04&sr=c&sig=ROfFMue92rhwZvPA1xe4amTFo0zPJJt%2BIyj42JYHyi0%3D"
   ), returnBytes = false)
 
   lazy val df: DataFrame = createTestDataframe(Seq(""), returnBytes = false)
@@ -459,262 +443,4 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments]
     Seq(new TestObject(analyzeIDDocuments, imageDf5))
 
   override def reader: MLReadable[_] = AnalyzeIDDocuments
-}
-
-class TrainCustomModelSuite extends TransformerFuzzing[TrainCustomModel]
-  with CognitiveKey with Flaky with FormRecognizerUtils {
-
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source")
-    }
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  override def afterAll(): Unit = {
-    val listCustomModels: ListCustomModels = new ListCustomModels()
-      .setSubscriptionKey(cognitiveKey)
-      .setLocation("eastus")
-      .setOp("full")
-      .setOutputCol("models")
-      .setConcurrency(5)
-    val results = listCustomModels.transform(df)
-      .withColumn("modelIds", col("models").getField("modelList").getField("modelId"))
-      .select("modelIds")
-      .collect()
-    val modelIds = results.flatMap(_.getAs[Seq[String]](0))
-    modelIds.foreach(
-      x => FormRecognizerUtils.formDelete(x)
-    )
-    super.afterAll()
-  }
-
-  test("Train custom model with blob storage dataset") {
-    val results = trainingDataSAS.mlTransform(trainCustomModel,
-      TrainCustomModel.getModelId("customModelResult", "modelId"))
-      .select("modelId")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr != "")
-    FormRecognizerUtils.formDelete(headStr)
-  }
-
-  override def testObjects(): Seq[TestObject[TrainCustomModel]] =
-    Seq(new TestObject(trainCustomModel, trainingDataSAS))
-
-  override def reader: MLReadable[_] = TrainCustomModel
-}
-
-class AnalyzeCustomFormSuite extends TransformerFuzzing[AnalyzeCustomForm]
-  with CognitiveKey with Flaky with FormRecognizerUtils {
-
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
-
-  lazy val customModel: DataFrame = trainCustomModel.transform(trainingDataSAS)
-    .withColumn("modelInfo", col("customModelResult").getField("modelInfo"))
-    .withColumn("modelId", col("modelInfo").getField("modelId"))
-    .select("modelId")
-
-  val modelId: String = customModel.collect().head.getString(0)
-
-  override def afterAll(): Unit = {
-    if (modelId != "") {
-      FormRecognizerUtils.formDelete(modelId)
-    }
-    super.afterAll()
-  }
-
-  lazy val analyzeCustomForm: AnalyzeCustomForm = new AnalyzeCustomForm()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setImageUrlCol("source")
-    .setOutputCol("form")
-    .setConcurrency(5)
-
-  lazy val bytesAnalyzeCustomForm: AnalyzeCustomForm = new AnalyzeCustomForm()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("form")
-    .setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "form.analyzeResult.readResults")
-    }
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("Basic Usage with URL") {
-    val results = imageDf4.mlTransform(analyzeCustomForm,
-      AnalyzeCustomForm.flattenReadResults("form", "readForm"),
-      AnalyzeCustomForm.flattenPageResults("form", "pageForm"),
-      AnalyzeCustomForm.flattenDocumentResults("form", "docForm"))
-      .select("readForm", "pageForm", "docForm")
-      .collect()
-    assert(results.head.getString(0) === "")
-    assert(results.head.getString(1)
-      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
-    assert(results.head.getString(2) === "")
-  }
-
-  test("Basic Usage with Bytes") {
-    val results = bytesDF4.mlTransform(bytesAnalyzeCustomForm,
-      AnalyzeCustomForm.flattenReadResults("form", "readForm"),
-      AnalyzeCustomForm.flattenPageResults("form", "pageForm"),
-      AnalyzeCustomForm.flattenDocumentResults("form", "docForm"))
-      .select("readForm", "pageForm", "docForm")
-      .collect()
-    assert(results.head.getString(0) === "")
-    assert(results.head.getString(1)
-      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
-    assert(results.head.getString(2) === "")
-  }
-
-  override def testObjects(): Seq[TestObject[AnalyzeCustomForm]] =
-    Seq(new TestObject(analyzeCustomForm, imageDf4))
-
-  override def reader: MLReadable[_] = AnalyzeCustomForm
-}
-
-class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
-  with CognitiveKey with Flaky with FormRecognizerUtils {
-
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
-
-  lazy val customModel: DataFrame = trainCustomModel.transform(trainingDataSAS)
-    .withColumn("modelInfo", col("customModelResult").getField("modelInfo"))
-    .withColumn("modelId", col("modelInfo").getField("modelId"))
-    .select("modelId")
-
-  val modelId: String = customModel.collect().head.getString(0)
-
-  override def afterAll(): Unit = {
-    if (modelId != "") {
-      FormRecognizerUtils.formDelete(modelId)
-    }
-    super.afterAll()
-  }
-
-  lazy val listCustomModels: ListCustomModels = new ListCustomModels()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOp("full")
-    .setOutputCol("models")
-    .setConcurrency(5)
-
-  lazy val listCustomModels2: ListCustomModels = new ListCustomModels()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOp("summary")
-    .setOutputCol("models")
-    .setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("models.summary.count")
-    }
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("List model list details") {
-    val results = df.mlTransform(listCustomModels,
-      ListCustomModels.flattenModelList("models", "modelIds"))
-      .select("modelIds")
-      .collect()
-    assert(results.head.getString(0) != "")
-  }
-
-  test("List model list summary") {
-    val results = listCustomModels2.transform(df)
-      .withColumn("modelCount", col("models").getField("summary").getField("count"))
-      .select("modelCount")
-      .collect()
-    assert(results.head.getInt(0) >= 1)
-  }
-
-  override def testObjects(): Seq[TestObject[ListCustomModels]] =
-    Seq(new TestObject(listCustomModels, df))
-
-  override def reader: MLReadable[_] = ListCustomModels
-}
-
-class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
-  with CognitiveKey with Flaky with FormRecognizerUtils {
-  import spark.implicits._
-
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
-
-  lazy val customModel: DataFrame = trainCustomModel.transform(trainingDataSAS)
-    .withColumn("modelInfo", col("customModelResult").getField("modelInfo"))
-    .withColumn("modelId", col("modelInfo").getField("modelId"))
-    .select("modelId")
-
-  val modelId: String = customModel.collect().head.getString(0)
-
-  override def afterAll(): Unit = {
-    if (modelId != "") {
-      FormRecognizerUtils.formDelete(modelId)
-    }
-    super.afterAll()
-  }
-
-  lazy val getCustomModel: GetCustomModel = new GetCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setIncludeKeys(true)
-    .setOutputCol("model")
-    .setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("model.trainResult.trainingDocuments")
-    }
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("Get model detail") {
-    val results = getCustomModel.transform(df)
-      .withColumn("keys", col("model").getField("keys"))
-      .select("keys")
-      .collect()
-    assert(results.head.getString(0) ===
-      ("""{"clusters":{"0":["BILL TO:","CUSTOMER ID:","CUSTOMER NAME:","DATE:","DESCRIPTION",""" +
-        """"DUE DATE:","F.O.B. POINT","INVOICE:","P.O. NUMBER","QUANTITY","REMIT TO:","REQUISITIONER",""" +
-        """"SALESPERSON","SERVICE ADDRESS:","SHIP TO:","SHIPPED VIA","TERMS","TOTAL","UNIT PRICE"]}}""").stripMargin)
-  }
-
-  override def testObjects(): Seq[TestObject[GetCustomModel]] =
-    Seq(new TestObject(getCustomModel, df))
-
-  override def reader: MLReadable[_] = GetCustomModel
 }
