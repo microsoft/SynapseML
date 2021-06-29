@@ -56,7 +56,7 @@ private[lightgbm] abstract class BaseChunkedColumns(columnParams: ColumnParams,
 
   def addRows(rowsIter: Iterator[Row]): Unit = {
     while (rowsIter.hasNext) {
-      this.addRow()
+      rowCount += 1
       val row = rowsIter.next()
       this.addFeatures(row)
       this.labels.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
@@ -70,10 +70,6 @@ private[lightgbm] abstract class BaseChunkedColumns(columnParams: ColumnParams,
   }
 
   def addFeatures(row: Row): Unit
-
-  def addRow(): Unit = {
-    rowCount += 1
-  }
 
   def release(): Unit = {
     // Clear memory
