@@ -287,6 +287,8 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   def setLinkedService(value: String): this.type = {
+    val classPath = "mssparkutils.cognitiveServiceUtils"
+    val funcName = ""
     val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass("com.microsoft.ml.spark.cognitive.split1.A")
   }
 }
