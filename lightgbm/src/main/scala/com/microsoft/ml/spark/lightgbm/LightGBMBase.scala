@@ -195,13 +195,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   /**
     * Constructs the ExecutionParams.
-    *
-    * @param isLocalMode True if spark is run in local mode, on one machine.
-    * @param numTasksPerExec The number of tasks per executor.
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
-  protected def getExecutionParams(isLocalMode: Boolean, numTasksPerExec: Int): ExecutionParams = {
-    //val useSingleDatasetMode = if (isLocalMode || numTasksPerExec == 1) false else getUseSingleDatasetMode
+  protected def getExecutionParams: ExecutionParams = {
     ExecutionParams(getChunkSize, getMatrixType, getNumThreads, getUseSingleDatasetMode)
   }
 

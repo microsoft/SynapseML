@@ -32,7 +32,7 @@ object DatasetUtils {
     }
   }
 
-  def generateDataset(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
+  def generateDataset(aggregatedColumns: BaseAggregatedColumns, columnParams: ColumnParams,
                       referenceDataset: Option[LightGBMDataset], isSparse: Boolean, schema: StructType,
                       log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     var dataset: Option[LightGBMDataset] = None
@@ -194,7 +194,7 @@ object DatasetUtils {
     initScoreChunkedArrayOpt.foreach(_.release())
   }
 
-  def aggregateDenseStreamedData(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
+  def aggregateDenseStreamedData(aggregatedColumns: BaseAggregatedColumns, columnParams: ColumnParams,
                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
                                  log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val denseAggregatedColumns = aggregatedColumns.asInstanceOf[BaseDenseAggregatedColumns]
@@ -205,23 +205,23 @@ object DatasetUtils {
       val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols, trainParams)
       log.info(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
       val dataset = Some(LightGBMUtils.generateDenseDataset(numRows, numCols,
-        denseAggregatedColumns.featuresArray.array,
+        denseAggregatedColumns.getFeaturesArray.array,
         referenceDataset, slotNames, trainParams, chunkSize))
-      dataset.get.addFloatField(denseAggregatedColumns.labelsArray.array,
+      dataset.get.addFloatField(denseAggregatedColumns.getLabelsArray.array,
         "label", numRows)
 
-      denseAggregatedColumns.weightArrayOpt
+      denseAggregatedColumns.getWeightArrayOpt
         .foreach(weightArray => dataset.get.addFloatField(weightArray.array, "weight", numRows))
-      denseAggregatedColumns.initScoreArrayOpt
+      denseAggregatedColumns.getInitScoreArrayOpt
         .foreach(initScoreArray => dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
       val overrideGroupIndex = Some(0)
-      addGroupColumn(denseAggregatedColumns.groupColumnValuesArray, columnParams.groupColumn, dataset,
+      addGroupColumn(denseAggregatedColumns.getGroupColumnValuesArray, columnParams.groupColumn, dataset,
         numRows, schema, overrideGroupIndex)
       dataset
     } finally {
-      denseAggregatedColumns.labelsArray.delete()
-      denseAggregatedColumns.weightArrayOpt.foreach(_.delete())
-      denseAggregatedColumns.initScoreArrayOpt.foreach(_.delete())
+      denseAggregatedColumns.getLabelsArray.delete()
+      denseAggregatedColumns.getWeightArrayOpt.foreach(_.delete())
+      denseAggregatedColumns.getInitScoreArrayOpt.foreach(_.delete())
     }
   }
 
@@ -234,13 +234,13 @@ object DatasetUtils {
     }
   }
 
-  def aggregateSparseStreamedData(aggregatedColumns: AggregatedColumns, columnParams: ColumnParams,
+  def aggregateSparseStreamedData(aggregatedColumns: BaseAggregatedColumns, columnParams: ColumnParams,
                                   referenceDataset: Option[LightGBMDataset], schema: StructType,
                                   log: Logger, trainParams: TrainParams): Option[LightGBMDataset] = {
     val sparseAggregatedColumns = aggregatedColumns.asInstanceOf[BaseSparseAggregatedColumns]
     val chunkSize = trainParams.executionParams.chunkSize
     try {
-      indptrArrayIncrement(sparseAggregatedColumns.indptrArray.array, sparseAggregatedColumns.indptrCount.get())
+      indptrArrayIncrement(sparseAggregatedColumns.getIndptrArray.array, sparseAggregatedColumns.getIndptrCount)
       val numCols = sparseAggregatedColumns.getNumCols
       val slotNames = getSlotNames(schema, columnParams.featuresColumn, numCols.toInt, trainParams)
       val numRows = sparseAggregatedColumns.rowCount.get().toInt
@@ -248,30 +248,30 @@ object DatasetUtils {
       var dataset: Option[LightGBMDataset] = None
       try {
         dataset = Some(LightGBMUtils.generateSparseDataset(sparseAggregatedColumns.getNumCols,
-          sparseAggregatedColumns.indptrCount.get(), sparseAggregatedColumns.indexesCount.get(),
-          lightgbmlib.double_to_voidp_ptr(sparseAggregatedColumns.valuesArray.array),
-          sparseAggregatedColumns.indexesArray.array,
-          lightgbmlib.int_to_voidp_ptr(sparseAggregatedColumns.indptrArray.array),
+          sparseAggregatedColumns.getIndptrCount, sparseAggregatedColumns.getIndexesCount,
+          lightgbmlib.double_to_voidp_ptr(sparseAggregatedColumns.getValuesArray.array),
+          sparseAggregatedColumns.getIndexesArray.array,
+          lightgbmlib.int_to_voidp_ptr(sparseAggregatedColumns.getIndptrArray.array),
           referenceDataset, slotNames, trainParams))
       } finally {
         // Delete the input rows
-        sparseAggregatedColumns.valuesArray.delete()
-        sparseAggregatedColumns.indexesArray.delete()
-        sparseAggregatedColumns.indptrArray.delete()
+        sparseAggregatedColumns.getValuesArray.delete()
+        sparseAggregatedColumns.getIndexesArray.delete()
+        sparseAggregatedColumns.getIndptrArray.delete()
       }
-      dataset.get.addFloatField(sparseAggregatedColumns.labelsArray.array, "label", numRows)
-      sparseAggregatedColumns.weightArrayOpt.foreach(weightArray =>
+      dataset.get.addFloatField(sparseAggregatedColumns.getLabelsArray.array, "label", numRows)
+      sparseAggregatedColumns.getWeightArrayOpt.foreach(weightArray =>
         dataset.get.addFloatField(weightArray.array, "weight", numRows))
-      sparseAggregatedColumns.initScoreArrayOpt.foreach(initScoreArray =>
+      sparseAggregatedColumns.getInitScoreArrayOpt.foreach(initScoreArray =>
         dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
       val overrideGroupIndex = Some(0)
-      addGroupColumn(sparseAggregatedColumns.groupColumnValuesArray,
+      addGroupColumn(sparseAggregatedColumns.getGroupColumnValuesArray,
         columnParams.groupColumn, dataset, numRows, schema, overrideGroupIndex)
       dataset
     } finally {
-      sparseAggregatedColumns.labelsArray.delete()
-      sparseAggregatedColumns.weightArrayOpt.foreach(_.delete())
-      sparseAggregatedColumns.initScoreArrayOpt.foreach(_.delete())
+      sparseAggregatedColumns.getLabelsArray.delete()
+      sparseAggregatedColumns.getWeightArrayOpt.foreach(_.delete())
+      sparseAggregatedColumns.getInitScoreArrayOpt.foreach(_.delete())
     }
   }
 

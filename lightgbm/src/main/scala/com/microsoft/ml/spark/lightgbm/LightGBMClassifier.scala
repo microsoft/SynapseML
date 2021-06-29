@@ -55,7 +55,7 @@ class LightGBMClassifier(override val uid: String)
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
       getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames,
-      getDelegate, getDartParams(), getExecutionParams(isLocal, numTasksPerExec), getObjectiveParams())
+      getDelegate, getDartParams, getExecutionParams, getObjectiveParams)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {

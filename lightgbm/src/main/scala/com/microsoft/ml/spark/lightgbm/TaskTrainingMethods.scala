@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.lightgbm.TrainUtils.{afterGenerateTrainDataset, af
   beforeGenerateTrainDataset, beforeGenerateValidDataset, createBooster, getNetworkInfo, getReturnBooster,
   networkInit, trainCore}
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
-import com.microsoft.ml.spark.lightgbm.dataset.{AggregatedColumns, DatasetUtils, LightGBMDataset}
+import com.microsoft.ml.spark.lightgbm.dataset.{BaseAggregatedColumns, DatasetUtils, LightGBMDataset}
 import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.Row
@@ -45,15 +45,15 @@ object TaskTrainingMethods {
                       columnParams: ColumnParams,
                       schema: StructType,
                       trainParams: TrainParams,
-                      sharedState: SharedState): (AggregatedColumns, Option[AggregatedColumns]) = {
+                      sharedState: SharedState): (BaseAggregatedColumns, Option[BaseAggregatedColumns]) = {
     val aggregatedColumns = {
       val prepAggregatedColumns = sharedState.prep(inputRows)
-      sharedState.merge(Array(prepAggregatedColumns))
+      sharedState.merge(prepAggregatedColumns)
     }
 
     val aggregatedValidationColumns = validationData.map { data =>
       val prepAggregatedColumns = sharedState.prep(data.value.toIterator)
-      sharedState.merge(Array(prepAggregatedColumns))
+      sharedState.merge(prepAggregatedColumns)
     }
     (aggregatedColumns, aggregatedValidationColumns)
   }
@@ -103,9 +103,9 @@ object TaskTrainingMethods {
     }
   }
 
-  def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[AggregatedColumns],
+  def translate(batchIndex: Int, columnParams: ColumnParams, validationData: Option[BaseAggregatedColumns],
                 log: Logger, trainParams: TrainParams, returnBooster: Boolean, isSparse: Boolean, schema: StructType,
-                aggregatedColumns: AggregatedColumns): Iterator[LightGBMBooster] = {
+                aggregatedColumns: BaseAggregatedColumns): Iterator[LightGBMBooster] = {
     var trainDatasetOpt: Option[LightGBMDataset] = None
     var validDatasetOpt: Option[LightGBMDataset] = None
     try {
