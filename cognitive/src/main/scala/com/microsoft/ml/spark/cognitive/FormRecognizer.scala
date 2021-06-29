@@ -153,7 +153,10 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) 
   setDefault(includeTextDetails -> Left(false))
 
   val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", isURLParam = true)
+    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
+    case Left(_) => true
+    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+  }, isURLParam = true)
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
 
@@ -190,7 +193,10 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
   setDefault(includeTextDetails -> Left(false))
 
   val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", isURLParam = true)
+    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
+    case Left(_) => true
+    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+  }, isURLParam = true)
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
 
@@ -227,7 +233,10 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) 
   setDefault(includeTextDetails -> Left(false))
 
   val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", isURLParam = true)
+    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
+    case Left(_) => true
+    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+  }, isURLParam = true)
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
 
