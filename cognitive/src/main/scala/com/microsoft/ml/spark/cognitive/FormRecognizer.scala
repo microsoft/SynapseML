@@ -39,7 +39,7 @@ abstract class FormRecognizerBase(override val uid: String) extends CognitiveSer
 
 }
 
-trait FlattenAnalyzeResult {
+trait flattenAnalyzeResult {
   def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
     def extractText(lines: Array[ReadLine]): String = {
@@ -89,7 +89,7 @@ trait FlattenAnalyzeResult {
   }
 }
 
-object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] with FlattenAnalyzeResult
+object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] with flattenAnalyzeResult
 
 class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -135,7 +135,7 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) wi
 
 }
 
-object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts] with FlattenAnalyzeResult
+object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts] with flattenAnalyzeResult
 
 class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -175,7 +175,7 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) 
 
 }
 
-object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards] with FlattenAnalyzeResult
+object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards] with flattenAnalyzeResult
 
 class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -215,7 +215,7 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
 
 }
 
-object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices] with FlattenAnalyzeResult
+object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices] with flattenAnalyzeResult
 
 class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
@@ -255,7 +255,7 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) 
 
 }
 
-object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments] with FlattenAnalyzeResult
+object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments] with flattenAnalyzeResult
 
 class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
