@@ -139,7 +139,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  protected def getTrainingCols(): Array[(String, Seq[DataType])] = {
+  protected def getTrainingCols: Array[(String, Seq[DataType])] = {
     val colsToCheck: Array[(Option[String], Seq[DataType])] = Array(
       (Some(getLabelCol), Seq(DoubleType)),
       (Some(getFeaturesCol), Seq(VectorType)),
@@ -189,7 +189,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * Constructs the DartModeParams
     * @return DartModeParams object containing parameters related to dart mode.
     */
-  protected def getDartParams(): DartModeParams = {
+  protected def getDartParams: DartModeParams = {
     DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
   }
 
@@ -201,15 +201,15 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
   protected def getExecutionParams(isLocalMode: Boolean, numTasksPerExec: Int): ExecutionParams = {
-    val useSingleDatasetMode = if (isLocalMode || numTasksPerExec == 1) false else getUseSingleDatasetMode
-    ExecutionParams(getChunkSize, getMatrixType, getNumThreads, useSingleDatasetMode)
+    //val useSingleDatasetMode = if (isLocalMode || numTasksPerExec == 1) false else getUseSingleDatasetMode
+    ExecutionParams(getChunkSize, getMatrixType, getNumThreads, getUseSingleDatasetMode)
   }
 
   /**
     * Constructs the ObjectiveParams.
     * @return ObjectiveParams object containing parameters related to the objective function.
     */
-  protected def getObjectiveParams(): ObjectiveParams = {
+  protected def getObjectiveParams: ObjectiveParams = {
     ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
@@ -231,7 +231,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         min(numExecutorTasks, dataset.rdd.getNumPartitions)
       }
     // Only get the relevant columns
-    val trainingCols = getTrainingCols()
+    val trainingCols = getTrainingCols
 
     val df = prepareDataframe(dataset, trainingCols, numTasks)
 

@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.lightgbm.TrainUtils.{afterGenerateTrainDataset, af
   beforeGenerateTrainDataset, beforeGenerateValidDataset, createBooster, getNetworkInfo, getReturnBooster,
   networkInit, trainCore}
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
-import com.microsoft.ml.spark.lightgbm.dataset.{AggregatedColumns, DatasetAggregator, DatasetUtils, LightGBMDataset}
+import com.microsoft.ml.spark.lightgbm.dataset.{AggregatedColumns, DatasetUtils, LightGBMDataset}
 import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.Row
@@ -47,15 +47,13 @@ object TaskTrainingMethods {
                       trainParams: TrainParams,
                       sharedState: SharedState): (AggregatedColumns, Option[AggregatedColumns]) = {
     val aggregatedColumns = {
-      val prepAggregatedColumns = sharedState.datasetAggregator.prep(inputRows)
-      sharedState.datasetAggregator.merge(Array(prepAggregatedColumns))
+      val prepAggregatedColumns = sharedState.prep(inputRows)
+      sharedState.merge(Array(prepAggregatedColumns))
     }
 
     val aggregatedValidationColumns = validationData.map { data =>
-      val validationDatasetAggregator = new DatasetAggregator(columnParams, schema, false,
-        trainParams.executionParams.chunkSize, trainParams.executionParams.matrixType, sharedState)
-      val prepAggregatedColumns = validationDatasetAggregator.prep(data.value.toIterator)
-      validationDatasetAggregator.merge(Array(prepAggregatedColumns))
+      val prepAggregatedColumns = sharedState.prep(data.value.toIterator)
+      sharedState.merge(Array(prepAggregatedColumns))
     }
     (aggregatedColumns, aggregatedValidationColumns)
   }
