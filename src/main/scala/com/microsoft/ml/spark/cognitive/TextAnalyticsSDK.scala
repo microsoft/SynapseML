@@ -1,11 +1,9 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions,
-  TextAnalyticsWarning,AssessmentSentiment, DocumentSentiment,
-  SentenceSentiment, SentimentConfidenceScores, TargetSentiment}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, ExtractKeyPhraseResult, KeyPhrasesCollection, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextAnalyticsWarning}
 import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
@@ -18,6 +16,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.ai.textanalytics.models
+import org.apache.spark.sql.Encoder
 
 import java.net.URI
 import scala.collection.JavaConverters._
@@ -25,12 +24,14 @@ import scala.collection.JavaConverters._
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
   extends Transformer
   with HasInputCol with HasErrorCol
-  with HasEndpoint with HasSubscriptionKey
+  with HasEndpoint with HasSubscriptionKey with HasOutputCol
   with ComplexParamsWritable with BasicLogging {
 
   protected val invokeTextAnalytics: String => TAResponseV4[T]
 
   protected def outputSchema: StructType
+
+  //protected def languageDetection: StructType
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
@@ -41,27 +42,15 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val invokeTextAnalyticsUdf = UDFUtils.oldUdf(invokeTextAnalytics, outputSchema)
-      val inputColNames = dataset.columns.mkString(",")
-      dataset.withColumn("Out", invokeTextAnalyticsUdf(col($(inputCol))))
-        .select(inputColNames, "Out.result.*", "Out.error.*", "Out.statistics.*", "Out.*")
-        .drop("result", "error", "statistics")
+      dataset.withColumn(getOutputCol, invokeTextAnalyticsUdf(col(getInputCol)))
     })
   }
 
   override def transformSchema(schema: StructType): StructType = {
     // Validate input schema
-    val inputType = schema($(inputCol)).dataType
+    val inputType = schema(getInputCol).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
-
-    // Making sure input schema doesn't overlap with output schema
-    val fieldsIntersection = schema.map(sf => sf.name.toLowerCase)
-      .intersect(outputSchema.map(sf => sf.name.toLowerCase()))
-    require(fieldsIntersection.isEmpty, s"Input schema overlaps with transformer output schema. " +
-      s"Rename the following input columns: [${fieldsIntersection.mkString(", ")}]")
-
-    // Creating output schema (input schema + output schema)
-    val consolidatedSchema = (schema ++ outputSchema).toSet
-    StructType(consolidatedSchema.toSeq)
+    schema.add(getOutputCol, outputSchema)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -121,6 +110,8 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
         stats,
         Some(detectLanguageResultCollection.getModelVersion))
     }
+
+
 }
 
 object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
@@ -259,6 +250,9 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
       stats,
       Some(textSentimentResultCollection.getModelVersion))
   }
+  //val encoderSchema = Encoders.product[SentimentScoredDocumentV4].schema
+  //encoderSchema.p()
+
 }
 
   object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
@@ -293,3 +287,5 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
                           length: Int)
 
   case class WarningsV4(text: String, warningCode: String)
+
+
