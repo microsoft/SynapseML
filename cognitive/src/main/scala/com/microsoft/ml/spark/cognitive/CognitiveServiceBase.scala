@@ -24,6 +24,7 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -283,6 +284,10 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
 
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
+  }
+
+  def setLinkedService(value: String): this.type = {
+    val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass("com.microsoft.ml.spark.cognitive.split1.A")
   }
 }
 
