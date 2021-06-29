@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 
-ARG SPARK_VERSION=3.0.1
+ARG SPARK_VERSION=3.1.2
 RUN apt-get -qq update && apt-get -qq -y install curl bzip2 \
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -bfp /usr/local \
@@ -30,7 +30,7 @@ RUN conda install jupyter \
     && conda clean --all --yes
 
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup
-COPY notebooks/samples notebooks
+COPY notebooks notebooks
 WORKDIR notebooks
 
 ARG MMLSPARK_VERSION

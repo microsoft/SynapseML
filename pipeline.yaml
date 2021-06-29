@@ -33,7 +33,6 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Style Check'
       inputs:
@@ -46,7 +45,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda info
@@ -59,7 +58,7 @@ jobs:
     - bash: |
         source activate mmlspark
         sbt packagePython
-        sbt publishBlob publishSigned publishDocs publishR publishPython
+        sbt publishBlob publishDocs publishR publishPython
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
         sbt release
@@ -87,7 +86,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda info
@@ -128,14 +127,13 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Get Docker Tag + Version'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
-          VERSION=$(sbt version | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
           echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
     - task: Docker@2
@@ -226,7 +224,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
@@ -263,8 +261,7 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -275,12 +272,12 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache_2.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
-    - bash: curl https://archive.apache.org/dist/spark/spark-3.0.1/spark-3.0.1-bin-hadoop3.2.tgz -o spark-3.0.1-bin-hadoop3.2.tgz
+    - bash: curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
       displayName: Download spark
     - task: AzureCLI@1
       displayName: 'Test R Code'
@@ -314,8 +311,7 @@ jobs:
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token) -f coverage.xml
-        ./.codecov -t $(codecov-token) -f target/scala-2.12/coverage-report/cobertura.xml
+        ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
@@ -347,6 +343,12 @@ jobs:
         PACKAGE: "core"
       downloader:
         PACKAGE: "downloader"
+      explainers1:
+        PACKAGE: "explainers.split1"
+      explainers2:
+        PACKAGE: "explainers.split2"
+      explainers3:
+        PACKAGE: "explainers.split3"
       featurize:
         PACKAGE: "featurize"
       image:
@@ -383,7 +385,7 @@ jobs:
       vw:
         PACKAGE: "vw"
   steps:
-    - template: templates/ivy_cache_2.yml
+    #- template: templates/ivy_cache.yml
     - task: AzureCLI@1
       displayName: 'Setup repo'
       inputs:
