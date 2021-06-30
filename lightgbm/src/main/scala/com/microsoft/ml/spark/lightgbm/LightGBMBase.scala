@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib}
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.io.http.SharedSingleton
 import com.microsoft.ml.spark.lightgbm.ConnectionState.Finished
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{closeConnections, getDatasetParams, handleConnection, sendDataToExecutors}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{closeConnections, handleConnection, sendDataToExecutors}
 import com.microsoft.ml.spark.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.ml.spark.lightgbm.TrainUtils._
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
@@ -20,8 +20,8 @@ import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.types._
 import org.apache.spark.sql._
+import org.apache.spark.sql.types._
 
 import java.net.{ServerSocket, Socket}
 import java.util.concurrent.Executors
@@ -169,7 +169,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param featuresSchema The schema of the features column
     * @return the categorical indexes in the features column.
     */
-  def getCategoricalIndexes(featuresSchema: StructField): Array[Int] = {
+  protected def getCategoricalIndexes(featuresSchema: StructField): Array[Int] = {
     val categoricalColumnSlotNames = get(categoricalSlotNames).getOrElse(Array.empty[String])
     val categoricalIndexes = if (getSlotNames.nonEmpty) {
       categoricalColumnSlotNames.map(getSlotNames.indexOf(_))
@@ -201,13 +201,27 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       .union(categoricalIndexes).distinct
   }
 
+  def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
+    if (getSlotNames.nonEmpty) {
+      Some(getSlotNames)
+    } else {
+      AttributeGroup.fromStructField(featuresSchema).attributes.flatMap(attributes =>
+        if (attributes.isEmpty) {
+          None
+        } else {
+          val colNames = attributes.indices.map(_.toString).toArray
+          attributes.foreach(attr =>
+            attr.index.foreach(index => colNames(index) = attr.name.getOrElse(index.toString)))
+          Some(colNames)
+        }
+      )
+    }
+  }
 
-  private def validateSlotNames(schema: StructType, trainParams: TrainParams): Unit = {
-    val featuresSchema = schema.fields(schema.fieldIndex(getFeaturesCol))
+  private def validateSlotNames(featuresSchema: StructField): Unit = {
     val metadata = AttributeGroup.fromStructField(featuresSchema)
     if (metadata.attributes.isDefined) {
-      val slotNamesOpt = DatasetUtils.getSlotNames(
-        schema(getColumnParams.featuresColumn), metadata.attributes.get.length, trainParams)
+      val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
       val pattern = new Regex("[\",:\\[\\]{}]")
       slotNamesOpt.foreach(slotNames => {
         val badSlotNames = slotNames.flatMap(slotName =>
@@ -260,17 +274,27 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  def aggregateStreamedData(ac: BaseAggregatedColumns,
-                            referenceDataset: Option[LightGBMDataset], schema: StructType,
-                            trainParams: TrainParams): Option[LightGBMDataset] = {
-    val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), ac.getNumCols, trainParams)
-    try {
+  def getDatasetParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+    val datasetParams = s"max_bin=$getMaxBin is_pre_partition=True " +
+      s"bin_construct_sample_cnt=$getBinSampleCount " +
+      s"num_threads=$numThreads " +
+      (if (categoricalIndexes.isEmpty) ""
+      else s"categorical_feature=${categoricalIndexes.mkString(",")}")
+    datasetParams
+  }
+
+  private def generateDataset(ac: BaseAggregatedColumns,
+                              referenceDataset: Option[LightGBMDataset],
+                              schema: StructType,
+                              datasetParams: String): Option[LightGBMDataset] = {
+    val slotNames = getSlotNamesWithMetadata(schema(getFeaturesCol))
+    val dataset = try {
       ac match {
         case sac: BaseSparseAggregatedColumns =>
           indptrArrayIncrement(sac.getIndptrArray.array, sac.getIndptrCount)
         case _ =>
       }
-      val dataset = Some(ac.generateDataset(referenceDataset, slotNames, trainParams))
+      val dataset = Some(ac.generateDataset(referenceDataset, slotNames, datasetParams))
       val numRows = ac.getRowCount
       dataset.get.addFloatField(ac.getLabels.array, "label", numRows)
       ac.getWeights.foreach(weightArray =>
@@ -282,20 +306,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     } finally {
       ac.cleanup()
     }
-  }
 
-  def generateDataset(aggregatedColumns: BaseAggregatedColumns,
-                      referenceDataset: Option[LightGBMDataset],
-                      schema: StructType,
-                      trainParams: TrainParams): Option[LightGBMDataset] = {
-    val dataset = aggregateStreamedData(aggregatedColumns, referenceDataset, schema, trainParams)
     // Validate generated dataset has the correct number of rows and cols
     dataset.get.validateDataset()
     dataset
   }
 
 
-  def translate(batchIndex: Int,
+  private def translate(batchIndex: Int,
                 validationData: Option[BaseAggregatedColumns],
                 trainParams: TrainParams,
                 returnBooster: Boolean,
@@ -304,14 +322,15 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     var trainDatasetOpt: Option[LightGBMDataset] = None
     var validDatasetOpt: Option[LightGBMDataset] = None
     val columnParams = getColumnParams
+    val datasetParams = getDatasetParams(trainParams.categoricalFeatures, trainParams.executionParams.numThreads)
     try {
       beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
-      trainDatasetOpt = generateDataset(aggregatedColumns, None, schema, trainParams)
+      trainDatasetOpt = generateDataset(aggregatedColumns, None, schema, datasetParams)
       afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
 
       if (validationData.isDefined) {
         beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
-        validDatasetOpt = generateDataset(validationData.get, trainDatasetOpt, schema, trainParams)
+        validDatasetOpt = generateDataset(validationData.get, trainDatasetOpt, schema, datasetParams)
         afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
       }
 
@@ -340,7 +359,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  def trainLightGBM(batchIndex: Int,
+  private def trainLightGBM(batchIndex: Int,
                     networkParams: NetworkParams,
                     validationData: Option[Broadcast[Array[Row]]],
                     trainParams: TrainParams,
@@ -395,7 +414,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param numTasks The total number of training tasks to wait for.
     * @return The address and port of the driver socket.
     */
-  def createDriverNodesThread(numTasks: Int, spark: SparkSession): (String, Int, Future[Unit]) = {
+  private def createDriverNodesThread(numTasks: Int, spark: SparkSession): (String, Int, Future[Unit]) = {
     // Start a thread and open port to listen on
     implicit val context: ExecutionContextExecutor =
       ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
@@ -477,7 +496,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val preprocessedDF = preprocessData(trainingData)
     val schema = preprocessedDF.schema
 
-    validateSlotNames(schema, trainParams)
+    validateSlotNames(schema(getFeaturesCol))
 
     val sharedState = SharedSingleton(new SharedState(getColumnParams, schema, trainParams))
     val mapPartitionsFunc = trainLightGBM(batchIndex, networkParams,

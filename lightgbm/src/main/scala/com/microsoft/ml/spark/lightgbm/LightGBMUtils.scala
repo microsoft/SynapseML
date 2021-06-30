@@ -3,27 +3,19 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import java.io._
-import java.net.{ServerSocket, Socket}
-import java.util.concurrent.Executors
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
-import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
-import com.microsoft.ml.spark.lightgbm.dataset.{DenseAggregatedColumns, LightGBMDataset}
+import com.microsoft.ml.spark.lightgbm.ConnectionState._
 import com.microsoft.ml.spark.lightgbm.params.TrainParams
-import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.ml.attribute._
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.Dataset
+import org.apache.spark.{SparkEnv, TaskContext}
 import org.slf4j.Logger
-import ConnectionState._
-import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.getSlotNames
 
-import scala.collection.immutable.HashSet
+import java.io._
+import java.net.{ServerSocket, Socket}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -143,10 +135,11 @@ object LightGBMUtils {
   }
 
   def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
-    var numChunks = Math.floorDiv(numRows, chunkSize)
-    var leftoverChunk = numRows % chunkSize
-    if (leftoverChunk > 0) {
-      numChunks += 1
+    val leftoverChunk = numRows % chunkSize
+    val numChunks = if (leftoverChunk > 0) {
+      Math.floorDiv(numRows, chunkSize) + 1
+    }else{
+      Math.floorDiv(numRows, chunkSize)
     }
     val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
     (0 until numChunks).foreach({ index: Int =>
@@ -159,13 +152,6 @@ object LightGBMUtils {
     numRowsForChunks
   }
 
-  def getDatasetParams(trainParams: TrainParams): String = {
-    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
-      s"bin_construct_sample_cnt=${trainParams.binSampleCount} " +
-      s"num_threads=${trainParams.executionParams.numThreads} " +
-      (if (trainParams.categoricalFeatures.isEmpty) ""
-      else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
-    datasetParams
-  }
+
 
 }

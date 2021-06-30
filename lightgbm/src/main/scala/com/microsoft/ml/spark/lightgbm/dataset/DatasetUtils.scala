@@ -30,7 +30,6 @@ object DatasetUtils {
 
   import CardinalityTypes._
 
-
   case class CardinalityTriplet[T](groupCounts: List[Int], currentValue: T, currentCount: Int)
 
   def countCardinality[T](input: Seq[T])(implicit ev: CardinalityType[T]): Array[Int] = {
@@ -153,22 +152,4 @@ object DatasetUtils {
     }
   }
 
-  def getSlotNames(featuresSchema: StructField, numCols: Int,
-                   trainParams: TrainParams): Option[Array[String]] = {
-    if (trainParams.featureNames.nonEmpty) {
-      Some(trainParams.featureNames)
-    } else {
-      val metadata = AttributeGroup.fromStructField(featuresSchema)
-      if (metadata.attributes.isEmpty) None
-      else if (metadata.attributes.get.isEmpty) None
-      else {
-        val colnames = (0 until numCols).map(_.toString).toArray
-        metadata.attributes.get.foreach {
-          case attr =>
-            attr.index.foreach(index => colnames(index) = attr.name.getOrElse(index.toString))
-        }
-        Some(colnames)
-      }
-    }
-  }
 }

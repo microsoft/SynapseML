@@ -3,9 +3,7 @@
 
 package com.microsoft.ml.spark.lightgbm.dataset
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getDatasetParams
-
+import com.microsoft.ml.lightgbm.{lightgbmlib, lightgbmlibConstants}
 import java.util.concurrent.atomic.AtomicLong
 import com.microsoft.ml.spark.lightgbm.{ColumnParams, LightGBMUtils}
 import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.{addFeaturesToChunkedArray, getRowAsDoubleArray}
@@ -251,7 +249,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
 
   def generateDataset(referenceDataset: Option[LightGBMDataset],
                       featureNamesOpt: Option[Array[String]],
-                      trainParams: TrainParams): LightGBMDataset
+                      datasetParams: String): LightGBMDataset
 
 }
 
@@ -349,7 +347,7 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
 
   def generateDataset(referenceDataset: Option[LightGBMDataset],
                       featureNamesOpt: Option[Array[String]],
-                      trainParams: TrainParams): LightGBMDataset = {
+                      datasetParams: String): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     val dataset = try {
       // Generate the dataset for features
@@ -359,7 +357,7 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
         getRowCount,
         getNumCols,
         1,
-        getDatasetParams(trainParams),
+        datasetParams,
         referenceDataset.map(_.datasetPtr).orNull,
         pointer)
     } finally {
@@ -452,7 +450,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
 
   def generateDataset(referenceDataset: Option[LightGBMDataset],
                       featureNamesOpt: Option[Array[String]],
-                      trainParams: TrainParams): LightGBMDataset = {
+                      datasetParams: String): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     // Generate the dataset for features
     val dataset = lightgbmlib.LGBM_DatasetCreateFromCSR(
@@ -464,7 +462,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
       getIndptrCount,
       getIndexesCount,
       getNumCols,
-      getDatasetParams(trainParams),
+      datasetParams,
       referenceDataset.map(_.datasetPtr).orNull,
       pointer)
     LightGBMUtils.validate(dataset, "Dataset create")
