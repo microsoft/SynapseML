@@ -7,8 +7,10 @@ import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConsta
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.io.http.SharedSingleton
 import com.microsoft.ml.spark.lightgbm.ConnectionState.Finished
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{closeConnections, getDatasetParams,
-  handleConnection, sendDataToExecutors}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{
+  closeConnections, getDatasetParams,
+  handleConnection, sendDataToExecutors
+}
 import com.microsoft.ml.spark.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.ml.spark.lightgbm.TrainUtils._
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
@@ -252,34 +254,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
-
-  def aggregateDenseStreamedData(aggregatedColumns: BaseDenseAggregatedColumns,
-                                 referenceDataset: Option[LightGBMDataset],
-                                 schema: StructType,
-                                 trainParams: TrainParams): Option[LightGBMDataset] = {
-    try {
-      val numRows = aggregatedColumns.getRowCount
-      val numCols = aggregatedColumns.getNumCols
-      val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), numCols, trainParams)
-
-      val dataset = Some(generateDenseDataset(aggregatedColumns, referenceDataset, slotNames, trainParams))
-      dataset.get.addFloatField(aggregatedColumns.getLabelsArray.array,"label", numRows)
-
-      aggregatedColumns.getWeightArrayOpt
-        .foreach(weightArray => dataset.get.addFloatField(weightArray.array, "weight", numRows))
-      aggregatedColumns.getInitScoreArrayOpt
-        .foreach(initScoreArray => dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
-      val overrideGroupIndex = Some(0)
-      addGroupColumn(aggregatedColumns.getGroupColumnValuesArray, getColumnParams.groupColumn, dataset,
-        numRows, schema, overrideGroupIndex)
-      dataset
-    } finally {
-      aggregatedColumns.getLabelsArray.delete()
-      aggregatedColumns.getWeightArrayOpt.foreach(_.delete())
-      aggregatedColumns.getInitScoreArrayOpt.foreach(_.delete())
-    }
-  }
-
   def generateDenseDataset(denseAggregatedColumns: BaseDenseAggregatedColumns,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
@@ -314,54 +288,52 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  def aggregateSparseStreamedData(aggregatedColumns: BaseAggregatedColumns,
-                                  referenceDataset: Option[LightGBMDataset], schema: StructType,
-                                  trainParams: TrainParams): Option[LightGBMDataset] = {
-    val sparseAggregatedColumns = aggregatedColumns.asInstanceOf[BaseSparseAggregatedColumns]
+  def aggregateStreamedData(ac: BaseAggregatedColumns,
+                            referenceDataset: Option[LightGBMDataset], schema: StructType,
+                            trainParams: TrainParams): Option[LightGBMDataset] = {
+    val numCols = ac.getNumCols
+    val numRows = ac.getRowCount
+    val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), numCols, trainParams)
     try {
-      indptrArrayIncrement(sparseAggregatedColumns.getIndptrArray.array, sparseAggregatedColumns.getIndptrCount)
-      val numCols = sparseAggregatedColumns.getNumCols
-      val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), numCols, trainParams)
-      val numRows = sparseAggregatedColumns.getRowCount
-      log.info(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
-      var dataset: Option[LightGBMDataset] = None
-      try {
-        dataset = Some(LightGBMUtils.generateSparseDataset(sparseAggregatedColumns.getNumCols,
-          sparseAggregatedColumns.getIndptrCount, sparseAggregatedColumns.getIndexesCount,
-          lightgbmlib.double_to_voidp_ptr(sparseAggregatedColumns.getValuesArray.array),
-          sparseAggregatedColumns.getIndexesArray.array,
-          lightgbmlib.int_to_voidp_ptr(sparseAggregatedColumns.getIndptrArray.array),
-          referenceDataset, slotNames, trainParams))
-      } finally {
-        // Delete the input rows
-        sparseAggregatedColumns.getValuesArray.delete()
-        sparseAggregatedColumns.getIndexesArray.delete()
-        sparseAggregatedColumns.getIndptrArray.delete()
+      val dataset: Option[LightGBMDataset] = ac match {
+        case sac: BaseSparseAggregatedColumns =>
+          indptrArrayIncrement(sac.getIndptrArray.array, sac.getIndptrCount)
+          try {
+            Some(LightGBMUtils.generateSparseDataset(sac.getNumCols,
+              sac.getIndptrCount, sac.getIndexesCount,
+              lightgbmlib.double_to_voidp_ptr(sac.getValuesArray.array),
+              sac.getIndexesArray.array,
+              lightgbmlib.int_to_voidp_ptr(sac.getIndptrArray.array),
+              referenceDataset, slotNames, trainParams))
+          } finally {
+            // Delete the input rows
+            sac.getValuesArray.delete()
+            sac.getIndexesArray.delete()
+            sac.getIndptrArray.delete()
+          }
+        case dac: BaseDenseAggregatedColumns =>
+         Some(generateDenseDataset(dac, referenceDataset, slotNames, trainParams))
       }
-      dataset.get.addFloatField(sparseAggregatedColumns.getLabelsArray.array, "label", numRows)
-      sparseAggregatedColumns.getWeightArrayOpt.foreach(weightArray =>
+      dataset.get.addFloatField(ac.getLabels.array, "label", numRows)
+      ac.getWeights.foreach(weightArray =>
         dataset.get.addFloatField(weightArray.array, "weight", numRows))
-      sparseAggregatedColumns.getInitScoreArrayOpt.foreach(initScoreArray =>
+      ac.getInitScores.foreach(initScoreArray =>
         dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
-      val overrideGroupIndex = Some(0)
-      addGroupColumn(sparseAggregatedColumns.getGroupColumnValuesArray,
-        getOptGroupCol, dataset, numRows, schema, overrideGroupIndex)
+      addGroupColumn(ac.getGroups, getOptGroupCol, dataset, numRows, schema, Some(0))
       dataset
     } finally {
-      sparseAggregatedColumns.getLabelsArray.delete()
-      sparseAggregatedColumns.getWeightArrayOpt.foreach(_.delete())
-      sparseAggregatedColumns.getInitScoreArrayOpt.foreach(_.delete())
+      ac.getLabels.delete()
+      ac.getWeights.foreach(_.delete())
+      ac.getInitScores.foreach(_.delete())
     }
+
   }
 
   def generateDataset(aggregatedColumns: BaseAggregatedColumns,
                       referenceDataset: Option[LightGBMDataset],
                       schema: StructType,
                       trainParams: TrainParams): Option[LightGBMDataset] = {
-    val dataset = aggregatedColumns match{
-      case dac: BaseDenseAggregatedColumns => aggregateDenseStreamedData(dac, referenceDataset, schema, trainParams)
-      case sac: BaseSparseAggregatedColumns => aggregateSparseStreamedData(sac, referenceDataset, schema, trainParams)
-    }
+    val dataset = aggregateStreamedData(aggregatedColumns, referenceDataset, schema, trainParams)
     // Validate generated dataset has the correct number of rows and cols
     dataset.get.validateDataset()
     dataset
@@ -483,8 +455,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       val hostAndPorts = ListBuffer[(Socket, String)]()
       if (getUseBarrierExecutionMode) {
         log.info(s"driver using barrier execution mode")
+
         def connectToWorkers: Boolean = handleConnection(driverServerSocket, log,
           hostAndPorts) == Finished || connectToWorkers
+
         connectToWorkers
       } else {
         log.info(s"driver expecting $numTasks connections...")
@@ -579,9 +553,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
   /** Gets the training parameters.
     *
-    * @param numTasks           The total number of tasks.
-    * @param dataset            The training dataset.
-    * @param numTasksPerExec    The number of tasks per executor.
+    * @param numTasks        The total number of tasks.
+    * @param dataset         The training dataset.
+    * @param numTasksPerExec The number of tasks per executor.
     * @return train parameters.
     */
   protected def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams

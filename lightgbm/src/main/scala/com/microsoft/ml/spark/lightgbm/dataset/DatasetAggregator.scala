@@ -190,10 +190,10 @@ private[lightgbm] final class DenseChunkedColumns(columnParams: ColumnParams,
 }
 
 private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
-  protected var labelsArray: FloatSwigArray = _
-  protected var weightArrayOpt: Option[FloatSwigArray] = None
-  protected var initScoreArrayOpt: Option[DoubleSwigArray] = None
-  protected var groupColumnValuesArray: Array[Row] = _
+  protected var labels: FloatSwigArray = _
+  protected var weights: Option[FloatSwigArray] = None
+  protected var initScores: Option[DoubleSwigArray] = None
+  protected var groups: Array[Row] = _
 
   /**
     * Variables for knowing how large full array should be allocated to
@@ -222,22 +222,22 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
     // this.numCols = numCols
     val rowCount = this.rowCount.get()
     val initScoreCount = this.initScoreCount.get()
-    labelsArray = new FloatSwigArray(rowCount)
-    weightArrayOpt = chunkedCols.getWeights.map(_ => new FloatSwigArray(rowCount))
-    initScoreArrayOpt = chunkedCols.getInitScores.map(_ => new DoubleSwigArray(initScoreCount))
+    labels = new FloatSwigArray(rowCount)
+    weights = chunkedCols.getWeights.map(_ => new FloatSwigArray(rowCount))
+    initScores = chunkedCols.getInitScores.map(_ => new DoubleSwigArray(initScoreCount))
     this.initializeFeatures(chunkedCols, rowCount)
-    groupColumnValuesArray = new Array[Row](rowCount.toInt)
+    groups = new Array[Row](rowCount.toInt)
   }
 
   protected def initializeFeatures(chunkedCols: BaseChunkedColumns, rowCount: Long): Unit
 
-  def getLabelsArray: FloatSwigArray = labelsArray
+  def getLabels: FloatSwigArray = labels
 
-  def getWeightArrayOpt: Option[FloatSwigArray] = weightArrayOpt
+  def getWeights: Option[FloatSwigArray] = weights
 
-  def getInitScoreArrayOpt: Option[DoubleSwigArray] = initScoreArrayOpt
+  def getInitScores: Option[DoubleSwigArray] = initScores
 
-  def getGroupColumnValuesArray: Array[Row] = groupColumnValuesArray
+  def getGroups: Array[Row] = groups
 }
 
 private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns {
@@ -249,11 +249,11 @@ private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns 
     super.addRows(chunkedCols)
     initializeRows(chunkedCols)
     // Coalesce to main arrays passed to dataset create
-    chunkedCols.getLabels.coalesceTo(this.labelsArray)
-    chunkedCols.getWeights.foreach(_.coalesceTo(this.weightArrayOpt.get))
-    chunkedCols.getInitScores.foreach(_.coalesceTo(this.initScoreArrayOpt.get))
+    chunkedCols.getLabels.coalesceTo(this.labels)
+    chunkedCols.getWeights.foreach(_.coalesceTo(this.weights.get))
+    chunkedCols.getInitScores.foreach(_.coalesceTo(this.initScores.get))
     this.addFeatures(chunkedCols)
-    chunkedCols.getGroups.copyToArray(groupColumnValuesArray)
+    chunkedCols.getGroups.copyToArray(groups)
   }
 }
 
@@ -274,9 +274,9 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
 
   private def parallelInitializeRows(chunkedCols: BaseChunkedColumns): Unit = {
     // Initialize arrays if they are not defined - first thread to get here does the initialization for all of them
-    if (labelsArray == null) {
+    if (labels == null) {
       this.synchronized {
-        if (labelsArray == null) {
+        if (labels == null) {
           initializeRows(chunkedCols)
         }
       }
@@ -299,22 +299,22 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
         initScoreSize.foreach(size => threadInitScoreStartIndex = this.threadInitScoreStartIndex.getAndAdd(size))
         updateThreadLocalIndices(chunkedCols, threadRowStartIndex)
       }
-    ChunkedArrayUtils.copyChunkedArray(chunkedCols.getLabels, this.labelsArray, threadRowStartIndex, chunkSize)
+    ChunkedArrayUtils.copyChunkedArray(chunkedCols.getLabels, this.labels, threadRowStartIndex, chunkSize)
     chunkedCols.getWeights.foreach {
       weightChunkedArray =>
-        ChunkedArrayUtils.copyChunkedArray(weightChunkedArray, this.weightArrayOpt.get, threadRowStartIndex,
+        ChunkedArrayUtils.copyChunkedArray(weightChunkedArray, this.weights.get, threadRowStartIndex,
           chunkSize)
     }
     chunkedCols.getInitScores.foreach {
       initScoreChunkedArray =>
-        ChunkedArrayUtils.copyChunkedArray(initScoreChunkedArray, this.initScoreArrayOpt.get,
+        ChunkedArrayUtils.copyChunkedArray(initScoreChunkedArray, this.initScores.get,
           threadInitScoreStartIndex, chunkSize)
     }
     parallelizeFeaturesCopy(chunkedCols, featureIndexes)
-    chunkedCols.getGroups.copyToArray(groupColumnValuesArray, threadRowStartIndex.toInt)
+    chunkedCols.getGroups.copyToArray(groups, threadRowStartIndex.toInt)
     // rewrite array reference for volatile arrays, see: https://www.javamex.com/tutorials/volatile_arrays.shtml
     this.synchronized {
-      groupColumnValuesArray = groupColumnValuesArray
+      groups = groups
     }
   }
 }
