@@ -12,11 +12,11 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    "Hello World",
-    "Bonjour tout le monde",
-    "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
-    ":) :( :D"
-  ).toDF("text2")
+    ("us","Hello world. This is some input text that I love."),
+    ("us","Glaciers are huge rivers of ice that ooze their way over land," +
+      "powered by gravity and their own sheer weight."),
+    ("us", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+  ).toDF("countryHint","text2")
 
   val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
     .setIncludeStatistics(true))
@@ -25,6 +25,7 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
     .setSubscriptionKey(textKey)
     .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
     .setInputCol("text2")
+    .setLangCol("countryHint")
 
   test("Basic Usage") {
     val replies = detector.transform(df)
@@ -45,15 +46,15 @@ class TextAnalyticsSDKSuite extends TestBase with DataFrameEquality with TextKey
     .setSubscriptionKey(textKey)
     .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
     .setInputCol("text2")
+    .setLangCol("langCol")
 
   test("Basic KPE Usage") {
     val replies = extractor.transform(df2)
-      .show()
-//      .select("keyPhrases")
-//      .collect()
-//    assert(replies(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
-//    assert(replies(1).getSeq[String](0).toSet === Set("land", "sheer weight",
-//      "gravity", "way", "Glaciers", "ice", "huge rivers"))
-//    assert(replies(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
+      .select("keyPhrases")
+      .collect()
+    assert(replies(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
+    assert(replies(1).getSeq[String](0).toSet === Set("land", "sheer weight",
+      "gravity", "way", "Glaciers", "ice", "huge rivers"))
+    assert(replies(2).getSeq[String](0).toSet === Set("mucho tráfico", "carretera", "ayer"))
   }
 }

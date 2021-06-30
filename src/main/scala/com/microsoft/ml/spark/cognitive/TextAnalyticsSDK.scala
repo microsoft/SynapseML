@@ -24,7 +24,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   with HasEndpoint with HasSubscriptionKey with HasLangCol
   with ComplexParamsWritable with BasicLogging {
 
-  protected val invokeTextAnalytics: (String, Option[String]) => TAResponseV4[T]
+  protected val invokeTextAnalytics: (String, String) => TAResponseV4[T]
 
   protected def outputSchema: StructType
 
@@ -38,8 +38,6 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     logTransform[DataFrame]({
       val invokeTextAnalyticsUdf = UDFUtils.oldUdf(invokeTextAnalytics, outputSchema)
       val inputColNames = dataset.columns.mkString(",")
-      val lcol = col($(langCol))
-      val icol = col($(inputCol))
       dataset.withColumn("Out", invokeTextAnalyticsUdf(col($(inputCol)), col($(langCol))))
         .select($(inputCol), "Out.result.*", "Out.error.*", "Out.statistics.*", "Out.*")
         .drop("result", "error", "statistics")
@@ -73,24 +71,12 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
   with HasConfidenceScoreCol {
   logClass()
 
-  /**
-   * Params for optional input column names.
-   */
-  // Country Hint
-  final val countryHintCol: Param[String] = new Param[String](this, "countryHintCol", "country hint column name")
-
-  final def getCountryHintCol: String = $(countryHintCol)
-
-  final def setCountryHintCol(value: String): this.type = set(countryHintCol, value)
-  setDefault(countryHintCol -> "CountryHint")
-
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
-
-  override protected val invokeTextAnalytics: (String, Option[String]) => TAResponseV4[DetectedLanguageV4] =
-    (text: String, language: Option[String]) =>
-    {
+  override protected val invokeTextAnalytics: (String, String) => TAResponseV4[DetectedLanguageV4] =
+    (text: String, countryHint: String) =>
+      {
       val detectLanguageResultCollection = textAnalyticsClient.detectLanguageBatch(
-        Seq(text).asJava, null, textAnalyticsOptions.orNull)
+        Seq(text).asJava, countryHint, textAnalyticsOptions.orNull)
       val detectLanguageResult = detectLanguageResultCollection.asScala.head
 
       val languageResult = if (detectLanguageResult.isError) {
@@ -143,13 +129,11 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 
   override def outputSchema: StructType =  KeyPhraseResponseV4.schema
 
-  override protected val invokeTextAnalytics: (String, Option[String]) => TAResponseV4[KeyphraseV4] = (text: String,
-    language: Option[String]) =>
+  override protected val invokeTextAnalytics: (String, String) => TAResponseV4[KeyphraseV4] = (text: String,
+    language: String) =>
   {
-    val langs = Seq(language).asJava
-    val txt = Seq(text).asJava
     val ExtractKeyPhrasesResultCollection = textAnalyticsClient.extractKeyPhrasesBatch(
-      Seq(text).asJava,language.getOrElse("en"), textAnalyticsOptions.orNull)
+      Seq(text).asJava,language, textAnalyticsOptions.orNull)
     val keyPhraseExtractionResult = ExtractKeyPhrasesResultCollection.asScala.head
     val keyPhraseDocument = keyPhraseExtractionResult.getKeyPhrases()
 
@@ -162,7 +146,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
           item => TAWarningV4(item.getWarningCode.toString,item.getMessage)
         )))
     }
-
 
     val error = if (keyPhraseExtractionResult.isError) {
       val error = keyPhraseExtractionResult.getError
@@ -184,7 +167,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
   }
 }
 
-
 case class TAResponseV3[T](result: Option[T],
                            error: Option[TAErrorV4],
                            statistics: Option[DocumentStatistics],
@@ -192,4 +174,3 @@ case class TAResponseV3[T](result: Option[T],
 
 case class TAWarningV4 (warningCode: String, message: String)
 case class KeyphraseV4(keyPhrases: List[String], warnings: List[TAWarningV4])
-
