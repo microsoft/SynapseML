@@ -247,7 +247,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
 
   def setLinkedService(v: String): this.type = {
-    val classPath = "mssparkutils.cognitiveServiceUtils"
+    val classPath = "mssparkutils.CognitiveServiceUtils"
     val funcName = "getEndpointAndKey"
     val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
     val method = c.get.getMethod(funcName, v.getClass)
