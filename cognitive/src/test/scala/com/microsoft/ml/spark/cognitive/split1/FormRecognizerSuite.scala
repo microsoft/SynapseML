@@ -719,6 +719,65 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   override def reader: MLReadable[_] = GetCustomModel
 }
 
+class TrainCustomModelSuite extends EstimatorFuzzing[TrainCustomModel]
+  with CognitiveKey with Flaky with FormRecognizerUtils {
+
+  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation("eastus")
+    .setImageUrlCol("source")
+    .setPrefix("CustomModelTrain")
+    .setOutputCol("customModelResult")
+    .setConcurrency(5)
+
+  override def afterAll(): Unit = {
+    val listCustomModels: ListCustomModels = new ListCustomModels()
+      .setSubscriptionKey(cognitiveKey)
+      .setLocation("eastus")
+      .setOp("full")
+      .setOutputCol("models")
+      .setConcurrency(5)
+    val results = listCustomModels.transform(df)
+      .withColumn("modelIds", col("models").getField("modelList").getField("modelId"))
+      .select("modelIds")
+      .collect()
+    val modelIds = results.flatMap(_.getAs[Seq[String]](0))
+    modelIds.foreach(
+      x => FormRecognizerUtils.formDelete(x)
+    )
+    super.afterAll()
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    def prep(df: DataFrame) = {
+      df.select("source")
+    }
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
+
+  test("Basic Usage") {
+    val analyzeCustomeModel = trainCustomModel.fit(trainingDataSAS)
+      .setImageUrlCol("source").setOutputCol("form").setConcurrency(5)
+    val results = imageDf4.mlTransform(analyzeCustomeModel,
+      AnalyzeCustomModel.flattenReadResults("form", "readForm"),
+      AnalyzeCustomModel.flattenPageResults("form", "pageForm"),
+      AnalyzeCustomModel.flattenDocumentResults("form", "docForm"))
+      .select("readForm", "pageForm", "docForm")
+      .collect()
+    assert(results.head.getString(0) === "")
+    assert(results.head.getString(1)
+      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
+    assert(results.head.getString(2) === "")
+  }
+
+  override def testObjects(): Seq[TestObject[TrainCustomModel]] =
+    Seq(new TestObject(trainCustomModel, trainingDataSAS, imageDf4))
+
+  override def reader: MLReadable[_] = TrainCustomModel
+
+  override def modelReader: MLReadable[_] = reader
+}
+
 class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
