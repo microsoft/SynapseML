@@ -247,18 +247,9 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
 
   def setLinkedService(v: String): this.type = {
-    val classPath = "mssparkutils.CognitiveServiceUtils"
-    val endpointMethodName = "getEndpoint"
-    val keyMethodName = "getKey"
-    val linkedServiceClass =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-
-    val endpointMethod = linkedServiceClass.get.getMethod(endpointMethodName, v.getClass)
-    val keyMethod = linkedServiceClass.get.getMethod(keyMethodName, v.getClass)
-
-    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v)
-    val key = keyMethod.invoke(linkedServiceClass.get, v)
-    setUrl(endpoint.toString + "/anomalydetector/v1.0/timeseries/entire/detect")
-    setSubscriptionKey(key.toString)
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/anomalydetector/v1.0/timeseries/entire/detect")
+    setSubscriptionKey(endpointAndKey._2)
   }
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
