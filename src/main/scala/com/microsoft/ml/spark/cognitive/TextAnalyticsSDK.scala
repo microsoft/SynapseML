@@ -1,23 +1,22 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment,
-  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
-import com.microsoft.ml.spark.core.schema.SparkBindings
-import com.microsoft.ml.spark.io.http.HasErrorCol
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
+import com.microsoft.ml.spark.io.http.{HasErrorCol, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
 import org.apache.spark.ml.util.Identifiable._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DataTypes, StructType}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.sql.functions.{array, col, struct}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.ai.textanalytics.models
+import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
 
 import java.net.URI
 import scala.collection.JavaConverters._
@@ -29,6 +28,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   with ComplexParamsWritable with BasicLogging {
 
   protected val invokeTextAnalytics: String => TAResponseV4[T]
+  protected val invokeTextAnalyticsBatch: Seq[String] => TAResponseBatchV4[T]
 
   protected def outputSchema: StructType
 
@@ -52,14 +52,13 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     // Validate input schema
     val inputType = schema($(inputCol)).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
-
     // Making sure input schema doesn't overlap with output schema
     val fieldsIntersection = schema.map(sf => sf.name.toLowerCase)
       .intersect(outputSchema.map(sf => sf.name.toLowerCase()))
     require(fieldsIntersection.isEmpty, s"Input schema overlaps with transformer output schema. " +
       s"Rename the following input columns: [${fieldsIntersection.mkString(", ")}]")
 
-    // Creating output schema (input schema + output schema)
+    //Creating output schema (input schema + output schema)
     val consolidatedSchema = (schema ++ outputSchema).toSet
     StructType(consolidatedSchema.toSeq)
   }
@@ -87,6 +86,13 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
   setDefault(countryHintCol -> "CountryHint")
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
+  override protected val invokeTextAnalyticsBatch: String => TAResponseBatchV4[DetectedLanguageV4] = (text: String) =>{
+    TAResponseBatchV4[DetectedLanguageV4](
+     null,
+      null,
+      null,
+      null)
+  }
 
   override protected val invokeTextAnalytics: String => TAResponseV4[DetectedLanguageV4] = (text: String) =>
     {
@@ -131,12 +137,21 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   logClass()
 
   override def outputSchema: StructType = SentimentResponseV4.schema
+  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4] = (text: String) =>{
+    TAResponseV4[SentimentScoredDocumentV4](
+      null,
+      null,
+      null,
+      null)
+  }
+  override protected val invokeTextAnalyticsBatch: Seq[String] => TAResponseBatchV4[SentimentScoredDocumentV4]=
+    (text: Seq[String]) => {
+      val document = text.seq.map(item => TextDocumentInput(item, item)
+      )
 
-  override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4]= (text: String) =>{
-
-    val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
-       Seq(text).asJava, "en", textAnalyticsOptions.orNull)
-
+    val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(
+      document, null, None)
+//if docs > allowed amount split to many calls
     def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
       SentimentConfidenceScoreV4(
         score.getNegative,
@@ -188,6 +203,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     }
 
     val textSentimentResult = textSentimentResultCollection.asScala.head
+    //loop through sentiment result collection
     val documentSentiment = textSentimentResult.getDocumentSentiment();
 
     val sentimentResult = if (textSentimentResult.isError){
@@ -206,20 +222,25 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val stats = Option(textSentimentResult.getStatistics).map(s =>
        DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
 
-    TAResponseV4[SentimentScoredDocumentV4](
+    TAResponseBatchV4[SentimentScoredDocumentV4](
       sentimentResult,
       error,
       stats,
       Some(textSentimentResultCollection.getModelVersion))
   }
 }
-object DetectLanguageResponseV4 extends SparkBindings[TAResponseV4[DetectedLanguageV4]]
-object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
+object DetectLanguageResponseV4 extends SparkBindings[TAResponseBatchV4[DetectedLanguageV4]]
+object SentimentResponseV4 extends SparkBindings[TAResponseBatchV4[SentimentScoredDocumentV4]]
 
 case class TAResponseV4[T](result: Option[T],
                            error: Option[TAErrorV4],
                            statistics: Option[DocumentStatistics],
                            modelVersion: Option[String])
+
+case class TAResponseBatchV4[T](result: List[Option[T]],
+                                error: List[Option[TAErrorV4]],
+                                statistics: Option[DocumentStatistics],
+                                modelVersion: Option[String])
 
 case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
@@ -254,3 +275,7 @@ case class AssessmentV4(text: String,
                         length: Int)
 
 case class WarningsV4(text: String, warningCode: String)
+
+case class TextDocumentInputV4(id: String,
+                             text: String,
+                             language: Option[String])
