@@ -4,7 +4,12 @@
 package mssparkutils
 
 object CognitiveServiceUtils {
-  def getEndpointAndKey(lsName: String): (String, String) = {
-    ("https://wenqxanodet.cognitiveservices.azure.com/", lsName)
+
+  def getEndpoint(lsName: String): String = {
+    "https://wenqxanodet.cognitiveservices.azure.com/"
+  }
+
+  def getKey(lsName: String): String = {
+    lsName
   }
 }
