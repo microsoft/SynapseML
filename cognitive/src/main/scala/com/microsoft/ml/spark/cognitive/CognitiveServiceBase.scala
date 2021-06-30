@@ -286,13 +286,6 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
     getInternalTransformer(schema).transformSchema(schema)
   }
 
-  def setLinkedService(value: String): this.type = {
-    val classPath = "mssparkutils.cognitiveServiceUtils"
-    val funcName = ""
-    val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass("com.microsoft.ml.spark.cognitive.split1.A")
-  }
-}
-
 abstract class CognitiveServicesBase(uid: String) extends
   CognitiveServicesBaseNoHandler(uid) with HasHandler {
   setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
