@@ -220,7 +220,7 @@ lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings((settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.114"),
-    resolvers += "LightGBM" at "https://mmlspark.blob.core.windows.net/maven/",
+    resolvers += speechResolver,
     name := "mmlspark-lightgbm"
   )): _*)
 
