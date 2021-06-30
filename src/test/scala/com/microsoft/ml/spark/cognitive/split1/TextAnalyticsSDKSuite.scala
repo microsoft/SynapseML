@@ -22,8 +22,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     ":) :( :D",
   ).toDF("text2")
 
-  val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-    .setIncludeStatistics(true))
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
@@ -46,8 +45,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   import spark.implicits._
 
-  val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-    .setIncludeStatistics(true))
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+
 
   lazy val df: DataFrame = Seq(
     "Hello world. This is some input text that I love.",
@@ -74,8 +73,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   ).toDF("text")
 
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
-    .setSubscriptionKey("29e438c2cc004ca2a49c6fd10a4f65fe")
-    .setEndpoint("https://test-v2-endpoints.cognitiveservices.azure.com/")
+    .setSubscriptionKey(textKey)
+    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
     .setOutputCol("output")
 
@@ -104,8 +103,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       "Hello"
     ).toDF("text2")
 
-    val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-      .setIncludeStatistics(true))
+    val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
 
     lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
       .setSubscriptionKey(textKey)

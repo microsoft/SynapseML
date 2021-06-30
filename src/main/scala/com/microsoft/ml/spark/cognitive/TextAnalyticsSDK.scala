@@ -1,5 +1,6 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, ExtractKeyPhraseResult, KeyPhrasesCollection, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextAnalyticsWarning}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, ExtractKeyPhraseResult, KeyPhrasesCollection,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextAnalyticsWarning}
 import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
@@ -47,7 +48,7 @@ trait HasLanguageCol extends HasServiceParams {
   setDefault(language -> Left(Seq("en")))
 }
 
-abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
+abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
   extends Transformer
   with HasInputCol with HasErrorCol
   with HasEndpoint with HasSubscriptionKey
@@ -117,7 +118,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
 object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalyticsLanguageDetection]
 
-class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                                      override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
   extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions)
   with HasConfidenceScoreCol {
@@ -150,7 +151,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
   override protected val invokeTextAnalytics: String => TAResponseV4[DetectedLanguageV4] = (text: String) =>
     {
       val detectLanguageResultCollection = textAnalyticsClient.detectLanguageBatch(
-        Seq(text).asJava, null, textAnalyticsOptions.orNull)
+        Seq(text).asJava, null, null)
       val detectLanguageResult = detectLanguageResultCollection.asScala.head
 
       val languageResult = if (detectLanguageResult.isError) {
@@ -184,7 +185,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
 object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
 
-class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                                      override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
   extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
@@ -206,7 +207,7 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
   override protected val invokeTextAnalytics: String => TAResponseV4[KeyphraseV4] = (text: String) =>
   {
     val ExtractKeyPhrasesResultCollection = textAnalyticsClient.extractKeyPhrasesBatch(
-      Seq(text).asJava,"en", textAnalyticsOptions.orNull)
+      Seq(text).asJava,"en", null)
     val keyPhraseExtractionResult = ExtractKeyPhrasesResultCollection.asScala.head
     val keyPhraseDocument = keyPhraseExtractionResult.getKeyPhrases()
 
@@ -242,7 +243,7 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 
 }
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
-class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
+class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                       override val uid: String = randomUID("TextSentimentV4"))
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
     with HasConfidenceScoreCol {
@@ -254,7 +255,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val text = input.head
 
     val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
-      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
+      Seq(text).asJava, "en", null)
 
     def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
       SentimentConfidenceScoreV4(
@@ -337,7 +338,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   override protected val invokeTextAnalytics: String => TAResponseV4[SentimentScoredDocumentV4] = (text: String) => {
 
     val textSentimentResultCollection = textAnalyticsClient.analyzeSentimentBatch(
-      Seq(text).asJava, "en", textAnalyticsOptions.orNull)
+      Seq(text).asJava, "en", null)
 
     def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
       SentimentConfidenceScoreV4(
@@ -448,3 +449,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
                           length: Int)
 
   case class WarningsV4(text: String, warningCode: String)
+
+  case class TextAnalyticsRequestOptionsV4(modelVersion: String,
+                                           includeStatistics: Boolean,
+                                           disableServiceLogs: Boolean)
