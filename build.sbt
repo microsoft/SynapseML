@@ -25,6 +25,7 @@ val excludes = Seq(
 )
 
 libraryDependencies ++= Seq(
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",

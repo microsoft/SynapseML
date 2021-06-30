@@ -229,7 +229,7 @@ trait HasLangCol extends Params {
     * @group param
     */
   val langCol = new Param[String](this, "langCol",
-      "Name of the language column of the document.")
+    "Name of the language column of the document.")
 
   /** @group setParam */
   def setLangCol(value: String): this.type = set(langCol, value)
