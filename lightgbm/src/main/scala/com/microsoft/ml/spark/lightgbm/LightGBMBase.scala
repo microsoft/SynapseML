@@ -260,76 +260,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
   }
 
-  def generateDenseDataset(denseAggregatedColumns: BaseDenseAggregatedColumns,
-                           referenceDataset: Option[LightGBMDataset],
-                           featureNamesOpt: Option[Array[String]],
-                           trainParams: TrainParams): LightGBMDataset = {
-    val numRows = denseAggregatedColumns.getRowCount
-    val numCols = denseAggregatedColumns.getNumCols
-    val featuresArray = denseAggregatedColumns.getFeaturesArray.array
-    val isRowMajor = 1
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = getDatasetParams(trainParams)
-    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    try {
-      // Generate the dataset for features
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(lightgbmlib.double_to_voidp_ptr(featuresArray),
-        data64bitType, numRows, numCols,
-        isRowMajor, datasetParams, referenceDataset.map(_.datasetPtr).orNull, datasetOutPtr),
-        "Dataset create")
-    } finally {
-      lightgbmlib.delete_doubleArray(featuresArray)
-    }
-    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols)
-    dataset
-  }
-
-  /** Generates a sparse dataset in CSR format.
-    *
-    * @return The constructed and wrapped native LightGBMDataset.
-    */
-  def generateSparseDataset(sac: BaseSparseAggregatedColumns,
-                            referenceDataset: Option[LightGBMDataset],
-                            featureNamesOpt: Option[Array[String]],
-                            trainParams: TrainParams): LightGBMDataset = {
-    val numCols: Long = sac.getNumCols
-    val indptrLength: Long = sac.getIndptrCount
-    val valuesLength: Long = sac.getIndexesCount
-    val values: SWIGTYPE_p_void = lightgbmlib.double_to_voidp_ptr(sac.getValuesArray.array)
-    val indexes: SWIGTYPE_p_int = sac.getIndexesArray.array
-    val indptr: SWIGTYPE_p_void = lightgbmlib.int_to_voidp_ptr(sac.getIndptrArray.array)
-
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = getDatasetParams(trainParams)
-    val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
-    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    // Generate the dataset for features
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(indptr,
-      dataInt32bitType, indexes, values, data64bitType,
-      indptrLength, valuesLength,
-      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
-      datasetOutPtr),
-      "Dataset create")
-    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols.toInt)
-    dataset
-  }
-
   def aggregateStreamedData(ac: BaseAggregatedColumns,
                             referenceDataset: Option[LightGBMDataset], schema: StructType,
                             trainParams: TrainParams): Option[LightGBMDataset] = {
-    val numCols = ac.getNumCols
-    val numRows = ac.getRowCount
-    val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), numCols, trainParams)
+    val slotNames = DatasetUtils.getSlotNames(schema(getFeaturesCol), ac.getNumCols, trainParams)
     try {
-      val dataset: Option[LightGBMDataset] = ac match {
+      ac match {
         case sac: BaseSparseAggregatedColumns =>
           indptrArrayIncrement(sac.getIndptrArray.array, sac.getIndptrCount)
-          Some(generateSparseDataset(sac, referenceDataset, slotNames, trainParams))
-        case dac: BaseDenseAggregatedColumns =>
-         Some(generateDenseDataset(dac, referenceDataset, slotNames, trainParams))
+        case _ =>
       }
+      val dataset = Some(ac.generateDataset(referenceDataset, slotNames, trainParams))
+      val numRows = ac.getRowCount
       dataset.get.addFloatField(ac.getLabels.array, "label", numRows)
       ac.getWeights.foreach(weightArray =>
         dataset.get.addFloatField(weightArray.array, "weight", numRows))

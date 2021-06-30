@@ -3,9 +3,13 @@
 
 package com.microsoft.ml.spark.lightgbm.dataset
 
+import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.getDatasetParams
+
 import java.util.concurrent.atomic.AtomicLong
-import com.microsoft.ml.spark.lightgbm.ColumnParams
+import com.microsoft.ml.spark.lightgbm.{ColumnParams, LightGBMUtils}
 import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.{addFeaturesToChunkedArray, getRowAsDoubleArray}
+import com.microsoft.ml.spark.lightgbm.params.TrainParams
 import com.microsoft.ml.spark.lightgbm.swig._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -244,6 +248,11 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
+
+  def generateDataset(referenceDataset: Option[LightGBMDataset],
+                      featureNamesOpt: Option[Array[String]],
+                      trainParams: TrainParams): LightGBMDataset
+
 }
 
 private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns {
@@ -337,6 +346,31 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
   }
 
   def getFeaturesArray: DoubleSwigArray = featuresArray
+
+  def generateDataset(referenceDataset: Option[LightGBMDataset],
+                      featureNamesOpt: Option[Array[String]],
+                      trainParams: TrainParams): LightGBMDataset = {
+    val pointer = lightgbmlib.voidpp_handle()
+    val dataset = try {
+      // Generate the dataset for features
+      lightgbmlib.LGBM_DatasetCreateFromMat(
+        lightgbmlib.double_to_voidp_ptr(getFeaturesArray.array),
+        lightgbmlibConstants.C_API_DTYPE_FLOAT64,
+        getRowCount,
+        getNumCols,
+        1,
+        getDatasetParams(trainParams),
+        referenceDataset.map(_.datasetPtr).orNull,
+        pointer)
+    } finally {
+      lightgbmlib.delete_doubleArray(getFeaturesArray.array)
+    }
+    LightGBMUtils.validate(dataset, "Dataset create")
+    val dataset2 = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    dataset2.setFeatureNames(featureNamesOpt, numCols)
+    dataset2
+  }
+
 }
 
 private[lightgbm] final class DenseAggregatedColumns(chunkSize: Int)
@@ -345,9 +379,11 @@ private[lightgbm] final class DenseAggregatedColumns(chunkSize: Int)
   def addFeatures(chunkedCols: BaseChunkedColumns): Unit = {
     chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures.coalesceTo(this.featuresArray)
   }
+
 }
 
 /** Defines class for aggregating rows to a single structure before creating the native LightGBMDataset.
+  *
   * @param chunkSize The chunk size for the chunked arrays.
   */
 private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
@@ -360,6 +396,7 @@ private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures,
       this.featuresArray, featureIndexes.head * numCols, chunkSize)
   }
+
 }
 
 private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
@@ -413,10 +450,33 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     indptrArray.delete()
   }
 
+  def generateDataset(referenceDataset: Option[LightGBMDataset],
+                      featureNamesOpt: Option[Array[String]],
+                      trainParams: TrainParams): LightGBMDataset = {
+    val pointer = lightgbmlib.voidpp_handle()
+    // Generate the dataset for features
+    val dataset = lightgbmlib.LGBM_DatasetCreateFromCSR(
+      lightgbmlib.int_to_voidp_ptr(getIndptrArray.array),
+      lightgbmlibConstants.C_API_DTYPE_INT32,
+      getIndexesArray.array,
+      lightgbmlib.double_to_voidp_ptr(getValuesArray.array),
+      lightgbmlibConstants.C_API_DTYPE_FLOAT64,
+      getIndptrCount,
+      getIndexesCount,
+      getNumCols,
+      getDatasetParams(trainParams),
+      referenceDataset.map(_.datasetPtr).orNull,
+      pointer)
+    LightGBMUtils.validate(dataset, "Dataset create")
+    val dataset2 = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    dataset2.setFeatureNames(featureNamesOpt, getNumCols)
+    dataset2
+  }
+
 }
 
-
 /** Defines class for aggregating rows to a single structure before creating the native LightGBMDataset.
+  *
   * @param chunkSize The chunk size for the chunked arrays.
   */
 private[lightgbm] final class SparseAggregatedColumns(chunkSize: Int)
@@ -433,6 +493,7 @@ private[lightgbm] final class SparseAggregatedColumns(chunkSize: Int)
 }
 
 /** Defines class for aggregating rows to a single structure before creating the native LightGBMDataset.
+  *
   * @param chunkSize The chunk size for the chunked arrays.
   */
 private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
@@ -470,4 +531,5 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
     ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getIndptr, this.indptrArray,
       threadIndPtrStartIndex, chunkSize)
   }
+
 }
