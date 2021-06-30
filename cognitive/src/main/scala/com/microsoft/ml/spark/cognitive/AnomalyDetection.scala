@@ -21,7 +21,6 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
-import scala.reflect.internal.util.ScalaClassLoader
 
 abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
@@ -115,6 +114,13 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     ).toJson.compactPrint))
   }
 
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 }
 
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
@@ -250,14 +256,6 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     val endpointAndKey = getEndpointKeyFromLinkedService(v)
     setUrl(endpointAndKey._1 + "/anomalydetector/v1.0/timeseries/entire/detect")
     setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
   }
 
   override def responseDataType: DataType = ADEntireResponse.schema
