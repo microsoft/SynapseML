@@ -24,7 +24,6 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
-import scala.reflect.internal.util.ScalaClassLoader
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -285,6 +284,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
   }
+}
 
 abstract class CognitiveServicesBase(uid: String) extends
   CognitiveServicesBaseNoHandler(uid) with HasHandler {
