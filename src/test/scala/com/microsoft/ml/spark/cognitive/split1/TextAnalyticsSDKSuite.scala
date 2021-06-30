@@ -67,6 +67,32 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
       && replies(2).getString(0) == "neutral")
   }
+
+  lazy val batchedDF: DataFrame = Seq(
+    Seq("I hate the rain."),
+    Seq("I love Vancouver.")
+  ).toDF("text")
+
+  lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
+    .setSubscriptionKey("29e438c2cc004ca2a49c6fd10a4f65fe")
+    .setEndpoint("https://test-v2-endpoints.cognitiveservices.azure.com/")
+    .setInputCol("text")
+    .setOutputCol("output")
+
+  test("func foo 2") {
+    detector2.transform(batchedDF).printSchema()
+
+
+  }
+  test("func Basic Usage2") {
+    val replies = detector2.transform(batchedDF)
+      .select("output.result.sentiment")
+      .collect()
+
+    assert(replies(0).getString(0) == "negative" && replies(1).getString(0) == "positive")
+
+  }
+
 }
 
   class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
