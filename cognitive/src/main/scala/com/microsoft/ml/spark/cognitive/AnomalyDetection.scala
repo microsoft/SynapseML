@@ -21,6 +21,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
@@ -244,6 +245,24 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
+
+  def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveServiceUtils"
+    val funcName = "getEndpointAndKey"
+    val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val method = c.get.getMethod(funcName, v.getClass)
+    val (endPoint, key) = method.invoke(c.get, v)
+    setUrl(endPoint.toString + "/anomalydetector/v1.0/timeseries/entire/detect")
+    setSubscriptionKey(key.toString)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
