@@ -638,13 +638,6 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
     .setOutputCol("models")
     .setConcurrency(5)
 
-  lazy val listCustomModels2: ListCustomModels = new ListCustomModels()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOp("summary")
-    .setOutputCol("models")
-    .setConcurrency(5)
-
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
       df.select("models.summary.count")
@@ -661,7 +654,7 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   }
 
   test("List model list summary") {
-    val results = listCustomModels2.transform(df)
+    val results = listCustomModels.setOp("summary").transform(df)
       .withColumn("modelCount", col("models").getField("summary").getField("count"))
       .select("modelCount")
       .collect()
