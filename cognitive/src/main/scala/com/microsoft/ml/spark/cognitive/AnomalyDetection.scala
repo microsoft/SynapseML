@@ -251,9 +251,9 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     val funcName = "getEndpointAndKey"
     val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
     val method = c.get.getMethod(funcName, v.getClass)
-    val (endPoint, key) = method.invoke(c.get, v)
-    setUrl(endPoint.toString + "/anomalydetector/v1.0/timeseries/entire/detect")
-    setSubscriptionKey(key.toString)
+    val endPointAndKey = method.invoke(c.get, v).asInstanceOf[(String, String)]
+    setUrl(endPointAndKey._1 + "/anomalydetector/v1.0/timeseries/entire/detect")
+    setSubscriptionKey(endPointAndKey._2)
   }
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
