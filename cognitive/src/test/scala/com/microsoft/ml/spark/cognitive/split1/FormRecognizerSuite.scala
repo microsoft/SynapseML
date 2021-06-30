@@ -7,12 +7,12 @@ import com.microsoft.ml.spark.FluentAPI._
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, ModelFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{ModelFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils,
-  HeaderValues, SimpleHTTPTransformer}
+import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData,
+  HandlingUtils, HeaderValues, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
@@ -31,6 +31,11 @@ import spray.json._
 import java.net.URI
 import java.util.concurrent.TimeoutException
 import scala.concurrent.blocking
+
+object TrainCustomModelResponse extends SparkBindings[TrainCustomModelResponse]
+
+case class TrainCustomModelResponse(modelInfo: ModelInfo,
+                                    trainResult: TrainResult)
 
 object TrainCustomModel extends ComplexParamsReadable[TrainCustomModel]
 
