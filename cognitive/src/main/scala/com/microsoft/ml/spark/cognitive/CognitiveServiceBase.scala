@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.net.URI
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
@@ -24,6 +23,7 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -283,6 +283,16 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
 
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
+  }
+
+  def getEndpointKeyFromLinkedService(v: String): (String, String) = {
+    val classPath = "mssparkutils.CognitiveServiceUtils"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    (endpoint, key)
   }
 }
 
