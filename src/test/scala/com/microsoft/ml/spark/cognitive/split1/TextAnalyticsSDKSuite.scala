@@ -1,10 +1,10 @@
 package com.microsoft.ml.spark.cognitive.split1
 
 import com.azure.ai.textanalytics.models.TextAnalyticsRequestOptions
-import com.microsoft.ml.spark.cognitive.{CognitiveServicesBase, _}
+import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.ml.param.DataFrameEquality
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.DataFrame
 
 class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextKey {
 
@@ -25,37 +25,39 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text2")
     .setLangCol("countryHint")
+    .setOutputCol("Out")
 
   test("Language Detection - Basic Usage") {
     val replies = detector.transform(df)
       .select("name", "iso6391Name")
       .collect()
-
     assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish" )
-    assert(replies(3).getString(0) == "Chinese_Traditional")
     assert(replies(0).getString(1) == "en" && replies(2).getString(1) == "es")
+  }
 
+  test("Language Detection - Print Schema") {
+    detector.transform(df).printSchema()
   }
 }
 
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
-
   import spark.implicits._
 
   val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
     .setIncludeStatistics(true))
 
   lazy val df: DataFrame = Seq(
-    ("us", "Hello world. This is some input text that I love."),
-    ("us", "I am sad"),
-    ("us", "I am feeling okay")
-  ).toDF("country", "text")
+    ("en", "Hello world. This is some input text that I love."),
+    ("en", "I am sad"),
+    ("en", "I am feeling okay")
+  ).toDF("lang", "text")
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
-    .setLangCol("country")
+    .setLangCol("lang")
+    .setOutputCol("Out")
 
   test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
@@ -69,6 +71,9 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     import spark.implicits._
 
+    val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
+      .setIncludeStatistics(true))
+
     lazy val df2: DataFrame = Seq(
       ("en","Hello world. This is some input text that I love."),
       ("en","Glaciers are huge rivers of ice that ooze their way over land," +
@@ -78,11 +83,12 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
       .setSubscriptionKey(textKey)
-      .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
+      .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text2")
       .setLangCol("langCol")
+      .setOutputCol("Out")
 
-    test("Basic KPE Usage") {
+    test("KPE - Basic Usage") {
       val replies = extractor.transform(df2)
         .select("keyPhrases")
         .collect()
@@ -92,4 +98,3 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       assert(replies(2).getSeq[String](0).toSet === Set("mucho tráfico", "carretera", "ayer"))
     }
   }
-

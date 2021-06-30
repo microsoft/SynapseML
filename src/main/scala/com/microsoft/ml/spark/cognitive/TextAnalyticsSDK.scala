@@ -1,11 +1,10 @@
 package com.microsoft.ml.spark.cognitive
 
-import com.azure.ai.textanalytics.models.{ExtractKeyPhraseResult, KeyPhrasesCollection, TextAnalyticsRequestOptions,
-  ,AssessmentSentiment, DocumentSentiment,
-  SentenceSentiment, SentimentConfidenceScores, TargetSentiment}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment,SentenceSentiment,
+  SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
@@ -16,12 +15,11 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-
 import scala.collection.JavaConverters._
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
   extends Transformer
-  with HasInputCol with HasErrorCol
+  with HasInputCol with HasOutputCol with HasErrorCol
   with HasEndpoint with HasSubscriptionKey with HasLangCol
   with ComplexParamsWritable with BasicLogging {
 
@@ -38,7 +36,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val invokeTextAnalyticsUdf = UDFUtils.oldUdf(invokeTextAnalytics, outputSchema)
-      dataset.withColumn("Out", invokeTextAnalyticsUdf(col($(inputCol)), col($(langCol))))
+      dataset.withColumn($(outputCol), invokeTextAnalyticsUdf(col($(inputCol)), col($(langCol))))
         .select($(inputCol), "Out.result.*", "Out.error.*", "Out.statistics.*", "Out.*")
         .drop("result", "error", "statistics")
     })
@@ -48,16 +46,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     // Validate input schema
     val inputType = schema($(inputCol)).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
-
-    // Making sure input schema doesn't overlap with output schema
-    val fieldsIntersection = schema.map(sf => sf.name.toLowerCase)
-      .intersect(outputSchema.map(sf => sf.name.toLowerCase()))
-    require(fieldsIntersection.isEmpty, s"Input schema overlaps with transformer output schema. " +
-      s"Rename the following input columns: [${fieldsIntersection.mkString(", ")}]")
-
-    // Creating output schema (input schema + output schema)
-    val consolidatedSchema = (schema ++ outputSchema).toSet
-    StructType(consolidatedSchema.toSeq)
+    schema.add(getOutputCol, outputSchema)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -72,6 +61,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
   logClass()
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
+
   override protected val invokeTextAnalytics: (String, String) => TAResponseV4[DetectedLanguageV4] =
     (text: String, countryHint: String) =>
       {
@@ -108,23 +98,11 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
     }
 }
 
-object DetectLanguageResponseV4 extends SparkBindings[TAResponseV4[DetectedLanguageV4]]
-object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
-
-case class TAResponseV4[T](result: Option[T],
-                           error: Option[TAErrorV4],
-                           statistics: Option[DocumentStatistics],
-                           modelVersion: Option[String])
-
-case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
-
-case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
-
 object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
 
 class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
                                      override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
-  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) with HasLangCol {
+  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
   override def outputSchema: StructType =  KeyPhraseResponseV4.schema
@@ -167,14 +145,12 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
   }
 }
 
-case class TAWarningV4 (warningCode: String, message: String)
-case class KeyphraseV4(keyPhrases: List[String], warnings: List[TAWarningV4])
-
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
+
 class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
                       override val uid: String = randomUID("TextSentimentV4"))
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
-    with HasConfidenceScoreCol {
+    with HasConfidenceScoreCol{
   logClass()
 
   override def outputSchema: StructType = SentimentResponseV4.schema
