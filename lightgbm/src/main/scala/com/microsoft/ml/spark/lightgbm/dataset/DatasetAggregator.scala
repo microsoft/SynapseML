@@ -4,11 +4,10 @@
 package com.microsoft.ml.spark.lightgbm.dataset
 
 import java.util.concurrent.atomic.AtomicLong
-
 import com.microsoft.ml.spark.lightgbm.ColumnParams
-import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.{addFeaturesToChunkedArray, addGroupColumnRow,
-  addInitScoreColumnRow, getRowAsDoubleArray}
+import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.{addFeaturesToChunkedArray, getRowAsDoubleArray}
 import com.microsoft.ml.spark.lightgbm.swig._
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
@@ -54,6 +53,29 @@ private[lightgbm] abstract class BaseChunkedColumns(columnParams: ColumnParams,
 
   protected var rowCount = 0
 
+  def addInitScoreColumnRow(initScoreChunkedArrayOpt: Option[DoubleChunkedArray], row: Row): Unit = {
+    columnParams.initScoreColumn.foreach { col =>
+      val field = schema.fields(schema.fieldIndex(col))
+      if (field.dataType == VectorType) {
+        val initScores = row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector]
+        // Note: rows * # classes in multiclass case
+        initScores.values.foreach { rowValue =>
+          initScoreChunkedArrayOpt.get.add(rowValue)
+        }
+      } else {
+        val initScore = row.getDouble(schema.fieldIndex(col))
+        initScoreChunkedArrayOpt.get.add(initScore)
+      }
+    }
+  }
+
+  def addGroupColumnRow(row: Row, groupColumnValues: ListBuffer[Row]): Unit = {
+    columnParams.groupColumn.foreach { col =>
+      val colIdx = schema.fieldIndex(col)
+      groupColumnValues.append(Row(row.get(colIdx)))
+    }
+  }
+
   def addRows(rowsIter: Iterator[Row]): Unit = {
     while (rowsIter.hasNext) {
       rowCount += 1
@@ -64,12 +86,12 @@ private[lightgbm] abstract class BaseChunkedColumns(columnParams: ColumnParams,
         this.weights.get.add(row.getDouble(schema.fieldIndex(col)).toFloat)
       }
 
-      addInitScoreColumnRow(this.initScores, row, columnParams, schema)
-      addGroupColumnRow(row, this.groups, columnParams, schema)
+      addInitScoreColumnRow(this.initScores, row)
+      addGroupColumnRow(row, this.groups)
     }
   }
 
-  def addFeatures(row: Row): Unit
+  protected def addFeatures(row: Row): Unit
 
   def release(): Unit = {
     // Clear memory
@@ -91,7 +113,9 @@ private[lightgbm] abstract class BaseChunkedColumns(columnParams: ColumnParams,
   def getGroups: ListBuffer[Row] = groups
 }
 
-private[lightgbm] final class SparseChunkedColumns(columnParams: ColumnParams, schema: StructType, chunkSize: Int,
+private[lightgbm] final class SparseChunkedColumns(columnParams: ColumnParams,
+                                                   schema: StructType,
+                                                   chunkSize: Int,
                                                    useSingleDataset: Boolean)
   extends BaseChunkedColumns(columnParams, schema, chunkSize) {
 
@@ -108,7 +132,7 @@ private[lightgbm] final class SparseChunkedColumns(columnParams: ColumnParams, s
     super.addRows(rowsIter)
   }
 
-  def addFeatures(row: Row): Unit = {
+  override protected def addFeatures(row: Row): Unit = {
     val sparseVector = row.get(schema.fieldIndex(columnParams.featuresColumn)) match {
       case dense: DenseVector => dense.toSparse
       case sparse: SparseVector => sparse
@@ -151,7 +175,7 @@ private[lightgbm] final class DenseChunkedColumns(columnParams: ColumnParams,
   extends BaseChunkedColumns(columnParams, schema, chunkSize) {
   var features = new DoubleChunkedArray(numCols * chunkSize)
 
-  def addFeatures(row: Row): Unit = {
+  override protected def addFeatures(row: Row): Unit = {
     val rowAsDoubleArray = getRowAsDoubleArray(row, columnParams, schema)
     addFeaturesToChunkedArray(this.features, rowAsDoubleArray)
   }
@@ -174,10 +198,12 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
   /**
     * Variables for knowing how large full array should be allocated to
     */
-  var rowCount = new AtomicLong(0L)
-  var initScoreCount = new AtomicLong(0L)
+  protected var rowCount = new AtomicLong(0L)
+  protected var initScoreCount = new AtomicLong(0L)
 
   protected var numCols = 0
+
+  def getRowCount: Int = rowCount.get().toInt
 
   def getNumCols: Int = numCols
 
@@ -214,7 +240,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
   def getGroupColumnValuesArray: Array[Row] = groupColumnValuesArray
 }
 
-private[lightgbm] abstract trait DisjointAggregatedColumns extends BaseAggregatedColumns {
+private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns {
   def addFeatures(chunkedCols: BaseChunkedColumns): Unit
 
   /** Adds the rows to the internal data structure.
@@ -231,7 +257,7 @@ private[lightgbm] abstract trait DisjointAggregatedColumns extends BaseAggregate
   }
 }
 
-private[lightgbm] abstract trait SyncAggregatedColumns extends BaseAggregatedColumns {
+private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
   /**
     * Variables for current thread to use in order to update common arrays in parallel
     */
@@ -326,7 +352,7 @@ private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit = {
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures,
-      this.featuresArray, featureIndexes(0) * numCols, chunkSize)
+      this.featuresArray, featureIndexes.head * numCols, chunkSize)
   }
 }
 

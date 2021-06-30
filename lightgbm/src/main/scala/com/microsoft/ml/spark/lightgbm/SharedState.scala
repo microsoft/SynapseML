@@ -16,7 +16,7 @@ import org.slf4j.Logger
 class SharedState(columnParams: ColumnParams,
                   schema: StructType,
                   trainParams: TrainParams) {
-  val mainExecutorWorker: Long = LightGBMUtils.getTaskId()
+  val mainExecutorWorker: Long = LightGBMUtils.getTaskId
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val matrixType: String = trainParams.executionParams.matrixType
@@ -25,13 +25,25 @@ class SharedState(columnParams: ColumnParams,
 
   lazy val sparseAggregatedColumns: BaseSparseAggregatedColumns = new SparseSyncAggregatedColumns(chunkSize)
 
-  def prep(iter: Iterator[Row]): BaseChunkedColumns = {
-    val (concatRowsIter: Iterator[Row], isSparse: Boolean) = getArrayType(iter,
-      columnParams, schema, matrixType)
-    // Note: the first worker sets "is sparse", other workers read it
-    linkIsSparse(isSparse)
+  def getArrayType(rowsIter: Iterator[Row], matrixType: String): (Iterator[Row], Boolean) = {
+    if (matrixType == "auto") {
+      sampleRowsForArrayType(rowsIter, schema, columnParams)
+    } else if (matrixType == "sparse") {
+      (rowsIter: Iterator[Row], true)
+    } else if (matrixType == "dense") {
+      (rowsIter: Iterator[Row], false)
+    } else {
+      throw new Exception(s"Invalid parameter matrix type specified: ${matrixType}")
+    }
+  }
 
-    if (!this.isSparse.get) {
+  def prep(iter: Iterator[Row]): BaseChunkedColumns = {
+    val (concatRowsIter: Iterator[Row], isSparseHere: Boolean) = getArrayType(iter, matrixType)
+
+    // Note: the first worker sets "is sparse", other workers read it
+    linkIsSparse(isSparseHere)
+
+    if (!isSparse.get) {
       val headRow = concatRowsIter.next()
       val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams, schema)
       val numCols = rowAsDoubleArray.length
@@ -79,7 +91,7 @@ class SharedState(columnParams: ColumnParams,
   @volatile var arrayProcessedSignal: CountDownLatch = new CountDownLatch(0)
   def incrementArrayProcessedSignal(log: Logger): Int = {
     this.synchronized {
-      val count = arrayProcessedSignal.getCount().toInt + 1
+      val count = arrayProcessedSignal.getCount.toInt + 1
       arrayProcessedSignal = new CountDownLatch(count)
       log.info(s"Task incrementing ArrayProcessedSignal to $count")
       count
@@ -89,7 +101,7 @@ class SharedState(columnParams: ColumnParams,
   @volatile var doneSignal: CountDownLatch = new CountDownLatch(0)
   def incrementDoneSignal(log: Logger): Unit = {
     this.synchronized {
-      val count = doneSignal.getCount().toInt + 1
+      val count = doneSignal.getCount.toInt + 1
       doneSignal = new CountDownLatch(count)
       log.info(s"Task incrementing DoneSignal to $count")
     }

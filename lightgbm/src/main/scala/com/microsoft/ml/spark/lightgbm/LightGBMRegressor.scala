@@ -58,9 +58,8 @@ class LightGBMRegressor(override val uid: String)
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
 
-  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int],
-                     dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val isLocal = dataset.sparkSession.sparkContext.isLocal
+  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
+    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RegressorTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction,

@@ -51,9 +51,8 @@ class LightGBMRanker(override val uid: String)
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numTasks: Int, categoricalIndexes: Array[Int],
-                     dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val isLocal = dataset.sparkSession.sparkContext.isLocal
+  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
+    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
       getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
@@ -91,8 +90,7 @@ class LightGBMRanker(override val uid: String)
 
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
 
-  override def prepareDataframe(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])],
-                                numTasks: Int): DataFrame = {
+  override def prepareDataframe(dataset: Dataset[_], numTasks: Int): DataFrame = {
     if (getRepartitionByGroupingColumn) {
       val repartitionedDataset = getOptGroupCol match {
         case None => dataset
@@ -103,9 +101,9 @@ class LightGBMRanker(override val uid: String)
           df
         }
       }
-      super.prepareDataframe(repartitionedDataset, trainingCols, numTasks)
+      super.prepareDataframe(repartitionedDataset, numTasks)
     } else {
-      super.prepareDataframe(dataset, trainingCols, numTasks)
+      super.prepareDataframe(dataset, numTasks)
     }
   }
 }
