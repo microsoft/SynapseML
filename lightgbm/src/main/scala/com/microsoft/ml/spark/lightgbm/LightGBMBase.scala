@@ -11,7 +11,6 @@ import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{closeConnections, handleCo
 import com.microsoft.ml.spark.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.ml.spark.lightgbm.TrainUtils._
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
-import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.addGroupColumn
 import com.microsoft.ml.spark.lightgbm.dataset._
 import com.microsoft.ml.spark.lightgbm.params._
 import com.microsoft.ml.spark.logging.BasicLogging
@@ -43,6 +42,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
     logTrain({
+      getOptGroupCol.foreach(DatasetUtils.validateGroupColumn(_, dataset.schema))
       if (getNumBatches > 0) {
         val ratio = 1.0 / getNumBatches
         val datasets = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
@@ -88,7 +88,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // Cast columns to correct types
     dataset.select(
       trainingCols.map {
-        case (name, datatypes: Seq[DataType]) => {
+        case (name, datatypes: Seq[DataType]) =>
           val index = schema.fieldIndex(name)
           // Note: We only want to cast if original column was of numeric type
 
@@ -101,10 +101,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                 // If none match, cast to the first option
                 dataset(name).cast(datatypes.head)
               }
-
             case _ => dataset(name)
           }
-        }
       }: _*
     ).toDF()
   }
@@ -264,15 +262,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
-  private def indptrArrayIncrement(indptrArray: SWIGTYPE_p_int, indptrCount: Long): Unit = {
-    // Update indptr array indexes in sparse matrix
-    (1L until indptrCount).foreach { index =>
-      val indptrPrevValue = lightgbmlib.intArray_getitem(indptrArray, index - 1)
-      val indptrCurrValue = lightgbmlib.intArray_getitem(indptrArray, index)
-      lightgbmlib.intArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
-    }
-  }
-
   def getDatasetParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
     val datasetParams = s"max_bin=$getMaxBin is_pre_partition=True " +
       s"bin_construct_sample_cnt=$getBinSampleCount " +
@@ -286,26 +275,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                               referenceDataset: Option[LightGBMDataset],
                               schema: StructType,
                               datasetParams: String): LightGBMDataset = {
-    val slotNames = getSlotNamesWithMetadata(schema(getFeaturesCol))
     val dataset = try {
-      ac match {
-        case sac: BaseSparseAggregatedColumns =>
-          indptrArrayIncrement(sac.getIndptrs.array, sac.getIndptrCount)
-        case _ =>
-      }
-      val dataset = ac.generateDataset(referenceDataset, slotNames, datasetParams)
-      val numRows = ac.getRowCount
-      dataset.addFloatField(ac.getLabels.array, "label", numRows)
-      ac.getWeights.foreach(weightArray =>
-        dataset.addFloatField(weightArray.array, "weight", numRows))
-      ac.getInitScores.foreach(initScoreArray =>
-        dataset.addDoubleField(initScoreArray.array, "init_score", numRows))
-      addGroupColumn(ac.getGroups, getOptGroupCol, Some(dataset), schema, Some(0))
-      dataset
+      val datasetInner = ac.generateDataset(referenceDataset, datasetParams)
+      getOptGroupCol.foreach(_ => datasetInner.addGroupColumn(ac.getGroups))
+      datasetInner.setFeatureNames(getSlotNamesWithMetadata(schema(getFeaturesCol)), ac.getNumCols)
+      datasetInner
     } finally {
       ac.cleanup()
     }
-
     // Validate generated dataset has the correct number of rows and cols
     dataset.validateDataset()
     dataset

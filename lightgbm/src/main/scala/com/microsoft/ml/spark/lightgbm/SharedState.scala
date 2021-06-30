@@ -27,7 +27,7 @@ class SharedState(columnParams: ColumnParams,
 
   def getArrayType(rowsIter: Iterator[Row], matrixType: String): (Iterator[Row], Boolean) = {
     if (matrixType == "auto") {
-      sampleRowsForArrayType(rowsIter, schema, columnParams)
+      sampleRowsForArrayType(rowsIter, columnParams)
     } else if (matrixType == "sparse") {
       (rowsIter: Iterator[Row], true)
     } else if (matrixType == "dense") {
@@ -45,7 +45,7 @@ class SharedState(columnParams: ColumnParams,
 
     if (!isSparse.get) {
       val headRow = concatRowsIter.next()
-      val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams, schema)
+      val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams)
       val numCols = rowAsDoubleArray.length
       val rowsIter = Iterator(headRow) ++ concatRowsIter
       val denseChunkedColumns = new DenseChunkedColumns(columnParams, schema, chunkSize, numCols)
