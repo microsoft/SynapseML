@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.core.test.fuzzing.{ModelFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, ModelFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData,
   HandlingUtils, HeaderValues, SimpleHTTPTransformer}
@@ -34,8 +34,7 @@ import scala.concurrent.blocking
 
 object TrainCustomModelResponse extends SparkBindings[TrainCustomModelResponse]
 
-case class TrainCustomModelResponse(modelInfo: ModelInfo,
-                                    trainResult: TrainResult)
+case class TrainCustomModelResponse(modelInfo: ModelInfo, trainResult: TrainResult)
 
 object TrainCustomModel extends ComplexParamsReadable[TrainCustomModel]
 
@@ -44,10 +43,6 @@ class TrainCustomModel(override val uid: String) extends Estimator[AnalyzeCustom
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainCustomModel"))
-
-  setDefault(
-    outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"))
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
@@ -66,13 +61,12 @@ class TrainCustomModel(override val uid: String) extends Estimator[AnalyzeCustom
 
   def setIncludeSubFolders(v: Boolean): this.type = setScalarParam(includeSubFolders, v)
 
-  setDefault(includeSubFolders -> Left(false))
-
   val useLabelFile = new ServiceParam[Boolean](this, "useLabelFile", "Use label file for training a model.")
 
   def setUseLabelFile(v: Boolean): this.type = setScalarParam(useLabelFile, v)
 
-  setDefault(useLabelFile -> Left(false))
+  setDefault(outputCol -> (this.uid + "_output"), errorCol -> (this.uid + "_error"),
+    includeSubFolders -> Left(false), useLabelFile -> Left(false))
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r => Some(new StringEntity(Map("source" -> getValue(r, imageUrl).toJson,
@@ -182,7 +176,6 @@ class TrainCustomModel(override val uid: String) extends Estimator[AnalyzeCustom
   }
 
   override protected def responseDataType: DataType = TrainCustomModelResponse.schema
-
 }
 
 object FormRecognizerUtils extends CognitiveKey {
@@ -296,18 +289,12 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val analyzeLayout: AnalyzeLayout = new AnalyzeLayout()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setOutputCol("layout")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setOutputCol("layout").setConcurrency(5)
 
   lazy val bytesAnalyzeLayout: AnalyzeLayout = new AnalyzeLayout()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("layout")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageBytesCol("imageBytes").setOutputCol("layout").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -371,18 +358,12 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val analyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setOutputCol("receipts")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setOutputCol("receipts").setConcurrency(5)
 
   lazy val bytesAnalyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("receipts")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageBytesCol("imageBytes").setOutputCol("receipts").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -429,18 +410,12 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val analyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setOutputCol("businessCards")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setOutputCol("businessCards").setConcurrency(5)
 
   lazy val bytesAnalyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("businessCards")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageBytesCol("imageBytes").setOutputCol("businessCards").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -487,18 +462,12 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val analyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setOutputCol("invoices")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setOutputCol("invoices").setConcurrency(5)
 
   lazy val bytesAnalyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("invoices")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageBytesCol("imageBytes").setOutputCol("invoices").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -557,18 +526,12 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val analyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setOutputCol("ids")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setOutputCol("ids").setConcurrency(5)
 
   lazy val bytesAnalyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("ids")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageBytesCol("imageBytes").setOutputCol("ids").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -615,12 +578,9 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setPrefix("CustomModelTrain")
+    .setOutputCol("customModelResult").setConcurrency(5)
 
   val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
 
@@ -632,11 +592,8 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   }
 
   lazy val listCustomModels: ListCustomModels = new ListCustomModels()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOp("full")
-    .setOutputCol("models")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setOp("full").setOutputCol("models").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -671,12 +628,9 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setImageUrlCol("source").setPrefix("CustomModelTrain")
+    .setOutputCol("customModelResult").setConcurrency(5)
 
   val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
 
@@ -688,12 +642,9 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   }
 
   lazy val getCustomModel: GetCustomModel = new GetCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setIncludeKeys(true)
-    .setOutputCol("model")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setModelId(modelId).setIncludeKeys(true)
+    .setOutputCol("model").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -719,16 +670,64 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   override def reader: MLReadable[_] = GetCustomModel
 }
 
+class TrainCustomModelSuite extends EstimatorFuzzing[TrainCustomModel]
+  with CognitiveKey with Flaky with FormRecognizerUtils {
+
+  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setImageUrlCol("source")
+    .setPrefix("CustomModelTrain").setOutputCol("customModelResult").setConcurrency(5)
+
+  override def afterAll(): Unit = {
+    val listCustomModels: ListCustomModels = new ListCustomModels()
+      .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+      .setOp("full").setOutputCol("models").setConcurrency(5)
+    val results = listCustomModels.transform(df)
+      .withColumn("modelIds", col("models").getField("modelList").getField("modelId"))
+      .select("modelIds")
+      .collect()
+    val modelIds = results.flatMap(_.getAs[Seq[String]](0))
+    modelIds.foreach(
+      x => FormRecognizerUtils.formDelete(x)
+    )
+    super.afterAll()
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    def prep(df: DataFrame) = {
+      df.select("source")
+    }
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
+
+  test("Basic Usage") {
+    val analyzeCustomeModel = trainCustomModel.fit(trainingDataSAS)
+      .setImageUrlCol("source").setOutputCol("form").setConcurrency(5)
+    val results = imageDf4.mlTransform(analyzeCustomeModel,
+      AnalyzeCustomModel.flattenReadResults("form", "readForm"),
+      AnalyzeCustomModel.flattenPageResults("form", "pageForm"),
+      AnalyzeCustomModel.flattenDocumentResults("form", "docForm"))
+      .select("readForm", "pageForm", "docForm")
+      .collect()
+    assert(results.head.getString(0) === "")
+    assert(results.head.getString(1)
+      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
+    assert(results.head.getString(2) === "")
+  }
+
+  override def testObjects(): Seq[TestObject[TrainCustomModel]] =
+    Seq(new TestObject(trainCustomModel, trainingDataSAS, imageDf4))
+
+  override def reader: MLReadable[_] = TrainCustomModel
+
+  override def modelReader: MLReadable[_] = reader
+}
+
 class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setImageUrlCol("source")
-    .setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setImageUrlCol("source")
+    .setPrefix("CustomModelTrain").setOutputCol("customModelResult").setConcurrency(5)
 
   val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
 
@@ -740,20 +739,12 @@ class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
   }
 
   lazy val analyzeCustomModel: AnalyzeCustomModel = new AnalyzeCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setImageUrlCol("source")
-    .setOutputCol("form")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setModelId(modelId)
+    .setImageUrlCol("source").setOutputCol("form").setConcurrency(5)
 
   lazy val bytesAnalyzeCustomModel: AnalyzeCustomModel = new AnalyzeCustomModel()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setModelId(modelId)
-    .setImageBytesCol("imageBytes")
-    .setOutputCol("form")
-    .setConcurrency(5)
+    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setModelId(modelId)
+    .setImageBytesCol("imageBytes").setOutputCol("form").setConcurrency(5)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
