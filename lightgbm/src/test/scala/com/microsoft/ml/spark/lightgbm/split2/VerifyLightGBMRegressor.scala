@@ -58,6 +58,7 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
+    (0 until 20).foreach(_ => getAndIncrementPort())
     val model = baseModel
 
     val paramGrid = new ParamGridBuilder()
@@ -142,6 +143,7 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
+    (0 until 10).foreach(_ => getAndIncrementPort())
     val model = baseModel.setObjective("tweedie").setTweedieVariancePower(1.5)
 
     val paramGrid = new ParamGridBuilder()
@@ -211,7 +213,7 @@ class VerifyLightGBMRegressor extends Benchmarks
     val featurizer = LightGBMUtils.getFeaturizer(dataset, labelCol, featuresCol)
     val train = featurizer.transform(dataset)
 
-    Seq(new TestObject(new LightGBMRegressor()
+    Seq(new TestObject(new LightGBMRegressor().setDefaultListenPort(getAndIncrementPort())
       .setLabelCol(labelCol).setFeaturesCol(featuresCol).setNumLeaves(5),
       train))
   }

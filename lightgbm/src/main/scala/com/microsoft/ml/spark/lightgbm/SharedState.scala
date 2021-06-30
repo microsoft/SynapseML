@@ -26,26 +26,24 @@ class SharedState(columnParams: ColumnParams,
   lazy val sparseAggregatedColumns: BaseSparseAggregatedColumns = new SparseSyncAggregatedColumns(chunkSize)
 
   def prep(iter: Iterator[Row]): BaseChunkedColumns = {
-    var (concatRowsIter: Iterator[Row], isSparse: Boolean) = getArrayType(iter,
+    val (concatRowsIter: Iterator[Row], isSparse: Boolean) = getArrayType(iter,
       columnParams, schema, matrixType)
     // Note: the first worker sets "is sparse", other workers read it
     linkIsSparse(isSparse)
 
-    val chunkedColumns =
-      if (!isSparse) {
-        val headRow = concatRowsIter.next()
-        val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams, schema)
-        val numCols = rowAsDoubleArray.length
-        val rowsIter = Iterator(headRow) ++ concatRowsIter
-        val denseChunkedColumns = new DenseChunkedColumns(columnParams, schema, chunkSize, numCols)
-        denseChunkedColumns.addRows(rowsIter)
-        denseChunkedColumns
-      } else {
-        val sparseChunkedColumns = new SparseChunkedColumns(columnParams, schema, chunkSize, useSingleDataset)
-        sparseChunkedColumns.addRows(concatRowsIter)
-        sparseChunkedColumns
-      }
-    chunkedColumns
+    if (!this.isSparse.get) {
+      val headRow = concatRowsIter.next()
+      val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams, schema)
+      val numCols = rowAsDoubleArray.length
+      val rowsIter = Iterator(headRow) ++ concatRowsIter
+      val denseChunkedColumns = new DenseChunkedColumns(columnParams, schema, chunkSize, numCols)
+      denseChunkedColumns.addRows(rowsIter)
+      denseChunkedColumns
+    } else {
+      val sparseChunkedColumns = new SparseChunkedColumns(columnParams, schema, chunkSize, useSingleDataset)
+      sparseChunkedColumns.addRows(concatRowsIter)
+      sparseChunkedColumns
+    }
   }
 
   def merge(ts: BaseChunkedColumns): BaseAggregatedColumns = {

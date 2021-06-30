@@ -257,7 +257,7 @@ private[lightgbm] abstract trait SyncAggregatedColumns extends BaseAggregatedCol
     }
   }
 
-  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns): List[Long]
+  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns, threadRowStartIndex: Long): List[Long]
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit
 
@@ -271,7 +271,7 @@ private[lightgbm] abstract trait SyncAggregatedColumns extends BaseAggregatedCol
         threadRowStartIndex = this.threadRowStartIndex.getAndAdd(labelsSize.toInt)
         val initScoreSize = chunkedCols.getInitScores.map(_.getAddCount())
         initScoreSize.foreach(size => threadInitScoreStartIndex = this.threadInitScoreStartIndex.getAndAdd(size))
-        updateThreadLocalIndices(chunkedCols)
+        updateThreadLocalIndices(chunkedCols, threadRowStartIndex)
       }
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.getLabels, this.labelsArray, threadRowStartIndex, chunkSize)
     chunkedCols.getWeights.foreach {
@@ -320,8 +320,8 @@ private[lightgbm] final class DenseAggregatedColumns(chunkSize: Int)
   */
 private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
   extends BaseDenseAggregatedColumns(chunkSize) with SyncAggregatedColumns {
-  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns): List[Long] = {
-    List(this.threadRowStartIndex.get())
+  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns, threadRowStartIndex: Long): List[Long] = {
+    List(threadRowStartIndex)
   }
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit = {
@@ -407,7 +407,7 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
     super.initializeRows(chunkedCols)
   }
 
-  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns): List[Long] = {
+  protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns, threadRowStartIndex: Long): List[Long] = {
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
     val indexesSize = sparseChunkedCols.getIndexes.getAddCount()
     val threadIndexesStartIndex = this.threadIndexesStartIndex.getAndAdd(indexesSize)
