@@ -238,6 +238,12 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
   def getInitScores: Option[DoubleSwigArray] = initScores
 
   def getGroups: Array[Row] = groups
+
+  def cleanup(): Unit = {
+    labels.delete()
+    weights.foreach(_.delete())
+    initScores.foreach(_.delete())
+  }
 }
 
 private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns {
@@ -397,6 +403,16 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   def getIndexesCount: Long = this.indexesCount.get()
 
   def getIndptrCount: Long = this.indptrCount.get()
+
+  override def cleanup(): Unit = {
+    labels.delete()
+    weights.foreach(_.delete())
+    initScores.foreach(_.delete())
+    valuesArray.delete()
+    indexesArray.delete()
+    indptrArray.delete()
+  }
+
 }
 
 

@@ -3,14 +3,11 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, SWIGTYPE_p_void, lightgbmlib, lightgbmlibConstants}
 import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.io.http.SharedSingleton
 import com.microsoft.ml.spark.lightgbm.ConnectionState.Finished
-import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{
-  closeConnections, getDatasetParams,
-  handleConnection, sendDataToExecutors
-}
+import com.microsoft.ml.spark.lightgbm.LightGBMUtils.{closeConnections, getDatasetParams, handleConnection, sendDataToExecutors}
 import com.microsoft.ml.spark.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.ml.spark.lightgbm.TrainUtils._
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
@@ -254,6 +251,15 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
+  private def indptrArrayIncrement(indptrArray: SWIGTYPE_p_int, indptrCount: Long): Unit = {
+    // Update indptr array indexes in sparse matrix
+    (1L until indptrCount).foreach { index =>
+      val indptrPrevValue = lightgbmlib.intArray_getitem(indptrArray, index - 1)
+      val indptrCurrValue = lightgbmlib.intArray_getitem(indptrArray, index)
+      lightgbmlib.intArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
+    }
+  }
+
   def generateDenseDataset(denseAggregatedColumns: BaseDenseAggregatedColumns,
                            referenceDataset: Option[LightGBMDataset],
                            featureNamesOpt: Option[Array[String]],
@@ -279,13 +285,35 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     dataset
   }
 
-  private def indptrArrayIncrement(indptrArray: SWIGTYPE_p_int, indptrCount: Long): Unit = {
-    // Update indptr array indexes in sparse matrix
-    (1L until indptrCount).foreach { index =>
-      val indptrPrevValue = lightgbmlib.intArray_getitem(indptrArray, index - 1)
-      val indptrCurrValue = lightgbmlib.intArray_getitem(indptrArray, index)
-      lightgbmlib.intArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
-    }
+  /** Generates a sparse dataset in CSR format.
+    *
+    * @return The constructed and wrapped native LightGBMDataset.
+    */
+  def generateSparseDataset(sac: BaseSparseAggregatedColumns,
+                            referenceDataset: Option[LightGBMDataset],
+                            featureNamesOpt: Option[Array[String]],
+                            trainParams: TrainParams): LightGBMDataset = {
+    val numCols: Long = sac.getNumCols
+    val indptrLength: Long = sac.getIndptrCount
+    val valuesLength: Long = sac.getIndexesCount
+    val values: SWIGTYPE_p_void = lightgbmlib.double_to_voidp_ptr(sac.getValuesArray.array)
+    val indexes: SWIGTYPE_p_int = sac.getIndexesArray.array
+    val indptr: SWIGTYPE_p_void = lightgbmlib.int_to_voidp_ptr(sac.getIndptrArray.array)
+
+    val datasetOutPtr = lightgbmlib.voidpp_handle()
+    val datasetParams = getDatasetParams(trainParams)
+    val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
+    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
+    // Generate the dataset for features
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(indptr,
+      dataInt32bitType, indexes, values, data64bitType,
+      indptrLength, valuesLength,
+      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
+      datasetOutPtr),
+      "Dataset create")
+    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
+    dataset.setFeatureNames(featureNamesOpt, numCols.toInt)
+    dataset
   }
 
   def aggregateStreamedData(ac: BaseAggregatedColumns,
@@ -298,19 +326,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       val dataset: Option[LightGBMDataset] = ac match {
         case sac: BaseSparseAggregatedColumns =>
           indptrArrayIncrement(sac.getIndptrArray.array, sac.getIndptrCount)
-          try {
-            Some(LightGBMUtils.generateSparseDataset(sac.getNumCols,
-              sac.getIndptrCount, sac.getIndexesCount,
-              lightgbmlib.double_to_voidp_ptr(sac.getValuesArray.array),
-              sac.getIndexesArray.array,
-              lightgbmlib.int_to_voidp_ptr(sac.getIndptrArray.array),
-              referenceDataset, slotNames, trainParams))
-          } finally {
-            // Delete the input rows
-            sac.getValuesArray.delete()
-            sac.getIndexesArray.delete()
-            sac.getIndptrArray.delete()
-          }
+          Some(generateSparseDataset(sac, referenceDataset, slotNames, trainParams))
         case dac: BaseDenseAggregatedColumns =>
          Some(generateDenseDataset(dac, referenceDataset, slotNames, trainParams))
       }
@@ -322,11 +338,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       addGroupColumn(ac.getGroups, getOptGroupCol, dataset, numRows, schema, Some(0))
       dataset
     } finally {
-      ac.getLabels.delete()
-      ac.getWeights.foreach(_.delete())
-      ac.getInitScores.foreach(_.delete())
+      ac.cleanup()
     }
-
   }
 
   def generateDataset(aggregatedColumns: BaseAggregatedColumns,
