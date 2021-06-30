@@ -21,6 +21,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
 
+import java.net.URI
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.reflect.internal.util.ScalaClassLoader
