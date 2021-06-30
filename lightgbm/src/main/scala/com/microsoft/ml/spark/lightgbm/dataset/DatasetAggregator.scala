@@ -333,40 +333,39 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
 }
 
 private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) extends BaseAggregatedColumns(chunkSize) {
-  protected var featuresArray: DoubleSwigArray = _
+  protected var features: DoubleSwigArray = _
 
   def getNumColsFromChunkedArray(chunkedCols: BaseChunkedColumns): Int = {
     chunkedCols.asInstanceOf[DenseChunkedColumns].numCols
   }
 
   protected def initializeFeatures(chunkedCols: BaseChunkedColumns, rowCount: Long): Unit = {
-    featuresArray = new DoubleSwigArray(numCols * rowCount)
+    features = new DoubleSwigArray(numCols * rowCount)
   }
 
-  def getFeaturesArray: DoubleSwigArray = featuresArray
+  def getFeatures: DoubleSwigArray = features
 
   def generateDataset(referenceDataset: Option[LightGBMDataset],
                       featureNamesOpt: Option[Array[String]],
                       datasetParams: String): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
-    val dataset = try {
+    try {
       // Generate the dataset for features
-      lightgbmlib.LGBM_DatasetCreateFromMat(
-        lightgbmlib.double_to_voidp_ptr(getFeaturesArray.array),
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
+        lightgbmlib.double_to_voidp_ptr(features.array),
         lightgbmlibConstants.C_API_DTYPE_FLOAT64,
-        getRowCount,
-        getNumCols,
+        rowCount.get().toInt,
+        numCols,
         1,
         datasetParams,
         referenceDataset.map(_.datasetPtr).orNull,
-        pointer)
+        pointer), "Dataset create")
     } finally {
-      lightgbmlib.delete_doubleArray(getFeaturesArray.array)
+      lightgbmlib.delete_doubleArray(features.array)
     }
-    LightGBMUtils.validate(dataset, "Dataset create")
-    val dataset2 = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
-    dataset2.setFeatureNames(featureNamesOpt, numCols)
-    dataset2
+    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    dataset.setFeatureNames(featureNamesOpt, numCols)
+    dataset
   }
 
 }
@@ -375,7 +374,7 @@ private[lightgbm] final class DenseAggregatedColumns(chunkSize: Int)
   extends BaseDenseAggregatedColumns(chunkSize) with DisjointAggregatedColumns {
 
   def addFeatures(chunkedCols: BaseChunkedColumns): Unit = {
-    chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures.coalesceTo(this.featuresArray)
+    chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures.coalesceTo(this.features)
   }
 
 }
@@ -392,16 +391,16 @@ private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit = {
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.asInstanceOf[DenseChunkedColumns].getFeatures,
-      this.featuresArray, featureIndexes.head * numCols, chunkSize)
+      this.features, featureIndexes.head * numCols, chunkSize)
   }
 
 }
 
 private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   extends BaseAggregatedColumns(chunkSize) {
-  protected var indexesArray: IntSwigArray = _
-  protected var valuesArray: DoubleSwigArray = _
-  protected var indptrArray: IntSwigArray = _
+  protected var indexes: IntSwigArray = _
+  protected var values: DoubleSwigArray = _
+  protected var indptrs: IntSwigArray = _
 
   /**
     * Aggregated variables for knowing how large full array should be allocated to
@@ -416,24 +415,24 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   override def incrementCount(chunkedCols: BaseChunkedColumns): Unit = {
     super.incrementCount(chunkedCols)
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
-    this.indexesCount.addAndGet(sparseChunkedCols.getIndexesCount)
-    this.indptrCount.addAndGet(sparseChunkedCols.getIndptrCount)
+    indexesCount.addAndGet(sparseChunkedCols.getIndexesCount)
+    indptrCount.addAndGet(sparseChunkedCols.getIndptrCount)
   }
 
   protected def initializeFeatures(chunkedCols: BaseChunkedColumns, rowCount: Long): Unit = {
     val indexesCount = this.indexesCount.get()
     val indptrCount = this.indptrCount.get()
-    indexesArray = new IntSwigArray(indexesCount)
-    valuesArray = new DoubleSwigArray(indexesCount)
-    indptrArray = new IntSwigArray(indptrCount)
-    indptrArray.setItem(0, 0)
+    indexes = new IntSwigArray(indexesCount)
+    values = new DoubleSwigArray(indexesCount)
+    indptrs = new IntSwigArray(indptrCount)
+    indptrs.setItem(0, 0)
   }
 
-  def getIndexesArray: IntSwigArray = indexesArray
+  def getIndexes: IntSwigArray = indexes
 
-  def getValuesArray: DoubleSwigArray = valuesArray
+  def getValues: DoubleSwigArray = values
 
-  def getIndptrArray: IntSwigArray = indptrArray
+  def getIndptrs: IntSwigArray = indptrs
 
   def getIndexesCount: Long = this.indexesCount.get()
 
@@ -443,9 +442,9 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     labels.delete()
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
-    valuesArray.delete()
-    indexesArray.delete()
-    indptrArray.delete()
+    values.delete()
+    indexes.delete()
+    indptrs.delete()
   }
 
   def generateDataset(referenceDataset: Option[LightGBMDataset],
@@ -453,22 +452,21 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
                       datasetParams: String): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     // Generate the dataset for features
-    val dataset = lightgbmlib.LGBM_DatasetCreateFromCSR(
-      lightgbmlib.int_to_voidp_ptr(getIndptrArray.array),
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
+      lightgbmlib.int_to_voidp_ptr(indptrs.array),
       lightgbmlibConstants.C_API_DTYPE_INT32,
-      getIndexesArray.array,
-      lightgbmlib.double_to_voidp_ptr(getValuesArray.array),
+      indexes.array,
+      lightgbmlib.double_to_voidp_ptr(values.array),
       lightgbmlibConstants.C_API_DTYPE_FLOAT64,
-      getIndptrCount,
-      getIndexesCount,
-      getNumCols,
+      indptrCount.get(),
+      indexesCount.get(),
+      numCols,
       datasetParams,
       referenceDataset.map(_.datasetPtr).orNull,
-      pointer)
-    LightGBMUtils.validate(dataset, "Dataset create")
-    val dataset2 = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
-    dataset2.setFeatureNames(featureNamesOpt, getNumCols)
-    dataset2
+      pointer), "Dataset create")
+    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    dataset.setFeatureNames(featureNamesOpt, numCols)
+    dataset
   }
 
 }
@@ -484,9 +482,9 @@ private[lightgbm] final class SparseAggregatedColumns(chunkSize: Int)
     */
   def addFeatures(chunkedCols: BaseChunkedColumns): Unit = {
     val sparseChunkedColumns = chunkedCols.asInstanceOf[SparseChunkedColumns]
-    sparseChunkedColumns.getIndexes.coalesceTo(this.indexesArray)
-    sparseChunkedColumns.getValues.coalesceTo(this.valuesArray)
-    sparseChunkedColumns.getIndptr.coalesceTo(this.indptrArray)
+    sparseChunkedColumns.getIndexes.coalesceTo(this.indexes)
+    sparseChunkedColumns.getValues.coalesceTo(this.values)
+    sparseChunkedColumns.getIndptr.coalesceTo(this.indptrs)
   }
 }
 
@@ -522,11 +520,11 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
     val threadIndexesStartIndex = featureIndexes(0)
     val threadIndPtrStartIndex = featureIndexes(1)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getIndexes, this.indexesArray,
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getIndexes, this.indexes,
       threadIndexesStartIndex, chunkSize)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getValues, this.valuesArray,
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getValues, this.values,
       threadIndexesStartIndex, chunkSize)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getIndptr, this.indptrArray,
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.getIndptr, this.indptrs,
       threadIndPtrStartIndex, chunkSize)
   }
 

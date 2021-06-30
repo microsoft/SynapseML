@@ -191,7 +191,7 @@ private object TrainUtils extends Serializable {
   }
 
   private def findOpenPort(defaultListenPort: Int, numTasksPerExec: Int, log: Logger): Socket = {
-    val basePort = defaultListenPort + (LightGBMUtils.getWorkerId() * numTasksPerExec)
+    val basePort = defaultListenPort + (LightGBMUtils.getWorkerId * numTasksPerExec)
     if (basePort > LightGBMConstants.MaxPort) {
       throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
     }

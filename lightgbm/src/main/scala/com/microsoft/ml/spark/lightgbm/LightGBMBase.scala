@@ -50,12 +50,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
           if (model.isDefined) {
             setModelString(stringFromTrainedModel(model.get))
           }
-
           val dataset = datasetWithIndex._1
           val batchIndex = datasetWithIndex._2
 
           beforeTrainBatch(batchIndex, dataset, model)
-
           val newModel = innerTrain(dataset, batchIndex)
           afterTrainBatch(batchIndex, dataset, newModel)
 
@@ -175,21 +173,22 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       categoricalColumnSlotNames.map(getSlotNames.indexOf(_))
     } else {
       val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
-      val metadata = AttributeGroup.fromStructField(featuresSchema)
-      if (metadata.attributes.isEmpty) Array[Int]()
-      else {
-        metadata.attributes.get.zipWithIndex.flatMap {
-          case (null, _) => Iterator()
+      val attributes = AttributeGroup.fromStructField(featuresSchema).attributes
+      if (attributes.isEmpty) {
+        Array[Int]()
+      } else {
+       attributes.get.zipWithIndex.flatMap {
+          case (null, _) => None
           case (attr, idx) =>
             if (attr.name.isDefined && categoricalSlotNamesSet.contains(attr.name.get)) {
-              Iterator(idx)
+              Some(idx)
             } else {
               attr match {
-                case _: NumericAttribute | UnresolvedAttribute => Iterator()
+                case _: NumericAttribute | UnresolvedAttribute => None
                 // Note: it seems that BinaryAttribute is not considered categorical,
                 // since all OHE cols are marked with this, but StringIndexed are always Nominal
-                case _: BinaryAttribute => Iterator()
-                case _: NominalAttribute => Iterator(idx)
+                case _: BinaryAttribute => None
+                case _: NominalAttribute => Some(idx)
               }
             }
         }
@@ -286,29 +285,29 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   private def generateDataset(ac: BaseAggregatedColumns,
                               referenceDataset: Option[LightGBMDataset],
                               schema: StructType,
-                              datasetParams: String): Option[LightGBMDataset] = {
+                              datasetParams: String): LightGBMDataset = {
     val slotNames = getSlotNamesWithMetadata(schema(getFeaturesCol))
     val dataset = try {
       ac match {
         case sac: BaseSparseAggregatedColumns =>
-          indptrArrayIncrement(sac.getIndptrArray.array, sac.getIndptrCount)
+          indptrArrayIncrement(sac.getIndptrs.array, sac.getIndptrCount)
         case _ =>
       }
-      val dataset = Some(ac.generateDataset(referenceDataset, slotNames, datasetParams))
+      val dataset = ac.generateDataset(referenceDataset, slotNames, datasetParams)
       val numRows = ac.getRowCount
-      dataset.get.addFloatField(ac.getLabels.array, "label", numRows)
+      dataset.addFloatField(ac.getLabels.array, "label", numRows)
       ac.getWeights.foreach(weightArray =>
-        dataset.get.addFloatField(weightArray.array, "weight", numRows))
+        dataset.addFloatField(weightArray.array, "weight", numRows))
       ac.getInitScores.foreach(initScoreArray =>
-        dataset.get.addDoubleField(initScoreArray.array, "init_score", numRows))
-      addGroupColumn(ac.getGroups, getOptGroupCol, dataset, numRows, schema, Some(0))
+        dataset.addDoubleField(initScoreArray.array, "init_score", numRows))
+      addGroupColumn(ac.getGroups, getOptGroupCol, Some(dataset), schema, Some(0))
       dataset
     } finally {
       ac.cleanup()
     }
 
     // Validate generated dataset has the correct number of rows and cols
-    dataset.get.validateDataset()
+    dataset.validateDataset()
     dataset
   }
 
@@ -319,43 +318,42 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                 returnBooster: Boolean,
                 schema: StructType,
                 aggregatedColumns: BaseAggregatedColumns): Iterator[LightGBMBooster] = {
-    var trainDatasetOpt: Option[LightGBMDataset] = None
-    var validDatasetOpt: Option[LightGBMDataset] = None
     val columnParams = getColumnParams
     val datasetParams = getDatasetParams(trainParams.categoricalFeatures, trainParams.executionParams.numThreads)
+    beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
+    val trainDataset = generateDataset(aggregatedColumns, None, schema, datasetParams)
     try {
-      beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
-      trainDatasetOpt = generateDataset(aggregatedColumns, None, schema, datasetParams)
       afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
 
-      if (validationData.isDefined) {
+      val validDatasetOpt = validationData.map { vd =>
         beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
-        validDatasetOpt = generateDataset(validationData.get, trainDatasetOpt, schema, datasetParams)
+        val out = generateDataset(vd, Some(trainDataset), schema, datasetParams)
         afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
+        out
       }
 
-      var boosterOpt: Option[LightGBMBooster] = None
       try {
-        val booster = createBooster(trainParams, trainDatasetOpt.get, validDatasetOpt)
-        boosterOpt = Some(booster)
-        val bestIterResult = trainCore(batchIndex, trainParams, booster, log, validDatasetOpt.isDefined)
-        if (returnBooster) {
-          val model = booster.saveToString()
-          val modelBooster = new LightGBMBooster(model)
-          // Set best iteration on booster if hit early stopping criteria in trainCore
-          bestIterResult.foreach(modelBooster.setBestIteration)
-          Iterator.single(modelBooster)
-        } else {
-          Iterator.empty
+        val booster = createBooster(trainParams, trainDataset, validDatasetOpt)
+        try {
+          val bestIterResult = trainCore(batchIndex, trainParams, booster, log, validDatasetOpt.isDefined)
+          if (returnBooster) {
+            val model = booster.saveToString()
+            val modelBooster = new LightGBMBooster(model)
+            // Set best iteration on booster if hit early stopping criteria in trainCore
+            bestIterResult.foreach(modelBooster.setBestIteration)
+            Iterator.single(modelBooster)
+          } else {
+            Iterator.empty
+          }
+        } finally {
+          // Free booster
+          booster.freeNativeMemory()
         }
       } finally {
-        // Free booster
-        boosterOpt.foreach(_.freeNativeMemory())
+        validDatasetOpt.foreach(_.close())
       }
     } finally {
-      // Free datasets
-      trainDatasetOpt.foreach(_.close())
-      validDatasetOpt.foreach(_.close())
+      trainDataset.close()
     }
   }
 

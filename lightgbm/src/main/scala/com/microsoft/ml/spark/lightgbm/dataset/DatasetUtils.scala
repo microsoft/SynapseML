@@ -113,7 +113,7 @@ object DatasetUtils {
   }
 
   def addGroupColumn(rows: Array[Row], groupColumn: Option[String],
-                     datasetPtr: Option[LightGBMDataset], numRows: Int,
+                     datasetPtr: Option[LightGBMDataset],
                      schema: StructType, overrideIdx: Option[Int]): Unit = {
     validateGroupColumn(groupColumn, schema)
     groupColumn.foreach { col =>
