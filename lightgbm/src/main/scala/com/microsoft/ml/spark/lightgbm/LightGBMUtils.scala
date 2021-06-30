@@ -168,32 +168,4 @@ object LightGBMUtils {
     datasetParams
   }
 
-  /** Generates a sparse dataset in CSR format.
-    *
-    * @return The constructed and wrapped native LightGBMDataset.
-    */
-  def generateSparseDataset(numCols: Long,
-                            indptrLength: Long,
-                            valuesLength: Long,
-                            values: SWIGTYPE_p_void,
-                            indexes: SWIGTYPE_p_int,
-                            indptr: SWIGTYPE_p_void,
-                            referenceDataset: Option[LightGBMDataset],
-                            featureNamesOpt: Option[Array[String]],
-                            trainParams: TrainParams): LightGBMDataset = {
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = getDatasetParams(trainParams)
-    val dataInt32bitType = lightgbmlibConstants.C_API_DTYPE_INT32
-    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    // Generate the dataset for features
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(indptr,
-      dataInt32bitType, indexes, values, data64bitType,
-      indptrLength, valuesLength,
-      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
-      datasetOutPtr),
-      "Dataset create")
-    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols.toInt)
-    dataset
-  }
 }
