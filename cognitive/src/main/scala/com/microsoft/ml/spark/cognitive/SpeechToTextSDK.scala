@@ -10,7 +10,8 @@ import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{
+  Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
