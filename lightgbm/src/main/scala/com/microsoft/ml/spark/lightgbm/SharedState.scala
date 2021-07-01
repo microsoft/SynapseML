@@ -39,22 +39,14 @@ class SharedState(columnParams: ColumnParams,
 
   def prep(iter: Iterator[Row]): BaseChunkedColumns = {
     val (concatRowsIter: Iterator[Row], isSparseHere: Boolean) = getArrayType(iter, matrixType)
-
+    val peekableIter = new PeekingIterator(concatRowsIter)
     // Note: the first worker sets "is sparse", other workers read it
     linkIsSparse(isSparseHere)
 
     if (!isSparse.get) {
-      val headRow = concatRowsIter.next()
-      val rowAsDoubleArray = getRowAsDoubleArray(headRow, columnParams)
-      val numCols = rowAsDoubleArray.length
-      val rowsIter = Iterator(headRow) ++ concatRowsIter
-      val denseChunkedColumns = new DenseChunkedColumns(columnParams, schema, chunkSize, numCols)
-      denseChunkedColumns.addRows(rowsIter)
-      denseChunkedColumns
+      new DenseChunkedColumns(peekableIter, columnParams, schema, chunkSize)
     } else {
-      val sparseChunkedColumns = new SparseChunkedColumns(columnParams, schema, chunkSize, useSingleDataset)
-      sparseChunkedColumns.addRows(concatRowsIter)
-      sparseChunkedColumns
+      new SparseChunkedColumns(peekableIter, columnParams, schema, chunkSize, useSingleDataset)
     }
   }
 

@@ -64,13 +64,6 @@ object DatasetUtils {
     }
   }
 
-  def addFeaturesToChunkedArray(featuresChunkedArray: DoubleChunkedArray,
-                                rowAsDoubleArray: Array[Double]): Unit = {
-    rowAsDoubleArray.foreach { doubleVal =>
-      featuresChunkedArray.add(doubleVal)
-    }
-  }
-
   def getInitScores(rows: Array[Row], initScoreColumn: Option[String],
                     schema: StructType): Option[Array[Double]] = {
     initScoreColumn.map { col =>

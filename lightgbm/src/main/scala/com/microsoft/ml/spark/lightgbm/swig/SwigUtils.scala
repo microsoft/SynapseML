@@ -20,11 +20,11 @@ object SwigUtils extends Serializable {
 }
 
 abstract class ChunkedArray[T]() {
-  def getChunksCount(): Long
+  def getChunksCount: Long
 
-  def getLastChunkAddCount(): Long
+  def getLastChunkAddCount: Long
 
-  def getAddCount(): Long
+  def getAddCount: Long
 
   def getItem(chunk: Long, inChunkIdx: Long, default: T): T
 
@@ -35,11 +35,11 @@ class FloatChunkedArray(floatChunkedArray: floatChunkedArray) extends ChunkedArr
 
   def this(size: Long) = this(new floatChunkedArray(size))
 
-  def getChunksCount(): Long = floatChunkedArray.get_chunks_count()
+  def getChunksCount: Long = floatChunkedArray.get_chunks_count()
 
-  def getLastChunkAddCount(): Long = floatChunkedArray.get_last_chunk_add_count()
+  def getLastChunkAddCount: Long = floatChunkedArray.get_last_chunk_add_count()
 
-  def getAddCount(): Long = floatChunkedArray.get_add_count()
+  def getAddCount: Long = floatChunkedArray.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Float): Float =
     floatChunkedArray.getitem(chunk, inChunkIdx, default)
@@ -54,11 +54,11 @@ class FloatChunkedArray(floatChunkedArray: floatChunkedArray) extends ChunkedArr
 class DoubleChunkedArray(doubleChunkedArray: doubleChunkedArray) extends ChunkedArray[Double] {
   def this(size: Long) = this(new doubleChunkedArray(size))
 
-  def getChunksCount(): Long = doubleChunkedArray.get_chunks_count()
+  def getChunksCount: Long = doubleChunkedArray.get_chunks_count()
 
-  def getLastChunkAddCount(): Long = doubleChunkedArray.get_last_chunk_add_count()
+  def getLastChunkAddCount: Long = doubleChunkedArray.get_last_chunk_add_count()
 
-  def getAddCount(): Long = doubleChunkedArray.get_add_count()
+  def getAddCount: Long = doubleChunkedArray.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Double): Double =
     doubleChunkedArray.getitem(chunk, inChunkIdx, default)
@@ -73,11 +73,11 @@ class DoubleChunkedArray(doubleChunkedArray: doubleChunkedArray) extends Chunked
 class IntChunkedArray(intChunkedArray: int32ChunkedArray) extends ChunkedArray[Int] {
   def this(size: Long) = this(new int32ChunkedArray(size))
 
-  def getChunksCount(): Long = intChunkedArray.get_chunks_count()
+  def getChunksCount: Long = intChunkedArray.get_chunks_count()
 
-  def getLastChunkAddCount(): Long = intChunkedArray.get_last_chunk_add_count()
+  def getLastChunkAddCount: Long = intChunkedArray.get_last_chunk_add_count()
 
-  def getAddCount(): Long = intChunkedArray.get_add_count()
+  def getAddCount: Long = intChunkedArray.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Int): Int =
     intChunkedArray.getitem(chunk, inChunkIdx, default)
