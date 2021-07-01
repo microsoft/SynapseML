@@ -218,8 +218,31 @@ trait HasInternalJsonOutputParser {
 
 }
 
+trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey {
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
+  def urlPath(): String
+
+  def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.CognitiveServiceUtils"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setUrl(endpoint + urlPath)
+    setSubscriptionKey(key)
+  }
+}
+
 trait HasSetLocation extends Wrappable {
-  override def pyAdditionalMethods: String = {
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setLocation(self, value):
       |    self._java_obj = self._java_obj.setLocation(value)
@@ -284,16 +307,6 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
 
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
-  }
-
-  def getEndpointKeyFromLinkedService(v: String): (String, String) = {
-    val classPath = "mssparkutils.CognitiveServiceUtils"
-    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
-    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
-    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
-    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
-    (endpoint, key)
   }
 }
 
