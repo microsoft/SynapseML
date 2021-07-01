@@ -151,8 +151,8 @@ trait FormRecognizerUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice3.pdf"), returnBytes = false)
 
   // TODO: renew the SAS after 2022-07-01 since it will expire
-  lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-30T04:29:50Z&se=2022" +
-      "-07-01T04:45:00Z&sv=2020-08-04&sr=c&sig=sdsOSpWptIoI3aSceGlGvQhjnOTJTAABghIajrOXJD8%3D"
+  lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021" +
+    "-06-30T04:29:50Z&se=2022-07-01T04:45:00Z&sv=2020-08-04&sr=c&sig=sdsOSpWptIoI3aSceGlGvQhjnOTJTAABghIajrOXJD8%3D"
 
   lazy val df: DataFrame = createTestDataframe(Seq(""), returnBytes = false)
 }
