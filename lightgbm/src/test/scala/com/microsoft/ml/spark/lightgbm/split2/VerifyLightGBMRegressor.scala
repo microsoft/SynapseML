@@ -89,6 +89,9 @@ class VerifyLightGBMRegressor extends Benchmarks
     val df = airfoilDF
     val model = baseModel.setUseSingleDatasetMode(true)
     model.fit(df).transform(df).show()
+
+    val models = baseModel.setUseSingleDatasetMode(false)
+    models.fit(df).transform(df).show()
   }
 
   test("Verify LightGBM Regressor with weight column") {
