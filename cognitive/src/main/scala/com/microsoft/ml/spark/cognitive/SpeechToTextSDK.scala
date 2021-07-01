@@ -8,11 +8,9 @@ import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{
-  Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive.SpeechFormat._
@@ -37,6 +35,7 @@ import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
@@ -197,6 +196,25 @@ abstract class SpeechSDKBase extends Transformer
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
+
+  def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.CognitiveServiceUtils"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setUrl(endpoint + "/sts/v1.0/issuetoken")
+    setSubscriptionKey(key)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))
