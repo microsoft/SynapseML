@@ -193,6 +193,20 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/ocr")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override def responseDataType: DataType = OCRResponse.schema
 }
 
@@ -320,6 +334,20 @@ class RecognizeText(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/recognizeText")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override protected def responseDataType: DataType = RTResponse.schema
 }
 
@@ -366,6 +394,20 @@ class Read(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v3.1/read/analyze")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v3.1/read/analyze")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override protected def responseDataType: DataType = ReadResponse.schema
 }
 
@@ -388,6 +430,20 @@ class GenerateThumbnails(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/generateThumbnail")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/generateThumbnail")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
 }
 
@@ -458,6 +514,20 @@ class AnalyzeImage(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/analyze")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object RecognizeDomainSpecificContent
@@ -501,6 +571,20 @@ class RecognizeDomainSpecificContent(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override protected def prepareUrl: Row => String = { r => getUrl + s"/models/${getValue(r, model)}/analyze" }
 
 }
@@ -516,6 +600,20 @@ class TagImage(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/tag")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/tag")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   override def responseDataType: DataType = TagImagesResponse.schema
 
@@ -546,6 +644,20 @@ class DescribeImage(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/describe")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/vision/v2.0/describe")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   val maxCandidates = new ServiceParam[Int](this, "maxCandidates", "Maximum candidate descriptions to return",
     isURLParam = true
