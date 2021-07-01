@@ -29,7 +29,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
 
-  def urlPath(): String = "/speech/recognition/conversation/cognitiveservices/v1"
+  def urlPath: String = "/speech/recognition/conversation/cognitiveservices/v1"
 
   override def responseDataType: DataType = SpeechResponse.schema
 
