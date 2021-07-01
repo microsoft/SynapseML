@@ -33,13 +33,13 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
 
   test("Language Detection - Basic Usage") {
 
-//    val replies = detector.transform(df)
-//      .select("name", "iso6391Name")
-//      .collect()
-//
+    val replies = detector.transform(df)
+    .select("name", "iso6391Name")
+    .collect()
 //    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish" )
 //    assert(replies(3).getString(0) == "Chinese_Traditional")
 //    assert(replies(0).getString(1) == "en" && replies(2).getString(1) == "es")
+
 
   }
 
@@ -66,13 +66,15 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
+    .setOutputCol("output")
 
   test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
-      .select("sentiment", "confidenceScores", "sentences", "warnings")
+      .select("sentiment", "confidenceScores", "sentences", "warnings", "output")
       .collect()
-    assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
-      && replies(2).getString(0) == "neutral")
+//    assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
+//      && replies(2).getString(0) == "neutral")
+    assert(replies == "output")
   }
 }
 

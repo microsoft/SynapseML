@@ -24,15 +24,13 @@ import scala.collection.JavaConverters._
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None)
   extends Transformer
-  with HasInputCol with HasErrorCol
-  with HasEndpoint with HasSubscriptionKey with HasOutputCol
+  with HasInputCol with HasOutputCol with HasErrorCol
+  with HasEndpoint with HasSubscriptionKey
   with ComplexParamsWritable with BasicLogging {
 
   protected val invokeTextAnalytics: String => TAResponseV4[T]
 
   protected def outputSchema: StructType
-
-  //protected def languageDetection: StructType
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
@@ -43,13 +41,13 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val invokeTextAnalyticsUdf = UDFUtils.oldUdf(invokeTextAnalytics, outputSchema)
-      dataset.withColumn(getOutputCol, invokeTextAnalyticsUdf(col(getInputCol)))
+      dataset.withColumn($(outputCol), invokeTextAnalyticsUdf(col(getInputCol)))
     })
   }
 
   override def transformSchema(schema: StructType): StructType = {
     // Validate input schema
-    val inputType = schema(getInputCol).dataType
+    val inputType = schema(($(inputCol))).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
     schema.add(getOutputCol, outputSchema)
   }
@@ -111,8 +109,6 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
         stats,
         Some(detectLanguageResultCollection.getModelVersion))
     }
-
-
 }
 
 object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
@@ -251,8 +247,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
       stats,
       Some(textSentimentResultCollection.getModelVersion))
   }
-  //val encoderSchema = Encoders.product[SentimentScoredDocumentV4].schema
-  //encoderSchema.p()
+
 
 }
 
