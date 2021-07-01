@@ -29,11 +29,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
-<<<<<<< HEAD
-    .setEndpoint("https://ta-internshipconnector.cognitiveservices.azure.com/")
-=======
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
->>>>>>> dfcd8068ddb95ba91475d8edae51f2a2b667a08d
     .setInputCol("text2")
 
   test("Language Detection - Basic Usage") {

@@ -1,23 +1,28 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, ExtractKeyPhraseResult, KeyPhrasesCollection,
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment,
+  ExtractKeyPhraseResult, KeyPhrasesCollection,
   SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextAnalyticsWarning}
 import com.azure.ai.textanalytics.implementation.models.SentenceOpinionSentiment
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DocumentSentiment,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsRequestOptions, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasOutputCol}
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.io.http.{HasErrorCol, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
 import org.apache.spark.ml.util.Identifiable._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable,
+  NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{array, col, struct}
 import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.ai.textanalytics.models
 import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import spray.json.DefaultJsonProtocol.{StringJsonFormat, seqFormat}
 
 import java.net.URI
 import scala.collection.JavaConverters._
@@ -56,13 +61,11 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     with ComplexParamsWritable with BasicLogging {
 
   protected val invokeTextAnalytics: String => TAResponseV4[T]
-  protected val invokeTextAnalyticsBatch: Seq[String] => TAResponseBatchV4[T]
 
   protected def outputSchema: StructType
 
   val responseTypeBinding: SparkBindings[TAResponseV4[T]]
   def invokeTextAnalyticsFunc(text: Seq[String]): TAResponseV4[T]
-
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
@@ -135,13 +138,6 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
   setDefault(countryHintCol -> "CountryHint")
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
-  override protected val invokeTextAnalyticsBatch: String => TAResponseBatchV4[DetectedLanguageV4] = (text: String) =>{
-    TAResponseBatchV4[DetectedLanguageV4](
-     null,
-      null,
-      null,
-      null)
-  }
 
   override val responseTypeBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
@@ -153,9 +149,9 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
       null)
   }
 
-
   override protected val invokeTextAnalytics: String => TAResponseV4[DetectedLanguageV4] = (text: String) =>
     {
+
       val detectLanguageResultCollection = textAnalyticsClient.detectLanguageBatch(
         Seq(text).asJava, null, null)
       val detectLanguageResult = detectLanguageResultCollection.asScala.head
@@ -207,7 +203,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
       null)
   }
 
-
   override def outputSchema: StructType = KeyPhraseResponseV4.schema
 
   override protected val invokeTextAnalytics: String => TAResponseV4[KeyphraseV4] = (text: String) =>
@@ -227,7 +222,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
         ).toList))
     }
 
-
     val error = if (keyPhraseExtractionResult.isError) {
       val error = keyPhraseExtractionResult.getError
       Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))
@@ -246,7 +240,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
       stats,
       Some(ExtractKeyPhrasesResultCollection.getModelVersion))
   }
-
 }
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
@@ -416,7 +409,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val stats = Option(textSentimentResult.getStatistics).map(s =>
       DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
 
-    TAResponseBatchV4[SentimentScoredDocumentV4](
+    TAResponseV4[SentimentScoredDocumentV4](
       sentimentResult,
       error,
       stats,
