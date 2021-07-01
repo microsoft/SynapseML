@@ -4,195 +4,41 @@
 package com.microsoft.ml.spark.cognitive.split1
 
 import com.microsoft.ml.spark.FluentAPI._
-import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import com.microsoft.ml.spark.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, ModelFuzzing, TestObject, TransformerFuzzing}
-import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData,
-  HandlingUtils, HeaderValues, SimpleHTTPTransformer}
-import com.microsoft.ml.spark.stages.{DropColumns, Lambda}
+import com.microsoft.ml.spark.core.test.fuzzing.{ModelFuzzing, TestObject, TransformerFuzzing}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
-import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
-import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
-import org.apache.spark.ml.{ComplexParamsReadable, Estimator, NamespaceInjections, PipelineModel}
-import org.apache.spark.ml.util.{Identifiable, MLReadable}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.{col, lit, struct}
-import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.http.entity.StringEntity
+import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
-import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.net.URI
-import java.util.concurrent.TimeoutException
-import scala.concurrent.blocking
 
-object TrainCustomModelResponse extends SparkBindings[TrainCustomModelResponse]
-
-case class TrainCustomModelResponse(modelInfo: ModelInfo, trainResult: TrainResult)
-
-object TrainCustomModel extends ComplexParamsReadable[TrainCustomModel]
-
-class TrainCustomModel(override val uid: String) extends Estimator[AnalyzeCustomModel]
-  with CustomFormRecognizer {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("TrainCustomModel"))
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
-
-  def getLocation: String = getUrl.split("/")(2).split("\\.")(0)
-
-  val prefix = new ServiceParam[String](this, "prefix", "A case-sensitive prefix string to filter" +
-    " documents in the source path for training. For example, when using a Azure storage blob Uri, use the prefix " +
-    "to restrict sub folders for training.")
-
-  def setPrefix(v: String): this.type = setScalarParam(prefix, v)
-
-  val includeSubFolders = new ServiceParam[Boolean](this, "includeSubFolders", "A flag to indicate " +
-    "if sub folders within the set of prefix folders will also need to be included when searching for content " +
-    "to be preprocessed.")
-
-  def setIncludeSubFolders(v: Boolean): this.type = setScalarParam(includeSubFolders, v)
-
-  val useLabelFile = new ServiceParam[Boolean](this, "useLabelFile", "Use label file for training a model.")
-
-  def setUseLabelFile(v: Boolean): this.type = setScalarParam(useLabelFile, v)
-
-  setDefault(outputCol -> (this.uid + "_output"), errorCol -> (this.uid + "_error"),
-    includeSubFolders -> Left(false), useLabelFile -> Left(false))
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r => Some(new StringEntity(Map("source" -> getValue(r, imageUrl).toJson,
-      "sourceFilter" -> Map("prefix" -> getValue(r, prefix).toJson,
-        "includeSubFolders" -> getValue(r, includeSubFolders).toJson).toJson,
-      "useLabelFile" -> getValue(r, useLabelFile).toJson).toJson.compactPrint, ContentType.APPLICATION_JSON))
-  }
-
-  private def queryForResult(key: Option[String],
-                             client: CloseableHttpClient,
-                             location: URI): Option[HTTPResponseData] = {
-    val get = new HttpGet()
-    get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
-    get.releaseConnection()
-    val modelInfo = IOUtils.toString(resp.entity.get.content, "UTF-8").
-      parseJson.asJsObject.fields.getOrElse("modelInfo", "")
-    var status = ""
-    modelInfo match {
-      case x: JsObject => x.fields.getOrElse("status", "") match {
-        case y: JsString => status = y.value
-        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
-      }
-      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
-    }
-    status match {
-      case "ready" | "invalid" => Some(resp)
-      case "creating" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
-  }
-
-  override protected def handlingFunc(client: CloseableHttpClient,
-                                      request: HTTPRequestData): HTTPResponseData = {
-    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 201) {
-      val location = new URI(response.headers.filter(_.name == "Location").head.value)
-      val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
-          }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
-      }
-    } else {
-      response
-    }
-  }
-
-  override def fit(dataset: Dataset[_]): AnalyzeCustomModel = {
-    logFit({
-      val modelId = getInternalTransformer(dataset.schema).transform(dataset)
-        .withColumn("modelId", col($(outputCol))
-          .getField("modelInfo").getField("modelId"))
-        .select("modelId")
-        .collect().head.getString(0)
-      new AnalyzeCustomModel()
-        .setSubscriptionKey(getSubscriptionKey)
-        .setLocation(getLocation)
-        .setModelId(modelId)
-    })
-  }
-
-  override def copy(extra: ParamMap): Estimator[AnalyzeCustomModel] = defaultCopy(extra)
-
-  protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-  }
-
-  override def transformSchema(schema: StructType): StructType = {
-    getInternalTransformer(schema).transformSchema(schema)
-  }
-
-  override protected def responseDataType: DataType = TrainCustomModelResponse.schema
+object TrainCustomModelProtocol extends DefaultJsonProtocol {
+  implicit val SourceFilterEnc: RootJsonFormat[SourceFilter] = jsonFormat2(SourceFilter)
+  implicit val TrainCustomModelEnc: RootJsonFormat[TrainCustomModelSchema] = jsonFormat3(TrainCustomModelSchema)
 }
+
+import TrainCustomModelProtocol._
+
+case class TrainCustomModelSchema(source: String, sourceFilter: SourceFilter, useLabelFile: Boolean)
+
+case class SourceFilter(prefix: String, includeSubFolders: Boolean)
 
 object FormRecognizerUtils extends CognitiveKey {
 
   import RESTHelpers._
 
-  val BaseURL = "https://eastus.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models"
-
   def formSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
 
-    val paramString = if (params.isEmpty) {
-      ""
-    } else {
-      "?" + URLEncodingUtils.format(params)
-    }
-    request.setURI(new URI(BaseURL + path + paramString))
+    val paramString = if (params.isEmpty) {""} else {"?" + URLEncodingUtils.format(params)}
+    request.setURI(new URI(path + paramString))
 
     retry(List(100, 500, 1000), { () =>
       request.addHeader("Ocp-Apim-Subscription-Key", cognitiveKey)
@@ -203,13 +49,29 @@ object FormRecognizerUtils extends CognitiveKey {
             case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
             case _ => ""
           }
-          throw new RuntimeException(
-            s"Failed: response: $response " +
-              s"requestUrl: ${request.getURI}" +
+          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
               s"requestBody: $bodyOpt")
         }
         if (response.getStatusLine.getReasonPhrase == "No Content") {
           ""
+        }
+        else if (response.getStatusLine.getReasonPhrase == "Created") {
+          response.getHeaders("Location").head.getValue
+        }
+        else if (request.getMethod == "GET") {
+          val resp = IOUtils.toString(response.getEntity.getContent, "UTF-8")
+          val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
+          val status = modelInfo match {
+            case x: JsObject => x.fields.getOrElse("status", "") match {
+              case y: JsString => y.value
+              case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
+            }
+            case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
+          }
+          status match {
+            case "ready" | "creating" => resp
+            case s => throw new RuntimeException(s"Unexpected status: $s")
+          }
         }
         else {
           IOUtils.toString(response.getEntity.getContent, "UTF-8")
@@ -219,7 +81,19 @@ object FormRecognizerUtils extends CognitiveKey {
   }
 
   def formDelete(path: String, params: Map[String, String] = Map()): String = {
-    formSend(new HttpDelete(), "/" + path, params)
+    formSend(new HttpDelete(),
+      "https://eastus.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models/" + path, params)
+  }
+
+  def formPost(path: String, body: TrainCustomModelSchema, params: Map[String, String] = Map())
+                 (implicit format: JsonFormat[TrainCustomModelSchema]): String = {
+    val post = new HttpPost()
+    post.setEntity(new StringEntity(body.toJson.compactPrint))
+    formSend(post, "https://eastus.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models" + path, params)
+  }
+
+  def formGet(path: String, params: Map[String, String] = Map()): String = {
+    formSend(new HttpGet(), path, params)
   }
 }
 
@@ -277,10 +151,8 @@ trait FormRecognizerUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice3.pdf"), returnBytes = false)
 
   // TODO: renew the SAS after 2022-07-01 since it will expire
-  lazy val trainingDataSAS: DataFrame = createTestDataframe(
-    Seq("https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-30T04:29:50Z&se=2022" +
+  lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-06-30T04:29:50Z&se=2022" +
       "-07-01T04:45:00Z&sv=2020-08-04&sr=c&sig=sdsOSpWptIoI3aSceGlGvQhjnOTJTAABghIajrOXJD8%3D"
-  ), returnBytes = false)
 
   lazy val df: DataFrame = createTestDataframe(Seq(""), returnBytes = false)
 }
@@ -577,12 +449,17 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments]
 class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
-    .setImageUrlCol("source").setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult").setConcurrency(5)
+  val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
+    trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
+  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
+    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
+    case x: JsObject => x.fields.getOrElse("modelId", "") match {
+      case y: JsString => y.value
+      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+    }
+    case _ => throw new RuntimeException(s"No modelInfo found")
+  }
 
   override def afterAll(): Unit = {
     if (modelId != "") {
@@ -627,12 +504,17 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
 class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
-    .setImageUrlCol("source").setPrefix("CustomModelTrain")
-    .setOutputCol("customModelResult").setConcurrency(5)
+  val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
+    trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
+  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
+    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
+    case x: JsObject => x.fields.getOrElse("modelId", "") match {
+      case y: JsString => y.value
+      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+    }
+    case _ => throw new RuntimeException(s"No modelInfo found")
+  }
 
   override def afterAll(): Unit = {
     if (modelId != "") {
@@ -670,12 +552,20 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   override def reader: MLReadable[_] = GetCustomModel
 }
 
-class TrainCustomModelSuite extends EstimatorFuzzing[TrainCustomModel]
+class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setImageUrlCol("source")
-    .setPrefix("CustomModelTrain").setOutputCol("customModelResult").setConcurrency(5)
+  val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
+    trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
+
+  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
+    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
+    case x: JsObject => x.fields.getOrElse("modelId", "") match {
+      case y: JsString => y.value
+      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+    }
+    case _ => throw new RuntimeException(s"No modelInfo found")
+  }
 
   override def afterAll(): Unit = {
     val listCustomModels: ListCustomModels = new ListCustomModels()
@@ -689,52 +579,6 @@ class TrainCustomModelSuite extends EstimatorFuzzing[TrainCustomModel]
     modelIds.foreach(
       x => FormRecognizerUtils.formDelete(x)
     )
-    super.afterAll()
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source")
-    }
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("Basic Usage") {
-    val analyzeCustomeModel = trainCustomModel.fit(trainingDataSAS)
-      .setImageUrlCol("source").setOutputCol("form").setConcurrency(5)
-    val results = imageDf4.mlTransform(analyzeCustomeModel,
-      AnalyzeCustomModel.flattenReadResults("form", "readForm"),
-      AnalyzeCustomModel.flattenPageResults("form", "pageForm"),
-      AnalyzeCustomModel.flattenDocumentResults("form", "docForm"))
-      .select("readForm", "pageForm", "docForm")
-      .collect()
-    assert(results.head.getString(0) === "")
-    assert(results.head.getString(1)
-      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
-    assert(results.head.getString(2) === "")
-  }
-
-  override def testObjects(): Seq[TestObject[TrainCustomModel]] =
-    Seq(new TestObject(trainCustomModel, trainingDataSAS, imageDf4))
-
-  override def reader: MLReadable[_] = TrainCustomModel
-
-  override def modelReader: MLReadable[_] = reader
-}
-
-class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
-  with CognitiveKey with Flaky with FormRecognizerUtils {
-
-  lazy val trainCustomModel: TrainCustomModel = new TrainCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setImageUrlCol("source")
-    .setPrefix("CustomModelTrain").setOutputCol("customModelResult").setConcurrency(5)
-
-  val modelId: String = trainCustomModel.fit(trainingDataSAS).getModelId
-
-  override def afterAll(): Unit = {
-    if (modelId != "") {
-      FormRecognizerUtils.formDelete(modelId)
-    }
     super.afterAll()
   }
 
