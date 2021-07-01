@@ -65,6 +65,20 @@ class DetectFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/detect")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/face/v1.0/detect")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
 
@@ -169,6 +183,20 @@ class FindSimilarFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/findsimilars")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/face/v1.0/findsimilars")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(List(
     Some("faceId"-> getValue(r, faceId).toJson),
@@ -199,6 +227,20 @@ class GroupFaces(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/group")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/face/v1.0/findsimilars")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint))}

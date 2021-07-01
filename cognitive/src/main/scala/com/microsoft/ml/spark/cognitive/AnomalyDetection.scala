@@ -113,14 +113,6 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, period)
     ).toJson.compactPrint))
   }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
 }
 
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
@@ -136,6 +128,20 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/last/detect")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/anomalydetector/v1.0/timeseries/last/detect")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   override def responseDataType: DataType = ADLastResponse.schema
 
@@ -154,6 +160,20 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/anomalydetector/v1.0/timeseries/entire/detect")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
@@ -256,6 +276,14 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
     val endpointAndKey = getEndpointKeyFromLinkedService(v)
     setUrl(endpointAndKey._1 + "/anomalydetector/v1.0/timeseries/entire/detect")
     setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
   }
 
   override def responseDataType: DataType = ADEntireResponse.schema
