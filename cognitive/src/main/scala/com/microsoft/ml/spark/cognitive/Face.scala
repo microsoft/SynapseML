@@ -66,7 +66,7 @@ class DetectFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/detect")
 
-  def urlPath(): String = "/face/v1.0/detect"
+  def urlPath: String = "/face/v1.0/detect"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
@@ -173,7 +173,7 @@ class FindSimilarFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/findsimilars")
 
-  def urlPath(): String = "/face/v1.0/findsimilars"
+  def urlPath: String = "/face/v1.0/findsimilars"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(List(
@@ -206,7 +206,7 @@ class GroupFaces(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/group")
 
-  def urlPath(): String = "/face/v1.0/group"
+  def urlPath: String = "/face/v1.0/group"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint)) }
@@ -243,7 +243,7 @@ class IdentifyFaces(override val uid: String)
       "Parameter personGroupId and largePersonGroupId should not be provided at the same time."
   )
 
-  def urlPath(): String = "/face/v1.0/identify"
+  def urlPath: String = "/face/v1.0/identify"
 
   def setPersonGroupId(v: String): this.type = setScalarParam(personGroupId, v)
 
@@ -300,7 +300,7 @@ class VerifyFaces(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/verify")
 
-  def urlPath(): String = "/face/v1.0/verify"
+  def urlPath: String = "/face/v1.0/verify"
 
   val faceId1 = new ServiceParam[String](this,
     "faceId1",

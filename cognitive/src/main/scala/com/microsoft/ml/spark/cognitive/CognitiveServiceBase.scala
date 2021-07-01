@@ -227,7 +227,7 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |""".stripMargin
   }
 
-  def urlPath(): String
+  def urlPath: String
 
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.CognitiveServiceUtils"

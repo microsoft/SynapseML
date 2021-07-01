@@ -198,7 +198,7 @@ abstract class SpeechSDKBase extends Transformer
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
 
-  def urlPath(): String = "/sts/v1.0/issuetoken"
+  def urlPath: String = "/sts/v1.0/issuetoken"
 
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))

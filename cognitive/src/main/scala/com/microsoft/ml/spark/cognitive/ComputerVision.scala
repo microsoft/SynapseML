@@ -188,10 +188,10 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("OCR"))
 
-  def urlPath(): String = "/vision/v2.0/ocr"
-
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
+
+  def urlPath: String = "/vision/v2.0/ocr"
 
   override def responseDataType: DataType = OCRResponse.schema
 }
@@ -300,8 +300,6 @@ class RecognizeText(override val uid: String)
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
-  def urlPath(): String = "/vision/v2.0/recognizeText"
-
   val mode = new ServiceParam[String](this, "mode",
     "If this parameter is set to 'Printed', " +
       "printed text recognition is performed. If 'Handwritten' is specified," +
@@ -321,6 +319,8 @@ class RecognizeText(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
+
+  def urlPath: String = "/vision/v2.0/recognizeText"
 
   override protected def responseDataType: DataType = RTResponse.schema
 }
@@ -349,8 +349,6 @@ class Read(override val uid: String)
 
   def this() = this(Identifiable.randomUID("Read"))
 
-  def urlPath(): String = "/vision/v3.1/read/analyze"
-
   val language = new ServiceParam[String](this, "language",
     "IThe BCP-47 language code of the text in the document. Currently," +
       " only English (en), Dutch (nl), French (fr), German (de), Italian (it), Portuguese (pt)," +
@@ -370,6 +368,8 @@ class Read(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v3.1/read/analyze")
 
+  def urlPath: String = "/vision/v3.1/read/analyze"
+
   override protected def responseDataType: DataType = ReadResponse.schema
 }
 
@@ -385,8 +385,6 @@ class GenerateThumbnails(override val uid: String)
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
-  def urlPath(): String = "/vision/v2.0/generateThumbnail"
-
   override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.map(_.content).orNull })
   }
@@ -395,6 +393,8 @@ class GenerateThumbnails(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/generateThumbnail")
+
+  def urlPath: String = "/vision/v2.0/generateThumbnail"
 }
 
 object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
@@ -404,8 +404,6 @@ class AnalyzeImage(override val uid: String)
     with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging
     with HasSetLinkedService {
   logClass()
-
-  def urlPath(): String = "/vision/v2.0/analyze"
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
@@ -466,6 +464,8 @@ class AnalyzeImage(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
+
+  def urlPath: String = "/vision/v2.0/analyze"
 }
 
 object RecognizeDomainSpecificContent
@@ -497,8 +497,6 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
-  def urlPath(): String = "/vision/v2.0"
-
   val model = new ServiceParam[String](this, "model",
     "the domain specific model: celebrities, landmarks")
 
@@ -510,6 +508,8 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0")
+
+  def urlPath: String = "/vision/v2.0"
 
   override protected def prepareUrl: Row => String = { r => getUrl + s"/models/${getValue(r, model)}/analyze" }
 
@@ -525,10 +525,10 @@ class TagImage(override val uid: String)
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
-  def urlPath(): String = "/vision/v2.0/tag"
-
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/tag")
+
+  def urlPath: String = "/vision/v2.0/tag"
 
   override def responseDataType: DataType = TagImagesResponse.schema
 
@@ -556,12 +556,12 @@ class DescribeImage(override val uid: String)
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 
-  def urlPath(): String = "/vision/v2.0/describe"
-
   override def responseDataType: DataType = DescribeImageResponse.schema
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/describe")
+
+  def urlPath: String = "/vision/v2.0/describe"
 
   val maxCandidates = new ServiceParam[Int](this, "maxCandidates", "Maximum candidate descriptions to return",
     isURLParam = true
