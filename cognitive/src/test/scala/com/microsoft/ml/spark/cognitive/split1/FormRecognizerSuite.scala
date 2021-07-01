@@ -18,6 +18,7 @@ import org.scalactic.Equality
 import spray.json._
 
 import java.net.URI
+import scala.concurrent.blocking
 
 object TrainCustomModelProtocol extends DefaultJsonProtocol {
   implicit val SourceFilterEnc: RootJsonFormat[SourceFilter] = jsonFormat2(SourceFilter)
@@ -33,6 +34,8 @@ case class SourceFilter(prefix: String, includeSubFolders: Boolean)
 object FormRecognizerUtils extends CognitiveKey {
 
   import RESTHelpers._
+
+  val PollingDelay = 1000
 
   def formSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -69,7 +72,11 @@ object FormRecognizerUtils extends CognitiveKey {
             case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
           }
           status match {
-            case "ready" | "creating" => resp
+            case "ready" => resp
+            case "creating" => {
+              blocking(Thread.sleep(10000))
+              throw new RuntimeException("model creating ...")
+            }
             case s => throw new RuntimeException(s"Unexpected status: $s")
           }
         }
