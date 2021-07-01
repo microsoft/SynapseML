@@ -208,8 +208,8 @@ class GroupFaces(override val uid: String)
 
   def urlPath(): String = "/face/v1.0/group"
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint)) }
-
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
+  { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint)) }
 }
 
 object IdentifyFaces extends ComplexParamsReadable[IdentifyFaces]
