@@ -183,7 +183,7 @@ class TextSentimentV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
 
-  def urlPath(): String = "/text/analytics/v2.0/sentiment"
+  def urlPath: String = "/text/analytics/v2.0/sentiment"
 
 }
 
@@ -200,7 +200,7 @@ class LanguageDetectorV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
 
-  def urlPath(): String = "/text/analytics/v2.0/languages"
+  def urlPath: String = "/text/analytics/v2.0/languages"
 }
 
 object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
@@ -216,7 +216,7 @@ class EntityDetectorV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
 
-  def urlPath(): String = "/text/analytics/v2.0/entities"
+  def urlPath: String = "/text/analytics/v2.0/entities"
 }
 
 object NERV2 extends ComplexParamsReadable[NERV2]
@@ -231,7 +231,7 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicL
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1/entities")
 
-  def urlPath(): String = "/text/analytics/v2.1/entities"
+  def urlPath: String = "/text/analytics/v2.1/entities"
 }
 
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
@@ -247,7 +247,7 @@ class KeyPhraseExtractorV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
 
-  def urlPath(): String = "/text/analytics/v2.0/keyPhrases"
+  def urlPath: String = "/text/analytics/v2.0/keyPhrases"
 }
 
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
@@ -276,7 +276,7 @@ class TextSentiment(override val uid: String)
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/sentiment")
   }
 
-  def urlPath(): String = "/text/analytics/v3.0/sentiment"
+  def urlPath: String = "/text/analytics/v3.0/sentiment"
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
@@ -300,7 +300,7 @@ class KeyPhraseExtractor(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
 
-  def urlPath(): String = "/text/analytics/v3.0/keyPhrases"
+  def urlPath: String = "/text/analytics/v3.0/keyPhrases"
 }
 
 object NER extends ComplexParamsReadable[NER]
@@ -315,7 +315,7 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
 
-  def urlPath(): String = "/text/analytics/v3.0/entities/recognition/general"
+  def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
 }
 
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
@@ -331,7 +331,7 @@ class LanguageDetector(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
 
-  def urlPath(): String = "/text/analytics/v3.0/languages"
+  def urlPath: String = "/text/analytics/v3.0/languages"
 }
 
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
@@ -347,5 +347,5 @@ class EntityDetector(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
 
-  def urlPath(): String = "/text/analytics/v3.0/entities/linking"
+  def urlPath: String = "/text/analytics/v3.0/entities/linking"
 }
