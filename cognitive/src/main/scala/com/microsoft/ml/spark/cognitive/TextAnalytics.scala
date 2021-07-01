@@ -182,6 +182,20 @@ class TextSentimentV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v2.0/sentiment")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
@@ -196,6 +210,20 @@ class LanguageDetectorV2(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v2.0/languages")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
 }
 
@@ -212,6 +240,20 @@ class EntityDetectorV2(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v2.0/entities")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object NERV2 extends ComplexParamsReadable[NERV2]
@@ -225,6 +267,21 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicL
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1/entities")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v2.1/entities")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
@@ -239,6 +296,20 @@ class KeyPhraseExtractorV2(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v2.0/keyPhrases")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
 }
 
@@ -268,6 +339,20 @@ class TextSentiment(override val uid: String)
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/sentiment")
   }
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v3.0/sentiment")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
       request.setURI(new URI(prepareUrl(r)))
@@ -289,6 +374,21 @@ class KeyPhraseExtractor(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v3.0/keyPhrases")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object NER extends ComplexParamsReadable[NER]
@@ -302,6 +402,21 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v3.0/entities/recognition/general")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
@@ -317,6 +432,20 @@ class LanguageDetector(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v3.0/languages")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }
 
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
@@ -331,4 +460,19 @@ class EntityDetector(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/text/analytics/v3.0/entities/linking")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
 }

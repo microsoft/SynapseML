@@ -31,6 +31,20 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
 
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/speech/recognition/conversation/cognitiveservices/v1")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
   override def responseDataType: DataType = SpeechResponse.schema
 
   val audioData = new ServiceParam[Array[Byte]](this, "audioData",

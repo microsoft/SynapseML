@@ -230,7 +230,7 @@ class GroupFaces(override val uid: String)
 
   def setLinkedService(v: String): this.type = {
     val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/findsimilars")
+    setUrl(endpointAndKey._1 + "/face/v1.0/group")
     setSubscriptionKey(endpointAndKey._2)
   }
 
@@ -271,6 +271,20 @@ class IdentifyFaces(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/identify")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/face/v1.0/identify")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   val personGroupId = new ServiceParam[String](this,
     "personGroupId",
@@ -331,6 +345,20 @@ class VerifyFaces(override val uid: String)
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/verify")
+
+  def setLinkedService(v: String): this.type = {
+    val endpointAndKey = getEndpointKeyFromLinkedService(v)
+    setUrl(endpointAndKey._1 + "/face/v1.0/verify")
+    setSubscriptionKey(endpointAndKey._2)
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
 
   val faceId1 = new ServiceParam[String](this,
     "faceId1",
