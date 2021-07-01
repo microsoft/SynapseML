@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.cognitive.split1
 
 import com.microsoft.ml.spark.FluentAPI._
+import com.microsoft.ml.spark.cognitive.RESTHelpers.retry
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
@@ -60,25 +61,6 @@ object FormRecognizerUtils extends CognitiveKey {
         }
         else if (response.getStatusLine.getReasonPhrase == "Created") {
           response.getHeaders("Location").head.getValue
-        }
-        else if (request.getMethod == "GET") {
-          val resp = IOUtils.toString(response.getEntity.getContent, "UTF-8")
-          val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
-          val status = modelInfo match {
-            case x: JsObject => x.fields.getOrElse("status", "") match {
-              case y: JsString => y.value
-              case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
-            }
-            case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
-          }
-          status match {
-            case "ready" => resp
-            case "creating" => {
-              blocking(Thread.sleep(10000))
-              throw new RuntimeException("model creating ...")
-            }
-            case s => throw new RuntimeException(s"Unexpected status: $s")
-          }
         }
         else {
           IOUtils.toString(response.getEntity.getContent, "UTF-8")
@@ -459,14 +441,22 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
     trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
-    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
-    case x: JsObject => x.fields.getOrElse("modelId", "") match {
-      case y: JsString => y.value
-      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+  val modelId: String = retry(List(10000, 20000, 30000), () => {
+    val resp = FormRecognizerUtils.formGet(getRequestUrl)
+    val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
+    val status = modelInfo match {
+      case x: JsObject => x.fields.getOrElse("status", "") match {
+        case y: JsString => y.value
+        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
+      }
+      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
     }
-    case _ => throw new RuntimeException(s"No modelInfo found")
-  }
+    status match {
+      case "ready" => modelInfo.asInstanceOf[JsObject].fields.getOrElse("modelId", "").asInstanceOf[JsString].value
+      case "creating" => throw new RuntimeException("model creating ...")
+      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    }
+  })
 
   override def afterAll(): Unit = {
     if (modelId != "") {
@@ -514,14 +504,22 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
     trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
-    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
-    case x: JsObject => x.fields.getOrElse("modelId", "") match {
-      case y: JsString => y.value
-      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+  val modelId: String = retry(List(10000, 20000, 30000), () => {
+    val resp = FormRecognizerUtils.formGet(getRequestUrl)
+    val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
+    val status = modelInfo match {
+      case x: JsObject => x.fields.getOrElse("status", "") match {
+        case y: JsString => y.value
+        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
+      }
+      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
     }
-    case _ => throw new RuntimeException(s"No modelInfo found")
-  }
+    status match {
+      case "ready" => modelInfo.asInstanceOf[JsObject].fields.getOrElse("modelId", "").asInstanceOf[JsString].value
+      case "creating" => throw new RuntimeException("model creating ...")
+      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    }
+  })
 
   override def afterAll(): Unit = {
     if (modelId != "") {
@@ -565,14 +563,22 @@ class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
   val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
     trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  val modelId: String = FormRecognizerUtils.formGet(getRequestUrl)
-    .parseJson.asJsObject.fields.getOrElse("modelInfo", "") match {
-    case x: JsObject => x.fields.getOrElse("modelId", "") match {
-      case y: JsString => y.value
-      case _ => throw new RuntimeException(s"No modelId found in modelInfo")
+  val modelId: String = retry(List(10000, 20000, 30000), () => {
+    val resp = FormRecognizerUtils.formGet(getRequestUrl)
+    val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
+    val status = modelInfo match {
+      case x: JsObject => x.fields.getOrElse("status", "") match {
+        case y: JsString => y.value
+        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
+      }
+      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
     }
-    case _ => throw new RuntimeException(s"No modelInfo found")
-  }
+    status match {
+      case "ready" => modelInfo.asInstanceOf[JsObject].fields.getOrElse("modelId", "").asInstanceOf[JsString].value
+      case "creating" => throw new RuntimeException("model creating ...")
+      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    }
+  })
 
   override def afterAll(): Unit = {
     val listCustomModels: ListCustomModels = new ListCustomModels()
