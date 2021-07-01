@@ -78,6 +78,7 @@ class SharedState(columnParams: ColumnParams,
   }
 
   @volatile var isSparse: Option[Boolean] = None
+
   def linkIsSparse(isSparse: Boolean): Unit = {
     if (this.isSparse.isEmpty) {
       this.synchronized {
@@ -89,6 +90,7 @@ class SharedState(columnParams: ColumnParams,
   }
 
   @volatile var arrayProcessedSignal: CountDownLatch = new CountDownLatch(0)
+
   def incrementArrayProcessedSignal(log: Logger): Int = {
     this.synchronized {
       val count = arrayProcessedSignal.getCount.toInt + 1
@@ -99,6 +101,7 @@ class SharedState(columnParams: ColumnParams,
   }
 
   @volatile var doneSignal: CountDownLatch = new CountDownLatch(0)
+
   def incrementDoneSignal(log: Logger): Unit = {
     this.synchronized {
       val count = doneSignal.getCount.toInt + 1

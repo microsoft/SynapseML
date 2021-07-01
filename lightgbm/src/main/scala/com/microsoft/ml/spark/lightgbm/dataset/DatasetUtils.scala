@@ -3,16 +3,13 @@
 
 package com.microsoft.ml.spark.lightgbm.dataset
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, doubleChunkedArray, floatChunkedArray, lightgbmlib}
-import com.microsoft.ml.spark.lightgbm.params.TrainParams
+import com.microsoft.ml.lightgbm.{doubleChunkedArray, floatChunkedArray}
+import com.microsoft.ml.spark.lightgbm.ColumnParams
 import com.microsoft.ml.spark.lightgbm.swig.DoubleChunkedArray
-import com.microsoft.ml.spark.lightgbm.{ColumnParams, LightGBMUtils}
-import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{StructField, StructType}
-import org.slf4j.Logger
+import org.apache.spark.sql.types.StructType
 
 object DatasetUtils {
 
@@ -42,12 +39,10 @@ object DatasetUtils {
     groupCardinality
   }
 
-
   /**
     * Sample the first several rows to determine whether to construct sparse or dense matrix in lightgbm native code.
     *
     * @param rowsIter     Iterator of rows.
-    * @param schema       The schema.
     * @param columnParams The column parameters.
     * @return A reconstructed iterator with the same original rows and whether the matrix should be sparse or dense.
     */
