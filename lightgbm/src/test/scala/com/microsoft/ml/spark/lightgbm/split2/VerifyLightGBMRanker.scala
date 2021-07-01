@@ -76,10 +76,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
 
   test("Throws error when group column is not long, int or string") {
     val df = rankingDF.withColumn(queryCol, from_json(lit("{}"), StructType(Seq())))
-
-    // Throws SparkException instead of IllegalArgumentException because the type
-    // inspection is part of the spark job instead of before it
-    assertThrows[SparkException] {
+    assertThrows[IllegalArgumentException] {
       baseModel.fit(df).transform(df).collect()
     }
   }
