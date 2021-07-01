@@ -3,27 +3,25 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity}
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
-import AnomalyDetectorProtocol._
-import com.microsoft.ml.spark.logging.BasicLogging
-import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import java.io._
 import javax.sound.sampled.AudioFileFormat.Type
 import javax.sound.sampled._
-import java.io._
-import org.apache.spark.ml.ComplexParamsReadable
-
 import scala.language.existentials
 
 object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+  with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
@@ -31,19 +29,7 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
 
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/speech/recognition/conversation/cognitiveservices/v1")
-    setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
+  def urlPath(): String = "/speech/recognition/conversation/cognitiveservices/v1"
 
   override def responseDataType: DataType = SpeechResponse.schema
 

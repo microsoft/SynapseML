@@ -17,7 +17,8 @@ object DetectFace extends ComplexParamsReadable[DetectFace]
 
 class DetectFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("DetectFace"))
@@ -65,19 +66,7 @@ class DetectFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/detect")
 
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/detect")
-    setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
+  def urlPath(): String = "/face/v1.0/detect"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(Map("url" -> getValue(r, imageUrl)).toJson.compactPrint))}
@@ -110,7 +99,8 @@ object FindSimilarFace extends ComplexParamsReadable[FindSimilarFace]
 class FindSimilarFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("FindSimilarFace"))
@@ -183,19 +173,7 @@ class FindSimilarFace(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/findsimilars")
 
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/findsimilars")
-    setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
+  def urlPath(): String = "/face/v1.0/findsimilars"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
   { r => Some(new StringEntity(List(
@@ -214,7 +192,7 @@ object GroupFaces extends ComplexParamsReadable[GroupFaces]
 class GroupFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasFaceIds with HasSetLocation
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
@@ -228,22 +206,9 @@ class GroupFaces(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/group")
 
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/group")
-    setSubscriptionKey(endpointAndKey._2)
-  }
+  def urlPath(): String = "/face/v1.0/group"
 
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
-  { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint))}
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { r => Some(new StringEntity(Map("faceIds" -> getValue(r, faceIds)).toJson.compactPrint)) }
 
 }
 
@@ -252,7 +217,8 @@ object IdentifyFaces extends ComplexParamsReadable[IdentifyFaces]
 class IdentifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("IdentifyFaces"))
@@ -267,30 +233,17 @@ class IdentifyFaces(override val uid: String)
 
   override val maxNumOfCandidatesReturned =
     new ServiceParam[Int](this, "maxNumOfCandidatesReturned",
-    "The range of maxNumOfCandidatesReturned is between 1 and 100 (default is 10).")
+      "The range of maxNumOfCandidatesReturned is between 1 and 100 (default is 10).")
 
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/identify")
-
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/identify")
-    setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
-
   val personGroupId = new ServiceParam[String](this,
     "personGroupId",
     "personGroupId of the target person group, created by PersonGroup - Create. " +
-     "Parameter personGroupId and largePersonGroupId should not be provided at the same time."
+      "Parameter personGroupId and largePersonGroupId should not be provided at the same time."
   )
+
+  def urlPath(): String = "/face/v1.0/identify"
 
   def setPersonGroupId(v: String): this.type = setScalarParam(personGroupId, v)
 
@@ -335,7 +288,8 @@ object VerifyFaces extends ComplexParamsReadable[VerifyFaces]
 
 class VerifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("VerifyFaces"))
@@ -346,25 +300,15 @@ class VerifyFaces(override val uid: String)
   def setLocation(v: String): this.type =
     setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/verify")
 
-  def setLinkedService(v: String): this.type = {
-    val endpointAndKey = getEndpointKeyFromLinkedService(v)
-    setUrl(endpointAndKey._1 + "/face/v1.0/verify")
-    setSubscriptionKey(endpointAndKey._2)
-  }
-
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setLinkedService(self, value):
-      |    self._java_obj = self._java_obj.setLinkedService(value)
-      |    return self
-      |""".stripMargin
-  }
+  def urlPath(): String = "/face/v1.0/verify"
 
   val faceId1 = new ServiceParam[String](this,
     "faceId1",
     "faceId of one face, comes from Face - Detect."
   )
+
   def setFaceId1(v: String): this.type = setScalarParam(faceId1, v)
+
   def setFaceId1Col(v: String): this.type = setVectorParam(faceId1, v)
 
   val faceId2 = new ServiceParam[String](this,
