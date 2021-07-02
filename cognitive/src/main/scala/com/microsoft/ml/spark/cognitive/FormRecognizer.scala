@@ -150,6 +150,74 @@ object FormsFlatteners {
   }
 }
 
+object CustomFormsFlatteners {
+  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
+
+    def extractText(lines: Array[ReadLine]): String = {
+      lines.map(_.text).mkString(" ")
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+
+  def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
+
+    def extractTableText(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
+      pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
+    }
+
+    def generateKeyValuePairs(keyValuePair: KeyValuePair): String = {
+      "key: " + keyValuePair.key.text + " value: " + keyValuePair.value.text
+    }
+
+    def extractKeyValuePairs(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
+      pageResults.map(_.keyValuePairs.map(generateKeyValuePairs).mkString("\n")).mkString("\n\n")
+    }
+
+    def extractAllText(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
+      "KeyValuePairs: " + extractKeyValuePairs(pageResults) + "\n\n\n" + "Tables: " + extractTableText(pageResults)
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.pageResults.map(extractAllText).mkString(" "))
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+
+  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
+
+    def extractFields(documentResults: Seq[DocumentResult]): String = {
+      documentResults.map(_.fields).mkString("\n")
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+}
+
 object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout]
 
 class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)

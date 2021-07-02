@@ -575,9 +575,9 @@ class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
 
   test("Basic Usage with URL") {
     val results = imageDf4.mlTransform(analyzeCustomModel,
-      flattenReadResults("form", "readForm"),
-      flattenPageResults("form", "pageForm"),
-      flattenDocumentResults("form", "docForm"))
+      CustomFormsFlatteners.flattenReadResults("form", "readForm"),
+      CustomFormsFlatteners.flattenPageResults("form", "pageForm"),
+      CustomFormsFlatteners.flattenDocumentResults("form", "docForm"))
       .select("readForm", "pageForm", "docForm")
       .collect()
     assert(results.head.getString(0) === "")
@@ -588,9 +588,9 @@ class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
 
   test("Basic Usage with Bytes") {
     val results = bytesDF4.mlTransform(bytesAnalyzeCustomModel,
-      flattenReadResults("form", "readForm"),
-      flattenPageResults("form", "pageForm"),
-      flattenDocumentResults("form", "docForm"))
+      CustomFormsFlatteners.flattenReadResults("form", "readForm"),
+      CustomFormsFlatteners.flattenPageResults("form", "pageForm"),
+      CustomFormsFlatteners.flattenDocumentResults("form", "docForm"))
       .select("readForm", "pageForm", "docForm")
       .collect()
     assert(results.head.getString(0) === "")
