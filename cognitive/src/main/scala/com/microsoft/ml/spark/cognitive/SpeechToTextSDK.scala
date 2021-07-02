@@ -195,9 +195,6 @@ abstract class SpeechSDKBase extends Transformer
 
   def setProfanityCol(v: String): this.type = setVectorParam(profanity, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
-
   def urlPath: String = "/sts/v1.0/issuetoken"
 
   setDefault(language -> Left("en-us"))

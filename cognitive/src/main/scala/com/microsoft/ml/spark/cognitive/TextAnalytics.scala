@@ -180,9 +180,6 @@ class TextSentimentV2(override val uid: String)
 
   override def responseDataType: StructType = SentimentResponseV2.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
-
   def urlPath: String = "/text/analytics/v2.0/sentiment"
 
 }
@@ -197,9 +194,6 @@ class LanguageDetectorV2(override val uid: String)
 
   override def responseDataType: StructType = DetectLanguageResponseV2.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
-
   def urlPath: String = "/text/analytics/v2.0/languages"
 }
 
@@ -213,9 +207,6 @@ class EntityDetectorV2(override val uid: String)
 
   override def responseDataType: StructType = DetectEntitiesResponseV2.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
-
   def urlPath: String = "/text/analytics/v2.0/entities"
 }
 
@@ -227,9 +218,6 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicL
   def this() = this(Identifiable.randomUID("NERV2"))
 
   override def responseDataType: StructType = NERResponseV2.schema
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.1/entities")
 
   def urlPath: String = "/text/analytics/v2.1/entities"
 }
@@ -243,9 +231,6 @@ class KeyPhraseExtractorV2(override val uid: String)
   def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
 
   override def responseDataType: StructType = KeyPhraseResponseV2.schema
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
 
   def urlPath: String = "/text/analytics/v2.0/keyPhrases"
 }
@@ -272,10 +257,6 @@ class TextSentiment(override val uid: String)
 
   override def responseDataType: StructType = SentimentResponseV3.schema
 
-  def setLocation(v: String): this.type = {
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/sentiment")
-  }
-
   def urlPath: String = "/text/analytics/v3.0/sentiment"
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
@@ -297,9 +278,6 @@ class KeyPhraseExtractor(override val uid: String)
 
   override def responseDataType: StructType = KeyPhraseResponseV3.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
-
   def urlPath: String = "/text/analytics/v3.0/keyPhrases"
 }
 
@@ -311,9 +289,6 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
   def this() = this(Identifiable.randomUID("NER"))
 
   override def responseDataType: StructType = NERResponseV3.schema
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/recognition/general")
 
   def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
 }
@@ -328,9 +303,6 @@ class LanguageDetector(override val uid: String)
 
   override def responseDataType: StructType = DetectLanguageResponseV3.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
-
   def urlPath: String = "/text/analytics/v3.0/languages"
 }
 
@@ -343,9 +315,6 @@ class EntityDetector(override val uid: String)
   def this() = this(Identifiable.randomUID("EntityDetector"))
 
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/text/analytics/v3.0/entities/linking")
 
   def urlPath: String = "/text/analytics/v3.0/entities/linking"
 }
