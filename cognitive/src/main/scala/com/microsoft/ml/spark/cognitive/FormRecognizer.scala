@@ -82,10 +82,12 @@ trait HasLocale extends HasServiceParams {
 }
 
 object FormsFlatteners {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
+  import FormsJsonProtocol._
 
-    def extractText(lines: Array[ReadLine]): String = {
+  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeResponse.makeFromRowConverter
+
+    def extractText(lines: Seq[ReadLine]): String = {
       lines.map(_.text).mkString(" ")
     }
 
@@ -101,17 +103,29 @@ object FormsFlatteners {
   }
 
   def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
+    val fromRow = AnalyzeResponse.makeFromRowConverter
 
-    def extractText(pageResults: Seq[PageResult]): String = {
+    def extractTableText(pageResults: Seq[PageResult]): String = {
       pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
+    }
+
+    def generateKeyValuePairs(keyValuePair: KeyValuePair): String = {
+      "key: " + keyValuePair.key.text + " value: " + keyValuePair.value.text
+    }
+
+    def extractKeyValuePairs(pageResults: Seq[PageResult]): String = {
+      pageResults.map(_.keyValuePairs.map(_.map(generateKeyValuePairs).mkString("\n"))).mkString("\n\n")
+    }
+
+    def extractAllText(pageResults: Seq[PageResult]): String = {
+      "KeyValuePairs: " + extractKeyValuePairs(pageResults) + "\n\n\n" + "Tables: " + extractTableText(pageResults)
     }
 
     new UDFTransformer()
       .setUDF(UDFUtils.oldUdf(
         { r: Row =>
           Option(r).map(fromRow).map(
-            _.analyzeResult.pageResults.map(extractText).mkString(" "))
+            _.analyzeResult.pageResults.map(extractAllText).mkString(" "))
         },
         StringType))
       .setInputCol(inputCol)
@@ -119,10 +133,10 @@ object FormsFlatteners {
   }
 
   def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
+    val fromRow = AnalyzeResponse.makeFromRowConverter
 
     def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
+      documentResults.map(_.fields.toJson.compactPrint).mkString("\n")
     }
 
     new UDFTransformer()
@@ -143,74 +157,6 @@ object FormsFlatteners {
         { r: Row =>
           Option(r).map(fromRow).map(
             _.modelList.map(_.modelId).mkString(" "))
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
-
-object CustomFormsFlatteners {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
-
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
-
-    def extractTableText(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
-      pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
-    }
-
-    def generateKeyValuePairs(keyValuePair: KeyValuePair): String = {
-      "key: " + keyValuePair.key.text + " value: " + keyValuePair.value.text
-    }
-
-    def extractKeyValuePairs(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
-      pageResults.map(_.keyValuePairs.map(generateKeyValuePairs).mkString("\n")).mkString("\n\n")
-    }
-
-    def extractAllText(pageResults: Seq[AnalyzeCustomModelPageResult]): String = {
-      "KeyValuePairs: " + extractKeyValuePairs(pageResults) + "\n\n\n" + "Tables: " + extractTableText(pageResults)
-    }
-
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.pageResults.map(extractAllText).mkString(" "))
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeCustomModelResponse.makeFromRowConverter
-
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
         },
         StringType))
       .setInputCol(inputCol)
@@ -247,7 +193,7 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
 
   setDefault(readingOrder -> Left("basic"))
 
-  override protected def responseDataType: DataType = AnalyzeLayoutResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 
 }
 
@@ -261,7 +207,7 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
 
   def urlPath: String = "/formrecognizer/v2.1/prebuilt/receipt/analyze"
 
-  override protected def responseDataType: DataType = AnalyzeReceiptsResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 
 }
 
@@ -275,7 +221,7 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
 
   def urlPath: String = "/formrecognizer/v2.1/prebuilt/businessCard/analyze"
 
-  override protected def responseDataType: DataType = AnalyzeBusinessCardsResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 
 }
 
@@ -289,7 +235,7 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
 
   def urlPath: String = "/formrecognizer/v2.1/prebuilt/invoice/analyze"
 
-  override protected def responseDataType: DataType = AnalyzeInvoicesResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 
 }
 
@@ -303,7 +249,7 @@ class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(ui
 
   def urlPath: String = "formrecognizer/v2.1/prebuilt/idDocument/analyze"
 
-  override protected def responseDataType: DataType = AnalyzeIDDocumentsResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 
 }
 
@@ -401,6 +347,6 @@ class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(ui
     }
   }
 
-  override protected def responseDataType: DataType = AnalyzeCustomModelResponse.schema
+  override protected def responseDataType: DataType = AnalyzeResponse.schema
 }
 
