@@ -3,27 +3,15 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.core.contracts.HasOutputCol
-import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.io.http.{HTTPParams, HasErrorCol, SimpleHTTPTransformer}
 import com.microsoft.ml.spark.logging.BasicLogging
-import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
-import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
+import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable,
-  Model, NamespaceInjections, PipelineModel}
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
+import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.{col, lit, struct}
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{DataType, StringType}
 import spray.json.DefaultJsonProtocol._
-import spray.json._
-
-trait CustomFormRecognizer extends HasImageInput with HTTPParams with HasOutputCol
-  with HasCognitiveServiceInput with ComplexParamsWritable with HasErrorCol
-  with HasInternalJsonOutputParser with HasAsyncReply
-  with HasSetLocation with BasicLogging
 
 object AnalyzeCustomModel extends ComplexParamsReadable[AnalyzeCustomModel] {
   def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
@@ -84,8 +72,7 @@ object AnalyzeCustomModel extends ComplexParamsReadable[AnalyzeCustomModel] {
   }
 }
 
-class AnalyzeCustomModel(override val uid: String) extends Model[AnalyzeCustomModel]
-  with CustomFormRecognizer{
+class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeCustomModel"))
@@ -110,10 +97,6 @@ class AnalyzeCustomModel(override val uid: String) extends Model[AnalyzeCustomMo
 
   setDefault(includeTextDetails -> Left(false))
 
-  setDefault(
-    outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"))
-
   override protected def prepareUrl: Row => String = {
     val urlParams: Array[ServiceParam[Any]] =
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
@@ -129,56 +112,6 @@ class AnalyzeCustomModel(override val uid: String) extends Model[AnalyzeCustomMo
       }
       base + appended
     }
-  }
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r =>
-      getValueOpt(r, imageUrl)
-        .map(url => new StringEntity(Map("source" -> url).toJson.compactPrint, ContentType.APPLICATION_JSON))
-        .orElse(getValueOpt(r, imageBytes)
-          .map(bytes => new ByteArrayEntity(bytes, ContentType.APPLICATION_OCTET_STREAM))
-        ).orElse(throw new IllegalArgumentException(
-        "Payload needs to contain image bytes or url. This code should not run"))
-  }
-
-  override def copy(extra: ParamMap): AnalyzeCustomModel = defaultCopy(extra)
-
-  protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-  }
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform[DataFrame](
-      getInternalTransformer(dataset.schema).transform(dataset)
-    )
-  }
-
-  override def transformSchema(schema: StructType): StructType = {
-    getInternalTransformer(schema).transformSchema(schema)
   }
 
   override protected def responseDataType: DataType = AnalyzeCustomModelResponse.schema

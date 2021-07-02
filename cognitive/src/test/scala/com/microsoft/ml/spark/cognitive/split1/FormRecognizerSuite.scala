@@ -8,7 +8,7 @@ import com.microsoft.ml.spark.cognitive.RESTHelpers.retry
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
-import com.microsoft.ml.spark.core.test.fuzzing.{ModelFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
@@ -19,7 +19,6 @@ import org.scalactic.Equality
 import spray.json._
 
 import java.net.URI
-import scala.concurrent.blocking
 
 object TrainCustomModelProtocol extends DefaultJsonProtocol {
   implicit val SourceFilterEnc: RootJsonFormat[SourceFilter] = jsonFormat2(SourceFilter)
@@ -557,7 +556,7 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
   override def reader: MLReadable[_] = GetCustomModel
 }
 
-class AnalyzeCustomModelSuite extends ModelFuzzing[AnalyzeCustomModel]
+class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
   with CognitiveKey with Flaky with FormRecognizerUtils {
 
   val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
