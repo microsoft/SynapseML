@@ -178,9 +178,7 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
     assert(headStr.startsWith("Purchase Order Hero Limited Purchase Order Company Phone: 555-348-6512 " +
       "Website: www.herolimited.com "))
     val pageHeadStr = results.head.getString(1)
-    assert(pageHeadStr === "Details | Quantity | Unit Price | Total | Bindings | 20 | 1.00 | 20.00 | Covers Small" +
-      " | 20 | 1.00 | 20.00 | Feather Bookmark | 20 | 5.00 | 100.00 | Copper Swirl Marker | 20 | 5.00 | " +
-      "100.00\nSUBTOTAL | $140.00 | TAX | $4.00 |  |  | TOTAL | $144.00")
+    assert(pageHeadStr.contains("Tables: Details | Quantity | Unit Price | Total"))
   }
 
   test("Basic Usage with pdf") {
@@ -193,9 +191,7 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
     val correctPrefix = "UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM 10-Q"
     assert(headStr.startsWith(correctPrefix))
     val pageHeadStr = results.head.getString(1)
-    assert(pageHeadStr === "Title of each class | Trading Symbol | Name of exchange on which registered | " +
-      "Common stock, $0.00000625 par value per share | MSFT | NASDAQ | 2.125% Notes due 2021 | MSFT | NASDAQ |" +
-      " 3.125% Notes due 2028 | MSFT | NASDAQ | 2.625% Notes due 2033 | MSFT | NASDAQ")
+    assert(pageHeadStr.contains("Tables: Title of each class | Trading Symbol | Name of exchange on which registered "))
   }
 
   test("Basic Usage with Bytes") {
@@ -208,9 +204,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
     assert(headStr.startsWith("Purchase Order Hero Limited Purchase Order Company Phone: 555-348-6512" +
       " Website: www.herolimited.com "))
     val pageHeadStr = results.head.getString(1)
-    assert(pageHeadStr === "Details | Quantity | Unit Price | Total | Bindings | 20 | 1.00 | 20.00 | Covers Small" +
-      " | 20 | 1.00 | 20.00 | Feather Bookmark | 20 | 5.00 | 100.00 | Copper Swirl Marker | 20 | 5.00 | " +
-      "100.00\nSUBTOTAL | $140.00 | TAX | $4.00 |  |  | TOTAL | $144.00")
+    assert(pageHeadStr.contains("Tables: Details | Quantity | Unit Price | Total"))
+
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeLayout]] =
@@ -247,8 +242,7 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith(
-      ("""{"Items":{"type":"array","valueArray":[{"type":"object",""" +
-        """"valueObject":{"Name":{"type":"string","valueString":"Surface Pro 6","text":"Surface Pro 6""").stripMargin))
+      ("""{"Tax":{"valueNumber":104.4,"page":1,"boundingBox"""").stripMargin))
   }
 
   test("Basic Usage with Bytes") {
@@ -261,8 +255,7 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith(
-      ("""{"Items":{"type":"array","valueArray":[{"type":"object",""" +
-        """"valueObject":{"Name":{"type":"string","valueString":"Surface Pro 6","text":"Surface Pro 6""").stripMargin))
+      ("""{"Tax":{"valueNumber":104.4,"page":1,"boundingBox":""").stripMargin))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeReceipts]] =
@@ -299,8 +292,7 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"Addresses":{"type":"array","valueArray":[{"type":""" +
-        """"string","valueString":"2 Kingdom Street Paddington, London, W2 6BD""").stripMargin))
+      """{"Addresses":{"type":"array","valueArray":["{\"type\":\"string\",\"valueString""").stripMargin))
   }
 
   test("Basic Usage with Bytes") {
@@ -313,8 +305,7 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"Addresses":{"type":"array","valueArray":[{"type":""" +
-        """"string","valueString":"2 Kingdom Street Paddington, London, W2 6BD""").stripMargin))
+      """{"Addresses":{"type":"array","valueArray":["{\"type\":\"string\",\"valueString\"""").stripMargin))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeBusinessCards]] =
@@ -351,8 +342,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"CustomerAddress":{"type":"string","valueString":"1020 Enterprise Way Sunnayvale, CA 87659","text":""" +
-        """"1020 Enterprise Way Sunnayvale, CA 87659""").stripMargin))
+      """{"CustomerAddress":{"page":1,"valueString":"1020 Enterprise Way Sunnayvale, CA 87659"""").stripMargin))
   }
 
   test("Basic Usage with pdf") {
@@ -364,7 +354,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith("""{"AmountDue":{"type":"number","valueNumber":610,"text":"$610.00"""))
+    assert(docHeadStr.startsWith("""{"CustomerAddress":{"page":1,"valueString":"123 Other St, Redmond WA, 98052","""))
   }
 
   test("Basic Usage with Bytes") {
@@ -377,8 +367,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"CustomerAddress":{"type":"string","valueString":"1020 Enterprise Way Sunnayvale, CA 87659","text":""" +
-        """"1020 Enterprise Way Sunnayvale, CA 87659""").stripMargin))
+      """{"CustomerAddress":{"page":1,"valueString":"1020 Enterprise Way Sunnayvale, CA 87659"""").stripMargin))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeInvoices]] =
@@ -415,8 +404,7 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"Address":{"type":"string","valueString":"123 STREET ADDRESS YOUR CITY WA 99999-1234","text":""" +
-        """"123 STREET ADDRESS YOUR CITY WA 99999-1234""").stripMargin))
+      """{"DateOfExpiration":{"page":1,"boundingBox":""").stripMargin))
   }
 
   test("Basic Usage with Bytes") {
@@ -429,8 +417,7 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.startsWith((
-      """{"Address":{"type":"string","valueString":"123 STREET ADDRESS YOUR CITY WA 99999-1234","text":""" +
-        """"123 STREET ADDRESS YOUR CITY WA 99999-1234""").stripMargin))
+      """{"DateOfExpiration":{"page":1,"boundingBox":""").stripMargin))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeIDDocuments]] =
@@ -575,27 +562,27 @@ class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
 
   test("Basic Usage with URL") {
     val results = imageDf4.mlTransform(analyzeCustomModel,
-      CustomFormsFlatteners.flattenReadResults("form", "readForm"),
-      CustomFormsFlatteners.flattenPageResults("form", "pageForm"),
-      CustomFormsFlatteners.flattenDocumentResults("form", "docForm"))
+      flattenReadResults("form", "readForm"),
+      flattenPageResults("form", "pageForm"),
+      flattenDocumentResults("form", "docForm"))
       .select("readForm", "pageForm", "docForm")
       .collect()
     assert(results.head.getString(0) === "")
     assert(results.head.getString(1)
-      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
+      .contains("""Tables: Invoice Number | Invoice Date | Invoice Due Date | Charges | VAT ID"""))
     assert(results.head.getString(2) === "")
   }
 
   test("Basic Usage with Bytes") {
     val results = bytesDF4.mlTransform(bytesAnalyzeCustomModel,
-      CustomFormsFlatteners.flattenReadResults("form", "readForm"),
-      CustomFormsFlatteners.flattenPageResults("form", "pageForm"),
-      CustomFormsFlatteners.flattenDocumentResults("form", "docForm"))
+      flattenReadResults("form", "readForm"),
+      flattenPageResults("form", "pageForm"),
+      flattenDocumentResults("form", "docForm"))
       .select("readForm", "pageForm", "docForm")
       .collect()
     assert(results.head.getString(0) === "")
     assert(results.head.getString(1)
-      .startsWith(("""KeyValuePairs: key: Invoice For: value: Microsoft 1020 Enterprise Way""")))
+      .contains("""Tables: Invoice Number | Invoice Date | Invoice Due Date | Charges | VAT ID"""))
     assert(results.head.getString(2) === "")
   }
 
