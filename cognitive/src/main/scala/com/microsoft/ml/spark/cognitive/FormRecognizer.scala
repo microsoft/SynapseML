@@ -294,7 +294,8 @@ object ListCustomModels extends ComplexParamsReadable[ListCustomModels] {
 }
 
 class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser
+  with HasSetLocation with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ListCustomModels"))
@@ -317,7 +318,8 @@ class ListCustomModels(override val uid: String) extends CognitiveServicesBase(u
 object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
 
 class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser
+  with HasSetLocation with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("GetCustomModel"))
