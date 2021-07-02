@@ -4,13 +4,14 @@
 package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.core.schema.SparkBindings
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
-object AnalyzeLayoutResponse extends SparkBindings[AnalyzeLayoutResponse]
+object AnalyzeResponse extends SparkBindings[AnalyzeResponse]
 
-case class AnalyzeLayoutResponse(status: String,
-                                 createdDateTime: String,
-                                 lastUpdatedDateTime: String,
-                                 analyzeResult: AnalyzeResult)
+case class AnalyzeResponse(status: String,
+                           createdDateTime: String,
+                           lastUpdatedDateTime: String,
+                           analyzeResult: AnalyzeResult)
 
 case class AnalyzeResult(version: String,
                          readResults: Seq[FormReadResult],
@@ -18,66 +19,52 @@ case class AnalyzeResult(version: String,
                          documentResults: Option[Seq[DocumentResult]])
 
 case class FormReadResult(page: Int,
-                      language: Option[String],
-                      angle: Double,
-                      width: Double,
-                      height: Double,
-                      unit: String,
-                      lines: Option[Array[ReadLine]])
+                          language: Option[String],
+                          angle: Double,
+                          width: Double,
+                          height: Double,
+                          unit: String,
+                          lines: Option[Seq[ReadLine]])
 
 case class PageResult(page: Int,
+                      keyValuePairs: Option[Seq[KeyValuePair]],
                       tables: Seq[Table])
 
 case class Table(rows: Int,
                  columns: Int,
                  cells: Seq[Cell],
-                 boundingBox: Array[Double])
+                 boundingBox: Seq[Double])
 
 case class Cell(rowIndex: Int,
                 columnIndex: Int,
                 text: String,
-                boundingBox: Array[Double],
-                elements: Array[String])
+                boundingBox: Seq[Double],
+                isHeader: Option[Boolean],
+                elements: Seq[String])
 
 case class DocumentResult(docType: String,
-                          pageRange: Array[Int],
-                          fields: String)
+                          pageRange: Seq[Int],
+                          fields: Map[String, FieldResult])
 
-object AnalyzeReceiptsResponse extends SparkBindings[AnalyzeReceiptsResponse]
-
-case class AnalyzeReceiptsResponse(status: String,
-                                   createdDateTime: String,
-                                   lastUpdatedDateTime: String,
-                                   analyzeResult: AnalyzeResult)
-
-object AnalyzeBusinessCardsResponse extends SparkBindings[AnalyzeBusinessCardsResponse]
-
-case class AnalyzeBusinessCardsResponse(status: String,
-                                        createdDateTime: String,
-                                        lastUpdatedDateTime: String,
-                                        analyzeResult: AnalyzeResult)
-
-object AnalyzeInvoicesResponse extends SparkBindings[AnalyzeInvoicesResponse]
-
-case class AnalyzeInvoicesResponse(status: String,
-                                   createdDateTime: String,
-                                   lastUpdatedDateTime: String,
-                                   analyzeResult: AnalyzeResult)
-
-object AnalyzeIDDocumentsResponse extends SparkBindings[AnalyzeIDDocumentsResponse]
-
-case class AnalyzeIDDocumentsResponse(status: String,
-                                      createdDateTime: String,
-                                      lastUpdatedDateTime: String,
-                                      analyzeResult: AnalyzeResult)
+case class FieldResult(`type`: String,
+                       page: Option[Int],
+                       confidence: Option[Double],
+                       boundingBox: Option[Seq[Double]],
+                       text: Option[String],
+                       valueString: Option[String],
+                       valueNumber: Option[Double],
+                       valueDate: Option[String],
+                       valueTime: Option[String],
+                       valueObject: Option[String],
+                       valueArray: Option[Seq[String]])
 
 case class ModelInfo(modelId: String,
                      status: String,
                      createDateTime: String,
                      lastUpdatedDateTime: String)
 
-case class TrainResult(trainingDocuments: Array[TrainingDocument],
-                       fields: Array[Field],
+case class TrainResult(trainingDocuments: Seq[TrainingDocument],
+                       fields: Seq[Field],
                        errors: Seq[String])
 
 case class TrainingDocument(documentName: String,
@@ -85,31 +72,14 @@ case class TrainingDocument(documentName: String,
                             errors: Seq[String],
                             status: String)
 
-object AnalyzeCustomModelResponse extends SparkBindings[AnalyzeCustomModelResponse]
+case class KeyValuePair(key: Element, value: Element)
 
-case class AnalyzeCustomModelResponse(status: String,
-                                      createdDateTime: String,
-                                      lastUpdatedDateTime: String,
-                                      analyzeResult: AnalyzeCustomModelAnalyzeResult)
-
-case class AnalyzeCustomModelAnalyzeResult(version: String,
-                                           readResults: Seq[FormReadResult],
-                                           pageResults: Option[Seq[AnalyzeCustomModelPageResult]],
-                                           documentResults: Option[Seq[DocumentResult]])
-
-case class AnalyzeCustomModelPageResult(page: Int,
-                                        keyValuePairs: Seq[KeyValuePair],
-                                        tables: Seq[Table])
-
-case class KeyValuePair(key: Element,
-                        value: Element)
-
-case class Element(text: String, boundingBox: Array[Double])
+case class Element(text: String, boundingBox: Seq[Double])
 
 object ListCustomModelsResponse extends SparkBindings[ListCustomModelsResponse]
 
 case class ListCustomModelsResponse(summary: Summary,
-                                    modelList: Array[ModelInfo],
+                                    modelList: Seq[ModelInfo],
                                     nextLink: String)
 
 case class Summary(count: Int, limit: Int, lastUpdatedDateTime: String)
@@ -120,6 +90,14 @@ case class GetCustomModelResponse(modelInfo: ModelInfo,
                                   keys: String,
                                   trainResult: TrainResult)
 
-case class Key(clusters: Map[String, Array[String]])
+case class Key(clusters: Map[String, Seq[String]])
 
 case class Field(fieldName: String, accuracy: Double)
+
+object FormsJsonProtocol extends DefaultJsonProtocol {
+
+  implicit val FieldFormat: RootJsonFormat[FieldResult] = jsonFormat11(FieldResult.apply)
+
+  implicit val DRFormat: RootJsonFormat[DocumentResult] = jsonFormat3(DocumentResult.apply)
+
+}
