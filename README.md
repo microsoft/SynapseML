@@ -55,7 +55,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/distributed_deep_recolor.png"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/LIME.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
-|  **HTTP on Spark** | **CNTK on Spark** |  **Lime on Spark**| **Spark Binding Autogeneration** |
+|  **HTTP on Spark** | **CNTK on Spark** |  **Model Interpretation on Spark**| **Spark Binding Autogeneration** |
 | An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration|Distributed Deep Learning with the Microsoft Cognitive Toolkit | Distributed, Model Agnostic, Interpretations for Classifiers | Automatically Generate Spark bindings for PySpark and SparklyR|
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> |<img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
@@ -85,6 +85,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
     of data ([example 1])
 -   Train and evaluate a flight delay prediction system ([example 2])
 -   Finding anomalous data access patterns using the Access Anomalies package of CyberML ([example 11])
+-   Model interpretation ([example 12], [example 13], [example 14])
 
 See our [notebooks](notebooks/) for all examples.
 
@@ -109,6 +110,12 @@ See our [notebooks](notebooks/) for all examples.
 [example 10]: notebooks/gpu/DeepLearning%20-%20Distributed%20CNTK%20training.ipynb "CIFAR10 CNTK CNN Training"
 
 [example 11]: notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb "Access Anomalies documenation, training and evaluation example"
+
+[example 12]: notebooks/Interpretability%20-%20Tabular%20SHAP%20explainer.ipynb "Interpretability - Tabular SHAP Explainer"
+
+[example 13]: notebooks/Interpretability%20-%20Image%20Explainers.ipynb "Interpretability - Image Explainers"
+
+[example 14]: notebooks/Interpretability%20-%20Text%20Explainers.ipynb "Interpretability - Text Explainers"
 
 ## A short example
 
