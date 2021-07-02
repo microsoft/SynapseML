@@ -205,7 +205,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
   protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
     new CustomInputParser().setNullableUDF(inputFunc(schema))
   }
-
 }
 
 trait HasInternalJsonOutputParser {
@@ -215,7 +214,6 @@ trait HasInternalJsonOutputParser {
   protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new JSONOutputParser().setDataType(responseDataType)
   }
-
 }
 
 trait HasUrlPath {
