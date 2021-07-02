@@ -17,7 +17,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with HasCognitiveServiceInput  with HasInternalJsonOutputParser with HasAsyncReply
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasAsyncReply
   with HasImageInput with HasSetLocation {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -32,74 +32,7 @@ abstract class FormRecognizerBase(override val uid: String) extends CognitiveSer
 
 }
 
-trait FlattenAnalyzeResult {
-  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
-    def extractText(lines: Array[ReadLine]): String = {
-      lines.map(_.text).mkString(" ")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
-    def extractText(pageResults: Seq[PageResult]): String = {
-      pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.pageResults.map(extractText).mkString(" "))
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-
-  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
-    def extractFields(documentResults: Seq[DocumentResult]): String = {
-      documentResults.map(_.fields).mkString("\n")
-    }
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
-
-object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout] with FlattenAnalyzeResult
-
-class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("AnalyzeLayout"))
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/layout/analyze")
-
-  val language = new ServiceParam[String](this, "language", "The BCP-47 language code of the " +
-    "text in the document. Layout supports auto language identification and multilanguage documents, so only provide" +
-    " a language code if you would like to force the documented to be processed as that specific language.",
-    isURLParam = true)
-
-  def setLanguage(v: String): this.type = setScalarParam(language, v)
-
-  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+trait HasPages extends HasServiceParams {
 
   val pages = new ServiceParam[String](this, "pages", "The page selection only leveraged for" +
     " multi-page PDF and TIFF documents. Accepted input include single pages (e.g.'1, 2' -> pages 1 and 2 will be " +
@@ -113,6 +46,128 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) wi
   def setPages(v: String): this.type = setScalarParam(pages, v)
 
   def setPagesCol(v: String): this.type = setVectorParam(pages, v)
+
+}
+
+trait HasTextDetails extends HasServiceParams {
+  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
+    "Include text lines and element references in the result.", isURLParam = true)
+
+  def setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
+
+  def setIncludeTextDetailsCol(v: String): this.type = setVectorParam(includeTextDetails, v)
+
+}
+
+trait HasModelID extends HasServiceParams {
+  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
+
+  def setModelId(v: String): this.type = setScalarParam(modelId, v)
+
+  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+
+}
+
+trait HasLocale extends HasServiceParams {
+  val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
+    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
+    case Left(_) => true
+    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+  }, isURLParam = true)
+
+  def setLocale(v: String): this.type = setScalarParam(locale, v)
+
+  def setLocaleCol(v: String): this.type = setVectorParam(locale, v)
+
+}
+
+object FormsFlatteners {
+  def flattenReadResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
+
+    def extractText(lines: Array[ReadLine]): String = {
+      lines.map(_.text).mkString(" ")
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.readResults.map(_.lines.map(extractText).mkString("")).mkString(" ")).mkString("")
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+
+  def flattenPageResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeLayoutResponse.makeFromRowConverter
+
+    def extractText(pageResults: Seq[PageResult]): String = {
+      pageResults.map(_.tables.map(_.cells.map(_.text).mkString(" | ")).mkString("\n")).mkString("\n\n")
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.pageResults.map(extractText).mkString(" "))
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+
+  def flattenDocumentResults(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = AnalyzeBusinessCardsResponse.makeFromRowConverter
+
+    def extractFields(documentResults: Seq[DocumentResult]): String = {
+      documentResults.map(_.fields).mkString("\n")
+    }
+
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.analyzeResult.documentResults.map(extractFields).mkString("")).mkString("")
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+
+  def flattenModelList(inputCol: String, outputCol: String): UDFTransformer = {
+    val fromRow = ListCustomModelsResponse.makeFromRowConverter
+    new UDFTransformer()
+      .setUDF(UDFUtils.oldUdf(
+        { r: Row =>
+          Option(r).map(fromRow).map(
+            _.modelList.map(_.modelId).mkString(" "))
+        },
+        StringType))
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+  }
+}
+
+object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout]
+
+class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasPages {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("AnalyzeLayout"))
+
+  def urlPath: String = "/formrecognizer/v2.1/layout/analyze"
+
+  val language = new ServiceParam[String](this, "language", "The BCP-47 language code of the " +
+    "text in the document. Layout supports auto language identification and multilanguage documents, so only provide" +
+    " a language code if you would like to force the documented to be processed as that specific language.",
+    isURLParam = true)
+
+  def setLanguage(v: String): this.type = setScalarParam(language, v)
+
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
   val readingOrder = new ServiceParam[String](this, "readingOrder", "Optional parameter to " +
     "specify which reading order algorithm should be applied when ordering the extract text elements. Can be either" +
@@ -128,170 +183,63 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid) wi
 
 }
 
-object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts] with FlattenAnalyzeResult
+object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts]
 
-class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
+class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeReceipts"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/prebuilt/receipt/analyze")
-
-  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
-  "Include text lines and element references in the result.", isURLParam = true)
-
-  def setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
-
-  setDefault(includeTextDetails -> Left(false))
-
-  val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
-    case Left(_) => true
-    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
-  }, isURLParam = true)
-
-  def setLocale(v: String): this.type = setScalarParam(locale, v)
-
-  def setLocaleCol(v: String): this.type = setVectorParam(locale, v)
-
-  val pages = new ServiceParam[String](this, "pages", "The page selection for multi-page PDF" +
-    " and TIFF documents, to extract Receipt information from individual pages and a range of pages (like page 2," +
-    " and pages 5-7) by entering the page numbers and ranges separated by commas (e.g. '2, 5-7'). If not set," +
-    " all pages will be processed.", isURLParam = true)
-
-  def setPages(v: String): this.type = setScalarParam(pages, v)
-
-  def setPagesCol(v: String): this.type = setVectorParam(pages, v)
+  def urlPath: String = "/formrecognizer/v2.1/prebuilt/receipt/analyze"
 
   override protected def responseDataType: DataType = AnalyzeReceiptsResponse.schema
 
 }
 
-object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards] with FlattenAnalyzeResult
+object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards]
 
-class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
+class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeBusinessCards"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/prebuilt/businessCard/analyze")
-
-  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
-    "Include text lines and element references in the result.", isURLParam = true)
-
-  def  setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
-
-  setDefault(includeTextDetails -> Left(false))
-
-  val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
-    case Left(_) => true
-    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
-  }, isURLParam = true)
-
-  def setLocale(v: String): this.type = setScalarParam(locale, v)
-
-  def setLocaleCol(v: String): this.type = setVectorParam(locale, v)
-
-  val pages = new ServiceParam[String](this, "pages", "The page selection for multi-page PDF" +
-    " and TIFF documents, to extract Receipt information from individual pages and a range of pages (like page 2," +
-    " and pages 5-7) by entering the page numbers and ranges separated by commas (e.g. '2, 5-7'). If not set," +
-    " all pages will be processed.", isURLParam = true)
-
-  def setPages(v: String): this.type = setScalarParam(pages, v)
-
-  def setPagesCol(v: String): this.type = setVectorParam(pages, v)
+  def urlPath: String = "/formrecognizer/v2.1/prebuilt/businessCard/analyze"
 
   override protected def responseDataType: DataType = AnalyzeBusinessCardsResponse.schema
 
 }
 
-object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices] with FlattenAnalyzeResult
+object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices]
 
-class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
+class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeInvoices"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/prebuilt/invoice/analyze")
-
-  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
-    "Include text lines and element references in the result.", isURLParam = true)
-
-  def  setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
-
-  setDefault(includeTextDetails -> Left(false))
-
-  val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
-    " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
-    case Left(_) => true
-    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
-  }, isURLParam = true)
-
-  def setLocale(v: String): this.type = setScalarParam(locale, v)
-
-  def setLocaleCol(v: String): this.type = setVectorParam(locale, v)
-
-  val pages = new ServiceParam[String](this, "pages", "The page selection for multi-page PDF" +
-    " and TIFF documents, to extract Receipt information from individual pages and a range of pages (like page 2," +
-    " and pages 5-7) by entering the page numbers and ranges separated by commas (e.g. '2, 5-7'). If not set," +
-    " all pages will be processed.", isURLParam = true)
-
-  def setPages(v: String): this.type = setScalarParam(pages, v)
-
-  def setPagesCol(v: String): this.type = setVectorParam(pages, v)
+  def urlPath: String = "/formrecognizer/v2.1/prebuilt/invoice/analyze"
 
   override protected def responseDataType: DataType = AnalyzeInvoicesResponse.schema
 
 }
 
-object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments] with FlattenAnalyzeResult
+object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments]
 
-class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid) with BasicLogging {
+class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasPages with HasTextDetails {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeIDDocuments"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/prebuilt/idDocument/analyze")
-
-  val includeTextDetails = new ServiceParam[Boolean](this, "includeTextDetails",
-    "Include text lines and element references in the result.", isURLParam = true)
-
-  def  setIncludeTextDetails(v: Boolean): this.type = setScalarParam(includeTextDetails, v)
-
-  setDefault(includeTextDetails -> Left(false))
-
-  val pages = new ServiceParam[String](this, "pages", "The page selection for multi-page PDF" +
-    " and TIFF documents, to extract Receipt information from individual pages and a range of pages (like page 2," +
-    " and pages 5-7) by entering the page numbers and ranges separated by commas (e.g. '2, 5-7'). If not set," +
-    " all pages will be processed.", isURLParam = true)
-
-  def setPages(v: String): this.type = setScalarParam(pages, v)
-
-  def setPagesCol(v: String): this.type = setVectorParam(pages, v)
+  def urlPath: String = "formrecognizer/v2.1/prebuilt/idDocument/analyze"
 
   override protected def responseDataType: DataType = AnalyzeIDDocumentsResponse.schema
 
 }
 
-object ListCustomModels extends ComplexParamsReadable[ListCustomModels] {
-  def flattenModelList(inputCol: String, outputCol: String): UDFTransformer = {
-    val fromRow = ListCustomModelsResponse.makeFromRowConverter
-    new UDFTransformer()
-      .setUDF(UDFUtils.oldUdf(
-        { r: Row =>
-          Option(r).map(fromRow).map(
-            _.modelList.map(_.modelId).mkString(" "))
-        },
-        StringType))
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-  }
-}
+object ListCustomModels extends ComplexParamsReadable[ListCustomModels]
 
 class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
@@ -300,8 +248,7 @@ class ListCustomModels(override val uid: String) extends CognitiveServicesBase(u
 
   def this() = this(Identifiable.randomUID("ListCustomModels"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
+  def urlPath: String = "formrecognizer/v2.1/custom/models"
 
   override protected def prepareMethod(): HttpRequestBase = new HttpGet()
 
@@ -310,7 +257,9 @@ class ListCustomModels(override val uid: String) extends CognitiveServicesBase(u
 
   def setOp(v: String): this.type = setScalarParam(op, v)
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
+  def setOpCol(v: String): this.type = setVectorParam(op, v)
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
   override protected def responseDataType: DataType = ListCustomModelsResponse.schema
 }
@@ -319,19 +268,12 @@ object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
 
 class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasSetLocation with BasicLogging {
+  with HasSetLocation with BasicLogging with HasModelID {
   logClass()
 
   def this() = this(Identifiable.randomUID("GetCustomModel"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models")
-
-  val modelId = new ServiceParam[String](this, "modelId", "Model identifier.", isRequired = true)
-
-  def setModelId(v: String): this.type = setScalarParam(modelId, v)
-
-  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+  def urlPath: String = "formrecognizer/v2.1/custom/models"
 
   override protected def prepareUrl: Row => String = {
     val urlParams: Array[ServiceParam[Any]] =
@@ -357,7 +299,40 @@ class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid
 
   def setIncludeKeys(v: Boolean): this.type = setScalarParam(includeKeys, v)
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {_ => None}
+  def setIncludeKeysCol(v: String): this.type = setVectorParam(includeKeys, v)
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
   override protected def responseDataType: DataType = GetCustomModelResponse.schema
 }
+
+object AnalyzeCustomModel extends ComplexParamsReadable[AnalyzeCustomModel]
+
+class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(uid)
+  with BasicLogging with HasTextDetails with HasModelID {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("AnalyzeCustomModel"))
+
+  def urlPath: String = "formrecognizer/v2.1/custom/models"
+
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    { row: Row =>
+      val base = getUrl + s"/${getValue(row, modelId)}/analyze"
+      val appended = if (!urlParams.isEmpty) {
+        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
+
+  override protected def responseDataType: DataType = AnalyzeCustomModelResponse.schema
+}
+
