@@ -20,7 +20,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
     "世界您好",
     ":) :( :D",
-  ).toDF("text2")
+  ).toDF("In")
 
   val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
     .setIncludeStatistics(true))
@@ -28,24 +28,27 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text2")
-    .setOutputCol("output")
+    .setInputCol("In")
+    .setOutputCol("Out")
 
   test("Language Detection - Basic Usage") {
-
-    val replies = detector.transform(df)
-    .select("name", "iso6391Name")
-    .collect()
-//    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish" )
-//    assert(replies(3).getString(0) == "Chinese_Traditional")
-//    assert(replies(0).getString(1) == "en" && replies(2).getString(1) == "es")
-
-
+    //assert(outputCol(0).getString(0) == "English" && outputCol(2).getString(0) == "Spanish")
+    //detector.transformSchema(detector.outputSchema)
+    val outputCol = detector.transform(df)
+      .select("Out")
+      .collect()
+    assert(outputCol(0).schema(0).name == "Out")
+   assert(outputCol.getItem(0))
+    //df.printSchema()
+    //df.show()
+    outputCol.foreach { row =>
+      row.toSeq.foreach{col => println(col) }
+    }
   }
 
   test("Language Detection - Print Schema") {
-
     detector.transform(df).printSchema()
+    detector.transform(df).show()
   }
 }
 
@@ -60,21 +63,20 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     "Hello world. This is some input text that I love.",
     "I am sad",
     "I am feeling okay"
-  ).toDF("text")
+  ).toDF("Out")
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text")
-    .setOutputCol("output")
+    .setInputCol("In - Sentiment")
+    .setOutputCol("Out - Sentiment")
 
   test("Sentiment Analysis - Basic Usage") {
-    val replies = detector.transform(df)
-      .select("sentiment", "confidenceScores", "sentences", "warnings", "output")
+    val outputCol = detector.transform(df)
+      .select("In - Sentiment")
       .collect()
-//    assert(replies(0).getString(0) == "positive" && replies(1).getString(0) == "negative"
-//      && replies(2).getString(0) == "neutral")
-    assert(replies == "output")
+  assert(outputCol(0).getString(0) == "positive" && outputCol(1).getString(0) == "negative"
+      && outputCol(2).getString(0) == "neutral")
   }
 }
 
@@ -82,10 +84,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     import spark.implicits._
 
     lazy val df2: DataFrame = Seq(
-      "Hello world. This is some input text that I love.",
-      "Glaciers are huge rivers of ice that ooze their way over land, powered by gravity and their own sheer weight.",
-      "Hello"
-    ).toDF("text2")
+      ("en","Hello world. This is some input text that I love."),
+      ("en","Glaciers are huge rivers of ice that ooze their way over land," +
+        "powered by gravity and their own sheer weight."),
+      ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+    ).toDF("Lang", "Input")
 
     val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
       .setIncludeStatistics(true))
@@ -93,14 +96,15 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
       .setSubscriptionKey(textKey)
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-      .setInputCol("text2")
+      .setInputCol("Input")
+      .setOutputCol("Out")
 
     test("KPE - Basic Usage") {
-      val replies = extractor.transform(df2)
-        .select("keyPhrases")
+      val outputCol = extractor.transform(df2)
+        .select("Input", "Out")
         .collect()
-      assert(replies(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
-      assert(replies(1).getSeq[String](0).toSet === Set("land", "sheer weight",
+      assert(outputCol(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
+      assert(outputCol(1).getSeq[String](0).toSet === Set("land", "sheer weight",
         "gravity", "way", "Glaciers", "ice", "huge rivers"))
     }
   }

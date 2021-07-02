@@ -49,7 +49,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     // Validate input schema
     val inputType = schema(($(inputCol))).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
-    schema.add(getOutputCol, outputSchema)
+    schema.add($(outputCol), outputSchema)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -137,7 +137,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
         ).toList))
     }
 
-
     val error = if (keyPhraseExtractionResult.isError) {
       val error = keyPhraseExtractionResult.getError
       Some(TAErrorV4(error.getErrorCode.toString, error.getMessage, error.getTarget))
@@ -156,7 +155,6 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
       stats,
       Some(ExtractKeyPhrasesResultCollection.getModelVersion))
   }
-
 }
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptions] = None,
@@ -247,8 +245,6 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
       stats,
       Some(textSentimentResultCollection.getModelVersion))
   }
-
-
 }
 
   object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
