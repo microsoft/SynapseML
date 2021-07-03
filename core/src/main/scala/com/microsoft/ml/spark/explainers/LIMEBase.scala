@@ -100,12 +100,9 @@ abstract class LIMEBase(override val uid: String)
             (input, output, weight)
         }.toSeq.unzip3
 
-        val inputsBV = BDM(inputs: _*)
-        val outputsBV = BDM(outputs: _*)
-        val weightsBV = BDV(weights: _*)
-
-        val lassoResults = outputsBV(::, *).toIndexedSeq.map {
-          new LassoRegression(regularization).fit(inputsBV, _, weightsBV, fitIntercept = true)
+        val (inputsBM, outputsBM, weightsBV) = (BDM(inputs: _*), BDM(outputs: _*), BDV(weights: _*))
+        val lassoResults = outputsBM(::, *).toIndexedSeq.map {
+          new LassoRegression(regularization).fit(inputsBM, _, weightsBV, fitIntercept = true)
         }
 
         val coefficientsMatrix = lassoResults.map(_.coefficients.toSpark)
