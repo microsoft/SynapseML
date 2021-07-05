@@ -44,6 +44,47 @@ trait HasTextInput extends HasServiceParams {
 
 }
 
+trait HasApiVersion extends HasServiceParams {
+  val apiVersion = new ServiceParam[Double](this, "api-version",
+    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
+
+  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
+
+  def setApiVersionCol(v: String): this.type = setVectorParam(apiVersion, v)
+
+  def getApiVersion: Double = getScalarParam(apiVersion)
+
+  def getApiVersionCol: String = getVectorParam(apiVersion)
+}
+
+trait HasFrom extends HasServiceParams {
+  val from = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
+    " The source language must be one of the supported languages included in the dictionary scope.",
+    isRequired = true, isURLParam = true)
+
+  def setFrom(v: String): this.type = setScalarParam(from, v)
+
+  def setFromCol(v: String): this.type = setVectorParam(from, v)
+
+  def getFrom: String = getScalarParam(from)
+
+  def getFromCol: String = getVectorParam(from)
+}
+
+trait HasTo extends HasServiceParams {
+  val to = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
+    " The target language must be one of the supported languages included in the dictionary scope.",
+    isRequired = true, isURLParam = true)
+
+  def setTo(v: String): this.type = setScalarParam(to, v)
+
+  def setToCol(v: String): this.type = setVectorParam(to, v)
+
+  def getTo: String = getScalarParam(to)
+
+  def getToCol: String = getVectorParam(to)
+}
+
 trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -56,7 +97,7 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
 
 abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSubscriptionRegion
-  with HasSetLocation {
+  with HasApiVersion with HasSetLocation {
 
   protected val subscriptionRegionHeaderName = "Ocp-Apim-Subscription-Region"
 
@@ -88,6 +129,13 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
     }
   }
 
+  setDefault(apiVersion -> Left(3.0))
+
+  override def setLocation(v: String): this.type = {
+    setSubscriptionRegion(v)
+    setUrl("https://api.cognitive.microsofttranslator.com/" + urlPath)
+  }
+
 }
 
 object Translate extends ComplexParamsReadable[Translate]
@@ -98,15 +146,7 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def this() = this(Identifiable.randomUID("Translate"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/translate")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
+  def urlPath: String = "translate"
 
   val toLanguage = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
@@ -117,6 +157,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setToLanguage(v: Seq[String]): this.type = setScalarParam(toLanguage, v)
 
+  def setToLanguageCol(v: String): this.type = setVectorParam(toLanguage, v)
+
   val fromLanguage = new ServiceParam[String](this, "from", "Specifies the language of the input" +
     " text. Find which languages are available to translate from by looking up supported languages using the" +
     " translation scope. If the from parameter is not specified, automatic language detection is applied to" +
@@ -124,6 +166,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
     " dynamic dictionary feature.", isURLParam = true)
 
   def setFromLanguage(v: String): this.type = setScalarParam(fromLanguage, v)
+
+  def setFromLanguageCol(v: String): this.type = setVectorParam(fromLanguage, v)
 
   val textType = new ServiceParam[String](this, "textType", "Defines whether the text being" +
     " translated is plain text or HTML text. Any HTML needs to be a well-formed, complete element. Possible values" +
@@ -134,12 +178,16 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setTextType(v: String): this.type = setScalarParam(textType, v)
 
+  def setTextTypeCol(v: String): this.type = setVectorParam(textType, v)
+
   val category = new ServiceParam[String](this, "category", "A string specifying the category" +
     " (domain) of the translation. This parameter is used to get translations from a customized system built with" +
     " Custom Translator. Add the Category ID from your Custom Translator project details to this parameter to use" +
     " your deployed customized system. Default value is: general.", isURLParam = true)
 
   def setCategory(v: String): this.type = setScalarParam(category, v)
+
+  def setCategoryCol(v: String): this.type = setVectorParam(category, v)
 
   val profanityAction = new ServiceParam[String](this, "profanityAction", "Specifies how" +
     " profanities should be treated in translations. Possible values are: NoAction (default), Marked or Deleted. ",
@@ -150,6 +198,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setProfanityAction(v: String): this.type = setScalarParam(profanityAction, v)
 
+  def setProfanityActionCol(v: String): this.type = setVectorParam(profanityAction, v)
+
   val profanityMarker = new ServiceParam[String](this, "profanityMarker", "Specifies how" +
     " profanities should be marked in translations. Possible values are: Asterisk (default) or Tag.", {
       case Left(_) => true
@@ -158,15 +208,21 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setProfanityMarker(v: String): this.type = setScalarParam(profanityMarker, v)
 
+  def setProfanityMarkerCol(v: String): this.type = setVectorParam(profanityMarker, v)
+
   val includeAlignment = new ServiceParam[Boolean](this, "includeAlignment", "Specifies whether" +
     " to include alignment projection from source text to translated text.", isURLParam = true)
 
   def setIncludeAlignment(v: Boolean): this.type = setScalarParam(includeAlignment, v)
 
+  def setIncludeAlignmentCol(v: String): this.type = setVectorParam(includeAlignment, v)
+
   val includeSentenceLength = new ServiceParam[Boolean](this, "includeSentenceLength", "Specifies" +
     " whether to include sentence boundaries for the input text and the translated text. ", isURLParam = true)
 
   def setIncludeSentenceLength(v: Boolean): this.type = setScalarParam(includeSentenceLength, v)
+
+  def setIncludeSentenceLengthCol(v: String): this.type = setVectorParam(includeSentenceLength, v)
 
   val suggestedFrom = new ServiceParam[String](this, "suggestedFrom", "Specifies a fallback" +
     " language if the language of the input text can't be identified. Language autodetection is applied when the" +
@@ -174,20 +230,28 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setSuggestedFrom(v: String): this.type = setScalarParam(suggestedFrom, v)
 
+  def setSuggestedFromCol(v: String): this.type = setVectorParam(suggestedFrom, v)
+
   val fromScript = new ServiceParam[String](this, "fromScript", "Specifies the script of the" +
     " input text.", isURLParam = true)
 
   def setFromScript(v: String): this.type = setScalarParam(fromScript, v)
+
+  def setFromScriptCol(v: String): this.type = setVectorParam(fromScript, v)
 
   val toScript = new ServiceParam[String](this, "toScript", "Specifies the script of the" +
     " translated text.", isURLParam = true)
 
   def setToScript(v: String): this.type = setScalarParam(toScript, v)
 
+  def setToScriptCol(v: String): this.type = setVectorParam(toScript, v)
+
   val allowFallback = new ServiceParam[Boolean](this, "allowFallback", "Specifies that the service" +
     " is allowed to fall back to a general system when a custom system does not exist. ", isURLParam = true)
 
   def setAllowFallback(v: Boolean): this.type = setScalarParam(allowFallback, v)
+
+  def setAllowFallbackCol(v: String): this.type = setVectorParam(allowFallback, v)
 
   setDefault(textType -> Left("plain"),
     category -> Left("general"),
@@ -208,15 +272,7 @@ class Transliterate(override val uid: String) extends TextTranslatorBase(uid)
 
   def this() = this(Identifiable.randomUID("Transliterate"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/transliterate")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
+  def urlPath: String = "transliterate"
 
   val language = new ServiceParam[String](this, "language", "Language tag identifying the" +
     " language of the input text. If a code is not specified, automatic language detection will be applied.",
@@ -224,15 +280,21 @@ class Transliterate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
   val fromScript = new ServiceParam[String](this, "fromScript", "Specifies the script of the" +
     " input text.", isRequired = true, isURLParam = true)
 
   def setFromScript(v: String): this.type = setScalarParam(fromScript, v)
 
+  def setFromScriptCol(v: String): this.type = setVectorParam(fromScript, v)
+
   val toScript = new ServiceParam[String](this, "toScript", "Specifies the script of the" +
     " translated text.", isRequired = true, isURLParam = true)
 
   def setToScript(v: String): this.type = setScalarParam(toScript, v)
+
+  def setToScriptCol(v: String): this.type = setVectorParam(toScript, v)
 
   override def responseDataType: DataType = ArrayType(TransliterateResponse.schema)
 }
@@ -245,15 +307,7 @@ class Detect(override val uid: String) extends TextTranslatorBase(uid)
 
   def this() = this(Identifiable.randomUID("Detect"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/detect")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
+  def urlPath: String = "detect"
 
   override def responseDataType: DataType = ArrayType(DetectResponse.schema)
 }
@@ -266,15 +320,7 @@ class BreakSentence(override val uid: String) extends TextTranslatorBase(uid)
 
   def this() = this(Identifiable.randomUID("BreakSentence"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/breaksentence")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
+  def urlPath: String = "breaksentence"
 
   val language = new ServiceParam[String](this, "language", "Language tag identifying the" +
     " language of the input text. If a code is not specified, automatic language detection will be applied.",
@@ -282,11 +328,15 @@ class BreakSentence(override val uid: String) extends TextTranslatorBase(uid)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
   val script = new ServiceParam[String](this, "script", "Script tag identifying the script" +
     " used by the input text. If a script is not specified, the default script of the language will be assumed.",
     isURLParam = true)
 
   def setScript(v: String): this.type = setScalarParam(script, v)
+
+  def setScriptCol(v: String): this.type = setVectorParam(script, v)
 
   override def responseDataType: DataType = ArrayType(BreakSentenceResponse.schema)
 }
@@ -294,32 +344,12 @@ class BreakSentence(override val uid: String) extends TextTranslatorBase(uid)
 object DictionaryLookup extends ComplexParamsReadable[DictionaryLookup]
 
 class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
-  with TextAsOnlyEntity with BasicLogging {
+  with TextAsOnlyEntity with HasFrom with HasTo with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryLookup"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/dictionary/lookup")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
-
-  val from = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
-    " The source language must be one of the supported languages included in the dictionary scope.",
-    isRequired = true, isURLParam = true)
-
-  def setFrom(v: String): this.type = setScalarParam(from, v)
-
-  val to = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
-    " The target language must be one of the supported languages included in the dictionary scope.",
-    isRequired = true, isURLParam = true)
-
-  def setTo(v: String): this.type = setScalarParam(to, v)
+  def urlPath: String = "dictionary/lookup"
 
   override def responseDataType: DataType = ArrayType(DictionaryLookupResponse.schema)
 }
@@ -343,32 +373,12 @@ trait HasTextAndTranslationInput extends HasServiceParams {
 object DictionaryExamples extends ComplexParamsReadable[DictionaryExamples]
 
 class DictionaryExamples(override val uid: String) extends TextTranslatorBase(uid)
-  with HasTextAndTranslationInput with BasicLogging {
+  with HasTextAndTranslationInput with HasFrom with HasTo with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryExamples"))
 
-  def setLocation(v: String): this.type = {
-    setSubscriptionRegion(v)
-    setUrl("https://api.cognitive.microsofttranslator.com/dictionary/examples")
-  }
-
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
-
-  val from = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
-    " The source language must be one of the supported languages included in the dictionary scope.",
-    isRequired = true, isURLParam = true)
-
-  def setFrom(v: String): this.type = setScalarParam(from, v)
-
-  val to = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
-    " The target language must be one of the supported languages included in the dictionary scope.",
-    isRequired = true, isURLParam = true)
-
-  def setTo(v: String): this.type = setScalarParam(to, v)
+  def urlPath: String = "dictionary/examples"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
