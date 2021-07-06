@@ -40,7 +40,10 @@ object TestBase {
   }
 
   def stopSparkSession(): Unit = {
-    SparkInternal.foreach(_.close())
+    SparkInternal.foreach{spark =>
+      spark.close()
+      Thread.sleep(1000) // TODO figure out if/why this is needed to give spark a chance to stop
+    }
     SparkInternal = None
   }
 
