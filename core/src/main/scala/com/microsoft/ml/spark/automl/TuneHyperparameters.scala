@@ -24,6 +24,7 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.reflect.internal.util.ScalaClassLoader
 import scala.util.control.NonFatal
 
 /** Tunes model hyperparameters
@@ -95,7 +96,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   private def getExecutionContext: ExecutionContext = {
     getParallelism match {
       case 1 =>
-        ExecutionContext.fromExecutor(MoreExecutors.directExecutor())
+        val executorService = MoreExecutors.newDirectExecutorService()
+        ExecutionContext.fromExecutorService(executorService)
       case _ =>
         val keepAliveSeconds = 60L
         val prefix = s"${this.getClass.getSimpleName}-thread-pool"
