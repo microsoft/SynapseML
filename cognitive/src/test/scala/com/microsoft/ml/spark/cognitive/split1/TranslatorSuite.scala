@@ -3,12 +3,20 @@
 
 package com.microsoft.ml.spark.cognitive.split1
 
+import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, flatten}
+import org.scalactic.Equality
+
+trait TranslatorKey {
+  lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
+
+  lazy val translatorName: String = sys.env.getOrElse("TRANSLATOR_NAME", Secrets.TranslatorName)
+}
 
 trait TranslatorUtils extends TestBase {
 
@@ -29,10 +37,10 @@ trait TranslatorUtils extends TestBase {
 }
 
 class TranslateSuite extends TransformerFuzzing[Translate]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   lazy val translate: Translate = new Translate()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setToLanguage(Seq("zh-Hans"))
@@ -41,7 +49,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     .setConcurrency(5)
 
   lazy val translate2: Translate = new Translate()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setToLanguage(Seq("zh-Hans"))
@@ -51,7 +59,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     .setConcurrency(5)
 
   lazy val translate3: Translate = new Translate()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setFromLanguage("en")
@@ -62,7 +70,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     .setConcurrency(5)
 
   lazy val translate4: Translate = new Translate()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setFromLanguage("en")
@@ -170,14 +178,14 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 }
 
 class TransliterateSuite extends TransformerFuzzing[Transliterate]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   import spark.implicits._
 
   lazy val transDf: DataFrame = Seq(List("こんにちは", "さようなら")).toDF("text")
 
   lazy val transliterate: Transliterate = new Transliterate()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setLanguage("ja")
@@ -202,10 +210,10 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
 }
 
 class DetectSuite extends TransformerFuzzing[Detect]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   lazy val detect: Detect = new Detect()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setTextCol("text")
@@ -226,10 +234,10 @@ class DetectSuite extends TransformerFuzzing[Detect]
 }
 
 class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   lazy val breakSentence: BreakSentence = new BreakSentence()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setTextCol("text")
@@ -250,14 +258,14 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
 }
 
 class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   import spark.implicits._
 
   lazy val dictDf: DataFrame = Seq(List("fly")).toDF("text")
 
   lazy val dictionaryLookup: DictionaryLookup = new DictionaryLookup()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setFrom("en")
@@ -281,14 +289,14 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
 }
 
 class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
-  with CognitiveKey with Flaky with TranslatorUtils {
+  with TranslatorKey with Flaky with TranslatorUtils {
 
   import spark.implicits._
 
   lazy val dictDf: DataFrame = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
 
   lazy val dictionaryExamples: DictionaryExamples = new DictionaryExamples()
-    .setSubscriptionKey(cognitiveKey)
+    .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setApiVersion(3.0)
     .setFrom("en")
@@ -310,4 +318,126 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
     Seq(new TestObject(dictionaryExamples, dictDf))
 
   override def reader: MLReadable[_] = DictionaryExamples
+}
+
+class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
+  with TranslatorKey with Flaky {
+
+  import spark.implicits._
+
+  // TODO: Replace all of those SAS urls after 2022-07-07
+  lazy val sourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-07-06T06" +
+    ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+
+  lazy val fileSourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/" +
+    "source/Document Translation doc.pdf?sp=rl&st=2021-07-06T06" +
+    ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+
+  lazy val targetUrl: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
+    documentTranslator.uid +
+    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
+    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val targetUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
+    documentTranslator.uid + "-2" +
+    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
+    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val targetUrl3: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
+    documentTranslator.uid + "-3" +
+    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
+    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val targetFileUrl1: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
+    documentTranslator.uid +
+    ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
+    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/test-de-" +
+    documentTranslator.uid +
+    ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
+    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val glossaryUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/glossary/" +
+    "glossary.tsv?sv=2020-04-08&st=2021-07-06T08%3A17%3A55Z&se=2022-07-07T08%3A17%3A00Z&sr=b&sp=r&sig=DI9" +
+    "d9OJMrGsVbtgAU68aw0PbruiP1eixRItj3Re18dU%3D"
+
+  lazy val docTranslationDf: DataFrame = Seq((sourceUrl,
+    "Translator/source/",
+    Seq(TargetInput(None, None, targetUrl, "zh-Hans", None))))
+    .toDF("sourceUrl", "filterPrefix", "targets")
+
+  lazy val docTranslationDf2: DataFrame = Seq((sourceUrl,
+    "Translator/source/",
+    Seq(TargetInput(None, None, targetUrl2, "zh-Hans", None))))
+    .toDF("sourceUrl", "filterPrefix", "targets")
+
+  lazy val docTranslationDf3: DataFrame = Seq((sourceUrl,
+    "Translator/source/",
+    Seq(TargetInput(None, Some(Seq(Glossary(
+      "TSV", glossaryUrl, None, Some("1.2")
+    ))), targetUrl3, "zh-Hans", None))))
+    .toDF("sourceUrl", "filterPrefix", "targets")
+
+  lazy val docTranslationDf4: DataFrame = Seq((fileSourceUrl,
+    "File",
+    Seq(TargetInput(None, None, targetFileUrl1, "zh-Hans", None),
+      TargetInput(None, None, targetFileUrl2, "de", None))))
+    .toDF("sourceUrl", "storageType", "targets")
+
+  lazy val documentTranslator: DocumentTranslator = new DocumentTranslator()
+    .setSubscriptionKey(translatorKey)
+    .setServiceName(translatorName)
+    .setSourceUrlCol("sourceUrl")
+    .setFilterPrefixCol("filterPrefix")
+    .setTargetsCol("targets")
+    .setOutputCol("translationStatus")
+
+  lazy val documentTranslator2: DocumentTranslator = new DocumentTranslator()
+    .setSubscriptionKey(translatorKey)
+    .setServiceName(translatorName)
+    .setSourceUrlCol("sourceUrl")
+    .setStorageTypeCol("storageType")
+    .setTargetsCol("targets")
+    .setOutputCol("translationStatus")
+
+  test("Translating all documents under folder in a container") {
+    val result = documentTranslator
+      .transform(docTranslationDf2)
+      .withColumn("successNumber", col("translationStatus.summary.success"))
+      .select("successNumber")
+      .collect()
+    assert(result.head.getInt(0) === 1)
+  }
+
+  test("Translating all documents in a container applying glossaries") {
+    val result = documentTranslator
+      .transform(docTranslationDf3)
+      .withColumn("successNumber", col("translationStatus.summary.success"))
+      .select("successNumber")
+      .collect()
+    assert(result.head.getInt(0) === 1)
+  }
+
+  test("Translating specific document in a container") {
+    val result = documentTranslator2
+      .transform(docTranslationDf4)
+      .withColumn("successNumber", col("translationStatus.summary.success"))
+      .select("successNumber")
+      .collect()
+    assert(result.head.getInt(0) === 2)
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    def prep(df: DataFrame) = {
+      df.select("translationStatus.summary.total")
+    }
+
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
+
+  override def testObjects(): Seq[TestObject[DocumentTranslator]] =
+    Seq(new TestObject(documentTranslator, docTranslationDf))
+
+  override def reader: MLReadable[_] = DocumentTranslator
 }
