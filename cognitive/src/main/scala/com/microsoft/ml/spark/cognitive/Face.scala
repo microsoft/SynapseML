@@ -63,9 +63,6 @@ class DetectFace(override val uid: String)
 
   override def responseDataType: DataType = ArrayType(Face.schema)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/detect")
-
   def urlPath: String = "/face/v1.0/detect"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
@@ -170,9 +167,6 @@ class FindSimilarFace(override val uid: String)
 
   override def responseDataType: DataType = ArrayType(FoundFace.schema)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/findsimilars")
-
   def urlPath: String = "/face/v1.0/findsimilars"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
@@ -203,9 +197,6 @@ class GroupFaces(override val uid: String)
 
   override def responseDataType: DataType = FaceGrouping.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/group")
-
   def urlPath: String = "/face/v1.0/group"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] =
@@ -235,8 +226,6 @@ class IdentifyFaces(override val uid: String)
     new ServiceParam[Int](this, "maxNumOfCandidatesReturned",
       "The range of maxNumOfCandidatesReturned is between 1 and 100 (default is 10).")
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/identify")
   val personGroupId = new ServiceParam[String](this,
     "personGroupId",
     "personGroupId of the target person group, created by PersonGroup - Create. " +
@@ -296,9 +285,6 @@ class VerifyFaces(override val uid: String)
 
   override def responseDataType: DataType =
     new StructType().add("isIdentical", BooleanType).add("confidence", DoubleType)
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/face/v1.0/verify")
 
   def urlPath: String = "/face/v1.0/verify"
 

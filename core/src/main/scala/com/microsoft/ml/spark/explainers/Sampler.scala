@@ -142,6 +142,21 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
     (newSample, Vectors.dense(newStates.toArray), distance)
   }
 
+  /**
+   * Create a sample that's identical to the instance, with states set to 1 for categorical vars
+   * and original value for numerical vars. Distance is set to 0.
+   */
+  def sampleIdentity: (Row, Vector, Double) = {
+    val (identityRow, identityState) = featureStats.zipWithIndex.map {
+      case (_: DiscreteFeatureStats[Any], i) =>
+        (instance.get(i), 1d)
+      case (_: ContinuousFeatureStats, i) =>
+        (instance.getAsDouble(i), instance.getAsDouble(i))
+    }.unzip
+
+    (Row.fromSeq(identityRow), Vectors.dense(identityState.toArray), 0d)
+  }
+
   override def nextState: Vector = {
     val states = featureStats.zipWithIndex.map {
       case (feature: DiscreteFeatureStats[Any], i) =>

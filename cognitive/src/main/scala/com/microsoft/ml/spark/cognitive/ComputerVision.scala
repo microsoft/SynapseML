@@ -188,9 +188,6 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("OCR"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
-
   def urlPath: String = "/vision/v2.0/ocr"
 
   override def responseDataType: DataType = OCRResponse.schema
@@ -317,9 +314,6 @@ class RecognizeText(override val uid: String)
 
   def setModeCol(v: String): this.type = setVectorParam(mode, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
-
   def urlPath: String = "/vision/v2.0/recognizeText"
 
   override protected def responseDataType: DataType = RTResponse.schema
@@ -365,9 +359,6 @@ class Read(override val uid: String)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v3.1/read/analyze")
-
   def urlPath: String = "/vision/v3.1/read/analyze"
 
   override protected def responseDataType: DataType = ReadResponse.schema
@@ -390,9 +381,6 @@ class GenerateThumbnails(override val uid: String)
   }
 
   override def responseDataType: DataType = BinaryType
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/generateThumbnail")
 
   def urlPath: String = "/vision/v2.0/generateThumbnail"
 }
@@ -462,9 +450,6 @@ class AnalyzeImage(override val uid: String)
 
   override def responseDataType: DataType = AIResponse.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
-
   def urlPath: String = "/vision/v2.0/analyze"
 }
 
@@ -506,9 +491,6 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   override def responseDataType: DataType = DSIRResponse.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0")
-
   def urlPath: String = "/vision/v2.0"
 
   override protected def prepareUrl: Row => String = { r => getUrl + s"/models/${getValue(r, model)}/analyze" }
@@ -524,9 +506,6 @@ class TagImage(override val uid: String)
   logClass()
 
   def this() = this(Identifiable.randomUID("TagImage"))
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/tag")
 
   def urlPath: String = "/vision/v2.0/tag"
 
@@ -557,9 +536,6 @@ class DescribeImage(override val uid: String)
   def this() = this(Identifiable.randomUID("DescribeImage"))
 
   override def responseDataType: DataType = DescribeImageResponse.schema
-
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/describe")
 
   def urlPath: String = "/vision/v2.0/describe"
 

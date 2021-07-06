@@ -205,7 +205,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
   protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
     new CustomInputParser().setNullableUDF(inputFunc(schema))
   }
-
 }
 
 trait HasInternalJsonOutputParser {
@@ -215,10 +214,13 @@ trait HasInternalJsonOutputParser {
   protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new JSONOutputParser().setDataType(responseDataType)
   }
-
 }
 
-trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey {
+trait HasUrlPath {
+  def urlPath: String
+}
+
+trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setLinkedService(self, value):
@@ -226,8 +228,6 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |    return self
       |""".stripMargin
   }
-
-  def urlPath: String
 
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.CognitiveServiceUtils"
@@ -241,7 +241,7 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
   }
 }
 
-trait HasSetLocation extends Wrappable {
+trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setLocation(self, value):
@@ -250,7 +250,9 @@ trait HasSetLocation extends Wrappable {
       |""".stripMargin
   }
 
-  def setLocation(v: String): this.type
+  def setLocation(v: String): this.type = {
+    setUrl(s"https://$v.api.cognitive.microsoft.com/" + urlPath)
+  }
 }
 
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
