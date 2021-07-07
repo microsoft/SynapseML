@@ -50,7 +50,7 @@ case class ADEntireResponse(isAnomaly: Seq[Boolean],
                             lowerMargins: Seq[Double]) {
 
   def explode: Seq[ADSingleResponse] = {
-    isAnomaly.indices.map {i =>
+    isAnomaly.indices.map { i =>
       ADSingleResponse(
         isAnomaly(i), isPositiveAnomaly(i), isNegativeAnomaly(i),
         period, expectedValues(i), upperMargins(i), lowerMargins(i)
