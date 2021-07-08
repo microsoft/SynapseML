@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2013 Thomas Rausch
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.rauschig</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>1</version>
+  </parent>
+
+  <groupId>org.rauschig</groupId>
+  <artifactId>jarchivelib</artifactId>
+  <version>0.7.1</version>
+
+  <packaging>bundle</packaging>
+
+  <name>Java archiving library</name>
+
+  <description>
+    A simple library that facades org.apache.commons.compress, to provide an easy-to-use API for archiving and
+    compressing into and out of File objects.
+  </description>
+
+  <inceptionYear>2013</inceptionYear>
+
+  <url>http://rauschig.org/jarchivelib</url>
+
+  <scm>
+    <url>https://github.com/thrau/jarchivelib</url>
+    <connection>scm:git:git://git@github.com:thrau/jarchivelib.git</connection>
+    <developerConnection>scm:git:git@github.com:thrau/jarchivelib.git</developerConnection>
+    <tag>v0.7.1</tag>
+  </scm>
+
+  <developers>
+    <developer>
+      <id>thrau</id>
+      <name>Thomas Rausch</name>
+      <email>thomas@rauschig.org</email>
+    </developer>
+  </developers>
+
+  <properties>
+    <commons.compress.version>1.9</commons.compress.version>
+    <xz.version>1.5</xz.version>
+    <junit.version>4.11</junit.version>
+
+    <bundle.name>${project.groupId} :: ${project.artifactId} :: ${project.name}</bundle.name>
+    <bundle.symbolicName>${project.groupId}.${project.artifactId}</bundle.symbolicName>
+    <bundle.namespace>${project.groupId}.${project.artifactId}</bundle.namespace>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+            <Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
+            <Bundle-Name>${bundle.name}</Bundle-Name>
+            <Bundle-Version>${project.version}</Bundle-Version>
+            <Export-Package>${bundle.namespace}.*;version="${project.version}"</Export-Package>
+          </instructions>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.6</source>
+          <target>1.6</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila.maven-license-plugin</groupId>
+        <artifactId>maven-license-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>src/test/resources/**</exclude>
+          </excludes>
+          <properties>
+            <name>Thomas Rausch</name>
+            <year>2013</year>
+          </properties>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
+      <version>${commons.compress.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.tukaani</groupId>
+      <artifactId>xz</artifactId>
+      <version>${xz.version}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- test dependencies -->
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>

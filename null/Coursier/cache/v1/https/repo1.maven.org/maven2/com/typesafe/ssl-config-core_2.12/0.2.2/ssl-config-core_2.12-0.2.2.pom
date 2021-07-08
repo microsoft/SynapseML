@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.typesafe</groupId>
+    <artifactId>ssl-config-core_2.12</artifactId>
+    <packaging>bundle</packaging>
+    <description>ssl-config-core</description>
+    <version>0.2.2</version>
+    <name>ssl-config-core</name>
+    <organization>
+        <name>com.typesafe</name>
+    </organization>
+    <url>https://github.com/typesafehub/ssl-config</url>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>git://github.com/typesafehub/ssl-config.git</url>
+        <connection>scm:git:git://github.com/typesafehub/ssl-config.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>wsargent</id>
+            <name>Will Sargent</name>
+            <url>https://tersesystems.com</url>
+        </developer>
+        <developer>
+            <id>ktoso</id>
+            <name>Konrad Malawski</name>
+            <url>https://project13.pl</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-parser-combinators_2.12</artifactId>
+            <version>1.0.4</version>
+        </dependency>
+    </dependencies>
+</project>

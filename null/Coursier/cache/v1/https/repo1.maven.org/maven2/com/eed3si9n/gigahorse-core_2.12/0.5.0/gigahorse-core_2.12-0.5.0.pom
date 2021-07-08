@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.eed3si9n</groupId>
+    <artifactId>gigahorse-core_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>An HTTP client for Scala with Async Http Client underneath.</description>
+    <url>https://github.com/eed3si9n/gigahorse</url>
+    <version>0.5.0</version>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>gigahorse-core</name>
+    <organization>
+        <name>eed3si9n</name>
+        <url>http://eed3si9n.com/</url>
+    </organization>
+    <scm>
+        <url>https://github.com/eed3si9n/gigahorse</url>
+        <connection>git@github.com:eed3si9n/gigahorse.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <email>@eed3si9n</email>
+            <url>https://github.com/eed3si9n</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.8</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>ssl-config-core_2.12</artifactId>
+            <version>0.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+            <version>1.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.26</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.12</artifactId>
+            <version>3.0.8</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

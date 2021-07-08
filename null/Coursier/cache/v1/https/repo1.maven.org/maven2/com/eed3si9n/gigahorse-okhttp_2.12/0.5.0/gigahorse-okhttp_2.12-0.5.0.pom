@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.eed3si9n</groupId>
+    <artifactId>gigahorse-okhttp_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>An HTTP client for Scala with Async Http Client underneath.</description>
+    <url>https://github.com/eed3si9n/gigahorse</url>
+    <version>0.5.0</version>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>gigahorse-okhttp</name>
+    <organization>
+        <name>eed3si9n</name>
+        <url>http://eed3si9n.com/</url>
+    </organization>
+    <scm>
+        <url>https://github.com/eed3si9n/gigahorse</url>
+        <connection>git@github.com:eed3si9n/gigahorse.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <email>@eed3si9n</email>
+            <url>https://github.com/eed3si9n</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.8</version>
+        </dependency>
+        <dependency>
+            <groupId>com.eed3si9n</groupId>
+            <artifactId>gigahorse-core_2.12</artifactId>
+            <version>0.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.eed3si9n</groupId>
+            <artifactId>commontest_2.12</artifactId>
+            <version>0.5.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.14.2</version>
+        </dependency>
+    </dependencies>
+</project>

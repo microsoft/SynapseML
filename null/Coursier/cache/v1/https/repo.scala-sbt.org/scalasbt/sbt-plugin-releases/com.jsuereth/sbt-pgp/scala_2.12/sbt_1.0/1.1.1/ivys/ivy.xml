@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+	<info organisation="com.jsuereth" module="sbt-pgp" revision="1.1.1" status="release" publication="20180305002434" e:sbtVersion="1.0" e:scalaVersion="2.12">
+		<description>
+		sbt-pgp
+		</description>
+	</info>
+	<configurations>
+		<conf name="compile" visibility="public" description=""/>
+		<conf name="runtime" visibility="public" description="" extends="compile"/>
+		<conf name="test" visibility="public" description="" extends="runtime"/>
+		<conf name="provided" visibility="public" description=""/>
+		<conf name="optional" visibility="public" description=""/>
+		
+		
+		
+		
+		<conf name="sources" visibility="public" description=""/>
+		<conf name="docs" visibility="public" description=""/>
+		<conf name="pom" visibility="public" description=""/>
+		
+		
+		
+	</configurations>
+	<publications>
+		<artifact name="sbt-pgp" type="jar" ext="jar" conf="compile"/>
+		<artifact name="sbt-pgp" type="src" ext="jar" conf="sources" e:classifier="sources"/>
+		<artifact name="sbt-pgp" type="doc" ext="jar" conf="docs" e:classifier="javadoc"/>
+	</publications>
+	<dependencies>
+		
+		<dependency org="org.scala-lang" name="scala-library" rev="2.12.4" conf="provided->default(compile)"/>
+		<dependency org="org.scala-sbt" name="sbt" rev="1.1.1" conf="provided->default(compile)"/>
+		<dependency org="com.jsuereth" name="pgp-library_2.12" rev="1.1.1" conf="compile->default(compile)"/>
+		<dependency org="com.eed3si9n" name="gigahorse-okhttp_2.12" rev="0.3.0" conf="compile->default(compile)"/>
+		
+		
+	</dependencies>
+</ivy-module>

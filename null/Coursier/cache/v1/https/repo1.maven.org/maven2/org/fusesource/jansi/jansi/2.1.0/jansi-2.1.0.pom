@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (C) 2009-2017 the original author(s).
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.fusesource</groupId>
+        <artifactId>fusesource-pom</artifactId>
+        <version>1.12</version>
+    </parent>
+
+    <groupId>org.fusesource.jansi</groupId>
+    <artifactId>jansi</artifactId>
+    <version>2.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>Jansi is a java library for generating and interpreting ANSI escape sequences.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <slf4j-version>1.6.1</slf4j-version>
+    </properties>
+
+    <url>http://fusesource.github.io/jansi</url>
+    <inceptionYear>2009</inceptionYear>
+
+    <issueManagement>
+        <system>jira</system>
+        <url>https://github.com/fusesource/jansi/issues</url>
+    </issueManagement>
+
+    <mailingLists>
+        <mailingList>
+            <name>Discussion List</name>
+            <archive>http://groups.google.com/group/jansi</archive>
+            <post>jansi-dev@googlegroups.com</post>
+            <subscribe>jansi-dev+subscribe@googlegroups.com</subscribe>
+            <unsubscribe>jansi-dev+unsubscribe@googlegroups.com</unsubscribe>
+        </mailingList>
+        <mailingList>
+            <name>Commits and Issue Tracker List</name>
+            <archive>http://groups.google.com/group/jansi-commits</archive>
+            <post>jansi-commits@googlegroups.com</post>
+            <subscribe>jansi-commits+subscribe@googlegroups.com</subscribe>
+            <unsubscribe>jansi-commisots+unsubscribe@googlegroups.com</unsubscribe>
+        </mailingList>
+    </mailingLists>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <connection>scm:git:https://github.com/fusesource/jansi.git</connection>
+        <developerConnection>scm:git:https://github.com/fusesource/jansi.git</developerConnection>
+        <url>https://github.com/fusesource/jansi/tree/${project.scm.tag}</url>
+        <tag>jansi-2.1.0</tag>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>sonatype-nexus-staging</id>
+            <name>Sonatype Staging Repository</name>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+        <snapshotRepository>
+            <id>sonatype-nexus-snapshots</id>
+            <name>Sonatype Snapshot Repository</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>sonatype-nexus-snapshots</id>
+            <name>Sonatype Snapshot Repository</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <developers>
+        <developer>
+            <id>chirino</id>
+            <name>Hiram Chirino</name>
+            <email>hiram@hiramchirino.com</email>
+            <url>http://hiramchirino.com</url>
+            <timezone>GMT-5</timezone>
+        </developer>
+        <developer>
+            <id>gnodet</id>
+            <name>Guillaume Nodet</name>
+            <email>gnodet@gmail.com</email>
+            <timezone>GMT+1</timezone>
+        </developer>
+    </developers>
+
+    <build>
+        <extensions>
+            <extension>
+                <groupId>org.fusesource.mvnplugins</groupId>
+                <artifactId>fuse-jxr-skin</artifactId>
+                <version>1.9</version>
+            </extension>
+        </extensions>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>**/*.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>**/*.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <!-- parent pom 1.11 forces version instead of using property -->
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <version>5.1.1</version>
+                <executions>
+                    <execution>
+                        <id>bundle-manifest</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                        <configuration>
+                            <instructions>
+                                <Main-Class>org.fusesource.jansi.AnsiMain</Main-Class>
+                                <Export-Package>
+                                    org.fusesource.jansi;
+                                    org.fusesource.jansi.internal;
+                                    -noimport:=true
+                                </Export-Package>
+                            </instructions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>generate-graalvm-info</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <includeProjectDependencies>true</includeProjectDependencies>
+                            <classpathScope>test</classpathScope>
+                            <executableDependency>
+                                <groupId>info.picocli</groupId>
+                                <artifactId>picocli-codegen</artifactId>
+                            </executableDependency>
+                            <mainClass>picocli.codegen.aot.graalvm.JniConfigGenerator</mainClass>
+                            <arguments>
+                                <argument>org.fusesource.jansi.internal.CLibrary</argument>
+                                <argument>org.fusesource.jansi.internal.Kernel32</argument>
+                                <argument>-o=target/classes/META-INF/native-image/jansi/jni-config.json</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>info.picocli</groupId>
+                        <artifactId>picocli-codegen</artifactId>
+                        <version>4.5.2</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M5</version>
+                <configuration>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>org.fusesource.jansi</Automatic-Module-Name>
+                        </manifestEntries>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <doctitle>${project.name} API Reference (${project.version})</doctitle>
+                    <windowtitle>${project.name} API Reference (${project.version})</windowtitle>
+                    <locale>en_US</locale>
+                    <linksource>true</linksource>
+                    <excludePackageNames>*.internal</excludePackageNames>
+                    <notimestamp>true</notimestamp>
+                    <quiet>true</quiet>
+                    <docencoding>UTF-8</docencoding>
+                    <version>false</version>
+                    <author>true</author>
+                    <keywords>true</keywords>
+                    <source>6</source>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.0.0-M1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>3.0.0-M1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.8</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.7.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli-codegen</artifactId>
+            <version>4.5.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -1,0 +1,59 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.eed3si9n</groupId>
+    <artifactId>shaded-scalajson_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>shaded-scalajson</description>
+    <url>https://github.com/mdedetrich/scalajson</url>
+    <version>1.0.0-M4</version>
+    <licenses>
+        <license>
+            <name>BSD 3 Clause</name>
+            <url>https://opensource.org/licenses/BSD-3-Clause</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>shaded-scalajson</name>
+    <organization>
+        <name>com.eed3si9n</name>
+        <url>https://github.com/mdedetrich/scalajson</url>
+    </organization>
+    <scm>
+        <url>https://github.com/mdedetrich/scalajson</url>
+        <connection>git@github.com:mdedetrich/scalajson.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>mdedetrich</id>
+            <name>Matthew de Detrich</name>
+            <email>mdedetrich@gmail.com</email>
+            <url>https://github.com/mdedetrich</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-core_2.12</artifactId>
+            <version>3.9.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-scalacheck_2.12</artifactId>
+            <version>3.9.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalacheck</groupId>
+            <artifactId>scalacheck_2.12</artifactId>
+            <version>1.13.4</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

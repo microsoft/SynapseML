@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.swoval</groupId>
+    <artifactId>file-tree-views</artifactId>
+    <packaging>jar</packaging>
+    <description>File system apis.</description>
+    <url>https://github.com/swoval/swoval</url>
+    <version>2.1.6</version>
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>file-tree-views</name>
+    <organization>
+        <name>com.swoval</name>
+        <url>https://github.com/swoval/swoval</url>
+    </organization>
+    <scm>
+        <url>https://github.com/swoval/swoval</url>
+        <connection>git@github.com:swoval/swoval.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>username</id>
+            <name>Ethan Atkins</name>
+            <url>https://github.com/eatkins</url>
+            <email>ethan.atkins@gmail.com</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>com.swoval</groupId>
+            <artifactId>testing_2.12</artifactId>
+            <version>2.1.6</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.lihaoyi</groupId>
+            <artifactId>utest_2.12</artifactId>
+            <version>0.6.4</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

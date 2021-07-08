@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+  
+  http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  
+  <parent>
+    <groupId>org.fusesource</groupId>
+    <artifactId>fusesource-pom</artifactId>
+    <version>1.9</version>
+  </parent>
+  
+  <groupId>org.fusesource.hawtbuf</groupId>
+  <artifactId>hawtbuf-project</artifactId>
+  <version>1.9</version>
+  <packaging>pom</packaging>
+  
+  <name>${project.artifactId}</name>
+
+  <description>HawtBuf: a rich byte buffer library</description>
+
+  <properties>
+    <forge-project-id>hawtbuf</forge-project-id>
+    <forge-project-id-uc>HAWTBUF</forge-project-id-uc>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <commons-logging-version>1.1</commons-logging-version>
+    <junit-version>4.7</junit-version>
+    <log4j-version>1.2.14</log4j-version>
+    <jaxb-api-version>2.1</jaxb-api-version>
+    <jaxb-version>2.1.6</jaxb-version>
+    <xjc-version>2.1.10.1</xjc-version>
+    <hawtbuf.osgi.import>*</hawtbuf.osgi.import>
+    <hawtbuf.osgi.private>!*</hawtbuf.osgi.private>
+  </properties>
+  
+  <modules>
+    <module>hawtbuf</module>
+    <module>hawtbuf-proto</module>
+    <module>hawtbuf-protoc</module>
+  </modules>
+  
+  <url>http://${forge-project-id}.fusesource.org</url>
+  <inceptionYear>2010</inceptionYear>
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  
+  <developers>
+    <developer>
+      <id>chirino</id>
+      <name>Hiram Chirino</name>
+      <email>hiram@hiramchirino.com</email>
+      <url>http://hiramchirino.com</url>
+      <timezone>GMT-5</timezone>
+    </developer>
+  </developers>
+  
+  <mailingLists>
+    <mailingList>
+      <name>${forge-project-id} dev</name>
+      <post>${forge-project-id}-dev@fusesource.org</post>
+      <subscribe>${forge-project-id}-dev-subscribe@fusesource.org</subscribe>
+    </mailingList>
+    <mailingList>
+      <name>${forge-project-id} commits</name>
+      <post>${forge-project-id}-commits@fusesource.org</post>
+      <subscribe>${forge-project-id}-commits-subscribe@fusesource.org</subscribe>
+    </mailingList>
+  </mailingLists>
+  
+  <issueManagement>
+    <system>jira</system>
+    <url>http://fusesource.com/issues/browse/${forge-project-id-uc}</url>
+  </issueManagement>
+  <scm>
+    <connection>scm:git:git://forge.fusesource.com/${forge-project-id}.git</connection>
+    <developerConnection>scm:git:ssh://git@forge.fusesource.com/${forge-project-id}.git</developerConnection>
+    <url>http://fusesource.com/forge/gitweb?p=${forge-project-id}.git</url>
+  </scm>
+  <distributionManagement>
+    <site>
+      <id>website.fusesource.org</id>
+      <name>website</name>
+      <url>dav:http://fusesource.com/forge/dav/${forge-project-id}/maven/${project.version}</url>
+    </site>
+  </distributionManagement> 
+
+  <prerequisites>
+    <maven>2.0.10</maven>
+  </prerequisites>
+
+  <build>
+    <defaultGoal>install</defaultGoal>
+    <plugins>
+      
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>2.3.4</version>
+        <extensions>true</extensions>
+        <inherited>true</inherited>
+        <configuration>
+          <instructions>
+            <Implementation-Title>${project.description}</Implementation-Title>
+            <Implementation-Version>${project.version}</Implementation-Version>
+            <Bundle-Name>${project.artifactId}</Bundle-Name>
+            <Bundle-SymbolicName>${project.groupId}.${project.artifactId}</Bundle-SymbolicName>
+            <Export-Package>{local-packages};version=${project.version};-noimport:=true</Export-Package>
+            <Import-Package>${hawtbuf.osgi.import}</Import-Package>
+            <Private-Package>${hawtbuf.osgi.private}</Private-Package>
+            <DynamicImport-Package>${hawtbuf.osgi.dynamic}</DynamicImport-Package>
+            <_versionpolicy-impl>[$(version;==;$(@)),$(version;=+;$(@)))</_versionpolicy-impl>
+            <_versionpolicy-uses>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy-uses>
+            <_versionpolicy>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy>
+            <_failok>false</_failok>
+          </instructions>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.5</version>
+        <configuration>
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <forkMode>once</forkMode>
+          <argLine>-ea</argLine>
+          <failIfNoTests>false</failIfNoTests>
+          <workingDirectory>${project.build.directory}</workingDirectory>
+          <includes>
+            <include>**/*Test.java</include>
+          </includes>
+          <excludes>
+            <!-- <exclude>**/**</exclude> -->
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>2.1</version>
+        <configuration>
+          <source>1.5</source>
+          <target>1.5</target>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-idea-plugin</artifactId>
+        <version>2.2</version>
+        <configuration>
+          <downloadSources>true</downloadSources>
+          <downloadJavadocs>true</downloadJavadocs>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-eclipse-plugin</artifactId>
+        <version>2.5.1</version>
+        <configuration>
+          <downloadSources>true</downloadSources>
+          <downloadJavadocs>true</downloadJavadocs>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
+  
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jxr-plugin</artifactId>
+        <version>2.2</version>
+        <configuration>
+          <aggregate>true</aggregate>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.7</version>
+        <configuration>
+          <excludePackageNames>*.internal</excludePackageNames>
+          <linksource>true</linksource>
+          <links>
+            <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
+          </links>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>2.1.1</version>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>index</report>
+              <report>sumary</report>
+              <report>plugins</report>
+              <report>dependencies</report>
+              <report>mailing-list</report>
+              <report>issue-tracking</report>
+              <report>license</report>
+              <report>scm</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-report-plugin</artifactId>
+        <version>2.5</version>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>report-only</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>2.1.1</version>
+        <configuration>
+          <generateSitemap>true</generateSitemap>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
+  
+
+  <profiles>
+
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>2.2-beta-4</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <tarLongFileMode>gnu</tarLongFileMode>
+                  <runOnlyAtExecutionRoot>true</runOnlyAtExecutionRoot>
+                  <descriptorRefs>
+                    <descriptorRef>
+                      source-release
+                    </descriptorRef>
+                  </descriptorRefs>
+                </configuration>
+              </execution>
+            </executions>
+            <dependencies>
+              <dependency>
+                <!-- apache version not yet released -->
+                <!--<groupId>org.apache</groupId>-->
+                <groupId>org.apache.geronimo.genesis</groupId>
+                <artifactId>apache-source-release-assembly-descriptor</artifactId>
+                <!-- apache version not yet known -->
+                <version>2.0</version>
+              </dependency>
+            </dependencies>
+          </plugin>
+
+        </plugins>
+      </build>
+    </profile>
+    
+    <!--
+      Enables a couple repositories that may be needed if some dependencies have not been replicated 
+      to maven central yet.
+    -->
+    <profile>
+      <id>download</id>
+
+      <repositories>
+        <repository>
+          <id>java.net</id>
+          <url>http://download.java.net/maven/2</url>
+        </repository>
+      </repositories>
+    </profile>
+        
+  </profiles>
+  
+</project>

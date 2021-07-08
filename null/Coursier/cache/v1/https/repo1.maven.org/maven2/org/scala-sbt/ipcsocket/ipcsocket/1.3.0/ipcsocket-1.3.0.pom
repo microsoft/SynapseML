@@ -1,0 +1,52 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scala-sbt.ipcsocket</groupId>
+    <artifactId>ipcsocket</artifactId>
+    <packaging>jar</packaging>
+    <description>IPC: Unix Domain Socket and Windows Named Pipes for Java</description>
+    <url>https://github.com/sbt/ipcsocket</url>
+    <version>1.3.0</version>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>ipcsocket</name>
+    <organization>
+        <name>sbt</name>
+        <url>http://scala-sbt.org/</url>
+    </organization>
+    <scm>
+        <url>https://github.com/sbt/ipcsocket</url>
+        <connection>git@github.com:sbt/ipcsocket.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <url>https://github.com/eed3si9n</url>
+            <email>@eed3si9n</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>5.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.novocode</groupId>
+            <artifactId>junit-interface</artifactId>
+            <version>0.11</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

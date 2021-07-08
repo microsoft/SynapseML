@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scalariform</groupId>
+    <artifactId>scalariform_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>scalariform</description>
+    <version>0.2.0</version>
+    <name>scalariform</name>
+    <organization>
+        <name>org.scalariform</name>
+    </organization>
+    <inceptionYear>2010</inceptionYear>
+    <url>https://github.com/scala-ide/scalariform</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>git@github.com:scala-ide/scalariform.git</url>
+        <connection>scm:git:git@github.com:scala-ide/scalariform</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>scala-ide</id>
+            <name>Scala IDE</name>
+            <url>https://github.com/scala-ide/</url>
+        </developer>
+        <developer>
+            <id>mdr</id>
+            <name>Matt Russell</name>
+            <url>https://github.com/mdr/</url>
+        </developer>
+        <developer>
+            <id>daniel-trinh</id>
+            <name>Daniel Trinh</name>
+            <url>https://github.com/daniel-trinh/</url>
+        </developer>
+        <developer>
+            <id>machaval</id>
+            <name>Mariano de Achaval</name>
+            <url>https://github.com/machaval/</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-xml_2.12</artifactId>
+            <version>1.0.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-parser-combinators_2.12</artifactId>
+            <version>1.0.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.12</artifactId>
+            <version>3.0.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

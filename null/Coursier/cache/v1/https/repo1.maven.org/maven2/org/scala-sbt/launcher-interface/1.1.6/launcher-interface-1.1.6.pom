@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scala-sbt</groupId>
+    <artifactId>launcher-interface</artifactId>
+    <packaging>jar</packaging>
+    <description>Interfaces for launching projects with the sbt launcher</description>
+    <url>https://scala-sbt.org</url>
+    <version>1.1.6</version>
+    <licenses>
+        <license>
+            <name>BSD New</name>
+            <url>https://github.com/sbt/sbt/blob/0.13/LICENSE</url>
+            <distribution>repo</distribution>
+        </license>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>Launcher Interface</name>
+    <organization>
+        <name>org.scala-sbt</name>
+        <url>https://scala-sbt.org</url>
+    </organization>
+    <scm>
+        <url>https://github.com/sbt/launcher</url>
+        <connection>scm:git@github.com:sbt/launcher.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <email>@eed3si9n</email>
+            <url>https://github.com/eed3si9n</url>
+        </developer>
+        <developer>
+            <id>jsuereth</id>
+            <name>Josh Suereth</name>
+            <email>@jsuereth</email>
+            <url>https://github.com/jsuereth</url>
+        </developer>
+        <developer>
+            <id>dwijnand</id>
+            <name>Dale Wijnand</name>
+            <email>@dwijnand</email>
+            <url>https://github.com/dwijnand</url>
+        </developer>
+    </developers>
+</project>

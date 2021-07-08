@@ -1,0 +1,94 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scala-sbt</groupId>
+    <artifactId>util-interface</artifactId>
+    <packaging>jar</packaging>
+    <description>sbt is an interactive build tool</description>
+    <url>https://github.com/sbt/sbt</url>
+    <version>1.4.0</version>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://github.com/sbt/sbt/blob/develop/LICENSE</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>Util Interface</name>
+    <organization>
+        <name>org.scala-sbt</name>
+        <url>https://github.com/sbt/sbt</url>
+    </organization>
+    <scm>
+        <url>https://github.com/sbt/sbt</url>
+        <connection>git@github.com:sbt/sbt.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>harrah</id>
+            <name>Mark Harrah</name>
+            <url>https://github.com/harrah</url>
+            <email>@harrah</email>
+        </developer>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <url>https://github.com/eed3si9n</url>
+            <email>@eed3si9n</email>
+        </developer>
+        <developer>
+            <id>jsuereth</id>
+            <name>Josh Suereth</name>
+            <url>https://github.com/jsuereth</url>
+            <email>@jsuereth</email>
+        </developer>
+        <developer>
+            <id>dwijnand</id>
+            <name>Dale Wijnand</name>
+            <url>https://github.com/dwijnand</url>
+            <email>@dwijnand</email>
+        </developer>
+        <developer>
+            <id>eatkins</id>
+            <name>Ethan Atkins</name>
+            <url>https://github.com/eatkins</url>
+            <email>@eatkins</email>
+        </developer>
+        <developer>
+            <id>gkossakowski</id>
+            <name>Grzegorz Kossakowski</name>
+            <url>https://github.com/gkossakowski</url>
+            <email>@gkossakowski</email>
+        </developer>
+        <developer>
+            <id>Duhemm</id>
+            <name>Martin Duhem</name>
+            <url>https://github.com/Duhemm</url>
+            <email>@Duhemm</email>
+        </developer>
+    </developers>
+    <properties>
+        <info.versionScheme>early-semver</info.versionScheme>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.13.3</version>
+        </dependency>
+    </dependencies>
+    <repositories>
+        <repository>
+            <id>bintraysbtmavenreleases</id>
+            <name>bintray-sbt-maven-releases</name>
+            <url>https://dl.bintray.com/sbt/maven-releases/</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>sonatypesnapshots</id>
+            <name>sonatype-snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <layout>default</layout>
+        </repository>
+    </repositories>
+</project>

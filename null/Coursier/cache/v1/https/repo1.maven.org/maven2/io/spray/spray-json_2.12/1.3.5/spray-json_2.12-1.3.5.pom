@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.spray</groupId>
+    <artifactId>spray-json_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>A Scala library for easy and idiomatic JSON (de)serialization</description>
+    <url>https://github.com/spray/spray-json</url>
+    <version>1.3.5</version>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>spray-json</name>
+    <inceptionYear>2011</inceptionYear>
+    <organization>
+        <name>io.spray</name>
+        <url>http://spray.io</url>
+    </organization>
+    <scm>
+        <url>git://github.com/spray/spray.git</url>
+        <connection>scm:git:git@github.com:spray/spray.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>sirthias</id>
+            <name>Mathias Doenitz</name>
+        </developer>
+        <developer>
+            <id>jrudolph</id>
+            <name>Johannes Rudolph</name>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-core_2.12</artifactId>
+            <version>4.3.5</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-scalacheck_2.12</artifactId>
+            <version>4.3.5</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalacheck</groupId>
+            <artifactId>scalacheck_2.12</artifactId>
+            <version>1.14.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

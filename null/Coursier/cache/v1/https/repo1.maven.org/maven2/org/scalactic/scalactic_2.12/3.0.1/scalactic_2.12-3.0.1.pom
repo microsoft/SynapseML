@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scalactic</groupId>
+    <artifactId>scalactic_2.12</artifactId>
+    <packaging>bundle</packaging>
+    <description>scalactic</description>
+    <version>3.0.1</version>
+    <name>scalactic</name>
+    <organization>
+        <name>org.scalactic</name>
+    </organization>
+    <url>http://www.scalatest.org</url>
+    <licenses>
+        <license>
+            <name>the Apache License, ASL Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>https://github.com/scalatest/scalatest</url>
+        <connection>scm:git:git@github.com:scalatest/scalatest.git</connection>
+        <developerConnection> scm:git:git@github.com:scalatest/scalatest.git </developerConnection>
+    </scm>
+    <developers>
+        <developer>
+            <id>bvenners</id>
+            <name>Bill Venners</name>
+            <email>bill@artima.com</email>
+        </developer>
+        <developer>
+            <id>gcberger</id>
+            <name>George Berger</name>
+            <email>george.berger@gmail.com</email>
+        </developer>
+        <developer>
+            <id>cheeseng</id>
+            <name>Chua Chee Seng</name>
+            <email>cheeseng@amaseng.com</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-compiler</artifactId>
+            <version>2.12.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-reflect</artifactId>
+            <version>2.12.0</version>
+        </dependency>
+    </dependencies>
+</project>

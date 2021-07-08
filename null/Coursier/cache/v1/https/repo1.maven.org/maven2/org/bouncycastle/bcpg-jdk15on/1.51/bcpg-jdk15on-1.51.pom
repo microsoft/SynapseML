@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.bouncycastle</groupId>
+  <artifactId>bcpg-jdk15on</artifactId>
+  <packaging>jar</packaging>
+  <name>Bouncy Castle OpenPGP API</name>
+  <version>1.51</version>
+  <description>The Bouncy Castle Java API for handling the OpenPGP protocol. This jar contains the OpenPGP API for JDK 1.5 to JDK 1.8. The APIs can be used in conjunction with a JCE/JCA provider such as the one provided with the Bouncy Castle Cryptography APIs.</description>
+  <url>http://www.bouncycastle.org/java.html</url>
+  <licenses>
+    <license>
+      <name>Bouncy Castle Licence</name>
+      <url>http://www.bouncycastle.org/licence.html</url>
+      <distribution>repo</distribution>
+    </license>
+    <license>
+      <name>Apache Software License, Version 1.1</name>
+      <url>http://www.apache.org/licenses/LICENSE-1.1</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/bcgit/bc-java</url>
+  </scm>
+  <issueManagement>
+     <system>JIRA</system>
+     <url>http://www.bouncycastle.org/jira/secure/Dashboard.jspa</url>
+  </issueManagement>
+  <developers>
+    <developer>
+      <id>feedback-crypto</id>
+      <name>The Legion of the Bouncy Castle</name>
+      <email>feedback-crypto@bouncycastle.org</email>
+    </developer>
+  </developers>
+  <dependencies>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk15on</artifactId>
+      <version>1.51</version>
+      <type>jar</type>
+    </dependency>
+  </dependencies>
+</project>

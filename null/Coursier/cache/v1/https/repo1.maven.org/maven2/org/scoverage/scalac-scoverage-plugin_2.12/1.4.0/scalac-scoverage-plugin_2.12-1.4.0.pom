@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scoverage</groupId>
+    <artifactId>scalac-scoverage-plugin_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>scalac-scoverage-plugin</description>
+    <version>1.4.0</version>
+    <name>scalac-scoverage-plugin</name>
+    <organization>
+        <name>org.scoverage</name>
+    </organization>
+    <url>https://github.com/scoverage/scalac-scoverage-plugin</url>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>git@github.com:scoverage/scalac-scoverage-plugin.git</url>
+        <connection>scm:git@github.com:scoverage/scalac-scoverage-plugin.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>sksamuel</id>
+            <name>Stephen Samuel</name>
+            <url>http://github.com/sksamuel</url>
+        </developer>
+        <developer>
+            <id>gslowikowski</id>
+            <name>Grzegorz Slowikowski</name>
+            <url>http://github.com/gslowikowski</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-compiler</artifactId>
+            <version>2.12.8</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scoverage</groupId>
+            <artifactId>scalac-scoverage-runtime_2.12</artifactId>
+            <version>1.4.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.12</artifactId>
+            <version>3.0.8</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-xml_2.12</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+    </dependencies>
+</project>

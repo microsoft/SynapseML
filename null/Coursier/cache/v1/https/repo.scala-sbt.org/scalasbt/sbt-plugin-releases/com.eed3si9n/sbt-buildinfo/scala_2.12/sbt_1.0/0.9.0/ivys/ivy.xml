@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+	<info organisation="com.eed3si9n" module="sbt-buildinfo" revision="0.9.0" status="release" publication="20180416141242" e:sbtVersion="1.0" e:scalaVersion="2.12">
+		<license name="MIT License" url="https://github.com/sbt/sbt-buildinfo/blob/master/LICENSE"/>
+		<description>
+		sbt plugin to generate build info
+		</description>
+	</info>
+	<configurations>
+		<conf name="compile" visibility="public" description=""/>
+		<conf name="runtime" visibility="public" description="" extends="compile"/>
+		<conf name="test" visibility="public" description="" extends="runtime"/>
+		<conf name="provided" visibility="public" description=""/>
+		<conf name="optional" visibility="public" description=""/>
+		<conf name="compile-internal" visibility="private" description="" extends="compile,optional,provided"/>
+		<conf name="runtime-internal" visibility="private" description="" extends="runtime,optional"/>
+		<conf name="test-internal" visibility="private" description="" extends="test,optional,provided"/>
+		<conf name="plugin" visibility="private" description=""/>
+		<conf name="pom" visibility="public" description=""/>
+		<conf name="scala-tool" visibility="private" description=""/>
+		<conf name="scripted-sbt" visibility="private" description=""/>
+		<conf name="scripted-sbt-launch" visibility="private" description=""/>
+	</configurations>
+	<publications>
+		<artifact name="sbt-buildinfo" type="jar" ext="jar" conf="compile"/>
+		<artifact name="sbt-buildinfo" type="src" ext="jar" conf="compile" e:classifier="sources"/>
+		<artifact name="sbt-buildinfo" type="doc" ext="jar" conf="compile" e:classifier="javadoc"/>
+	</publications>
+	<dependencies>
+		<dependency org="org.scala-lang" name="scala-compiler" rev="2.12.4" conf="scala-tool->default,optional(default)"/>
+		<dependency org="org.scala-lang" name="scala-library" rev="2.12.4" conf="scala-tool->default,optional(default);provided->default(compile)"/>
+		<dependency org="org.scala-sbt" name="sbt" rev="1.1.1" conf="provided->default(compile)"/>
+		<dependency org="org.scala-sbt" name="scripted-sbt_2.12" rev="1.1.1" conf="scripted-sbt->default(compile)"/>
+		<dependency org="org.scala-sbt" name="sbt-launch" rev="1.1.1" conf="scripted-sbt-launch->default(compile)"/>
+		<dependency org="org.scala-lang" name="scala-reflect" rev="2.12.4" conf="provided->default(compile)"/>
+	</dependencies>
+</ivy-module>

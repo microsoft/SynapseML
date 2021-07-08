@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2002-2020, the original author or authors.
+
+    This software is distributable under the BSD license. See the terms of the
+    BSD license in the documentation provided with this software.
+
+    https://opensource.org/licenses/BSD-3-Clause
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.jline</groupId>
+        <artifactId>jline-parent</artifactId>
+        <version>3.19.0</version>
+    </parent>
+
+    <artifactId>jline-builtins</artifactId>
+    <name>JLine Builtins</name>
+
+    <properties>
+        <automatic.module.name>org.jline.builtins</automatic.module.name>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-reader</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-style</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.googlecode.juniversalchardet</groupId>
+            <artifactId>juniversalchardet</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <showWarnings>true</showWarnings>
+                    <fork>true</fork>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <includes>
+                                <include>**/ConsoleEngineImpl.java</include>
+                                <include>**/TTop.java</include>
+                            </includes>
+                            <compilerArgs>
+                                <arg>-Xlint:all,-options</arg>
+                                <arg>-Werror</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compact</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/ConsoleEngineImpl.java</exclude>
+                                <exclude>**/TTop.java</exclude>
+                            </excludes>
+                            <compilerArgs>
+                                <arg>-Xlint:all,-options</arg>
+                                <arg>-Werror</arg>
+                                <arg>-profile</arg>
+                                <arg>compact1</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,72 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.scala-sbt</groupId>
+    <artifactId>sbinary_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>Library for describing binary formats for Scala types</description>
+    <url>https://github.com/sbt/sbinary</url>
+    <version>0.5.1</version>
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://github.com/sbt/sbinary/blob/master/LICENSE</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>SBinary</name>
+    <organization>
+        <name>org.scala-sbt</name>
+        <url>http://scala-sbt.org/</url>
+    </organization>
+    <scm>
+        <url>https://github.com/sbt/sbinary</url>
+        <connection>git@github.com:sbt/sbinary.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>drmaciver</id>
+            <name>David R. MacIver</name>
+            <url>https://github.com/DRMacIver</url>
+            <email>@drmaciver</email>
+        </developer>
+        <developer>
+            <id>harrah</id>
+            <name>Mark Harrah</name>
+            <url>https://github.com/harrah</url>
+            <email>@harrah</email>
+        </developer>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <url>https://github.com/eed3si9n</url>
+            <email>@eed3si9n</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalacheck</groupId>
+            <artifactId>scalacheck_2.12</artifactId>
+            <version>1.14.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-xml_2.12</artifactId>
+            <version>1.0.6</version>
+        </dependency>
+    </dependencies>
+    <repositories>
+        <repository>
+            <id>bintraysbtmavenreleases</id>
+            <name>bintray-sbt-maven-releases</name>
+            <url>https://dl.bintray.com/sbt/maven-releases/</url>
+            <layout>default</layout>
+        </repository>
+    </repositories>
+</project>

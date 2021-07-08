@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.eed3si9n</groupId>
+    <artifactId>sjson-new-core_2.12</artifactId>
+    <packaging>jar</packaging>
+    <description>A Scala library for JSON (de)serialization</description>
+    <url>https://github.com/eed3si9n/sjson-new</url>
+    <version>0.9.0</version>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>sjson new core</name>
+    <organization>
+        <name>eed3si9n</name>
+        <url>http://eed3si9n.com/</url>
+    </organization>
+    <scm>
+        <url>https://github.com/eed3si9n/sjson-new</url>
+        <connection>git@github.com:eed3si9n/sjson-new.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>eed3si9n</id>
+            <name>Eugene Yokota</name>
+            <url>https://github.com/eed3si9n</url>
+            <email>@eed3si9n</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.12.11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-core_2.12</artifactId>
+            <version>4.5.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-scalacheck_2.12</artifactId>
+            <version>4.5.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalacheck</groupId>
+            <artifactId>scalacheck_2.12</artifactId>
+            <version>1.14.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.12</artifactId>
+            <version>3.0.8</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

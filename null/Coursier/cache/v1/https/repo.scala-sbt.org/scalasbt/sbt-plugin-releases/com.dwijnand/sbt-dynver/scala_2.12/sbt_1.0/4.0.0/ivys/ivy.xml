@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+  <info organisation="com.dwijnand" module="sbt-dynver" revision="4.0.0" status="release" publication="20190618104920" e:sbtVersion="1.0" e:scalaVersion="2.12">
+    <description/>
+  </info>
+  <configurations>
+    <conf name="plugin" visibility="public" description=""/>
+    <conf name="pom" visibility="public" description=""/>
+    <conf extends="runtime" name="test" visibility="public" description=""/>
+    <conf name="provided" visibility="public" description=""/>
+    <conf extends="compile,optional,provided" name="compile-internal" visibility="public" description=""/>
+    <conf name="scripted-sbt" visibility="public" description=""/>
+    <conf name="docs" visibility="public" description=""/>
+    <conf name="optional" visibility="public" description=""/>
+    <conf name="compile" visibility="public" description=""/>
+    <conf extends="test,optional,provided" name="test-internal" visibility="public" description=""/>
+    <conf name="scala-tool" visibility="public" description=""/>
+    <conf name="scripted-sbt-launch" visibility="public" description=""/>
+    <conf name="sources" visibility="public" description=""/>
+    <conf extends="compile" name="runtime" visibility="public" description=""/>
+    <conf extends="runtime,optional" name="runtime-internal" visibility="public" description=""/>
+  </configurations>
+  <publications>
+    <artifact e:classifier="javadoc" name="sbt-dynver" type="doc" ext="jar" conf="docs"/>
+    <artifact name="sbt-dynver" type="jar" ext="jar" conf="compile"/>
+    <artifact e:classifier="sources" name="sbt-dynver" type="src" ext="jar" conf="sources"/>
+  </publications>
+  <dependencies>
+    <dependency org="org.scala-lang" name="scala-compiler" rev="2.12.6" conf="scala-tool->default"> </dependency>
+    <dependency org="org.scala-lang" name="scala-compiler" rev="2.12.6" conf="scala-tool->optional(default)"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.6" conf="scala-tool->default"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.6" conf="scala-tool->optional(default)"> </dependency>
+    <dependency org="org.scala-sbt" name="sbt" rev="1.0.0" conf="provided->default(compile)"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.6" conf="provided->default(compile)"> </dependency>
+    <dependency org="org.scala-sbt" name="scripted-sbt_2.12" rev="1.0.0" conf="scripted-sbt->default(compile)"> </dependency>
+    <dependency org="org.scala-sbt" name="sbt-launch" rev="1.0.0" conf="scripted-sbt-launch->default(compile)"> </dependency>
+    <dependency org="org.eclipse.jgit" name="org.eclipse.jgit" rev="5.4.0.201906121030-r" conf="test->default(compile)"> </dependency>
+    <dependency org="org.scalacheck" name="scalacheck_2.12" rev="1.14.0" conf="test->default(compile)"> </dependency>
+  </dependencies>
+</ivy-module>
