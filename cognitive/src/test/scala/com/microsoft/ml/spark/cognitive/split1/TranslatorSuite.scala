@@ -345,7 +345,7 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
     "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
 
   lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
-     "document-translation-sample-de-" + documentTranslator.uid +
+    "document-translation-sample-de-" + documentTranslator.uid +
     ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
     "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
 
