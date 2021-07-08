@@ -21,6 +21,7 @@ import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
+import java.lang.reflect.Method
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -97,9 +98,17 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     getParallelism match {
       case 1 =>
         val classPath = "com.google.common.util.concurrent.MoreExecutors"
-        val funcName = "sameThreadExecutor"
+        val funcNameOld = "sameThreadExecutor"
+        val funcNameNew = "newDirectExecutorService"
         val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-        val method = c.get.getMethod(funcName)
+        val method: Method = {
+          try {
+            c.get.getMethod(funcNameNew)
+          }
+          catch {
+            case ex: NoSuchMethodException => c.get.getMethod(funcNameOld)
+          }
+        }
         val executorService = method.invoke(c.get).asInstanceOf[ExecutorService]
         ExecutionContext.fromExecutorService(executorService)
       case _ =>
