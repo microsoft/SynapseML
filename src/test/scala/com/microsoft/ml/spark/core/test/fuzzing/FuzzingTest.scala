@@ -181,7 +181,10 @@ class FuzzingTest extends TestBase {
 
   test("Verify all pipeline stage values match their param names") {
     val exemptions: Set[String] = Set[String](
-      "com.microsoft.ml.spark.stages.UDFTransformer") // needs to hide setters from model
+      "com.microsoft.ml.spark.stages.UDFTransformer", // needs to hide setters from model
+      "com.microsoft.ml.spark.cognitive.Translate", // from is keyword in python
+      "com.microsoft.ml.spark.cognitive.DictionaryLookup", // from is keyword in python
+      "com.microsoft.ml.spark.cognitive.DictionaryExamples") // from is keyword in python
     pipelineStages.foreach { pipelineStage =>
       if (!exemptions(pipelineStage.getClass.getName)) {
         val paramFields =
@@ -235,10 +238,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.explainers.TextLIME",
       "com.microsoft.ml.spark.explainers.TextSHAP",
       "com.microsoft.ml.spark.explainers.VectorLIME",
-      "com.microsoft.ml.spark.explainers.VectorSHAP",
-      "com.microsoft.ml.spark.cognitive.Translate", // From is keyword for python
-      "com.microsoft.ml.spark.cognitive.DictionaryLookup", // From is keyword for python
-      "com.microsoft.ml.spark.cognitive.DictionaryExamples" // From is keyword for python
+      "com.microsoft.ml.spark.explainers.VectorSHAP"
     )
 
     pipelineStages.foreach { stage =>
