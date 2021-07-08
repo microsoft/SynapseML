@@ -93,7 +93,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
           x => Glossary(x.getString(0), x.getString(1), Option(x.getString(2)), Option(x.getString(3)))
         ))
       } catch {
-        case e: NullPointerException => Option(row.getAs[Seq[Glossary]]("glossaries"))
+        case _: NullPointerException => Option(row.getAs[Seq[Glossary]]("glossaries"))
       }
     }
 

@@ -357,7 +357,7 @@ class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
 trait HasTextAndTranslationInput extends HasServiceParams {
 
   val textAndTranslation = new ServiceParam[Seq[(String, String)]](
-    this, "translation", " A string specifying the translated text" +
+    this, "textAndTranslation", " A string specifying the translated text" +
       " previously returned by the Dictionary lookup operation.")
 
   def getTextAndTranslation: Seq[(String, String)] = getScalarParam(textAndTranslation)
