@@ -45,7 +45,7 @@ trait HasTextInput extends HasServiceParams {
 }
 
 trait HasFromLanguage extends HasServiceParams {
-  val fromLanguage = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
+  val fromLanguage = new ServiceParam[String](this, "fromLanguage", "Specifies the language of the input text." +
     " The source language must be one of the supported languages included in the dictionary scope.",
     isRequired = true, isURLParam = true)
 
@@ -59,7 +59,7 @@ trait HasFromLanguage extends HasServiceParams {
 }
 
 trait HasToLanguage extends HasServiceParams {
-  val toLanguage = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
+  val toLanguage = new ServiceParam[String](this, "toLanguage", "Specifies the language of the output text." +
     " The target language must be one of the supported languages included in the dictionary scope.",
     isRequired = true, isURLParam = true)
 
@@ -119,12 +119,24 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
   override protected def prepareUrl: Row => String = {
     val urlParams: Array[ServiceParam[Any]] =
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+
     // This semicolon is needed to avoid argument confusion
+    def replaceName(s: String): String = {
+      if (s == "fromLanguage") {
+        "from"
+      } else if (s == "toLanguage") {
+        "to"
+      } else {
+        s
+      }
+    }
     { row: Row =>
       val base = getUrl + "?api-version=3.0"
       val appended = if (!urlParams.isEmpty) {
         "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+          getValueOpt(row, p).map {
+            v => replaceName(p.name) -> p.toValueString(v)
+          }
         ).toMap)
       } else {
         ""
@@ -150,7 +162,7 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
-  val toLanguage = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
+  val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
     " For example, use to=de to translate to German. It's possible to translate to multiple languages simultaneously" +
     " by repeating the parameter in the query string. For example, use to=de&to=it to translate to German and Italian.",
