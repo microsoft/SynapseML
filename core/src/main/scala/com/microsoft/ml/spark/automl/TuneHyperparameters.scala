@@ -96,12 +96,11 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   private def getExecutionContext: ExecutionContext = {
     getParallelism match {
       case 1 =>
-        // val executorService = MoreExecutors.sameThreadExecutor()
         val classPath = "com.google.common.util.concurrent.MoreExecutors"
         val funcName = "sameThreadExecutor"
         val c =  ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-        val method = c.getClass.getMethod(funcName)
-        val executorService: ExecutorService = method.invoke(c).asInstanceOf[ExecutorService]
+        val method = c.get.getMethod(funcName)
+        val executorService = method.invoke(c.get).asInstanceOf[ExecutorService]
         ExecutionContext.fromExecutorService(executorService)
       case _ =>
         val keepAliveSeconds = 60L
