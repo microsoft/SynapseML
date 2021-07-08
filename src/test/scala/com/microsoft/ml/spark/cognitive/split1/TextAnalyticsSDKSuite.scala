@@ -70,13 +70,13 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
-    .setOutputCol("output2")
+    .setOutputCol("output")
 
   test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
       .select("output2")
       .collect()
-    assert(replies(0).schema(0).name == "output2")
+    assert(replies(0).schema(0).name == "output")
     df.printSchema()
     df.show()
     replies.foreach { row =>
@@ -118,8 +118,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     lazy val df2: DataFrame = Seq(
       Seq("Hello world. This is some input text that I love."),
-      Seq("Glaciers are huge rivers of ice that ooze their way over land, powered by" +
-        " gravity and their own sheer weight."),
+      Seq("Glaciers are huge rivers of ice that ooze their way over land," +
+        " powered by gravity and their own sheer weight."),
       Seq("Hello")
     ).toDF("text")
 
@@ -129,13 +129,13 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setSubscriptionKey(textKey)
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
-      .setOutputCol("output3")
+      .setOutputCol("output")
 
     test("KPE - Basic Usage") {
       val replies = extractor.transform(df2)
-        .select("output3")
+        .select("output")
         .collect()
-      assert(replies(0).schema(0).name == "output3")
+      assert(replies(0).schema(0).name == "output")
       df2.printSchema()
       df2.show()
       replies.foreach { row =>
