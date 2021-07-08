@@ -28,6 +28,7 @@ object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
   with Wrappable with HasAsyncReply with BasicLogging {
+
   import TranslatorJsonProtocol._
 
   logClass()
@@ -97,21 +98,22 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
       }
     }
 
-    r => Some(new StringEntity(
-      Map("inputs" -> Seq(
-        BatchRequest(source = SourceInput(
-          filter = Option(DocumentFilter(
-            prefix = getValueOpt(r, filterPrefix),
-            suffix = getValueOpt(r, filterSuffix))),
-          language = getValueOpt(r, sourceLanguage),
-          storageSource = getValueOpt(r, sourceStorageSource),
-          sourceUrl = getValue(r, sourceUrl)),
-          storageType = getValueOpt(r, storageType),
-          targets = getValue(r, targets).asInstanceOf[Seq[Row]].map(
-            row => TargetInput(Option(row.getString(0)),
-              fetchGlossaries(row),
-              row.getString(2), row.getString(3), Option(row.getString(4))))
-      ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
+    r =>
+      Some(new StringEntity(
+        Map("inputs" -> Seq(
+          BatchRequest(source = SourceInput(
+            filter = Option(DocumentFilter(
+              prefix = getValueOpt(r, filterPrefix),
+              suffix = getValueOpt(r, filterSuffix))),
+            language = getValueOpt(r, sourceLanguage),
+            storageSource = getValueOpt(r, sourceStorageSource),
+            sourceUrl = getValue(r, sourceUrl)),
+            storageType = getValueOpt(r, storageType),
+            targets = getValue(r, targets).asInstanceOf[Seq[Row]].map(
+              row => TargetInput(Option(row.getString(0)),
+                fetchGlossaries(row),
+                row.getString(2), row.getString(3), Option(row.getString(4))))
+          ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
   private def queryForResult(key: Option[String],
@@ -133,7 +135,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
   }
 
   override protected def handlingFunc(client: CloseableHttpClient,
-                             request: HTTPRequestData): HTTPResponseData = {
+                                      request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
     if (response.statusLine.statusCode == 202) {
       val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)

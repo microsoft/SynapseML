@@ -42,8 +42,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
-    .setToLanguage(Seq("zh-Hans"))
+    .setTo(Seq("zh-Hans"))
     .setTextCol("text")
     .setOutputCol("translation")
     .setConcurrency(5)
@@ -51,8 +50,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate2: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
-    .setToLanguage(Seq("zh-Hans"))
+    .setTo(Seq("zh-Hans"))
     .setToScript("Latn")
     .setTextCol("text")
     .setOutputCol("translation")
@@ -61,9 +59,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate3: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
-    .setFromLanguage("en")
-    .setToLanguage(Seq("fr"))
+    .setFrom("en")
+    .setTo(Seq("fr"))
     .setIncludeAlignment(true)
     .setTextCol("text")
     .setOutputCol("translation")
@@ -72,9 +69,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate4: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
-    .setFromLanguage("en")
-    .setToLanguage(Seq("fr"))
+    .setFrom("en")
+    .setTo(Seq("fr"))
     .setIncludeSentenceLength(true)
     .setTextCol("text")
     .setOutputCol("translation")
@@ -102,7 +98,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate to multiple languages") {
     val results = translate
-      .setToLanguage(Seq("zh-Hans", "de"))
+      .setTo(Seq("zh-Hans", "de"))
       .transform(textDf1)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
@@ -113,8 +109,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Handle profanity") {
     val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("de"))
+      .setFrom("en")
+      .setTo(Seq("de"))
       .setProfanityAction("Marked")
       .transform(textDf3)
       .withColumn("translation", flatten(col("translation.translations")))
@@ -126,8 +122,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate content with markup and decide what's translated") {
     val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("zh-Hans"))
+      .setFrom("en")
+      .setTo(Seq("zh-Hans"))
       .setTextType("html")
       .transform(textDf4)
       .withColumn("translation", flatten(col("translation.translations")))
@@ -163,7 +159,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate with dynamic dictionary") {
     val results = translate
-      .setToLanguage(Seq("de"))
+      .setTo(Seq("de"))
       .transform(textDf5)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
@@ -187,7 +183,6 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
   lazy val transliterate: Transliterate = new Transliterate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
     .setLanguage("ja")
     .setFromScript("Jpan")
     .setToScript("Latn")
@@ -215,7 +210,6 @@ class DetectSuite extends TransformerFuzzing[Detect]
   lazy val detect: Detect = new Detect()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -239,7 +233,6 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
   lazy val breakSentence: BreakSentence = new BreakSentence()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -267,7 +260,6 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
   lazy val dictionaryLookup: DictionaryLookup = new DictionaryLookup()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
     .setFrom("en")
     .setTo("es")
     .setTextCol("text")
@@ -298,7 +290,6 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   lazy val dictionaryExamples: DictionaryExamples = new DictionaryExamples()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setApiVersion(3.0)
     .setFrom("en")
     .setTo("es")
     .setTextAndTranslationCol("textAndTranslation")
@@ -330,7 +321,7 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
     ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
 
   lazy val fileSourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/" +
-    "source/Document Translation doc.pdf?sp=rl&st=2021-07-06T06" +
+    "source/document-translation-sample.pdf?sp=rl&st=2021-07-06T06" +
     ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
 
   lazy val targetUrl: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
@@ -348,13 +339,13 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
     "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
     "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
 
-  lazy val targetFileUrl1: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid +
+  lazy val targetFileUrl1: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
+    "document-translation-sample-zh-Hans-" + documentTranslator.uid +
     ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
     "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
 
-  lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/test-de-" +
-    documentTranslator.uid +
+  lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
+     "document-translation-sample-de-" + documentTranslator.uid +
     ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
     "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
 
@@ -375,7 +366,7 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
   lazy val docTranslationDf3: DataFrame = Seq((sourceUrl,
     "Translator/source/",
     Seq(TargetInput(None, Some(Seq(Glossary(
-      "TSV", glossaryUrl, None, Some("1.2")
+      "TSV", glossaryUrl, None, None
     ))), targetUrl3, "zh-Hans", None))))
     .toDF("sourceUrl", "filterPrefix", "targets")
 
@@ -404,8 +395,8 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
   test("Translating all documents under folder in a container") {
     val result = documentTranslator
       .transform(docTranslationDf2)
-      .withColumn("successNumber", col("translationStatus.summary.success"))
-      .select("successNumber")
+      .withColumn("totalNumber", col("translationStatus.summary.total"))
+      .select("totalNumber")
       .collect()
     assert(result.head.getInt(0) === 1)
   }
@@ -413,8 +404,8 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
   test("Translating all documents in a container applying glossaries") {
     val result = documentTranslator
       .transform(docTranslationDf3)
-      .withColumn("successNumber", col("translationStatus.summary.success"))
-      .select("successNumber")
+      .withColumn("totalNumber", col("translationStatus.summary.total"))
+      .select("totalNumber")
       .collect()
     assert(result.head.getInt(0) === 1)
   }
@@ -422,8 +413,8 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
   test("Translating specific document in a container") {
     val result = documentTranslator2
       .transform(docTranslationDf4)
-      .withColumn("successNumber", col("translationStatus.summary.success"))
-      .select("successNumber")
+      .withColumn("totalNumber", col("translationStatus.summary.total"))
+      .select("totalNumber")
       .collect()
     assert(result.head.getInt(0) === 2)
   }

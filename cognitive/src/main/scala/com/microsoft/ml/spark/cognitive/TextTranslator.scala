@@ -44,19 +44,6 @@ trait HasTextInput extends HasServiceParams {
 
 }
 
-trait HasApiVersion extends HasServiceParams {
-  val apiVersion = new ServiceParam[Double](this, "api-version",
-    "Version of the API requested by the client. Value must be 3.0.", isRequired = true, isURLParam = true)
-
-  def setApiVersion(v: Double): this.type = setScalarParam(apiVersion, v)
-
-  def setApiVersionCol(v: String): this.type = setVectorParam(apiVersion, v)
-
-  def getApiVersion: Double = getScalarParam(apiVersion)
-
-  def getApiVersionCol: String = getVectorParam(apiVersion)
-}
-
 trait HasFrom extends HasServiceParams {
   val from = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
     " The source language must be one of the supported languages included in the dictionary scope.",
@@ -97,7 +84,7 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
 
 abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSubscriptionRegion
-  with HasApiVersion with HasSetLocation {
+  with HasSetLocation {
 
   protected val subscriptionRegionHeaderName = "Ocp-Apim-Subscription-Region"
 
@@ -129,7 +116,22 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
     }
   }
 
-  setDefault(apiVersion -> Left(3.0))
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+    // This semicolon is needed to avoid argument confusion
+    { row: Row =>
+      val base = getUrl + "?api-version=3.0"
+      val appended = if (!urlParams.isEmpty) {
+        "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
 
   override def setLocation(v: String): this.type = {
     setSubscriptionRegion(v)
@@ -148,30 +150,30 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
-  val toLanguage = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
+  val to = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
     " For example, use to=de to translate to German. It's possible to translate to multiple languages simultaneously" +
     " by repeating the parameter in the query string. For example, use to=de&to=it to translate to German and Italian.",
     isRequired = true, isURLParam = true,
     toValueString = { seq => seq.mkString(",") })
 
-  def setToLanguage(v: Seq[String]): this.type = setScalarParam(toLanguage, v)
+  def setTo(v: Seq[String]): this.type = setScalarParam(to, v)
 
-  def setToLanguageCol(v: String): this.type = setVectorParam(toLanguage, v)
+  def setToCol(v: String): this.type = setVectorParam(to, v)
 
-  val fromLanguage = new ServiceParam[String](this, "from", "Specifies the language of the input" +
+  val from = new ServiceParam[String](this, "from", "Specifies the language of the input" +
     " text. Find which languages are available to translate from by looking up supported languages using the" +
     " translation scope. If the from parameter is not specified, automatic language detection is applied to" +
     " determine the source language. You must use the from parameter rather than autodetection when using the" +
     " dynamic dictionary feature.", isURLParam = true)
 
-  def setFromLanguage(v: String): this.type = setScalarParam(fromLanguage, v)
+  def setFrom(v: String): this.type = setScalarParam(from, v)
 
-  def setFromLanguageCol(v: String): this.type = setVectorParam(fromLanguage, v)
+  def setFromCol(v: String): this.type = setVectorParam(from, v)
 
   val textType = new ServiceParam[String](this, "textType", "Defines whether the text being" +
     " translated is plain text or HTML text. Any HTML needs to be a well-formed, complete element. Possible values" +
-    " are: plain (default) or html.",{
+    " are: plain (default) or html.", {
     case Left(_) => true
     case Right(s) => Set("plain", "html")(s)
   }, isURLParam = true)
@@ -202,9 +204,9 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   val profanityMarker = new ServiceParam[String](this, "profanityMarker", "Specifies how" +
     " profanities should be marked in translations. Possible values are: Asterisk (default) or Tag.", {
-      case Left(_) => true
-      case Right(s) => Set("Asterisk", "Tag")(s)
-    }, isURLParam = true)
+    case Left(_) => true
+    case Right(s) => Set("Asterisk", "Tag")(s)
+  }, isURLParam = true)
 
   def setProfanityMarker(v: String): this.type = setScalarParam(profanityMarker, v)
 
