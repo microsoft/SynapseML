@@ -235,7 +235,10 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.explainers.TextLIME",
       "com.microsoft.ml.spark.explainers.TextSHAP",
       "com.microsoft.ml.spark.explainers.VectorLIME",
-      "com.microsoft.ml.spark.explainers.VectorSHAP"
+      "com.microsoft.ml.spark.explainers.VectorSHAP",
+      "com.microsoft.ml.spark.cognitive.Translate", // From is keyword for python
+      "com.microsoft.ml.spark.cognitive.DictionaryLookup", // From is keyword for python
+      "com.microsoft.ml.spark.cognitive.DictionaryExamples" // From is keyword for python
     )
 
     pipelineStages.foreach { stage =>

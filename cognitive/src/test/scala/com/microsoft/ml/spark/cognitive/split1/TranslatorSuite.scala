@@ -42,7 +42,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setTo(Seq("zh-Hans"))
+    .setToLanguage(Seq("zh-Hans"))
     .setTextCol("text")
     .setOutputCol("translation")
     .setConcurrency(5)
@@ -50,7 +50,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate2: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setTo(Seq("zh-Hans"))
+    .setToLanguage(Seq("zh-Hans"))
     .setToScript("Latn")
     .setTextCol("text")
     .setOutputCol("translation")
@@ -59,8 +59,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate3: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setFrom("en")
-    .setTo(Seq("fr"))
+    .setFromLanguage("en")
+    .setToLanguage(Seq("fr"))
     .setIncludeAlignment(true)
     .setTextCol("text")
     .setOutputCol("translation")
@@ -69,8 +69,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   lazy val translate4: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setFrom("en")
-    .setTo(Seq("fr"))
+    .setFromLanguage("en")
+    .setToLanguage(Seq("fr"))
     .setIncludeSentenceLength(true)
     .setTextCol("text")
     .setOutputCol("translation")
@@ -98,7 +98,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate to multiple languages") {
     val results = translate
-      .setTo(Seq("zh-Hans", "de"))
+      .setToLanguage(Seq("zh-Hans", "de"))
       .transform(textDf1)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
@@ -109,8 +109,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Handle profanity") {
     val results = translate
-      .setFrom("en")
-      .setTo(Seq("de"))
+      .setFromLanguage("en")
+      .setToLanguage(Seq("de"))
       .setProfanityAction("Marked")
       .transform(textDf3)
       .withColumn("translation", flatten(col("translation.translations")))
@@ -122,8 +122,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate content with markup and decide what's translated") {
     val results = translate
-      .setFrom("en")
-      .setTo(Seq("zh-Hans"))
+      .setFromLanguage("en")
+      .setToLanguage(Seq("zh-Hans"))
       .setTextType("html")
       .transform(textDf4)
       .withColumn("translation", flatten(col("translation.translations")))
@@ -159,7 +159,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate with dynamic dictionary") {
     val results = translate
-      .setTo(Seq("de"))
+      .setToLanguage(Seq("de"))
       .transform(textDf5)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
@@ -260,8 +260,8 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
   lazy val dictionaryLookup: DictionaryLookup = new DictionaryLookup()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setFrom("en")
-    .setTo("es")
+    .setFromLanguage("en")
+    .setToLanguage("es")
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -290,8 +290,8 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   lazy val dictionaryExamples: DictionaryExamples = new DictionaryExamples()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setFrom("en")
-    .setTo("es")
+    .setFromLanguage("en")
+    .setToLanguage("es")
     .setTextAndTranslationCol("textAndTranslation")
     .setOutputCol("result")
 

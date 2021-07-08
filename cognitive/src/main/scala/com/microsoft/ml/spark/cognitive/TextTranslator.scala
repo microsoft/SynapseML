@@ -44,32 +44,32 @@ trait HasTextInput extends HasServiceParams {
 
 }
 
-trait HasFrom extends HasServiceParams {
-  val from = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
+trait HasFromLanguage extends HasServiceParams {
+  val fromLanguage = new ServiceParam[String](this, "from", "Specifies the language of the input text." +
     " The source language must be one of the supported languages included in the dictionary scope.",
     isRequired = true, isURLParam = true)
 
-  def setFrom(v: String): this.type = setScalarParam(from, v)
+  def setFromLanguage(v: String): this.type = setScalarParam(fromLanguage, v)
 
-  def setFromCol(v: String): this.type = setVectorParam(from, v)
+  def setFromLanguageCol(v: String): this.type = setVectorParam(fromLanguage, v)
 
-  def getFrom: String = getScalarParam(from)
+  def getFromLanguage: String = getScalarParam(fromLanguage)
 
-  def getFromCol: String = getVectorParam(from)
+  def getFromLanguageCol: String = getVectorParam(fromLanguage)
 }
 
-trait HasTo extends HasServiceParams {
-  val to = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
+trait HasToLanguage extends HasServiceParams {
+  val toLanguage = new ServiceParam[String](this, "to", "Specifies the language of the output text." +
     " The target language must be one of the supported languages included in the dictionary scope.",
     isRequired = true, isURLParam = true)
 
-  def setTo(v: String): this.type = setScalarParam(to, v)
+  def setToLanguage(v: String): this.type = setScalarParam(toLanguage, v)
 
-  def setToCol(v: String): this.type = setVectorParam(to, v)
+  def setToLanguageCol(v: String): this.type = setVectorParam(toLanguage, v)
 
-  def getTo: String = getScalarParam(to)
+  def getToLanguage: String = getScalarParam(toLanguage)
 
-  def getToCol: String = getVectorParam(to)
+  def getToLanguageCol: String = getVectorParam(toLanguage)
 }
 
 trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
@@ -150,26 +150,26 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
-  val to = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
+  val toLanguage = new ServiceParam[Seq[String]](this, "to", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
     " For example, use to=de to translate to German. It's possible to translate to multiple languages simultaneously" +
     " by repeating the parameter in the query string. For example, use to=de&to=it to translate to German and Italian.",
     isRequired = true, isURLParam = true,
     toValueString = { seq => seq.mkString(",") })
 
-  def setTo(v: Seq[String]): this.type = setScalarParam(to, v)
+  def setToLanguage(v: Seq[String]): this.type = setScalarParam(toLanguage, v)
 
-  def setToCol(v: String): this.type = setVectorParam(to, v)
+  def setToLanguageCol(v: String): this.type = setVectorParam(toLanguage, v)
 
-  val from = new ServiceParam[String](this, "from", "Specifies the language of the input" +
+  val fromLanguage = new ServiceParam[String](this, "fromLanguage", "Specifies the language of the input" +
     " text. Find which languages are available to translate from by looking up supported languages using the" +
     " translation scope. If the from parameter is not specified, automatic language detection is applied to" +
     " determine the source language. You must use the from parameter rather than autodetection when using the" +
     " dynamic dictionary feature.", isURLParam = true)
 
-  def setFrom(v: String): this.type = setScalarParam(from, v)
+  def setFromLanguage(v: String): this.type = setScalarParam(fromLanguage, v)
 
-  def setFromCol(v: String): this.type = setVectorParam(from, v)
+  def setFromLanguageCol(v: String): this.type = setVectorParam(fromLanguage, v)
 
   val textType = new ServiceParam[String](this, "textType", "Defines whether the text being" +
     " translated is plain text or HTML text. Any HTML needs to be a well-formed, complete element. Possible values" +
@@ -346,7 +346,7 @@ class BreakSentence(override val uid: String) extends TextTranslatorBase(uid)
 object DictionaryLookup extends ComplexParamsReadable[DictionaryLookup]
 
 class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
-  with TextAsOnlyEntity with HasFrom with HasTo with BasicLogging {
+  with TextAsOnlyEntity with HasFromLanguage with HasToLanguage with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryLookup"))
@@ -375,7 +375,7 @@ trait HasTextAndTranslationInput extends HasServiceParams {
 object DictionaryExamples extends ComplexParamsReadable[DictionaryExamples]
 
 class DictionaryExamples(override val uid: String) extends TextTranslatorBase(uid)
-  with HasTextAndTranslationInput with HasFrom with HasTo with BasicLogging {
+  with HasTextAndTranslationInput with HasFromLanguage with HasToLanguage with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryExamples"))
