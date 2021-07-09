@@ -95,20 +95,27 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 }
 
   class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
     import spark.implicits._
 
     lazy val df2: DataFrame = Seq(
-      ("en","Hello world. This is some input text that I love."),
-      ("en","Glaciers are huge rivers of ice that ooze their way over land," +
+      ("en", "Hello world. This is some input text that I love."),
+      ("en", "Glaciers are huge rivers of ice that ooze their way over land," +
         "powered by gravity and their own sheer weight."),
       ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
     ).toDF("In - Key Phrase", "Out - Key Phrase")
 
     lazy val df3: DataFrame = Seq(
-      ("es","Hola, como estas?"),
-      ("en","Glaciers are huge rivers of ice that ooze their way over land," +
-        "powered are gravity and their own sheer weight."),
-      ("en", "Hi, my name is Sally.")
+      ("es", ""),
+      ("en", "Hola, como estas."),
+      ("en", "123456.")
+    ).toDF("In - Key Phrase", "Out - Key Phrase")
+
+    lazy val df4: DataFrame = Seq(
+      ("en", "Hey, I enjoy learning how to code."),
+      ("en", "I feel sad when it rains outside," +
+        "and it makes me unhappy."),
+      ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
     ).toDF("In - Key Phrase", "Out - Key Phrase")
 
     val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
@@ -120,19 +127,63 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setInputCol("In - Key Phrase")
       .setOutputCol("Out - Key Phrase")
 
-      test("KPE - Error in Language Test") {
-        val outputCol = extractor.transform(df3)
-          .select("In - Key Phrase", "Out - Key Phrase")
-          .collect()
-        assert(outputCol(0).schema(0).name == "In - Key Phrase")
-        df3.printSchema()
-        df3.show()
+    test("KPE - Basic Usage") {
+      val outputCol = extractor.transform(df2)
+
+        .select("In - Key Phrase", "Out - Key Phrase")
+        .collect()
+
+      assert(outputCol(0).schema(0).name == "In - Key Phrase")
+      df2.printSchema()
+      df2.show()
+      outputCol.foreach { row =>
+        row.toSeq.foreach { col => println(col) }
+      }
+    }
+
+    test("KPE - Error Path") {
+      val outputCol = extractor.transform(df3)
+        .select("In - Key Phrase", "Out - Key Phrase")
+        .collect()
+      assert(outputCol(0).schema(0).name == "In - Key Phrase")
+      df3.printSchema()
+      df3.show()
+      outputCol.foreach(row => {
+        var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
         outputCol.foreach(row => {
           var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
-          val result = outResponse.getAs[GenericRowWithSchema]("result");
+
           val keyPhrases = outResponse.getAs[GenericRowWithSchema]("keyPhrases");
-          val kpe = result.getAs[String]("keyPhrases")
+          val warnings = outResponse.getAs[GenericRowWithSchema]("warnings");
+
+          val kpe = keyPhrases.getAs[String]("keyPhrases")
+          //val warnings = warnings.getAs[TAWarningV4]("warnings")
+
           assert(kpe == "are")
-        }
-        )};
-      }
+        });
+      })
+    }
+    test("KPE - Happy Path") {
+      val outputCol = extractor.transform(df4)
+        .select("Out - Key Phrase")
+        .collect()
+      assert(outputCol(0).schema(0).name == "Out - Key Phrase")
+
+      outputCol.foreach(row => {
+        var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
+
+        val result = outResponse.getAs[GenericRowWithSchema]("result");
+        val error = outResponse.getAs[GenericRowWithSchema]("error");
+        val statistics = outResponse.getAs[GenericRowWithSchema]("statistics");
+        val modelVersion = outResponse.getAs[String]("modelVersion");
+        //val language = result.getAs[String]("result")
+
+        assert(result == "keyPhrases")
+        assert(result == "warnings")
+        assert(statistics == "transactionsCount")
+        assert(statistics == "characterCount")
+        assert(modelVersion == "2021-06-01")
+      });
+
+    }
+  }
