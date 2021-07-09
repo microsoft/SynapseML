@@ -23,11 +23,34 @@ import java.net.URI
 import java.util.concurrent.TimeoutException
 import scala.concurrent.blocking
 
+trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
+
+  import TranslatorJsonProtocol._
+
+  override protected def queryForResult(key: Option[String],
+                                        client: CloseableHttpClient,
+                                        location: URI): Option[HTTPResponseData] = {
+    val get = new HttpGet()
+    get.setURI(location)
+    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
+    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
+    get.releaseConnection()
+    val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
+      .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
+    status.map(_.toLowerCase()).flatMap {
+      case "succeeded" | "failed" | "canceled" | "ValidationFailed" => Some(resp)
+      case "notstarted" | "running" | "cancelling" => None
+      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    }
+  }
+}
+
 object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
-  with Wrappable with HasAsyncReply with BasicLogging {
+  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging {
 
   import TranslatorJsonProtocol._
 
@@ -114,50 +137,6 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
                 fetchGlossaries(row),
                 row.getString(2), row.getString(3), Option(row.getString(4))))
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
-  }
-
-  private def queryForResult(key: Option[String],
-                             client: CloseableHttpClient,
-                             location: URI): Option[HTTPResponseData] = {
-    val get = new HttpGet()
-    get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get.setHeader("User-Agent", s"mmlspark/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
-    get.releaseConnection()
-    val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
-      .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
-    status.map(_.toLowerCase()).flatMap {
-      case "succeeded" | "failed" | "canceled" | "ValidationFailed" => Some(resp)
-      case "notstarted" | "running" | "cancelling" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
-  }
-
-  override protected def handlingFunc(client: CloseableHttpClient,
-                                      request: HTTPRequestData): HTTPResponseData = {
-    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 202) {
-      val location = new URI(response.headers.filter(_.name == "Operation-Location").head.value)
-      val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
-          }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
-      }
-    } else {
-      response
-    }
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {

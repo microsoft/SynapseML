@@ -39,54 +39,37 @@ trait TranslatorUtils extends TestBase {
 class TranslateSuite extends TransformerFuzzing[Translate]
   with TranslatorKey with Flaky with TranslatorUtils {
 
-  lazy val translate: Translate = new Translate()
+  def translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
-    .setToLanguage(Seq("zh-Hans"))
     .setTextCol("text")
     .setOutputCol("translation")
     .setConcurrency(5)
 
-  lazy val translate2: Translate = new Translate()
-    .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
-    .setToLanguage(Seq("zh-Hans"))
-    .setToScript("Latn")
-    .setTextCol("text")
-    .setOutputCol("translation")
-    .setConcurrency(5)
-
-  lazy val translate3: Translate = new Translate()
-    .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
-    .setFromLanguage("en")
-    .setToLanguage(Seq("fr"))
-    .setIncludeAlignment(true)
-    .setTextCol("text")
-    .setOutputCol("translation")
-    .setConcurrency(5)
-
-  lazy val translate4: Translate = new Translate()
-    .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
-    .setFromLanguage("en")
-    .setToLanguage(Seq("fr"))
-    .setIncludeSentenceLength(true)
-    .setTextCol("text")
-    .setOutputCol("translation")
-    .setConcurrency(5)
-
-  test("Translate multiple pieces of text with language autodetection") {
-    val results = translate.transform(textDf2)
+  def translationTextTest(translator: Translate,
+                          df: DataFrame,
+                          expectString: String): Boolean = {
+    val results = translator
+      .transform(df)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
       .select("translation").collect()
     val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "你好，你叫什么名字？\n再见")
+    headStr === expectString
+  }
+
+  test("Translate multiple pieces of text with language autodetection") {
+    assert(
+      translationTextTest(
+        translate.setToLanguage(Seq("zh-Hans")), textDf2, "你好，你叫什么名字？\n再见"
+      )
+    )
   }
 
   test("Translate with transliteration") {
-    val results = translate2
+    val results = translate
+      .setToLanguage(Seq("zh-Hans"))
+      .setToScript("Latn")
       .transform(textDf1)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("transliteration", col("translation.transliteration.text"))
@@ -97,44 +80,38 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate to multiple languages") {
-    val results = translate
-      .setToLanguage(Seq("zh-Hans", "de"))
-      .transform(textDf1)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "你好，你叫什么名字？\nHallo, wie heißt du?")
+    assert(
+      translationTextTest(
+        translate.setToLanguage(Seq("zh-Hans", "de")), textDf1, "你好，你叫什么名字？\nHallo, wie heißt du?"
+      )
+    )
   }
 
   test("Handle profanity") {
-    val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("de"))
-      .setProfanityAction("Marked")
-      .transform(textDf3)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "Das ist ***.") // problem with Rest API "freaking" -> the marker disappears *** no difference
+    assert(
+      translationTextTest(
+        translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"),
+        textDf3,
+        "Das ist ***." // problem with Rest API "freaking" -> the marker disappears *** no difference
+      )
+    )
   }
 
   test("Translate content with markup and decide what's translated") {
-    val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("zh-Hans"))
-      .setTextType("html")
-      .transform(textDf4)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
+    assert(
+      translationTextTest(
+        translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"),
+        textDf4,
+        "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>"
+      )
+    )
   }
 
   test("Obtain alignment information") {
-    val results = translate3
+    val results = translate
+      .setFromLanguage("en")
+      .setToLanguage(Seq("fr"))
+      .setIncludeAlignment(true)
       .transform(textDf1)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("alignment", col("translation.alignment.proj"))
@@ -145,7 +122,10 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Obtain sentence boundaries") {
-    val results = translate4
+    val results = translate
+      .setFromLanguage("en")
+      .setToLanguage(Seq("fr"))
+      .setIncludeSentenceLength(true)
       .transform(textDf1)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("srcSentLen", flatten(col("translation.sentLen.srcSentLen")))
@@ -158,13 +138,11 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate with dynamic dictionary") {
-    val results = translate
-      .setToLanguage(Seq("de"))
-      .transform(textDf5)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Das Wort wordomatic ist ein Wörterbucheintrag.")
+    assert(
+      translationTextTest(
+        translate.setToLanguage(Seq("de")), textDf5, "Das Wort wordomatic ist ein Wörterbucheintrag."
+      )
+    )
   }
 
   override def testObjects(): Seq[TestObject[Translate]] =
@@ -316,42 +294,35 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
 
   import spark.implicits._
 
-  // TODO: Replace all of those SAS urls after 2022-07-07
-  lazy val sourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets?sp=rl&st=2021-07-06T06" +
-    ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+  // TODO: Replace root SAS urls after 2022-07-07
+  lazy val sourceRoot: String = "?sp=rl&st=2021-07-06T06:28:26Z&se=2022-07-07T06:28:00Z" +
+    "&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+
+  lazy val targetRoot: String = "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z" +
+    "&sv=2020-08-04&sr=c&sig=tk62GpHoRb5CcojmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+
+  lazy val sourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets" + sourceRoot
 
   lazy val fileSourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/" +
-    "source/document-translation-sample.pdf?sp=rl&st=2021-07-06T06" +
-    ":28:26Z&se=2022-07-07T06:28:00Z&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+    "source/document-translation-sample.pdf" + sourceRoot
 
   lazy val targetUrl: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid +
-    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
-    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+    documentTranslator.uid + targetRoot
 
   lazy val targetUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid + "-2" +
-    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
-    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+    documentTranslator.uid + "-2" + targetRoot
 
   lazy val targetUrl3: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid + "-3" +
-    "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
-    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+    documentTranslator.uid + "-3" + targetRoot
 
   lazy val targetFileUrl1: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
-    "document-translation-sample-zh-Hans-" + documentTranslator.uid +
-    ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
-    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+    "document-translation-sample-zh-Hans-" + documentTranslator.uid + ".pdf" + targetRoot
 
   lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
-    "document-translation-sample-de-" + documentTranslator.uid +
-    ".pdf?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z&sv=2020-08-04&sr=c&sig=tk62GpHoRb5Cco" +
-    "jmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+    "document-translation-sample-de-" + documentTranslator.uid + ".pdf" + targetRoot
 
   lazy val glossaryUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/glossary/" +
-    "glossary.tsv?sv=2020-04-08&st=2021-07-06T08%3A17%3A55Z&se=2022-07-07T08%3A17%3A00Z&sr=b&sp=r&sig=DI9" +
-    "d9OJMrGsVbtgAU68aw0PbruiP1eixRItj3Re18dU%3D"
+    "glossary.tsv" + sourceRoot
 
   lazy val docTranslationDf: DataFrame = Seq((sourceUrl,
     "Translator/source/",
