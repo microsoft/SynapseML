@@ -61,10 +61,10 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val df: DataFrame = Seq(
-    Seq("Hello world. This is some input text that I love."),
+    Seq("Hello world. This is some input text that I love.", "this is something I hate"),
     Seq("I am sad"),
     Seq("I am feeling okay")
-  ).toDF("text")
+  ).toDF("id", "text")
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
@@ -74,7 +74,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   test("Sentiment Analysis - Basic Usage") {
     val replies = detector.transform(df)
-      .select("output2")
+      .select("output")
       .collect()
     assert(replies(0).schema(0).name == "output")
     df.printSchema()
@@ -84,11 +84,9 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     }
   }
 
-
-
   lazy val batchedDF: DataFrame = Seq(
-    Seq("I hate the rain."),
-    Seq("I love Vancouver.")
+    Seq("I hate the rain.",
+    "I love Vancouver.")
   ).toDF("text")
 
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
@@ -99,25 +97,25 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   test("func foo 2") {
     detector2.transform(batchedDF).printSchema()
-
-
+    detector2.transform(batchedDF).show()
   }
+
   test("func Basic Usage2") {
     val replies = detector2.transform(batchedDF)
-      .select("output.result.sentiment")
-      .collect()
+    .select(col("output").alias("scoredDocuments"))
+      .collect().toList
 
-    assert(replies(0).getString(0) == "negative" && replies(1).getString(0) == "positive")
-
+    assert(
+      replies(0).getSeq[Row](0).head.getString(0) == "negative" &&
+        replies(1).getSeq[Row](0).head.getString(0) == "positive")
   }
-
 }
 
   class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     import spark.implicits._
 
     lazy val df2: DataFrame = Seq(
-      Seq("Hello world. This is some input text that I love."),
+      Seq("Hello world. This is some input text that I love.", "I really enjoy coffee in the morning."),
       Seq("Glaciers are huge rivers of ice that ooze their way over land," +
         " powered by gravity and their own sheer weight."),
       Seq("Hello")
