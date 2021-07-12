@@ -242,7 +242,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     (a: BDV[T], b: Any) => {
       b match {
         case p: BDV[T @unchecked] =>
-          norm(a - p) < tol
+          a.length == p.length && norm(a - p) < tol
         case _ => false
       }
     }
