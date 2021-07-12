@@ -158,7 +158,7 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
 
   lazy val transDf: DataFrame = Seq(List("こんにちは", "さようなら")).toDF("text")
 
-  lazy val transliterate: Transliterate = new Transliterate()
+  def transliterate: Transliterate = new Transliterate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setLanguage("ja")
@@ -185,7 +185,7 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
 class DetectSuite extends TransformerFuzzing[Detect]
   with TranslatorKey with Flaky with TranslatorUtils {
 
-  lazy val detect: Detect = new Detect()
+  def detect: Detect = new Detect()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setTextCol("text")
@@ -208,7 +208,7 @@ class DetectSuite extends TransformerFuzzing[Detect]
 class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
   with TranslatorKey with Flaky with TranslatorUtils {
 
-  lazy val breakSentence: BreakSentence = new BreakSentence()
+  def breakSentence: BreakSentence = new BreakSentence()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setTextCol("text")
@@ -235,7 +235,7 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
 
   lazy val dictDf: DataFrame = Seq(List("fly")).toDF("text")
 
-  lazy val dictionaryLookup: DictionaryLookup = new DictionaryLookup()
+  def dictionaryLookup: DictionaryLookup = new DictionaryLookup()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setFromLanguage("en")
@@ -265,7 +265,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
 
   lazy val dictDf: DataFrame = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
 
-  lazy val dictionaryExamples: DictionaryExamples = new DictionaryExamples()
+  def dictionaryExamples: DictionaryExamples = new DictionaryExamples()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
     .setFromLanguage("en")
@@ -294,35 +294,31 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
 
   import spark.implicits._
 
-  // TODO: Replace root SAS urls after 2022-07-07
-  lazy val sourceRoot: String = "?sp=rl&st=2021-07-06T06:28:26Z&se=2022-07-07T06:28:00Z" +
-    "&sv=2020-08-04&sr=c&sig=h9zzqvBdrvM81%2BWxuoG0bgNnn5lGbTaGcy27qyZDZm4%3D"
+  // TODO: Replace containerSasToken after 2022-07-13
+  lazy val containerSasToken: String = "?sp=rwl&st=2021-07-12T03:27:50Z&se=2022-07-13T03:27:00Z" +
+    "&sv=2020-08-04&sr=c&sig=lQdMII5ZgiBNXGJk77PWwye27sR6XpP4RhPgmkhUnG0%3D"
 
-  lazy val targetRoot: String = "?sp=racwl&st=2021-07-06T06:29:05Z&se=2022-07-07T06:29:00Z" +
-    "&sv=2020-08-04&sr=c&sig=tk62GpHoRb5CcojmyQammMbnYICAsTdgQqAeCikbtKg%3D"
+  lazy val urlRoot: String = "https://mmlspark.blob.core.windows.net/datasets"
 
-  lazy val sourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets" + sourceRoot
+  lazy val sourceUrl: String = urlRoot + containerSasToken
 
-  lazy val fileSourceUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/" +
-    "source/document-translation-sample.pdf" + sourceRoot
+  lazy val fileSourceUrl: String = urlRoot + "/Translator/source/document-translation-sample.pdf" + containerSasToken
 
-  lazy val targetUrl: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid + targetRoot
+  lazy val targetUrl: String = urlRoot + "/Translator/test-zh-Hans-" + documentTranslator.uid + containerSasToken
 
-  lazy val targetUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid + "-2" + targetRoot
+  lazy val targetUrl2: String = urlRoot + "/Translator/test-zh-Hans-" +
+    documentTranslator.uid + "-2" + containerSasToken
 
-  lazy val targetUrl3: String = "https://mmlspark.blob.core.windows.net/translator-target/test-zh-Hans-" +
-    documentTranslator.uid + "-3" + targetRoot
+  lazy val targetUrl3: String = urlRoot + "/Translator/test-zh-Hans-" +
+    documentTranslator.uid + "-3" + containerSasToken
 
-  lazy val targetFileUrl1: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
-    "document-translation-sample-zh-Hans-" + documentTranslator.uid + ".pdf" + targetRoot
+  lazy val targetFileUrl1: String = urlRoot + "/Translator/translator-target/" +
+    "document-translation-sample-zh-Hans-" + documentTranslator.uid + ".pdf" + containerSasToken
 
-  lazy val targetFileUrl2: String = "https://mmlspark.blob.core.windows.net/translator-target/" +
-    "document-translation-sample-de-" + documentTranslator.uid + ".pdf" + targetRoot
+  lazy val targetFileUrl2: String = urlRoot + "/Translator/translator-target/" +
+    "document-translation-sample-de-" + documentTranslator.uid + ".pdf" + containerSasToken
 
-  lazy val glossaryUrl: String = "https://mmlspark.blob.core.windows.net/datasets/Translator/glossary/" +
-    "glossary.tsv" + sourceRoot
+  lazy val glossaryUrl: String = urlRoot + "/Translator/glossary/glossary.tsv" + containerSasToken
 
   lazy val docTranslationDf: DataFrame = Seq((sourceUrl,
     "Translator/source/",
@@ -347,24 +343,19 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
       TargetInput(None, None, targetFileUrl2, "de", None))))
     .toDF("sourceUrl", "storageType", "targets")
 
-  lazy val documentTranslator: DocumentTranslator = new DocumentTranslator()
+  def documentTranslator: DocumentTranslator = new DocumentTranslator()
     .setSubscriptionKey(translatorKey)
     .setServiceName(translatorName)
     .setSourceUrlCol("sourceUrl")
-    .setFilterPrefixCol("filterPrefix")
     .setTargetsCol("targets")
     .setOutputCol("translationStatus")
 
-  lazy val documentTranslator2: DocumentTranslator = new DocumentTranslator()
-    .setSubscriptionKey(translatorKey)
-    .setServiceName(translatorName)
-    .setSourceUrlCol("sourceUrl")
-    .setStorageTypeCol("storageType")
-    .setTargetsCol("targets")
-    .setOutputCol("translationStatus")
+  lazy val documentTranslator1: DocumentTranslator = documentTranslator.setFilterPrefixCol("filterPrefix")
+
+  lazy val documentTranslator2: DocumentTranslator = documentTranslator.setStorageTypeCol("storageType")
 
   test("Translating all documents under folder in a container") {
-    val result = documentTranslator
+    val result = documentTranslator1
       .transform(docTranslationDf2)
       .withColumn("totalNumber", col("translationStatus.summary.total"))
       .select("totalNumber")
@@ -372,8 +363,8 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
     assert(result.head.getInt(0) === 1)
   }
 
-  test("Translating all documents in a container applying glossaries") {
-    val result = documentTranslator
+  test("Translating all documents under folder in a container applying glossaries") {
+    val result = documentTranslator1
       .transform(docTranslationDf3)
       .withColumn("totalNumber", col("translationStatus.summary.total"))
       .select("totalNumber")
@@ -399,7 +390,7 @@ class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
   }
 
   override def testObjects(): Seq[TestObject[DocumentTranslator]] =
-    Seq(new TestObject(documentTranslator, docTranslationDf))
+    Seq(new TestObject(documentTranslator1, docTranslationDf))
 
   override def reader: MLReadable[_] = DocumentTranslator
 }
