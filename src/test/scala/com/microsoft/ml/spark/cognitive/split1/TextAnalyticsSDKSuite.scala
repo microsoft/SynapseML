@@ -49,10 +49,29 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
       val langCode = result.getAs[String]("iso6391Name")
       val confidence = result.getAs[Double]("confidenceScore")
 
-      assert(language == "English")
-      assert(langCode == "en")
       assert(modelVersion == "2021-01-05")
-      assert(confidence == 0.81)
+
+      if(language == "English") {
+        assert(langCode == "en")
+        assert(confidence == 0.81)
+      }
+
+      if(language == "French") {
+        assert(langCode == "fr")
+        assert(confidence == 0.88)
+      }
+      if(language == "Spanish") {
+        assert(langCode == "es")
+        assert(confidence == 1.0)
+      }
+      if(language == "Chinese") {
+        assert(langCode == "zh")
+        assert(confidence == 0.81)
+      }
+      if(language == "Unknown") {
+        assert(langCode == "unknown")
+        assert(confidence == 0.81)
+      }
     });
   }
 
@@ -81,16 +100,21 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setInputCol("In - Sentiment")
     .setOutputCol("Out - Sentiment")
 
+
   test("Sentiment Analysis - Basic Usage") {
     val outputCol = detector.transform(df)
       .select("Out - Sentiment")
       .collect()
     assert(outputCol(0).schema(0).name == "Out - Sentiment")
-    df.printSchema()
-    df.show()
-    outputCol.foreach { row =>
-      row.toSeq.foreach { col => println(col) }
-    }
+    val fromRow = SentimentResponseV4.makeFromRowConverter
+    outputCol.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Sentiment"))
+      assert(outResponse.modelVersion.get == "2020-04-01")
+    });
+  }
+  test("Sentiment Analysis - Print Schema") {
+    detector.transform(df).printSchema()
+    detector.transform(df).show()
   }
 }
 
@@ -107,15 +131,13 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     lazy val df3: DataFrame = Seq(
       ("es", ""),
-      ("en", "Hola, como estas."),
-      ("en", "123456.")
+      ("en", "Hola, como estas.")
     ).toDF("In - Key Phrase", "Out - Key Phrase")
 
     lazy val df4: DataFrame = Seq(
       ("en", "Hey, I enjoy learning how to code."),
       ("en", "I feel sad when it rains outside," +
-        "and it makes me unhappy."),
-      ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")
+        "and it makes me unhappy.")
     ).toDF("In - Key Phrase", "Out - Key Phrase")
 
     val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
@@ -129,61 +151,41 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     test("KPE - Basic Usage") {
       val outputCol = extractor.transform(df2)
-
-        .select("In - Key Phrase", "Out - Key Phrase")
+        .select("Out - Key Phrase")
         .collect()
-
-      assert(outputCol(0).schema(0).name == "In - Key Phrase")
-      df2.printSchema()
-      df2.show()
-      outputCol.foreach { row =>
-        row.toSeq.foreach { col => println(col) }
-      }
+      assert(outputCol(0).schema(0).name == "Out - Key Phrase")
+      val fromRow = KeyPhraseResponseV4.makeFromRowConverter
+      outputCol.foreach(row => {
+        val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
+        assert(outResponse.modelVersion.get == "2021-06-01")
+      });
     }
-
-    test("KPE - Error Path") {
+      test("KPE - Print Schema") {
+        extractor.transform(df2).printSchema()
+        extractor.transform(df2).show()
+      };
+  test("KPE - Error Path") {
       val outputCol = extractor.transform(df3)
         .select("In - Key Phrase", "Out - Key Phrase")
         .collect()
       assert(outputCol(0).schema(0).name == "In - Key Phrase")
-      df3.printSchema()
-      df3.show()
+      val fromRow = KeyPhraseResponseV4.makeFromRowConverter
       outputCol.foreach(row => {
-        var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
-        outputCol.foreach(row => {
-          var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
-
-          val keyPhrases = outResponse.getAs[GenericRowWithSchema]("keyPhrases");
-          val warnings = outResponse.getAs[GenericRowWithSchema]("warnings");
-
-          val kpe = keyPhrases.getAs[String]("keyPhrases")
-          //val warnings = warnings.getAs[TAWarningV4]("warnings")
-
-          assert(kpe == "are")
-        });
-      })
+        val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
+        assert(outResponse.modelVersion.get == "2021-06-01")
+      });
     }
+
     test("KPE - Happy Path") {
       val outputCol = extractor.transform(df4)
         .select("Out - Key Phrase")
         .collect()
       assert(outputCol(0).schema(0).name == "Out - Key Phrase")
-
+      val fromRow = KeyPhraseResponseV4.makeFromRowConverter
       outputCol.foreach(row => {
-        var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Key Phrase")
+        val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
+        assert(outResponse.modelVersion.get == "2021-06-01")
 
-        val result = outResponse.getAs[GenericRowWithSchema]("result");
-        val error = outResponse.getAs[GenericRowWithSchema]("error");
-        val statistics = outResponse.getAs[GenericRowWithSchema]("statistics");
-        val modelVersion = outResponse.getAs[String]("modelVersion");
-        //val language = result.getAs[String]("result")
-
-        assert(result == "keyPhrases")
-        assert(result == "warnings")
-        assert(statistics == "transactionsCount")
-        assert(statistics == "characterCount")
-        assert(modelVersion == "2021-06-01")
       });
-
     }
   }
