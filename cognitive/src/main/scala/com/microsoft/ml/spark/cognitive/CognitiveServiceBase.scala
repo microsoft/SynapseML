@@ -230,7 +230,7 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
   }
 
   def setLinkedService(v: String): this.type = {
-    val classPath = "mssparkutils.CognitiveService"
+    val classPath = "mssparkutils.cognitiveService"
     val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
     val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
     val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
