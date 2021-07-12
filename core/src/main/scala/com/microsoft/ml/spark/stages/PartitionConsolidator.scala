@@ -137,8 +137,3 @@ class Consolidator[T] {
 
 }
 
-trait LocalAggregator[T] {
-  def prep(iter: Iterator[Row]): T
-
-  def merge(ts: Seq[T]): T
-}

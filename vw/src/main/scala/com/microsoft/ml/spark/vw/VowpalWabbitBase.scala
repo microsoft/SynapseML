@@ -441,7 +441,7 @@ trait VowpalWabbitBase extends Wrappable
       spanningTree.start()
 
       val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt)
-      val driverHostAddress = ClusterUtil.getDriverHost(df)
+      val driverHostAddress = ClusterUtil.getDriverHost(df.sparkSession)
       val port = spanningTree.getPort
 
       /*
@@ -505,7 +505,7 @@ trait VowpalWabbitBase extends Wrappable
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
-    val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset, numTasksPerExec, log)
+    val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
     // Select needed columns, maybe get the weight column, keeps mem usage low

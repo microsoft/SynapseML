@@ -3,29 +3,19 @@
 
 package com.microsoft.ml.spark.lightgbm
 
-import java.io._
-import java.net.{ServerSocket, Socket}
-import java.util.concurrent.Executors
-
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.NativeLoader
-import com.microsoft.ml.spark.core.utils.ClusterUtil
 import com.microsoft.ml.spark.featurize.{Featurize, FeaturizeUtilities}
-import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
+import com.microsoft.ml.spark.lightgbm.ConnectionState._
 import com.microsoft.ml.spark.lightgbm.params.TrainParams
-import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.ml.attribute._
-import org.apache.spark.ml.linalg.SparseVector
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.Dataset
+import org.apache.spark.{SparkEnv, TaskContext}
 import org.slf4j.Logger
 
-import ConnectionState._
-
-import scala.collection.immutable.HashSet
+import java.io._
+import java.net.{ServerSocket, Socket}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -56,49 +46,14 @@ object LightGBMUtils {
                     groupColumn: Option[String] = None,
                     oneHotEncodeCategoricals: Boolean = true): PipelineModel = {
     // Create pipeline model to featurize the dataset
-    val featuresToHashTo = FeaturizeUtilities.NumFeaturesTreeOrNNBased
     val featureColumns = dataset.columns.filter(col => col != labelColumn &&
       !weightColumn.contains(col) && !groupColumn.contains(col)).toSeq
-    val featurizer = new Featurize()
+    new Featurize()
       .setOutputCol(featuresColumn)
       .setInputCols(featureColumns.toArray)
       .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
-      .setNumFeatures(featuresToHashTo)
-    featurizer.fit(dataset)
-  }
-
-  def getCategoricalIndexes(df: DataFrame,
-                            featuresCol: String,
-                            slotNames: Array[String],
-                            categoricalColumnIndexes: Array[Int],
-                            categoricalColumnSlotNames: Array[String]): Array[Int] = {
-    val categoricalIndexes = if(slotNames.nonEmpty) {
-      categoricalColumnSlotNames.map(slotNames.indexOf(_))
-    } else {
-      val categoricalSlotNamesSet = HashSet(categoricalColumnSlotNames: _*)
-      val featuresSchema = df.schema(featuresCol)
-      val metadata = AttributeGroup.fromStructField(featuresSchema)
-      if (metadata.attributes.isEmpty) Array[Int]()
-      else {
-        metadata.attributes.get.zipWithIndex.flatMap {
-          case (null, _) => Iterator()
-          case (attr, idx) =>
-            if (attr.name.isDefined && categoricalSlotNamesSet.contains(attr.name.get)) {
-              Iterator(idx)
-            } else {
-              attr match {
-                case _: NumericAttribute | UnresolvedAttribute => Iterator()
-                // Note: it seems that BinaryAttribute is not considered categorical,
-                // since all OHE cols are marked with this, but StringIndexed are always Nominal
-                case _: BinaryAttribute => Iterator()
-                case _: NominalAttribute => Iterator(idx)
-              }
-            }
-        }
-      }
-    }
-
-    categoricalColumnIndexes.union(categoricalIndexes).distinct
+      .setNumFeatures(FeaturizeUtilities.NumFeaturesTreeOrNNBased)
+      .fit(dataset)
   }
 
   def sendDataToExecutors(hostAndPorts: ListBuffer[(Socket, String)], allConnections: String): Unit = {
@@ -148,59 +103,11 @@ object LightGBMUtils {
     }
   }
 
-  /**
-    * Opens a socket communications channel on the driver, starts a thread that
-    * waits for the host:port from the executors, and then sends back the
-    * information to the executors.
-    *
-    * @param numTasks The total number of training tasks to wait for.
-    * @return The address and port of the driver socket.
-    */
-  def createDriverNodesThread(numTasks: Int, df: DataFrame,
-                              log: Logger, timeout: Double,
-                              barrierExecutionMode: Boolean,
-                              driverServerPort: Int): (String, Int, Future[Unit]) = {
-    // Start a thread and open port to listen on
-    implicit val context: ExecutionContextExecutor =
-      ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
-    val driverServerSocket = new ServerSocket(driverServerPort)
-    // Set timeout on socket
-    val duration = Duration(timeout, SECONDS)
-    if (duration.isFinite()) {
-      driverServerSocket.setSoTimeout(duration.toMillis.toInt)
-    }
-    val f = Future {
-      var emptyTaskCounter = 0
-      val hostAndPorts = ListBuffer[(Socket, String)]()
-      if (barrierExecutionMode) {
-        log.info(s"driver using barrier execution mode")
-        def connectToWorkers: Boolean = handleConnection(driverServerSocket, log,
-          hostAndPorts) == Finished || connectToWorkers
-        connectToWorkers
-      } else {
-        log.info(s"driver expecting $numTasks connections...")
-        while (hostAndPorts.size + emptyTaskCounter < numTasks) {
-          val connectionResult = handleConnection(driverServerSocket, log, hostAndPorts)
-          if (connectionResult == ConnectionState.EmptyTask) emptyTaskCounter += 1
-        }
-      }
-      // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
-      val allConnections = hostAndPorts.map(_._2).mkString(",")
-      log.info(s"driver writing back to all connections: $allConnections")
-      // Send data back to all tasks and helper tasks on executors
-      sendDataToExecutors(hostAndPorts, allConnections)
-      closeConnections(log, hostAndPorts, driverServerSocket)
-    }
-    val host = ClusterUtil.getDriverHost(df)
-    val port = driverServerSocket.getLocalPort
-    log.info(s"driver waiting for connections on host: $host and port: $port")
-    (host, port, f)
-  }
 
   /** Returns an integer ID for the current worker.
     * @return In cluster, returns the executor id.  In local case, returns the partition id.
     */
-  def getWorkerId(): Int = {
+  def getWorkerId: Int = {
     val executorId = SparkEnv.get.executorId
     val ctx = TaskContext.get
     val partId = ctx.partitionId
@@ -213,7 +120,7 @@ object LightGBMUtils {
   /** Returns true if spark is run in local mode.
     * @return True if spark is run in local mode.
     */
-  def isLocalExecution(): Boolean = {
+  def isLocalExecution: Boolean = {
     val executorId = SparkEnv.get.executorId
     executorId == "driver"
   }
@@ -221,17 +128,18 @@ object LightGBMUtils {
   /** Returns a unique task Id for the current task run on the executor.
     * @return A unique task id.
     */
-  def getTaskId(): Long = {
+  def getTaskId: Long = {
     val ctx = TaskContext.get
     val taskId = ctx.taskAttemptId()
     taskId
   }
 
   def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
-    var numChunks = Math.floorDiv(numRows, chunkSize)
-    var leftoverChunk = numRows % chunkSize
-    if (leftoverChunk > 0) {
-      numChunks += 1
+    val leftoverChunk = numRows % chunkSize
+    val numChunks = if (leftoverChunk > 0) {
+      Math.floorDiv(numRows, chunkSize) + 1
+    }else{
+      Math.floorDiv(numRows, chunkSize)
     }
     val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
     (0 until numChunks).foreach({ index: Int =>
@@ -244,64 +152,6 @@ object LightGBMUtils {
     numRowsForChunks
   }
 
-  def getDatasetParams(trainParams: TrainParams): String = {
-    val datasetParams = s"max_bin=${trainParams.maxBin} is_pre_partition=True " +
-      s"bin_construct_sample_cnt=${trainParams.binSampleCount} " +
-      s"num_threads=${trainParams.executionParams.numThreads} " +
-      (if (trainParams.categoricalFeatures.isEmpty) ""
-      else s"categorical_feature=${trainParams.categoricalFeatures.mkString(",")}")
-    datasetParams
-  }
 
-  def generateDenseDataset(numRows: Int, numCols: Int, featuresArray: doubleChunkedArray,
-                           referenceDataset: Option[LightGBMDataset],
-                           featureNamesOpt: Option[Array[String]],
-                           trainParams: TrainParams, chunkSize: Int): LightGBMDataset = {
-    val isRowMajor = 1
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = getDatasetParams(trainParams)
-    val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
-    var data: Option[(SWIGTYPE_p_void, SWIGTYPE_p_double)] = None
-    val numRowsForChunks = getNumRowsForChunksArray(numRows, chunkSize)
-    try {
-      // Generate the dataset for features
-      featuresArray.get_last_chunk_add_count()
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMats(featuresArray.get_chunks_count().toInt,
-        featuresArray.data_as_void(), data64bitType,
-        numRowsForChunks, numCols,
-        isRowMajor, datasetParams, referenceDataset.map(_.datasetPtr).orNull, datasetOutPtr),
-        "Dataset create")
-    } finally {
-      featuresArray.release()
-      lightgbmlib.delete_intArray(numRowsForChunks)
-    }
-    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols)
-    dataset
-  }
 
-  /** Generates a sparse dataset in CSR format.
-    *
-    * @param sparseRows The rows of sparse vector.
-    * @return
-    */
-  def generateSparseDataset(sparseRows: Array[SparseVector],
-                            referenceDataset: Option[LightGBMDataset],
-                            featureNamesOpt: Option[Array[String]],
-                            trainParams: TrainParams): LightGBMDataset = {
-    val numCols = sparseRows(0).size
-
-    val datasetOutPtr = lightgbmlib.voidpp_handle()
-    val datasetParams = getDatasetParams(trainParams)
-    // Generate the dataset for features
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSRSpark(
-      sparseRows.asInstanceOf[Array[Object]],
-      sparseRows.length,
-      numCols, datasetParams, referenceDataset.map(_.datasetPtr).orNull,
-      datasetOutPtr),
-      "Dataset create")
-    val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(datasetOutPtr))
-    dataset.setFeatureNames(featureNamesOpt, numCols)
-    dataset
-  }
 }
