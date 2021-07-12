@@ -103,4 +103,14 @@ class LassoRegressionSuite extends TestBase {
       new LassoRegression(0.05d).fit(x, y, w, fitIntercept = true)
     }
   }
+
+  test("Lasso regression with single value variable") {
+    val a = BDM((1.0, 1.0), (2.0, 1.0), (3.0, 1.0), (4.0, 1.0))
+    val b = BDV(2.0, 3.0, 4.0, 5.0)
+    val result = new LassoRegression(0d).fit(a, b, fitIntercept = true)
+    assert(result.coefficients === BDV(1.0, 0), "coefficients disagreed")
+    assert(result.intercept === 1d, "intercept disagreed")
+    assert(result.rSquared === 1d, "rSquared disagreed")
+    assert(result.loss === 0d, "loss disagreed")
+  }
 }
