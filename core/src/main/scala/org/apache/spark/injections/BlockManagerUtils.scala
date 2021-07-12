@@ -3,16 +3,16 @@
 
 package org.apache.spark.injections
 
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.BlockManager
 
 object BlockManagerUtils {
   /** Returns the block manager from the dataframe's spark context.
     *
-    * @param data The dataframe to get the block manager from.
+    * @param spark The spark session to get the block manager from.
     * @return The block manager.
     */
-  def getBlockManager(data: Dataset[_]): BlockManager = {
-    data.sparkSession.sparkContext.env.blockManager
+  def getBlockManager(spark: SparkSession): BlockManager = {
+    spark.sparkContext.env.blockManager
   }
 }

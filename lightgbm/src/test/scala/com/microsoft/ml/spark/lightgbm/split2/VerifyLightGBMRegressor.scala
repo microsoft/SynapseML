@@ -58,6 +58,7 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor can be run with TrainValidationSplit") {
+    (0 until 20).foreach(_ => getAndIncrementPort())
     val model = baseModel
 
     val paramGrid = new ParamGridBuilder()
@@ -82,6 +83,15 @@ class VerifyLightGBMRegressor extends Benchmarks
     val modelStr = fitModel.bestModel.asInstanceOf[LightGBMRegressionModel].getModel.modelStr.get
     assert(modelStr.contains("[lambda_l1: 0.1]") || modelStr.contains("[lambda_l1: 0.5]"))
     assert(modelStr.contains("[lambda_l2: 0.1]") || modelStr.contains("[lambda_l2: 0.5]"))
+  }
+
+  test("Verify LightGBM with single dataset mode") {
+    val df = airfoilDF
+    val model = baseModel.setUseSingleDatasetMode(true)
+    model.fit(df).transform(df).show()
+
+    val models = baseModel.setUseSingleDatasetMode(false)
+    models.fit(df).transform(df).show()
   }
 
   test("Verify LightGBM Regressor with weight column") {
@@ -136,6 +146,7 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
+    (0 until 10).foreach(_ => getAndIncrementPort())
     val model = baseModel.setObjective("tweedie").setTweedieVariancePower(1.5)
 
     val paramGrid = new ParamGridBuilder()
@@ -205,7 +216,7 @@ class VerifyLightGBMRegressor extends Benchmarks
     val featurizer = LightGBMUtils.getFeaturizer(dataset, labelCol, featuresCol)
     val train = featurizer.transform(dataset)
 
-    Seq(new TestObject(new LightGBMRegressor()
+    Seq(new TestObject(new LightGBMRegressor().setDefaultListenPort(getAndIncrementPort())
       .setLabelCol(labelCol).setFeaturesCol(featuresCol).setNumLeaves(5),
       train))
   }
