@@ -208,42 +208,11 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
   }
 }
 
+trait BasicAsyncReply extends HasAsyncReply {
 
-trait HasAsyncReply extends Params {
-  val backoffs: IntArrayParam = new IntArrayParam(
-    this, "backoffs", "array of backoffs to use in the handler")
-
-  /** @group getParam */
-  def getBackoffs: Array[Int] = $(backoffs)
-
-  /** @group setParam */
-  def setBackoffs(value: Array[Int]): this.type = set(backoffs, value)
-
-  val maxPollingRetries: IntParam = new IntParam(
-    this, "maxPollingRetries", "number of times to poll")
-
-  /** @group getParam */
-  def getMaxPollingRetries: Int = $(maxPollingRetries)
-
-  /** @group setParam */
-  def setMaxPollingRetries(value: Int): this.type = set(maxPollingRetries, value)
-
-  val pollingDelay: IntParam = new IntParam(
-    this, "pollingDelay", "number of milliseconds to wait between polling")
-
-  /** @group getParam */
-  def getPollingDelay: Int = $(pollingDelay)
-
-  /** @group setParam */
-  def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
-
-  //scalastyle:off magic.number
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
-  //scalastyle:on magic.number
-
-  private def queryForResult(key: Option[String],
-                             client: CloseableHttpClient,
-                             location: URI): Option[HTTPResponseData] = {
+  protected def queryForResult(key: Option[String],
+                               client: CloseableHttpClient,
+                               location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -284,13 +253,54 @@ trait HasAsyncReply extends Params {
       response
     }
   }
+}
+
+
+trait HasAsyncReply extends Params {
+  val backoffs: IntArrayParam = new IntArrayParam(
+    this, "backoffs", "array of backoffs to use in the handler")
+
+  /** @group getParam */
+  def getBackoffs: Array[Int] = $(backoffs)
+
+  /** @group setParam */
+  def setBackoffs(value: Array[Int]): this.type = set(backoffs, value)
+
+  val maxPollingRetries: IntParam = new IntParam(
+    this, "maxPollingRetries", "number of times to poll")
+
+  /** @group getParam */
+  def getMaxPollingRetries: Int = $(maxPollingRetries)
+
+  /** @group setParam */
+  def setMaxPollingRetries(value: Int): this.type = set(maxPollingRetries, value)
+
+  val pollingDelay: IntParam = new IntParam(
+    this, "pollingDelay", "number of milliseconds to wait between polling")
+
+  /** @group getParam */
+  def getPollingDelay: Int = $(pollingDelay)
+
+  /** @group setParam */
+  def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
+
+  //scalastyle:off magic.number
+  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
+  //scalastyle:on magic.number
+
+  protected def queryForResult(key: Option[String],
+                               client: CloseableHttpClient,
+                               location: URI): Option[HTTPResponseData]
+
+  protected def handlingFunc(client: CloseableHttpClient,
+                             request: HTTPRequestData): HTTPResponseData
 
 }
 
 
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
-    with HasAsyncReply
+    with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
@@ -336,7 +346,7 @@ object Read extends ComplexParamsReadable[Read] {
 
 class Read(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
-    with HasAsyncReply
+    with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
