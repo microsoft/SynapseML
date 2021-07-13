@@ -193,7 +193,7 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
     assert(List(4,5).forall(results(_).get(0) == null))
     assert(
       results(0).getSeq[Row](0).head.getString(0) == "positive" &&
-        results(2).getSeq[Row](0).head.getString(0) == "negative")
+      results(2).getSeq[Row](0).head.getString(0) == "negative")
   }
 
   test("batch usage"){
