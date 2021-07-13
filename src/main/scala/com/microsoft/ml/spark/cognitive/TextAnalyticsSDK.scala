@@ -86,27 +86,18 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
     val detectLanguageResultCollection = resultCollection.asScala
 
-    val languageResult = detectLanguageResultCollection.map(result =>
-      if (result.isError) {
-        None
-      } else {
+    val languageResult = detectLanguageResultCollection.filter(result => !result.isError).map(result =>
       Some(DetectedLanguageV4(result.getPrimaryLanguage.getName, result.getPrimaryLanguage.getIso6391Name,
-        result.getPrimaryLanguage.getConfidenceScore))
-      }).filter(_ != None).toList
+        result.getPrimaryLanguage.getConfidenceScore))).toList
 
-
-    val error = detectLanguageResultCollection.map(result =>
-      if (result.isError) {
+    val error = detectLanguageResultCollection.filter(result => result.isError).map(result =>
       Some(TAErrorV4(result.getError.toString, result.getError.getMessage,
-        result.getError.getTarget))
-    } else {
-      None
-    }).filter(_ != None).toList
+        result.getError.getTarget))).toList
 
     val stats = detectLanguageResultCollection.map(result => Option(result.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).filter(_ != None).toList
+    }).toList
 
     TAResponseV4[DetectedLanguageV4](
       languageResult,
@@ -135,27 +126,21 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 
     val keyPhraseExtractionResultCollection = resultCollection.asScala
 
-    val keyphraseResult = keyPhraseExtractionResultCollection.map (phrases => if (phrases.isError) {
-      None
-    } else {
+    val keyphraseResult = keyPhraseExtractionResultCollection.filter(phrases => !phrases.isError).map(phrases =>
       Some(KeyphraseV4(
         phrases.getKeyPhrases.asScala.toList,
         phrases.getKeyPhrases.getWarnings.asScala.toList.map(
           item => TAWarningV4(item.getWarningCode.toString,item.getMessage))
-        ))
-    }).filter(_ != None).toList
+        ))).toList
 
-    val error = keyPhraseExtractionResultCollection.map(phrases => if (phrases.isError) {
+    val error = keyPhraseExtractionResultCollection.filter(phrases => phrases.isError).map(phrases =>
       Some(TAErrorV4(phrases.getError.getErrorCode.toString,
-        phrases.getError.getMessage, phrases.getError.getTarget))
-    } else {
-      None
-    }).filter(_ != None).toList
+        phrases.getError.getMessage, phrases.getError.getTarget))).toList
 
     val stats = keyPhraseExtractionResultCollection.map(phrases => Option(phrases.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).filter(_ != None).toList
+    }).toList
 
     TAResponseV4[KeyphraseV4](
       keyphraseResult,
@@ -236,23 +221,17 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
           WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
     }
 
-    val sentimentResult = textSentimentResultCollection.map(sentiment => if(sentiment.isError) {
-      None
-    } else {
-      Some(getDocumentSentiment(sentiment.getDocumentSentiment))
-    }).filter(_ != None).toList
+    val sentimentResult = textSentimentResultCollection.filter(sentiment => !sentiment.isError).map(sentiment =>
+      Some(getDocumentSentiment(sentiment.getDocumentSentiment))).toList
 
-    val error = textSentimentResultCollection.map(sentiment => if (sentiment.isError) {
+    val error = textSentimentResultCollection.filter(sentiment => sentiment.isError).map(sentiment =>
       Some(TAErrorV4(sentiment.getError.getErrorCode.toString,
-              sentiment.getError.getMessage, sentiment.getError.getTarget))
-          } else {
-            None
-          }).filter(_ != None).toList
+              sentiment.getError.getMessage, sentiment.getError.getTarget))).toList
 
     val stats = textSentimentResultCollection.map(sentiment => Option(sentiment.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).filter(_ != None).toList
+    }).toList
 
     TAResponseV4[SentimentScoredDocumentV4](
       sentimentResult,
