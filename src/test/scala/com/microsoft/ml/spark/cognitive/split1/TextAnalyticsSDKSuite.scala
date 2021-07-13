@@ -73,13 +73,13 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
-    .setOutputCol("output2")
+    .setOutputCol("output")
 
-  test("Sentiment Analysis - Basic Usage") {
+  test("Sentiment Analysis - Output Assertion") {
     val replies = detector.transform(batchedDF)
-      .select("output2")
+      .select("output")
       .collect()
-    assert(replies(0).schema(0).name == "output2")
+    assert(replies(0).schema(0).name == "output")
     df.printSchema()
     df.show()
     replies.foreach { row =>
@@ -94,12 +94,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setLangCol("lang")
     .setOutputCol("output")
 
-  test("func foo 2") {
-    detector2.transform(batchedDF).printSchema()
-    detector2.transform(batchedDF).select("output.result.sentiment").show(4, 30)
-  }
-
-  test("func Basic Usage2") {
+  test("Sentiment Analysis - Basic Usage") {
     val replies = detector2.transform(batchedDF)
       .select("output.result.sentiment")
       .collect()
@@ -127,11 +122,11 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
     .setLangCol("lang")
-    .setOutputCol("output3")
+    .setOutputCol("output")
 
   test("KPE - Basic Usage") {
     val replies = extractor.transform(df2)
-      .select(explode(col("output3.result.keyPhrases")))
+      .select(explode(col("output.result.keyPhrases")))
       .collect()
 
     assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
@@ -141,10 +136,10 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
 
     test("KPE - Output Assertion"){
       val replies = extractor.transform(df2)
-        .select("output3")
+        .select("output")
         .collect()
 
-      assert(replies(0).schema(0).name == "output3")
+      assert(replies(0).schema(0).name == "output")
 
       df2.printSchema()
       df2.show()

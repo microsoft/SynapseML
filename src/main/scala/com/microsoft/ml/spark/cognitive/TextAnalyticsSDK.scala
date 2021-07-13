@@ -14,7 +14,6 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import scala.collection.JavaConverters._
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
@@ -79,34 +78,35 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
   override def invokeTextAnalytics(input: Seq[String], hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
     val r = scala.util.Random
-    var documents = (input, hints).zipped.map { (inp, hint) =>
+    var docs = (input, hints).zipped.map { (inp, hint) =>
       new DetectLanguageInput(r.nextInt.abs.toString, inp, hint)}.asJava
 
-    val resultCollection = textAnalyticsClient.detectLanguageBatchWithResponse(documents,
+    val resultCollection = textAnalyticsClient.detectLanguageBatchWithResponse(docs,
       null,Context.NONE).getValue
 
     val detectLanguageResultCollection = resultCollection.asScala
 
-    val detectLanguageResult = detectLanguageResultCollection.map(langs => langs.getPrimaryLanguage)
+    val languageResult = detectLanguageResultCollection.map(result =>
+      if (result.isError) {
+        None
+      } else {
+      Some(DetectedLanguageV4(result.getPrimaryLanguage.getName, result.getPrimaryLanguage.getIso6391Name,
+        result.getPrimaryLanguage.getConfidenceScore))
+      }).filter(_ != None).toList
 
-    val languageResult = if (detectLanguageResultCollection.head.isError) {
-      None
-    } else {
-      Some(detectLanguageResult.map(result => DetectedLanguageV4(result.getName, result.getIso6391Name,
-        result.getConfidenceScore)).toList)
-    }
 
-    val error = if (detectLanguageResultCollection.head.isError) {
-      Some(detectLanguageResultCollection.map(result => TAErrorV4(result.getError.toString, result.getError.getMessage,
-        result.getError.getTarget)).toList)
+    val error = detectLanguageResultCollection.map(result =>
+      if (result.isError) {
+      Some(TAErrorV4(result.getError.toString, result.getError.getMessage,
+        result.getError.getTarget))
     } else {
       None
-    }
+    }).filter(_ != None).toList
 
     val stats = detectLanguageResultCollection.map(result => Option(result.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).toList
+    }).filter(_ != None).toList
 
     TAResponseV4[DetectedLanguageV4](
       languageResult,
@@ -127,35 +127,35 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 
   override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]): TAResponseV4[KeyphraseV4] = {
     val r = scala.util.Random
-    var documents = (input, lang).zipped.map { (inp, la) =>
+    var docs = (input, lang).zipped.map { (inp, la) =>
       new TextDocumentInput(r.nextInt.abs.toString,inp).setLanguage(la)}.asJava
 
-    val resultCollection = textAnalyticsClient.extractKeyPhrasesBatchWithResponse(documents,
+    val resultCollection = textAnalyticsClient.extractKeyPhrasesBatchWithResponse(docs,
       null,Context.NONE).getValue
 
     val keyPhraseExtractionResultCollection = resultCollection.asScala
 
-    val keyphraseResult = if (keyPhraseExtractionResultCollection.head.isError) {
+    val keyphraseResult = keyPhraseExtractionResultCollection.map (phrases => if (phrases.isError) {
       None
     } else {
-      Some(keyPhraseExtractionResultCollection.map(phrases => KeyphraseV4(
+      Some(KeyphraseV4(
         phrases.getKeyPhrases.asScala.toList,
         phrases.getKeyPhrases.getWarnings.asScala.toList.map(
           item => TAWarningV4(item.getWarningCode.toString,item.getMessage))
-        )).toList)
-    }
+        ))
+    }).filter(_ != None).toList
 
-    val error = if (keyPhraseExtractionResultCollection.head.isError) {
-      Some(keyPhraseExtractionResultCollection.map(phrases => TAErrorV4(phrases.getError.getErrorCode.toString,
-        phrases.getError.getMessage, phrases.getError.getTarget)).toList)
+    val error = keyPhraseExtractionResultCollection.map(phrases => if (phrases.isError) {
+      Some(TAErrorV4(phrases.getError.getErrorCode.toString,
+        phrases.getError.getMessage, phrases.getError.getTarget))
     } else {
       None
-    }
+    }).filter(_ != None).toList
 
     val stats = keyPhraseExtractionResultCollection.map(phrases => Option(phrases.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).toList
+    }).filter(_ != None).toList
 
     TAResponseV4[KeyphraseV4](
       keyphraseResult,
@@ -178,15 +178,13 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
   TAResponseV4[SentimentScoredDocumentV4] = {
     val r = scala.util.Random
-    var documents = (input, lang).zipped.map { (inp, la) =>
+    var docs = (input, lang).zipped.map { (inp, la) =>
       new TextDocumentInput(r.nextInt.abs.toString,inp).setLanguage(la)}.asJava
 
-    val resultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(documents,
+    val resultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(docs,
       null,Context.NONE).getValue
 
     val textSentimentResultCollection = resultCollection.asScala
-
-    val textSentimentResult = textSentimentResultCollection.map(result => result.getDocumentSentiment)
 
     def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
       SentimentConfidenceScoreV4(
@@ -238,23 +236,23 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
           WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
     }
 
-    val sentimentResult = if (textSentimentResultCollection.head.isError) {
+    val sentimentResult = textSentimentResultCollection.map(sentiment => if(sentiment.isError) {
       None
     } else {
-      Some(textSentimentResult.map(sentiment => getDocumentSentiment(sentiment)).toList)
-    }
+      Some(getDocumentSentiment(sentiment.getDocumentSentiment))
+    }).filter(_ != None).toList
 
-    val error = if (textSentimentResultCollection.head.isError) {
-      Some(textSentimentResultCollection.map(sentiment => TAErrorV4(sentiment.getError.getErrorCode.toString,
-              sentiment.getError.getMessage, sentiment.getError.getTarget)).toList)
+    val error = textSentimentResultCollection.map(sentiment => if (sentiment.isError) {
+      Some(TAErrorV4(sentiment.getError.getErrorCode.toString,
+              sentiment.getError.getMessage, sentiment.getError.getTarget))
           } else {
             None
-          }
+          }).filter(_ != None).toList
 
     val stats = textSentimentResultCollection.map(sentiment => Option(sentiment.getStatistics) match {
       case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
       case None => None
-    }).toList
+    }).filter(_ != None).toList
 
     TAResponseV4[SentimentScoredDocumentV4](
       sentimentResult,

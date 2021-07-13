@@ -60,6 +60,7 @@ trait HasTextCol extends HasServiceParams {
   setDefault(text -> Right("text"))
 }
 
+
 trait HasOutputCols extends Params {
   /** The names of the output columns
     *
@@ -236,20 +237,16 @@ trait HasConfidenceScoreCol extends Params {
   setDefault(confidenceScoreCol -> "ConfidenceScore")
 }
 
-trait HasLangCol extends Params {
+trait HasLangCol extends HasServiceParams {
   /** The name of the language of the document column
     *
     * @group param
     */
   val lang = new ServiceParam[Seq[String]](this, "lang", "the languages in the request body", isRequired = false)
 
-  val langCol = new Param[String](this, "langCol",
-    "Name of the language column of the document.")
-
   /** @group setParam */
-  def setLangCol(value: String): this.type = set(langCol, value)
-
-  /** @group getParam */
-  def getLangCol: String = $(langCol)
-  setDefault(langCol -> null)
+  def setLangCol(value: String): this.type = setVectorParam(lang, value)
+  def setLang(value: Seq[String]): this.type = setScalarParam(lang, value)
+  def setLang(value: String): this.type = setScalarParam(lang, Seq(value))
+  setDefault(lang -> Right("lang"))
 }
