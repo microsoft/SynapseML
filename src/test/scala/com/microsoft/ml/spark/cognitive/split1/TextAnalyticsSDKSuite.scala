@@ -10,11 +10,13 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-
+import org.scalatest.exceptions.TestFailedException
 
 
 class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
   import spark.implicits._
+
   lazy val df: DataFrame = Seq(
     "Hello World",
     "Bonjour tout le monde",
@@ -51,72 +53,98 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
 
       assert(modelVersion == "2021-01-05")
 
-      if(language == "English") {
+      if (language == "English") {
         assert(langCode == "en")
         assert(confidence == 0.81)
       }
 
-      if(language == "French") {
+      if (language == "French") {
         assert(langCode == "fr")
         assert(confidence == 0.88)
       }
-      if(language == "Spanish") {
+      if (language == "Spanish") {
         assert(langCode == "es")
         assert(confidence == 1.0)
       }
-      if(language == "Chinese") {
+      if (language == "Chinese") {
         assert(langCode == "zh")
         assert(confidence == 0.81)
       }
-      if(language == "Unknown") {
+      if (language == "Unknown") {
         assert(langCode == "unknown")
         assert(confidence == 0.81)
       }
     });
+    test("Language Detection - Statistics Test") {
+      val outputCol = detector.transform(df)
+        .select("Out - Language")
+        .collect()
+      assert(outputCol(0).schema(0).name == "Out - Language")
+
+      outputCol.foreach(row => {
+        var outResponse: GenericRowWithSchema = row.getAs[GenericRowWithSchema]("Out - Language")
+
+        val result = outResponse.getAs[GenericRowWithSchema]("result");
+        val error = outResponse.getAs[GenericRowWithSchema]("error");
+        val statistics = outResponse.getAs[GenericRowWithSchema]("statistics");
+        val modelVersion = outResponse.getAs[String]("modelVersion");
+        val language = result.getAs[String]("name")
+        val langCode = result.getAs[String]("iso6391Name")
+        val confidence = result.getAs[Double]("confidenceScore")
+
+        assert(modelVersion == "2021-01-05")
+
+        if (statistics == "true") {
+          assert(documentsCount == 2)
+          assert(validDocumentsCount == 1)
+          assert(erroneousDocumentsCount == 1)
+          assert(transactionsCount == 1)
+        }
+      });
+    }
+
+    test("Language Detection - Print Schema") {
+      detector.transform(df).printSchema()
+      detector.transform(df).show()
+    }
   }
 
-  test("Language Detection - Print Schema") {
-    detector.transform(df).printSchema()
-    detector.transform(df).show()
+  class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+    import spark.implicits._
+
+    val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
+      .setIncludeStatistics(true))
+
+    lazy val df: DataFrame = Seq(
+      "Hello world. This is some input text that I love.",
+      "I am sad",
+      "I am feeling okay"
+    ).toDF("In - Sentiment")
+
+    lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
+      .setSubscriptionKey(textKey)
+      .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+      .setInputCol("In - Sentiment")
+      .setOutputCol("Out - Sentiment")
+
+
+    test("Sentiment Analysis - Basic Usage") {
+      val outputCol = detector.transform(df)
+        .select("Out - Sentiment")
+        .collect()
+      assert(outputCol(0).schema(0).name == "Out - Sentiment")
+      val fromRow = SentimentResponseV4.makeFromRowConverter
+      outputCol.foreach(row => {
+        val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Sentiment"))
+        assert(outResponse.modelVersion.get == "2020-04-01")
+      });
+    }
+    test("Sentiment Analysis - Print Schema") {
+      detector.transform(df).printSchema()
+      detector.transform(df).show()
+    }
   }
-}
-
-class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
-
-  import spark.implicits._
-
-  val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-    .setIncludeStatistics(true))
-
-  lazy val df: DataFrame = Seq(
-    "Hello world. This is some input text that I love.",
-    "I am sad",
-    "I am feeling okay"
-  ).toDF("In - Sentiment")
-
-  lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
-    .setSubscriptionKey(textKey)
-    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("In - Sentiment")
-    .setOutputCol("Out - Sentiment")
-
-
-  test("Sentiment Analysis - Basic Usage") {
-    val outputCol = detector.transform(df)
-      .select("Out - Sentiment")
-      .collect()
-    assert(outputCol(0).schema(0).name == "Out - Sentiment")
-    val fromRow = SentimentResponseV4.makeFromRowConverter
-    outputCol.foreach(row => {
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Sentiment"))
-      assert(outResponse.modelVersion.get == "2020-04-01")
-    });
-  }
-  test("Sentiment Analysis - Print Schema") {
-    detector.transform(df).printSchema()
-    detector.transform(df).show()
-  }
-}
 
   class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
@@ -141,7 +169,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     ).toDF("In - Key Phrase", "Out - Key Phrase")
 
     val options: Option[TextAnalyticsRequestOptions] = Some(new TextAnalyticsRequestOptions()
-      .setIncludeStatistics(true))
+      .setIncludeStatistics(false))
 
     lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
       .setSubscriptionKey(textKey)
@@ -160,11 +188,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
         assert(outResponse.modelVersion.get == "2021-06-01")
       });
     }
-      test("KPE - Print Schema") {
-        extractor.transform(df2).printSchema()
-        extractor.transform(df2).show()
-      };
-  test("KPE - Error Path") {
+    test("KPE - Print Schema") {
+      extractor.transform(df2).printSchema()
+      extractor.transform(df2).show()
+    };
+    test("KPE - Error Path: Bad Model Version") {
       val outputCol = extractor.transform(df3)
         .select("In - Key Phrase", "Out - Key Phrase")
         .collect()
@@ -172,11 +200,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       val fromRow = KeyPhraseResponseV4.makeFromRowConverter
       outputCol.foreach(row => {
         val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
-        assert(outResponse.modelVersion.get == "2021-06-01")
+        assert(outResponse.modelVersion.get == "June 1st 2021")
       });
     }
 
-    test("KPE - Happy Path") {
+    test("KPE - Happy Path: Correct Model Version") {
       val outputCol = extractor.transform(df4)
         .select("Out - Key Phrase")
         .collect()
@@ -189,3 +217,4 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       });
     }
   }
+}
