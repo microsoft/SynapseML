@@ -3,7 +3,9 @@
 
 package com.microsoft.ml.spark.core.contracts
 
+import com.microsoft.ml.spark.cognitive.HasServiceParams
 import org.apache.spark.ml.param._
+import spray.json.DefaultJsonProtocol.{StringJsonFormat, seqFormat}
 
 trait HasInputCol extends Params {
   /** The name of the input column
@@ -45,6 +47,17 @@ trait HasInputCols extends Params {
 
   /** @group getParam */
   def getInputCols: Array[String] = $(inputCols)
+}
+trait HasTextCol extends HasServiceParams {
+  val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
+
+  def setTextCol(v: String): this.type = setVectorParam(text, v)
+
+  def setText(v: Seq[String]): this.type = setScalarParam(text, v)
+
+  def setText(v: String): this.type = setScalarParam(text, Seq(v))
+
+  setDefault(text -> Right("text"))
 }
 
 trait HasOutputCols extends Params {
@@ -228,6 +241,8 @@ trait HasLangCol extends Params {
     *
     * @group param
     */
+  val lang = new ServiceParam[Seq[String]](this, "lang", "the languages in the request body", isRequired = false)
+
   val langCol = new Param[String](this, "langCol",
     "Name of the language column of the document.")
 
