@@ -31,6 +31,9 @@ object LightGBMConstants {
   /** Multiclass classification objective
     */
   val MulticlassObjective: String = "multiclass"
+  /** Enabled task, used to indicate task that creates lightgbm dataset and runs training.
+    */
+  val EnabledTask: String = "enabledTask"
   /** Ignore task status, used to ignore tasks that get empty partitions
     */
   val IgnoreStatus: String = "ignore"

@@ -80,7 +80,7 @@ case class ClassifierTrainParams(parallelism: String, topK: Int, numIterations: 
                                  dartModeParams: DartModeParams, executionParams: ExecutionParams,
                                  objectiveParams: ObjectiveParams)
   extends TrainParams {
-  override def toString(): String = {
+  override def toString: String = {
     val extraStr =
       if (objectiveParams.objective != LightGBMConstants.BinaryObjective) s"num_class=$numClass"
       else s"is_unbalance=${isUnbalance.toString}"
@@ -105,7 +105,7 @@ case class RegressorTrainParams(parallelism: String, topK: Int, numIterations: I
                                 dartModeParams: DartModeParams, executionParams: ExecutionParams,
                                 objectiveParams: ObjectiveParams)
   extends TrainParams {
-  override def toString(): String = {
+  override def toString: String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
       s"${super.toString()}"
   }
@@ -128,7 +128,7 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
                              dartModeParams: DartModeParams, executionParams: ExecutionParams,
                              objectiveParams: ObjectiveParams)
   extends TrainParams {
-  override def toString(): String = {
+  override def toString: String = {
     val labelGainStr =
       if (labelGain.isEmpty) "" else s"label_gain=${labelGain.mkString(",")}"
     val evalAtStr =
@@ -141,7 +141,7 @@ case class RankerTrainParams(parallelism: String, topK: Int, numIterations: Int,
   */
 case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
                           xgboostDartMode: Boolean, uniformDrop: Boolean) extends Serializable {
-  override def toString(): String = {
+  override def toString: String = {
     s"drop_rate=$dropRate max_drop=$maxDrop skip_drop=$skipDrop xgboost_dart_mode=$xgboostDartMode " +
     s"uniform_drop=$uniformDrop "
   }
@@ -154,8 +154,9 @@ case class DartModeParams(dropRate: Double, maxDrop: Int, skipDrop: Double,
   *                   constructed should be sparse or dense.
   * @param numThreads The number of threads to run the native lightgbm training with on each worker.
   */
-case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) extends Serializable {
-  override def toString(): String = {
+case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int,
+                           useSingleDatasetMode: Boolean) extends Serializable {
+  override def toString: String = {
     s"num_threads=$numThreads "
   }
 }
@@ -169,7 +170,7 @@ case class ExecutionParams(chunkSize: Int, matrixType: String, numThreads: Int) 
   *                  Should accept two parameters: preds, train_data, and return (grad, hess).
   */
 case class ObjectiveParams(objective: String, fobj: Option[FObjTrait]) extends Serializable {
-  override def toString(): String = {
+  override def toString: String = {
     if (fobj.isEmpty) {
       s"objective=$objective "
     } else {
