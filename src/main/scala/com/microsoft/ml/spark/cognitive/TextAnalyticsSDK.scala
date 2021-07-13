@@ -78,10 +78,10 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
   override def invokeTextAnalytics(input: Seq[String], hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
     val r = scala.util.Random
-    var docs = (input, hints).zipped.map { (inp, hint) =>
-      new DetectLanguageInput(r.nextInt.abs.toString, inp, hint)}.asJava
+    var documents = (input, hints).zipped.map { (doc, hint) =>
+      new DetectLanguageInput(r.nextInt.abs.toString, doc, hint)}.asJava
 
-    val resultCollection = textAnalyticsClient.detectLanguageBatchWithResponse(docs,
+    val resultCollection = textAnalyticsClient.detectLanguageBatchWithResponse(documents,
       null,Context.NONE).getValue
 
     val detectLanguageResultCollection = resultCollection.asScala
@@ -118,10 +118,10 @@ class TextAnalyticsKeyphraseExtraction (override val textAnalyticsOptions: Optio
 
   override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]): TAResponseV4[KeyphraseV4] = {
     val r = scala.util.Random
-    var docs = (input, lang).zipped.map { (inp, la) =>
-      new TextDocumentInput(r.nextInt.abs.toString,inp).setLanguage(la)}.asJava
+    var documents = (input, lang).zipped.map { (doc, lang) =>
+      new TextDocumentInput(r.nextInt.abs.toString,doc).setLanguage(lang)}.asJava
 
-    val resultCollection = textAnalyticsClient.extractKeyPhrasesBatchWithResponse(docs,
+    val resultCollection = textAnalyticsClient.extractKeyPhrasesBatchWithResponse(documents,
       null,Context.NONE).getValue
 
     val keyPhraseExtractionResultCollection = resultCollection.asScala
@@ -163,10 +163,10 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
   TAResponseV4[SentimentScoredDocumentV4] = {
     val r = scala.util.Random
-    var docs = (input, lang).zipped.map { (inp, la) =>
-      new TextDocumentInput(r.nextInt.abs.toString,inp).setLanguage(la)}.asJava
+    var documents = (input, lang).zipped.map { (doc, lang) =>
+      new TextDocumentInput(r.nextInt.abs.toString,doc).setLanguage(lang)}.asJava
 
-    val resultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(docs,
+    val resultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(documents,
       null,Context.NONE).getValue
 
     val textSentimentResultCollection = resultCollection.asScala
