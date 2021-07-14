@@ -1,11 +1,11 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
-import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -13,8 +13,8 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
