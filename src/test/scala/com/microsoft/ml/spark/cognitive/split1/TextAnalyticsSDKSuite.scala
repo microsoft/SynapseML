@@ -75,6 +75,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
         assert(confidence == 0.81)
       }
     });
+  }
     test("Language Detection - Statistics Test") {
       val outputCol = detector.transform(df)
         .select("Out - Language")
@@ -91,14 +92,18 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
         val language = result.getAs[String]("name")
         val langCode = result.getAs[String]("iso6391Name")
         val confidence = result.getAs[Double]("confidenceScore")
+        val charactersCount = statistics.getAs[Int]("charactersCount")
+        val transactionsCount = statistics.getAs[Int]("transactionsCount")
+
 
         assert(modelVersion == "2021-01-05")
 
         if (statistics == "true") {
-          assert(documentsCount == 2)
-          assert(validDocumentsCount == 1)
-          assert(erroneousDocumentsCount == 1)
+          assert(charactersCount == 2)
           assert(transactionsCount == 1)
+        }
+        if (statistics == "false") {
+          print("Statistics will not be shown.")
         }
       });
     }
@@ -216,5 +221,4 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
 
       });
     }
-  }
 }
