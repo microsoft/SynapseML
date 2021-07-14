@@ -15,10 +15,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
@@ -40,17 +38,18 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
-  var timeout = Duration(100,"millis")
-  var concurrency = 10
+    var timeout = Duration(10,"sec")
+    var concurrency = 10
+
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
-    bufferedAwait(rows.map { row =>
-      lazy val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
-      Future(Row.fromSeq(row.toSeq ++ Seq(toRow(results)))) // Adding a new column
-
-      //val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
-      //Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
-    },concurrency,timeout)
+      val futures = rows.map { row =>
+      Future {
+        lazy val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
+        Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
+      }(ExecutionContext.global)
+    }
+    bufferedAwait(futures,concurrency, timeout)(ExecutionContext.global)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
