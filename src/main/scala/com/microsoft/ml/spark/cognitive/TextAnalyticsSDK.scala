@@ -7,13 +7,13 @@ import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
 import org.apache.spark.ml.param.ParamMap
+import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
-import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,6 +51,13 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     }
     bufferedAwait(futures,concurrency, timeout)(ExecutionContext.global)
   }
+
+  protected def transformTextRows(toRow: TAResponseV4[T] => Row)
+                                 (rows: Iterator[Row]): Iterator[Row] = {
+    rows.map { row =>
+      val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
+      Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
+    }}
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
