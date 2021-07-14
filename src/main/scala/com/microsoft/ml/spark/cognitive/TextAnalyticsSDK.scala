@@ -3,18 +3,23 @@ import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInp
   SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasOutputCol, HasTextCol, HasLangCol}
-import com.microsoft.ml.spark.core.schema.{SparkBindings}
-import com.microsoft.ml.spark.io.http.{HasErrorCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
+import com.microsoft.ml.spark.core.schema.SparkBindings
+import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.param.{ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
+import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
   extends Transformer
@@ -35,13 +40,18 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
-
+  var timeout = Duration(100,"millis")
+  var concurrency = 10
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
-    rows.map { row =>
-      val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
-      Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
-    }}
+    bufferedAwait(rows.map { row =>
+      lazy val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
+      Future(Row.fromSeq(row.toSeq ++ Seq(toRow(results)))) // Adding a new column
+
+      //val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
+      //Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
+    },concurrency,timeout)
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
