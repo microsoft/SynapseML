@@ -1,6 +1,5 @@
 import java.io.{File, PrintWriter}
 import java.net.URL
-
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 
@@ -8,6 +7,8 @@ import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import BuildUtils._
 import xerial.sbt.Sonatype._
+
+import java.nio.file.Files
 
 val condaEnvName = "mmlspark"
 val sparkVersion = "3.1.2"
@@ -118,6 +119,7 @@ generatePythonDoc := {
   val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
   val codegenDir = join(targetDir, "generated")
   val dir = join(codegenDir, "src", "python", "mmlspark")
+  join(dir, "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
