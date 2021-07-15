@@ -1,20 +1,26 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment,
-  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
-import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasOutputCol, HasTextCol, HasLangCol}
-import com.microsoft.ml.spark.core.schema.{SparkBindings}
-import com.microsoft.ml.spark.io.http.{HasErrorCol}
+import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
+import com.microsoft.ml.spark.core.schema.SparkBindings
+import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.param.{ParamMap}
+import org.apache.spark.ml.param.{BooleanParam, IntParam, Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.{DataTypes, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
+import com.microsoft.ml.spark.stages.{FixedBatcher, FixedBufferedBatcher, FixedMiniBatchTransformer, HasBatchSize, MiniBatchBase}
+import com.sun.tools.javac.code.TypeTag
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+
+import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe.{MethodSymbol, typeOf}
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
   extends Transformer
@@ -45,6 +51,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
+      //val fields: List[String] = classOf[TAResponseV4[T]].getDeclaredFields.map(_.getName).toList
       val df = dataset.toDF
       val schema = dataset.schema
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
@@ -54,17 +61,14 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       ))(enc)
     })
   }
-
   override def transformSchema(schema: StructType): StructType = {
     // Validate input schema
     val inputType = schema($(inputCol)).dataType
     require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
     schema.add(getOutputCol, outputSchema)
   }
-
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 }
-
 object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalyticsLanguageDetection]
 class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                                      override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
@@ -241,3 +245,97 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   }
   override def outputSchema: StructType = SentimentResponseV4.schema
 }
+
+//
+//object FixedMiniBatchTransformerV4 extends DefaultParamsReadable[FixedMiniBatchTransformerV4]
+//
+//class FixedMiniBatchTransformerV4(val uid: String)
+//  extends MiniBatchBase with HasBatchSize with BasicLogging {
+//  logClass()
+//
+//  val maxBufferSize: Param[Int] = new IntParam(
+//    this, "maxBufferSize", "The max size of the buffer")
+//
+//  /** @group getParam */
+//  def getMaxBufferSize: Int = $(maxBufferSize)
+//
+//  /** @group setParam */
+//  def setMaxBufferSize(value: Int): this.type = set(maxBufferSize, value)
+//
+//  val buffered: Param[Boolean] = new BooleanParam(
+//    this, "buffered", "Whether or not to buffer batches in memory")
+//
+//  /** @group getParam */
+//  def getBuffered: Boolean = $(buffered)
+//
+//  /** @group setParam */
+//  def setBuffered(value: Boolean): this.type = set(buffered, value)
+//
+//  setDefault(buffered->false, maxBufferSize->Integer.MAX_VALUE)
+//
+//  def this() = this(Identifiable.randomUID("FixedMiniBatchTransformer"))
+//
+//  override def getBatcher(it: Iterator[Row]): Iterator[List[Row]] = if (getBuffered){
+//    new FixedBufferedBatcherV4(it, getBatchSize, getMaxBufferSize)
+//  }else{
+//    new FixedBatcherV4(it, getBatchSize)
+//  }
+//
+//}
+//class FixedBatcherV4[T](val it: Iterator[T],
+//                      batchSize: Int)
+//  extends Iterator[List[T]] {
+//
+//  override def hasNext: Boolean = {
+//    it.hasNext
+//  }
+//  override def next(): List[T] = {
+//    it.take(batchSize).toList
+//  }
+//}
+//class FixedBufferedBatcherV4[T](val it: Iterator[T],
+//                              batchSize: Int,
+//                              maxBufferSize: Int = Integer.MAX_VALUE)
+//  extends Iterator[List[T]] {
+//
+//  val queue: BlockingQueue[List[T]] = new LinkedBlockingQueue[List[T]](maxBufferSize)
+//  var hasStarted = false
+//  val finishedLatch = new CountDownLatch(1)
+//
+//  private val thread: Thread = new Thread {
+//    override def run(): Unit = {
+//      while (it.synchronized(it.hasNext)) {
+//        val data = it.synchronized(it.take(batchSize).toList)
+//        queue.put(data)
+//      }
+//      finishedLatch.countDown()
+//    }
+//  }
+//
+//  override def hasNext: Boolean = {
+//    if (!hasStarted) {
+//      it.hasNext
+//    } else {
+//      it.synchronized(it.hasNext) ||
+//        !queue.isEmpty || {
+//        finishedLatch.await()
+//        !queue.isEmpty
+//      }
+//    }
+//  }
+//
+//  def start(): Unit = {
+//    hasStarted = true
+//    thread.start()
+//  }
+//
+//  def close(): Unit = {
+//    thread.interrupt()
+//  }
+//
+//  override def next(): List[T] = {
+//    if (!hasStarted) start()
+//    assert(hasNext)
+//    queue.take()
+//  }
+//}

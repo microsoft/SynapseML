@@ -2,6 +2,7 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, explode}
@@ -102,6 +103,25 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
       data(0).get(2).toString == "negative")
     assert(data(1).get(0).toString == "positive")
+  }
+  lazy val df2: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    (null, "ich bin ein berliner")
+  ).toDF("lang", "text")
+
+  test("Sentiment - batch usage"){
+    lazy val detector3: TextSentimentV4 = new TextSentimentV4(options)
+      .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+      .setInputCol("text")
+      .setLangCol("lang")
+      .setOutputCol("output")
+
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df2.coalesce(1))
+    val tdf = detector3.transform(batchedDF)
+    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
+    //assert(replies.length == 4)
   }
 }
 
