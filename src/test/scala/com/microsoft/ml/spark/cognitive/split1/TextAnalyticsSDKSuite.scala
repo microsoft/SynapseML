@@ -26,7 +26,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     .setLangCol("lang")
     .setOutputCol("output")
 
-  test("Language Detection - Basic Usage") {
+  test("Language Detection - Output Assertion") {
     val replies = detector.transform(df)
       .select("output")
       .collect()
@@ -52,7 +52,23 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
   }
 
-  test("Asynch Concurrency Functionality") {
+  test("Asynch Functionality with Parameters") {
+    val concurrency = 10
+    val timeout = 45
+
+    val replies = detector
+      .setConcurrency(concurrency)
+      .setTimeout(timeout)
+      .transform(df)
+      .select("output.result.name", "output.result.iso6391Name")
+      .collect()
+
+    val language = replies.map(row => row.getList(0))
+    assert(language(0).get(0).toString == "English" && language(0).get(1).toString == "Spanish")
+    assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
+  }
+
+  test("Asynch Incorrect Concurrency Functionality") {
     val badConcurrency = -1
     val caught =
       intercept[SparkException] {
@@ -65,7 +81,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(caught.getMessage.contains("java.lang.IllegalArgumentException"))
   }
 
-  test("Asynch Timeout Functionality") {
+  test("Asynch Incorrect Timeout Functionality") {
     val badTimeout = .01
     val caught =
       intercept[SparkException] {
