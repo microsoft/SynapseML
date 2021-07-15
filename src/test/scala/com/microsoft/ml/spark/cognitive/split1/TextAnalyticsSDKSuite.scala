@@ -2,6 +2,7 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
+import org.apache.spark.SparkException
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, explode}
@@ -49,6 +50,32 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val iso = replies.map(row => row.getList(1))
     assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
       iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
+  }
+
+  test("Asynch Concurrency Functionality") {
+    val badConcurrency = -1
+    val caught =
+      intercept[SparkException] {
+        detector
+          .setConcurrency(badConcurrency)
+          .transform(df)
+          .select("output.result.name","output.result.iso6391Name")
+          .collect()
+      }
+    assert(caught.getMessage.contains("java.lang.IllegalArgumentException"))
+  }
+
+  test("Asynch Timeout Functionality") {
+    val badTimeout = .01
+    val caught =
+      intercept[SparkException] {
+        detector
+          .setTimeout(badTimeout)
+          .transform(df)
+          .select("output.result.name","output.result.iso6391Name")
+          .collect()
+      }
+    assert(caught.getMessage.contains("java.util.concurrent.TimeoutException"))
   }
 }
 
