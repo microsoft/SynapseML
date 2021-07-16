@@ -57,7 +57,6 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
         assert(langCode == "en")
         assert(confidence == 0.81)
       }
-
       if (language == "French") {
         assert(langCode == "fr")
         assert(confidence == 0.88)
@@ -95,18 +94,17 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
         val charactersCount = statistics.getAs[Int]("charactersCount")
         val transactionsCount = statistics.getAs[Int]("transactionsCount")
 
-
         assert(modelVersion == "2021-01-05")
+        assert(result.getString(0) == "English")
+        assert(result.getString(1) == "en")
+        assert(result.getString(2) == "French")
+        assert(result.getString(3) == "fr")
 
-        if (statistics == "true") {
-          assert(charactersCount == 2)
-          assert(transactionsCount == 1)
-        }
-        if (statistics == "false") {
-          print("Statistics will not be shown.")
-        }
-      });
-    }
+        assert(outResponse.getAs("statistics") == "true")
+        assert(statistics.getAs(charactersCount) == 11)
+        assert(transactionsCount == 1)
+      })
+    };
 
     test("Language Detection - Print Schema") {
       detector.transform(df).printSchema()
@@ -193,10 +191,12 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
         assert(outResponse.modelVersion.get == "2021-06-01")
       });
     }
+
     test("KPE - Print Schema") {
       extractor.transform(df2).printSchema()
       extractor.transform(df2).show()
     };
+
     test("KPE - Error Path: Bad Model Version") {
       val outputCol = extractor.transform(df3)
         .select("In - Key Phrase", "Out - Key Phrase")
@@ -205,7 +205,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
       val fromRow = KeyPhraseResponseV4.makeFromRowConverter
       outputCol.foreach(row => {
         val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
-        assert(outResponse.modelVersion.get == "June 1st 2021")
+        assert(outResponse.modelVersion.get == "2021-06-01")
       });
     }
 
@@ -218,6 +218,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
       outputCol.foreach(row => {
         val outResponse = fromRow(row.getAs[GenericRowWithSchema]("Out - Key Phrase"))
         assert(outResponse.modelVersion.get == "2021-06-01")
+        assert(outResponse.modelVersion.get == "####-##-##") //invalid input; expected result
 
       });
     }
