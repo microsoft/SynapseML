@@ -112,16 +112,18 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   ).toDF("lang", "text")
 
   test("Sentiment - batch usage"){
-    lazy val detector3: TextSentimentV4 = new TextSentimentV4(options)
+
+    lazy val detector3: TextSentimentV4  = new TextSentimentV4(options)
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
       .setLangCol("lang")
-      .setOutputCol("output")
+      .setOutputCol("output2")
 
     val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df2.coalesce(1))
-    val tdf = detector3.transform(batchedDF)
-    val replies = tdf.collect().head.getAs[Seq[Row]]("score")
-    //assert(replies.length == 4)
+    val finaldataset = spark.createDataFrame(batchedDF.rdd, df2.schema)
+    val tdf = detector3.transform(finaldataset).select("output2")
+    val replies = tdf.collect().head.getAs[Seq[Row]]("confidenceScore")
+    assert(replies.length == 4)
   }
 }
 

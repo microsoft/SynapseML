@@ -44,6 +44,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
+
     rows.map { row =>
       val results = invokeTextAnalytics(getValue(row, text), getValue(row,lang))
       Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
@@ -51,9 +52,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      //val fields: List[String] = classOf[TAResponseV4[T]].getDeclaredFields.map(_.getName).toList
       val df = dataset.toDF
-      val schema = dataset.schema
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
       val toRow = responseTypeBinding.makeToRowConverter
       df.mapPartitions(transformTextRows(
@@ -245,97 +244,3 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   }
   override def outputSchema: StructType = SentimentResponseV4.schema
 }
-
-//
-//object FixedMiniBatchTransformerV4 extends DefaultParamsReadable[FixedMiniBatchTransformerV4]
-//
-//class FixedMiniBatchTransformerV4(val uid: String)
-//  extends MiniBatchBase with HasBatchSize with BasicLogging {
-//  logClass()
-//
-//  val maxBufferSize: Param[Int] = new IntParam(
-//    this, "maxBufferSize", "The max size of the buffer")
-//
-//  /** @group getParam */
-//  def getMaxBufferSize: Int = $(maxBufferSize)
-//
-//  /** @group setParam */
-//  def setMaxBufferSize(value: Int): this.type = set(maxBufferSize, value)
-//
-//  val buffered: Param[Boolean] = new BooleanParam(
-//    this, "buffered", "Whether or not to buffer batches in memory")
-//
-//  /** @group getParam */
-//  def getBuffered: Boolean = $(buffered)
-//
-//  /** @group setParam */
-//  def setBuffered(value: Boolean): this.type = set(buffered, value)
-//
-//  setDefault(buffered->false, maxBufferSize->Integer.MAX_VALUE)
-//
-//  def this() = this(Identifiable.randomUID("FixedMiniBatchTransformer"))
-//
-//  override def getBatcher(it: Iterator[Row]): Iterator[List[Row]] = if (getBuffered){
-//    new FixedBufferedBatcherV4(it, getBatchSize, getMaxBufferSize)
-//  }else{
-//    new FixedBatcherV4(it, getBatchSize)
-//  }
-//
-//}
-//class FixedBatcherV4[T](val it: Iterator[T],
-//                      batchSize: Int)
-//  extends Iterator[List[T]] {
-//
-//  override def hasNext: Boolean = {
-//    it.hasNext
-//  }
-//  override def next(): List[T] = {
-//    it.take(batchSize).toList
-//  }
-//}
-//class FixedBufferedBatcherV4[T](val it: Iterator[T],
-//                              batchSize: Int,
-//                              maxBufferSize: Int = Integer.MAX_VALUE)
-//  extends Iterator[List[T]] {
-//
-//  val queue: BlockingQueue[List[T]] = new LinkedBlockingQueue[List[T]](maxBufferSize)
-//  var hasStarted = false
-//  val finishedLatch = new CountDownLatch(1)
-//
-//  private val thread: Thread = new Thread {
-//    override def run(): Unit = {
-//      while (it.synchronized(it.hasNext)) {
-//        val data = it.synchronized(it.take(batchSize).toList)
-//        queue.put(data)
-//      }
-//      finishedLatch.countDown()
-//    }
-//  }
-//
-//  override def hasNext: Boolean = {
-//    if (!hasStarted) {
-//      it.hasNext
-//    } else {
-//      it.synchronized(it.hasNext) ||
-//        !queue.isEmpty || {
-//        finishedLatch.await()
-//        !queue.isEmpty
-//      }
-//    }
-//  }
-//
-//  def start(): Unit = {
-//    hasStarted = true
-//    thread.start()
-//  }
-//
-//  def close(): Unit = {
-//    thread.interrupt()
-//  }
-//
-//  override def next(): List[T] = {
-//    if (!hasStarted) start()
-//    assert(hasNext)
-//    queue.take()
-//  }
-//}
