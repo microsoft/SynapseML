@@ -9,6 +9,8 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
+object HealthCareResponseV4 extends SparkBindings[TAResponseV4[HealthCareResponseV4]]
+
 case class TAResponseV4[T](result: List[Option[T]],
                            error: List[Option[TAErrorV4]],
                            statistics: List[Option[DocumentStatistics]],
@@ -56,3 +58,7 @@ case class AssessmentV4(text: String,
                         length: Int)
 
 case class WarningsV4(text: String, warningCode: String)
+
+case class HealthCareResponseV4(analyzeHealthcareEntitiesOptions: String,
+                                analyzeHealthcareEntitiesResult: String,
+                                healthcareEntityRelation: String)

@@ -62,10 +62,10 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(confidence.indexOf(1) == -1)
   }
 
-  test("Language Detection - Print Schema") {
-    detector.transform(df).printSchema()
-    detector.transform(df).show()
-  };
+//  test("Language Detection - Print Schema") {
+//    detector.transform(df).printSchema()
+//    detector.transform(df).show()
+//  };
 }
 
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
@@ -111,6 +111,11 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       outputCol.foreach(row => {
         val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
         assert(outResponse.modelVersion.get == "2020-04-01")
+
+//        override def toString: String = {
+//          // the correct approach in scala
+//          return "%s %s, age %d".format(firstName, lastName, age)
+//        }
       });
     }
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
@@ -193,7 +198,8 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     outputCol.foreach(row => {
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
       assert(outResponse.modelVersion.get == "2021-06-01")
-      assert(outResponse.statistics.indexOf(0) == 11)
+      assert(outResponse.statistics.indexOf(0) == -1)
+      assert(outResponse.statistics.indexOf(1) == -1)
     })
   };
 }
