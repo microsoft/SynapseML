@@ -10,7 +10,7 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.{DataTypes, StructType}
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import com.azure.core.util.Context
 import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
@@ -56,7 +56,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     }}
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(9).transform(dataset.coalesce(1))
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(dataset.coalesce(1))
     val finaldataset = spark.createDataFrame(batchedDF.rdd, df.schema)
     logTransform[DataFrame]({
       val df = finaldataset.toDF
