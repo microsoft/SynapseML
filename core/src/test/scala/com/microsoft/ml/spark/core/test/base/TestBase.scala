@@ -246,4 +246,13 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
         case _ => false
       }
     }
+
+  def mapEq[K, V: Equality]: Equality[Map[K, V]] = {
+    (a: Map[K, V], b: Any) => {
+      b match {
+        case m: Map[K, V] => a.keySet == m.keySet && a.keySet.forall(key => a(key) === m(key))
+        case _ => false
+      }
+    }
+  }
 }

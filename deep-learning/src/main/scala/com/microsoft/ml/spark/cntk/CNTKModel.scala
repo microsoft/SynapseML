@@ -388,8 +388,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   private val coercionPrefix = s"coerced_$uid"
 
-  private def coerceType(schema: StructType, colName: String, targetElementType: DataType):
-  (Option[(UserDefinedFunction, String)]) = {
+  private def coerceType(schema: StructType, colName: String, targetElementType: DataType)
+  : Option[(UserDefinedFunction, String)] = {
     val colType = schema(colName).dataType match {
       case ArrayType(dt, _) => dt
     }
