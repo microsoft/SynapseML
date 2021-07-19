@@ -17,11 +17,20 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq(""),Seq(":) :( :D")),
   ).toDF("lang", "text")
 
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+    .setInputCol("text")
+    .setLangCol("lang")
+    .setOutputCol("output")
+
+  lazy val invalidDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setInputCol("text")
     .setLangCol("lang")
     .setOutputCol("output")
@@ -50,6 +59,42 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val iso = replies.map(row => row.getList(1))
     assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
       iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
+  }
+
+  test("Language Detection - Invalid Document Input"){
+    val replies = detector.transform(invalidDocDf)
+      .select("output.error.errorMessage")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    assert(errors(0).get(0).toString == "Document text is empty."
+      && errors(0).get(1).toString == "Document text is empty.")
+  }
+
+  test("Invalid Subscription Key Caught") {
+    val invalidKey = "12345"
+    val caught =
+      intercept[SparkException] {
+        invalidDetector
+          .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+          .setSubscriptionKey(invalidKey)
+          .transform(df)
+          .show()
+      }
+    assert(caught.getMessage.contains("Status code 401") &&
+      caught.getMessage.contains("invalid subscription key or wrong API endpoint"))
+  }
+
+  test("Wrong API Endpoint Caught") {
+    val invalidEndpoint = "invalidendpoint"
+    val caught =
+      intercept[SparkException] {
+        invalidDetector
+          .setEndpoint(invalidEndpoint)
+          .setSubscriptionKey(textKey)
+          .transform(df)
+          .show()
+      }
+    assert(caught.getMessage.contains("'endpoint' must be a valid URL"))
   }
 
   test("Asynch Functionality with Parameters") {
