@@ -68,9 +68,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       .setLangCol("lang")
       .setOutputCol("output")
 
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(1000).transform(df2.coalesce(1))
-    val finaldataset = spark.createDataFrame(batchedDF.rdd, df.schema)
-    val tdf = detector2.transform(finaldataset)
+    val tdf = detector2.transform(df2)
       .select("output.result.name","output.result.iso6391Name")
       .collect()
 
@@ -151,9 +149,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setLangCol("lang")
       .setOutputCol("output2")
 
-    val batchedDF2 = new FixedMiniBatchTransformer().setBatchSize(10).transform(df2.coalesce(1))
-    val finaldataset = spark.createDataFrame(batchedDF2.rdd, batchedDF.schema)
-    val tdf = detector3.transform(finaldataset)
+    val tdf = detector3.transform(df)
       .select("output2.result.sentiment")
       .collect()
     val data = tdf.map(row => row.getList(0))
@@ -219,9 +215,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .setLangCol("lang")
       .setOutputCol("output2")
 
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df3.coalesce(1))
-    val finaldataset = spark.createDataFrame(batchedDF.rdd, df2.schema)
-    val tdf = extractor2.transform(finaldataset)
+    val tdf = extractor2.transform(df2)
       .select(explode(col("output2.result.keyPhrases")))
       .collect()
     assert(tdf(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))

@@ -1,26 +1,22 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput,
+  DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.HasErrorCol
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.param.{BooleanParam, IntParam, Param, ParamMap, Params}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.types.{DataTypes, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import com.azure.core.util.Context
-import com.microsoft.ml.spark.stages.{FixedBatcher, FixedBufferedBatcher, FixedMiniBatchTransformer, HasBatchSize, MiniBatchBase}
-import com.sun.tools.javac.code.TypeTag
-import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
-import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
 import scala.collection.JavaConverters._
-import scala.reflect.runtime.universe.{MethodSymbol, typeOf}
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
   extends Transformer
@@ -33,7 +29,11 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   protected def outputSchema: StructType
 
   val responseTypeBinding: SparkBindings[TAResponseV4[T]]
-
+  val spark = SparkSession
+    .builder
+    .appName("SparkSQL")
+    .master("local[*]")
+    .getOrCreate()
   def invokeTextAnalytics(text: Seq[String], lang: Seq[String]): TAResponseV4[T]
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
@@ -41,6 +41,11 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
+
+  import spark.implicits._
+  lazy val df: DataFrame = Seq(
+    (Seq(""),Seq("")),
+  ).toDF("lang", "text")
 
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
@@ -51,8 +56,10 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     }}
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(9).transform(dataset.coalesce(1))
+    val finaldataset = spark.createDataFrame(batchedDF.rdd, df.schema)
     logTransform[DataFrame]({
-      val df = dataset.toDF
+      val df = finaldataset.toDF
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
       val toRow = responseTypeBinding.makeToRowConverter
       df.mapPartitions(transformTextRows(

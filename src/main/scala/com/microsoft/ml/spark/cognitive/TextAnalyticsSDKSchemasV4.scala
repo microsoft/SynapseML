@@ -56,3 +56,5 @@ case class AssessmentV4(text: String,
                         length: Int)
 
 case class WarningsV4(text: String, warningCode: String)
+
+case class SchemaDF(lang: Seq[String], text: Seq[String])
