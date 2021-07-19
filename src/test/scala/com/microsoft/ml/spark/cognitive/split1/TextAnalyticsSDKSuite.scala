@@ -70,10 +70,12 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   test("Asynch Incorrect Concurrency Functionality") {
     val badConcurrency = -1
+    val timeout = 45
     val caught =
       intercept[SparkException] {
         detector
           .setConcurrency(badConcurrency)
+          .setTimeout(timeout)
           .transform(df)
           .select("output.result.name","output.result.iso6391Name")
           .collect()
@@ -83,10 +85,12 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   test("Asynch Incorrect Timeout Functionality") {
     val badTimeout = .01
+    val concurrency = 1
     val caught =
       intercept[SparkException] {
         detector
           .setTimeout(badTimeout)
+          .setConcurrency(1)
           .transform(df)
           .select("output.result.name","output.result.iso6391Name")
           .collect()
