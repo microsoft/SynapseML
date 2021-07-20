@@ -1,6 +1,5 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput,
-  DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
@@ -10,10 +9,10 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import com.azure.core.util.Context
-import com.microsoft.ml.spark.stages.FixedMiniBatchTransformer
+import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, HasBatchSize}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 import scala.collection.JavaConverters._
@@ -23,7 +22,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     with HasInputCol with HasErrorCol
     with HasEndpoint with HasSubscriptionKey
     with HasTextCol with HasLangCol
-    with HasOutputCol
+    with HasOutputCol with HasBatchSize
     with ComplexParamsWritable with BasicLogging {
 
   protected def outputSchema: StructType
@@ -42,10 +41,12 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       .endpoint(getEndpoint)
       .buildClient()
 
-  import spark.implicits._
-  lazy val df: DataFrame = Seq(
-    (Seq(""),Seq("")),
-  ).toDF("lang", "text")
+  val inputSchema = StructType(Array(
+    StructField("lang",ArrayType(StringType,true),true),
+    StructField("text",ArrayType(StringType,true),true)
+  ))
+
+  setDefault(batchSize -> 5)
 
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
@@ -56,9 +57,9 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     }}
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(dataset.coalesce(1))
-    val finaldataset = spark.createDataFrame(batchedDF.rdd, df.schema)
     logTransform[DataFrame]({
+      val batchedDF = new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(dataset.coalesce(1))
+      val finaldataset = spark.createDataFrame(batchedDF.rdd, inputSchema)
       val df = finaldataset.toDF
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
       val toRow = responseTypeBinding.makeToRowConverter

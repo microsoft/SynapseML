@@ -57,6 +57,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     ("", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     ("fr","Bonjour tout le monde"),
     ("", "世界您好"),
+    ("us", "I am testing batching"),
     ("", ":) :( :D")
   ).toDF("lang", "text")
 
@@ -66,6 +67,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
       .setLangCol("lang")
+      .setBatchSize(2)
       .setOutputCol("output")
 
     val tdf = detector2.transform(df2)
@@ -74,11 +76,11 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
     val language = tdf.map(row => row.getList(0))
     assert(language(0).get(0).toString == "English" && language(0).get(1).toString == "Spanish")
-    assert(language(0).get(2).toString == "French" && language(0).get(3).toString == "Chinese")
+    assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
 
     val iso = tdf.map(row => row.getList(1))
     assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
-      iso(0).get(2).toString == "fr" && iso(0).get(3).toString == "zh")
+      iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
   }
 }
 
@@ -138,6 +140,9 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     ("en", "Hello world. This is some input text that I love."),
     ("fr", "Bonjour tout le monde"),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("es", "La carretera estaba atascada."),
+    ("es", "Había mucho tráfico el día de ayer."),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     (null, "ich bin ein berliner")
   ).toDF("lang", "text")
 
@@ -149,7 +154,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setLangCol("lang")
       .setOutputCol("output2")
 
-    val tdf = detector3.transform(df)
+    val tdf = detector3.transform(df2)
       .select("output2.result.sentiment")
       .collect()
     val data = tdf.map(row => row.getList(0))
@@ -213,6 +218,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
       .setLangCol("lang")
+      .setBatchSize(8)
       .setOutputCol("output2")
 
     val tdf = extractor2.transform(df2)
