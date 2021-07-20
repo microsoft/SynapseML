@@ -161,6 +161,14 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     (Seq("en"), Seq("I love Vancouver."))
   ).toDF("lang", "text")
 
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageDf: DataFrame = Seq(
+    (Seq("abc", "/."),Seq("Today is a wonderful day.","I hate the cold"))
+  ).toDF("lang", "text")
+
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
@@ -195,6 +203,24 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       data(0).get(2).toString == "negative")
     assert(data(1).get(0).toString == "positive")
   }
+
+  test("Sentiment Analysis - Invalid Document Input"){
+    val replies = detector.transform(invalidDocDf)
+      .select("output.error.errorMessage")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    assert(errors(0).get(0).toString == "Document text is empty."
+      && errors(0).get(1).toString == "Document text is empty.")
+  }
+
+  test("Sentiment Analysis - Invalid Language Input"){
+    val replies = detector.transform(invalidLanguageDf)
+      .select("output.error.errorMessage")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    assert(errors(0).get(0).toString.contains("Invalid language code.")
+      && errors(0).get(1).toString.contains("Invalid language code."))
+  }
 }
 
 class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
@@ -205,6 +231,20 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
     (Seq("fr"), Seq("Bonjour tout le monde")),
   ).toDF("lang","text" )
+
+  lazy val blankLanguageDf: DataFrame = Seq(
+    (Seq("",""), Seq("Hello world. This is some input text that I love.",
+      "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
+    (Seq(""), Seq("Bonjour tout le monde")),
+  ).toDF("lang","text" )
+
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageDf: DataFrame = Seq(
+    (Seq("abc", "/."),Seq("Today is a wonderful day.","I hate the cold"))
+  ).toDF("lang", "text")
 
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
   df2.printSchema()
@@ -239,4 +279,30 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
         row.toSeq.foreach { col => println(col) }
       }
     }
+
+  test("KPE - Blank Language Input") {
+    val replies = extractor.transform(blankLanguageDf)
+      .select(explode(col("output.result.keyPhrases")))
+      .collect()
+
+    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
+    assert(replies(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
+    assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
+  }
+
+  test("KPE - Invalid Document Input"){
+    val errors = extractor.transform(invalidDocDf)
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    assert(errors(0).get(0).toString == "Document text is empty."
+      && errors(1).get(0).toString == "Document text is empty.")
+  }
+
+  test("KPE - Invalid Language Input"){
+    val errors = extractor.transform(invalidLanguageDf)
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    assert(errors(0).get(0).toString.contains("Invalid language code.")
+      && errors(1).get(0).toString.contains("Invalid language code."))
+  }
 }
