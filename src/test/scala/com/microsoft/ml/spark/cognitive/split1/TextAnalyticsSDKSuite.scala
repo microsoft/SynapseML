@@ -58,14 +58,12 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       .collect()
 
     val confidence = replies.map(row => row.getList(1))
-    assert(confidence.indexOf(0) == -1)
-    assert(confidence.indexOf(1) == -1)
+    assert(confidence(0).get(0).toString == "0.81")
+    assert(confidence(0).get(1).toString == "1.0")
+    assert(confidence(1).get(0).toString == "0.88")
+    assert(confidence(1).get(1).toString == "1.0")
+    assert(confidence(2).get(0).toString == "0.0")
   }
-
-  test("Language Detection - Print Schema") {
-    detector.transform(df).printSchema()
-    detector.transform(df).show()
-  };
 }
 
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
@@ -83,7 +81,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   lazy val batchedDF: DataFrame = Seq(
     (Seq("en", "en", "en"), Seq("I hate the rain.", "I love the sun", "This sucks")),
     (Seq("en"), Seq("I love Vancouver."))
-  ).toDF("text")
+  ).toDF("lang", "text")
 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
@@ -102,22 +100,21 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       row.toSeq.foreach { col => println(col) }
     }
   };
-    test("Sentiment Analysis - Assert Model Version") {
-      val outputCol = detector.transform(df)
-        .select("output")
-        .collect()
-      assert(outputCol(0).schema(0).name == "output")
-      val fromRow = SentimentResponseV4.makeFromRowConverter
-      outputCol.foreach(row => {
-        val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-        assert(outResponse.modelVersion.get == "2020-04-01")
-      });
-    }
+  test("Sentiment Analysis - Assert Model Version") {
+    val outputCol = detector.transform(df)
+      .select("output")
+      .collect()
+    assert(outputCol(0).schema(0).name == "output")
+    val fromRow = SentimentResponseV4.makeFromRowConverter
+    outputCol.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      assert(outResponse.modelVersion.get == "2020-04-01")
+    });
+  }
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
-    .setLangCol("lang")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Basic Usage") {
@@ -128,6 +125,17 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
       data(0).get(2).toString == "negative")
     assert(data(1).get(0).toString == "positive")
+  }
+
+  test("Sentiment Analysis - Assert Confidence Score") {
+    val replies = detector.transform(batchedDF)
+      .select("output.result.sentences", "output.result.confidenceScores")
+      .collect()
+    val confidence = replies.map(row => row.getList(1))
+    assert(confidence(0).get(0).toString == "[1.0,0.0,0.0]")
+    assert(confidence(0).get(1).toString == "[0.0,0.0,1.0]")
+    assert(confidence(0).get(2).toString == "[1.0,0.0,0.0]")
+    assert(confidence(1).get(0).toString == "[0.0,0.0,1.0]")
   }
 }
 
@@ -182,18 +190,9 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
         outputCol.foreach(row => {
           val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
           assert(outResponse.modelVersion.get == "2021-06-01")
-        })
-      }
-  test("KPE - Statistics Assertion") {
-    val outputCol = extractor.transform(df2)
-      .select("output")
-      .collect()
-    assert(outputCol(0).schema(0).name == "output")
-    val fromRow = KeyPhraseResponseV4.makeFromRowConverter
-    outputCol.foreach(row => {
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      assert(outResponse.modelVersion.get == "2021-06-01")
-      assert(outResponse.statistics.indexOf(0) == 11)
-    })
-  };
+          })
+        }
+        test("Check Model Version Format"){
+            "2021-06-01".matches("\\d{4}-\\d{2}-\\d{2}")
+          }
 }
