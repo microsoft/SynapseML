@@ -2,6 +2,7 @@ package com.microsoft.ml.spark.cognitive
 import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
+import com.azure.core.http.policy.RetryPolicy
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.io.http.{HTTPParams, HasErrorCol}
@@ -35,6 +36,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
+      .retryPolicy(new RetryPolicy())
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
