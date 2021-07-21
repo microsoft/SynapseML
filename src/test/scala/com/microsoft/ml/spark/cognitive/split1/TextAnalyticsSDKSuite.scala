@@ -40,7 +40,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   test("Language Detection - Batch Usage") {
     val replies = detector.transform(df)
-      .select("output.result.name","output.result.iso6391Name")
+      .select("output.result.name", "output.result.iso6391Name")
       .collect()
 
     val language = replies.map(row => row.getList(0))
@@ -54,18 +54,29 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
 
   test("Language Detection - Assert Confidence Score") {
     val replies = detector.transform(df)
-      .select("output.result.name","output.result.confidenceScore")
+      .select("output.result.name", "output.result.confidenceScore")
       .collect()
 
     val confidence = replies.map(row => row.getList(1))
-    assert(confidence(0).get(0).toString == "0.81")
-    assert(confidence(0).get(1).toString == "1.0")
-    assert(confidence(1).get(0).toString == "0.88")
-    assert(confidence(1).get(1).toString == "1.0")
-    assert(confidence(2).get(0).toString == "0.0")
+    assert(confidence(0).get(0).toString > "0.50")
+    assert(confidence(0).get(1).toString > "0.50")
+    assert(confidence(1).get(0).toString > "0.50")
+    assert(confidence(1).get(1).toString > "0.50")
+    assert(confidence(2).get(0).toString < "0.50")
+  }
+  test("Language Detection - Check Model Version") {
+    val outputCol = detector.transform(df)
+      .select("output")
+      .collect()
+    assert(outputCol(0).schema(0).name == "output")
+    val fromRow = DetectLanguageResponseV4.makeFromRowConverter
+    outputCol.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      val modelCheck = outResponse.modelVersion.get == "2021-06-01"
+      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
+    })
   }
 }
-
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
@@ -100,16 +111,17 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       row.toSeq.foreach { col => println(col) }
     }
   };
-  test("Sentiment Analysis - Assert Model Version") {
-    val outputCol = detector.transform(df)
+  test("Sentiment Analysis - Check Model Version") {
+    val outputCol = detector.transform(batchedDF)
       .select("output")
       .collect()
     assert(outputCol(0).schema(0).name == "output")
     val fromRow = SentimentResponseV4.makeFromRowConverter
     outputCol.foreach(row => {
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      assert(outResponse.modelVersion.get == "2020-04-01")
-    });
+      val modelCheck = outResponse.modelVersion.get == "2020-04-01"
+      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
+    })
   }
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
@@ -129,24 +141,24 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   test("Sentiment Analysis - Assert Confidence Score") {
     val replies = detector.transform(batchedDF)
-      .select("output.result.sentences", "output.result.confidenceScores")
+      .select("output.result.sentiment", "output.result.confidenceScores")
       .collect()
     val confidence = replies.map(row => row.getList(1))
-    assert(confidence(0).get(0).toString == "[1.0,0.0,0.0]")
-    assert(confidence(0).get(1).toString == "[0.0,0.0,1.0]")
-    assert(confidence(0).get(2).toString == "[1.0,0.0,0.0]")
-    assert(confidence(1).get(0).toString == "[0.0,0.0,1.0]")
+    assert(confidence(0).get(0).toString > "[0.50, 0.0, 0.0]")
+    assert(confidence(0).get(1).toString > "[0.0, 0.0, 0.50]")
+    assert(confidence(0).get(2).toString > "[0.50, 0.0, 0.0]")
+    assert(confidence(1).get(0).toString > "[0.0, 0.0, 0.50]")
   }
 }
-
 class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
   import spark.implicits._
 
   lazy val df2: DataFrame = Seq(
-    (Seq("en","es"), Seq("Hello world. This is some input text that I love.",
+    (Seq("en", "es"), Seq("Hello world. This is some input text that I love.",
       "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
     (Seq("fr"), Seq("Bonjour tout le monde")),
-  ).toDF("lang","text" )
+  ).toDF("lang", "text")
 
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
   df2.printSchema()
@@ -168,31 +180,29 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
   }
 
-    test("KPE - Output Assertion"){
-      val replies = extractor.transform(df2)
-        .select("output")
-        .collect()
+  test("KPE - Output Assertion") {
+    val replies = extractor.transform(df2)
+      .select("output")
+      .collect()
 
-      assert(replies(0).schema(0).name == "output")
+    assert(replies(0).schema(0).name == "output")
 
-      df2.printSchema()
-      df2.show()
-      replies.foreach { row =>
-        row.toSeq.foreach { col => println(col) }
-      }
+    df2.printSchema()
+    df2.show()
+    replies.foreach { row =>
+      row.toSeq.foreach { col => println(col) }
     }
-      test("KPE - Assert Model Version") {
-        val outputCol = extractor.transform(df2)
-          .select("output")
-          .collect()
-        assert(outputCol(0).schema(0).name == "output")
-        val fromRow = KeyPhraseResponseV4.makeFromRowConverter
-        outputCol.foreach(row => {
-          val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-          assert(outResponse.modelVersion.get == "2021-06-01")
-          })
-        }
-        test("Check Model Version Format"){
-            "2021-06-01".matches("\\d{4}-\\d{2}-\\d{2}")
-          }
+  }
+  test("KPE - Check Model Version") {
+    val outputCol = extractor.transform(df2)
+      .select("output")
+      .collect()
+    assert(outputCol(0).schema(0).name == "output")
+    val fromRow = KeyPhraseResponseV4.makeFromRowConverter
+    outputCol.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      val modelCheck = outResponse.modelVersion.get == "2021-06-01"
+      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
+    })
+  }
 }
