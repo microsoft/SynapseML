@@ -198,14 +198,15 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
       .setLangCol("lang")
+      .setBatchSize(2)
       .setOutputCol("output2")
 
     val tdf = detector3.transform(df2)
       .select("output2.result.sentiment")
       .collect()
     val data = tdf.map(row => row.getList(0))
-    assert(data(0).get(0).toString() == "positive")
-    assert(tdf(0).schema(0).name == "sentiment")
+     assert(data.length == 4)
+
   }
 }
 
@@ -264,14 +265,12 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
       .setLangCol("lang")
-      .setBatchSize(8)
       .setOutputCol("output2")
 
     val tdf = extractor2.transform(df3)
-      .select(explode(col("output2.result.keyPhrases")))
+      .select("output2.result.keyPhrases")
       .collect()
-    assert(tdf(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
-    assert(tdf(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
-    assert(tdf(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
+    assert(tdf.length == 1)
+
   }
 }
