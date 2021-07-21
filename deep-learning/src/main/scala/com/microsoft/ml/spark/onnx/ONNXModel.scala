@@ -6,25 +6,26 @@ package com.microsoft.ml.spark.onnx
 import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime._
-import com.microsoft.ml.spark.codegen.Wrappable
-import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.HasFeedFetchMaps
-import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
+import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.stages._
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.param.{ByteArrayParam, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.ml._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.DataType.equalsStructurally
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row}
 
 import java.nio._
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
-import scala.collection.JavaConverters._
 
 trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
   setDefault(
@@ -124,7 +125,8 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
 
   private[onnx] def applyModel(model: Broadcast[Array[Byte]],
                                feedMap: Map[String, String],
-                               fetchMap: Map[String, String]
+                               fetchMap: Map[String, String],
+                               inputSchema: StructType
                               )(rows: Iterator[Row]): Iterator[Row] = {
     // initialize runtime
     val session: OrtSession = initializeOrt(model.value)
@@ -136,6 +138,7 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
         // Get the input tensors for each input node.
         val inputTensors = session.getInputInfo.asScala.map {
           case (inputName, inputNodeInfo) =>
+
             val batchedValues: Seq[Any] = row.getAs[Seq[Any]](feedMap(inputName))
 
             inputNodeInfo.getInfo match {
@@ -159,7 +162,8 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
         }.toSeq
 
         // Return a row for each output batch: original payload appended with model output.
-        Row.fromSeq(row.toSeq ++ outputBatches)
+        val data = inputSchema.map(f => row.getAs[Any](f.name))
+        Row.fromSeq(data ++ outputBatches)
     }
   }
 
@@ -196,6 +200,21 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
       case other =>
         throw new NotImplementedError(s"Tensor input type $other not supported. " +
           s"Only FLOAT, DOUBLE, INT8, INT16, INT32, INT64, STRING types are supported.")
+    }
+  }
+
+  /**
+   * Returns true if the two data types are compatible. They are compatible if they share the same "shape", and
+   * 1. The element types from both sides are numeric types, or
+   * 2. The element types from both sides are the same.
+   */
+  @tailrec
+  private def compatible(from: DataType, to: DataType): Boolean = {
+    (from, to) match {
+      case (left: ArrayType, right: ArrayType) =>
+        compatible(left.elementType, right.elementType)
+      case (_: NumericType, _: NumericType) => true
+      case (fromDataType, toDataType) => fromDataType == toDataType
     }
   }
 }
@@ -242,26 +261,44 @@ class ONNXModel(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
+    val inputSchema = dataset.schema
+    val outputSchema = transformSchema(inputSchema) // Check if the schema is correct
 
-    val sparkContext = dataset.sparkSession.sparkContext
+    implicit val enc: Encoder[Row] = RowEncoder(
+      StructType(outputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
+    )
 
-    val outputSchema = transformSchema(dataset.schema) // Check if the schema is correct
+    val modelPayloadBC = dataset.sparkSession.sparkContext.broadcast(this.getModelPayload)
 
-    val modelPayloadBC = sparkContext.broadcast(this.getModelPayload)
-
-    val batchedDF = getMiniBatcher.transform(dataset)
-    val enc = RowEncoder(StructType(outputSchema.map(f => StructField(f.name, ArrayType(f.dataType)))))
-
-    val outputDF = batchedDF.toDF().mapPartitions {
-      rows: Iterator[Row] => applyModel(modelPayloadBC, getFeedDict, getFetchDict)(rows)
-    }(enc)
-
-    // TODO: The cache call is a workaround for GH issue 1075:
+    // The cache call is a workaround for GH issue 1075:
     //  https://github.com/Azure/mmlspark/issues/1075
-    val cacheAttempted = if (outputDF.isStreaming) outputDF else outputDF.cache()
+    val batchedDF = getMiniBatcher.transform(dataset).cache()
+    val (coerced, feedDict) = coerceBatchedDf(batchedDF)
+
+    val outputDf = coerced.mapPartitions {
+      rows: Iterator[Row] =>
+        applyModel(modelPayloadBC, feedDict, getFetchDict, inputSchema)(rows)
+    }
+
+    // The cache call is a workaround for GH issue 1075:
+    //  https://github.com/Azure/mmlspark/issues/1075
+    val cacheAttempted = if (outputDf.isStreaming) outputDf else outputDf.cache()
 
     val flattenedDF = new FlattenBatch().transform(cacheAttempted)
     flattenedDF
+  }
+
+  private def coerceBatchedDf(df: DataFrame): (DataFrame, Map[String, String]) = {
+    this.modelInput.mapValues(f => ArrayType(mapValueInfoToDataType(f.getInfo)))
+      .foldLeft((df, this.getFeedDict)) {
+        case ((accDf, feedDict), (onnxInputName, dataType)) =>
+          val originalColName = this.getFeedDict(onnxInputName)
+          val coercedColName = DatasetExtensions.findUnusedColumnName(originalColName, accDf)
+          (
+            accDf.withColumn(coercedColName, col(originalColName).cast(dataType)),
+            feedDict.updated(onnxInputName, coercedColName)
+          )
+      }
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -280,7 +317,7 @@ class ONNXModel(override val uid: String)
         val inputDataType: DataType = schema(colName).dataType
         val onnxExpectedDataType: DataType = mapValueInfoToDataType(onnxInputInfo.getInfo)
 
-        if (!equalsStructurally(inputDataType, onnxExpectedDataType, ignoreNullability = true)) {
+        if (!compatible(inputDataType, onnxExpectedDataType)) {
           throw new IllegalArgumentException(
             s"Onnx model input $onnxInputName expects type ${onnxExpectedDataType.simpleString}, " +
               s"but got type ${inputDataType.simpleString}")
