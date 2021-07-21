@@ -62,7 +62,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     ("", ":) :( :D")
   ).toDF("lang", "text")
 
-  test("Detection - mini batch usage"){
+  test("Detection - mini batch usage") {
     lazy val detector2: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
       .setSubscriptionKey(textKey)
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
@@ -72,7 +72,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       .setOutputCol("output")
 
     val tdf = detector2.transform(df2)
-      .select("output.result.name","output.result.iso6391Name")
+      .select("output.result.name", "output.result.iso6391Name")
       .collect()
 
     val language = tdf.map(row => row.getList(0))
@@ -82,7 +82,8 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val iso = tdf.map(row => row.getList(1))
     assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
       iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
-  test("Asynch Functionality with Parameters") {
+  }
+    test("Async Parameters Config -- Basic Usage") {
     val concurrency = 10
     val timeout = 45
 
@@ -98,7 +99,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
   }
 
-  test("Asynch Incorrect Concurrency Functionality") {
+  test("Async Incorrect Concurrency Functionality") {
     val badConcurrency = -1
     val timeout = 45
     val caught =
@@ -113,7 +114,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(caught.getMessage.contains("java.lang.IllegalArgumentException"))
   }
 
-  test("Asynch Incorrect Timeout Functionality") {
+  test("Async Incorrect Timeout Functionality") {
     val badTimeout = .01
     val concurrency = 1
     val caught =
@@ -266,7 +267,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .setBatchSize(8)
       .setOutputCol("output2")
 
-    val tdf = extractor2.transform(df2)
+    val tdf = extractor2.transform(df3)
       .select(explode(col("output2.result.keyPhrases")))
       .collect()
     assert(tdf(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))

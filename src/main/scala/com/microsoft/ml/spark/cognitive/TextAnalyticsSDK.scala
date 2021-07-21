@@ -25,8 +25,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     with HasInputCol with HasErrorCol
     with HasEndpoint with HasSubscriptionKey
     with HasTextCol with HasLangCol
-    with HasOutputCol with HasBatchSize
-    with HasOutputCol with HTTPParams
+    with HasOutputCol with HasBatchSize with HTTPParams
     with ComplexParamsWritable with BasicLogging {
 
   protected def outputSchema: StructType
