@@ -5,14 +5,14 @@ package com.microsoft.ml.spark.onnx
 
 import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
-import ai.onnxruntime._
+import ai.onnxruntime.{OrtSession, _}
 import com.microsoft.ml.spark.HasFeedFetchMaps
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages._
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.spark.SparkContext
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.param.{ByteArrayParam, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml._
@@ -123,13 +123,11 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
     }
   }
 
-  private[onnx] def applyModel(model: Broadcast[Array[Byte]],
+  private[onnx] def applyModel(session: OrtSession,
                                feedMap: Map[String, String],
                                fetchMap: Map[String, String],
                                inputSchema: StructType
                               )(rows: Iterator[Row]): Iterator[Row] = {
-    // initialize runtime
-    val session: OrtSession = initializeOrt(model.value)
     val env = OrtEnvironment.getEnvironment
 
     rows.map {
@@ -163,7 +161,13 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
 
         // Return a row for each output batch: original payload appended with model output.
         val data = inputSchema.map(f => row.getAs[Any](f.name))
-        Row.fromSeq(data ++ outputBatches)
+        val resultRow = Row.fromSeq(data ++ outputBatches)
+
+        if (rows.isEmpty) {
+          session.close() // Cleanup the resource if there is no more rows.
+        }
+
+        resultRow
     }
   }
 
@@ -248,16 +252,17 @@ class ONNXModel(override val uid: String)
   }
 
   @transient
-  private lazy val model = initializeOrt(getModelPayload)
-
-  @transient
   lazy val modelInput: Map[String, NodeInfo] = {
-    this.model.getInputInfo.asScala.toMap
+    using(initializeOrt(getModelPayload)) {
+      session => session.getInputInfo.asScala.toMap
+    }.get
   }
 
   @transient
   lazy val modelOutput: Map[String, NodeInfo] = {
-    this.model.getOutputInfo.asScala.toMap
+    using(initializeOrt(getModelPayload)) {
+      session => session.getOutputInfo.asScala.toMap
+    }.get
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
@@ -277,7 +282,8 @@ class ONNXModel(override val uid: String)
 
     val outputDf = coerced.mapPartitions {
       rows: Iterator[Row] =>
-        applyModel(modelPayloadBC, feedDict, getFetchDict, inputSchema)(rows)
+        val session = initializeOrt(modelPayloadBC.value)
+        applyModel(session, feedDict, getFetchDict, inputSchema)(rows)
     }
 
     // The cache call is a workaround for GH issue 1075:
