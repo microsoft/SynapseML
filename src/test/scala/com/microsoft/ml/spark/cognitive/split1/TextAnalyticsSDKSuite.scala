@@ -57,17 +57,22 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
 
     val iso = replies.map(row => row.getList(1))
-    assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
-      iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
+    assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es")
+    assert(iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
   }
 
   test("Language Detection - Invalid Document Input"){
     val replies = detector.transform(invalidDocDf)
-      .select("output.error.errorMessage")
+      .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
     val errors = replies.map(row => row.getList(0))
-    assert(errors(0).get(0).toString == "Document text is empty."
-      && errors(0).get(1).toString == "Document text is empty.")
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(0).get(1).toString == "Document text is empty.")
+    assert(codes(0).get(1).toString == "InvalidDocument")
   }
 
   test("Invalid Subscription Key Caught") {
@@ -80,8 +85,8 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
           .transform(df)
           .show()
       }
-    assert(caught.getMessage.contains("Status code 401") &&
-      caught.getMessage.contains("invalid subscription key or wrong API endpoint"))
+    assert(caught.getMessage.contains("Status code 401"))
+    assert(caught.getMessage.contains("invalid subscription key or wrong API endpoint"))
   }
 
   test("Wrong API Endpoint Caught") {
@@ -206,20 +211,30 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   test("Sentiment Analysis - Invalid Document Input"){
     val replies = detector.transform(invalidDocDf)
-      .select("output.error.errorMessage")
+      .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
     val errors = replies.map(row => row.getList(0))
-    assert(errors(0).get(0).toString == "Document text is empty."
-      && errors(0).get(1).toString == "Document text is empty.")
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(0).get(1).toString == "Document text is empty.")
+    assert(codes(0).get(1).toString == "InvalidDocument")
   }
 
   test("Sentiment Analysis - Invalid Language Input"){
     val replies = detector.transform(invalidLanguageDf)
-      .select("output.error.errorMessage")
+      .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
     val errors = replies.map(row => row.getList(0))
-    assert(errors(0).get(0).toString.contains("Invalid language code.")
-      && errors(0).get(1).toString.contains("Invalid language code."))
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "UnsupportedLanguageCode")
+
+    assert(errors(0).get(1).toString.contains("Invalid language code."))
+    assert(codes(0).get(1).toString == "UnsupportedLanguageCode")
   }
 }
 
@@ -291,18 +306,34 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
   }
 
   test("KPE - Invalid Document Input"){
-    val errors = extractor.transform(invalidDocDf)
+    val replies = extractor.transform(invalidDocDf)
+    val errors = replies
       .select(explode(col("output.error.errorMessage")))
       .collect()
-    assert(errors(0).get(0).toString == "Document text is empty."
-      && errors(1).get(0).toString == "Document text is empty.")
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
   }
 
   test("KPE - Invalid Language Input"){
-    val errors = extractor.transform(invalidLanguageDf)
+    val replies = extractor.transform(invalidLanguageDf)
+    val errors = replies
       .select(explode(col("output.error.errorMessage")))
       .collect()
-    assert(errors(0).get(0).toString.contains("Invalid language code.")
-      && errors(1).get(0).toString.contains("Invalid language code."))
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString.contains("Invalid language code."))
+    assert(codes(1).get(0).toString == "InvalidDocument")
   }
 }

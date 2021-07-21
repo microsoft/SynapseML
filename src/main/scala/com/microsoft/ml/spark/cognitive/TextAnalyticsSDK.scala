@@ -105,7 +105,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
     }).toList
 
     val error = detectLanguageResultCollection.map(result => (result.isError) match{
-      case true => Some(TAErrorV4(result.getError.toString, result.getError.getMessage,
+      case true => Some(TAErrorV4(result.getError.getErrorCode.toString, result.getError.getMessage,
         result.getError.getTarget))
       case false => None
     }).toList
