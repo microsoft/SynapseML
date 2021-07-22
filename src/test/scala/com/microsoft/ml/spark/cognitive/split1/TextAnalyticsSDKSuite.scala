@@ -200,7 +200,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     val secondRow = replies(1)
     assert(replies(0).schema(0).name == "output")
     val fromRow = SentimentResponseV4.makeFromRowConverter
-    replies.foreach(row => {
       val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
       val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
       val modelVersionFirstRow = resFirstRow.modelVersion.get
@@ -211,7 +210,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
       assert(negativeScoreFirstRow > 0.5)
       assert(positiveScoreSecondRow > 0.5)
-    })
   }
 }
 class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
