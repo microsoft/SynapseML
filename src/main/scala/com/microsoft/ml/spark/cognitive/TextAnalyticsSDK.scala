@@ -36,7 +36,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
-      .retryPolicy(new RetryPolicy())
+      .retryPolicy(new RetryPolicy("Retry-After",null))
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
