@@ -16,6 +16,7 @@ import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
+import java.time.temporal.ChronoUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,7 +37,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
     new TextAnalyticsClientBuilder()
-      .retryPolicy(new RetryPolicy("Retry-After",null))
+      .retryPolicy(new RetryPolicy("Retry-After",ChronoUnit.SECONDS))
       .credential(new AzureKeyCredential(getSubscriptionKey))
       .endpoint(getEndpoint)
       .buildClient()
