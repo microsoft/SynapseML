@@ -82,6 +82,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     })
   }
 }
+
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
