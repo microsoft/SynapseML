@@ -13,6 +13,9 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.spark.SparkContext
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param.{ByteArrayParam, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml._
@@ -215,6 +218,8 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
   @tailrec
   private def compatible(from: DataType, to: DataType): Boolean = {
     (from, to) match {
+      case (VectorType, right: ArrayType) =>
+        compatible(DoubleType, right.elementType)
       case (left: ArrayType, right: ArrayType) =>
         compatible(left.elementType, right.elementType)
       case (_: NumericType, _: NumericType) => true
@@ -295,13 +300,22 @@ class ONNXModel(override val uid: String)
   }
 
   private def coerceBatchedDf(df: DataFrame): (DataFrame, Map[String, String]) = {
+    val toArray = UDFUtils.oldUdf({
+      (vectors: Seq[Vector]) => vectors.map(_.toArray)
+    }, ArrayType(ArrayType(DoubleType)))
+
     this.modelInput.mapValues(f => ArrayType(mapValueInfoToDataType(f.getInfo)))
       .foldLeft((df, this.getFeedDict)) {
         case ((accDf, feedDict), (onnxInputName, dataType)) =>
           val originalColName = this.getFeedDict(onnxInputName)
           val coercedColName = DatasetExtensions.findUnusedColumnName(originalColName, accDf)
+          val originalCol = df.schema(originalColName).dataType match {
+            case ArrayType(VectorType, _) => toArray(col(originalColName))
+            case _ => col(originalColName)
+          }
+
           (
-            accDf.withColumn(coercedColName, col(originalColName).cast(dataType)),
+            accDf.withColumn(coercedColName, originalCol.cast(dataType)),
             feedDict.updated(onnxInputName, coercedColName)
           )
       }

@@ -5,6 +5,7 @@ import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.linalg.{DenseVector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.{Equality, TolerantNumerics}
 
@@ -76,6 +77,34 @@ class ONNXModelSuite extends TestBase {
     ) toDF "features"
 
     val predicted = onnx.transform(testDf).as[(Seq[Double], Long, Map[Long, Float])].collect()
+
+    assert(predicted(0)._2 == 1L)
+    assert(predicted(0)._3 === Map(0L -> 0.0032624616f, 1L -> 0.78214455f, 2L -> 0.214593f))
+
+    assert(predicted(1)._2 == 0L)
+    assert(predicted(1)._3 === Map(0L -> 0.9666327f, 1L -> 0.033367135f, 2L -> 1.5725234E-7f))
+
+    assert(predicted(2)._2 == 2L)
+    assert(predicted(2)._3 === Map(0L -> 5.4029905E-4f, 1L -> 0.24569187f, 2L -> 0.75376785f))
+  }
+
+  test("ONNXModel can infer observations of vector input types") {
+    // Making sure spark context is initialized
+    spark
+
+    val model = downloadModel("iris.onnx", baseUrl)
+    val onnx = new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(Map("float_input" -> "features"))
+      .setFetchDict(Map("prediction" -> "output_label", "rawProbability" -> "output_probability"))
+
+    val testDf = Seq(
+      Tuple1(Vectors.dense(6.7d, 3.1d, 4.7d, 1.5d)),
+      Tuple1(Vectors.dense(4.9d, 3.0d, 1.4d, 0.2d)),
+      Tuple1(Vectors.dense(5.8d, 2.7d, 5.1d, 1.9d))
+    ) toDF "features"
+
+    val predicted = onnx.transform(testDf).as[(DenseVector, Long, Map[Long, Float])].collect()
 
     assert(predicted(0)._2 == 1L)
     assert(predicted(0)._3 === Map(0L -> 0.0032624616f, 1L -> 0.78214455f, 2L -> 0.214593f))
