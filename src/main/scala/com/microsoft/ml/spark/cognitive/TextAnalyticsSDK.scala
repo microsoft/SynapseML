@@ -1,5 +1,5 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, PiiEntity, PiiEntityCollection, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.microsoft.ml.spark.core.contracts.{HasConfidenceScoreCol, HasInputCol, HasLangCol, HasOutputCol, HasTextCol}
@@ -14,6 +14,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -246,4 +247,55 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
       Some(resultCollection.getModelVersion))
   }
   override def outputSchema: StructType = SentimentResponseV4.schema
+}
+
+object PII extends ComplexParamsReadable[PII]
+class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+          override val uid: String = randomUID("TextSentimentV4"))
+  extends TextAnalyticsSDKBase[PIIEntityCollectionV4](textAnalyticsOptions)
+    with HasConfidenceScoreCol {
+  logClass()
+
+  override val responseTypeBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+  = PIIResponseV4
+  override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
+  TAResponseV4[PIIEntityCollectionV4] = {
+    val r = scala.util.Random
+    var documents = (input, lang).zipped.map { (doc, lang) =>
+      new TextDocumentInput(r.nextInt.abs.toString,doc).setLanguage(lang)}.asJava
+
+    val resultCollection = textAnalyticsClient.recognizePiiEntitiesBatchWithResponse(documents,
+      null,Context.NONE).getValue
+
+    val piiResultCollection = resultCollection.asScala
+    def getPiiEntityCollection(entity: PiiEntityCollection, ent: PiiEntity): PIIEntityCollectionV4 = {
+      PIIEntityCollectionV4(ent.getText,
+        ent.getCategory.toString,
+        ent.getSubcategory,
+        ent.getConfidenceScore,
+        ent.getOffset,
+        ent.getLength,
+        entity.getRedactedText,
+        entity.getWarnings.asScala.toList.map(warnings =>
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
+    }
+    val piiResult = piiResultCollection.filter(result => !result.isError).map(result =>
+      Some(getPiiEntityCollection(result.getEntities, PiiEntity))).toList
+
+    val error = piiResultCollection.filter(sentiment => sentiment.isError).map(sentiment =>
+      Some(TAErrorV4(sentiment.getError.getErrorCode.toString,
+        sentiment.getError.getMessage, sentiment.getError.getTarget))).toList
+
+    val stats = piiResultCollection.map(sentiment => Option(sentiment.getStatistics) match {
+      case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+      case None => None
+    }).toList
+
+    TAResponseV4[PIIEntityCollectionV4](
+      piiResult,
+      error,
+      stats,
+      Some(resultCollection.getModelVersion))
+  }
+  override def outputSchema: StructType = PIIResponseV4.schema
 }
