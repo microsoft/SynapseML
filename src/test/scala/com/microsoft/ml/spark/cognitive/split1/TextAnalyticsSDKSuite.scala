@@ -60,20 +60,14 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       val secondRow = replies(1)
     assert(replies(0).schema(0).name == "output")
     val fromRow = DetectLanguageResponseV4.makeFromRowConverter
-    replies.foreach(row => {
         val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
         val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
         val modelVersionFirstRow = resFirstRow.modelVersion.get
         val modelVersionSecondRow = resSecondRow.modelVersion.get
         val positiveScoreFirstRow = resFirstRow.result.head.get.confidenceScore
-        val negativeScoreFirstRow = resFirstRow.result.head.get.confidenceScore
-        val neutralScoreFirstRow = resFirstRow.result.head.get.confidenceScore
         assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
         assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
         assert(positiveScoreFirstRow > 0.5)
-        assert(negativeScoreFirstRow > 0.5)
-        assert(neutralScoreFirstRow > 0.5)
-      })
   }
   test("Language Detection - Assert Model Version") {
     val replies = detector.transform(df)
@@ -84,6 +78,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     replies.foreach(row => {
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
       val modelCheck = outResponse.result.head.get
+      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
     })
   }
 }
@@ -163,20 +158,12 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
       val modelVersionFirstRow = resFirstRow.modelVersion.get
       val modelVersionSecondRow = resSecondRow.modelVersion.get
-      val positiveScoreFirstRow = resFirstRow.result.head.get.confidenceScores.positive
       val negativeScoreFirstRow = resFirstRow.result.head.get.confidenceScores.negative
-      val neutralScoreFirstRow = resFirstRow.result.head.get.confidenceScores.neutral
       val positiveScoreSecondRow = resSecondRow.result.head.get.confidenceScores.positive
-      val negativeScoreSecondRow = resSecondRow.result.head.get.confidenceScores.negative
-      val neutralScoreSecondRow = resSecondRow.result.head.get.confidenceScores.neutral
       assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
       assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
-      assert(positiveScoreFirstRow < 0.5)
       assert(negativeScoreFirstRow > 0.5)
-      assert(neutralScoreFirstRow < 0.5)
       assert(positiveScoreSecondRow > 0.5)
-      assert(negativeScoreSecondRow < 0.5)
-      assert(neutralScoreSecondRow < 0.5)
     })
   }
 }
