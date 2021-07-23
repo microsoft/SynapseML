@@ -18,11 +18,20 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq(""), Seq(":) :( :D")),
   ).toDF("lang", "text")
 
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+    .setInputCol("text")
+    .setLangCol("lang")
+    .setOutputCol("output")
+
+  lazy val invalidDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setInputCol("text")
     .setLangCol("lang")
     .setOutputCol("output")
@@ -49,16 +58,17 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
 
     val iso = replies.map(row => row.getList(1))
-    assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es" &&
-      iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
+    assert(iso(0).get(0).toString == "en" && iso(0).get(1).toString == "es")
+    assert(iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
   }
+
   test("Language Detection - Check Confidence Score") {
     val replies = detector.transform(df)
       .select("output", "output.result.confidenceScore")
       .collect()
     assert(replies(0).schema(0).name == "output", "output.result.confidenceScore")
-      val firstRow = replies(0)
-      val secondRow = replies(1)
+    val firstRow = replies(0)
+    val secondRow = replies(1)
     assert(replies(0).schema(0).name == "output")
     val fromRow = DetectLanguageResponseV4.makeFromRowConverter
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
@@ -66,10 +76,11 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val modelVersionFirstRow = resFirstRow.modelVersion.get
     val modelVersionSecondRow = resSecondRow.modelVersion.get
     val positiveScoreFirstRow = resFirstRow.result.head.get.confidenceScore
-        assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
-        assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
-        assert(positiveScoreFirstRow > 0.5)
+    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
+    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
+    assert(positiveScoreFirstRow > 0.5)
   }
+
   test("Language Detection - Assert Model Version") {
     val replies = detector.transform(df)
       .select("output")
@@ -82,6 +93,48 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
       modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
     })
   }
+
+  test("Language Detection - Invalid Document Input"){
+    val replies = detector.transform(invalidDocDf)
+      .select("output.error.errorMessage", "output.error.errorCode")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(0).get(1).toString == "Document text is empty.")
+    assert(codes(0).get(1).toString == "InvalidDocument")
+  }
+
+  test("Invalid Subscription Key Caught") {
+    val invalidKey = "12345"
+    val caught =
+      intercept[SparkException] {
+        invalidDetector
+          .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+          .setSubscriptionKey(invalidKey)
+          .transform(df)
+          .show()
+      }
+    assert(caught.getMessage.contains("Status code 401"))
+    assert(caught.getMessage.contains("invalid subscription key or wrong API endpoint"))
+  }
+
+  test("Wrong API Endpoint Caught") {
+    val invalidEndpoint = "invalidendpoint"
+    val caught =
+      intercept[SparkException] {
+        invalidDetector
+          .setEndpoint(invalidEndpoint)
+          .setSubscriptionKey(textKey)
+          .transform(df)
+          .show()
+      }
+    assert(caught.getMessage.contains("'endpoint' must be a valid URL"))
+  }
+
   test("Asynch Functionality with Parameters") {
     val concurrency = 10
     val timeout = 45
@@ -146,6 +199,14 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     (Seq("en"), Seq("I love Vancouver."))
   ).toDF("lang", "text")
 
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageDf: DataFrame = Seq(
+    (Seq("abc", "/."),Seq("Today is a wonderful day.","I hate the cold"))
+  ).toDF("lang", "text")
+
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
@@ -180,6 +241,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
     .setInputCol("text")
+    .setLangCol("lang")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Basic Usage") {
@@ -190,6 +252,34 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
       data(0).get(2).toString == "negative")
     assert(data(1).get(0).toString == "positive")
+  }
+
+  test("Sentiment Analysis - Invalid Document Input"){
+    val replies = detector.transform(invalidDocDf)
+      .select("output.error.errorMessage", "output.error.errorCode")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(0).get(1).toString == "Document text is empty.")
+    assert(codes(0).get(1).toString == "InvalidDocument")
+  }
+
+  test("Sentiment Analysis - Invalid Language Input"){
+    val replies = detector.transform(invalidLanguageDf)
+      .select("output.error.errorMessage", "output.error.errorCode")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "UnsupportedLanguageCode")
+
+    assert(errors(0).get(1).toString.contains("Invalid language code."))
+    assert(codes(0).get(1).toString == "UnsupportedLanguageCode")
   }
 
   test("Sentiment Analysis - Assert Confidence Score") {
@@ -212,6 +302,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(positiveScoreSecondRow > 0.5)
   }
 }
+
 class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
@@ -220,6 +311,20 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("en", "es"), Seq("Hello world. This is some input text that I love.",
       "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
     (Seq("fr"), Seq("Bonjour tout le monde")),
+  ).toDF("lang", "text")
+
+  lazy val blankLanguageDf: DataFrame = Seq(
+    (Seq("",""), Seq("Hello world. This is some input text that I love.",
+      "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
+    (Seq(""), Seq("Bonjour tout le monde")),
+  ).toDF("lang","text" )
+
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""),Seq("",null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageDf: DataFrame = Seq(
+    (Seq("abc", "/."),Seq("Today is a wonderful day.","I hate the cold"))
   ).toDF("lang", "text")
 
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
@@ -266,5 +371,47 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       val modelCheck = outResponse.result.head.get
       modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
     })
+  }
+
+  test("KPE - Blank Language Input") {
+    val replies = extractor.transform(blankLanguageDf)
+      .select(explode(col("output.result.keyPhrases")))
+      .collect()
+
+    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
+    assert(replies(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
+    assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
+  }
+
+  test("KPE - Invalid Document Input"){
+    val replies = extractor.transform(invalidDocDf)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+
+  test("KPE - Invalid Language Input"){
+    val replies = extractor.transform(invalidLanguageDf)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString.contains("Invalid language code."))
+    assert(codes(1).get(0).toString == "InvalidDocument")
   }
 }

@@ -13,11 +13,13 @@ case class TAResponseV4[T](result: List[Option[T]],
                            error: List[Option[TAErrorV4]],
                            statistics: List[Option[DocumentStatistics]],
                            modelVersion: Option[String])
+
 case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
 
 case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
 case class TAWarningV4 (warningCode: String, message: String)
+
 case class TextDocumentInputs (id: String, text: String)
 
 case class TextAnalyticsRequestOptionsV4(modelVersion: String,
