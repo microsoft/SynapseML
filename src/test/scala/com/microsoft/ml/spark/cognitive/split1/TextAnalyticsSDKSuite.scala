@@ -203,10 +203,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     val tdf = detector3.transform(df2)
       .select("output2.result.sentiment")
-      .collect()
-    val data = tdf.map(row => row.getList(0))
-     assert(data.length == 4)
-
+      .show()
   }
 }
 
