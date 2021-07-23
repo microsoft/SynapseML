@@ -7,15 +7,19 @@ object DetectLanguageResponseV4 extends SparkBindings[TAResponseV4[DetectedLangu
 
 object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
+object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
+
 case class TAResponseV4[T](result: List[Option[T]],
                            error: List[Option[TAErrorV4]],
                            statistics: List[Option[DocumentStatistics]],
                            modelVersion: Option[String])
+
 case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore: Double)
 
 case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
 case class TAWarningV4 (warningCode: String, message: String)
+
 case class TextDocumentInputs (id: String, text: String)
 
 case class TextAnalyticsRequestOptionsV4(modelVersion: String,
@@ -23,8 +27,6 @@ case class TextAnalyticsRequestOptionsV4(modelVersion: String,
                                          disableServiceLogs: Boolean)
 
 case class KeyphraseV4(keyPhrases: List[String], warnings: List[TAWarningV4])
-
-object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
 case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
 
