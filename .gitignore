@@ -53,3 +53,7 @@ pom.xml
 # R output
 .Rproj.user
 *.Rout
+*.Rout
+
+# Misc
+.bsp

@@ -5,17 +5,14 @@ package com.microsoft.ml.spark.core.test.fuzzing
 
 import java.lang.reflect.ParameterizedType
 
-import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils
-import com.microsoft.ml.spark.core.utils.JarLoadingUtils.AllClasses
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
 import scala.language.existentials
-import scala.reflect.classTag
 
 /** Tests to validate fuzzing of modules. */
 class FuzzingTest extends TestBase {
@@ -84,32 +81,32 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.ml.spark.featurize.ValueIndexerModel",
+      "com.microsoft.ml.spark.automl.BestModel",
       "com.microsoft.ml.spark.automl.TuneHyperparameters",
-      "com.microsoft.ml.spark.train.ComputePerInstanceStatistics",
-      "com.microsoft.ml.spark.cognitive.LocalNER",
-      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
-      "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
-      "com.microsoft.ml.spark.featurize.DataConversion",
-      "com.microsoft.ml.spark.nn.KNNModel",
-      "com.microsoft.ml.spark.nn.ConditionalKNNModel",
-      "com.microsoft.ml.spark.train.TrainedRegressorModel",
-      "com.microsoft.ml.spark.core.serialize.MixedParamTest",
       "com.microsoft.ml.spark.automl.TuneHyperparametersModel",
-      "com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel",
-      "com.microsoft.ml.spark.isolationforest.IsolationForestModel",
-      "com.microsoft.ml.spark.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.ml.spark.cntk.train.CNTKLearner",
+      "com.microsoft.ml.spark.cognitive.LocalNER",
       "com.microsoft.ml.spark.core.serialize.ComplexParamTest",
-      "com.microsoft.ml.spark.vw.VowpalWabbitRegressionModel",
+      "com.microsoft.ml.spark.core.serialize.MixedParamTest",
       "com.microsoft.ml.spark.core.serialize.StandardParamTest",
-      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
-      "com.microsoft.ml.spark.stages.ClassBalancerModel",
+      "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
       "com.microsoft.ml.spark.featurize.CleanMissingDataModel",
-      "com.microsoft.ml.spark.stages.TimerModel",
+      "com.microsoft.ml.spark.featurize.DataConversion",
+      "com.microsoft.ml.spark.featurize.ValueIndexerModel",
+      "com.microsoft.ml.spark.isolationforest.IsolationForestModel",
       "com.microsoft.ml.spark.lightgbm.LightGBMClassificationModel",
-      "com.microsoft.ml.spark.train.TrainedClassifierModel",
       "com.microsoft.ml.spark.lightgbm.LightGBMRankerModel",
-      "com.microsoft.ml.spark.automl.BestModel"
+      "com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel",
+      "com.microsoft.ml.spark.nn.ConditionalKNNModel",
+      "com.microsoft.ml.spark.nn.KNNModel",
+      "com.microsoft.ml.spark.stages.ClassBalancerModel",
+      "com.microsoft.ml.spark.stages.TimerModel",
+      "com.microsoft.ml.spark.train.ComputePerInstanceStatistics",
+      "com.microsoft.ml.spark.train.TrainedClassifierModel",
+      "com.microsoft.ml.spark.train.TrainedRegressorModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitRegressionModel"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -178,7 +175,6 @@ class FuzzingTest extends TestBase {
     pipelineStages.foreach { pipelineStage =>
       pipelineStage.params.foreach { param =>
         assertOrLog(!param.name.contains(badChars), param.name)
-        assertOrLog(!param.doc.contains("\""), param.doc)
       }
     }
   }
@@ -231,8 +227,17 @@ class FuzzingTest extends TestBase {
       "com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitClassificationModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitRegressionModel",
-      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel"
+      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.ml.spark.explainers.ImageLIME",
+      "com.microsoft.ml.spark.explainers.ImageSHAP",
+      "com.microsoft.ml.spark.explainers.TabularLIME",
+      "com.microsoft.ml.spark.explainers.TabularSHAP",
+      "com.microsoft.ml.spark.explainers.TextLIME",
+      "com.microsoft.ml.spark.explainers.TextSHAP",
+      "com.microsoft.ml.spark.explainers.VectorLIME",
+      "com.microsoft.ml.spark.explainers.VectorSHAP"
     )
+
     pipelineStages.foreach { stage =>
       if (!exemptions(stage.getClass.getName)) {
         stage.params.foreach { param =>
@@ -257,17 +262,17 @@ class FuzzingTest extends TestBase {
   // set the context loader to pick up on the jars
   //Thread.currentThread().setContextClassLoader(JarLoadingUtils.classLoader)
 
-  private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]
+  private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]()
 
-  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]
+  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]()
 
   private lazy val experimentFuzzers: List[ExperimentFuzzing[_ <: PipelineStage]] =
-    JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]
+    JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]()
 
   private lazy val serializationFuzzers: List[SerializationFuzzing[_ <: PipelineStage with MLWritable]] =
-    JarLoadingUtils.instantiateServices[SerializationFuzzing[_ <: PipelineStage with MLWritable]]
+    JarLoadingUtils.instantiateServices[SerializationFuzzing[_ <: PipelineStage with MLWritable]]()
 
   private lazy val pytestFuzzers: List[PyTestFuzzing[_ <: PipelineStage]] =
-    JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]
+    JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]()
 
 }
