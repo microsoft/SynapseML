@@ -1,9 +1,6 @@
 package com.microsoft.ml.spark.cognitive
-<<<<<<< HEAD
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, PiiEntity, PiiEntityCollection, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput}
-=======
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput}
->>>>>>> b88d34934c53473f8d9f5db74e89acb558fba576
+
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, PiiEntity, PiiEntityCollection, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextDocumentInput, TextAnalyticsException}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.azure.core.http.policy.RetryPolicy

@@ -59,7 +59,6 @@ case class AssessmentV4(text: String,
 
 case class WarningsV4(text: String, warningCode: String)
 
-
 object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
 case class PIIEntityV4(text: String,
@@ -72,3 +71,4 @@ case class PIIEntityV4(text: String,
 case class PIIEntityCollectionV4(entities: List[PIIEntityV4],
                                  redactedText: String,
                                  warnings: List[WarningsV4])
+

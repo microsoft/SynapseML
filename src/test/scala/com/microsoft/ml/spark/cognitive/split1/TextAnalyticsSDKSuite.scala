@@ -359,7 +359,8 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
-}
+  }
+
   test("KPE - Check Model Version") {
     val replies = extractor.transform(df2)
       .select("output")
@@ -414,7 +415,63 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(errors(1).get(0).toString.contains("Invalid language code."))
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
+  
+test("KPE - Check Model Version") {
+    val replies = extractor.transform(df2)
+      .select("output")
+      .collect()
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = KeyPhraseResponseV4.makeFromRowConverter
+    replies.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      val modelCheck = outResponse.result.head.get
+      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
+    })
+  }
+
+  test("KPE - Blank Language Input") {
+    val replies = extractor.transform(blankLanguageDf)
+      .select(explode(col("output.result.keyPhrases")))
+      .collect()
+
+    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
+    assert(replies(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
+    assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
+  }
+
+  test("KPE - Invalid Document Input"){
+    val replies = extractor.transform(invalidDocDf)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+
+  test("KPE - Invalid Language Input"){
+    val replies = extractor.transform(invalidLanguageDf)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString.contains("Invalid language code."))
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
 }
+
 class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
@@ -446,5 +503,4 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
       row.toSeq.foreach { col => println(col) }
     }
   }
-
 }
