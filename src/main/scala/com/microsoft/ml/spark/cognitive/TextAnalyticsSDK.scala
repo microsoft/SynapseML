@@ -270,19 +270,13 @@ class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV
     val piiResultCollection = resultCollection.asScala
 
     def getPiiEntity(ent: PiiEntity): PIIEntityV4 = {
-      new PIIEntityV4 {
-        override def text: String = ent.getText
-
-        override def category: String = ent.getCategory.toString
-
-        override def subCategory: String = ent.getSubcategory
-
-        override def confidenceScore: Double = ent.getConfidenceScore
-
-        override def offset: Int = ent.getOffset
-
-        override def length: Int = ent.getLength
-      }
+       PIIEntityV4(
+        ent.getText,
+        ent.getCategory.toString,
+        ent.getSubcategory,
+        ent.getConfidenceScore,
+        ent.getOffset,
+        ent.getLength)
     }
     def getPiiEntityCollection(entity: PiiEntityCollection): PIIEntityCollectionV4 = {
    PIIEntityCollectionV4(

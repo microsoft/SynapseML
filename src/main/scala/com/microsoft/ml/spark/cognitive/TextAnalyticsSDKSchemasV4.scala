@@ -60,25 +60,13 @@ case class WarningsV4(text: String, warningCode: String)
 
 object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
-abstract class PIIEntityV4{ def text: String
- def category: String
- def subCategory: String
- def confidenceScore: Double
- def offset: Int
- def length: Int
-}
+case class PIIEntityV4(text: String,
+                       category: String,
+                       subCategory: String ,
+                       confidenceScore: Double,
+                       offset: Int,
+                       length: Int)
+
 case class PIIEntityCollectionV4(entities: List[PIIEntityV4],
                                  redactedText: String,
-                                 warnings: List[WarningsV4]) extends PIIEntityV4 {
- override def text: String = ???
-
- override def category: String = ???
-
- override def subCategory: String = ???
-
- override def confidenceScore: Double = ???
-
- override def offset: Int = ???
-
- override def length: Int = ???
-}
+                                 warnings: List[WarningsV4])

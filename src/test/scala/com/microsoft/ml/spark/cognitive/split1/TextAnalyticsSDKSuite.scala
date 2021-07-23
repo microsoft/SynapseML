@@ -218,6 +218,14 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
   test("PII - Basic Usage") {
     val replies = extractor.transform(df)
       .select("output.result.redactedText")
-      .show(10, false)
+      .collect()
+    assert(replies(0).schema(0).name == "redactedText")
+
+    df.printSchema()
+    df.show(10, false)
+    replies.foreach { row =>
+      row.toSeq.foreach { col => println(col) }
+    }
   }
+
 }
