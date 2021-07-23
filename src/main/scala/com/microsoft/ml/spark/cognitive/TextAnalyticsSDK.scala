@@ -268,19 +268,37 @@ class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV
       null,Context.NONE).getValue
 
     val piiResultCollection = resultCollection.asScala
-    def getPiiEntityCollection(entity: PiiEntityCollection, ent: PiiEntity): PIIEntityCollectionV4 = {
-      PIIEntityCollectionV4(ent.getText,
-        ent.getCategory.toString,
-        ent.getSubcategory,
-        ent.getConfidenceScore,
-        ent.getOffset,
-        ent.getLength,
+
+    def getPiiEntity(ent: PiiEntity): PIIEntityV4 = {
+      new PIIEntityV4 {
+        override def text: String = ent.getText
+
+        override def category: PIICategoryV4 = ent.getCategory
+
+        override def subCategory: String = ent.getSubcategory
+
+        override def confidenceScore: Double = ent.getConfidenceScore
+
+        override def offset: Int = ent.getOffset
+
+        override def length: Int = ent.getLength
+      }
+    }
+    def getPiiEntityCollection(entity: PiiEntityCollection): PIIEntityCollectionV4 = {
+      val ent = new PiiEntity
+      PIIEntityCollectionV4(
+        getPiiEntity(ent).text,
+        getPiiEntity(ent).category,
+        getPiiEntity(ent).subCategory,
+        getPiiEntity(ent).confidenceScore,
+        getPiiEntity(ent).offset,
+        getPiiEntity(ent).length,
         entity.getRedactedText,
         entity.getWarnings.asScala.toList.map(warnings =>
           WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
     }
     val piiResult = piiResultCollection.filter(result => !result.isError).map(result =>
-      Some(getPiiEntityCollection(result.getEntities, PiiEntity))).toList
+      Some(getPiiEntityCollection(result.getEntities))).toList
 
     val error = piiResultCollection.filter(sentiment => sentiment.isError).map(sentiment =>
       Some(TAErrorV4(sentiment.getError.getErrorCode.toString,

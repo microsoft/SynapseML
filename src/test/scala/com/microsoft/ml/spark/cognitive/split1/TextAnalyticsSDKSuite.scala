@@ -195,3 +195,29 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       }
     }
 }
+
+class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+  lazy val df: DataFrame = Seq(
+    (Seq("en", "en", "en"), Seq("This person is named John Doe", "He lives on 123 main street",
+      "His phone number was 12345677")),
+    (Seq("en"), Seq("I live in Vancouver."))
+  ).toDF("lang", "text")
+
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+  df.printSchema()
+  df.show(10, false)
+  lazy val extractor: PII = new PII(options)
+    .setSubscriptionKey(textKey)
+    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+    .setInputCol("text")
+    .setLangCol("lang")
+    .setOutputCol("output")
+
+  test("PII - Basic Usage") {
+    val replies = extractor.transform(df)
+      .select("output")
+      .show(10, false)
+  }
+}
