@@ -251,7 +251,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
 
 object PII extends ComplexParamsReadable[PII]
 class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-          override val uid: String = randomUID("TextSentimentV4"))
+          override val uid: String = randomUID("PII"))
   extends TextAnalyticsSDKBase[PIIEntityCollectionV4](textAnalyticsOptions)
     with HasConfidenceScoreCol {
   logClass()
@@ -273,7 +273,7 @@ class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV
       new PIIEntityV4 {
         override def text: String = ent.getText
 
-        override def category: PIICategoryV4 = ent.getCategory
+        override def category: String = ent.getCategory.toString
 
         override def subCategory: String = ent.getSubcategory
 
@@ -285,14 +285,9 @@ class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV
       }
     }
     def getPiiEntityCollection(entity: PiiEntityCollection): PIIEntityCollectionV4 = {
-      val ent = new PiiEntity
-      PIIEntityCollectionV4(
-        getPiiEntity(ent).text,
-        getPiiEntity(ent).category,
-        getPiiEntity(ent).subCategory,
-        getPiiEntity(ent).confidenceScore,
-        getPiiEntity(ent).offset,
-        getPiiEntity(ent).length,
+   PIIEntityCollectionV4(
+        entity.asScala.toList.map(ent =>
+          getPiiEntity(ent)),
         entity.getRedactedText,
         entity.getWarnings.asScala.toList.map(warnings =>
           WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
