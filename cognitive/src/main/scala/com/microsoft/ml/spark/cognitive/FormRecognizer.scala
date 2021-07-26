@@ -18,7 +18,7 @@ import spray.json._
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
-  with HasImageInput with HasSetLocation {
+  with HasImageInput with HasSetLocation with HasSetLinkedService {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
