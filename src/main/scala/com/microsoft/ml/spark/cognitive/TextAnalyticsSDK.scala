@@ -241,3 +241,68 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   }
   override def outputSchema: StructType = SentimentResponseV4.schema
 }
+//my code for healthcare
+object HealthcareResponseV4 extends ComplexParamsReadable[HealthcareResponseV4]
+class HealthcareResponseV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+                      override val uid: String = randomUID("HealthcareResponseV4"))
+  extends TextAnalyticsSDKBase[AnalyzeHealthcareEntitiesV4](textAnalyticsOptions)
+    with HasConfidenceScoreCol {
+  logClass()
+
+  override val responseTypeBinding: SparkBindings[TAResponseV4[AnalyzeHealthcareEntitiesResultCollectionV4]]
+  = HealthcareResponseV4
+  override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
+  TAResponseV4[AnalyzeHealthcareEntitiesResultCollectionV4] = {
+    val r = scala.util.Random
+    var documents = (input, lang).zipped.map { (doc, lang) =>
+      new TextDocumentInput(r.nextInt.abs.toString,doc).setLanguage(lang)}.asJava
+
+    val resultCollection = textAnalyticsClient.analyzeSentimentBatchWithResponse(documents,
+      null,Context.NONE).getValue
+
+    val AnalyzeHealthcareEntitiesResulCollectionV4 = resultCollection.asScala
+
+    def getHealthcareEntityV4(entity: HealthcareEntityV4): HealthcareEntityV4 = {
+      HealthcareEntityV4(
+        entity.getAssertion,
+        entity.getCategory,
+        entity.getConfidenceScore,
+        entity.getDataSources,
+        entity.getLength,
+        entity.getNormalizedText,
+        entity.getOffset,
+        entity.getSubCategory,
+        entity.getText
+      )
+    }
+
+    def getAnalyzeHealthcareEntitiesResultCollectionV4(entity: AnalyzeHealthcareEntitiesResultCollectionV4): AnalyzeHealthcareEntitiesResulCollectionV4 = {
+      AnalyzeHealthcareEntitiesResulCollectionV4(
+        entity.asScala.toList.map(ent =>
+          getHealthcareEntityV4()Entity(ent)),
+        entity.getModelVersion,
+        entity.getStatistics,
+        entity.getWarnings.asScala.toList.map(warnings =>
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
+    }
+
+    val healthcareResult = AnalyzeHealthcareEntitiesResultV4.filter(result => !result.isError).map(result =>
+      Some(getAnalyzeHealthcareEntitiesResultCollectionV4(result.getEntities))).toList
+
+    val error = AnalyzeHealthcareEntitiesResultV4.filter(sentiment => sentiment.isError).map(sentiment =>
+      Some(TAErrorV4(sentiment.getError.getErrorCode.toString,
+        sentiment.getError.getMessage, sentiment.getError.getTarget))).toList
+
+    val stats = AnalyzeHealthcareEntitiesResultV4.map(sentiment => Option(sentiment.getStatistics) match {
+      case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+      case None => None
+    }).toList
+
+    TAResponseV4[AnalyzeHealthcareEntitiesResultCollectionV4](
+      healthcareResult,
+      error,
+      stats,
+      Some(resultCollection.getModelVersion))
+  }
+  override def outputSchema: StructType = HealthcareResponseV4.schema
+}
