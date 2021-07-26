@@ -36,6 +36,7 @@ import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
@@ -196,6 +197,17 @@ abstract class SpeechSDKBase extends Transformer
   def setProfanityCol(v: String): this.type = setVectorParam(profanity, v)
 
   def urlPath: String = "/sts/v1.0/issuetoken"
+
+  override def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val locationMethod = linkedServiceClass.get.getMethod("getLocation", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val location = locationMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setLocation(location)
+    setSubscriptionKey(key)
+  }
 
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))
