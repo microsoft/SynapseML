@@ -1,5 +1,6 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment,
+  SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput}
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
 import com.azure.core.http.policy.RetryPolicy
@@ -66,7 +67,9 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      val df = dataset.toDF
+      val batchedDF = new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(dataset.coalesce(1))
+      val finaldataset = spark.createDataFrame(batchedDF.rdd, inputSchema)
+      val df = finaldataset.toDF
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
       val toRow = responseTypeBinding.makeToRowConverter
       df.mapPartitions(transformTextRows(

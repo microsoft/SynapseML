@@ -294,8 +294,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     (null, "ich bin ein berliner")
   ).toDF("lang", "text")
 
-  test("Sentiment - batch usage"){
-    lazy val detector3: TextSentimentV4  = new TextSentimentV4(options)
+  test("Sentiment - batch usage") {
+    lazy val detector3: TextSentimentV4 = new TextSentimentV4(options)
       .setSubscriptionKey(textKey)
       .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
       .setInputCol("text")
@@ -305,7 +305,10 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     val tdf = detector3.transform(df2)
       .select("output2.result.sentiment")
-      .show()
+      .collect()
+    assert(tdf(0).getSeq(0).length == 2)
+    assert(tdf(3).getSeq(0).length == 1)
+  }
   test("Sentiment Analysis - Invalid Document Input"){
     val replies = detector.transform(invalidDocDf)
       .select("output.error.errorMessage", "output.error.errorCode")
@@ -411,7 +414,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
-
+  }
   lazy val df3: DataFrame = Seq(
     ("en","Hello world. This is some input text that I love."),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
