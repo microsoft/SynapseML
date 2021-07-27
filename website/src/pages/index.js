@@ -145,7 +145,7 @@ const features = [
   },
   {
     title: 'Scalable',
-    imageUrl: 'img/scalable2.svg',
+    imageUrl: 'img/scalable3.svg',
     description: (
       <>
         <p>

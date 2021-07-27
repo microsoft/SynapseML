@@ -34,7 +34,7 @@ object Foo extends App {
     version = "1.0.0-43-ca7deac7-SNAPSHOT",
     jarName = None,
     topDir = "C:\\code\\mmlspark\\core",
-    targetDir = "C:\\code\\mmlspark\\core\\")
+    targetDir = "C:\\code\\mmlspark\\core\\target\\scala-2.12\\sbt-1.0\\")
 
   new Word2Vec().makePyFile(Config)
 
