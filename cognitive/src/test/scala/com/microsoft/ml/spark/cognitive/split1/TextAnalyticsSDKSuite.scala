@@ -30,13 +30,13 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text")
-    .setLangCol("lang")
+    .setTextCol("text")
+    .setLanguageCol("lang")
     .setOutputCol("output")
 
   lazy val invalidDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
-    .setInputCol("text")
-    .setLangCol("lang")
+    .setTextCol("text")
+    .setLanguageCol("lang")
     .setOutputCol("output")
 
   test("Language Detection - Output Assertion") {
@@ -213,7 +213,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text")
+    .setTextCol("text")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Output Assertion") {
@@ -243,8 +243,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text")
-    .setLangCol("lang")
+    .setTextCol("text")
+    .setLanguageCol("lang")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Basic Usage") {
@@ -336,8 +336,8 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
   lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
     .setSubscriptionKey(textKey)
     .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setInputCol("text")
-    .setLangCol("lang")
+    .setTextCol("text")
+    .setLanguageCol("lang")
     .setOutputCol("output")
 
   test("KPE - Basic Usage") {

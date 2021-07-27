@@ -11,9 +11,9 @@ import com.azure.core.util.Context
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
-import com.microsoft.ml.spark.io.http.{HTTPParams, HasErrorCol}
+import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol}
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.ml.param.{Param, ParamMap, Params, ServiceParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -24,63 +24,10 @@ import java.time.temporal.ChronoUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
-import spray.json.DefaultJsonProtocol.{StringJsonFormat, seqFormat}
-
-
-trait HasConfidenceScoreCol extends Params {
-  /** The name of the confidence score column
-    *
-    * @group param
-    */
-  val confidenceScoreCol =
-    new Param[String](this, "confidenceScoreCol",
-      "Confidence score, usually a value between 0-1. Higher value implies higher model confidence.")
-
-  /** @group setParam */
-  def setConfidenceScoreCol(value: String): this.type = set(confidenceScoreCol, value)
-
-  /** @group getParam */
-  def getConfidenceScoreCol: String = $(confidenceScoreCol)
-
-  setDefault(confidenceScoreCol -> "ConfidenceScore")
-}
-
-trait HasLangCol extends HasServiceParams {
-  /** The name of the language of the document column
-    *
-    * @group param
-    */
-  val lang = new ServiceParam[Seq[String]](this, "lang", "the languages in the request body", isRequired = false)
-
-  /** @group setParam */
-  def setLangCol(value: String): this.type = setVectorParam(lang, value)
-
-  def setLang(value: Seq[String]): this.type = setScalarParam(lang, value)
-
-  def setLang(value: String): this.type = setScalarParam(lang, Seq(value))
-
-  setDefault(lang -> Right("lang"))
-}
-
-trait HasTextCol extends HasServiceParams {
-  val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
-
-  def setTextCol(v: String): this.type = setVectorParam(text, v)
-
-  def setText(v: Seq[String]): this.type = setScalarParam(text, v)
-
-  def setText(v: String): this.type = setScalarParam(text, Seq(v))
-
-  setDefault(text -> Right("text"))
-}
-
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
-  extends Transformer
-    with HasInputCol with HasErrorCol
-    with HasEndpoint with HasSubscriptionKey
-    with HasTextCol with HasLangCol
-    with HasOutputCol with HTTPParams
+  extends Transformer with HasErrorCol with HasEndpoint with HasSubscriptionKey
+    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams
     with ComplexParamsWritable with BasicLogging {
 
   protected def outputSchema: StructType
@@ -100,7 +47,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
                                  (rows: Iterator[Row]): Iterator[Row] = {
     val futures = rows.map { row =>
       Future {
-        val results = invokeTextAnalytics(getValue(row, text), getValue(row, lang))
+        val results = invokeTextAnalytics(getValue(row, text), getValue(row, language))
         Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
       }(ExecutionContext.global)
     }
@@ -119,9 +66,6 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    // Validate input schema
-    val inputType = schema($(inputCol)).dataType
-    require(inputType.equals(DataTypes.StringType), s"The input column must be of type String, but got $inputType")
     schema.add(getOutputCol, outputSchema)
   }
 
@@ -132,8 +76,7 @@ object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalytic
 
 class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                                      override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
-  extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions)
-    with HasConfidenceScoreCol {
+  extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions) {
   logClass()
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
@@ -142,7 +85,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
   override def invokeTextAnalytics(input: Seq[String], hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
     val r = scala.util.Random
-    var documents = (input, hints).zipped.map { (doc, hint) =>
+    val documents = (input, hints).zipped.map { (doc, hint) =>
       new DetectLanguageInput(r.nextInt.abs.toString, doc, hint)
     }.asJava
 
@@ -247,8 +190,7 @@ object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 
 class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                       override val uid: String = randomUID("TextSentimentV4"))
-  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions)
-    with HasConfidenceScoreCol {
+  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
   logClass()
 
   override val responseTypeBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
@@ -262,8 +204,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     }.asJava
 
     val resultCollection = try {
-      textAnalyticsClient.analyzeSentimentBatchWithResponse(documents,
-        null, Context.NONE).getValue
+      textAnalyticsClient.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
     } catch {
       case ex: TextAnalyticsException => {
         throw new TextAnalyticsException(ex.getMessage, ex.getErrorCode, ex.getTarget)
@@ -272,58 +213,8 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
 
     val textSentimentResultCollection = resultCollection.asScala
 
-    def getConfidenceScore(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
-      SentimentConfidenceScoreV4(
-        score.getNegative,
-        score.getNeutral,
-        score.getPositive)
-    }
-
-    def getTarget(target: TargetSentiment): TargetV4 = {
-      TargetV4(
-        target.getText,
-        target.getSentiment.toString,
-        getConfidenceScore(target.getConfidenceScores),
-        target.getOffset,
-        target.getLength)
-    }
-
-    def getAssessment(assess: AssessmentSentiment): AssessmentV4 = {
-      AssessmentV4(
-        assess.getText,
-        assess.getSentiment.toString,
-        getConfidenceScore(assess.getConfidenceScores),
-        assess.isNegated,
-        assess.getOffset,
-        assess.getLength)
-    }
-
-    def getSentenceSentiment(sentencesent: SentenceSentiment): SentimentSentenceV4 = {
-      SentimentSentenceV4(
-        sentencesent.getText,
-        sentencesent.getSentiment.toString,
-        getConfidenceScore(sentencesent.getConfidenceScores),
-        Option(sentencesent.getOpinions).map(sentmap =>
-          sentmap.asScala.toList.map(op =>
-            OpinionV4(getTarget(op.getTarget)
-              , op.getAssessments.asScala.toList.map(assessment =>
-                getAssessment(assessment))))),
-        sentencesent.getOffset,
-        sentencesent.getLength)
-    }
-
-    def getDocumentSentiment(doc: DocumentSentiment): SentimentScoredDocumentV4 = {
-      SentimentScoredDocumentV4(
-        doc.getSentiment.toString,
-        getConfidenceScore(doc.getConfidenceScores),
-        doc.getSentences.asScala.toList.map(sentenceSentiment =>
-          getSentenceSentiment(sentenceSentiment)),
-        doc.getWarnings.asScala.toList.map(warnings =>
-          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
-    }
-
     val sentimentResult = textSentimentResultCollection.map(sentiment => (sentiment.isError) match {
-      case false => Some(getDocumentSentiment(sentiment.getDocumentSentiment))
+      case false => Some(SentimentScoredDocumentV4.fromSDK(sentiment.getDocumentSentiment))
       case true => None
     }).toList
 

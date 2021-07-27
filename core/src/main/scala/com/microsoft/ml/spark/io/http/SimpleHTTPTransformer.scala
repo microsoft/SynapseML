@@ -62,7 +62,7 @@ object ErrorUtils extends Serializable {
 }
 
 class SimpleHTTPTransformer(val uid: String)
-  extends Transformer with HTTPParams with HasMiniBatcher with HasHandler
+  extends Transformer with ConcurrencyParams with HasMiniBatcher with HasHandler
     with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol with BasicLogging {
   logClass()
 
