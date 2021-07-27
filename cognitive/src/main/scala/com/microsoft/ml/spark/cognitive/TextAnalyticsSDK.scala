@@ -8,6 +8,7 @@ import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuild
 import com.azure.core.credential.AzureKeyCredential
 import com.azure.core.http.policy.RetryPolicy
 import com.azure.core.util.Context
+import com.microsoft.ml.spark.cognitive.SDKConverters._
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
@@ -17,7 +18,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.{DataTypes, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.time.temporal.ChronoUnit
@@ -32,22 +33,23 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected def outputSchema: StructType
 
-  val responseTypeBinding: SparkBindings[TAResponseV4[T]]
+  val responseBinding: SparkBindings[TAResponseV4[T]]
 
-  def invokeTextAnalytics(text: Seq[String], lang: Seq[String]): TAResponseV4[T]
-
-  protected lazy val textAnalyticsClient: TextAnalyticsClient =
-    new TextAnalyticsClientBuilder()
-      .retryPolicy(new RetryPolicy("Retry-After", ChronoUnit.SECONDS))
-      .credential(new AzureKeyCredential(getSubscriptionKey))
-      .endpoint(getEndpoint)
-      .buildClient()
+  def invokeTextAnalytics(client: TextAnalyticsClient, text: Seq[String], lang: Seq[String]): TAResponseV4[T]
 
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
+    val client = new TextAnalyticsClientBuilder()
+        .retryPolicy(new RetryPolicy("Retry-After", ChronoUnit.SECONDS))
+        .credential(new AzureKeyCredential(getSubscriptionKey))
+        .endpoint(getEndpoint)
+        .buildClient()
+
     val futures = rows.map { row =>
       Future {
-        val results = invokeTextAnalytics(getValue(row, text), getValue(row, language))
+        val results = invokeTextAnalytics(
+          client, getValue(row, text), getValue(row, language)
+        )
         Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
       }(ExecutionContext.global)
     }
@@ -57,8 +59,8 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF
-      val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
-      val toRow = responseTypeBinding.makeToRowConverter
+      val enc = RowEncoder(df.schema.add(getOutputCol, responseBinding.schema))
+      val toRow = responseBinding.makeToRowConverter
       df.mapPartitions(transformTextRows(
         toRow,
       ))(enc)
@@ -81,50 +83,15 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
   override def outputSchema: StructType = DetectLanguageResponseV4.schema
 
-  override val responseTypeBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
+  override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
-  override def invokeTextAnalytics(input: Seq[String], hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
-    val r = scala.util.Random
-    val documents = (input, hints).zipped.map { (doc, hint) =>
-      new DetectLanguageInput(r.nextInt.abs.toString, doc, hint)
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
+    val documents = (input, hints, hints.indices).zipped.map { (doc, hint, i) =>
+      new DetectLanguageInput(i.toString, doc, hint)
     }.asJava
-
-    val resultCollection = try {
-      textAnalyticsClient.detectLanguageBatchWithResponse(documents,
-        null, Context.NONE).getValue
-    } catch {
-      case ex: TextAnalyticsException => {
-        throw new TextAnalyticsException(ex.getMessage, ex.getErrorCode, ex.getTarget)
-      }
-    }
-
-    val detectLanguageResultCollection = resultCollection.asScala
-
-    val languageResult = detectLanguageResultCollection.map(result => (result.isError) match {
-      case false => Some(DetectedLanguageV4(result.getPrimaryLanguage.getName, result.getPrimaryLanguage.getIso6391Name,
-        result.getPrimaryLanguage.getConfidenceScore))
-      case true => None
-    }).toList
-
-    val error = detectLanguageResultCollection.map(result => (result.isError) match {
-      case true => Some(TAErrorV4(result.getError.getErrorCode.toString, result.getError.getMessage,
-        result.getError.getTarget))
-      case false => None
-    }).toList
-
-    val stats = detectLanguageResultCollection.map(result => (result.isError) match {
-      case false => Option(result.getStatistics) match {
-        case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
-        case None => None
-      }
-      case true => None
-    }).toList
-
-    TAResponseV4[DetectedLanguageV4](
-      languageResult,
-      error,
-      stats,
-      Some(resultCollection.getModelVersion))
+    client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue
   }
 }
 
@@ -135,52 +102,16 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
   extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseTypeBinding: SparkBindings[TAResponseV4[KeyphraseV4]]
+  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]]
   = KeyPhraseResponseV4
 
-  override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]): TAResponseV4[KeyphraseV4] = {
-    val r = scala.util.Random
-    var documents = (input, lang).zipped.map { (doc, lang) =>
-      new TextDocumentInput(r.nextInt.abs.toString, doc).setLanguage(lang)
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[KeyphraseV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-
-    val resultCollection = try {
-      textAnalyticsClient.extractKeyPhrasesBatchWithResponse(documents,
-        null, Context.NONE).getValue
-    } catch {
-      case ex: TextAnalyticsException => {
-        throw new TextAnalyticsException(ex.getMessage, ex.getErrorCode, ex.getTarget)
-      }
-    }
-
-    val keyPhraseExtractionResultCollection = resultCollection.asScala
-
-    val keyphraseResult = keyPhraseExtractionResultCollection.map(phrases => (phrases.isError) match {
-      case false => Some(KeyphraseV4(phrases.getKeyPhrases.asScala.toList,
-        phrases.getKeyPhrases.getWarnings.asScala.toList.map(
-          item => TAWarningV4(item.getWarningCode.toString, item.getMessage))))
-      case true => None
-    }).toList
-
-    val error = keyPhraseExtractionResultCollection.map(phrases => (phrases.isError) match {
-      case true => Some(TAErrorV4(phrases.getError.getErrorCode.toString,
-        phrases.getError.getMessage, phrases.getError.getTarget))
-      case false => None
-    }).toList
-
-    val stats = keyPhraseExtractionResultCollection.map(result => (result.isError) match {
-      case false => Option(result.getStatistics) match {
-        case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
-        case None => None
-      }
-      case true => None
-    }).toList
-
-    TAResponseV4[KeyphraseV4](
-      keyphraseResult,
-      error,
-      stats,
-      Some(resultCollection.getModelVersion))
+    client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue
   }
 
   override def outputSchema: StructType = KeyPhraseResponseV4.schema
@@ -193,50 +124,16 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseTypeBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
+  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
   = SentimentResponseV4
 
-  override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
-  TAResponseV4[SentimentScoredDocumentV4] = {
-    val r = scala.util.Random
-    var documents = (input, lang).zipped.map { (doc, lang) =>
-      new TextDocumentInput(r.nextInt.abs.toString, doc).setLanguage(lang)
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[SentimentScoredDocumentV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-
-    val resultCollection = try {
-      textAnalyticsClient.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
-    } catch {
-      case ex: TextAnalyticsException => {
-        throw new TextAnalyticsException(ex.getMessage, ex.getErrorCode, ex.getTarget)
-      }
-    }
-
-    val textSentimentResultCollection = resultCollection.asScala
-
-    val sentimentResult = textSentimentResultCollection.map(sentiment => (sentiment.isError) match {
-      case false => Some(SentimentScoredDocumentV4.fromSDK(sentiment.getDocumentSentiment))
-      case true => None
-    }).toList
-
-    val error = textSentimentResultCollection.map(sentiment => (sentiment.isError) match {
-      case true => Some(TAErrorV4(sentiment.getError.getErrorCode.toString,
-        sentiment.getError.getMessage, sentiment.getError.getTarget))
-      case false => None
-    }).toList
-
-    val stats = textSentimentResultCollection.map(result => (result.isError) match {
-      case false => Option(result.getStatistics) match {
-        case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
-        case None => None
-      }
-      case true => None
-    }).toList
-
-    TAResponseV4[SentimentScoredDocumentV4](
-      sentimentResult,
-      error,
-      stats,
-      Some(resultCollection.getModelVersion))
+    client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
   }
 
   override def outputSchema: StructType = SentimentResponseV4.schema
