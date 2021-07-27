@@ -31,8 +31,6 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
     with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams
     with ComplexParamsWritable with BasicLogging {
 
-  protected def outputSchema: StructType
-
   val responseBinding: SparkBindings[TAResponseV4[T]]
 
   def invokeTextAnalytics(client: TextAnalyticsClient, text: Seq[String], lang: Seq[String]): TAResponseV4[T]
@@ -68,7 +66,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getOutputCol, outputSchema)
+    schema.add(getOutputCol, responseBinding.schema)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -80,8 +78,6 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
                                      override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
   extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions) {
   logClass()
-
-  override def outputSchema: StructType = DetectLanguageResponseV4.schema
 
   override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
@@ -102,8 +98,7 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
   extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]]
-  = KeyPhraseResponseV4
+  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]]  = KeyPhraseResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],
@@ -114,7 +109,6 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
     client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue
   }
 
-  override def outputSchema: StructType = KeyPhraseResponseV4.schema
 }
 
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
@@ -124,8 +118,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
-  = SentimentResponseV4
+  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]  = SentimentResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],
@@ -136,5 +129,4 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
   }
 
-  override def outputSchema: StructType = SentimentResponseV4.schema
 }
