@@ -14,7 +14,8 @@ object WrappableExtensions {
 }
 
 class WrappablePipelineStage(val stage: PipelineStage) extends Wrappable {
-  import stage._
+
+  override protected val thisStage: Params = stage
 
   override def copy(extra: ParamMap): Params = stage.copy(extra)
 
@@ -25,7 +26,17 @@ object Foo extends App {
 
   import WrappableExtensions._
 
-  new Word2Vec().makePyFile()
+  val Config = CodegenConfig(
+    rVersion = "1.0.0",
+    name = "mmlspark-core",
+    packageName = "mmlspark",
+    pythonizedVersion = "1.0.0.dev1",
+    version = "1.0.0-43-ca7deac7-SNAPSHOT",
+    jarName = None,
+    topDir = "C:\\code\\mmlspark\\core",
+    targetDir = "C:\\code\\mmlspark\\core\\")
+
+  new Word2Vec().makePyFile(Config)
 
 
 }
