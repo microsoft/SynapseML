@@ -14,9 +14,10 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.ml.{ImageInjections, Transformer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.opencv.core.{Core, Mat, Rect, Size}
+import org.opencv.core.{Core, CvType, Mat, Rect, Scalar, Size}
 import org.opencv.imgproc.Imgproc
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 //scalastyle:off field.name
@@ -28,6 +29,24 @@ abstract class ImageTransformerStage(params: Map[String, Any]) extends Serializa
   def apply(image: Mat): Mat
 
   val stageName: String
+}
+
+object ImageTransformerStage {
+  // every stage has a name like "resize", "normalize", "unroll"
+  val stageNameKey = "action"
+
+  def apply(stage: Map[String, Any]): ImageTransformerStage = {
+    stage(stageNameKey) match {
+      case ResizeImage.stageName => new ResizeImage(stage)
+      case CropImage.stageName => new CropImage(stage)
+      case ColorFormat.stageName => new ColorFormat(stage)
+      case Blur.stageName => new Blur(stage)
+      case Threshold.stageName => new Threshold(stage)
+      case GaussianKernel.stageName => new GaussianKernel(stage)
+      case Flip.stageName => new Flip(stage)
+      case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
+    }
+  }
 }
 
 /** Resizes the image. The parameters of the ParameterMap are:
@@ -117,11 +136,11 @@ object ColorFormat {
 
 /** Flips the image
   *
-  * @param params
+  * @param params Map of parameters and values
   */
 class Flip(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val flipCode = params(Flip.flipCode).asInstanceOf[Int]
-  override val stageName = Flip.stageName
+  val flipCode: Int = params(Flip.flipCode).asInstanceOf[Int]
+  override val stageName: String = Flip.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
@@ -143,7 +162,7 @@ object Flip {
   * The com.microsoft.ml.spark.core.serialize.params are a map of the dimensions of the blurring box. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#blur OpenCV]] for more information.
   *
-  * @param params
+  * @param params Map of parameters and values
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val height: Double = params(Blur.height).asInstanceOf[Double]
@@ -167,7 +186,7 @@ object Blur {
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#threshold threshold]] for
   * more information
   *
-  * @param params
+  * @param params Map of parameters and values
   */
 class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val threshold: Double = params(Threshold.threshold).asInstanceOf[Double]
@@ -243,36 +262,111 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     Row(path, img.height, img.width, img.channels(), img.`type`, ocvBytes)
   }
 
-  /** Apply all OpenCV transformation stages to a single image; unroll the result if needed
-    * For null inputs or binary files that could not be parsed, return None.
-    * Break on OpenCV errors.
-    */
-  def process(stages: Seq[ImageTransformerStage], decodeMode: String)(r: Any): Option[Row] = {
-
-    if (r == null) return None
-
-    val decoded = (r, decodeMode) match {
-      case (row: Row, "binaryfile") =>
-        val path = BinaryFileSchema.getPath(row)
-        val bytes = BinaryFileSchema.getBytes(row)
-
-        //early return if the image can't be decompressed
-        ImageInjections.decode(path, bytes).getOrElse(return None).getStruct(0)
-      case (bytes: Array[Byte], "binary") =>
-        ImageInjections.decode(null, bytes).getOrElse(return None).getStruct(0)
-      case (row: Row, "image") =>
-        row
-      case (_, mode) =>
-        throw new MatchError(s"Unknown decoder mode $mode")
-    }
-
-    val (path, img) = row2mat(decoded)
-    val result = stages.foldLeft(img) {
-      case (imgInternal, stage) => stage.apply(imgInternal)
-    }
-    Some(mat2row(result, path))
+  /**
+   * Convert Spark image representation to OpenCV format.
+   */
+  def decodeImage(decodeMode: String)(r: Any): Option[(String, Mat)] = {
+    Option(r).flatMap {
+      row =>
+        (row, decodeMode) match {
+          case (row: Row, "binaryfile") =>
+            val path = BinaryFileSchema.getPath(row)
+            val bytes = BinaryFileSchema.getBytes(row)
+            //early return if the image can't be decompressed
+            ImageInjections.decode(path, bytes).map(_.getStruct(0))
+          case (bytes: Array[Byte], "binary") =>
+            //noinspection ScalaStyle
+            ImageInjections.decode(null, bytes).map(_.getStruct(0))
+          case (row: Row, "image") =>
+            Some(row)
+          case (_, mode) =>
+            throw new MatchError(s"Unknown decoder mode $mode")
+        }
+    } map row2mat
   }
 
+  /**
+   * Apply all OpenCV transformation stages to a single image. Break on OpenCV errors.
+   */
+  def processImage(stages: Seq[ImageTransformerStage])(image: Mat): Mat = {
+    stages.foldLeft(image) {
+      case (imgInternal, stage) => stage.apply(imgInternal)
+    }
+  }
+
+  /**
+   * Extract channels from image.
+   */
+  def extractChannels(channelOrder: String)(image: Mat): Array[Mat] = {
+    // OpenCV channel order is BGR - reverse the order if the intended order is RGB.
+    // Also remove alpha channel if nChannels is 4.
+    val converted = if (image.channels == 4) {
+      // remove alpha channel and order color channels if necessary
+      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
+      val colorConversion = if (channelOrder.toLowerCase == "rgb") Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
+      Imgproc.cvtColor(image, dest, colorConversion)
+      dest
+    } else if (image.channels == 3 && channelOrder.toLowerCase == "rgb") {
+      // Reorder channel if nChannel is 3 and intended tensor channel order is RGB.
+      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
+      Imgproc.cvtColor(image, dest, Imgproc.COLOR_BGR2RGB)
+      dest
+    } else {
+      image
+    }
+
+    val channelLength = converted.channels
+    val channelMats = ListBuffer.fill(channelLength)(Mat.zeros(converted.rows, converted.cols, CvType.CV_8U))
+    Core.split(converted, channelMats.asJava)
+
+    channelMats.toArray
+  }
+
+  /**
+   * Normalize each channel.
+   */
+  def normalizeChannels(means: Option[Array[Double]], stds: Option[Array[Double]], scale: Option[Int])
+                       (channels: Array[Mat]): Array[Mat] = {
+    val channelLength = channels.length
+    require(means.forall(channelLength == _.length))
+    require(stds.forall(channelLength == _.length))
+
+    channels
+      .zip(means.getOrElse(Array.fill(channelLength)(0d)))
+      .zip(stds.getOrElse(Array.fill(channelLength)(1d)))
+      .map {
+        case ((matrix: Mat, m: Double), sd: Double) =>
+          val t = new Mat(matrix.rows, matrix.cols, CvType.CV_64F)
+          matrix.convertTo(t, CvType.CV_64F)
+          Core.divide(t, new Scalar(scale.getOrElse(1)), t) // Standardized
+          Core.subtract(t, new Scalar(m), t) // Centered
+          Core.divide(t, new Scalar(sd), t) // Normalized
+          t
+      }
+  }
+
+  private def to2DArray(m: Mat): Array[Array[Double]] = {
+    val array = Array.ofDim[Double](m.rows, m.cols)
+    array.indices foreach {
+      i => m.get(i, 0, array(i))
+    }
+
+    array
+  }
+
+  /**
+   * Convert channel matrices to tensor in the shape of (C * H * W)
+   */
+  def convertToTensor(matrices: Array[Mat]): Array[Array[Array[Double]]] = {
+    matrices.map(to2DArray)
+  }
+
+  /**
+   *  Convert from OpenCV format to Dataframe Row.
+   */
+  def encodeImage(path: String, image: Mat): Row = {
+    mat2row(image, path)
+  }
 }
 
 /** Image processing stage. Please refer to OpenCV for additional information
@@ -284,6 +378,7 @@ class ImageTransformer(val uid: String) extends Transformer
   logClass()
 
   import ImageTransformer._
+  import ImageTransformerStage._
 
   override protected lazy val pyInternalWrapper = true
 
@@ -293,21 +388,107 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
 
-  val emptyStages = Array[Map[String, Any]]()
+  val emptyStages: Array[Map[String, Any]] = Array[Map[String, Any]]()
 
   def getStages: Array[Map[String, Any]] = if (isDefined(stages)) $(stages) else emptyStages
 
   private def addStage(stage: Map[String, Any]): this.type = set(stages, getStages :+ stage)
 
-  setDefault(inputCol -> "image", outputCol -> (uid + "_output"))
+  val toTensor: BooleanParam = new BooleanParam(
+    this,
+    "toTensor",
+    "Convert output image to tensor in the shape of (C * H * W)"
+  )
 
-  // every stage has a name like "resize", "normalize", "unroll"
-  val stageName = "action"
+  def getToTensor: Boolean = $(toTensor)
+  def setToTensor(value: Boolean): this.type = this.set(toTensor, value)
+
+  @transient
+  private lazy val validElementTypes: Array[DataType] = Array(FloatType, DoubleType)
+  val tensorElementType: DataTypeParam = new DataTypeParam(
+    parent = this,
+    name = "tensorElementType",
+    doc = "The element data type for the output tensor. Only used when toTensor is set to true. " +
+      "Valid values are DoubleType or FloatType. Default value: FloatType.",
+    isValid = ParamValidators.inArray(validElementTypes)
+  )
+
+  def getTensorElementType: DataType = $(tensorElementType)
+  def setTensorElementType(value: DataType): this.type = this.set(tensorElementType, value)
+
+  val tensorChannelOrder: Param[String] = new Param[String](
+    parent = this,
+    name = "tensorChannelOrder",
+    doc = "The color channel order of the output channels. Valid values are RGB and GBR. Default: RGB.",
+    isValid = ParamValidators.inArray(Array("rgb", "RGB", "bgr", "BGR"))
+  )
+
+  def getTensorChannelOrder: String = $(tensorChannelOrder)
+  def setTensorChannelOrder(value: String): this.type = this.set(tensorChannelOrder, value)
+
+  val normalizeMean: DoubleArrayParam = new DoubleArrayParam(
+    this,
+    "normalizeMean",
+    "The mean value to use for normalization for each channel. " +
+      "The length of the array must match the number of channels of the input image."
+  )
+
+  def getNormalizeMean: Array[Double] = $(normalizeMean)
+  def setNormalizeMean(value: Array[Double]): this.type = this.set(normalizeMean, value)
+
+  val normalizeStd: DoubleArrayParam = new DoubleArrayParam(
+    this,
+    "normalizeStd",
+    "The standard deviation to use for normalization for each channel. " +
+      "The length of the array must match the number of channels of the input image."
+  )
+
+  def getNormalizeStd: Array[Double] = $(normalizeStd)
+  def setNormalizeStd(value: Array[Double]): this.type = this.set(normalizeStd, value)
+
+  val colorScale: IntParam = new IntParam(
+    this,
+    "colorScale",
+    "The scale of color. Used for normalization.",
+    ParamValidators.gt(0d)
+  )
+
+  def getColorScale: Int = $(colorScale)
+  def setColorScale(value: Int): this.type = this.set(colorScale, value)
+
+  //noinspection ScalaStyle
+  val nChannels: IntParam = new IntParam(
+    this,
+    "nChannels",
+    "Number of channels to extract. This can differ from origin number of channels from the image input. " +
+      "Allowed values are 1, 3, or 4. Needed only when toTensor is set to true. Default: 1.",
+    ParamValidators.inArray(Array(1, 3, 4))
+  )
+
+  def getNChannels: Int = $(nChannels)
+  def setNChannels(value: Int): this.type = this.set(nChannels, value)
+
+  setDefault(
+    inputCol -> "image",
+    outputCol -> (uid + "_output"),
+    toTensor -> false,
+    tensorChannelOrder -> "RGB",
+    nChannels -> 1,
+    tensorElementType -> FloatType
+  )
+
+  def normalize(mean: Array[Double], std: Array[Double], colorScale: Int): this.type = {
+    this
+      .setToTensor(true)
+      .setNormalizeMean(mean)
+      .setNormalizeStd(std)
+      .setColorScale(colorScale)
+  }
 
   def resize(height: Int, width: Int): this.type = {
     require(width >= 0 && height >= 0, "width and height should be nonnegative")
 
-    addStage(Map(stageName -> ResizeImage.stageName,
+    addStage(Map(stageNameKey -> ResizeImage.stageName,
       ResizeImage.width -> width,
       ResizeImage.height -> height))
   }
@@ -315,7 +496,7 @@ class ImageTransformer(val uid: String) extends Transformer
   def crop(x: Int, y: Int, height: Int, width: Int): this.type = {
     require(x >= 0 && y >= 0 && width >= 0 && height >= 0, "crop values should be nonnegative")
 
-    addStage(Map(stageName -> CropImage.stageName,
+    addStage(Map(stageNameKey -> CropImage.stageName,
       CropImage.width -> width,
       CropImage.height -> height,
       CropImage.x -> x,
@@ -323,15 +504,15 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   def colorFormat(format: Int): this.type = {
-    addStage(Map(stageName -> ColorFormat.stageName, ColorFormat.format -> format))
+    addStage(Map(stageNameKey -> ColorFormat.stageName, ColorFormat.format -> format))
   }
 
   def blur(height: Double, width: Double): this.type = {
-    addStage(Map(stageName -> Blur.stageName, Blur.height -> height, Blur.width -> width))
+    addStage(Map(stageNameKey -> Blur.stageName, Blur.height -> height, Blur.width -> width))
   }
 
   def threshold(threshold: Double, maxVal: Double, thresholdType: Int): this.type = {
-    addStage(Map(stageName -> Threshold.stageName,
+    addStage(Map(stageNameKey -> Threshold.stageName,
       Threshold.maxVal -> maxVal,
       Threshold.threshold -> threshold,
       Threshold.thresholdType -> thresholdType))
@@ -347,11 +528,11 @@ class ImageTransformer(val uid: String) extends Transformer
     * @return
     */
   def flip(flipCode: Int): this.type = {
-    addStage(Map(stageName -> Flip.stageName, Flip.flipCode -> flipCode))
+    addStage(Map(stageNameKey -> Flip.stageName, Flip.flipCode -> flipCode))
   }
 
   def gaussianKernel(apertureSize: Int, sigma: Double): this.type = {
-    addStage(Map(stageName -> GaussianKernel.stageName,
+    addStage(Map(stageNameKey -> GaussianKernel.stageName,
       GaussianKernel.apertureSize -> apertureSize,
       GaussianKernel.sigma -> sigma))
   }
@@ -362,41 +543,76 @@ class ImageTransformer(val uid: String) extends Transformer
       //  load native OpenCV library on each partition
       // TODO: figure out more elegant way
       val df = OpenCVUtils.loadOpenCV(dataset.toDF)
-      val decodeMode = df.schema(getInputCol).dataType match {
-        case s if ImageSchemaUtils.isImage(s) => "image"
-        case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
-        case s if s == BinaryType => "binary"
-        case s =>
-          throw new IllegalArgumentException(s"input column should have Image or BinaryFile type, got $s")
+      val inputDataType = df.schema(getInputCol).dataType
+      val decodeMode = getDecodeType(inputDataType)
 
+      val transforms = getStages.map(ImageTransformerStage.apply)
+
+      val outputColumnSchema = if ($(toTensor)) tensorUdfSchema else imageColumnSchema
+      val processStep = processImage(transforms) _
+      val extractStep = extractChannels(getTensorChannelOrder) _
+      val normalizeStep = normalizeChannels(get(normalizeMean), get(normalizeStd), get(colorScale)) _
+      val toTensorStep = convertToTensor _
+
+      val convertFunc = if ($(toTensor)) {
+        inputRow: Any =>
+          decodeImage(decodeMode)(inputRow) map {
+            case (_, image) =>
+              processStep
+                .andThen(extractStep)
+                .andThen(normalizeStep)
+                .andThen(toTensorStep)
+                .apply(image)
+          }
+      } else {
+        inputRow: Any =>
+          decodeImage(decodeMode)(inputRow) map {
+            case (path, image) =>
+              val encodeStep = encodeImage(path, _)
+              processStep.andThen(encodeStep).apply(image)
+          }
       }
 
-      val transforms = ListBuffer[ImageTransformerStage]()
-      for (stage <- getStages) {
-        stage(stageName) match {
-          case ResizeImage.stageName => transforms += new ResizeImage(stage)
-          case CropImage.stageName => transforms += new CropImage(stage)
-          case ColorFormat.stageName => transforms += new ColorFormat(stage)
-          case Blur.stageName => transforms += new Blur(stage)
-          case Threshold.stageName => transforms += new Threshold(stage)
-          case GaussianKernel.stageName => transforms += new GaussianKernel(stage)
-          case Flip.stageName => transforms += new Flip(stage)
-          case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
-        }
+      val convert = UDFUtils.oldUdf(convertFunc, outputColumnSchema)
+      if ($(toTensor)) {
+        df.withColumn(getOutputCol, convert(df(getInputCol)).cast(tensorColumnSchema))
+      } else {
+        df.withColumn(getOutputCol, convert(df(getInputCol)))
       }
-
-      val convert = UDFUtils.oldUdf(process(transforms, decodeMode = decodeMode) _, ImageSchema.columnSchema)
-
-      df.withColumn(getOutputCol, convert(df(getInputCol)))
     })
+  }
+
+  private def getDecodeType(inputDataType: DataType): String = {
+    inputDataType match {
+      case s if ImageSchemaUtils.isImage(s) => "image"
+      case s if BinaryFileSchema.isBinaryFile(s) => "binaryfile"
+      case s if s == BinaryType => "binary"
+      case s =>
+        throw new IllegalArgumentException(s"input column should have Image or BinaryFile type, got $s")
+    }
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
+  private lazy val tensorUdfSchema = ArrayType(ArrayType(ArrayType(DoubleType)))
+  private lazy val tensorColumnSchema =  ArrayType(ArrayType(ArrayType($(tensorElementType))))
+  private lazy val imageColumnSchema = ImageSchema.columnSchema
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getOutputCol, ImageSchema.columnSchema)
-  }
+    assert(
+      $(nChannels) == $(normalizeMean).length,
+      s"Length of normalizeMean (${getNormalizeMean.length}) does not match the number of channels ($getNChannels)."
+    )
 
+    assert(
+      $(nChannels) == $(normalizeStd).length,
+      s"Length of normalizeStd (${getNormalizeStd.length}) does not match the number of channels ($getNChannels)."
+    )
+
+    assert(!schema.fieldNames.contains(getOutputCol), s"Input schema already contains output field $getOutputCol")
+
+    val outputColumnSchema = if ($(toTensor)) tensorColumnSchema else imageColumnSchema
+    schema.add(getOutputCol, outputColumnSchema)
+  }
 }
 
 //scalastyle:on field.name
