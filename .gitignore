@@ -48,3 +48,6 @@ node_modules/
 
 # R output
 *.Rout
+
+# Misc
+.bsp

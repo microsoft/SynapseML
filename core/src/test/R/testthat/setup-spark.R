@@ -1,0 +1,5 @@
+library(sparklyr)
+config <- spark_config()
+options(sparklyr.log.console = TRUE)
+options(sparklyr.verbose = TRUE)
+sc <- spark_connect(master = "local", version="3.1.2", config = config)

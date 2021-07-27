@@ -24,7 +24,7 @@ tab-separated file with 2 columns (`rating`, `text`) and 10000 rows.  The
 contains free-form text strings in English language.  You can use
 `mmlspark.TextFeaturizer` to convert the text into feature vectors for machine
 learning models ([see
-example](../notebooks/samples/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb)).
+example](../notebooks/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb)).
 
 The example dataset is available
 [here](https://mmlspark.azureedge.net/datasets/BookReviewsFromAmazon10K.tsv);
@@ -48,7 +48,7 @@ The example dataset is available
 the original dataset is available [Krizhevsky's
 page](https://www.cs.toronto.edu/~kriz/cifar.html).  The dataset has been
 packaged into a gzipped tar archive.  See notebook [301 - CIFAR10 CNTK CNN
-Evaluation](../notebooks/samples/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb)
+Evaluation](../notebooks/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb)
 for an example how to extract the image data.
 
 Reference: [_Learning Multiple Layers of Features from Tiny

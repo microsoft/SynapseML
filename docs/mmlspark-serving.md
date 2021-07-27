@@ -25,7 +25,7 @@
 
 ### Jupyter Notebook Examples
 
--   [Deploy a classifier trained on the Adult Census Dataset](../notebooks/samples/SparkServing%20-%20Deploying%20a%20Classifier.ipynb)
+-   [Deploy a classifier trained on the Adult Census Dataset](../notebooks/SparkServing%20-%20Deploying%20a%20Classifier.ipynb)
 -   More coming soon!
 
 ### Spark Serving Hello World
