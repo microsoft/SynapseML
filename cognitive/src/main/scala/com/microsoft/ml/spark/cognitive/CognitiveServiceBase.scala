@@ -139,19 +139,6 @@ trait HasSubscriptionKey extends HasServiceParams {
 
 }
 
-trait HasEndpoint extends HasServiceParams {
-  val endpoint = new ServiceParam[String](
-    this, name="endpoint", "resource endpoint")
-
-  def getEndpoint: String = getScalarParam(endpoint)
-
-  def setEndpoint(v: String): this.type  = setScalarParam(endpoint, v)
-
-  def getEndpointKeyCol: String = getVectorParam(endpoint)
-
-  def setEndpointKeyCol(v: String): this.type = setVectorParam(endpoint, v)
-}
-
 object URLEncodingUtils {
 
   private case class NameValuePairInternal(t: (String, String)) extends NameValuePair {
