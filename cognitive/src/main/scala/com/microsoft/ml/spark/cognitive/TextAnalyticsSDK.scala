@@ -12,13 +12,14 @@ import com.microsoft.ml.spark.cognitive.SDKConverters._
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
-import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol}
+import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.time.temporal.ChronoUnit
@@ -27,9 +28,11 @@ import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
-  extends Transformer with HasErrorCol with HasEndpoint with HasSubscriptionKey
-    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams
+  extends Transformer with HasErrorCol with HasURL with HasSetLocation with HasSubscriptionKey
+    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize
     with ComplexParamsWritable with BasicLogging {
+
+  override def urlPath: String = ""
 
   val responseBinding: SparkBindings[TAResponseV4[T]]
 
@@ -37,31 +40,68 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
-    val client = new TextAnalyticsClientBuilder()
+    if (rows.hasNext) {
+      val client = new TextAnalyticsClientBuilder()
         .retryPolicy(new RetryPolicy("Retry-After", ChronoUnit.SECONDS))
         .credential(new AzureKeyCredential(getSubscriptionKey))
-        .endpoint(getEndpoint)
+        .endpoint(getUrl)
         .buildClient()
 
-    val futures = rows.map { row =>
-      Future {
-        val results = invokeTextAnalytics(
-          client, getValue(row, text), getValue(row, language)
-        )
-        Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
-      }(ExecutionContext.global)
+      val dur = get(concurrentTimeout)
+        .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
+        .getOrElse(Duration.Inf)
+
+      val futures = rows.map { row =>
+        Future {
+          val results = invokeTextAnalytics(client, getValue(row, text), getValue(row, language))
+          Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
+        }(ExecutionContext.global)
+      }
+      bufferedAwait(futures, getConcurrency, dur)(ExecutionContext.global)
+    } else {
+      Iterator.empty
     }
-    bufferedAwait(futures, getConcurrency, Duration(getTimeout, SECONDS))(ExecutionContext.global)
+
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF
-      val enc = RowEncoder(df.schema.add(getOutputCol, responseBinding.schema))
+      val shouldAutoBatch = ($(text), $(language)) match {
+        case (Right(a), Left(_)) =>
+          df.schema(a).dataType.isInstanceOf[StringType]
+        case (Left(_), Right(b)) =>
+          df.schema(b).dataType.isInstanceOf[StringType]
+        case (Right(a), Right(b)) =>
+          (df.schema(a).dataType, df.schema(b).dataType) match {
+            case (_: StringType, _: StringType) => true
+            case (_: ArrayType, _: ArrayType) => false
+            case (_: StringType, _: ArrayType) | (_: ArrayType, _: StringType) =>
+              throw new IllegalArgumentException(s"Mismatched column types. " +
+                s"Both columns $a and $b need to be StringType (for auto batching)" +
+                s" or ArrayType(StringType) (for user batching)")
+          }
+        case _ => false
+      }
+
+      val batchedDF = if (shouldAutoBatch) {
+        new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(df)
+      } else {
+        df
+      }.coalesce(1).cache()
+
+      batchedDF.show()
+
+      val enc = RowEncoder(batchedDF.schema.add(getOutputCol, responseBinding.schema))
       val toRow = responseBinding.makeToRowConverter
-      df.mapPartitions(transformTextRows(
-        toRow,
-      ))(enc)
+      val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
+
+      //      if (shouldAutoBatch){
+      //        new FlattenBatch().transform(resultDF)
+      //      } else {
+      //        resultDF
+      //      }
+      resultDF
     })
   }
 
@@ -98,7 +138,7 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
   extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]]  = KeyPhraseResponseV4
+  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]] = KeyPhraseResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],
@@ -118,7 +158,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]  = SentimentResponseV4
+  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]] = SentimentResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],

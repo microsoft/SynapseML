@@ -25,22 +25,17 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq("us", ""), Seq("", null))
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
-  lazy val detector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
+  def getDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setTextCol("text")
-    .setLanguageCol("lang")
-    .setOutputCol("output")
-
-  lazy val invalidDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
+    .setLocation("eastus")
     .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("output")
 
   test("Language Detection - Output Assertion") {
-    val replies = detector.transform(df)
+    val replies = getDetector.transform(df)
       .select("output")
       .collect()
     assert(replies(0).schema(0).name == "output")
@@ -52,7 +47,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   };
 
   test("Language Detection - Batch Usage") {
-    val replies = detector.transform(df)
+    val replies = getDetector.transform(df)
       .select("output.result.name", "output.result.iso6391Name")
       .collect()
 
@@ -66,7 +61,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   }
 
   test("Language Detection - Check Confidence Score") {
-    val replies = detector.transform(df)
+    val replies = getDetector.transform(df)
       .select("output", "output.result.confidenceScore")
       .collect()
     assert(replies(0).schema(0).name == "output", "output.result.confidenceScore")
@@ -85,7 +80,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   }
 
   test("Language Detection - Assert Model Version") {
-    val replies = detector.transform(df)
+    val replies = getDetector.transform(df)
       .select("output")
       .collect()
     assert(replies(0).schema(0).name == "output")
@@ -98,7 +93,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   }
 
   test("Language Detection - Invalid Document Input") {
-    val replies = detector.transform(invalidDocDf)
+    val replies = getDetector.transform(invalidDocDf)
       .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
     val errors = replies.map(row => row.getList(0))
@@ -115,9 +110,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val invalidKey = "12345"
     val caught =
       intercept[SparkException] {
-        invalidDetector
-          .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-          .setSubscriptionKey(invalidKey)
+        getDetector.setSubscriptionKey(invalidKey)
           .transform(df)
           .show()
       }
@@ -129,8 +122,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val invalidEndpoint = "invalidendpoint"
     val caught =
       intercept[SparkException] {
-        invalidDetector
-          .setEndpoint(invalidEndpoint)
+        getDetector.setLocation(invalidEndpoint)
           .setSubscriptionKey(textKey)
           .transform(df)
           .show()
@@ -142,7 +134,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val concurrency = 10
     val timeout = 45
 
-    val replies = detector
+    val replies = getDetector
       .setConcurrency(concurrency)
       .setTimeout(timeout)
       .transform(df)
@@ -155,32 +147,24 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
   }
 
   test("Asynch Incorrect Concurrency Functionality") {
-    val badConcurrency = -1
-    val timeout = 45
-    val caught =
-      intercept[SparkException] {
-        detector
-          .setConcurrency(badConcurrency)
-          .setTimeout(timeout)
-          .transform(df)
-          .select("output.result.name", "output.result.iso6391Name")
-          .collect()
-      }
+    val caught = intercept[SparkException] {
+      getDetector.setConcurrency(-1)
+        .setTimeout(45)
+        .transform(df)
+        .select("output.result.name", "output.result.iso6391Name")
+        .collect()
+    }
     assert(caught.getMessage.contains("java.lang.IllegalArgumentException"))
   }
 
   test("Asynch Incorrect Timeout Functionality") {
-    val badTimeout = .01
-    val concurrency = 1
-    val caught =
-      intercept[SparkException] {
-        detector
-          .setTimeout(badTimeout)
-          .setConcurrency(1)
-          .transform(df)
-          .select("output.result.name", "output.result.iso6391Name")
-          .collect()
-      }
+    val caught = intercept[SparkException] {
+      getDetector.setTimeout(.01)
+        .setConcurrency(1)
+        .transform(df)
+        .select("output.result.name", "output.result.iso6391Name")
+        .collect()
+    }
     assert(caught.getMessage.contains("java.util.concurrent.TimeoutException"))
   }
 }
@@ -189,13 +173,23 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
   import spark.implicits._
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val df: DataFrame = Seq(
     Seq("Hello world. This is some input text that I love."),
     Seq("I am sad"),
     Seq("I am feeling okay")
   ).toDF("text")
+
+  lazy val unbatchedDF: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
+    ("fr", "Bonjour tout le monde"),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("es", "La carretera estaba atascada."),
+    ("es", "Había mucho tráfico el día de ayer."),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    (null, "ich bin ein berliner")
+  ).toDF("lang", "text")
 
   lazy val batchedDF: DataFrame = Seq(
     (Seq("en", "en", "en"), Seq("I hate the rain.", "I love the sun", "This sucks")),
@@ -210,14 +204,14 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     (Seq("abc", "/."), Seq("Today is a wonderful day.", "I hate the cold"))
   ).toDF("lang", "text")
 
-  lazy val detector: TextSentimentV4 = new TextSentimentV4(options)
+  def getDetector: TextSentimentV4 = new TextSentimentV4(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+    .setLocation("eastus")
     .setTextCol("text")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Output Assertion") {
-    val replies = detector.transform(batchedDF)
+    val replies = getDetector.transform(batchedDF)
       .select("output")
       .collect()
     assert(replies(0).schema(0).name == "output")
@@ -226,12 +220,28 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
-  };
+  }
+
+  test("Sentiment - Auto batching") {
+    val detector: TextSentimentV4 = getDetector
+      .setLanguageCol("lang")
+      .setBatchSize(2)
+
+    val tdf = detector.transform(unbatchedDF)
+      .select("output.result.sentiment")
+      .collect()
+
+    assert(tdf(0).getSeq(0).length == 2)
+    assert(tdf(3).getSeq(0).length == 1)
+  }
+
   test("Sentiment Analysis - Check Model Version") {
-    val replies = detector.transform(batchedDF)
+    val replies = getDetector.transform(batchedDF)
       .select("output")
       .collect()
+
     assert(replies(0).schema(0).name == "output")
+
     val fromRow = SentimentResponseV4.makeFromRowConverter
     replies.foreach(row => {
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
@@ -240,17 +250,14 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     })
   }
 
-  lazy val detector2: TextSentimentV4 = new TextSentimentV4(options)
-    .setSubscriptionKey(textKey)
-    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
-    .setTextCol("text")
-    .setLanguageCol("lang")
-    .setOutputCol("output")
-
   test("Sentiment Analysis - Basic Usage") {
-    val replies = detector2.transform(batchedDF)
+    val detector: TextSentimentV4 = getDetector
+      .setLanguageCol("lang")
+
+    val replies = detector.transform(batchedDF)
       .select("output.result.sentiment")
       .collect()
+
     val data = replies.map(row => row.getList(0))
     assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
       data(0).get(2).toString == "negative")
@@ -258,7 +265,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   }
 
   test("Sentiment Analysis - Invalid Document Input") {
-    val replies = detector.transform(invalidDocDf)
+    val replies = getDetector.transform(invalidDocDf)
       .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
     val errors = replies.map(row => row.getList(0))
@@ -272,9 +279,10 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   }
 
   test("Sentiment Analysis - Invalid Language Input") {
-    val replies = detector.transform(invalidLanguageDf)
+    val replies = getDetector.transform(invalidLanguageDf)
       .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
+
     val errors = replies.map(row => row.getList(0))
     val codes = replies.map(row => row.getList(1))
 
@@ -286,9 +294,10 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   }
 
   test("Sentiment Analysis - Assert Confidence Score") {
-    val replies = detector.transform(batchedDF)
+    val replies = getDetector.transform(batchedDF)
       .select("output")
       .collect()
+
     val firstRow = replies(0)
     val secondRow = replies(1)
     assert(replies(0).schema(0).name == "output")
@@ -296,7 +305,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
     val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
     val modelVersionFirstRow = resFirstRow.modelVersion.get
-    val modelVersionSecondRow = resSecondRow.modelVersion.get
     val negativeScoreFirstRow = resFirstRow.result.head.get.confidenceScores.negative
     val positiveScoreSecondRow = resSecondRow.result.head.get.confidenceScores.positive
     assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
@@ -330,12 +338,11 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("abc", "/."), Seq("Today is a wonderful day.", "I hate the cold"))
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
-  df2.printSchema()
-  df2.show()
-  lazy val extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
+
+  def extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
     .setSubscriptionKey(textKey)
-    .setEndpoint("https://eastus.api.cognitive.microsoft.com/")
+    .setLocation("eastus")
     .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("output")
