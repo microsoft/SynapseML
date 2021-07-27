@@ -67,7 +67,7 @@ pomPostProcess := pomPostFunc
 val speechResolver = "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2020-08-27.tgz"
+val datasetName = "datasets-2021-07-27.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {

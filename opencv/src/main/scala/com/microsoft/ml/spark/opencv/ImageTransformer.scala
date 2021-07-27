@@ -44,6 +44,7 @@ object ImageTransformerStage {
       case Threshold.stageName => new Threshold(stage)
       case GaussianKernel.stageName => new GaussianKernel(stage)
       case Flip.stageName => new Flip(stage)
+      case CenterCropImage.stageName => new CenterCropImage(stage)
       case unsupported: String => throw new IllegalArgumentException(s"unsupported transformation $unsupported")
     }
   }
@@ -108,6 +109,26 @@ object CropImage {
   val stageName = "crop"
   val x = "x"
   val y = "y"
+  val height = "height"
+  val width = "width"
+}
+
+class CenterCropImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
+  val height: Int = params(CropImage.height).asInstanceOf[Int]
+  val width: Int = params(CropImage.width).asInstanceOf[Int]
+
+  override val stageName: String = CenterCropImage.stageName
+
+  override def apply(image: Mat): Mat = {
+    val (cropWidth, cropHeight) = (math.min(width, image.width), math.min(height, image.height))
+    val (midX, midY) = (image.width / 2, image.height / 2)
+    val rect = new Rect(midX - cropWidth / 2, midY - cropHeight / 2, cropWidth, cropHeight)
+    new Mat(image, rect)
+  }
+}
+
+object CenterCropImage {
+  val stageName = "centercrop"
   val height = "height"
   val width = "width"
 }
@@ -486,7 +507,7 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   def resize(height: Int, width: Int): this.type = {
-    require(width >= 0 && height >= 0, "width and height should be nonnegative")
+    require(width >= 0 && height >= 0, "width and height should be non-negative")
 
     addStage(Map(stageNameKey -> ResizeImage.stageName,
       ResizeImage.width -> width,
@@ -494,13 +515,25 @@ class ImageTransformer(val uid: String) extends Transformer
   }
 
   def crop(x: Int, y: Int, height: Int, width: Int): this.type = {
-    require(x >= 0 && y >= 0 && width >= 0 && height >= 0, "crop values should be nonnegative")
+    require(x >= 0 && y >= 0 && width >= 0 && height >= 0, "crop values should be non-negative")
 
     addStage(Map(stageNameKey -> CropImage.stageName,
       CropImage.width -> width,
       CropImage.height -> height,
       CropImage.x -> x,
       CropImage.y -> y))
+  }
+
+  def centerCrop(height: Int, width: Int): this.type = {
+    require(width >= 0 && height >= 0, "crop values should be non-negative")
+
+    addStage(
+      Map(
+        stageNameKey -> CenterCropImage.stageName,
+        CenterCropImage.width -> width,
+        CenterCropImage.height -> height
+      )
+    )
   }
 
   def colorFormat(format: Int): this.type = {
