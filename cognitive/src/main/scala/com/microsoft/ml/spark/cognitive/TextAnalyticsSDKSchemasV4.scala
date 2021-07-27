@@ -1,7 +1,9 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.ml.spark.cognitive
 
 import com.microsoft.ml.spark.core.schema.SparkBindings
-import org.apache.spark.ml.ComplexParamsReadable
 
 object DetectLanguageResponseV4 extends SparkBindings[TAResponseV4[DetectedLanguageV4]]
 
@@ -18,9 +20,9 @@ case class DetectedLanguageV4(name: String, iso6391Name: String, confidenceScore
 
 case class TAErrorV4(errorCode: String, errorMessage: String, target: String)
 
-case class TAWarningV4 (warningCode: String, message: String)
+case class TAWarningV4(warningCode: String, message: String)
 
-case class TextDocumentInputs (id: String, text: String)
+case class TextDocumentInputs(id: String, text: String)
 
 case class TextAnalyticsRequestOptionsV4(modelVersion: String,
                                          includeStatistics: Boolean,
