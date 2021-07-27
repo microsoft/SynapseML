@@ -71,26 +71,10 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     val fromRow = DetectLanguageResponseV4.makeFromRowConverter
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
     val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
-    val modelVersionFirstRow = resFirstRow.modelVersion.get
-    val modelVersionSecondRow = resSecondRow.modelVersion.get
     val positiveScoreFirstRow = resFirstRow.result.head.get.confidenceScore
-    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
-    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
     assert(positiveScoreFirstRow > 0.5)
   }
 
-  test("Language Detection - Assert Model Version") {
-    val replies = getDetector.transform(df)
-      .select("output")
-      .collect()
-    assert(replies(0).schema(0).name == "output")
-    val fromRow = DetectLanguageResponseV4.makeFromRowConverter
-    replies.foreach(row => {
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      val modelCheck = outResponse.result.head.get
-      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
-    })
-  }
 
   test("Language Detection - Invalid Document Input") {
     val replies = getDetector.transform(invalidDocDf)
@@ -227,11 +211,15 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .setLanguageCol("lang")
       .setBatchSize(2)
 
-    val tdf = detector.transform(unbatchedDF)
-      .select("output.result.sentiment")
+    val results = detector.transform(unbatchedDF.coalesce(1)).cache()
+    results.show()
+
+    val tdf = results
+      .select("output.result.sentiment", "lang")
       .collect()
 
-    assert(tdf(0).getSeq(0).length == 2)
+    assert(tdf(0).getSeq(0).length == 1)
+    assert(tdf(0).getString(1) == "en")
     assert(tdf(3).getSeq(0).length == 1)
   }
 
@@ -304,11 +292,8 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     val fromRow = SentimentResponseV4.makeFromRowConverter
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
     val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
-    val modelVersionFirstRow = resFirstRow.modelVersion.get
     val negativeScoreFirstRow = resFirstRow.result.head.get.confidenceScores.negative
     val positiveScoreSecondRow = resSecondRow.result.head.get.confidenceScores.positive
-    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
-    assert(modelVersionFirstRow.matches("\\d{4}-\\d{2}-\\d{2}"))
     assert(negativeScoreFirstRow > 0.5)
     assert(positiveScoreSecondRow > 0.5)
   }
@@ -369,18 +354,6 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
-  }
-  test("KPE - Check Model Version") {
-    val replies = extractor.transform(df2)
-      .select("output")
-      .collect()
-    assert(replies(0).schema(0).name == "output")
-    val fromRow = KeyPhraseResponseV4.makeFromRowConverter
-    replies.foreach(row => {
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      val modelCheck = outResponse.result.head.get
-      modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
-    })
   }
 
   test("KPE - Blank Language Input") {

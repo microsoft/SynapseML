@@ -18,8 +18,7 @@ object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDoc
 
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
-                           statistics: Seq[Option[DocumentStatistics]],
-                           modelVersion: Option[String])
+                           statistics: Seq[Option[DocumentStatistics]])
 
 case class DetectedLanguageV4(name: String,
                               iso6391Name: String,
@@ -159,22 +158,10 @@ object SDKConverters {
     }
   }
 
-  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T], modelVersion: String)
+  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
                                              (implicit converter: T => U): TAResponseV4[U] = {
     val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
-    TAResponseV4[U](results, errors, stats, Some(modelVersion))
-  }
-
-  implicit def fromSDK(rc: AnalyzeSentimentResultCollection): TAResponseV4[SentimentScoredDocumentV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
-  }
-
-  implicit def fromSDK(rc: ExtractKeyPhrasesResultCollection): TAResponseV4[KeyphraseV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
-  }
-
-  implicit def fromSDK(rc: DetectLanguageResultCollection): TAResponseV4[DetectedLanguageV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
+    TAResponseV4[U](results, errors, stats)
   }
 
 }
