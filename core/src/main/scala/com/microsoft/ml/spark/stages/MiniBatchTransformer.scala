@@ -9,6 +9,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -30,13 +31,16 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
 
   def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
+      val newSchema = transformSchema(dataset.schema)
       dataset.toDF().mapPartitions { it =>
         if (it.isEmpty) {
           it
         } else {
-          getBatcher(it).map(listOfRows => Row.fromSeq(transpose(listOfRows.map(r => r.toSeq))))
+          getBatcher(it).map(listOfRows =>
+            new GenericRowWithSchema(transpose(listOfRows.map(r => r.toSeq)).toArray, newSchema)
+          )
         }
-      }(RowEncoder(transformSchema(dataset.schema)))
+      }(RowEncoder(newSchema))
     })
   }
 
@@ -203,15 +207,16 @@ class FlattenBatch(val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
+      val newSchema = transformSchema(dataset.schema)
       dataset.toDF().mapPartitions(it =>
         it.flatMap { rowOfLists =>
           val transposed = transpose(
             (0 until rowOfLists.length)
               .filterNot(rowOfLists.isNullAt)
               .map(rowOfLists.getSeq))
-          transposed.map(Row.fromSeq)
+          transposed.map(entries => new GenericRowWithSchema(entries.toArray, newSchema).asInstanceOf[Row])
         }
-      )(RowEncoder(transformSchema(dataset.schema)))
+      )(RowEncoder(newSchema))
     })
   }
 

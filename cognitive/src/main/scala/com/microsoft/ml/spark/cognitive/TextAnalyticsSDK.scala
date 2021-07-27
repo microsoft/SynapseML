@@ -15,10 +15,12 @@ import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
 import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -64,6 +66,15 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   }
 
+  private def repackResponse(toRow: TAResponseV4[T] => Row,
+                             fromRow: Row =>TAResponseV4[T],
+                             row: Row): Seq[Row] = {
+    val resp = fromRow(row)
+    (resp.result, resp.error, resp.statistics).zipped.toSeq.map(tup =>
+      toRow(TAResponseV4[T](Seq(tup._1), Seq(tup._2), Seq(tup._3)))
+    )
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF
@@ -88,20 +99,20 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
         new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(df)
       } else {
         df
-      }.coalesce(1).cache()
-
-      batchedDF.show()
+      }
 
       val enc = RowEncoder(batchedDF.schema.add(getOutputCol, responseBinding.schema))
       val toRow = responseBinding.makeToRowConverter
       val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
 
-      //      if (shouldAutoBatch){
-      //        new FlattenBatch().transform(resultDF)
-      //      } else {
-      //        resultDF
-      //      }
-      resultDF
+      if (shouldAutoBatch){
+        val toRow = responseBinding.makeToRowConverter
+        val fromRow = responseBinding.makeFromRowConverter
+        val repackResponseUDF = UDFUtils.oldUdf(repackResponse(toRow, fromRow, _), ArrayType(responseBinding.schema))
+        new FlattenBatch().transform(resultDF.withColumn(getOutputCol, repackResponseUDF(col(getOutputCol))))
+      } else {
+        resultDF
+      }
     })
   }
 
@@ -127,7 +138,7 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
     val documents = (input, hints, hints.indices).zipped.map { (doc, hint, i) =>
       new DetectLanguageInput(i.toString, doc, hint)
     }.asJava
-    client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 }
 
@@ -146,7 +157,7 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-    client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 
 }
@@ -166,7 +177,7 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-    client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 
 }
