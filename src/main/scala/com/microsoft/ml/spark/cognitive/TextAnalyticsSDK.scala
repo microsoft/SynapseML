@@ -33,7 +33,11 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   protected def outputSchema: StructType
 
   val responseTypeBinding: SparkBindings[TAResponseV4[T]]
-
+  val spark = SparkSession
+    .builder
+    .appName("SparkSQL")
+    .master("local[*]")
+    .getOrCreate()
   def invokeTextAnalytics(text: Seq[String], lang: Seq[String]): TAResponseV4[T]
 
   protected lazy val textAnalyticsClient: TextAnalyticsClient =
@@ -63,8 +67,9 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      val batchedDF = new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(dataset)
-      val df = batchedDF.toDF
+      val batchedDF = new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(dataset.coalesce(1))
+      val finaldataset = spark.createDataFrame(batchedDF.rdd, inputSchema)
+      val df = finaldataset.toDF
       val enc = RowEncoder(df.schema.add(getOutputCol, responseTypeBinding.schema))
       val toRow = responseTypeBinding.makeToRowConverter
       df.mapPartitions(transformTextRows(

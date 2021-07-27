@@ -309,6 +309,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(tdf(0).getSeq(0).length == 2)
     assert(tdf(3).getSeq(0).length == 1)
   }
+
   test("Sentiment Analysis - Invalid Document Input"){
     val replies = detector.transform(invalidDocDf)
       .select("output.error.errorMessage", "output.error.errorCode")
