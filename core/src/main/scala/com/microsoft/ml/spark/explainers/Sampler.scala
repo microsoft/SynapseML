@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vector, Vectors}

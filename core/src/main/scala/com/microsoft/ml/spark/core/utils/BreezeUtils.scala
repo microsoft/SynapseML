@@ -1,10 +1,7 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See LICENSE in project root for information.
+package com.microsoft.ml.spark.core.utils
 
-package com.microsoft.ml.spark.explainers
-
-import breeze.linalg.{DenseVector => BDV, SparseVector => BSV, Vector => BV, DenseMatrix => BDM}
-import org.apache.spark.ml.linalg.{Vector, Vectors, Matrix, Matrices}
+import org.apache.spark.ml.linalg.{Matrices, Matrix, Vector, Vectors}
+import breeze.linalg.{DenseVector => BDV, DenseMatrix => BDM, SparseVector => BSV, Vector => BV}
 
 object BreezeUtils {
   implicit class SparkVectorCanConvertToBreeze(sv: Vector) {

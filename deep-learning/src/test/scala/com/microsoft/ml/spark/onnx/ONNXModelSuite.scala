@@ -1,9 +1,12 @@
 package com.microsoft.ml.spark.onnx
 
+import breeze.linalg.{argmax, argtopk}
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.io.IOImplicits.dfrToDfre
 import com.microsoft.ml.spark.opencv.ImageTransformer
 import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils
@@ -32,7 +35,7 @@ class ONNXModelSuite extends TestBase {
   import spark.implicits._
 
   def downloadModel(modelName: String, baseUrl: String): File = {
-    val f = FileUtilities.join(BuildInfo.datasetDir, "ONNXModel", "iris.onnx")
+    val f = FileUtilities.join(BuildInfo.datasetDir, "ONNXModel", modelName)
     if (!f.exists()) {
       FileUtils.copyURLToFile(new URL(new URL(baseUrl), modelName), f)
     }
@@ -158,6 +161,7 @@ class ONNXModelSuite extends TestBase {
       mode = 0
     )
 
+    //noinspection ScalaCustomHdfsFormat
     val imageDf: DataFrame = spark.read
       .format("libsvm")
       .option("numFeatures", (28 * 28).toString)
@@ -179,9 +183,102 @@ class ONNXModelSuite extends TestBase {
       .setModelLocation(model.getPath)
       .setFeedDict(Map("Input3" -> "features"))
       .setFetchDict(Map("rawPrediction"-> "Plus214_Output_0"))
+      .setSoftMaxDict(Map("rawPrediction" -> "probability"))
+      .setArgMaxDict(Map("rawPrediction" -> "prediction"))
       .setMiniBatchSize(1)
 
-    val prediction = mnistModel.transform(testDf).select("label", "rawPrediction")
-    prediction.show(20, false)
+    val prediction = mnistModel.transform(testDf)
+      .select("label", "rawPrediction", "probability", "prediction")
+
+    val rows = prediction.as[(Int, Array[Float], Vector, Double)].head(10)
+
+    val epsilon = 1e-4
+    implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
+
+    rows.foreach {
+      case (label, rawPrediction, probability, prediction) =>
+        assert(label == prediction.toInt)
+        assert(argmax(rawPrediction) == label)
+        assert(probability.argmax == label)
+        assert(probability.toArray.sum === 1.0)
+    }
+  }
+
+  test("ONNXModel can translate zipmap output properly") {
+    val features = Array("Age", "WorkClass", "fnlwgt", "Education", "EducationNum", "MaritalStatus", "Occupation",
+      "Relationship", "Race", "Gender", "CapitalGain", "CapitalLoss", "HoursPerWeek", "NativeCountry")
+
+    val testDf = Seq(
+      (39L, " State-gov", 77516L, " Bachelors", 13L, " Never-married", " Adm-clerical",
+        " Not-in-family", " White", " Male", 2174L, 0L, 40L, " United-States"),
+      (52L, " Self-emp-not-inc", 209642L, " Doctorate", 16L, " Married-civ-spouse", " Exec-managerial",
+        " Husband", " White", " Male", 0L, 0L, 45L, " United-States")
+    ).toDF(features: _*)
+
+    val converted = features.foldLeft(testDf) {
+      case (acc, feature) =>
+        acc.withColumn(feature, array(col(feature)))
+    }.repartition(1)
+
+    val model = downloadModel("adults_income.onnx", baseUrl)
+    val onnx = new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(features.map(v => (v, v)).toMap)
+      .setFetchDict(Map("probability"-> "output_probability"))
+      .setArgMaxDict(Map("probability" -> "prediction"))
+
+    val Array(row1, row2) = onnx.transform(converted)
+      .select("probability", "prediction")
+      .orderBy(col("prediction"))
+      .as[(Map[Long, Float], Double)]
+      .collect()
+
+    assert(row1._1 == Map(0L -> 0.99f, 1L -> 0.01f))
+    assert(row1._2 == 0.0)
+
+    assert(row2._1 == Map(0L -> 0.19000047f, 1L -> 0.8099995f))
+    assert(row2._2 == 1.0)
+  }
+
+  test("ONNXModel can infer for resnet50 model") {
+    val greyhoundImageLocation: String = {
+      val loc = "/tmp/greyhound.jpg"
+      val f = new File(loc)
+      if (f.exists()) {
+        f.delete()
+      }
+      FileUtils.copyURLToFile(new URL("https://mmlspark.blob.core.windows.net/datasets/LIME/greyhound.jpg"), f)
+      loc
+    }
+
+    val imageDf = spark.read.image.load(greyhoundImageLocation)
+
+    val imageTransformer = new ImageTransformer()
+      .setInputCol("image")
+      .setOutputCol("features")
+      .resize(224, 224)
+      .centerCrop(224, 224)
+      .normalize(Array(0.485, 0.456, 0.406), Array(0.229, 0.224, 0.225), 255)
+      .setTensorElementType(FloatType)
+
+    val testDf = imageTransformer.transform(imageDf).cache()
+
+    val model = downloadModel("resnet50-v2-7.onnx", baseUrl)
+    val onnx = new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(Map("data" -> "features"))
+      .setFetchDict(Map("rawPrediction" -> "resnetv24_dense0_fwd"))
+      .setSoftMaxDict(Map("rawPrediction" -> "probability"))
+      .setArgMaxDict(Map("rawPrediction" -> "prediction"))
+      .setMiniBatchSize(1)
+
+    val (probability, prediction) = onnx.transform(testDf)
+      .select("probability", "prediction")
+      .as[(Vector, Double)]
+      .head
+
+    val top2 = argtopk(probability.toBreeze, 2).toArray
+    assert(top2 sameElements Array(176, 172))
+    assert(prediction.toInt == 176)
   }
 }

@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.ml.linalg.Vector
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 
 private[explainers] trait LIMESampler[TObservation] extends Sampler[TObservation, Vector] {
   def sample: (TObservation, Vector, Double) = {

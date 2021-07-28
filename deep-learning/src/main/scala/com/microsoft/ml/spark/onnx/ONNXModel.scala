@@ -6,9 +6,11 @@ package com.microsoft.ml.spark.onnx
 import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime.{OrtSession, _}
+import breeze.linalg.{argmax, softmax, DenseVector => BDV}
 import com.microsoft.ml.spark.HasFeedFetchMaps
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
@@ -16,7 +18,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.linalg.SQLDataTypes._
-import org.apache.spark.ml.param.{ByteArrayParam, MapParam, ParamMap, Params}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -50,7 +52,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
   val softMaxDict: MapParam[String, String] = new MapParam[String, String](
     this,
     "softMaxDict",
-    " A between output dataframe columns, the value column will be computed from the softmax of key column."
+    " A between output dataframe columns, the value column will be computed from taking the softmax of key column."
   )
 
   def setSoftMaxDict(value: Map[String, String]): this.type = set(softMaxDict, value)
@@ -59,8 +61,22 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
 
   def getSoftMaxDict: Map[String, String] = $(softMaxDict)
 
+  val argMaxDict: MapParam[String, String] = new MapParam[String, String](
+    this,
+    "argMaxDict",
+    " A between output dataframe columns, the value column will be computed from taking the argmax of key column."
+  )
+
+  def setArgMaxDict(value: Map[String, String]): this.type = set(argMaxDict, value)
+
+  def setArgMaxDict(k: String, v: String): this.type = set(argMaxDict, Map(k -> v))
+
+  def getArgMaxDict: Map[String, String] = $(argMaxDict)
+
   setDefault(
-    miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10) //scalastyle:ignore magic.number
+    miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10), //scalastyle:ignore magic.number
+    softMaxDict -> Map.empty,
+    argMaxDict -> Map.empty
   )
 }
 
@@ -285,7 +301,7 @@ class ONNXModel(override val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
     val inputSchema = dataset.schema
-    val outputSchema = transformSchema(inputSchema) // Check if the schema is correct
+    val outputSchema = transformValidateSchema(inputSchema, includePostProcessFields = false)
 
     implicit val enc: Encoder[Row] = RowEncoder(
       StructType(outputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
@@ -310,13 +326,51 @@ class ONNXModel(override val uid: String)
 
     val flattenedDF = new FlattenBatch().transform(cacheAttempted)
 
-    if (this.getSoftMaxDict.nonEmpty) {
-      this.getSoftMaxDict.foldLeft(flattenedDF){
-        case (df, (input, output)) =>
-          df.withColumn(output, )
-      }
-    } else {
-      flattenedDF
+    (softMaxTransform _ andThen argMaxTransform)(flattenedDF)
+  }
+
+  private def softMaxTransform(input: DataFrame): DataFrame = {
+    this.getSoftMaxDict.foldLeft(input) {
+      case (df, (input, output)) =>
+        val softmaxCol = df.schema(input).dataType match {
+          case ArrayType(_: NumericType, _) =>
+            val softmaxUdf = UDFUtils.oldUdf({
+              array: Seq[Double] =>
+                val data = BDV(array: _*)
+                (data - softmax(data)).mapValues(math.exp).toSpark
+            }, VectorType)
+            softmaxUdf(col(input).cast(ArrayType(DoubleType)))
+          case MapType(_: NumericType, _: NumericType, _) =>
+            val softmaxUdf = UDFUtils.oldUdf({
+              map: Map[Double, Double] =>
+                val data = BDV(map.toSeq.sortBy(_._1).map(_._2): _*)
+                (data - softmax(data)).mapValues(math.exp).toSpark
+            }, VectorType)
+            softmaxUdf(col(input).cast(MapType(DoubleType, DoubleType)))
+        }
+
+        df.withColumn(output, softmaxCol)
+    }
+  }
+
+  private def argMaxTransform(input: DataFrame): DataFrame = {
+    this.getArgMaxDict.foldLeft(input) {
+      case (df, (input, output)) =>
+        val argmaxCol = df.schema(input).dataType match {
+          case ArrayType(_: NumericType, _) =>
+            val argmaxUdf = UDFUtils.oldUdf({
+              array: Seq[Double] => argmax(array.toArray).toDouble
+            }, DoubleType)
+            argmaxUdf(col(input).cast(ArrayType(DoubleType)))
+          case MapType(_: NumericType, _: NumericType, _) =>
+            val argmaxUdf = UDFUtils.oldUdf({
+              map: Map[Double, Double] =>
+                map.maxBy(_._2)._1
+            }, DoubleType)
+            argmaxUdf(col(input).cast(MapType(DoubleType, DoubleType)))
+        }
+
+        df.withColumn(output, argmaxCol)
     }
   }
 
@@ -344,8 +398,12 @@ class ONNXModel(override val uid: String)
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  //noinspection ScalaStyle
   override def transformSchema(schema: StructType): StructType = {
+    transformValidateSchema(schema, includePostProcessFields = true)
+  }
+
+  //noinspection ScalaStyle
+  private def transformValidateSchema(schema: StructType, includePostProcessFields: Boolean): StructType = {
     // Validate that input schema matches with onnx model expected input types.
     this.modelInput.foreach {
       case (onnxInputName, onnxInputInfo) =>
@@ -375,7 +433,7 @@ class ONNXModel(override val uid: String)
     }
 
     // Append output cols.
-    val outputFields = this.getFetchDict.map {
+    val modelOutputFields = this.getFetchDict.map {
       case (colName, onnxOutputName) =>
         val onnxOutput = this.modelOutput.getOrElse(onnxOutputName,
           throw new IllegalArgumentException(s"""Onnx model does not have an output named "$onnxOutputName"""")
@@ -386,21 +444,53 @@ class ONNXModel(override val uid: String)
         StructField(colName, dataType)
     }
 
-    val softmaxFields = this.getSoftMaxDict.map {
-      case (inputCol, outputCol) =>
-        val inputField = outputFields.find(f => f.name.toLowerCase == inputCol.toLowerCase).getOrElse(
-          throw new IllegalArgumentException(s"""Column "$inputField" not defined in FetchDict.""")
-        )
+    val allFields = schema.fields ++ modelOutputFields
 
-        val outputType = inputField.dataType match {
-          case SQLDataTypes.VectorType => SQLDataTypes.VectorType
-          case ArrayType(_: NumericType, _) => ArrayType(DoubleType)
-          case t => throw new IllegalArgumentException(s"Input type for Softmax must be VectorType or ArrayType(NumericType), but got $t instead.")
-        }
+    if (includePostProcessFields) {
+      val softmaxFields = this.getSoftMaxDict.map {
+        case (inputCol, outputCol) =>
+          getSoftMaxOutputField(inputCol, outputCol, StructType(allFields))
+      }
 
-        StructField(outputCol, outputType)
+      val argmaxFields = this.getArgMaxDict.map {
+        case (inputCol, outputCol) =>
+          getArgMaxOutputField(inputCol, outputCol, StructType(allFields))
+      }
+
+      StructType(allFields ++ softmaxFields ++ argmaxFields)
+    } else {
+      StructType(allFields)
+    }
+  }
+
+  private def getSoftMaxOutputField(inputCol: String, outputCol: String, schema: StructType) = {
+    val inputField = schema(inputCol)
+
+    val outputType = inputField.dataType match {
+      case MapType(_: NumericType, _: NumericType, _) => SQLDataTypes.VectorType
+      case ArrayType(_: NumericType, _) => SQLDataTypes.VectorType
+      case t => throw new IllegalArgumentException(
+        s"Input type for Softmax must be ArrayType(NumericType) or MapType(NumericType, NumericType), " +
+          s"but got $t instead."
+      )
     }
 
-    StructType(schema.fields ++ outputFields ++ softmaxFields)
+    StructField(outputCol, outputType)
+  }
+
+  private def getArgMaxOutputField(inputCol: String, outputCol: String, schema: StructType) = {
+    val inputField = schema(inputCol)
+
+    val outputType = inputField.dataType match {
+      case SQLDataTypes.VectorType => DoubleType
+      case ArrayType(_: NumericType, _) => DoubleType
+      case MapType(_: NumericType, _: NumericType, _) => DoubleType
+      case t => throw new IllegalArgumentException(
+        s"Input type for Softmax must be ArrayType(NumericType) or MapType(NumericType, NumericType), " +
+          s"but got $t instead."
+      )
+    }
+
+    StructField(outputCol, outputType)
   }
 }
