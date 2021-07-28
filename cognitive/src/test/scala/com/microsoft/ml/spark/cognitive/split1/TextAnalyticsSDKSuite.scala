@@ -309,6 +309,12 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("fr"), Seq("Bonjour tout le monde")),
   ).toDF("lang", "text")
 
+  lazy val unbatcheddf: DataFrame = Seq(
+    ("en","Hello world. This is some input text that I love."),
+    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+    ("fr", "Bonjour tout le monde")
+  ).toDF("lang","text" )
+
   lazy val blankLanguageDf: DataFrame = Seq(
     (Seq("", ""), Seq("Hello world. This is some input text that I love.",
       "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
@@ -396,5 +402,15 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
 
     assert(errors(1).get(0).toString.contains("Invalid language code."))
     assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+
+  test("Keyphrase - batch usage"){
+   extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+      .select("lang", "output.result.keyPhrases")
+      .collect()
+    assert(tdf.length == 3)
   }
 }
