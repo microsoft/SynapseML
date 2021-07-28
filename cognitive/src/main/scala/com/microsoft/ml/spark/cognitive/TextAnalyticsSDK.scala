@@ -183,3 +183,24 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
   }
 
 }
+
+object PII extends ComplexParamsReadable[PII]
+
+class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+          override val uid: String = randomUID("PII"))
+  extends TextAnalyticsSDKBase[PIIEntityCollectionV4](textAnalyticsOptions) {
+  logClass()
+
+  override val responseBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+  = PIIResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[PIIEntityCollectionV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.recognizePiiEntitiesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+  }
+}
+

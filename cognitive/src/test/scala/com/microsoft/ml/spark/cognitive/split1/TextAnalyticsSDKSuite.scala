@@ -414,3 +414,40 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(tdf.length == 3)
   }
 }
+
+
+class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    (Seq("en", "en", "en"), Seq("This person is named John Doe", "He lives on 123 main street",
+      "His phone number was 12345677")),
+    (Seq("en"), Seq("I live in Vancouver."))
+  ).toDF("lang", "text")
+
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+
+  df.printSchema()
+  df.show(10, false)
+
+  def extractor: PII = new PII(options)
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("lang")
+    .setOutputCol("output")
+
+  test("PII - Basic Usage") {
+    val replies = extractor.transform(df)
+      .select("output.result.redactedText")
+      .collect()
+    assert(replies(0).schema(0).name == "redactedText")
+
+    df.printSchema()
+    df.show(10, false)
+    replies.foreach { row =>
+      row.toSeq.foreach { col => println(col) }
+    }
+  }
+}
