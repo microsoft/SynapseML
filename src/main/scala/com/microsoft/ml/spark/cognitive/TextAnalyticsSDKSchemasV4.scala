@@ -13,7 +13,7 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
-object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthcareEntityV4]]
+object HealthcareResponseV4 extends SparkBindings[TAResponseV4[AnalyzeHealthcareEntitiesResultV4]]
 
 case class TAResponseV4[T](result: List[Option[T]],
                            error: List[Option[TAErrorV4]],
@@ -67,9 +67,10 @@ case class AnalyzeHealthcareEntitiesV4(documents: List[String],
                                       language: String,
                                       options: AnalyzeHealthcareEntitiesOptions,
                                       context: Context)
-case class AnalyzeHealthcareEntitiesResultCollectionV4(analyzeEntities: List[AnalyzeHealthcareEntitiesResultV4],
-                                                        modelVersion: String,
-                                                       statistics: List[TextDocumentBatchStatisticsV4])
+case class AnalyzeHealthcareEntitiesResultV4(id: String,
+                                            warnings: List[WarningsV4],
+                                             entities: List[HealthcareEntityV4],
+                                             entityRelation: List[HealthcareEntityRelationV4])
 case class AnalyzeHealthcareEntitiesOptionsV4(stringIndexType: StringIndexTypeV4,
                                              includeStatistics: List[AnalyzeHealthcareEntitiesOptionsV4],
                                               modelVersion: List[AnalyzeHealthcareEntitiesOptionsV4],
@@ -83,13 +84,10 @@ case class AnalyzeHealthcareEntitiesOperationDetailV4(createdAt: OffsetDateTime,
                                                     expiresAt: OffsetDateTime,
                                                     lastModifiedAt: OffsetDateTime,
                                                     operationId: String)
-case class AnalyzeHealthcareEntitiesResultV4(id: String,
-                                             textDocumentStatistics: TextDocumentStatistics,
-                                             error: TextAnalyticsErrorV4)
 case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
                             category: String,
                             confidenceScore: Double,
-                            dataSources: List[EntityDataSource],
+                            dataSources: List[EntityDataSourceV4],
                             length: Int,
                             normalizedText: String,
                             offset: Int,
@@ -98,12 +96,11 @@ case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
 case class HealthcareEntityAssertionV4(association: EntityAssociation,
                                       certainty: EntityCertainty,
                                       conditionality: EntityConditionality)
-case class HealthcareEntityRelationV4(relationType: HealthcareEntityRelationType,
-                                      roles: HealthcareEntityRelationRole)
+case class HealthcareEntityRelationV4(relationType: HealthcareEntityRelationTypeV4,
+                                      roles: List[HealthcareEntityRelationRoleV4])
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4,
                                           name: String)
-case class HealthcareEntityRelationTypeV4(name: String,
-                                          entity: HealthcareEntityRelationTypeV4)
+case class HealthcareEntityRelationTypeV4(name: String)
 case class TextAnalyticsErrorV4(errorCode: TextAnalyticsErrorCode,
                               message: String,
                               target: String)

@@ -1,5 +1,5 @@
 package com.microsoft.ml.spark.cognitive
-import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput}
+import com.azure.ai.textanalytics.models.{AssessmentSentiment, DetectLanguageInput, DocumentSentiment, SentenceSentiment, SentimentConfidenceScores, TargetSentiment, TextAnalyticsException, TextDocumentInput, TextAnalyticsResult}
 import com.azure.ai.textanalytics.models._
 import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
 import com.azure.core.credential.AzureKeyCredential
@@ -297,10 +297,10 @@ class Healthcare (override val textAnalyticsOptions: Option[TextAnalyticsRequest
     with HasConfidenceScoreCol {
   logClass()
 
-  override val responseTypeBinding: SparkBindings[TAResponseV4[HealthcareEntityV4]]
+  override val responseTypeBinding: SparkBindings[TAResponseV4[AnalyzeHealthcareEntitiesResultV4]]
   = HealthcareResponseV4
   override def invokeTextAnalytics(input: Seq[String], lang: Seq[String]):
-  TAResponseV4[AnalyzeHealthcareEntitiesResultCollectionV4] = {
+  TAResponseV4[AnalyzeHealthcareEntitiesResultV4] = {
     val r = scala.util.Random
     var documents = (input, lang).zipped.map { (doc, lang) =>
       new TextDocumentInput(r.nextInt.abs.toString,doc).setLanguage(lang)}.asJava
@@ -329,7 +329,7 @@ class Healthcare (override val textAnalyticsOptions: Option[TextAnalyticsRequest
         ent.getAssertion,
         ent.getCategory,
         ent.getConfidenceScore,
-        ent.getDataSources.asScala.toList.map(ent2 => getDataSources(ent2)),
+        ent.getDataSources.asScala.toList.map(dataSources => getDataSources((dataSources))),
         ent.getLength,
         ent.getNormalizedText,
         ent.getOffset,
@@ -337,37 +337,62 @@ class Healthcare (override val textAnalyticsOptions: Option[TextAnalyticsRequest
         ent.getText
       )
     }
-    def getAnalyzeHealthcareEntitiesResultCollection(entity: AnalyzeHealthcareEntitiesResult): AnalyzeHealthcareEntitiesResultV4 = {
+    def getAnalyzeHealthcareEntitiesResult(entity: AnalyzeHealthcareEntitiesResult): AnalyzeHealthcareEntitiesResultV4 = {
       AnalyzeHealthcareEntitiesResultV4(
-        entity.getEntities.asScala.toList.map(ent =>
-          getHealthcareEntity(ent)),
-        entity.getStatistics,
+        entity.getId.toString,
         entity.getWarnings.asScala.toList.map(warnings =>
-          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)))
+          WarningsV4(warnings.getMessage, warnings.getWarningCode.toString)),
+        entity.getEntities.asScala.toList.map(
+          entities => HealthcareEntityV4(entities.getAssertion, entities.getCategory,
+            entities.getConfidenceScore,
+            entities.getDataSources.asScala.toList.map(
+              dataSource => EntityDataSourceV4(dataSource.getName, dataSource.getEntityId)),
+            entities.getLength, entities.getNormalizedText,
+            entities.getOffset, entities.getSubcategory, entities.getText)),
+        entity.getEntityRelations.asScala.toList.map(
+          entityRel => HealthcareEntityRelationV4(
+            HealthcareEntityRelationTypeV4(
+              entityRel.getRelationType.toString
+            ),
+            entityRel.getRoles.asScala.toList.map(
+              role => HealthcareEntityRelationRoleV4(
+                HealthcareEntityV4(role.getEntity.getAssertion, role.getEntity.getCategory,
+                  role.getEntity.getConfidenceScore,
+                  role.getEntity.getDataSources.asScala.toList.map(
+                    dataSource => EntityDataSourceV4(dataSource.getName, dataSource.getEntityId)),
+                  role.getEntity.getLength, role.getEntity.getNormalizedText,
+                  role.getEntity.getOffset, role.getEntity.getSubcategory, role.getEntity.getText),
+                role.getName))
+            ))
+        )
     }
 
-    val healthcareResult = AnalyzeHealthcareEntitiesResultCollectionV4.filter(result => !result.isError).map(result =>
-      Some(getAnalyzeHealthcareEntitiesResultCollection(result.getEntities))).toList
+    val healthcareResult = analyzeHealthcareEntitiesResultCollection.map(
+      result => result.asScala.map(res => res.isError)
+      match {
+      case false => Some(result.asScala.map(res => getAnalyzeHealthcareEntitiesResult(res)))
+      case true => None
+    }).toList
 
-    val error = AnalyzeHealthcareEntitiesResultCollectionV4.map(healthError => (healthError.isError) match {
-      case true => Some(TAErrorV4(healthError.getError.getErrorCode.toString,
-        healthError.getError.getMessage, healthError.getError.getTarget))
+    val error = analyzeHealthcareEntitiesResultCollection.map(result => (result.isError) match {
+      case true => Some(TAErrorV4(result.getError.getErrorCode.toString,
+        result.getError.getMessage, result.getError.getTarget))
       case false => None
     }).toList
 
-    val stats = AnalyzeHealthcareEntitiesResultCollectionV4.map(result => (result.isError) match {
+    val stats = analyzeHealthcareEntitiesResultCollection.map(result => (result.isError) match {
       case false => Option(result.getStatistics) match {
-        case Some(s) => Some(DocumentStatistics(s.getCharacterCount, s.getTransactionCount))
+        case Some(s) => Some(DocumentStatistics(s.getInvalidDocumentCount, s.getDocumentCount))
         case None => None
       }
       case true => None
     }).toList
 
-    TAResponseV4[AnalyzeHealthcareEntitiesResultCollectionV4](
+    TAResponseV4[AnalyzeHealthcareEntitiesResultV4](
       healthcareResult,
       error,
       stats,
-      Some(resultCollection.getModelVersion))
+      Some(resultCollection.asScala.head.getModelVersion))
   }
   override def outputSchema: StructType = HealthcareResponseV4.schema
 }
