@@ -477,24 +477,11 @@ class ImageTransformer(val uid: String) extends Transformer
   def getColorScale: Int = $(colorScale)
   def setColorScale(value: Int): this.type = this.set(colorScale, value)
 
-  //noinspection ScalaStyle
-  val nChannels: IntParam = new IntParam(
-    this,
-    "nChannels",
-    "Number of channels to extract. This can differ from origin number of channels from the image input. " +
-      "Allowed values are 1, 3, or 4. Needed only when toTensor is set to true. Default: 1.",
-    ParamValidators.inArray(Array(1, 3, 4))
-  )
-
-  def getNChannels: Int = $(nChannels)
-  def setNChannels(value: Int): this.type = this.set(nChannels, value)
-
   setDefault(
     inputCol -> "image",
     outputCol -> (uid + "_output"),
     toTensor -> false,
     tensorChannelOrder -> "RGB",
-    nChannels -> 1,
     tensorElementType -> FloatType
   )
 
@@ -631,16 +618,6 @@ class ImageTransformer(val uid: String) extends Transformer
   private lazy val tensorColumnSchema =  ArrayType(ArrayType(ArrayType($(tensorElementType))))
   private lazy val imageColumnSchema = ImageSchema.columnSchema
   override def transformSchema(schema: StructType): StructType = {
-    assert(
-      $(nChannels) == $(normalizeMean).length,
-      s"Length of normalizeMean (${getNormalizeMean.length}) does not match the number of channels ($getNChannels)."
-    )
-
-    assert(
-      $(nChannels) == $(normalizeStd).length,
-      s"Length of normalizeStd (${getNormalizeStd.length}) does not match the number of channels ($getNChannels)."
-    )
-
     assert(!schema.fieldNames.contains(getOutputCol), s"Input schema already contains output field $getOutputCol")
 
     val outputColumnSchema = if ($(toTensor)) tensorColumnSchema else imageColumnSchema

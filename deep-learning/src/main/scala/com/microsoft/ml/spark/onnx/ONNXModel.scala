@@ -14,15 +14,16 @@ import com.microsoft.ml.spark.stages._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.linalg.SQLDataTypes._
-import org.apache.spark.ml.param.{ByteArrayParam, ParamMap, Params}
+import org.apache.spark.ml.param.{ByteArrayParam, MapParam, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row}
+import spray.json.DefaultJsonProtocol._
 
 import java.nio._
 import scala.annotation.tailrec
@@ -31,6 +32,33 @@ import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
 
 trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
+  val modelPayload: ByteArrayParam = new ByteArrayParam(
+    this,
+    "modelPayload",
+    "Array of bytes containing the serialized ONNX model."
+  )
+
+  def getModelPayload: Array[Byte] = $(modelPayload)
+
+  def setModelPayload(value: Array[Byte]): this.type = this.set(modelPayload, value)
+
+  def setModelLocation(path: String): this.type = {
+    val modelBytes = SparkContext.getOrCreate().binaryFiles(path).first()._2.toArray
+    this.setModelPayload(modelBytes)
+  }
+
+  val softMaxDict: MapParam[String, String] = new MapParam[String, String](
+    this,
+    "softMaxDict",
+    " A between output dataframe columns, the value column will be computed from the softmax of key column."
+  )
+
+  def setSoftMaxDict(value: Map[String, String]): this.type = set(softMaxDict, value)
+
+  def setSoftMaxDict(k: String, v: String): this.type = set(softMaxDict, Map(k -> v))
+
+  def getSoftMaxDict: Map[String, String] = $(softMaxDict)
+
   setDefault(
     miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10) //scalastyle:ignore magic.number
   )
@@ -241,21 +269,6 @@ class ONNXModel(override val uid: String)
 
   def this() = this(Identifiable.randomUID("ONNXModel"))
 
-  val modelPayload: ByteArrayParam = new ByteArrayParam(
-    this,
-    "modelPayload",
-    "Array of bytes containing the serialized ONNX model."
-  )
-
-  def getModelPayload: Array[Byte] = $(modelPayload)
-
-  def setModelPayload(value: Array[Byte]): this.type = this.set(modelPayload, value)
-
-  def setModelLocation(path: String): this.type = {
-    val modelBytes = SparkContext.getOrCreate().binaryFiles(path).first()._2.toArray
-    this.setModelPayload(modelBytes)
-  }
-
   @transient
   lazy val modelInput: Map[String, NodeInfo] = {
     using(initializeOrt(getModelPayload)) {
@@ -296,7 +309,15 @@ class ONNXModel(override val uid: String)
     val cacheAttempted = if (outputDf.isStreaming) outputDf else outputDf.cache()
 
     val flattenedDF = new FlattenBatch().transform(cacheAttempted)
-    flattenedDF
+
+    if (this.getSoftMaxDict.nonEmpty) {
+      this.getSoftMaxDict.foldLeft(flattenedDF){
+        case (df, (input, output)) =>
+          df.withColumn(output, )
+      }
+    } else {
+      flattenedDF
+    }
   }
 
   private def coerceBatchedDf(df: DataFrame): (DataFrame, Map[String, String]) = {
@@ -323,6 +344,7 @@ class ONNXModel(override val uid: String)
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
+  //noinspection ScalaStyle
   override def transformSchema(schema: StructType): StructType = {
     // Validate that input schema matches with onnx model expected input types.
     this.modelInput.foreach {
@@ -345,7 +367,7 @@ class ONNXModel(override val uid: String)
     }
 
     // Validate the output col names do not conflict with input schema.
-    this.getFetchDict.keySet.foreach {
+    (this.getFetchDict.keySet ++ this.getSoftMaxDict.values).foreach {
       colName =>
         if (schema.fieldNames.map(_.toLowerCase).contains(colName.toLowerCase)) {
           throw new IllegalArgumentException(s"Output field $colName already exists in the input schema.")
@@ -364,6 +386,21 @@ class ONNXModel(override val uid: String)
         StructField(colName, dataType)
     }
 
-    StructType(schema.fields ++ outputFields)
+    val softmaxFields = this.getSoftMaxDict.map {
+      case (inputCol, outputCol) =>
+        val inputField = outputFields.find(f => f.name.toLowerCase == inputCol.toLowerCase).getOrElse(
+          throw new IllegalArgumentException(s"""Column "$inputField" not defined in FetchDict.""")
+        )
+
+        val outputType = inputField.dataType match {
+          case SQLDataTypes.VectorType => SQLDataTypes.VectorType
+          case ArrayType(_: NumericType, _) => ArrayType(DoubleType)
+          case t => throw new IllegalArgumentException(s"Input type for Softmax must be VectorType or ArrayType(NumericType), but got $t instead.")
+        }
+
+        StructField(outputCol, outputType)
+    }
+
+    StructType(schema.fields ++ outputFields ++ softmaxFields)
   }
 }

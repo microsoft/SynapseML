@@ -8,8 +8,6 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import BuildUtils._
 import xerial.sbt.Sonatype._
 
-import java.nio.file.Files
-
 val condaEnvName = "mmlspark"
 val sparkVersion = "3.1.2"
 name := "mmlspark"
@@ -211,7 +209,7 @@ lazy val core = (project in file("core"))
 
 lazy val deepLearning = (project in file("deep-learning"))
   .enablePlugins(SbtPlugin)
-  .dependsOn(core % "test->test;compile->compile")
+  .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cntk" % "cntk" % "2.4",

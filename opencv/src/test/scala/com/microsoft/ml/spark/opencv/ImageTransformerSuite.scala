@@ -14,7 +14,7 @@ import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
-import org.opencv.core.{Mat, MatOfByte}
+import org.opencv.core.{CvType, Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.scalactic.Equality
@@ -417,5 +417,36 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(channelBlue.length == 100)
     assert(channelBlue.forall(_.length == 200))
     assert(channelBlue.flatten.forall(_ == -0.5d))
+  }
+
+  test("image transformer can convert a single-channel (grayscale) image to tensor") {
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "ImageTransformer")
+    val image = spark.read.image.load(FileUtilities.join(fileLocation, "grayscale.jpg").toString)
+
+    val output = new ImageTransformer()
+      .setOutputCol("features")
+      .setToTensor(true)
+      .normalize(Array(0.5), Array(1.0), 255)
+      .setTensorElementType(DoubleType)
+      .transform(image)
+
+    val row = output.select("image.height", "image.width", "image.nChannels", "image.mode", "features").head
+
+    assert(row.getAs[Int]("height") == 200)
+    assert(row.getAs[Int]("width") == 256)
+    assert(row.getAs[Int]("nChannels") == 1)
+    assert(row.getAs[Int]("mode") == CvType.CV_8UC1)
+
+    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    assert(tensor.length == 1)
+
+    val channel = tensor.head
+    assert(channel.length == 200)
+    assert(channel.forall(_.length == 256))
+    assert(channel.flatten.forall(v => v >= -0.5d && v <= 0.5d))
+    channel.foreach {
+      // check for monotonicity, making sure each row is properly ordered.
+      row => assert((row, row.drop(1)).zipped.forall(_ < _))
+    }
   }
 }

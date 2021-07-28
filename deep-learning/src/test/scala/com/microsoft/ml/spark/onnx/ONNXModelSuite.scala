@@ -4,9 +4,16 @@ import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.ml.spark.opencv.ImageTransformer
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.linalg.{DenseVector, Vectors}
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.image.ImageSchema
+import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.types.{FloatType, IntegerType}
+import org.apache.spark.sql.functions._
 import org.scalactic.{Equality, TolerantNumerics}
 
 import java.io.File
@@ -114,5 +121,67 @@ class ONNXModelSuite extends TestBase {
 
     assert(predicted(2)._2 == 2L)
     assert(predicted(2)._3 === Map(0L -> 5.4029905E-4f, 1L -> 0.24569187f, 2L -> 0.75376785f))
+  }
+
+  def getLibSVM2ImageUdf(origin: String, height: Int,
+                         width: Int, nChannels: Int, mode: Int): UserDefinedFunction = {
+    UDFUtils.oldUdf(
+      {
+        data: Vector =>
+          val array = data.toArray.map(_.toByte)
+          Row(origin, height, width, nChannels, mode, array)
+      },
+
+      ImageSchema.columnSchema
+    )
+  }
+
+  test("ONNXModel can infer for MNIST model") {
+    val mnistDataLocation: String = {
+      val loc = "/tmp/mnist.t"
+      val f = new File(loc)
+      if (f.exists()) {
+        f.delete()
+      }
+
+      FileUtils.copyURLToFile(new URL("https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/mnist.t"), f)
+      loc
+    }
+
+    val model = downloadModel("mnist-8.onnx", baseUrl)
+
+    val libSVM2ImageFunc = getLibSVM2ImageUdf(
+      origin = "mnist.t",
+      height = 28,
+      width = 28,
+      nChannels = 1,
+      mode = 0
+    )
+
+    val imageDf: DataFrame = spark.read
+      .format("libsvm")
+      .option("numFeatures", (28 * 28).toString)
+      .load(mnistDataLocation)
+      .withColumn("label", col("label").cast(IntegerType))
+      .withColumn("image", libSVM2ImageFunc(col("features")))
+
+    val imageTransformer = new ImageTransformer()
+      .setInputCol("image")
+      .setOutputCol("features")
+      .resize(28, 28)
+      .centerCrop(28, 28)
+      .normalize(Array(0d), Array(1d), 255)
+      .setTensorElementType(FloatType)
+
+    val testDf = imageTransformer.transform(imageDf).cache()
+
+    val mnistModel = new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(Map("Input3" -> "features"))
+      .setFetchDict(Map("rawPrediction"-> "Plus214_Output_0"))
+      .setMiniBatchSize(1)
+
+    val prediction = mnistModel.transform(testDf).select("label", "rawPrediction")
+    prediction.show(20, false)
   }
 }

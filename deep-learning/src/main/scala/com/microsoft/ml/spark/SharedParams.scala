@@ -3,16 +3,8 @@
 
 package com.microsoft.ml.spark
 
-import com.microsoft.CNTK.DataType
-import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
-import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{BooleanParam, MapParam, Params}
-import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.types._
+import org.apache.spark.ml.param.{MapParam, Params}
 import spray.json.DefaultJsonProtocol._
-import org.apache.spark.ml.linalg.{Vector => SVector}
 
 trait HasFeedFetchMaps extends Params {
   val feedDict: MapParam[String, String] = new MapParam[String, String](
